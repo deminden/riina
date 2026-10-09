@@ -57,6 +57,10 @@ with connection, connection.makefile("rwb") as stream:
             raise RuntimeError("The original reference fixture did not load")
         time.sleep(0.1)
 
+    readiness = subprocess.run([capture_program, str(output / "readiness"), fixture, "--wait-window"])
+    if readiness.returncode != 0:
+        raise RuntimeError("The reference media window did not become visible; see readiness metadata")
+
     def snapshot():
         return {name: command("get_property", name) for name in
                 ["pause", "time-pos", "seeking", "filename", "mpv-version"]}
