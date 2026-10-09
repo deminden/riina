@@ -1,5 +1,18 @@
 # Implementation plan
 
+macOS and Linux ports are immediate development priorities alongside Windows
+interface parity. Do not postpone them until Windows reaches full IINA parity.
+The next portability milestone is a full application build on both systems,
+followed by local-file playback, shared controls, file selection, preferences,
+fullscreen and clean shutdown on each. Core-only CI is a prerequisite, not this
+milestone's exit condition.
+
+Each new feature must keep shared behavior in the portable layers and isolate
+native services behind the platform boundary. Record an explicit port gap when
+a native implementation is pending; do not silently introduce Windows assumptions
+into shared UI or playback logic. Keep the default 100% volume cap and opt-in
+200% extension identical across targets.
+
 1. Milestone 0: pin official source, inventory real files/defaults, establish workspace,
    reproducible dependency selection, license tracking, and executable checks.
 2. Milestone 1 (current): prove libmpv OpenGL composition, local-file playback,

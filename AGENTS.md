@@ -27,3 +27,8 @@ acceptance goals. Preserve its elegant interface; do not substitute a redesign.
 The requested extension is opt-in volume boost up to 200%; the default volume
 range remains 0–100%. Default behavior and appearance target exact IINA parity. No Vim
 controls are requested. Historical wiina evidence remains under its original name.
+
+Develop macOS/Linux application ports alongside Windows parity work now; do not
+defer them until Windows parity is complete. Shared feature changes must preserve
+portable boundaries. Require full application builds and playback/lifecycle
+evidence before declaring either port supported; library-only CI is insufficient.
