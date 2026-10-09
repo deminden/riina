@@ -1,5 +1,5 @@
 //! One owned picker per player; native HWNDs outlive its dedicated COM apartment.
-use crate::{NativeVideoHost, PlayerWindow, file_dialog, file_selection};
+use crate::{NativeVideoHost, PlayerWindow, file_dialog, media_open};
 use slint::{
     ComponentHandle,
     winit_030::{WinitWindowAccessor, winit},
@@ -139,26 +139,20 @@ pub fn open(
                         &owner,
                         matches!(purpose, Purpose::Media | Purpose::Playlist),
                         purpose.title(),
-                    )
-                    .and_then(|paths| {
-                        if paths.is_empty() {
-                            return Ok(paths);
-                        }
-                        if matches!(purpose, Purpose::Media | Purpose::Playlist) {
-                            let paths =
-                                file_selection::prepare(paths, matches!(purpose, Purpose::Media))?;
-                            if paths.is_empty() && matches!(purpose, Purpose::Media) {
-                                return Err("No playable files were selected".into());
-                            }
-                            Ok(paths)
-                        } else {
-                            Ok(paths)
-                        }
-                    });
+                    );
                     let _ = slint::invoke_from_event_loop(move || {
                         modality.restore();
                         if let Some(app) = weak.upgrade() {
                             let result = result.and_then(|paths| {
+                                if matches!(purpose, Purpose::Media | Purpose::Playlist) {
+                                    media_open::selection(
+                                        &app,
+                                        paths,
+                                        matches!(purpose, Purpose::Playlist),
+                                        sender,
+                                    );
+                                    return Ok(());
+                                }
                                 purpose
                                     .command(paths)
                                     .map_or(Ok(()), |command| sender.send(command))

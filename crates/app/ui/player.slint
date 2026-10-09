@@ -92,6 +92,7 @@ export component PlayerWindow inherits Window {
     // The native VO lives in the owner window; this surface supplies only chrome.
     in property <bool> native-video: false;
     in-out property <bool> dialog-open: false;
+    in-out property <int> media-request-generation: 0;
     no-frame: native-video;
     background: native-video ? transparent : #111111;
     in property <image> video-frame;

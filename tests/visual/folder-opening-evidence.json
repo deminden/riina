@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-09",
+  "binary_sha256": "9bbbf5a2ae6d0e0b15752f863ac966833c74dfbc89d0bf14a08c1a8e1043631f",
+  "toolchain": "Rust 1.99.0, edition 2024",
+  "scale_factor": 3,
+  "verified": [
+    "Default GL and native-video: CLI folder startup creates the ordered playlist catalog.mkv, external-tone.wav, hdr-hlg.mkv, hdr-pq.mkv, moving-square.avi",
+    "Both routes: observed playback, keyboard pause, playlist sidebar activation and shutdown; process absent after close",
+    "16 unit tests pass; strict Clippy and optimized Windows build pass"
+  ],
+  "accessibility_captures": [
+    "folder-gl.txt",
+    "folder-native.txt"
+  ],
+  "unverified": [
+    "GUI dialog acceptance and folder picker",
+    "Stale-request race injection, cooperative scan cancellation and large-library stress",
+    "Aliases, junctions, permission failures and locale equivalence",
+    "Actual Blu-ray playback, calibrated HDR and full IINA parity"
+  ]
+}

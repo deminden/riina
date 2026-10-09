@@ -150,3 +150,8 @@ These logs are local development artifacts; screenshots do not measure HDR lumin
 Next concrete implementation step: close native blur/composition, narrow-window,
 modal ownership and mixed-monitor DPI gaps, then choose the production direction
 in ADR 0001. Continue source-matched control geometry/icons and source transcription.
+
+Recursive folder startup now discovers and orders media on a background worker in
+both playback routes. Sixteen unit tests pass; both routes have observed folder
+playlist/pause/shutdown evidence. GUI folder selection, scan cancellation/resource
+limits and link/permission edge cases remain open. See folder-opening-evidence.json.

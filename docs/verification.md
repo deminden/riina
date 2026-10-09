@@ -308,3 +308,14 @@ comparator and do not exercise dialog acceptance or prove macOS locale equivalen
 Current release wiina.exe SHA-256:
 `3297a6d8a042a2da757a1059fb06b211554bfe7df22c23f504c215e4b83c313b`.
 The inventory now has 64 traced rows; the complete denominator remains open.
+
+Folder-opening increment (2026-10-09): 16 unit tests, strict Clippy and optimized
+Windows build pass. Recursive discovery filters media extensions, handles duplicate
+paths and natural ordering, and preserves single disc structures for mpv. Filesystem
+preparation runs off the GUI thread; a request generation prevents stale results
+from committing after a newer selection or Stop. Stale scans still run to completion.
+Both GL and native-video CLI folder startup showed the same five ordered fixture
+entries, playback, keyboard pause, sidebar activation and clean shutdown at 300% DPI.
+Evidence: tests/visual/folder-opening-evidence.json. Raw accessibility captures remain
+local. GUI acceptance, folder picker, cancellation stress and actual disc playback
+remain unverified. This binary SHA-256: `9bbbf5a2ae6d0e0b15752f863ac966833c74dfbc89d0bf14a08c1a8e1043631f`.

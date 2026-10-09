@@ -2,6 +2,7 @@
 
 mod file_dialog;
 mod file_selection;
+mod media_open;
 mod native_window;
 mod platform;
 mod player_ui;

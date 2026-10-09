@@ -1,5 +1,5 @@
 use crate::{
-    CatalogRow, NativeVideoHost, PlayerWindow, platform,
+    CatalogRow, NativeVideoHost, PlayerWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use slint::ComponentHandle;
@@ -278,10 +278,14 @@ pub(crate) fn configure_player(
             let player = player.command_sender();
             let weak = app.as_weak();
             app.$method(move || {
+                let command = $command;
                 if let Some(app) = weak.upgrade() {
                     app.invoke_activity();
+                    if matches!(command, Command::Stop) {
+                        media_open::invalidate(&app);
+                    }
                 }
-                if let Err(error) = player.send($command) {
+                if let Err(error) = player.send(command) {
                     if let Some(app) = weak.upgrade() {
                         app.set_status(error.into());
                     }
@@ -473,12 +477,7 @@ pub(crate) fn configure_player(
             .send(Command::Volume(prefs.volume))
             .map_err(std::io::Error::other)?;
         if let Some(path) = media {
-            let path = path
-                .into_string()
-                .map_err(|_| std::io::Error::other("The path contains invalid Unicode"))?;
-            player
-                .send(Command::Load(path))
-                .map_err(std::io::Error::other)?;
+            media_open::startup(app, path, player.command_sender());
         }
         return Ok(UiSession {
             player: Some(player),
@@ -556,18 +555,11 @@ pub(crate) fn configure_player(
                                     started = true;
                                     let _ = render_player.send(Command::Volume(volume));
                                     if let Some(path) = pending_media.borrow_mut().take() {
-                                        match path.into_string() {
-                                            Ok(path) => {
-                                                if let Err(error) =
-                                                    render_player.send(Command::Load(path))
-                                                {
-                                                    app.set_status(error.into());
-                                                }
-                                            }
-                                            Err(_) => app.set_status(
-                                                "The path contains invalid Unicode".into(),
-                                            ),
-                                        }
+                                        media_open::startup(
+                                            &app,
+                                            path,
+                                            render_player.command_sender(),
+                                        );
                                     }
                                 }
                             }
