@@ -1,5 +1,10 @@
 # Status · 2026-10-09
 
+macOS file discovery now delegates filename ordering to Foundation's documented
+localizedStandardCompare, using retained strings and a worker autorelease pool.
+The dedicated Unicode/numeric worker test awaits macOS application CI. Windows
+checks/lint pass locally; Linux retains its provisional numeric ordering.
+
 2026-10-10 application port increment: macOS/Linux preference, library discovery
 and asynchronous owned picker backends now connect to the shared GL player.
 Dialog intent is shared; Windows retains its existing COM implementation.

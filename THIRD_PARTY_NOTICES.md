@@ -46,6 +46,10 @@ configuration directories. Exact resolved packages and checksums are in Cargo.lo
 Their complete license texts remain in the dependency sources and must accompany
 any applicable binary distribution; no native release package is produced here.
 
+objc2 0.6.5 and objc2-foundation 0.3.2: MIT. Direct macOS-only dependencies
+for Foundation's native filename ordering. Calls use their safe retained-string
+and autorelease-pool APIs; no Foundation implementation source is copied.
+
 mpv public ABI headers: Copyright (C) 2018 the mpv developers (render_gl.h), ISC
 permission and warranty disclaimer retained in excluded reference source. The
 development DLL is from shinchiro/mpv-winbuild-cmake, tag 20261009, mpv git 36abaa32d0.

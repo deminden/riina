@@ -27,9 +27,11 @@ its ownership/lifecycle are implemented. This avoids fabricated handles and allo
 the actual shared GL player to compile. --native-video gives a clear unsupported
 route error on these systems. The D3D11 probe is isolated to Windows.
 
-The provisional numeric filename comparator handles arbitrary-length ASCII digit
-runs without integer overflow and preserves Unicode characters. Native localized
-collation remains a parity gap on macOS/Linux; this is not Foundation-equivalent.
+Linux's provisional numeric filename comparator handles arbitrary-length ASCII
+digit runs without integer overflow and preserves Unicode characters; localized
+collation remains a Linux parity gap. macOS now calls Foundation's
+localizedStandardCompare through pinned objc2 bindings, with an autorelease pool
+on the discovery worker. Its native worker/Unicode ordering test awaits macOS CI.
 Portal absence/failure reporting, modal input routing, focus restoration and
 native panel cancellation need runtime checks. rfd's optional result does not
 distinguish every backend failure from user cancellation.
@@ -42,3 +44,5 @@ shutdown, HDR and reference visual comparison still require real runtime evidenc
 API references: [rfd async dialog](https://docs.rs/rfd/0.17.2/rfd/struct.AsyncFileDialog.html),
 [dirs configuration directory](https://docs.rs/dirs/6.0.0/dirs/fn.config_dir.html),
 [XDG base directories](https://specifications.freedesktop.org/basedir/0.8/).
+Filename sorting: [Foundation localizedStandardCompare](https://developer.apple.com/documentation/foundation/nsstring/localizedstandardcompare(_:)),
+[objc2 NSString](https://docs.rs/objc2-foundation/0.3.2/objc2_foundation/struct.NSString.html).

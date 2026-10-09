@@ -58,6 +58,20 @@ pub fn playback_library() -> PathBuf {
     PathBuf::from(name)
 }
 
+#[cfg(target_os = "macos")]
+pub fn natural_compare(left: &str, right: &str) -> Ordering {
+    use objc2_foundation::NSString;
+    // Discovery runs on a Rust worker, outside AppKit's event-loop pool. Drain
+    // Foundation temporaries here while retaining both strings through the call.
+    // Native localizedStandardCompare follows the user's Finder ordering.
+    objc2::rc::autoreleasepool(|_| {
+        let left = NSString::from_str(left);
+        let right = NSString::from_str(right);
+        left.localizedStandardCompare(&right).into()
+    })
+}
+
+#[cfg(target_os = "linux")]
 pub fn natural_compare(left: &str, right: &str) -> Ordering {
     let mut left = left.chars().peekable();
     let mut right = right.chars().peekable();
@@ -84,6 +98,7 @@ pub fn natural_compare(left: &str, right: &str) -> Ordering {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn digit_run(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> String {
     let mut run = String::new();
     while chars.peek().is_some_and(char::is_ascii_digit) {
@@ -92,7 +107,7 @@ fn digit_run(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> String {
     run
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::natural_compare;
     use std::cmp::Ordering;
@@ -113,5 +128,26 @@ mod tests {
         }
         assert_eq!(natural_compare("clip000", "clip0"), Ordering::Equal);
         assert_eq!(natural_compare("", ""), Ordering::Equal);
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_tests {
+    use super::natural_compare;
+    use std::cmp::Ordering;
+
+    #[test]
+    fn native_filename_order_accepts_unicode_on_discovery_workers() {
+        std::thread::spawn(|| {
+            for prefix in ["clip", "音楽", "épisode"] {
+                let left = format!("{prefix}2.mkv");
+                let right = format!("{prefix}10.mkv");
+                assert_eq!(natural_compare(&left, &right), Ordering::Less);
+                assert_eq!(natural_compare(&right, &left), Ordering::Greater);
+                assert_eq!(natural_compare(&left, &left), Ordering::Equal);
+            }
+        })
+        .join()
+        .unwrap();
     }
 }
