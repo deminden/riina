@@ -2,6 +2,7 @@
 /tools/
 /reference/iina-upstream/
 /reference/mpv-upstream/
+/reference/captures/
 /dist/
 *.log
 # Desktop captures contain machine-local state. Keep reproducible fixtures and

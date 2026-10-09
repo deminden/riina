@@ -1,7 +1,42 @@
 {
   "baseline": "v1.5.0",
   "upstream_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
-  "captures": [],
-  "status": "pending matching macOS reference execution",
+  "captures": [
+    {
+      "id": "IINA-1.5.0-FIRST-001",
+      "run_id": 38005209380,
+      "job_id": 114072299353,
+      "artifact_id": 11651245973,
+      "url": "https://github.com/deminden/riina/actions/runs/38005209380",
+      "source_commit": "3430aed285fbce1efbbf5001906a8198f422cb1f",
+      "reference_release_sha256": "8fad50479b10e09645053457cec46bd53d054ced2242cfe68f74586735a20dc7",
+      "image_sha256": "691576208e2816dd72001b3c6476e59d03da148673261f6f4cb612571433487f",
+      "metadata_sha256": "a312442c81530bed04857f4b2781b90c473014313f4ed21d3983166bde41a304",
+      "macos_version": "26.6.2",
+      "macos_build": "25G83",
+      "theme": "Light",
+      "scale": 1,
+      "window_bounds_points": {
+        "Height": 180,
+        "Width": 320,
+        "X": 352,
+        "Y": 280
+      },
+      "image_pixels": [
+        320,
+        180
+      ],
+      "media_fixture": "catalog.mkv",
+      "requested_position_seconds": 2,
+      "observed_frame_label": "frame 119",
+      "observed_playback_position_seconds": null,
+      "visible_panels": [],
+      "review": "Actual player window contains original video, rounded corners and no visible OSC/titlebar. Last fixture frame contradicts requested paused two-second state. Separate Highlights window was excluded from screenshot. Not accepted as matching-state controls golden.",
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38005209380",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    }
+  ],
+  "status": "Official macOS execution and initial image obtained; matching controls/position captures remain pending",
   "measurement_basis": "source-derived geometry; estimated colors and typography"
 }
