@@ -20,6 +20,7 @@ jobs:
           python scripts/check-parity.py
           python scripts/check-fixtures.py
           python scripts/check-assets.py
+          python scripts/check-assets.py --staged
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Lint

@@ -16,6 +16,8 @@ Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 Verify `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
 `cargo test --workspace --locked`. Native tests require the pinned DLL.
 Never report an unrun GUI/HDR test as passed. Keep implementation and verification separate.
+After staging asset changes, run `python scripts/check-assets.py --staged` before
+publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
 Do not package native binaries until licensing and corresponding-source obligations are closed.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
