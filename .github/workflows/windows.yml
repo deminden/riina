@@ -1,0 +1,32 @@
+name: Windows compilation and domain checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Pinned Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+      - name: Reference integrity and traceability
+        shell: pwsh
+        run: |
+          ./scripts/fetch-reference.ps1
+          python scripts/check-parity.py
+          python scripts/check-fixtures.py
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Domain tests
+        run: cargo test --workspace --locked
+      - name: Actual Windows application compilation
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+      - name: Native runtime prerequisites
+        shell: pwsh
+        run: Write-Output 'Native libmpv integration, GUI, audible output, HDR and hardware checks require a separately provisioned target machine; the explicitly ignored native test is not runtime evidence from this job.'

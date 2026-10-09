@@ -1,0 +1,595 @@
+use crate::{
+    CatalogRow, NativeVideoHost, PlayerWindow, platform,
+    ui_dialogs::{self, Purpose},
+};
+use slint::ComponentHandle;
+use std::{
+    cell::RefCell,
+    path::PathBuf,
+    rc::Rc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
+use wiina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
+use wiina_mpv::{Player, video::VideoSurface};
+
+fn dll_path() -> PathBuf {
+    // Development uses the pinned local dependency; installed builds resolve only
+    // beside their executable, never beside media or from PATH.
+    let installed = std::env::current_exe()
+        .unwrap_or_default()
+        .with_file_name("libmpv-2.dll");
+    if installed.is_file() {
+        installed
+    } else {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/mpv/libmpv-2.dll")
+    }
+}
+
+fn update_catalog(app: &PlayerWindow, state: &Playback) {
+    for kind in [TrackKind::Audio, TrackKind::Sub] {
+        let tracks: Vec<_> = state
+            .tracks
+            .iter()
+            .filter(|track| track.kind == kind)
+            .collect();
+        let mut rows = vec![CatalogRow {
+            token: "no".into(),
+            label: "<None>".into(),
+            language: "".into(),
+            selected: !tracks.iter().any(|track| track.selected),
+        }];
+        rows.extend(tracks.into_iter().map(|track| {
+            CatalogRow {
+                token: track.id.to_string().into(),
+                label: track.display_name().into(),
+                language: track
+                    .lang
+                    .as_deref()
+                    .filter(|lang| *lang != "und")
+                    .unwrap_or("")
+                    .into(),
+                selected: track.selected,
+            }
+        }));
+        let model = slint::ModelRc::new(slint::VecModel::from(rows));
+        if kind == TrackKind::Audio {
+            app.set_audio_tracks(model);
+        } else {
+            app.set_subtitle_tracks(model);
+        }
+    }
+    app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
+        state
+            .chapters
+            .iter()
+            .enumerate()
+            .map(|(index, chapter)| CatalogRow {
+                token: index.to_string().into(),
+                language: "".into(),
+                label: format!(
+                    "{}  {}",
+                    time_label(Some(chapter.time)),
+                    chapter
+                        .title
+                        .clone()
+                        .unwrap_or_else(|| format!("Chapter {}", index + 1))
+                )
+                .into(),
+                selected: state.position.is_some_and(|position| {
+                    position >= chapter.time
+                        && state
+                            .chapters
+                            .get(index + 1)
+                            .is_none_or(|next| position < next.time)
+                }),
+            })
+            .collect::<Vec<_>>(),
+    )));
+    app.set_playlist(slint::ModelRc::new(slint::VecModel::from(
+        state
+            .playlist
+            .iter()
+            .map(|entry| CatalogRow {
+                token: entry.id.to_string().into(),
+                language: "".into(),
+                label: entry
+                    .title
+                    .clone()
+                    .unwrap_or_else(|| {
+                        PathBuf::from(&entry.filename).file_name().map_or_else(
+                            || entry.filename.clone(),
+                            |name| name.to_string_lossy().into_owned(),
+                        )
+                    })
+                    .into(),
+                selected: entry.current,
+            })
+            .collect::<Vec<_>>(),
+    )));
+    if !state
+        .playlist
+        .iter()
+        .any(|entry| entry.id.to_string() == app.get_selected_playlist_token().as_str())
+    {
+        app.set_selected_playlist_token("".into());
+    }
+}
+
+fn current_chapter(state: &Playback) -> Option<usize> {
+    state.position.and_then(|position| {
+        state
+            .chapters
+            .iter()
+            .rposition(|chapter| chapter.time <= position)
+    })
+}
+
+fn update_ui(app: &PlayerWindow, state: Playback, displayed: &mut Option<Playback>) {
+    // Preserve row identity across clock ticks so focus and accessibility indexes
+    // are not destroyed by unrelated time-pos notifications.
+    if displayed.as_ref().is_none_or(|old| {
+        old.tracks != state.tracks
+            || old.chapters != state.chapters
+            || old.playlist != state.playlist
+            || current_chapter(old) != current_chapter(&state)
+    }) {
+        update_catalog(app, &state);
+        *displayed = Some(state.clone());
+    }
+    let first_loaded = !app.get_loaded() && state.phase == Phase::Playing;
+    app.set_loaded(!matches!(
+        state.phase,
+        Phase::Stopped | Phase::Failed | Phase::Loading
+    ));
+    app.set_paused(state.paused);
+    app.set_playing(state.phase == Phase::Playing);
+    if matches!(state.phase, Phase::Paused | Phase::Ended | Phase::Failed) {
+        app.set_controls_visible(true);
+    }
+    if first_loaded {
+        app.invoke_activity();
+    }
+    app.set_seekable(state.seekable && state.duration.is_some());
+    app.set_position(state.position.unwrap_or(0.0) as f32);
+    app.set_duration(state.duration.unwrap_or(0.0) as f32);
+    app.set_volume(state.volume as f32);
+    app.set_muted(state.muted);
+    app.set_speed_value(state.speed as f32);
+    app.set_audio_delay(state.audio_delay as f32);
+    app.set_subtitle_delay(state.subtitle_delay as f32);
+    app.set_subtitle_visible(state.subtitle_visible);
+    app.set_loop_label(
+        match state.loop_mode() {
+            LoopMode::Off => "Off",
+            LoopMode::File => "File",
+            LoopMode::Playlist => "Playlist",
+        }
+        .into(),
+    );
+    app.set_media_title(state.title.into());
+    app.set_position_label(time_label(state.position).into());
+    app.set_duration_label(time_label(state.duration).into());
+    app.set_status(
+        state
+            .error
+            .unwrap_or_else(|| format!("{:?} · {:.2}×", state.phase, state.speed))
+            .into(),
+    );
+}
+
+pub(crate) struct UiSession {
+    pub(crate) player: Option<Player>,
+    prefs_path: PathBuf,
+    prefs: Preferences,
+}
+
+impl UiSession {
+    pub(crate) fn save(&self, app: &PlayerWindow) -> Result<(), Box<dyn std::error::Error>> {
+        let prefs = Preferences {
+            volume: app.get_volume() as f64,
+            ..self.prefs.clone()
+        };
+        platform::save_preferences(&self.prefs_path, &serde_json::to_string_pretty(&prefs)?)?;
+        Ok(())
+    }
+}
+
+pub(crate) fn configure_player(
+    app: &PlayerWindow,
+    native: Option<(u32, slint::Weak<NativeVideoHost>)>,
+    media: Option<std::ffi::OsString>,
+) -> Result<UiSession, Box<dyn std::error::Error>> {
+    let prefs_path = platform::preferences_path()?;
+    let prefs = match std::fs::read_to_string(&prefs_path) {
+        Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
+        Err(error) => return Err(error.into()),
+    };
+    let app_weak = app.as_weak();
+    // Only one pending state snapshot is retained; a decoder can produce updates
+    // faster than the UI consumes them without growing the application event queue.
+    let latest = Arc::new(std::sync::Mutex::new(None));
+    let queued = Arc::new(AtomicBool::new(false));
+    let displayed = Arc::new(std::sync::Mutex::new(None));
+    let notify = move |state| {
+        if let Ok(mut latest) = latest.lock() {
+            *latest = Some(state);
+        }
+        if queued.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let latest = latest.clone();
+        let queued = queued.clone();
+        let weak = app_weak.clone();
+        let displayed = displayed.clone();
+        let _ = slint::invoke_from_event_loop(move || {
+            queued.store(false, Ordering::Release);
+            if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
+                && let Some(state) = latest.take()
+                && let Ok(mut displayed) = displayed.lock()
+            {
+                update_ui(&app, state, &mut displayed);
+            }
+        });
+    };
+    let player = if let Some((wid, _)) = &native {
+        let log = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tools")
+            .canonicalize()?
+            .join("native-player.log");
+        Player::start_native_window(&dll_path(), *wid, &log, notify)
+    } else {
+        Player::start(&dll_path(), false, notify)
+    };
+    let player = match player {
+        Ok(player) => player,
+        Err(error) => {
+            app.set_status(error.clone().into());
+            return Err(std::io::Error::other(error).into());
+        }
+    };
+    let idle_timer = Rc::new(slint::Timer::default());
+    let weak = app.as_weak();
+    app.on_activity(move || {
+        if let Some(app) = weak.upgrade() {
+            app.set_controls_visible(true);
+        }
+        let weak = weak.clone();
+        // One deadline per interaction: paused/hidden playback has no UI polling timer.
+        idle_timer.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_millis(2500),
+            move || {
+                if let Some(app) = weak.upgrade()
+                    && app.get_playing()
+                    && !app.get_dialog_open()
+                {
+                    app.set_controls_visible(false);
+                }
+            },
+        );
+    });
+    macro_rules! connect {
+        ($method:ident, $command:expr) => {{
+            let player = player.command_sender();
+            let weak = app.as_weak();
+            app.$method(move || {
+                if let Some(app) = weak.upgrade() {
+                    app.invoke_activity();
+                }
+                if let Err(error) = player.send($command) {
+                    if let Some(app) = weak.upgrade() {
+                        app.set_status(error.into());
+                    }
+                }
+            });
+        }};
+    }
+    connect!(on_toggle_pause, Command::TogglePause);
+    connect!(on_toggle_mute, Command::ToggleMute);
+    connect!(on_stop, Command::Stop);
+    connect!(on_frame_step, Command::FrameStep);
+    connect!(
+        on_toggle_subtitle_visibility,
+        Command::ToggleSubtitleVisibility
+    );
+    let selection_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_select_item(move |category, token| {
+        // IDs stay strings in the UI: Slint's float numbers cannot preserve every i64.
+        let command = match category {
+            1 | 2 => token
+                .as_str()
+                .parse::<i64>()
+                .map(Some)
+                .or_else(|error| if token == "no" { Ok(None) } else { Err(error) })
+                .map(|id| Command::SelectTrack {
+                    kind: if category == 1 {
+                        TrackKind::Audio
+                    } else {
+                        TrackKind::Sub
+                    },
+                    id,
+                })
+                .map_err(|error| error.to_string()),
+            3 => token
+                .parse::<usize>()
+                .map(Command::SelectChapter)
+                .map_err(|error| error.to_string()),
+            4 => token
+                .parse::<i64>()
+                .map(Command::SelectPlaylistId)
+                .map_err(|error| error.to_string()),
+            _ => Err("Unknown selection category".into()),
+        };
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = command.and_then(|command| selection_player.send(command)) {
+                app.set_status(error.into());
+            }
+        }
+    });
+    let delay_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_delay(move |category, value| {
+        let command = match category {
+            1 => Some(Command::AudioDelay(value as f64)),
+            2 => Some(Command::SubtitleDelay(value as f64)),
+            _ => None,
+        };
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Some(command) = command
+                && let Err(error) = delay_player.send(command)
+            {
+                app.set_status(error.into());
+            }
+        }
+    });
+    let playlist_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_playlist_action(move |action, token| {
+        let command = match action {
+            1 => token
+                .parse()
+                .map(Command::RemovePlaylistId)
+                .map_err(|error: std::num::ParseIntError| error.to_string()),
+            2 | 3 => token
+                .parse()
+                .map(|id| Command::MovePlaylistId {
+                    id,
+                    direction: if action == 2 { -1 } else { 1 },
+                })
+                .map_err(|error: std::num::ParseIntError| error.to_string()),
+            4 => Ok(Command::ClearPlaylist),
+            5 => Ok(Command::CycleLoop),
+            _ => Err("Unknown playlist action".into()),
+        };
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
+                app.set_status(error.into());
+            }
+        }
+    });
+    let browse_player = player.command_sender();
+    let weak = app.as_weak();
+    let browse_host = native.as_ref().map(|(_, host)| host.clone());
+    app.on_browse_files(move |category| {
+        let purpose = match category {
+            1 => Purpose::Audio,
+            2 => Purpose::Subtitle,
+            4 => Purpose::Playlist,
+            _ => return,
+        };
+        if let Some(app) = weak.upgrade() {
+            ui_dialogs::open(&app, browse_host.clone(), purpose, browse_player.clone());
+        }
+    });
+    for absolute in [true, false] {
+        let player = player.command_sender();
+        let weak = app.as_weak();
+        let seek = move |seconds: f32| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+            }
+            if let Err(error) = player.send(Command::Seek {
+                seconds: seconds as f64,
+                absolute,
+            }) && let Some(app) = weak.upgrade()
+            {
+                app.set_status(error.into());
+            }
+        };
+        if absolute {
+            app.on_seek(seek);
+        } else {
+            app.on_seek_relative(seek);
+        }
+    }
+    let volume_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_volume(move |volume| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        if let Err(error) = volume_player.send(Command::Volume(volume as f64))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
+    let speed_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_speed(move |factor| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        if let Some(app) = weak.upgrade() {
+            let speed = (app.get_speed_value() as f64 * factor as f64).clamp(0.01, 100.0);
+            if let Err(error) = speed_player.send(Command::Speed(speed)) {
+                app.set_status(error.into());
+            }
+        }
+    });
+    let weak = app.as_weak();
+    let fullscreen_host = native.as_ref().map(|(_, host)| host.clone());
+    app.on_toggle_fullscreen(move || {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            let fullscreen = !app.get_fullscreen();
+            if let Some(host) = fullscreen_host.as_ref().and_then(slint::Weak::upgrade) {
+                host.window().set_fullscreen(fullscreen);
+            } else {
+                app.window().set_fullscreen(fullscreen);
+            }
+            app.set_fullscreen(fullscreen);
+        }
+    });
+    let open_player = player.command_sender();
+    let weak = app.as_weak();
+    let open_host = native.as_ref().map(|(_, host)| host.clone());
+    app.on_open_file(move || {
+        if let Some(app) = weak.upgrade() {
+            ui_dialogs::open(&app, open_host.clone(), Purpose::Media, open_player.clone());
+        }
+    });
+    let weak = app.as_weak();
+    app.window().on_close_requested(move || {
+        if weak.upgrade().is_some_and(|app| app.get_dialog_open()) {
+            slint::CloseRequestResponse::KeepWindowShown
+        } else {
+            slint::CloseRequestResponse::HideWindow
+        }
+    });
+
+    if native.is_some() {
+        app.set_engine_ready(true);
+        player
+            .send(Command::Volume(prefs.volume))
+            .map_err(std::io::Error::other)?;
+        if let Some(path) = media {
+            let path = path
+                .into_string()
+                .map_err(|_| std::io::Error::other("The path contains invalid Unicode"))?;
+            player
+                .send(Command::Load(path))
+                .map_err(std::io::Error::other)?;
+        }
+        return Ok(UiSession {
+            player: Some(player),
+            prefs_path,
+            prefs,
+        });
+    }
+    let pending_media = Rc::new(RefCell::new(media));
+    let render_weak = app.as_weak();
+    let render_player = player.clone();
+    let mut surface: Option<VideoSurface> = None;
+    let mut started = false;
+    let repaint_pending = Arc::new(AtomicBool::new(false));
+    let volume = prefs.volume;
+    app.window()
+        .set_rendering_notifier(move |state, graphics_api| {
+            match state {
+                slint::RenderingState::RenderingSetup => {
+                    if let slint::GraphicsAPI::NativeOpenGL { get_proc_address } = graphics_api {
+                        let weak = render_weak.clone();
+                        let pending = repaint_pending.clone();
+                        // SAFETY: notifier guarantees that this GL context is current.
+                        match unsafe {
+                            VideoSurface::new(
+                                render_player.clone(),
+                                &get_proc_address,
+                                Box::new(move || {
+                                    if pending.swap(true, Ordering::AcqRel) {
+                                        return;
+                                    }
+                                    let weak = weak.clone();
+                                    let pending = pending.clone();
+                                    let _ = slint::invoke_from_event_loop(move || {
+                                        pending.store(false, Ordering::Release);
+                                        if let Some(app) = weak.upgrade() {
+                                            app.window().request_redraw();
+                                        }
+                                    });
+                                }),
+                            )
+                        } {
+                            Ok(video) => {
+                                surface = Some(video);
+                                if let Some(app) = render_weak.upgrade() {
+                                    app.set_engine_ready(true);
+                                }
+                            }
+                            Err(error) => {
+                                if let Some(app) = render_weak.upgrade() {
+                                    app.set_status(
+                                        format!("Video initialization failed: {error}").into(),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                slint::RenderingState::BeforeRendering => {
+                    if let (Some(video), Some(app)) = (surface.as_mut(), render_weak.upgrade()) {
+                        let scale = app.window().scale_factor();
+                        let width = (app.get_video_width() * scale).clamp(1.0, 8192.0) as u32;
+                        let height = (app.get_video_height() * scale).clamp(1.0, 8192.0) as u32;
+                        // SAFETY: the notifier uses the same context throughout its lifetime.
+                        match unsafe { video.render(width, height) } {
+                            Ok(()) => {
+                                let image = unsafe {
+                                    slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
+                                        video.texture_id(),
+                                        (width, height).into(),
+                                    )
+                                    .build()
+                                };
+                                app.set_video_frame(image);
+                                if !started {
+                                    started = true;
+                                    let _ = render_player.send(Command::Volume(volume));
+                                    if let Some(path) = pending_media.borrow_mut().take() {
+                                        match path.into_string() {
+                                            Ok(path) => {
+                                                if let Err(error) =
+                                                    render_player.send(Command::Load(path))
+                                                {
+                                                    app.set_status(error.into());
+                                                }
+                                            }
+                                            Err(_) => app.set_status(
+                                                "The path contains invalid Unicode".into(),
+                                            ),
+                                        }
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                app.set_status(format!("Video rendering failed: {error}").into())
+                            }
+                        }
+                    }
+                }
+                slint::RenderingState::RenderingTeardown => {
+                    if let Some(app) = render_weak.upgrade() {
+                        app.set_video_frame(slint::Image::default());
+                        app.set_engine_ready(false);
+                    }
+                    drop(surface.take());
+                }
+                _ => {}
+            }
+        })?;
+    Ok(UiSession {
+        player: Some(player),
+        prefs_path,
+        prefs,
+    })
+}

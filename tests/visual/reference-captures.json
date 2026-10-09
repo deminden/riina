@@ -1,0 +1,7 @@
+{
+  "baseline": "v1.5.0",
+  "upstream_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "captures": [],
+  "status": "pending matching macOS reference execution",
+  "measurement_basis": "source-derived geometry; estimated colors and typography"
+}

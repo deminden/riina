@@ -1,0 +1,293 @@
+import { ScrollView } from "std-widgets.slint";
+export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
+export struct CatalogRow { token: string, label: string, language: string, selected: bool }
+// Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
+// Colors and glyph metrics are estimates until matching macOS captures exist.
+component PlayerSlider inherits Rectangle {
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> value: 0;
+    in property <float> step: 1;
+    in property <bool> enabled: true;
+    in property <string> hint;
+    callback changed(float);
+    height: 20px;
+    horizontal-stretch: 1;
+    background: transparent;
+    accessible-role: slider;
+    accessible-label: hint;
+    accessible-enabled: enabled;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: step;
+    accessible-action-set-value(text) => {
+        if enabled && text.is-float() { changed(clamp(text.to-float(), minimum, maximum)); }
+    }
+    accessible-action-increment => { if enabled { changed(min(maximum, value + step)); } }
+    accessible-action-decrement => { if enabled { changed(max(minimum, value - step)); } }
+    private property <float> fraction: clamp((value - minimum) / max(0.001, maximum - minimum), 0, 1);
+    Rectangle { x: 3px; y: 9px; width: parent.width - 6px; height: 2px;
+        background: #ffffff40; border-radius: 1px; }
+    Rectangle { x: 3px; y: 9px; width: (parent.width - 6px) * fraction; height: 2px;
+        background: enabled ? #dddde5 : #666666; border-radius: 1px; }
+    Rectangle { x: (parent.width - 6px) * fraction; y: 6px; width: 6px; height: 8px;
+        border-radius: 2px; background: enabled ? #f4f4f7 : #777777; }
+    if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                focus.focus();
+                root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+            }
+        }
+        moved => { if self.pressed {
+            root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+        } }
+    }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.RightArrow { root.changed(min(root.maximum, root.value + root.step)); return accept; }
+            if event.text == Key.LeftArrow { root.changed(max(root.minimum, root.value - root.step)); return accept; }
+            return reject;
+        }
+    }
+}
+
+component Tool inherits Rectangle {
+    in property <string> label;
+    in property <string> hint;
+    in property <bool> enabled: true;
+    callback activated();
+    width: 30px; height: 28px;
+    border-radius: 5px;
+    background: touch.has-hover && enabled ? #ffffff20 : transparent;
+    accessible-role: button;
+    accessible-label: hint;
+    accessible-enabled: enabled;
+    accessible-action-default => { if enabled { activated(); } }
+    Text { text: label; color: enabled ? #eeeeee : #777777; font-size: 17px;
+        horizontal-alignment: center; vertical-alignment: center; }
+    if focus.has-focus : Rectangle {
+        border-width: 1px; border-color: #90b7ef; border-radius: 5px; background: transparent;
+    }
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " {
+                root.activated(); return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component PlayerWindow inherits Window {
+    title: "wiina · IINA-RS";
+    preferred-width: 960px; preferred-height: 600px;
+    min-width: 520px; min-height: 300px;
+    // The native VO lives in the owner window; this surface supplies only chrome.
+    in property <bool> native-video: false;
+    in-out property <bool> dialog-open: false;
+    no-frame: native-video;
+    background: native-video ? transparent : #111111;
+    in property <image> video-frame;
+    in property <bool> loaded: false;
+    in property <bool> paused: true;
+    in property <bool> playing: false;
+    in property <bool> seekable: false;
+    in property <bool> muted: false;
+    in-out property <bool> fullscreen: false;
+    in property <string> media-title: "wiina";
+    in property <string> position-label: "--:--";
+    in property <string> duration-label: "--:--";
+    in property <string> status: "Open a file to begin";
+    in property <float> position: 0;
+    in property <float> duration: 0;
+    in property <float> volume: 100;
+    in property <float> speed-value: 1;
+    in property <bool> engine-ready: false;
+    in property <[CatalogRow]> audio-tracks;
+    in property <[CatalogRow]> subtitle-tracks;
+    in property <[CatalogRow]> chapters;
+    in property <[CatalogRow]> playlist;
+    in-out property <int> sidebar: 0;
+    in-out property <string> selected-playlist-token: "";
+    in property <float> audio-delay: 0;
+    in property <float> subtitle-delay: 0;
+    in property <bool> subtitle-visible: true;
+    in property <string> loop-label: "Off";
+    in-out property <bool> controls-visible: true;
+    out property <length> video-width: root.width;
+    out property <length> video-height: root.height;
+    callback open-file();
+    callback toggle-pause();
+    callback stop();
+    callback seek(float);
+    callback seek-relative(float);
+    callback set-volume(float);
+    callback toggle-mute();
+    callback speed(float);
+    callback frame-step();
+    callback toggle-fullscreen();
+    callback activity();
+    callback select-item(int, string);
+    callback browse-files(int);
+    callback set-delay(int, float);
+    callback toggle-subtitle-visibility();
+    callback playlist-action(int, string);
+
+    // Keys bubble from focused controls through this scope, including sliders.
+    // A sibling key scope would lose fullscreen/escape after toolbar navigation.
+    keys := FocusScope {
+        width: root.width;
+        height: root.height;
+        Image { source: video-frame; width: parent.width; height: parent.height; image-fit: contain; }
+        TouchArea { moved => { root.controls-visible = true; root.activity(); }
+            double-clicked => { root.toggle-fullscreen(); } }
+        if !loaded : VerticalLayout {
+            alignment: center; spacing: 20px;
+            Text { text: "wiina"; color: #ededed; font-size: 40px; horizontal-alignment: center; }
+            Text { text: "IINA-RS · Independent Windows reimplementation";
+                color: #a0a0a0; font-size: 13px; horizontal-alignment: center; }
+            Rectangle { width: 140px; height: 36px; border-radius: 6px; background: #ffffff18;
+                accessible-role: button; accessible-label: "Open file";
+                accessible-action-default => { if root.engine-ready { root.open-file(); } }
+                Text { text: "Open File…"; color: #eeeeee; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { enabled: root.engine-ready; clicked => { root.open-file(); } }
+            }
+        }
+        if controls-visible : Rectangle {
+            x: 0; y: 0; width: parent.width; height: 34px; background: #151515b0;
+            HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                Tool { label: "＋"; hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
+                Text { text: media-title; color: #dddddd; font-size: 12px;
+                    horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+                Tool { label: "♪"; hint: "Audio tracks"; activated => { root.sidebar = root.sidebar == 1 ? 0 : 1; } }
+                Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.sidebar = root.sidebar == 2 ? 0 : 2; } }
+                Tool { label: "≡"; hint: "Chapters"; activated => { root.sidebar = root.sidebar == 3 ? 0 : 3; } }
+                Tool { label: "☷"; hint: "Playlist"; activated => { root.sidebar = root.sidebar == 4 ? 0 : 4; } }
+                Tool { label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+            }
+        }
+        if sidebar != 0 : Rectangle {
+            x: root.sidebar >= 3 ? 0px : parent.width - self.width;
+            y: 34px; width: min(360px, parent.width * 0.8);
+            height: parent.height - 68px; background: #202025f5;
+            // Track row height and None entry follow SidebarTrackSelector.swift.
+            // Default width 360 and the 80% limit follow Preference/SidebarController.
+            // Playlist/chapters default leading; settings default trailing.
+            // Insets and material remain provisional until reference captures exist.
+            VerticalLayout { padding: 12px; spacing: 8px;
+                HorizontalLayout {
+                    Text { text: sidebar == 1 ? "Audio" : sidebar == 2 ? "Subtitles" : sidebar == 3 ? "Chapters" : "Playlist";
+                        color: #eeeeee; vertical-alignment: center; }
+                    Tool { label: "×"; hint: "Close sidebar"; activated => { root.sidebar = 0; } }
+                }
+                if sidebar == 1 || sidebar == 2 : HorizontalLayout {
+                    Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
+                        accessible-role: button; accessible-label: root.sidebar == 1 ? "Load external audio" : "Load subtitle";
+                        accessible-enabled: root.loaded;
+                        accessible-action-default => { if root.loaded { root.browse-files(root.sidebar); } }
+                        Text { text: root.sidebar == 1 ? "Load External Audio…" : "Load Subtitle…";
+                            color: root.loaded ? #eeeeee : #777777; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                        TouchArea { enabled: root.loaded; clicked => { root.browse-files(root.sidebar); } }
+                    }
+                    if sidebar == 2 : Tool { label: subtitle-visible ? "●" : "○"; hint: "Toggle subtitle visibility";
+                        enabled: loaded; activated => { root.toggle-subtitle-visibility(); } }
+                }
+                if sidebar == 1 || sidebar == 2 : VerticalLayout {
+                    height: 48px; vertical-stretch: 0;
+                    Text { text: "Delay: " + (root.sidebar == 1 ? root.audio-delay : root.subtitle-delay) + " s"; color: #bbbbbb; font-size: 11px; }
+                    PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.sidebar == 1 ? root.audio-delay : root.subtitle-delay;
+                        enabled: root.loaded; hint: root.sidebar == 1 ? "Audio delay" : "Subtitle delay";
+                        changed(value) => { root.set-delay(root.sidebar, value); } }
+                }
+                ScrollView {
+                    VerticalLayout { alignment: start; spacing: 1px;
+                        for row in (sidebar == 1 ? audio-tracks : sidebar == 2 ? subtitle-tracks : sidebar == 3 ? chapters : playlist): Rectangle {
+                            height: root.sidebar < 3 ? 26px : root.sidebar == 3 ? 40px : 30px;
+                            background: (root.sidebar == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
+                            accessible-role: button; accessible-label: row.label;
+                            accessible-action-default => { root.select-item(root.sidebar, row.token); }
+                            if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
+                            Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label; color: #dddddd;
+                                font-size: 12px; vertical-alignment: center; overflow: elide; }
+                            if row.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
+                                y: (parent.height - self.height) / 2; border-radius: 3px; background: #ffffff20;
+                                Text { text: row.language; color: #dddddd; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
+                            TouchArea {
+                                clicked => { if root.sidebar < 3 { root.select-item(root.sidebar, row.token); }
+                                    if root.sidebar == 4 { root.selected-playlist-token = row.token; } }
+                                double-clicked => { if root.sidebar >= 3 { root.select-item(root.sidebar, row.token); root.selected-playlist-token = ""; } }
+                            }
+                        }
+                    }
+                }
+                if sidebar == 4 : HorizontalLayout { spacing: 2px;
+                    Tool { label: "＋"; hint: "Add files to playlist"; activated => { root.browse-files(4); } }
+                    Tool { label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
+                    Tool { label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(2, root.selected-playlist-token); } }
+                    Tool { label: "↓"; hint: "Move selected entry down"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(3, root.selected-playlist-token); } }
+                    Tool { label: "⌫"; hint: "Clear playlist except current file"; activated => { root.playlist-action(4, ""); root.selected-playlist-token = ""; } }
+                    Tool { label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label; activated => { root.playlist-action(5, ""); } }
+                }
+            }
+        }
+        if controls-visible && loaded : Rectangle {
+            width: min(460px, parent.width - 24px); height: 78px;
+            x: (parent.width - self.width) / 2;
+            y: parent.height * 0.9 - self.height;
+            border-radius: 6px; background: #202025e8;
+            border-width: 1px; border-color: #ffffff25;
+            // This is a tinted SDR spike, not a claim of matching AppKit video blur.
+            VerticalLayout { padding: 8px; spacing: 3px;
+                HorizontalLayout { spacing: 4px;
+                    Tool { label: "◀"; hint: "Half playback speed"; activated => { root.speed(0.5); } }
+                    Tool { label: paused ? "▶" : "Ⅱ"; hint: paused ? "Play" : "Pause";
+                        activated => { root.toggle-pause(); } }
+                    Tool { label: "▶"; hint: "Double playback speed"; activated => { root.speed(2); } }
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                    Tool { label: muted ? "×" : "♪"; hint: "Mute"; activated => { root.toggle-mute(); } }
+                    PlayerSlider { width: 82px; minimum: 0; maximum: 100; value: volume; hint: "Volume";
+                        changed(value) => { root.set-volume(value); } }
+                    Tool { label: "■"; hint: "Stop"; activated => { root.stop(); } }
+                    Tool { label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                }
+                HorizontalLayout { spacing: 8px;
+                    Text { text: position-label; color: #d4d4d4; font-size: 11px; vertical-alignment: center; }
+                    PlayerSlider { minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
+                        changed(value) => { root.seek(value); } }
+                    Text { text: duration-label; color: #d4d4d4; font-size: 11px; vertical-alignment: center; }
+                }
+            }
+        }
+        Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
+            text: status; color: #bbbbbb; font-size: 11px; overflow: elide; }
+        key-pressed(event) => {
+            root.controls-visible = true; root.activity();
+            if event.text == " " { root.toggle-pause(); return accept; }
+            if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
+            if event.text == Key.LeftArrow { root.seek-relative(-5); return accept; }
+            if event.text == Key.UpArrow { root.set-volume(min(100, root.volume + 5)); return accept; }
+            if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 5)); return accept; }
+            if event.text == "m" { root.toggle-mute(); return accept; }
+            if event.text == "." { root.frame-step(); return accept; }
+            if event.text == "f" || event.text == Key.Return { root.toggle-fullscreen(); return accept; }
+            if event.text == Key.Escape && root.fullscreen { root.toggle-fullscreen(); return accept; }
+            if event.text == Key.Escape && root.sidebar != 0 { root.sidebar = 0; return accept; }
+            if event.modifiers.control && event.text == "o" { root.open-file(); return accept; }
+            return reject;
+        }
+    }
+    // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
+    changed loaded => { if !root.loaded { keys.focus(); } }
+    changed controls-visible => { if !root.controls-visible { keys.focus(); } }
+    init => { keys.focus(); }
+}

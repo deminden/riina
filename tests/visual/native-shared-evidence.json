@@ -1,0 +1,124 @@
+{
+  "date": "2026-10-09",
+  "baseline_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "rust": "1.99.0 (b940084d7 2026-09-28)",
+  "edition": 2024,
+  "application_sha256": "bc3bcb963631f0db2d7822b83106c24b29ad5048c3484342275c5ece20577ccb",
+  "command": "wiina.exe --native-video <fixture>",
+  "windows_hdr": "Enabled by user; fresh output query PQ/BT.2020 10-bit",
+  "display_scale": 3,
+  "window_client_physical": [
+    2880,
+    1800
+  ],
+  "window_client_logical": [
+    960,
+    600
+  ],
+  "fullscreen_physical": [
+    3840,
+    2160
+  ],
+  "captures": [
+    {
+      "capture": "tests/visual/native-final-hlg.jpg",
+      "sha256": "5c39995d4f1d5d80f9f53a197749505162897c66cb24a3f5304e00a909f2e198",
+      "accessibility": "tests/visual/native-final-hlg-accessibility.txt",
+      "fixture": "hdr-hlg.mkv",
+      "application_sha256": "bc3bcb963631f0db2d7822b83106c24b29ad5048c3484342275c5ece20577ccb"
+    },
+    {
+      "capture": "tests/visual/native-final-stopped.jpg",
+      "sha256": "6163cd3c1ea03576b6aa8f85339ea0f4a61625ec58e15eb53360b943e1fa94c4",
+      "accessibility": "tests/visual/native-final-stopped-accessibility.txt",
+      "fixture": "hdr-hlg.mkv",
+      "application_sha256": "bc3bcb963631f0db2d7822b83106c24b29ad5048c3484342275c5ece20577ccb"
+    },
+    {
+      "capture": "tests/visual/native-final-sdr.jpg",
+      "sha256": "4e75cecb374500a93935d085c27f4b73cc30e8c1315373408e5f5746da9841cb",
+      "accessibility": "tests/visual/native-final-sdr-accessibility.txt",
+      "fixture": "moving-square.avi",
+      "application_sha256": "bc3bcb963631f0db2d7822b83106c24b29ad5048c3484342275c5ece20577ccb"
+    },
+    {
+      "capture": "tests/visual/native-final-fullscreen.jpg",
+      "sha256": "425feb0f9970ace6be4ffdc30e442eb5f907da3961c8cf525de021faa033ca85",
+      "accessibility": "tests/visual/native-final-fullscreen-accessibility.txt",
+      "fixture": "moving-square.avi",
+      "application_sha256": "bc3bcb963631f0db2d7822b83106c24b29ad5048c3484342275c5ece20577ccb"
+    }
+  ],
+  "fixture_sha256": {
+    "hdr-pq.mkv": "c500bef2e9b05c18f9abfaa201760951c5a60deca2888ed38b842ea72863da45",
+    "hdr-hlg.mkv": "88590516df14822d2a01d86395bfed9b6184625321bd4e56a34b14930ef026c4",
+    "moving-square.avi": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636"
+  },
+  "renderer_log": [
+    "[   0.005][d][cplayer] Run command: loadfile, flags=64, args=[url=\"C:\\\\Codex\\\\wiina\\\\tests\\\\fixtures\\\\hdr-hlg.mkv\", flags=\"replace\", index=\"-1\", options=\"\"]",
+    "[   0.187][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G2084_NONE_P2020 (12)",
+    "[   0.189][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+    "[   0.193][v][vo/gpu-next] reconfig to 192x108 yuv422p10 bt.2020-ncl/bt.2020/hlg/limited/hlg CL=mpeg2/4/h264 crop=192x108+0+0 A=none",
+    "[  15.462][v][vo/gpu-next/win32] uninit",
+    "[  37.651][d][cplayer] Run command: loadfile, flags=64, args=[url=\"C:\\\\Codex\\\\wiina\\\\tests\\\\fixtures\\\\moving-square.avi\", flags=\"replace\", index=\"-1\", options=\"\"]",
+    "[  37.808][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G2084_NONE_P2020 (12)",
+    "[  37.810][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+    "[  37.829][v][vo/gpu-next] reconfig to 320x180 yuv420p bt.601/bt.709/srgb/full/display CL=mpeg1/jpeg crop=320x180+0+0 A=none",
+    "[  79.641][v][vo/gpu-next/win32] uninit"
+  ],
+  "startup_log": "Native chrome: scale=3, client=2880x1800 physical, layout=960x600 logical\n",
+  "verified": [
+    "Shared HLG video/OSC startup at 300% scale",
+    "Tab traversal to Stop with a fresh focus observation after each input",
+    "Enter on Stop destroys native video while retaining shared UI",
+    "Ctrl+O after Stop opens the real file picker",
+    "SDR file selection recreates D3D11 output on the HDR desktop",
+    "f enters fullscreen; Escape exits with chrome focus retained",
+    "Alt+F4 while Open File toolbar control is focused closes player; VO uninit and no process observed"
+  ],
+  "earlier_same_turn_evidence": [
+    {
+      "capture": "tests/visual/native-shared-pq.jpg",
+      "application_sha256": "1d63bf26cb5e43cfc731622b128a5dd1f0d8fccd85d69323007950a2cd4fce2a",
+      "meaning": "PQ presentation with shared controls after realization fix; later change restores focus when OSC is removed."
+    },
+    {
+      "capture": "tests/visual/native-hdr-playlist.jpg",
+      "application_sha256": "d720337f1a9a80b1f2c7b1c867019b21262c2b9a57d8ef5f3207904ed39eed1e",
+      "meaning": "Initial shared playlist mouse input; fullscreen focus and startup geometry were corrected afterward."
+    }
+  ],
+  "limitations": [
+    "JPEG screenshots contain SDR capture pixels and do not measure HDR luminance or color accuracy",
+    "Windows captures are not macOS reference goldens",
+    "Minimum-width drag did not produce an observed size change; narrow-window verification remains pending",
+    "Related-window indexed clicks and coordinate targeting were unreliable; observed keyboard navigation was used",
+    "Full DPI/multi-monitor, minimize/restore, live HDR changes, video blur, icons and compressed HDR decoding remain unverified",
+    "Per-player HDR/tone mapping preferences remain unimplemented",
+    "Native video remains opt-in; default GL path is provisional SDR"
+  ],
+  "test_id": "GUI-NATIVE-SHARED",
+  "prior_hdr_mode_evidence": "tests/visual/hdr-lifecycle-evidence.json",
+  "default_renderer_regression": {
+    "fixture": "catalog.mkv",
+    "sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+    "captures": [
+      {
+        "capture": "tests/visual/gl-shared-regression.jpg",
+        "sha256": "d377c9dacdce1d100f814580f33880c6ef5255a3f1b68d8fe43ce9366e99882c",
+        "accessibility": "tests/visual/gl-shared-regression-accessibility.txt"
+      },
+      {
+        "capture": "tests/visual/gl-shared-chapters.jpg",
+        "sha256": "21dcc4c93522df774fddaf90d7e4b2b877aa82e5ad7ad9b6e63f0edab69b5191",
+        "accessibility": "tests/visual/gl-shared-chapters-accessibility.txt"
+      }
+    ],
+    "verified": [
+      "Default GL playback after shared controller extraction",
+      "Tab/Enter opens observed Chapters catalog",
+      "Escape closes sidebar with Chapters toolbar control focused",
+      "Alt+F4 closes player; no wiina/probe process remained"
+    ]
+  }
+}

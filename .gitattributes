@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Fixture integrity checks hash exact bytes, including subtitle/JSON line endings.
+tests/fixtures/* -text whitespace=cr-at-eol
+tests/fixtures/README.md text eol=lf

@@ -1,0 +1,22 @@
+[package]
+name = "wiina"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+default-run = "wiina"
+
+[lints]
+workspace = true
+
+[dependencies]
+slint.workspace = true
+glow.workspace = true
+serde_json.workspace = true
+windows.workspace = true
+wiina-core = { path = "../core" }
+wiina-mpv = { path = "../mpv" }
+
+[build-dependencies]
+slint-build.workspace = true

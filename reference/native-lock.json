@@ -1,0 +1,12 @@
+{
+  "archive": "mpv-dev-x86_64-20261009-git-36abaa32d0.7z",
+  "dll_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "mpv_commit": "36abaa32d00a7229ee206aae12dc0e97e7962dca",
+  "mpv_source": "https://github.com/mpv-player/mpv.git",
+  "release": "20261009",
+  "architecture": "x86_64",
+  "source": "https://github.com/shinchiro/mpv-winbuild-cmake",
+  "authenticity": "SHA-256 matches GitHub release API digest; no independent signed attestation",
+  "redistribution_status": "development only; native dependencies and corresponding source audit pending",
+  "archive_sha256": "8a15fc07996a33235778256157151c42cbaceee976f0a98860f55047856935b2"
+}

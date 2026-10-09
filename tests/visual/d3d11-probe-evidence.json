@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-09",
+  "build": "Debug development experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "fixture_sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+  "display_mode": "Observed SDR desktop; OS HDR settings unchanged",
+  "color_claim": "Engine-reported scRGB swapchain configuration; no HDR colorimetric verification",
+  "captures": [
+    {
+      "file": "tests/visual/windows-d3d11-windowed.png",
+      "size": [
+        962,
+        629
+      ],
+      "state": "windowed",
+      "sha256": "15d379c63dd89671f0038f5d64a94d28ab6aa5dced5f7cfa119b1a093a166136"
+    },
+    {
+      "file": "tests/visual/windows-d3d11-fullscreen.png",
+      "size": [
+        1280,
+        720
+      ],
+      "state": "fullscreen",
+      "sha256": "a676505a1aea5adbfeb57c9722f93c0327cb78244f45a5b91acaf4878508da4b"
+    },
+    {
+      "file": "tests/visual/windows-d3d11-maximized.png",
+      "size": [
+        1280,
+        672
+      ],
+      "state": "maximized",
+      "sha256": "e368b7c01418afcd60c4bca24a9f578ab245877aa261942e5e11764a001ce408"
+    },
+    {
+      "file": "tests/visual/windows-d3d11-optimized.png",
+      "state": "optimized playback at EOF",
+      "size": [
+        962,
+        576
+      ],
+      "sha256": "83529979d41ce073f7696274dd7dcf4e8528a41a613537ffb4abd25b8b7491d4"
+    }
+  ],
+  "renderer_log_excerpt": [
+    "[   0.179][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G22_NONE_P709 (0)",
+    "[   0.179][v][vo/gpu-next/d3d11] Selected swapchain format R16G16B16A16_FLOAT (10), attempting to utilize it.",
+    "[   0.181][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+    "[   0.202][i][cplayer] VO: [gpu-next] 320x180 yuv420p",
+    "[   0.206][v][vo/gpu-next/libplacebo] New swap chain configuration received from hint: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+    "[  88.411][d][ao/wasapi] Thread uninit done",
+    "[  88.420][v][vo/gpu-next/win32] uninit"
+  ],
+  "full_log_sha256": "59051ed95ef0064b73e2e1cea1e5644eed90610a392d34bfca1259610dbcd851",
+  "optimized_host_metrics": {
+    "scale": 3,
+    "logical_client": [
+      960,
+      600
+    ],
+    "physical_client": [
+      2880,
+      1800
+    ],
+    "source": "winit scale_factor and inner_size at startup"
+  },
+  "optimized_probe_sha256": "1f38ac722deb5f89e28f42b67aca4c042192764eee0600a8764aed37afb0720b",
+  "optimized_app_sha256": "e1d9445e75e9b50ba9df01214397e33d0cb6f994e902b1a5a56a60798e890b52",
+  "optimized_renderer_log_excerpt": [
+    "[   0.188][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G22_NONE_P709 (0)",
+    "[   0.190][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+    "[   0.212][i][cplayer] VO: [gpu-next] 320x180 yuv420p",
+    "[   0.217][v][vo/gpu-next/libplacebo] New swap chain configuration received from hint: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+    "[  32.859][d][ao/wasapi] Thread uninit done",
+    "[  32.868][v][vo/gpu-next/win32] uninit"
+  ],
+  "optimized_full_log_sha256": "ee83279792ec6788650e4b008d773d3b6ed61aa34d79c1fe53779d076e80301f",
+  "log_retention_note": "Full logs are ignored development files; debug hash refers to the earlier run before log overwrite. Selected log lines are retained here."
+}

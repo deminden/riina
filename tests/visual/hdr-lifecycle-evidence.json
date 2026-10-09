@@ -1,0 +1,191 @@
+{
+  "date": "2026-10-09",
+  "baseline": "IINA v1.5.0 fbcff4df7183b335880396af0655f6bb89d46442",
+  "environment": "Windows 11 Home 10.0.26300 x64; RTX 4070 Ti; 300% scaling",
+  "hdr_on_authorization": "User enabled HDR in Windows and reported it in this chat",
+  "observed_display_modes": {
+    "off": "RGB_FULL_G22_NONE_P709",
+    "on": "RGB_FULL_G2084_NONE_P2020"
+  },
+  "observed_swapchain": "R16G16B16A16_FLOAT / RGB_FULL_G10_NONE_P709",
+  "target_peak_note": "1499 nits is the engine target report, not a measured peak",
+  "source_note": "Source parameters include mpv defaults/guesses; fixtures contain no mastering metadata",
+  "captures": [
+    {
+      "file": "tests/visual/windows-hdr-pq.png",
+      "accessibility": "tests/visual/windows-hdr-pq-accessibility.txt",
+      "hdr_mode": "off",
+      "visible_capture_size": [
+        962,
+        629
+      ],
+      "cropped_at_screen_edge": false,
+      "sha256": "030c48ba884cbdc29a6bb5767d1e83385cb120273c5566203bcf927c9431f5c3"
+    },
+    {
+      "file": "tests/visual/windows-hdr-hlg.png",
+      "accessibility": "tests/visual/windows-hdr-hlg-accessibility.txt",
+      "hdr_mode": "off",
+      "visible_capture_size": [
+        962,
+        629
+      ],
+      "cropped_at_screen_edge": false,
+      "sha256": "e568e822eb525fcd08e8156d5a0f2b8dd3ecdf02d109398e32b39ab1c00e75f5"
+    },
+    {
+      "file": "tests/visual/windows-hdr-stopped.png",
+      "accessibility": "tests/visual/windows-hdr-stopped-accessibility.txt",
+      "hdr_mode": "off",
+      "visible_capture_size": [
+        962,
+        629
+      ],
+      "cropped_at_screen_edge": false,
+      "sha256": "942bbaff35cb127958e9b782a6a12c0bd54189a1775e022dd6441cb03a7169d1"
+    },
+    {
+      "file": "tests/visual/windows-hdr-to-sdr.png",
+      "accessibility": "tests/visual/windows-hdr-to-sdr-accessibility.txt",
+      "hdr_mode": "off",
+      "visible_capture_size": [
+        962,
+        629
+      ],
+      "cropped_at_screen_edge": false,
+      "sha256": "99f0bc6dbf615fef280dd16c3956c0ed0e549279d849c6ded1a79e6794946105"
+    },
+    {
+      "file": "tests/visual/windows-hdr-on-pq.png",
+      "accessibility": "tests/visual/windows-hdr-on-pq-accessibility.txt",
+      "hdr_mode": "on",
+      "visible_capture_size": [
+        962,
+        576
+      ],
+      "cropped_at_screen_edge": true,
+      "sha256": "bddef5d05f87d3227a3fb6b3bce9e10d9fd46e5a8f44d97021ee7333669bdd01"
+    },
+    {
+      "file": "tests/visual/windows-hdr-on-hlg.png",
+      "accessibility": "tests/visual/windows-hdr-on-hlg-accessibility.txt",
+      "hdr_mode": "on",
+      "visible_capture_size": [
+        962,
+        576
+      ],
+      "cropped_at_screen_edge": true,
+      "sha256": "05f95c3a3c44e32c84b4d6ce5390bbdb71375c6efb96450d9eccc1c80a79e60b"
+    },
+    {
+      "file": "tests/visual/windows-hdr-on-stopped.png",
+      "accessibility": "tests/visual/windows-hdr-on-stopped-accessibility.txt",
+      "hdr_mode": "on",
+      "visible_capture_size": [
+        962,
+        576
+      ],
+      "cropped_at_screen_edge": true,
+      "sha256": "31b007514ff7d21c95f2843ee9c7fa65be5dab0b83a18b06012012b99322b43c"
+    },
+    {
+      "file": "tests/visual/windows-hdr-on-sdr.png",
+      "accessibility": "tests/visual/windows-hdr-on-sdr-accessibility.txt",
+      "hdr_mode": "on",
+      "visible_capture_size": [
+        962,
+        576
+      ],
+      "cropped_at_screen_edge": true,
+      "sha256": "b79d2d25e1c92a38099800ed200e27301642f8495289168875c3d70162a740ee"
+    }
+  ],
+  "logs": {
+    "off": {
+      "log_sha256": "f4c23b917fa331e2a10017b99c011d4d6bac73a40259761369393509f9a104a4",
+      "renderer_excerpt": [
+        "[   0.197][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G22_NONE_P709 (0)",
+        "[   0.199][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[   0.205][v][vo/gpu-next] reconfig to 192x108 yuv422p10 bt.2020-ncl/bt.2020/pq/limited/display CL=mpeg2/4/h264 crop=192x108+0+0 A=none",
+        "[   0.208][v][vo/gpu-next/libplacebo] New swap chain configuration received from hint: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[  25.208][v][vo/gpu-next] reconfig to 192x108 yuv422p10 bt.2020-ncl/bt.2020/hlg/limited/hlg CL=mpeg2/4/h264 crop=192x108+0+0 A=none",
+        "[  37.623][v][vo/gpu-next/win32] uninit",
+        "[  50.440][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G22_NONE_P709 (0)",
+        "[  50.442][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[  50.461][v][vo/gpu-next] reconfig to 320x180 yuv420p bt.601/bt.709/srgb/full/display CL=mpeg1/jpeg crop=320x180+0+0 A=none",
+        "[  50.464][v][vo/gpu-next/libplacebo] New swap chain configuration received from hint: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709."
+      ],
+      "metadata_lines": [
+        "Native host: scale=3, client=2880x1800 physical pixels",
+        "Source metadata: generation=0, None",
+        "Source metadata: generation=1, None",
+        "Source metadata: generation=1, Some(VideoParameters { pixelformat: None, w: 192, h: 108, colormatrix: None, colorlevels: None, primaries: None, gamma: None })",
+        "Source metadata: generation=1, Some(VideoParameters { pixelformat: Some(\"yuv422p10\"), w: 192, h: 108, colormatrix: Some(\"bt.2020-ncl\"), colorlevels: Some(\"limited\"), primaries: Some(\"bt.2020\"), gamma: Some(\"pq\") })",
+        "Source metadata: generation=1, None",
+        "Source metadata: generation=2, None",
+        "Source metadata: generation=2, Some(VideoParameters { pixelformat: Some(\"yuv422p10\"), w: 192, h: 108, colormatrix: Some(\"bt.2020-ncl\"), colorlevels: Some(\"limited\"), primaries: Some(\"bt.2020\"), gamma: Some(\"hlg\") })",
+        "Source metadata: generation=2, None",
+        "Source metadata: generation=3, None",
+        "Source metadata: generation=3, Some(VideoParameters { pixelformat: None, w: 320, h: 180, colormatrix: None, colorlevels: None, primaries: None, gamma: None })",
+        "Source metadata: generation=3, Some(VideoParameters { pixelformat: Some(\"yuv420p\"), w: 320, h: 180, colormatrix: Some(\"bt.601\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"srgb\") })"
+      ]
+    },
+    "on": {
+      "log_sha256": "b6309658ebb75e149ee30dfd96f69bb77b5918e2048dfc50c4b32de36bc8fda7",
+      "renderer_excerpt": [
+        "[   0.182][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G2084_NONE_P2020 (12)",
+        "[   0.185][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[   0.193][v][vo/gpu-next] reconfig to 192x108 yuv422p10 bt.2020-ncl/bt.2020/pq/limited/display CL=mpeg2/4/h264 crop=192x108+0+0 A=none",
+        "[   0.198][v][vo/gpu-next/libplacebo] New swap chain configuration received from hint: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[  75.016][v][vo/gpu-next] reconfig to 192x108 yuv422p10 bt.2020-ncl/bt.2020/hlg/limited/hlg CL=mpeg2/4/h264 crop=192x108+0+0 A=none",
+        "[  86.017][v][vo/gpu-next/win32] uninit",
+        "[ 100.583][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G2084_NONE_P2020 (12)",
+        "[ 100.586][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[ 100.605][v][vo/gpu-next] reconfig to 320x180 yuv420p bt.601/bt.709/srgb/full/display CL=mpeg1/jpeg crop=320x180+0+0 A=none",
+        "[ 100.608][v][vo/gpu-next/libplacebo] New swap chain configuration received from hint: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
+        "[ 149.536][v][vo/gpu-next/win32] uninit"
+      ],
+      "metadata_lines": [
+        "Native host: scale=3, client=2880x1800 physical pixels",
+        "Color metadata: generation=0, source=None, target=None",
+        "Color metadata: generation=1, source=None, target=None",
+        "Color metadata: generation=1, source=Some(VideoParameters { pixelformat: None, w: 192, h: 108, colormatrix: None, colorlevels: None, primaries: None, gamma: None, max_luma: None, min_luma: None, signal_peak: None }), target=None",
+        "Color metadata: generation=1, source=Some(VideoParameters { pixelformat: Some(\"yuv422p10\"), w: 192, h: 108, colormatrix: Some(\"bt.2020-ncl\"), colorlevels: Some(\"limited\"), primaries: Some(\"bt.2020\"), gamma: Some(\"pq\"), max_luma: Some(10000.0), min_luma: Some(9.999999974752427e-7), signal_peak: Some(49.261085510253906) }), target=Some(VideoParameters { pixelformat: Some(\"rgba16hf\"), w: 2880, h: 1620, colormatrix: Some(\"rgb\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"scrgb\"), max_luma: Some(1499.0), min_luma: Some(0.009999999776482582), signal_peak: Some(7.3842363357543945) })",
+        "Color metadata: generation=1, source=None, target=Some(VideoParameters { pixelformat: Some(\"rgba16hf\"), w: 2880, h: 1620, colormatrix: Some(\"rgb\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"scrgb\"), max_luma: Some(1499.0), min_luma: Some(0.009999999776482582), signal_peak: Some(7.3842363357543945) })",
+        "Color metadata: generation=2, source=None, target=Some(VideoParameters { pixelformat: Some(\"rgba16hf\"), w: 2880, h: 1620, colormatrix: Some(\"rgb\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"scrgb\"), max_luma: Some(1499.0), min_luma: Some(0.009999999776482582), signal_peak: Some(7.3842363357543945) })",
+        "Color metadata: generation=2, source=Some(VideoParameters { pixelformat: Some(\"yuv422p10\"), w: 192, h: 108, colormatrix: Some(\"bt.2020-ncl\"), colorlevels: Some(\"limited\"), primaries: Some(\"bt.2020\"), gamma: Some(\"hlg\"), max_luma: Some(1000.0), min_luma: Some(9.999999974752427e-7), signal_peak: Some(4.926108360290527) }), target=Some(VideoParameters { pixelformat: Some(\"rgba16hf\"), w: 2880, h: 1620, colormatrix: Some(\"rgb\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"scrgb\"), max_luma: Some(1499.0), min_luma: Some(0.009999999776482582), signal_peak: Some(7.3842363357543945) })",
+        "Color metadata: generation=2, source=None, target=Some(VideoParameters { pixelformat: Some(\"rgba16hf\"), w: 2880, h: 1620, colormatrix: Some(\"rgb\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"scrgb\"), max_luma: Some(1499.0), min_luma: Some(0.009999999776482582), signal_peak: Some(7.3842363357543945) })",
+        "Color metadata: generation=2, source=None, target=None",
+        "Color metadata: generation=3, source=None, target=None",
+        "Color metadata: generation=3, source=Some(VideoParameters { pixelformat: Some(\"yuv420p\"), w: 320, h: 180, colormatrix: Some(\"bt.601\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"srgb\"), max_luma: None, min_luma: None, signal_peak: Some(0.0) }), target=None",
+        "Color metadata: generation=3, source=Some(VideoParameters { pixelformat: Some(\"yuv420p\"), w: 320, h: 180, colormatrix: Some(\"bt.601\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"srgb\"), max_luma: None, min_luma: None, signal_peak: Some(0.0) }), target=Some(VideoParameters { pixelformat: Some(\"rgba16hf\"), w: 2880, h: 1620, colormatrix: Some(\"rgb\"), colorlevels: Some(\"full\"), primaries: Some(\"bt.709\"), gamma: Some(\"scrgb\"), max_luma: Some(1499.0), min_luma: Some(0.009999999776482582), signal_peak: Some(7.3842363357543945) })"
+      ]
+    }
+  },
+  "fixtures": {
+    "hdr-pq.mkv": "c500bef2e9b05c18f9abfaa201760951c5a60deca2888ed38b842ea72863da45",
+    "hdr-hlg.mkv": "88590516df14822d2a01d86395bfed9b6184625321bd4e56a34b14930ef026c4",
+    "hdr-patches.json": "56e8c3e12d77f7188199591e695c06b813f30ff0b18c7d38502310e0a9d66e34",
+    "catalog.mkv": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e"
+  },
+  "limitations": [
+    "Desktop captures are SDR representations of HDR content, not colorimetric evidence",
+    "Coordinate targeting was unreliable after HDR mode change; Tab/Enter controls worked",
+    "Initial undefined target ratios caused an error, corrected before the HDR-on captures",
+    "HDR-off captures precede target-metadata observation and unavailable decoder clearing",
+    "Alt+F4 overlay ownership fix was added after these captures; verified separately"
+  ],
+  "final_artifacts": {
+    "wiina": "f863fae2673045273ead08df8ed1683bc59e041e882b92a4d7a45ea8eff8896d",
+    "d3d11-probe": "f1e8f752b7b7d111c78accf4f4a750b3460cec628e9e3932a6d7b628a45d9627"
+  },
+  "focused_overlay_close_regression": {
+    "action": "Tab focuses Stop; Alt+F4 closes both windows while video VO exists",
+    "result": "No probe process remained; native VO uninit logged",
+    "log_excerpt": [
+      "[  18.162][v][vo/gpu-next/win32] uninit"
+    ],
+    "tested_probe_sha256": "8e10b58ff6317196ac263e29f4943cba3b4128f69a3afb997c2417072ab74f29"
+  },
+  "final_artifact_note": "Final build additionally includes source HDR classification, covered by unit/native tests; no production rendering or close-handler changes follow the verified close run."
+}

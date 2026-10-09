@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/iina/iina.git",
+  "tag": "v1.5.0",
+  "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "acquired": "2026-10-09",
+  "method": "git clone --branch v1.5.0 --depth 1",
+  "license": "GPL-3.0-only",
+  "license_evidence": "LICENSE contains GPL version 3; no project-specific or-later grant found in inspected notices. Swift files retain individual copyright headers.",
+  "archive_sha256": null
+}

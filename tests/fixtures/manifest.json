@@ -1,0 +1,52 @@
+{
+  "moving-square.avi": {
+    "sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-fixtures.py",
+    "video": "320x180 MJPEG, 24 fps, 120 frames",
+    "audio": "48000 Hz stereo PCM 16-bit; low-level 440 Hz tone"
+  },
+  "catalog.mkv": {
+    "sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-catalog-fixtures.py",
+    "description": "Original MJPEG/PCM packets with two named chapters"
+  },
+  "external-tone.wav": {
+    "sha256": "109220046185ece8a88bbd2f246868798681dc9e9912609567ff2032995e2b88",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-catalog-fixtures.py",
+    "description": "Original 5 s stereo PCM 440 Hz tone"
+  },
+  "manual-captions.srt": {
+    "sha256": "bcb7c17ff4bbc7e4888f241c83e3cf9bd96e910d268d101398cc14053a886f4e",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-catalog-fixtures.py",
+    "description": "Original UTF-8 text, two timed cues"
+  },
+  "hdr-pq.mkv": {
+    "sha256": "c500bef2e9b05c18f9abfaa201760951c5a60deca2888ed38b842ea72863da45",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-hdr-fixtures.py",
+    "description": "192x108 v210 10-bit neutral patches, BT.2020, transfer 16, limited range; 3 s at 8 fps"
+  },
+  "hdr-hlg.mkv": {
+    "sha256": "88590516df14822d2a01d86395bfed9b6184625321bd4e56a34b14930ef026c4",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-hdr-fixtures.py",
+    "description": "192x108 v210 10-bit neutral patches, BT.2020, transfer 18, limited range; 3 s at 8 fps"
+  },
+  "hdr-patches.json": {
+    "sha256": "56e8c3e12d77f7188199591e695c06b813f30ff0b18c7d38502310e0a9d66e34",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-hdr-fixtures.py",
+    "description": "Original patch values, quantized luma codes and marker geometry"
+  }
+}

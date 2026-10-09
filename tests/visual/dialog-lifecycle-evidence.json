@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-09",
+  "binary_sha256": "cc8abf5da6e42838576fde32097e4847e4cad70a47f2daddb5637fe129189271",
+  "toolchain": "Rust 1.99.0, edition 2024",
+  "scale_factor": 3,
+  "verified": [
+    "Default GL: Ctrl+O opens owned Shell dialog; Escape removes it and restores player focus; Ctrl+O reopens; second cancellation and Alt+F4 close",
+    "Final native HDR binary: PQ playback, Ctrl+O opens owned dialog, Escape removes it and restores chrome focus, Alt+F4 closes; process absent after close",
+    "Native desktop log reports 10-bit RGB_FULL_G2084_NONE_P2020 and R16G16B16A16_FLOAT scRGB swapchain"
+  ],
+  "accessibility_captures": ["dialog-gl-cancel.ax.txt", "dialog-native-cancel.ax.txt"],
+  "corrections_from_runtime": [
+    "Capture winit HWND on event thread, retaining Arc<Window> throughout Shell operation",
+    "Explicitly disable chrome and native host before cross-thread Show; restore after completion"
+  ],
+  "unverified": [
+    "File acceptance, multi-selection, subtitle and audio dialog routes: automation cannot reliably address owned transient filename field",
+    "Owner titlebar close attempt during modality, duplicate-open stress and dispatch-failure injection",
+    "Other DPI values, calibrated HDR color accuracy and full macOS visual parity"
+  ],
+  "notes": "Earlier test binary failed UI-thread-only handle acquisition; next binary had default-owner modality failure. Those findings prompted fixes. Only the SHA above describes the final cancellation captures. Related modal accessibility listings repeat nodes; this is not evidence of multiple dialogs."
+}

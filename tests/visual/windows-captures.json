@@ -1,0 +1,193 @@
+{
+  "kind": "actual Windows runtime evidence; not an upstream reference or approved golden",
+  "baseline": "IINA v1.5.0",
+  "captures": [
+    {
+      "file": "tests/visual/windows-paused.png",
+      "accessibility": "tests/visual/windows-paused-accessibility.txt",
+      "date": "2026-10-09",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "wiina 0.1.0 optimized development build",
+      "fixture": "tests/fixtures/moving-square.avi",
+      "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+      "position_seconds": 0,
+      "frame": 0,
+      "state": "paused after native dialog reopen",
+      "theme": "estimated dark floating OSC",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        962,
+        629
+      ],
+      "client_size": [
+        960,
+        600
+      ],
+      "scale": null,
+      "matching_upstream_capture": null,
+      "tolerances": "not set; upstream capture and human fidelity review pending",
+      "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    },
+    {
+      "file": "tests/visual/windows-audio-sidebar.png",
+      "accessibility": "tests/visual/windows-audio-sidebar-accessibility.txt",
+      "date": "2026-10-09",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "wiina 0.1.0 optimized development build with catalog selection",
+      "fixture": "tests/fixtures/moving-square.avi",
+      "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+      "position_seconds": 5,
+      "frame": 119,
+      "state": "ended; reported audio track selected",
+      "theme": "estimated dark floating OSC and provisional sidebar",
+      "panels": [
+        "OSC",
+        "Audio"
+      ],
+      "capture_size": [
+        962,
+        629
+      ],
+      "client_size": [
+        960,
+        600
+      ],
+      "scale": null,
+      "matching_upstream_capture": null,
+      "tolerances": "not set; upstream capture and human fidelity review pending",
+      "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    },
+    {
+      "file": "tests/visual/windows-subtitles.png",
+      "accessibility": "tests/visual/windows-subtitles-accessibility.txt",
+      "date": "2026-10-09",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "wiina 0.1.0 optimized development build",
+      "fixture": "tests/fixtures/catalog.mkv",
+      "fixture_sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+      "subtitle": "tests/fixtures/manual-captions.srt",
+      "subtitle_sha256": "bcb7c17ff4bbc7e4888f241c83e3cf9bd96e910d268d101398cc14053a886f4e",
+      "position_seconds": 0.5,
+      "frame": 12,
+      "state": "paused; manual subtitle loaded; delay 0.25 s",
+      "panels": [
+        "OSC",
+        "Subtitles"
+      ],
+      "theme": "estimated dark floating OSC",
+      "capture_size": [
+        962,
+        624
+      ],
+      "client_size": [
+        960,
+        600
+      ],
+      "scale": null,
+      "implementation_revision": "earlier workflow prototype before width/side/spacing correction",
+      "matching_upstream_capture": null,
+      "tolerances": "not set; upstream reference capture pending",
+      "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    },
+    {
+      "file": "tests/visual/windows-playlist-editing.png",
+      "accessibility": "tests/visual/windows-playlist-editing-accessibility.txt",
+      "date": "2026-10-09",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "wiina 0.1.0 optimized development build",
+      "fixture": "tests/fixtures/catalog.mkv",
+      "fixture_sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+      "subtitle": "tests/fixtures/manual-captions.srt",
+      "subtitle_sha256": "bcb7c17ff4bbc7e4888f241c83e3cf9bd96e910d268d101398cc14053a886f4e",
+      "position_seconds": 0.5,
+      "frame": 12,
+      "state": "paused; three entries; WAV moved above AVI",
+      "panels": [
+        "OSC",
+        "Playlist"
+      ],
+      "theme": "estimated dark floating OSC",
+      "capture_size": [
+        962,
+        624
+      ],
+      "client_size": [
+        960,
+        600
+      ],
+      "scale": null,
+      "implementation_revision": "earlier workflow prototype before width/side/spacing correction",
+      "matching_upstream_capture": null,
+      "tolerances": "not set; upstream reference capture pending",
+      "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    },
+    {
+      "file": "tests/visual/windows-subtitles-layout.png",
+      "accessibility": "tests/visual/windows-subtitles-layout-accessibility.txt",
+      "date": "2026-10-09",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "wiina 0.1.0 optimized development build",
+      "fixture": "tests/fixtures/catalog.mkv",
+      "fixture_sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+      "subtitle": "tests/fixtures/manual-captions.srt",
+      "subtitle_sha256": "bcb7c17ff4bbc7e4888f241c83e3cf9bd96e910d268d101398cc14053a886f4e",
+      "position_seconds": 0.5,
+      "frame": 12,
+      "state": "paused; final width and delay spacing; auto-loaded copy of original SRT",
+      "panels": [
+        "OSC",
+        "Subtitles"
+      ],
+      "theme": "estimated dark floating OSC",
+      "capture_size": [
+        962,
+        629
+      ],
+      "client_size": [
+        960,
+        600
+      ],
+      "scale": null,
+      "implementation_revision": "final workflow layout",
+      "matching_upstream_capture": null,
+      "tolerances": "not set; upstream reference capture pending",
+      "media_location_note": "Workspace tools/ui-smoke copies; bytes match named fixture hashes; matching-basename SRT loaded by mpv",
+      "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    },
+    {
+      "file": "tests/visual/windows-playlist-layout.png",
+      "accessibility": "tests/visual/windows-playlist-layout-accessibility.txt",
+      "date": "2026-10-09",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "wiina 0.1.0 optimized development build",
+      "fixture": "tests/fixtures/catalog.mkv",
+      "fixture_sha256": "0b1f850c8a00e95d614873c1f565abca453af4a79f626a6de60c4c5aec99616e",
+      "subtitle": "tests/fixtures/manual-captions.srt",
+      "subtitle_sha256": "bcb7c17ff4bbc7e4888f241c83e3cf9bd96e910d268d101398cc14053a886f4e",
+      "position_seconds": 0.5,
+      "frame": 12,
+      "state": "paused; final leading width; disabled edit actions without selection",
+      "panels": [
+        "OSC",
+        "Playlist"
+      ],
+      "theme": "estimated dark floating OSC",
+      "capture_size": [
+        962,
+        629
+      ],
+      "client_size": [
+        960,
+        600
+      ],
+      "scale": null,
+      "implementation_revision": "final workflow layout",
+      "matching_upstream_capture": null,
+      "tolerances": "not set; upstream reference capture pending",
+      "media_location_note": "Workspace tools/ui-smoke copies; bytes match named fixture hashes; matching-basename SRT loaded by mpv",
+      "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "hdr-pq.mkv": {
+    "units": "cd/m2",
+    "patch_values": [
+      0,
+      0.01,
+      0.1,
+      1,
+      10,
+      100,
+      203,
+      400,
+      1000,
+      2000,
+      4000,
+      10000
+    ],
+    "luma_codes": [
+      64,
+      83,
+      119,
+      195,
+      327,
+      509,
+      573,
+      636,
+      723,
+      789,
+      855,
+      940
+    ],
+    "neutral_chroma_code": 512,
+    "marker": "Bottom 12 rows: white 8-pixel stripe advances 8 pixels/frame"
+  },
+  "hdr-hlg.mkv": {
+    "units": "relative scene light",
+    "patch_values": [
+      0,
+      0.001,
+      0.005,
+      0.01,
+      0.02,
+      0.05,
+      0.08333333333333333,
+      0.15,
+      0.25,
+      0.4,
+      0.7,
+      1
+    ],
+    "luma_codes": [
+      64,
+      112,
+      171,
+      216,
+      279,
+      403,
+      502,
+      620,
+      711,
+      791,
+      882,
+      940
+    ],
+    "neutral_chroma_code": 512,
+    "marker": "Bottom 12 rows: white 8-pixel stripe advances 8 pixels/frame"
+  }
+}

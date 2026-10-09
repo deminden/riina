@@ -1,0 +1,15 @@
+[package]
+name = "wiina-mpv"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+libloading.workspace = true
+glow.workspace = true
+serde_json.workspace = true
+wiina-core = { path = "../core" }
