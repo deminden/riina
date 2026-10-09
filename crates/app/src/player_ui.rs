@@ -193,6 +193,15 @@ impl UiSession {
     }
 }
 
+impl Drop for UiSession {
+    fn drop(&mut self) {
+        // Release session ownership before its presentation on every platform.
+        // Native playback joins here; GL callbacks retain their player until the
+        // renderer has released its surface during RenderingTeardown.
+        self.player.take();
+    }
+}
+
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,

@@ -1,5 +1,11 @@
 # Verification record · native Windows · 2026-10-09
 
+Application port run 38004319189 reached application compilation on macOS/Linux
+but failed strict lint: UiSession's retained player field was only explicitly read
+by Windows native shutdown. UiSession now releases that owner explicitly in Drop
+on all targets before releasing its presentation. GL callback ownership continues
+through renderer teardown. The corrected application CI remains pending.
+
 2026-10-10 shared GL port services: Windows strict workspace lint, 18 unit tests,
 optimized x86_64 MSVC application build and all four explicit native libmpv tests
 pass (native tests: 2.03 seconds). Windows GUI picker behavior was not rerun for
