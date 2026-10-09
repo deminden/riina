@@ -480,3 +480,12 @@ Windows workspace tests pass 22 tests with strict lint. The preceding backend
 increment's four native integration tests pass in 2.13 seconds, including an
 observed paused two-second seek and native completion counter advancement.
 These checks establish state handling, not rendered appearance or timeout parity.
+
+Windows GUI seek observation: a temporary instrumented shared-GL build confirms
+the native completion counter advances from 0 to 1 after a seek from EOF to
+2.0 seconds, with seeking false, phase Paused and no error. The accessible
+timeline agrees. Panel text was absent from the sampled accessibility tree;
+its rendered visibility remains unproven. Both screenshot attempts failed with
+the computer-use helper's CreateForMonitor error 0x80070057. Exact scope and
+diagnostic binary hash are in tests/visual/seek-gui-observation.json. Temporary
+tracing was removed; no capture or pixel comparison is claimed.

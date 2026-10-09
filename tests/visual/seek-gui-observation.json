@@ -1,0 +1,18 @@
+{
+  "source_commit": "293126c513e92df9a8b213a0483a0b4384504727",
+  "platform": "Windows 11 x64",
+  "presentation": "shared OpenGL application",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "diagnostic_binary_sha256": "dec6d2b7a56c9e4dc19d9da4d06dc96be888da346d313652037171aa130ffec7",
+  "instrumentation": "Temporary local playback-state file tracing in SeekOsd::observe; removed after testing. Binary is not the published uninstrumented build.",
+  "input": "Playback position slider accessibility action set to 2 seconds",
+  "before": { "generation": 1, "completed_seeks": 0, "phase": "Ended" },
+  "during": { "generation": 1, "completed_seeks": 0, "seeking": true, "position": 2.0, "duration": 5.0, "phase": "Seeking", "error": null },
+  "after": { "generation": 1, "completed_seeks": 1, "seeking": false, "position": 2.0, "duration": 5.0, "phase": "Paused", "error": null },
+  "accessibility_observation": "Playback slider and timeline report 2 seconds. Transient panel text was not present in the captured accessibility tree.",
+  "capture_attempts": 2,
+  "capture_error": "IGraphicsCaptureItemInterop.CreateForMonitor failed: Could not capture the given monitor. (0x80070057)",
+  "shutdown": "Alt+F4 removed the test window from returned window inventory",
+  "proves": ["GUI playback path native seek notification", "observed paused clock", "accessible timeline update"],
+  "does_not_prove": ["seek panel rendered visibility", "pixel parity", "display timeout parity", "macOS or Linux GUI runtime"]
+}
