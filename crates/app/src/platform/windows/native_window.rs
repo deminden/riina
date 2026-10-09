@@ -16,10 +16,7 @@ use std::{
         atomic::{AtomicIsize, Ordering},
     },
 };
-use winit::{
-    platform::windows::WindowAttributesExtWindows,
-    raw_window_handle::{HasWindowHandle, RawWindowHandle},
-};
+use winit::platform::windows::WindowAttributesExtWindows;
 
 fn align(host: &slint::Window, chrome: &slint::Window) {
     host.with_winit_window(|window| {
@@ -70,26 +67,16 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             return;
         };
         let result = async {
-            host.window().winit_window().await?;
-            let hwnd = host
-                .window()
-                .with_winit_window(|window| -> Result<isize, Box<dyn std::error::Error>> {
-                    window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(520.0, 300.0)));
-                    match window.window_handle()?.as_raw() {
-                        RawWindowHandle::Win32(handle) => Ok(handle.hwnd.get()),
-                        _ => Err(
-                            std::io::Error::other("Native video requires a Windows HWND").into(),
-                        ),
-                    }
-                })
-                .ok_or_else(|| std::io::Error::other("Native host was not realized"))??;
-            let wid = u32::try_from(hwnd as usize)?;
-            owner.store(hwnd, Ordering::Relaxed);
+            let window = host.window().winit_window().await?;
+            window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(520.0, 300.0)));
+            let presentation = super::NativePresentation::new(window, host.as_weak())
+                .map_err(std::io::Error::other)?;
+            owner.store(presentation.owner_handle(), Ordering::Relaxed);
             // Slint captures the attributes hook when creating the component adapter.
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
-            let configured = configure_player(&app, Some((wid, host.as_weak())), media)?;
+            let configured = configure_player(&app, Some(presentation), media)?;
             *startup_session.borrow_mut() = Some(configured);
             let close_session = startup_session.clone();
             let close_host = host.as_weak();

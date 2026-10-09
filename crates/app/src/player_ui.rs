@@ -1,5 +1,5 @@
 use crate::{
-    CatalogRow, NativeVideoHost, PlayerWindow, media_open, platform,
+    CatalogRow, PlayerWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
@@ -169,7 +169,10 @@ fn update_ui(app: &PlayerWindow, state: Playback, displayed: &mut Option<Playbac
 }
 
 pub(crate) struct UiSession {
+    // Native callbacks retain senders only. Field order keeps the target alive
+    // until this sole native player owner has joined its decoder worker.
     pub(crate) player: Option<Player>,
+    _presentation: Option<platform::NativePresentation>,
     prefs_path: PathBuf,
     prefs: Preferences,
 }
@@ -192,7 +195,7 @@ impl UiSession {
 
 pub(crate) fn configure_player(
     app: &PlayerWindow,
-    native: Option<(u32, slint::Weak<NativeVideoHost>)>,
+    native: Option<platform::NativePresentation>,
     media: Option<std::ffi::OsString>,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     let prefs_path = platform::preferences_path()?;
@@ -229,12 +232,8 @@ pub(crate) fn configure_player(
             }
         });
     };
-    let player = if let Some((wid, _)) = &native {
-        let log = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tools")
-            .canonicalize()?
-            .join("native-player.log");
-        Player::start_native_window(&platform::playback_library(), *wid, &log, notify)
+    let player = if let Some(presentation) = &native {
+        presentation.start_engine(notify)
     } else {
         Player::start(&platform::playback_library(), false, notify)
     };
@@ -375,7 +374,7 @@ pub(crate) fn configure_player(
     });
     let browse_player = player.command_sender();
     let weak = app.as_weak();
-    let browse_host = native.as_ref().map(|(_, host)| host.clone());
+    let browse_host = native.as_ref().map(platform::NativePresentation::host);
     app.on_browse_files(move |category| {
         let purpose = match category {
             1 => Purpose::Audio,
@@ -449,7 +448,7 @@ pub(crate) fn configure_player(
         }
     });
     let weak = app.as_weak();
-    let fullscreen_host = native.as_ref().map(|(_, host)| host.clone());
+    let fullscreen_host = native.as_ref().map(platform::NativePresentation::host);
     app.on_toggle_fullscreen(move || {
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
@@ -464,7 +463,7 @@ pub(crate) fn configure_player(
     });
     let open_player = player.command_sender();
     let weak = app.as_weak();
-    let open_host = native.as_ref().map(|(_, host)| host.clone());
+    let open_host = native.as_ref().map(platform::NativePresentation::host);
     app.on_open_file(move || {
         if let Some(app) = weak.upgrade() {
             ui_dialogs::open(&app, open_host.clone(), Purpose::Media, open_player.clone());
@@ -489,6 +488,7 @@ pub(crate) fn configure_player(
         }
         return Ok(UiSession {
             player: Some(player),
+            _presentation: native,
             prefs_path,
             prefs,
         });
@@ -589,6 +589,7 @@ pub(crate) fn configure_player(
         })?;
     Ok(UiSession {
         player: Some(player),
+        _presentation: None,
         prefs_path,
         prefs,
     })

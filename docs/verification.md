@@ -362,3 +362,14 @@ Expanded portable interface CI (2026-10-10): run 38002664122 passes on macOS
 runs core and mpv library unit tests and strict lint. The suite has 13 tests;
 no native decoding or GUI test runs in these jobs. Recorded source commit and
 job scope: tests/visual/portable-interface-ci-evidence.json.
+
+Presentation boundary (2026-10-10): 17 unit tests, strict Clippy, formatting,
+optimized Windows build and all four explicit native tests pass (2.06 s). The
+shared controller now takes an opaque presentation instead of a Windows integer;
+its retained native window is released after the sole native player owner joins.
+Native PQ startup, keyboard seeking, fullscreen/Escape and normal close were
+observed at 300% DPI. New app-data logs report the expected 10-bit PQ desktop
+and float scRGB swapchain and end with native VO uninit. Default GL startup,
+seeking and close also passed. Tested binary and capture hashes are in
+tests/visual/presentation-boundary-evidence.json. Other OS application playback
+and forced-lifecycle stress are not covered by these checks.

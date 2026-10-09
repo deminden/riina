@@ -2,4 +2,4 @@
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-pub(crate) use windows::{file_dialog, native_window, services::*, ui_dialogs};
+pub(crate) use windows::{NativePresentation, file_dialog, native_window, services::*, ui_dialogs};

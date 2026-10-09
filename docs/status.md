@@ -184,3 +184,10 @@ to mpv interface unit tests, and HWND startup is gated to Windows.
 Expanded portable CI passes 13 core/mpv-interface tests and strict lint on
 Windows/macOS/Linux (run 38002664122). Native engine loading, GUI and application
 ports are excluded from this evidence. See portable-interface-ci-evidence.json.
+
+The shared controller no longer accepts a Windows window identifier. Native
+startup/handle validation and diagnostics live in the presentation backend;
+UiSession retains its target until the player shuts down. Native PQ, seeking,
+fullscreen/Escape and close plus GL startup/seeking/close passed at 300% DPI.
+Native logs use %LOCALAPPDATA%/riina/native-player.log. See ADR 0003 and
+presentation-boundary-evidence.json. Other OS presentations remain open.

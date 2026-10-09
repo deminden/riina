@@ -53,5 +53,6 @@ Portability checks now exercise the shared core on all three desktop systems.
 The matrix is being expanded to the portable mpv interface unit tests; native
 playback remains a separate gate. The toolchain no longer forces installation
 of a Windows standard library on every host. HWND-based engine startup is
-Windows-only. Next: remove raw window identifiers from the shared controller
-contract, then implement native OS dialog/storage/presentation services.
+Windows-only. Raw native identifiers are now behind an opaque platform
+presentation, retained until decoder shutdown. Next: implement native OS
+dialog/storage/presentation services and verify each application port.

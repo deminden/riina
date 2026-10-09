@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-10",
+  "binary_sha256": "09ef278c38f8b6ca2736af2d6f1c9c97595b7570c4c94d25bac375a8d32b526e",
+  "scale_factor": 3,
+  "verified": [
+    "Native PQ startup through opaque presentation object",
+    "Native Left seeking observes Paused at position 0",
+    "Native fullscreen renders 1280 by 720 downscaled controls; Escape restores windowed playback",
+    "Native normal close releases video output; log ends with vo/gpu-next/win32 uninit; process absent",
+    "Native log now exists under LOCALAPPDATA/riina/native-player.log and reports a 10-bit PQ desktop with R16G16B16A16_FLOAT scRGB presentation",
+    "Default GL catalog.mkv startup and keyboard seek observe Paused; normal close; process absent",
+    "17 unit tests, strict Clippy, formatting, four explicit native tests in 2.06 seconds and optimized Windows build pass"
+  ],
+  "local_fullscreen_capture": "presentation-fullscreen.jpg",
+  "local_fullscreen_capture_sha256": "88f4cfbf14fcbf5cb8acaedaf822e352d7dcfd6b90acfeac4bf96f14aada1704",
+  "local_accessibility_capture": "presentation-gl.txt",
+  "unverified": [
+    "Other OS native presentations, application builds and runtime playback",
+    "Forced target destruction, event-loop failure and repeated-close stress",
+    "GUI dialog acceptance and mixed-monitor/DPI matrix",
+    "Calibrated HDR color and pixel-perfect reference comparison"
+  ]
+}

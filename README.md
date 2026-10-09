@@ -56,5 +56,5 @@ provisional SDR renderer.
 To test the native HDR candidate with the shared player controls and sidebars:
 `cargo run -p riina --locked -- --native-video "C:\media\movie.mkv"`.
 This option uses a native D3D11 video host and the same player UI in a transparent
-owned window. Renderer logs go to `tools/native-player.log`. It remains experimental;
+owned window. Renderer logs go to `%LOCALAPPDATA%/riina/native-player.log`. It remains experimental;
 calibrated HDR color, video blur and complete window/DPI coverage are open gates.
