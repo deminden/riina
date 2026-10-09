@@ -1,0 +1,47 @@
+name: IINA 1.5.0 visual reference
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Obtain exact official reference release
+        shell: bash
+        run: |
+          dmg="$RUNNER_TEMP/IINA.v1.5.0.dmg"
+          curl --fail --location --proto '=https' --tlsv1.2 https://github.com/iina/iina/releases/download/v1.5.0/IINA.v1.5.0.dmg --output "$dmg"
+          printf '%s  %s\n' 8fad50479b10e09645053457cec46bd53d054ced2242cfe68f74586735a20dc7 "$dmg" | shasum -a 256 --check
+          mount="$RUNNER_TEMP/iina-reference-mount"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount" "$dmg"
+          ditto "$mount/IINA.app" "$RUNNER_TEMP/IINA.app"
+          hdiutil detach "$mount"
+          codesign --verify --deep --strict "$RUNNER_TEMP/IINA.app"
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$RUNNER_TEMP/IINA.app/Contents/Info.plist")
+          test "$version" = '1.5.0'
+          mkdir -p "$RUNNER_TEMP/iina-capture"
+          sw_vers > "$RUNNER_TEMP/iina-capture/os.txt"
+          printf '%s\n' "$version" > "$RUNNER_TEMP/iina-capture/reference-version.txt"
+          printf '%s\n' 8fad50479b10e09645053457cec46bd53d054ced2242cfe68f74586735a20dc7 > "$RUNNER_TEMP/iina-capture/reference-dmg-sha256.txt"
+      - name: Open original fixture in the reference
+        shell: bash
+        run: |
+          python3 scripts/check-fixtures.py
+          shasum -a 256 tests/fixtures/catalog.mkv > "$RUNNER_TEMP/iina-capture/fixture-sha256.txt"
+          "$RUNNER_TEMP/IINA.app/Contents/MacOS/iina-cli" --no-stdin --mpv-pause=yes --mpv-start=2 "$GITHUB_WORKSPACE/tests/fixtures/catalog.mkv"
+          sleep 5
+      - name: Capture only the reference player window
+        run: swift scripts/capture-iina-reference.swift "$RUNNER_TEMP/iina-capture" catalog.mkv
+      - name: Preserve reference evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
+        with:
+          name: iina-1.5.0-reference
+          path: ${{ runner.temp }}/iina-capture/
+          retention-days: 14
+          if-no-files-found: warn
+      # No binary or extracted icons/fonts are uploaded. Screenshots are research
+      # references, excluded from riina's original MIT product-asset grant.

@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/iina/iina",
+  "tag": "v1.5.0",
+  "source_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "asset": "IINA.v1.5.0.dmg",
+  "url": "https://github.com/iina/iina/releases/download/v1.5.0/IINA.v1.5.0.dmg",
+  "sha256": "8fad50479b10e09645053457cec46bd53d054ced2242cfe68f74586735a20dc7",
+  "size_bytes": 113048935,
+  "digest_source": "Official GitHub release asset API, queried 2026-10-10; not an independently signed digest",
+  "purpose": "Ephemeral macOS reference execution and visual research only",
+  "redistribution": "No reference application binaries or extracted assets enter the product or CI artifact"
+}
