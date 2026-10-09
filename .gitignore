@@ -5,6 +5,7 @@
 /reference/captures/
 /dist/
 *.log
+__pycache__/
 # Desktop captures contain machine-local state. Keep reproducible fixtures and
 # evidence summaries public; retain raw observations only in the development workspace.
 /tests/visual/*.txt

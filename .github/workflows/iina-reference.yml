@@ -31,10 +31,10 @@ jobs:
         run: |
           python3 scripts/check-fixtures.py
           shasum -a 256 tests/fixtures/catalog.mkv > "$RUNNER_TEMP/iina-capture/fixture-sha256.txt"
-          "$RUNNER_TEMP/IINA.app/Contents/MacOS/iina-cli" --no-stdin --mpv-pause=yes --mpv-start=2 "$GITHUB_WORKSPACE/tests/fixtures/catalog.mkv"
-          sleep 5
+          reference_socket="/tmp/riina-reference-${GITHUB_RUN_ID}.sock"
+          "$RUNNER_TEMP/IINA.app/Contents/MacOS/iina-cli" --no-stdin --mpv-input-ipc-server="$reference_socket" "$GITHUB_WORKSPACE/tests/fixtures/catalog.mkv"
       - name: Capture only the reference player window
-        run: swift scripts/capture-iina-reference.swift "$RUNNER_TEMP/iina-capture" catalog.mkv
+        run: python3 scripts/verify-reference-playback.py "/tmp/riina-reference-${GITHUB_RUN_ID}.sock" "$RUNNER_TEMP/iina-capture" catalog.mkv
       - name: Preserve reference evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
