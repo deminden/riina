@@ -1,15 +1,20 @@
 # Third-party notices · development audit
 
-wiina application code is GPL-3.0-only; see LICENSE. Independent implementation.
+Original wiina Rust, Slint definitions, scripts and documentation are MIT; see
+LICENSE. The wiina-mpv ABI declarations retain the ISC grant below. This grants
+rights to wiina's original contributions, not to third-party code or assets.
+Dependency licenses and the combined binary's distribution obligations are
+separate from the MIT license on original source. See docs/licensing.md.
 
 IINA v1.5.0, https://github.com/iina/iina, commit fbcff4df7183b335880396af0655f6bb89d46442:
 GPL version 3 text. Inspected headers attribute PlayerCore/MPVController to lhc (2016),
 OSCFloatingView/LayoutValue to Hechen Li/lhc (2026). Geometry/defaults/behavior are
-reimplemented with those files recorded in docs/parity.csv. No Apple artwork or fonts
-are bundled. Confirm project-wide grants before redistribution; the generic license
-appendix is not itself an assertion of an or-later grant.
+recorded as behavioral references in docs/parity.csv. The excluded checkout keeps
+its GPL license; it is not part of the MIT grant. No Apple artwork or fonts are
+bundled. These source credits identify compatibility research, not permission to
+translate protected implementation code into MIT-licensed code.
 
-Additional behavior/layout adaptations: SidebarTrackSelector, SidebarAudioPane,
+Additional behavior/layout references: SidebarTrackSelector, SidebarAudioPane,
 SidebarSubtitlesPane, SidebarPlaylistPane and SidebarChaptersPane by Hechen Li/lhc
 (2026); MPVTrack by lhc (2016); MPVCommandWrappers by Yuze Jiang (2025).
 Command plans and track labels in crates/core/src/lib.rs follow the pinned sources;
@@ -21,7 +26,11 @@ follow PlayerCore.openURLs (lhc, 2016), DraggingDetect.getPlayableFiles (Yuze Ji
 Explorer natural comparison replaces Foundation's localized comparison; directory
 expansion and alias resolution remain incomplete.
 
-Slint 1.13.1/slint-build 1.13.1: select GPL-3.0-only from the crate's offered licenses.
+Slint 1.13.1/slint-build 1.13.1: select LicenseRef-Slint-Royalty-free-2.0 from
+the crate's offered licenses. This Windows desktop application uses its section
+2(b) attribution option: the official Slint badge is displayed in the public
+repository README. Slint itself is not relicensed as MIT. The badge is linked
+from the pinned v1.13.1 upstream resource rather than copied into wiina assets.
 OpenGL example source by SixtyFPS GmbH is MIT; inspected as interop guidance. Our
 renderer implementation is independently written with mpv ABI declarations.
 glow 0.16.0: MIT/Apache-2.0/Zlib; libloading 0.8.9: ISC;
@@ -58,5 +67,6 @@ No system installation or policy changes were made. They are not application ass
 
 HDR source classification in crates/core/src/lib.rs adapts the behavior of
 IINA v1.5.0 iina/VideoView.swift, VideoView.isHDRVideo (Copyright © 2016 lhc).
-The same pinned GPL-3.0-only licensing plan applies. Windows scRGB presentation
-is an independent platform adaptation; no Apple implementation or artwork is bundled.
+The gamma/primaries combinations are compatibility facts; the MIT grant is for
+wiina's original implementation, not for VideoView.swift. Windows scRGB presentation
+is an independent platform implementation; no Apple implementation or artwork is bundled.

@@ -5,6 +5,13 @@ incomplete: 64 atomic parity rows and 19 plugin surfaces are tracked. Milestone 
 is in progress; real SDR playback works, but HDR architecture, DPI coverage and
 full accessibility/visual fidelity gates are not closed.
 
+Published source: https://github.com/deminden/wiina. At the user's request,
+original wiina contributions now use MIT and an explicit independent-development
+policy (docs/licensing.md). Slint uses Royalty-free 2.0 with the official badge
+in the public README; mpv ABI notices remain ISC. Third-party references and
+native binaries retain their own terms. This source grant does not certify
+clean-room provenance or close the native redistribution audit.
+
 The separate D3D11 experiment now runs native gpu-next video with an owned Slint
 overlay. Runtime logs report a 16-bit float scRGB swap chain on the observed SDR
 desktop. Mouse/keyboard controls, Unicode input, fullscreen, maximize and shutdown

@@ -24,6 +24,13 @@ enabled only after the renderer is ready. Preferences live in `%LOCALAPPDATA%/wi
 See [product specification](docs/product-spec.md), [source audit](docs/upstream-audit.md),
 [visual specification](docs/visual-spec.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
 Native binary redistribution is not ready; this checkout is a development workspace.
+Original wiina source is [MIT licensed](LICENSE). Third-party dependencies and
+references retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md)
+and the [independent implementation policy](docs/licensing.md). The MIT grant does
+not relicense IINA or the development libmpv DLL. Binary distribution remains gated
+on the dependency and corresponding-source audit.
+
+[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.13.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
 The repository contains source and original test fixtures. Downloaded tools, native
 binaries and raw desktop captures stay local. Evidence summaries describe their
 tested binary and known limitations; screenshot paths refer to local observations.

@@ -7,6 +7,9 @@ Baseline: official IINA v1.5.0, never silently upgrade it.
 Use small Rust modules, explicit ownership and typed intent. Comments explain why,
 upstream semantics, or unsafe invariants; avoid narrating obvious statements.
 No existing application code was present at project acquisition.
+Original wiina contributions are MIT. Develop independently from observable
+behavior and documented platform APIs; do not translate IINA implementation code
+or copy its protected assets. Read docs/licensing.md before changing license terms.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p wiina --locked -- <media>`.

@@ -40,7 +40,7 @@ Do not add advertisements, accounts, cloud synchronization, AI features, or tele
 
 ## 3. Licensing and asset provenance
 
-Read IINA's license and relevant file headers before translating code or reusing resources. Establish a GPLv3-compatible distribution plan, preserve required copyright notices, and record translated or reused material with its upstream source location. Confirm the appropriate SPDX expression from the actual notices rather than guessing whether “or later” applies.
+The user's later instruction requires MIT and independent development. Original wiina contributions are MIT. Use IINA to establish observable behavior, then write independent Rust implementations using documented platform interfaces. Do not translate protected IINA implementation code or reuse its assets under an MIT label. Preserve dependency notices and provenance, and audit the combined distribution separately; see docs/licensing.md.
 
 Audit the selected Slint license, the exact libmpv build, bundled native dependencies, plugin assets, fonts, and icons. Maintain `THIRD_PARTY_NOTICES.md` and an asset provenance manifest. Include corresponding-source/build information required by the chosen distribution arrangement.
 
