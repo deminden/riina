@@ -408,6 +408,8 @@ pub struct Playback {
     pub paused: bool,
     pub buffering: bool,
     pub seeking: bool,
+    /// Completed native seeks; retained across coalesced UI snapshots.
+    pub completed_seeks: u64,
     pub seekable: bool,
     pub volume: f64,
     pub muted: bool,

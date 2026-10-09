@@ -6,8 +6,18 @@ tests/visual/macos-native-evidence.json for the exact runtime hash and commit.
 Full application builds and the subsequent concurrency/failure storage tests
 also pass on macOS/Linux in run 38004680216. These tests use null video output;
 displayed video, dialogs, audible output and HDR presentation remain unverified.
-Official pinned IINA visual-reference attempt 38005209380 is queued; no reference
-capture or pixel-perfect claim is made before image review.
+Official IINA 1.5.0 reference run 38005949498 now provides a reviewed paused
+seek state at 2 seconds. It establishes the seek clock/progress panel, with the
+main controls hidden; matched-size riina comparison remains pending.
+
+The shared application now displays a transient seek clock/progress panel from
+observed libmpv SEEK/PLAYBACK_RESTART events. A retained completion counter
+survives coalesced snapshots; failed command submission does not fabricate a
+clock update. Replacement/Stop hides the panel. Geometry, colors and the 2.5-second
+timeout are provisional pending matched-size rendering and timing verification.
+Windows strict lint, 19 unit tests and four real native integration tests pass;
+the paused-seek test now requires a native completion notification as well as
+the observed 2-second clock. GUI rendering and port runtime validation are open.
 
 Full macOS/Linux application lint, workspace unit tests and linked development
 builds now pass in run 38004581488 at a48a1de. Evidence is recorded in

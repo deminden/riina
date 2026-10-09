@@ -247,7 +247,9 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
         })
         .unwrap();
     let seeked = wait_for(&receiver, |state| {
-        state.paused && state.position.is_some_and(|p| (p - 2.0).abs() < 0.15)
+        state.paused
+            && state.position.is_some_and(|p| (p - 2.0).abs() < 0.15)
+            && state.completed_seeks > paused.completed_seeks
     });
     assert_eq!(paused.generation, seeked.generation);
     for volume in [150.0, 200.0] {

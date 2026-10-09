@@ -153,6 +153,7 @@ impl Player {
                 let mut next_id = 0u64;
                 let mut pending = HashMap::new();
                 let mut resume_on_load = false;
+                let mut seek_pending = false;
                 while let Ok(message) = receiver.recv() {
                     if let Message::Intent(command) = message {
                         if command == Command::Shutdown { break; }
@@ -184,7 +185,7 @@ impl Player {
                                     resume_on_load = false;
                                 }
                             }
-                            6 => state.begin_load(),
+                            6 => { seek_pending = false; state.begin_load(); },
                             7 if !event.data.is_null() => {
                                 let end = &*event.data.cast::<EndFile>();
                                 state.phase = match end.reason { 0 => Phase::Ended, 4 => Phase::Failed, _ => Phase::Stopped };
@@ -199,6 +200,13 @@ impl Player {
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) { state.error = Some(error); }
                                 }
                             },
+                            20 => seek_pending = true,
+                            21 if seek_pending => {
+                                // Restart also occurs on initial load. Only a preceding
+                                // native SEEK establishes a completed seek notification.
+                                seek_pending = false;
+                                state.completed_seeks = state.completed_seeks.wrapping_add(1);
+                            }
                             22 if !event.data.is_null() => {
                                 let property = &*event.data.cast::<Property>();
                                 apply_property(&mut state, property);

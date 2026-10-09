@@ -61,3 +61,11 @@ Player controls use original MIT vector icons recorded in assets/provenance.json
 The shared component renders a consistent 17-point box and enabled/disabled tint,
 independent of system symbol-font coverage. Remaining repeat/secondary controls
 use provisional glyphs. Vector shapes are not yet measured against macOS goldens.
+
+The shared seek panel now uses estimated geometry from the reviewed paused-seek
+capture: an upper-left rounded dark panel, bright elapsed clock, subdued total
+clock and blue progress indicator. Values come from observed playback, triggered
+by a native seek completion counter rather than the requested destination. The
+2.5-second timeout is provisional: the capture proves a visible state, not its
+duration. Typeface, material, exact metrics, animation and timing remain open
+comparison gates. No reference pixels or protected assets are shipped in the UI.

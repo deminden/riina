@@ -115,7 +115,35 @@ fn current_chapter(state: &Playback) -> Option<usize> {
     })
 }
 
-fn update_ui(app: &PlayerWindow, state: Playback, displayed: &mut Option<Playback>) {
+fn seek_clock(seconds: Option<f64>) -> String {
+    let label = time_label(seconds);
+    if label.len() == 4 {
+        format!("0{label}")
+    } else {
+        label
+    }
+}
+
+fn update_ui(
+    app: &PlayerWindow,
+    state: Playback,
+    displayed: &mut Option<Playback>,
+    last_seek: &mut Option<(u64, u64)>,
+) {
+    let seek_key = (state.generation, state.completed_seeks);
+    if last_seek.is_some_and(|old| old.0 != seek_key.0)
+        || matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed)
+    {
+        app.set_seek_osd_visible(false);
+    } else if last_seek.is_some_and(|old| old != seek_key)
+        && state.position.is_some()
+        && state.error.is_none()
+    {
+        app.invoke_show_seek_osd();
+    }
+    *last_seek = Some(seek_key);
+    app.set_seek_position_label(seek_clock(state.position).into());
+    app.set_seek_duration_label(seek_clock(state.duration).into());
     // Preserve row identity across clock ticks so focus and accessibility indexes
     // are not destroyed by unrelated time-pos notifications.
     if displayed.as_ref().is_none_or(|old| {
@@ -217,6 +245,7 @@ pub(crate) fn configure_player(
     let latest = Arc::new(std::sync::Mutex::new(None));
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
+    let last_seek = Arc::new(std::sync::Mutex::new(None));
     let notify = move |state| {
         if let Ok(mut latest) = latest.lock() {
             *latest = Some(state);
@@ -228,13 +257,15 @@ pub(crate) fn configure_player(
         let queued = queued.clone();
         let weak = app_weak.clone();
         let displayed = displayed.clone();
+        let last_seek = last_seek.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
                 && let Some(state) = latest.take()
                 && let Ok(mut displayed) = displayed.lock()
+                && let Ok(mut last_seek) = last_seek.lock()
             {
-                update_ui(&app, state, &mut displayed);
+                update_ui(&app, state, &mut displayed, &mut last_seek);
             }
         });
     };
@@ -251,6 +282,23 @@ pub(crate) fn configure_player(
         }
     };
     let idle_timer = Rc::new(slint::Timer::default());
+    let seek_timer = slint::Timer::default();
+    let weak = app.as_weak();
+    app.on_show_seek_osd(move || {
+        if let Some(app) = weak.upgrade() {
+            app.set_seek_osd_visible(true);
+        }
+        let weak = weak.clone();
+        seek_timer.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_millis(2500),
+            move || {
+                if let Some(app) = weak.upgrade() {
+                    app.set_seek_osd_visible(false);
+                }
+            },
+        );
+    });
     let weak = app.as_weak();
     app.on_activity(move || {
         if let Some(app) = weak.upgrade() {
