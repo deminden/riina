@@ -86,7 +86,7 @@ component Tool inherits Rectangle {
 }
 
 export component PlayerWindow inherits Window {
-    title: "wiina · IINA-RS";
+    title: "riina";
     preferred-width: 960px; preferred-height: 600px;
     min-width: 520px; min-height: 300px;
     // The native VO lives in the owner window; this surface supplies only chrome.
@@ -102,13 +102,15 @@ export component PlayerWindow inherits Window {
     in property <bool> seekable: false;
     in property <bool> muted: false;
     in-out property <bool> fullscreen: false;
-    in property <string> media-title: "wiina";
+    in property <string> media-title: "riina";
     in property <string> position-label: "--:--";
     in property <string> duration-label: "--:--";
     in property <string> status: "Open a file to begin";
     in property <float> position: 0;
     in property <float> duration: 0;
     in property <float> volume: 100;
+    in-out property <bool> volume-boost: false;
+    private property <float> volume-limit: volume-boost ? 200 : 100;
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
     in property <[CatalogRow]> audio-tracks;
@@ -130,6 +132,7 @@ export component PlayerWindow inherits Window {
     callback seek(float);
     callback seek-relative(float);
     callback set-volume(float);
+    callback set-volume-boost(bool);
     callback toggle-mute();
     callback speed(float);
     callback frame-step();
@@ -151,8 +154,8 @@ export component PlayerWindow inherits Window {
             double-clicked => { root.toggle-fullscreen(); } }
         if !loaded : VerticalLayout {
             alignment: center; spacing: 20px;
-            Text { text: "wiina"; color: #ededed; font-size: 40px; horizontal-alignment: center; }
-            Text { text: "IINA-RS · Independent Windows reimplementation";
+            Text { text: "riina"; color: #ededed; font-size: 40px; horizontal-alignment: center; }
+            Text { text: "Rust media player";
                 color: #a0a0a0; font-size: 13px; horizontal-alignment: center; }
             Rectangle { width: 140px; height: 36px; border-radius: 6px; background: #ffffff18;
                 accessible-role: button; accessible-label: "Open file";
@@ -207,6 +210,34 @@ export component PlayerWindow inherits Window {
                         enabled: root.loaded; hint: root.sidebar == 1 ? "Audio delay" : "Subtitle delay";
                         changed(value) => { root.set-delay(root.sidebar, value); } }
                 }
+                if sidebar == 1 : Rectangle {
+                    height: 28px; background: transparent;
+                    accessible-role: checkbox;
+                    accessible-label: "Allow volume boost (up to 200%)";
+                    accessible-checkable: true;
+                    accessible-checked: root.volume-boost;
+                    accessible-action-default => { root.set-volume-boost(!root.volume-boost); }
+                    Rectangle { x: 2px; y: 6px; width: 16px; height: 16px;
+                        border-radius: 3px; border-width: 1px; border-color: #888892;
+                        background: root.volume-boost ? #90b7ef : #ffffff10;
+                        if root.volume-boost : Text { text: "✓"; color: #17202e;
+                            horizontal-alignment: center; vertical-alignment: center; font-size: 12px; }
+                    }
+                    Text { x: 26px; width: parent.width - 26px;
+                        text: "Allow volume boost (up to 200%)"; color: #dddddd;
+                        font-size: 12px; vertical-alignment: center; }
+                    if boost-focus.has-focus : Rectangle { border-width: 1px;
+                        border-color: #90b7ef; border-radius: 4px; background: transparent; }
+                    TouchArea { clicked => { boost-focus.focus(); root.set-volume-boost(!root.volume-boost); } }
+                    boost-focus := FocusScope {
+                        key-pressed(event) => {
+                            if event.text == " " || event.text == Key.Return {
+                                root.set-volume-boost(!root.volume-boost); return accept;
+                            }
+                            return reject;
+                        }
+                    }
+                }
                 ScrollView {
                     VerticalLayout { alignment: start; spacing: 1px;
                         for row in (sidebar == 1 ? audio-tracks : sidebar == 2 ? subtitle-tracks : sidebar == 3 ? chapters : playlist): Rectangle {
@@ -256,7 +287,7 @@ export component PlayerWindow inherits Window {
                     Tool { label: "▶"; hint: "Double playback speed"; activated => { root.speed(2); } }
                     Rectangle { horizontal-stretch: 1; background: transparent; }
                     Tool { label: muted ? "×" : "♪"; hint: "Mute"; activated => { root.toggle-mute(); } }
-                    PlayerSlider { width: 82px; minimum: 0; maximum: 100; value: volume; hint: "Volume";
+                    PlayerSlider { width: 82px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
                         changed(value) => { root.set-volume(value); } }
                     Tool { label: "■"; hint: "Stop"; activated => { root.stop(); } }
                     Tool { label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
@@ -276,7 +307,7 @@ export component PlayerWindow inherits Window {
             if event.text == " " { root.toggle-pause(); return accept; }
             if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
             if event.text == Key.LeftArrow { root.seek-relative(-5); return accept; }
-            if event.text == Key.UpArrow { root.set-volume(min(100, root.volume + 5)); return accept; }
+            if event.text == Key.UpArrow { root.set-volume(min(root.volume-limit, root.volume + 5)); return accept; }
             if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 5)); return accept; }
             if event.text == "m" { root.toggle-mute(); return accept; }
             if event.text == "." { root.frame-step(); return accept; }

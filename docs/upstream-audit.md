@@ -4,7 +4,7 @@ Commit: fbcff4df7183b335880396af0655f6bb89d46442. Windows source inspection only
 no macOS execution. Full files are in the excluded `reference/iina-upstream` checkout.
 
 The repository was empty at acquisition. Swift comments use explanatory documentation,
-particularly PlayerCore's A–B minimum and MPVController's event-queue caveats; wiina
+particularly PlayerCore's A–B minimum and MPVController's event-queue caveats; riina
 uses similarly purposeful comments adapted to Rust ownership.
 
 Broad inventory (not yet a complete atomic feature transcription):
@@ -44,10 +44,10 @@ chapter timestamp, absolute seek and resume. Clear preserves the playing entry.
 LoadExternalSubFile reloads an already loaded external subtitle rather than adding
 duplicates. MPVCommandWrappers preserves mpv playlist-move target semantics.
 LoopMode.next is off → file → playlist → off. Audio delay sliders span -5…5 s,
-but source text input allows wider values; current wiina slider lacks that input.
+but source text input allows wider values; current riina slider lacks that input.
 SidebarTrackSelector has 26-point rows, a None entry and selection marker; subtitle
 pane additionally has secondary selection/visibility/delay, still pending here.
 Playlist rows are 30 points spacious/26 compact; chapters are 40 points with
 double-click playback. MPVTrack.readableString assembles title, codec, channel count,
-sample rate and Default. Language badges use localized names upstream; wiina currently
+sample rate and Default. Language badges use localized names upstream; riina currently
 shows the raw language code. These are source-derived facts, not live macOS captures.

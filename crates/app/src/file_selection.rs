@@ -1,6 +1,6 @@
 //! Local-file selection rules from the pinned PlayerCore/DraggingDetect workflow.
+use crate::platform::natural_compare;
 use std::{cmp::Ordering, collections::HashSet, fs, path::Path};
-use windows::{Win32::UI::Shell::StrCmpLogicalW, core::PCWSTR};
 
 // Utility.blacklistExt: explicitly selected unknown formats remain eligible.
 const BLACKLIST: &[&str] = &[
@@ -109,15 +109,6 @@ fn extension(path: &str) -> String {
         .to_lowercase()
 }
 
-fn natural_compare(left: &str, right: &str) -> Ordering {
-    let left: Vec<u16> = left.encode_utf16().chain(Some(0)).collect();
-    let right: Vec<u16> = right.encode_utf16().chain(Some(0)).collect();
-    // SAFETY: both arrays are NUL-terminated and live throughout this read-only call.
-    // Explorer's comparator supplies the Windows equivalent of localizedStandardCompare.
-    // Locale-specific ordering is an explicit platform adaptation, not pixel/byte parity.
-    unsafe { StrCmpLogicalW(PCWSTR(left.as_ptr()), PCWSTR(right.as_ptr())).cmp(&0) }
-}
-
 #[cfg(test)]
 mod tests {
     use super::prepare;
@@ -131,7 +122,7 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let path = base.join(format!("wiina-discovery-{}-{stamp}", std::process::id()));
+            let path = base.join(format!("riina-discovery-{}-{stamp}", std::process::id()));
             std::fs::create_dir(&path).unwrap();
             Self(path)
         }

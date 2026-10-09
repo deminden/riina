@@ -1,9 +1,9 @@
 //! Filesystem preparation never runs inside a rendering callback or GUI event.
 use crate::{PlayerWindow, file_selection};
+use riina_core::Command;
+use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::ffi::OsString;
-use wiina_core::Command;
-use wiina_mpv::CommandSender;
 
 pub fn startup(app: &PlayerWindow, path: OsString, sender: CommandSender) {
     match path.into_string() {

@@ -35,3 +35,16 @@ Stop/reopen and popup-focused shutdown have runtime evidence. Next renderer work
 video blur/composition, narrow-window and mixed-monitor DPI coverage, modal ownership,
 compressed HDR/hardware decode and measured color/performance. Keep these gates open
 while completing source-matched controls; transparent tint does not reproduce blur.
+
+Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
+is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect
+interface parity and full behavioral/feature parity with IINA v1.5.0 are primary
+acceptance goals. Preserve its elegant interface; do not substitute a redesign.
+The requested extension is opt-in volume boost up to 200%; the default volume
+range remains 0–100%. Default behavior and appearance target exact IINA parity. No Vim
+controls are requested. Historical wiina evidence remains under its original name.
+
+Near-term port gate: compile/test riina-core on Windows, macOS and Linux; audit
+libmpv discovery and GL lifecycle on each target; implement native dialog/storage/
+window services behind the platform boundary; keep the same shared controls and
+behavior tests. Port support requires actual builds and playback evidence.

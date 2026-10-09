@@ -3,7 +3,7 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // A feasibility surface, not the source-matched player UI. Keeping it separate
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
-    in property <string> display-title: "wiina — D3D11 experiment";
+    in property <string> display-title: "riina — D3D11 experiment";
     title: display-title;
     preferred-width: 960px;
     preferred-height: 600px;
@@ -13,7 +13,7 @@ export component NativeVideoHost inherits Window {
 }
 
 export component NativeProbeOverlay inherits Window {
-    title: "wiina — native controls";
+    title: "riina — native controls";
     no-frame: true;
     width: 460px;
     height: 190px;

@@ -1,11 +1,11 @@
-//! Run explicitly: cargo test -p wiina-mpv --test native --locked -- --ignored --nocapture
+//! Run explicitly: cargo test -p riina-mpv --test native --locked -- --ignored --nocapture
+use riina_core::{Command, Phase, Playback, TrackKind};
+use riina_mpv::Player;
 use std::{
     path::PathBuf,
     sync::mpsc,
     time::{Duration, Instant},
 };
-use wiina_core::{Command, Phase, Playback, TrackKind};
-use wiina_mpv::Player;
 
 #[test]
 #[ignore = "requires pinned Windows libmpv; decodes original PQ/HLG and checks replacement metadata"]
@@ -230,6 +230,10 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
         state.paused && state.position.is_some_and(|p| (p - 2.0).abs() < 0.15)
     });
     assert_eq!(paused.generation, seeked.generation);
+    for volume in [150.0, 200.0] {
+        player.send(Command::Volume(volume)).unwrap();
+        wait_for(&receiver, |state| (state.volume - volume).abs() < 0.1);
+    }
     player.send(Command::Volume(25.0)).unwrap();
     wait_for(&receiver, |state| (state.volume - 25.0).abs() < 0.1);
     player.send(Command::ToggleMute).unwrap();
@@ -429,15 +433,15 @@ fn chapters_external_tracks_and_playlist_editing() {
     assert!(same_entry.position.is_some_and(|position| position < 1.0));
     player.send(Command::CycleLoop).unwrap();
     wait_for(&receiver, |state| {
-        state.loop_mode() == wiina_core::LoopMode::File
+        state.loop_mode() == riina_core::LoopMode::File
     });
     player.send(Command::CycleLoop).unwrap();
     wait_for(&receiver, |state| {
-        state.loop_mode() == wiina_core::LoopMode::Playlist
+        state.loop_mode() == riina_core::LoopMode::Playlist
     });
     player.send(Command::CycleLoop).unwrap();
     wait_for(&receiver, |state| {
-        state.loop_mode() == wiina_core::LoopMode::Off
+        state.loop_mode() == riina_core::LoopMode::Off
     });
     player.send(Command::ClearPlaylist).unwrap();
     let cleared = wait_for(&receiver, |state| state.playlist.len() == 1);

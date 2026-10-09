@@ -2,6 +2,8 @@ use crate::{
     CatalogRow, NativeVideoHost, PlayerWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
+use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
+use riina_mpv::{Player, video::VideoSurface};
 use slint::ComponentHandle;
 use std::{
     cell::RefCell,
@@ -13,21 +15,6 @@ use std::{
     },
     time::Duration,
 };
-use wiina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
-use wiina_mpv::{Player, video::VideoSurface};
-
-fn dll_path() -> PathBuf {
-    // Development uses the pinned local dependency; installed builds resolve only
-    // beside their executable, never beside media or from PATH.
-    let installed = std::env::current_exe()
-        .unwrap_or_default()
-        .with_file_name("libmpv-2.dll");
-    if installed.is_file() {
-        installed
-    } else {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/mpv/libmpv-2.dll")
-    }
-}
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
     for kind in [TrackKind::Audio, TrackKind::Sub] {
@@ -190,7 +177,12 @@ pub(crate) struct UiSession {
 impl UiSession {
     pub(crate) fn save(&self, app: &PlayerWindow) -> Result<(), Box<dyn std::error::Error>> {
         let prefs = Preferences {
-            volume: app.get_volume() as f64,
+            volume: (app.get_volume() as f64).min(if app.get_volume_boost() {
+                200.0
+            } else {
+                100.0
+            }),
+            volume_boost: app.get_volume_boost(),
             ..self.prefs.clone()
         };
         platform::save_preferences(&self.prefs_path, &serde_json::to_string_pretty(&prefs)?)?;
@@ -209,6 +201,7 @@ pub(crate) fn configure_player(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
         Err(error) => return Err(error.into()),
     };
+    app.set_volume_boost(prefs.volume_boost);
     let app_weak = app.as_weak();
     // Only one pending state snapshot is retained; a decoder can produce updates
     // faster than the UI consumes them without growing the application event queue.
@@ -241,9 +234,9 @@ pub(crate) fn configure_player(
             .join("../../tools")
             .canonicalize()?
             .join("native-player.log");
-        Player::start_native_window(&dll_path(), *wid, &log, notify)
+        Player::start_native_window(&platform::playback_library(), *wid, &log, notify)
     } else {
-        Player::start(&dll_path(), false, notify)
+        Player::start(&platform::playback_library(), false, notify)
     };
     let player = match player {
         Ok(player) => player,
@@ -415,13 +408,28 @@ pub(crate) fn configure_player(
             app.on_seek_relative(seek);
         }
     }
+    let boost_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_volume_boost(move |enabled| {
+        if let Some(app) = weak.upgrade() {
+            let volume = app.get_volume().min(if enabled { 200.0 } else { 100.0 });
+            match boost_player.send(Command::Volume(volume as f64)) {
+                Ok(()) => {
+                    app.set_volume_boost(enabled);
+                    app.set_volume(volume);
+                }
+                Err(error) => app.set_status(error.into()),
+            }
+            app.invoke_activity();
+        }
+    });
     let volume_player = player.command_sender();
     let weak = app.as_weak();
     app.on_set_volume(move |volume| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        if let Err(error) = volume_player.send(Command::Volume(volume as f64))
+        let Some(app) = weak.upgrade() else { return };
+        app.invoke_activity();
+        let limit = if app.get_volume_boost() { 200.0 } else { 100.0 };
+        if let Err(error) = volume_player.send(Command::Volume((volume as f64).min(limit)))
             && let Some(app) = weak.upgrade()
         {
             app.set_status(error.into());

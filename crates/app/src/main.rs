@@ -1,12 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod file_dialog;
 mod file_selection;
 mod media_open;
-mod native_window;
 mod platform;
 mod player_ui;
-mod ui_dialogs;
+use platform::{file_dialog, native_window, ui_dialogs};
 use player_ui::configure_player;
 use slint::ComponentHandle;
 slint::include_modules!();

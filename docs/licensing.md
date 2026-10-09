@@ -1,7 +1,7 @@
 # MIT and independent implementation
 
 The user requires MIT and independent development. The root LICENSE grants MIT
-rights to original wiina contributions. This does not grant permission to
+rights to original riina contributions. This does not grant permission to
 relicense third-party work. The operating system and programming language are
 not a copyright exception: translating protected GPL code into Rust does not
 make it MIT code.
@@ -14,7 +14,7 @@ make it MIT code.
   documented libmpv, Windows and Slint interfaces. Do not mechanically port Swift
   methods, data structures, XIBs or source assets.
 - Preserve compatibility/provenance records. If protected IINA expression is
-  found in wiina, the MIT grant does not cover it: replace it with an independent
+  found in riina, the MIT grant does not cover it: replace it with an independent
   implementation or obtain the appropriate permission.
 - Keep full portable parity as the target. Independent implementation must not
   mean dropping functionality or redesigning the interface.
@@ -31,7 +31,7 @@ original contributions is not a blanket legal certification.
 
 | Scope | Terms |
 |---|---|
-| Original wiina Rust/Slint definitions, scripts and documentation | MIT, root LICENSE |
+| Original riina Rust/Slint definitions, scripts and documentation | MIT, root LICENSE |
 | mpv ABI definitions | Retained ISC notice in THIRD_PARTY_NOTICES.md |
 | Original synthetic fixture bytes | CC0-1.0, fixture README and manifest |
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |

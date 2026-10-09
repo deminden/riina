@@ -3,6 +3,7 @@ mod ffi;
 pub mod video;
 
 use ffi::{Api, EndFile, Property};
+use riina_core::{Command, Phase, Playback};
 use std::{
     collections::HashMap,
     ffi::{CStr, CString, c_void},
@@ -11,7 +12,6 @@ use std::{
     sync::mpsc::{self, SyncSender},
     thread::JoinHandle,
 };
-use wiina_core::{Command, Phase, Playback};
 
 enum Message {
     Intent(Command),
@@ -115,7 +115,7 @@ impl Player {
                 let initialized = (|| -> Result<(), String> {
                     for (key, value) in [("config", "no"), ("load-scripts", "no"), ("idle", "yes"),
                         ("vo", if headless { "null" } else { "libmpv" }),
-                        ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes")] {
+                        ("volume-max", "200"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes")] {
                         let key = CString::new(key).unwrap();
                         let value = CString::new(value).unwrap();
                         worker_api.check((worker_api.option)(handle, key.as_ptr(), value.as_ptr()))?;

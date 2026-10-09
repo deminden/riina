@@ -40,7 +40,7 @@ Do not add advertisements, accounts, cloud synchronization, AI features, or tele
 
 ## 3. Licensing and asset provenance
 
-The user's later instruction requires MIT and independent development. Original wiina contributions are MIT. Use IINA to establish observable behavior, then write independent Rust implementations using documented platform interfaces. Do not translate protected IINA implementation code or reuse its assets under an MIT label. Preserve dependency notices and provenance, and audit the combined distribution separately; see docs/licensing.md.
+The user's later instruction requires MIT and independent development. Original riina contributions are MIT. Use IINA to establish observable behavior, then write independent Rust implementations using documented platform interfaces. Do not translate protected IINA implementation code or reuse its assets under an MIT label. Preserve dependency notices and provenance, and audit the combined distribution separately; see docs/licensing.md.
 
 Audit the selected Slint license, the exact libmpv build, bundled native dependencies, plugin assets, fonts, and icons. Maintain `THIRD_PARTY_NOTICES.md` and an asset provenance manifest. Include corresponding-source/build information required by the chosen distribution arrangement.
 
@@ -413,3 +413,11 @@ Treat these as navigation links. The pinned source and the documentation matchin
     https://learn.microsoft.com/en-us/windows/win32/api/systemmediatransportcontrolsinterop/nf-systemmediatransportcontrolsinterop-isystemmediatransportcontrolsinterop-getforwindow
     https://developers.openai.com/codex/agent-configuration/agents-md
     https://developers.openai.com/cookbook/articles/codex_exec_plans
+
+Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
+is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect
+interface parity and full behavioral/feature parity with IINA v1.5.0 are primary
+acceptance goals. Preserve its elegant interface; do not substitute a redesign.
+The requested extension is opt-in volume boost up to 200%; the default volume
+range remains 0–100%. Default behavior and appearance target exact IINA parity. No Vim
+controls are requested. Historical wiina evidence remains under its original name.

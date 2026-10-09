@@ -55,9 +55,9 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
         })
         .select()?;
     let host = NativeVideoHost::new()?;
-    host.set_display_title("wiina · IINA-RS — native video experiment".into());
+    host.set_display_title("riina — native video experiment".into());
     host.window().with_winit_window(|window| {
-        window.set_title("wiina · IINA-RS — native video experiment");
+        window.set_title("riina — native video experiment");
     });
     let chrome: Rc<RefCell<Option<PlayerWindow>>> = Rc::new(RefCell::new(None));
     let session: Rc<RefCell<Option<UiSession>>> = Rc::new(RefCell::new(None));

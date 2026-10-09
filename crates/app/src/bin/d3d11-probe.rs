@@ -1,4 +1,6 @@
 //! Bounded experiment: mpv owns native video; an owned Slint popup tests airspace.
+use riina_core::{Command, time_label};
+use riina_mpv::Player;
 use slint::{
     ComponentHandle,
     winit_030::{EventResult, WinitWindowAccessor, winit},
@@ -12,8 +14,6 @@ use std::{
         atomic::{AtomicIsize, Ordering},
     },
 };
-use wiina_core::{Command, time_label};
-use wiina_mpv::Player;
 use winit::{
     platform::windows::WindowAttributesExtWindows,
     raw_window_handle::{HasWindowHandle, RawWindowHandle},

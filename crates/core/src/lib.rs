@@ -53,7 +53,7 @@ impl Command {
                 }
                 .into(),
             ],
-            Self::Volume(value) if value.is_finite() && (0.0..=100.0).contains(value) => {
+            Self::Volume(value) if value.is_finite() && (0.0..=200.0).contains(value) => {
                 vec!["set".into(), "volume".into(), value.to_string()]
             }
             Self::Speed(value) if value.is_finite() && (0.01..=100.0).contains(value) => {
@@ -494,6 +494,7 @@ pub fn time_label(seconds: Option<f64>) -> String {
 pub struct Preferences {
     pub schema_version: u32,
     pub volume: f64,
+    pub volume_boost: bool,
     pub dark: bool,
     pub compact: bool,
 }
@@ -504,6 +505,7 @@ impl Default for Preferences {
         Self {
             schema_version: 1,
             volume: 100.0,
+            volume_boost: false,
             dark: true,
             compact: false,
         }
@@ -511,14 +513,20 @@ impl Default for Preferences {
 }
 
 impl Preferences {
+    pub fn volume_limit(&self) -> f64 {
+        if self.volume_boost { 200.0 } else { 100.0 }
+    }
+
     pub fn parse(text: &str) -> Result<Self, String> {
-        let prefs: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        let mut prefs: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
         if prefs.schema_version != 1
             || !prefs.volume.is_finite()
-            || !(0.0..=100.0).contains(&prefs.volume)
+            || !(0.0..=200.0).contains(&prefs.volume)
         {
             return Err("Unsupported preference version or invalid volume".into());
         }
+        // Old settings keep their default cap unless boosting was explicitly enabled.
+        prefs.volume = prefs.volume.min(prefs.volume_limit());
         Ok(prefs)
     }
 }
@@ -560,7 +568,7 @@ mod tests {
             .mpv_args()
             .is_err()
         );
-        assert!(Command::Volume(101.0).mpv_args().is_err());
+        assert!(Command::Volume(201.0).mpv_args().is_err());
     }
 
     #[test]
@@ -604,6 +612,27 @@ mod tests {
     fn preferences_reject_future_schema() {
         assert!(Preferences::parse(r#"{"schema_version":2}"#).is_err());
         assert_eq!(Preferences::parse("{}").unwrap().volume, 100.0);
+    }
+
+    #[test]
+    fn amplified_volume_round_trips_and_rejects_invalid_values() {
+        for volume in [0.0, 100.0, 150.0, 200.0] {
+            assert_eq!(
+                Command::Volume(volume).mpv_args().unwrap()[2],
+                volume.to_string()
+            );
+            let json = format!(r#"{{"volume":{volume},"volume_boost":true}}"#);
+            assert_eq!(Preferences::parse(&json).unwrap().volume, volume);
+        }
+        for volume in [-1.0, 200.1, f64::NAN, f64::INFINITY] {
+            assert!(Command::Volume(volume).mpv_args().is_err());
+        }
+        assert!(Preferences::parse(r#"{"volume":201}"#).is_err());
+        assert!(!Preferences::default().volume_boost);
+        assert_eq!(
+            Preferences::parse(r#"{"volume":150}"#).unwrap().volume,
+            100.0
+        );
     }
 
     #[test]

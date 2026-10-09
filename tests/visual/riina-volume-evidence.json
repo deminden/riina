@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-09",
+  "binary_sha256": "e3d22fbd42a77fa02e92f86f19fb9f809a1d3e8c3b77fd20b30da6e91842db3b",
+  "scale_factor": 3,
+  "verified": [
+    "Renamed riina executable plays catalog.mkv",
+    "Enabled boost permits observed UI volume 200",
+    "Keyboard Space on boost checkbox disables boost and reduces volume to 100",
+    "Attempt to set volume 150 with boost disabled observes 100",
+    "Restored volume 37; normal shutdown saves volume_boost=false and volume=37",
+    "Dark checkbox label/focus contrast visually inspected",
+    "17 unit tests, 4 explicit native tests including 150/200 volume, strict Clippy, optimized build"
+  ],
+  "unverified": [
+    "Other OS builds and playback",
+    "Native-window boost GUI route",
+    "Calibrated audio gain or distortion",
+    "Pixel-perfect comparison against matching macOS captures"
+  ],
+  "local_capture": "riina-volume-disabled.txt"
+}

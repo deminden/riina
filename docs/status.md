@@ -5,8 +5,8 @@ incomplete: 64 atomic parity rows and 19 plugin surfaces are tracked. Milestone 
 is in progress; real SDR playback works, but HDR architecture, DPI coverage and
 full accessibility/visual fidelity gates are not closed.
 
-Published source: https://github.com/deminden/wiina. At the user's request,
-original wiina contributions now use MIT and an explicit independent-development
+Published source: https://github.com/deminden/riina. At the user's request,
+original riina contributions now use MIT and an explicit independent-development
 policy (docs/licensing.md). Slint uses Royalty-free 2.0 with the official badge
 in the public README; mpv ABI notices remain ISC. Third-party references and
 native binaries retain their own terms. This source grant does not certify
@@ -26,7 +26,7 @@ exercised; actual captures/metadata are in `tests/visual/hdr-lifecycle-evidence.
 This is an observed HDR route, not calibrated color accuracy or full UI parity.
 Undefined native target ratios no longer cause playback errors.
 
-`wiina --native-video <media>` now uses this candidate behind the same player
+`riina --native-video <media>` now uses this candidate behind the same player
 controls and sidebars as the default renderer. The shared controller is in
 player_ui.rs; native_window.rs handles HWND ownership, client sizing and focus.
 Actual native GUI checks covered PQ/HLG, fullscreen/Escape, toolbar Tab/Enter,
@@ -102,8 +102,8 @@ selection, clipboard, shuffle/sort, numeric delay input and full styling are pen
 
 Artifacts:
 
-- `target/x86_64-pc-windows-msvc/release/wiina.exe`: optimized unsigned development executable.
-- `target/debug/wiina.exe`: earlier debug executable; rebuild before relying on its latest state.
+- `target/x86_64-pc-windows-msvc/release/riina.exe`: optimized unsigned development executable.
+- `target/debug/riina.exe`: earlier debug executable; rebuild before relying on its latest state.
 - `tools/mpv/libmpv-2.dll`: pinned development runtime, loaded from the workspace or beside the executable.
 - `tests/visual/`: actual Windows captures and capture manifest; not upstream references.
 
@@ -111,7 +111,7 @@ Build/run:
 
 ```powershell
 ./scripts/dev.ps1 -CargoArguments @('build','--release','--locked','--target','x86_64-pc-windows-msvc')
-& ./target/x86_64-pc-windows-msvc/release/wiina.exe ./tests/fixtures/moving-square.avi
+& ./target/x86_64-pc-windows-msvc/release/riina.exe ./tests/fixtures/moving-square.avi
 ```
 
 The wrapper selects workspace-local Rust and import libraries when normal MSVC tools
@@ -126,7 +126,7 @@ fixtures are generated locally and hash-checked by scripts/check-fixtures.py.
 
 CI configuration is in `.github/workflows/windows.yml`: pinned checkout action,
 Rust toolchain, formatting/lint/domain tests, traceability and actual Windows application
-compilation. It has not been run on GitHub. Hosted compilation is not Windows 11 GUI
+compilation. The two initial Windows CI runs completed successfully on GitHub. Hosted compilation is not Windows 11 GUI
 or native playback evidence; those checks remain explicitly separate.
 
 See verification.md for exact commands/results and GUI limitations. No live macOS
@@ -155,3 +155,16 @@ Recursive folder startup now discovers and orders media on a background worker i
 both playback routes. Sixteen unit tests pass; both routes have observed folder
 playlist/pause/shutdown evidence. GUI folder selection, scan cancellation/resource
 limits and link/permission edge cases remain open. See folder-opening-evidence.json.
+
+The project is now riina. Original state/commands/preferences stay in riina-core,
+which has no Windows or GUI dependency. Windows dialogs, window ownership,
+preferences storage, library resolution and Shell comparison live under
+crates/app/src/platform/windows. The Windows dependency is target-scoped.
+Shared Slint/controller behavior remains above these native services. Other OS
+backends are near-term work, not implemented or tested. Volume boost is opt-in and
+defaults off; disabling it restores the 100% cap.
+
+GUI volume extension verified on the default renderer at 300% DPI: enabled
+200%, disable/clamp to 100%, disabled-range enforcement and persisted off state.
+Dark control contrast was corrected and visually inspected. See
+tests/visual/riina-volume-evidence.json. Exact IINA visual parity remains open.

@@ -319,3 +319,13 @@ entries, playback, keyboard pause, sidebar activation and clean shutdown at 300%
 Evidence: tests/visual/folder-opening-evidence.json. Raw accessibility captures remain
 local. GUI acceptance, folder picker, cancellation stress and actual disc playback
 remain unverified. This binary SHA-256: `9bbbf5a2ae6d0e0b15752f863ac966833c74dfbc89d0bf14a08c1a8e1043631f`.
+
+riina rename and volume extension (2026-10-09): historical wiina names/hashes
+above remain intact. Rust packages now use riina, riina-core and riina-mpv.
+17 unit tests, strict Clippy and four explicit native tests pass. The native
+playback test observes volume at 150% and 200%, then returns to 25%. Preferences
+default boost off, cap legacy excessive volume at 100%, and preserve enabled
+values through 200%. GUI checks now observe enabled 200%, keyboard disabling to 100%, disabled
+150% requests capped at 100%, readable dark checkbox and normal shutdown saving
+boost off with restored volume 37. Evidence: tests/visual/riina-volume-evidence.json.
+The native-window GUI route and other OS builds remain unverified.

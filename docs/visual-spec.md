@@ -35,3 +35,9 @@ Capture plan: initial, playing, paused, hidden OSC, both themes, compact/spaciou
 each sidebar, music/PiP, menus and settings. Record OS, IINA version, theme/layout,
 client dimensions, scale, fixture hash/position and panels. Normalize client areas;
 define per-region tolerance before goldens. Windows captures prove regression only.
+
+Pixel-perfect interface parity is a primary acceptance goal alongside features.
+Default riina surfaces must match IINA v1.5.0; extensions remain opt-in. Measure
+layout, typography, icons, material, focus and animation by region at matched
+client sizes and scale. Golden comparison requires actual reference captures;
+source geometry and Windows-only captures cannot prove pixel-perfect completion.

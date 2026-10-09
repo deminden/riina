@@ -1,12 +1,12 @@
 //! One owned picker per player; native HWNDs outlive its dedicated COM apartment.
 use crate::{NativeVideoHost, PlayerWindow, file_dialog, media_open};
+use riina_core::Command;
+use riina_mpv::CommandSender;
 use slint::{
     ComponentHandle,
     winit_030::{WinitWindowAccessor, winit},
 };
 use std::sync::Arc;
-use wiina_core::Command;
-use wiina_mpv::CommandSender;
 use winit::{platform::windows::WindowExtWindows, window::Window};
 
 #[derive(Clone, Copy)]

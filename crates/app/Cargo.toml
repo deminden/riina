@@ -1,11 +1,11 @@
 [package]
-name = "wiina"
+name = "riina"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 build = "build.rs"
-default-run = "wiina"
+default-run = "riina"
 
 [lints]
 workspace = true
@@ -14,9 +14,11 @@ workspace = true
 slint.workspace = true
 glow.workspace = true
 serde_json.workspace = true
-windows.workspace = true
-wiina-core = { path = "../core" }
-wiina-mpv = { path = "../mpv" }
+riina-core = { path = "../core" }
+riina-mpv = { path = "../mpv" }
 
 [build-dependencies]
 slint-build.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows.workspace = true

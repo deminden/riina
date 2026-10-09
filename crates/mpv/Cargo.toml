@@ -1,5 +1,5 @@
 [package]
-name = "wiina-mpv"
+name = "riina-mpv"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,4 +12,4 @@ workspace = true
 libloading.workspace = true
 glow.workspace = true
 serde_json.workspace = true
-wiina-core = { path = "../core" }
+riina-core = { path = "../core" }
