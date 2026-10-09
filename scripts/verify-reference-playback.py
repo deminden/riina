@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-endpoint, output, fixture = sys.argv[1:]
+endpoint, output, fixture, capture_program = sys.argv[1:]
 output = Path(output)
 deadline = time.monotonic() + 30
 connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -57,32 +57,53 @@ with connection, connection.makefile("rwb") as stream:
             raise RuntimeError("The original reference fixture did not load")
         time.sleep(0.1)
 
-    command("set_property", "pause", True)
-    command("seek", 2, "absolute+exact")
-
     def snapshot():
         return {name: command("get_property", name) for name in
                 ["pause", "time-pos", "seeking", "filename", "mpv-version"]}
 
-    while True:
-        before = snapshot()
-        if (before["pause"] is True and before["seeking"] is False
-                and abs(before["time-pos"] - 2) < 0.05
-                and before["filename"] == fixture):
-            break
-        if time.monotonic() >= deadline:
-            raise RuntimeError(f"Requested reference state was not reached: {before}")
-        time.sleep(0.1)
+    def matches_requested_state(state):
+        return (state["pause"] is True and state["seeking"] is False
+                and isinstance(state["time-pos"], (int, float))
+                and abs(state["time-pos"] - 2) < 0.05 and state["filename"] == fixture)
 
-    # Capture is bracketed by actual engine observations. A launch flag or a
-    # successful seek reply alone cannot establish the image's playback state.
-    result = subprocess.run(["swift", "scripts/capture-iina-reference.swift", str(output), fixture])
-    after = snapshot()
-    valid = (after["pause"] is True and after["seeking"] is False
-             and abs(after["time-pos"] - 2) < 0.05 and after["filename"] == fixture)
-    record = {"schema_version": 1, "before_capture": before, "after_capture": after,
-              "playback_state_verified": valid, "capture_exit_code": result.returncode,
-              "source": "Observed through official reference mpv JSON IPC; not riina state"}
-    (output / "playback-observation.json").write_bytes((json.dumps(record, indent=2) + "\n").encode())
-    if result.returncode != 0 or not valid:
-        raise RuntimeError("Reference capture or playback-state verification failed")
+    attempts = []
+    for attempt in range(1, 4):
+        command("set_property", "pause", True)
+        command("seek", 2, "absolute+exact")
+        settle_deadline = time.monotonic() + 8
+        stable_since = None
+        while True:
+            before = snapshot()
+            if matches_requested_state(before):
+                if stable_since is None:
+                    stable_since = time.monotonic()
+                if time.monotonic() - stable_since >= 0.75:
+                    break
+            else:
+                stable_since = None
+                command("set_property", "pause", True)
+                command("seek", 2, "absolute+exact")
+            if time.monotonic() >= settle_deadline:
+                raise RuntimeError(f"Reference playback did not stabilize: {before}")
+            time.sleep(0.1)
+
+        # A late IINA startup transition can undo IPC pause. Preserve failed
+        # images/observations and retry only after an observed state mismatch.
+        attempt_output = output / f"attempt-{attempt:02}"
+        result = subprocess.run([capture_program, str(attempt_output), fixture])
+        after = snapshot()
+        valid = matches_requested_state(after)
+        attempts.append({"attempt": attempt, "before_capture": before,
+                         "after_capture": after, "playback_state_verified": valid,
+                         "capture_exit_code": result.returncode,
+                         "capture_directory": attempt_output.name})
+        record = {"schema_version": 1, "attempts": attempts,
+                  "accepted_attempt": attempt if valid and result.returncode == 0 else None,
+                  "source": "Observed through official reference mpv JSON IPC; not riina state"}
+        (output / "playback-observation.json").write_bytes((json.dumps(record, indent=2) + "\n").encode())
+        if result.returncode != 0:
+            raise RuntimeError("Reference window capture failed; see metadata")
+        if valid:
+            break
+    else:
+        raise RuntimeError("Reference playback changed during all three bounded captures")

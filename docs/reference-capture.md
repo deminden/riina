@@ -10,7 +10,10 @@ The official CLI opens the original catalog.mkv fixture with an isolated mpv
 JSON IPC endpoint. The capture harness waits for actual media readiness, pauses
 and seeks to two seconds, then observes pause/position/seeking before and after
 the screenshot. Launch flags alone failed to establish the requested state in
-the initial capture. Capture tooling records theme, screen scale and visible
+the initial capture. The helper is compiled before launch so compilation cannot
+delay a bracketed capture. The harness checks a stable playback interval and
+allows at most three captures, preserving each attempt if startup changes state.
+Capture tooling records theme, screen scale and visible
 IINA window metadata. It checks existing screen-recording permission without
 requesting it or modifying OS security settings. It captures only a single player
 window whose title contains the fixture filename. Failure preserves diagnostic
