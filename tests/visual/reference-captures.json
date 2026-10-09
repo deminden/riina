@@ -35,6 +35,43 @@
       "accepted_as_comparison_golden": false,
       "local_raw_directory": "reference/captures/38005209380",
       "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    },
+    {
+      "id": "IINA-1.5.0-IPC-001",
+      "run_id": 38005523871,
+      "job_id": 114073307952,
+      "url": "https://github.com/deminden/riina/actions/runs/38005523871",
+      "source_commit": "2a48496e37235a94ebdbec2681d33644ed7992e6",
+      "image_sha256": "950bec33c858e5b64fd5dc0b248d2e45cbe8b1611c8c26e36a7c641597dc9d90",
+      "metadata_sha256": "37da3a6e41c6484ad0a9d192d185a26a8194250a59d58a589bf8e5cae496d5f9",
+      "playback_observation": {
+        "schema_version": 1,
+        "before_capture": {
+          "pause": true,
+          "time-pos": 2.0,
+          "seeking": false,
+          "filename": "catalog.mkv",
+          "mpv-version": "mpv v0.41.0"
+        },
+        "after_capture": {
+          "pause": true,
+          "time-pos": 5.0,
+          "seeking": false,
+          "filename": "catalog.mkv",
+          "mpv-version": "mpv v0.41.0"
+        },
+        "playback_state_verified": false,
+        "capture_exit_code": 0,
+        "source": "Observed through official reference mpv JSON IPC; not riina state"
+      },
+      "image_pixels": [
+        320,
+        180
+      ],
+      "review": "Image is black with no visible OSC. Playback changed from paused 2.0 seconds before capture to paused 5.0 seconds after capture. Workflow correctly rejected the requested state. Excluded from all visual goldens.",
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38005523871",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
     }
   ],
   "status": "Official macOS execution and initial image obtained; matching controls/position captures remain pending",
