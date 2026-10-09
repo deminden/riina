@@ -1,7 +1,12 @@
 # Source-derived visual specification
 
-Baseline v1.5.0 only. No macOS reference captures were available. No official images
-have been downloaded or measured. Every color and glyph metric is currently estimated.
+Baseline v1.5.0 only. Official macOS reference execution now exists: the initial
+capture is a 320 x 180 player window on macOS 26.6.2 at scale 1, Light theme,
+with the original catalog fixture visible and controls hidden. Its requested
+two-second position was not established, so it is excluded from matching-state
+golden comparisons. See tests/visual/reference-captures.json and
+docs/reference-capture.md. Control colors, material and glyph metrics remain
+estimated until actual visible-control captures are reviewed and measured.
 
 | Token | Value | Evidence |
 |---|---|---|
