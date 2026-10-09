@@ -1,0 +1,32 @@
+name: macOS libmpv integration
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal
+      - name: Provision and record test runtime
+        shell: bash
+        run: |
+          brew install mpv
+          brew info --json=v2 mpv
+          mpv --version
+          sw_vers
+          uname -m
+          library="$(brew --prefix mpv)/lib/libmpv.2.dylib"
+          test -f "$library"
+          shasum -a 256 "$library"
+          otool -L "$library"
+          printf 'RIINA_TEST_MPV_LIBRARY=%s\n' "$library" >> "$GITHUB_ENV"
+      - name: Verify original fixture bytes
+        run: python3 scripts/check-fixtures.py
+      - name: Real native playback and catalog tests
+        run: cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1
+      # These tests use null video output: they verify decoding and client commands,
+      # never window composition, displayed HDR, audible output or GUI behavior.

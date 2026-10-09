@@ -218,7 +218,11 @@ impl Command {
                 }
                 // Reload an existing external file to avoid duplicate tracks, as IINA does.
                 if let Some(track) = state.tracks.iter().find(|track| {
-                    track.kind == TrackKind::Sub && track.external_filename.as_deref() == Some(path)
+                    track.kind == TrackKind::Sub
+                        && track
+                            .external_filename
+                            .as_deref()
+                            .is_some_and(|existing| same_external_path(existing, path))
                 }) {
                     vec![vec!["sub-reload".into(), track.id.to_string()]]
                 } else {
@@ -247,6 +251,31 @@ impl Command {
 
 fn valid_path(path: &str) -> bool {
     !path.is_empty() && !path.contains('\0')
+}
+
+fn same_external_path(left: &str, right: &str) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        fn identity(path: &str) -> (bool, &str) {
+            if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+                (true, path)
+            } else if let Some(path) = path.strip_prefix(r"\\?\") {
+                (false, path)
+            } else if let Some(path) = path.strip_prefix(r"\\") {
+                (true, path)
+            } else {
+                (false, path)
+            }
+        }
+        // mpv may omit the verbatim prefix returned by Windows canonicalize.
+        // Compare that spelling equivalently without filesystem I/O or treating
+        // case-sensitive names, aliases or different volumes as the same file.
+        identity(left) == identity(right)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        left == right
+    }
 }
 
 pub struct CommandPlan {
@@ -536,6 +565,42 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn subtitle_reload_recognizes_mpv_normalized_windows_paths() {
+        for (observed, requested) in [
+            (r"C:\media\captions.srt", r"\\?\C:\media\captions.srt"),
+            (
+                r"\\server\share\captions.srt",
+                r"\\?\UNC\server\share\captions.srt",
+            ),
+        ] {
+            let track = serde_json::from_value(serde_json::json!({
+                "id": 7, "type": "sub", "external": true,
+                "external-filename": observed,
+            }))
+            .unwrap();
+            let state = Playback {
+                tracks: vec![track],
+                ..Default::default()
+            };
+            assert_eq!(
+                Command::AddSubtitle(requested.into())
+                    .plan(&state)
+                    .unwrap()
+                    .commands,
+                vec![vec!["sub-reload".to_owned(), "7".to_owned()]]
+            );
+            assert_eq!(
+                Command::AddSubtitle(format!("{requested}.other"))
+                    .plan(&state)
+                    .unwrap()
+                    .commands[0][0],
+                "sub-add"
+            );
+        }
+    }
 
     #[test]
     fn hdr_classification_matches_pinned_source_without_inventing_metadata() {

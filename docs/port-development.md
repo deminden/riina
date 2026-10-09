@@ -35,3 +35,15 @@ tests only. Native HDR presentation, localized filename ordering, application
 bundles/installers and pixel-perfect reference comparisons remain open.
 
 See [ADR 0004](adr/0004-shared-gl-application-ports.md) for the service boundary.
+
+Real decoding/catalog tests are available independently of GUI builds:
+
+```sh
+RIINA_TEST_MPV_LIBRARY=/absolute/path/to/libmpv.2.dylib \
+  cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1
+```
+
+Use the Linux library path on Linux. The manual macOS libmpv integration workflow
+records its provisioned Homebrew runtime before running these tests. Null video
+output exercises actual decoding, seeking, playlist/track commands and metadata;
+it does not validate visible rendering or sound.

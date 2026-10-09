@@ -1,5 +1,23 @@
 # Verification record · native Windows · 2026-10-09
 
+Native-test portability increment: tests can explicitly select an existing
+absolute library with RIINA_TEST_MPV_LIBRARY; Windows keeps its pinned DLL default.
+The first reruns exposed a real duplicate-subtitle bug: mpv reported a filename
+without the Windows verbatim prefix while the requested filename retained it.
+The command planner now treats ordinary/verbatim drive and UNC spellings as
+equivalent, with a Windows regression test; unrelated filenames remain distinct.
+A separate transient zero-track reload snapshot exposed an insufficient test
+barrier. Reload checks now wait for the selected external track as well as delay.
+All 19 Windows unit tests and strict lint pass; all four native tests passed in
+1.90 seconds before the barrier correction, then eight consecutive corrected
+catalog test runs passed. The complete corrected suite then passed (1.92 seconds),
+with formatting and strict lint passing again before publication.
+
+The manual macOS libmpv workflow provisions Homebrew's runtime and records formula
+metadata, mpv version, OS/architecture, library hash and linkage before running
+the same original-fixture tests. Its runtime is not the Windows pinned DLL;
+results cannot establish native window composition, displayed HDR or audible output.
+
 The macOS/Linux storage backend now has two native-target tests: simultaneous
 Unicode preference replacements must leave a complete payload and no temporary
 files; replacement into an existing directory must fail, preserve its contents

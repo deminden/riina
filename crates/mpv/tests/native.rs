@@ -7,15 +7,35 @@ use std::{
     time::{Duration, Instant},
 };
 
+fn test_library(root: &std::path::Path) -> PathBuf {
+    if let Some(path) = std::env::var_os("RIINA_TEST_MPV_LIBRARY") {
+        let path = PathBuf::from(path);
+        assert!(
+            path.is_absolute(),
+            "The selected test library must have an absolute path"
+        );
+        return path
+            .canonicalize()
+            .expect("The selected test library must exist");
+    }
+    #[cfg(target_os = "windows")]
+    return root.join("tools/mpv/libmpv-2.dll");
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = root;
+        panic!("Set RIINA_TEST_MPV_LIBRARY to the absolute path of a provisioned libmpv library");
+    }
+}
+
 #[test]
-#[ignore = "requires pinned Windows libmpv; decodes original PQ/HLG and checks replacement metadata"]
+#[ignore = "requires provisioned libmpv; decodes original PQ/HLG and checks replacement metadata"]
 fn hdr_metadata_replacement_and_stop() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&root.join("tools/mpv/libmpv-2.dll"), true, move |state| {
+    let player = Player::start(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -66,7 +86,7 @@ fn hdr_metadata_replacement_and_stop() {
 }
 
 #[test]
-#[ignore = "requires pinned Windows libmpv; verifies ordered multi-file replacement and resume"]
+#[ignore = "requires provisioned libmpv; verifies ordered multi-file replacement and resume"]
 fn multi_file_open_replaces_old_playlist_and_resumes() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -81,7 +101,7 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
             .to_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&root.join("tools/mpv/libmpv-2.dll"), true, move |state| {
+    let player = Player::start(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -150,17 +170,17 @@ fn wait_for(
 }
 
 #[test]
-#[ignore = "requires the pinned Windows libmpv DLL; exercises real native playback"]
+#[ignore = "requires provisioned libmpv; exercises real native playback"]
 fn playback_pause_seek_stop_failure_and_shutdown() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&root.join("tools/mpv/libmpv-2.dll"), true, move |state| {
+    let player = Player::start(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
-    .expect("Prerequisite failure: fetch the pinned Windows libmpv binary");
+    .expect("Prerequisite failure: provision libmpv and select its absolute path with RIINA_TEST_MPV_LIBRARY");
     player
         .send(Command::Load(
             root.join("tests/fixtures/moving-square.avi")
@@ -278,7 +298,7 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
 }
 
 #[test]
-#[ignore = "requires pinned Windows libmpv; exercises real catalog workflows"]
+#[ignore = "requires provisioned libmpv; exercises real catalog workflows"]
 fn chapters_external_tracks_and_playlist_editing() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -292,7 +312,7 @@ fn chapters_external_tracks_and_playlist_editing() {
             .to_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&root.join("tools/mpv/libmpv-2.dll"), true, move |state| {
+    let player = Player::start(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -334,11 +354,16 @@ fn chapters_external_tracks_and_playlist_editing() {
     player
         .send(Command::AddSubtitle(fixture("manual-captions.srt")))
         .unwrap();
-    // A property observation alone can be unchanged after reload; delay observation
-    // serves as a command-order barrier without sleeping or querying a second clock.
+    // Reload can temporarily remove its catalog entry. Delay observation alone
+    // orders commands but does not prove the independent catalog has settled.
+    // Wait for its selected external entry as well, without a timing sleep.
     player.send(Command::SubtitleDelay(0.25)).unwrap();
     let reloaded_subs = wait_for(&receiver, |state| {
         (state.subtitle_delay - 0.25).abs() < 0.001
+            && state
+                .tracks
+                .iter()
+                .any(|track| track.kind == TrackKind::Sub && track.external && track.selected)
     });
     assert_eq!(
         reloaded_subs
@@ -346,7 +371,11 @@ fn chapters_external_tracks_and_playlist_editing() {
             .iter()
             .filter(|track| track.kind == TrackKind::Sub)
             .count(),
-        sub_count
+        sub_count,
+        "Reloaded subtitle catalog: {:?}; original catalog: {:?}; requested path: {}",
+        reloaded_subs.tracks,
+        subs.tracks,
+        fixture("manual-captions.srt")
     );
     player.send(Command::ToggleSubtitleVisibility).unwrap();
     wait_for(&receiver, |state| !state.subtitle_visible);
