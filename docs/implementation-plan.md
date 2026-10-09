@@ -48,3 +48,10 @@ Near-term port gate: compile/test riina-core on Windows, macOS and Linux; audit
 libmpv discovery and GL lifecycle on each target; implement native dialog/storage/
 window services behind the platform boundary; keep the same shared controls and
 behavior tests. Port support requires actual builds and playback evidence.
+
+Portability checks now exercise the shared core on all three desktop systems.
+The matrix is being expanded to the portable mpv interface unit tests; native
+playback remains a separate gate. The toolchain no longer forces installation
+of a Windows standard library on every host. HWND-based engine startup is
+Windows-only. Next: remove raw window identifiers from the shared controller
+contract, then implement native OS dialog/storage/presentation services.

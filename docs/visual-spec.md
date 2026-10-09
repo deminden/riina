@@ -24,7 +24,7 @@ have been downloaded or measured. Every color and glyph metric is currently esti
 The floating controls now use the recorded 67-point outer height, 460-point width,
 14/8 vertical insets and 8-point row separation. The 17-point button row is an
 independent layout allocation pending reference capture measurements. A native
-Windows titlebar, estimated typography, substitute Unicode glyphs and tint remain. This
+Windows titlebar, estimated typography, original vector playback icons and tint remain. This
 is not pixel parity or video-sampled blur. Replace toolkit sliders and glyphs with
 measured custom geometry after live baseline captures. Light/compact/docked layouts,
 window controls, full sidebar layout, animations and focus measurements remain incomplete.
@@ -43,3 +43,8 @@ Default riina surfaces must match IINA v1.5.0; extensions remain opt-in. Measure
 layout, typography, icons, material, focus and animation by region at matched
 client sizes and scale. Golden comparison requires actual reference captures;
 source geometry and Windows-only captures cannot prove pixel-perfect completion.
+
+Player controls use original MIT vector icons recorded in assets/provenance.json.
+The shared component renders a consistent 17-point box and enabled/disabled tint,
+independent of system symbol-font coverage. Remaining repeat/secondary controls
+use provisional glyphs. Vector shapes are not yet measured against macOS goldens.

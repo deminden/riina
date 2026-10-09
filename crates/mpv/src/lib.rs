@@ -69,6 +69,7 @@ impl Player {
 
     /// Experimental native VO. The caller must retain the HWND until Player drops.
     /// mpv creates its child video window; no render API context may use this player.
+    #[cfg(target_os = "windows")]
     pub fn start_native_window(
         path: &Path,
         window: u32,

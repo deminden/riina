@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-10",
+  "gl_binary_sha256": "211ed2fd6b9701401bb47bfd6ecee0f56189f03218be620788ab6dc61e861f0a",
+  "scale_factor": 3,
+  "verified": [
+    "Original SVG controls visibly render in GL at 300% DPI",
+    "Accessibility exposes named buttons with image children instead of symbol text",
+    "Absolute timeline seek to 2 seconds observes Paused",
+    "Restored volume 37 after reveal-key input; normal shutdown",
+    "Original vector controls visibly render on native presentation at 300% DPI",
+    "Native keyboard mute visibly changes the vector speaker to the muted state"
+  ],
+  "local_capture": "riina-vector-controls.jpg",
+  "local_capture_sha256": "4bc97a3ab4e55ca38645ab91697e67c08efbc0bafad194525de6fb13ffa3ce8a",
+  "unverified": [
+    "Exact IINA glyph shape comparison",
+    "Other OS interface rendering",
+    "Other DPI values and high-contrast themes"
+  ],
+  "native_binary_sha256": "b45427f0e43eba73d08a17536c4081d600d7c8c0bb11bdaad7511cd6cf4598f9",
+  "native_capture": "riina-native-vector-controls.jpg",
+  "native_capture_sha256": "7a4e0d4fb51ff3bb583488f3235e5aef723fd612d4de14b2a16dabfa67f2eab1"
+}

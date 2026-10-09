@@ -28,7 +28,7 @@ This is a faithful reimplementation, not merely an app inspired by IINA. Do not 
 
 The long-term acceptance target is exact feature and behavioral parity for all portable user-facing IINA functionality. Reproduce its defaults, state transitions, preferences, menus, layout options, shortcuts, auxiliary windows, and extension behavior. Treat platform-specific equivalents and unavoidable deviations explicitly rather than quietly removing them from scope.
 
-Use `IINA-RS` as a provisional engineering name, with an About-page statement that this is an independent Windows reimplementation. Do not imply endorsement or an official Windows release. Branding differences must not become an excuse to redesign the interface.
+Use `riina` as the product name for this independent Rust IINA reimplementation. Windows is the current supported target; macOS and Linux ports are near-term work. Do not imply endorsement. Branding differences must not become an excuse to redesign the interface.
 
 Target Windows 11 x64 first using the MSVC Rust target. Keep architecture-specific assumptions isolated so Windows ARM64 can be added later. Do not claim support for another Windows version or architecture until it has been built and tested there.
 

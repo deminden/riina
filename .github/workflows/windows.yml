@@ -19,6 +19,7 @@ jobs:
           ./scripts/fetch-reference.ps1
           python scripts/check-parity.py
           python scripts/check-fixtures.py
+          python scripts/check-assets.py
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Lint

@@ -18,7 +18,7 @@ jobs:
         run: rustup toolchain install 1.99.0 --profile minimal --component clippy
       # Selecting the core keeps HWNDs, COM, GUI and native codecs out of these checks.
       # This proves shared behavior portability, not application playback support.
-      - name: Portable state and command tests
-        run: cargo test -p riina-core --locked
+      - name: Portable state and engine interface tests
+        run: cargo test -p riina-core -p riina-mpv --lib --locked
       - name: Portable core lint
-        run: cargo clippy -p riina-core --all-targets --locked -- -D warnings
+        run: cargo clippy -p riina-core -p riina-mpv --all-targets --locked -- -D warnings

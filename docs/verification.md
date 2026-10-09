@@ -341,3 +341,18 @@ This is a specific geometry correction, not full pixel-perfect verification.
 
 Portable core workflow now runs its tests and lint on Windows, macOS and Linux.
 Its jobs exclude the GUI/native runtime and do not certify application ports.
+
+Portable core CI evidence: run 38002087280, commit
+`06fd91e2bff20af31bb0704d299d5ac1dd6ae73b`, completed successfully for
+macOS (job 114062308068), Windows (114062308249) and Linux (114062308306).
+Each job runs the actual core tests and strict lint.
+https://github.com/deminden/riina/actions/runs/38002087280
+This proves core portability only; GUI/rendering/OS services remain untested there.
+
+Vector controls (2026-10-10): original SVG controls render in GL and native
+presentation at 300% DPI. Named accessible buttons retain their actions; the
+native mute icon visibly changes with keyboard mute. GL absolute seek still
+observes pause. Seventeen unit tests, strict Clippy, formatting, optimized build
+and all 13 asset hashes pass. Runtime evidence records each tested binary
+separately in tests/visual/riina-vector-evidence.json. Exact IINA icon matching,
+other DPI values and other OS interface rendering remain unverified.

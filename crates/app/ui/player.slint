@@ -58,6 +58,7 @@ component PlayerSlider inherits Rectangle {
 
 component Tool inherits Rectangle {
     in property <string> label;
+    in property <image> icon;
     in property <string> hint;
     in property <bool> enabled: true;
     callback activated();
@@ -68,8 +69,14 @@ component Tool inherits Rectangle {
     accessible-label: hint;
     accessible-enabled: enabled;
     accessible-action-default => { if enabled { activated(); } }
-    Text { text: label; color: enabled ? #eeeeee : #777777; font-size: 17px;
+    if icon.width == 0 : Text { text: label; color: enabled ? #eeeeee : #777777; font-size: 17px;
         horizontal-alignment: center; vertical-alignment: center; }
+    if icon.width > 0 : Image {
+        source: icon; image-fit: contain;
+        width: min(17px, root.width); height: min(17px, root.height);
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        colorize: enabled ? #eeeeee : #777777;
+    }
     if focus.has-focus : Rectangle {
         border-width: 1px; border-color: #90b7ef; border-radius: 5px; background: transparent;
     }
@@ -167,14 +174,14 @@ export component PlayerWindow inherits Window {
         if controls-visible : Rectangle {
             x: 0; y: 0; width: parent.width; height: 34px; background: #151515b0;
             HorizontalLayout { padding-left: 12px; padding-right: 12px;
-                Tool { label: "＋"; hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
+                Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
                 Text { text: media-title; color: #dddddd; font-size: 12px;
                     horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
-                Tool { label: "♪"; hint: "Audio tracks"; activated => { root.sidebar = root.sidebar == 1 ? 0 : 1; } }
+                Tool { icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.sidebar = root.sidebar == 1 ? 0 : 1; } }
                 Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.sidebar = root.sidebar == 2 ? 0 : 2; } }
-                Tool { label: "≡"; hint: "Chapters"; activated => { root.sidebar = root.sidebar == 3 ? 0 : 3; } }
-                Tool { label: "☷"; hint: "Playlist"; activated => { root.sidebar = root.sidebar == 4 ? 0 : 4; } }
-                Tool { label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.sidebar = root.sidebar == 3 ? 0 : 3; } }
+                Tool { icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.sidebar = root.sidebar == 4 ? 0 : 4; } }
+                Tool { icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
             }
         }
         if sidebar != 0 : Rectangle {
@@ -189,7 +196,7 @@ export component PlayerWindow inherits Window {
                 HorizontalLayout {
                     Text { text: sidebar == 1 ? "Audio" : sidebar == 2 ? "Subtitles" : sidebar == 3 ? "Chapters" : "Playlist";
                         color: #eeeeee; vertical-alignment: center; }
-                    Tool { label: "×"; hint: "Close sidebar"; activated => { root.sidebar = 0; } }
+                    Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar"; activated => { root.sidebar = 0; } }
                 }
                 if sidebar == 1 || sidebar == 2 : HorizontalLayout {
                     Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
@@ -260,7 +267,7 @@ export component PlayerWindow inherits Window {
                     }
                 }
                 if sidebar == 4 : HorizontalLayout { spacing: 2px;
-                    Tool { label: "＋"; hint: "Add files to playlist"; activated => { root.browse-files(4); } }
+                    Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist"; activated => { root.browse-files(4); } }
                     Tool { label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
                     Tool { label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";
@@ -284,16 +291,16 @@ export component PlayerWindow inherits Window {
             // panel with spacious 14/8 insets and an 8-point row separation.
             VerticalLayout { padding-top: 14px; padding-bottom: 8px; spacing: 8px;
                 HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
-                    Tool { height: 17px; label: "◀"; hint: "Half playback speed"; activated => { root.speed(0.5); } }
-                    Tool { height: 17px; label: paused ? "▶" : "Ⅱ"; hint: paused ? "Play" : "Pause";
+                    Tool { height: 17px; icon: @image-url("../../../assets/icons/backward.svg"); hint: "Half playback speed"; activated => { root.speed(0.5); } }
+                    Tool { height: 17px; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";
                         activated => { root.toggle-pause(); } }
-                    Tool { height: 17px; label: "▶"; hint: "Double playback speed"; activated => { root.speed(2); } }
+                    Tool { height: 17px; icon: @image-url("../../../assets/icons/forward.svg"); hint: "Double playback speed"; activated => { root.speed(2); } }
                     Rectangle { horizontal-stretch: 1; background: transparent; }
-                    Tool { height: 17px; label: muted ? "×" : "♪"; hint: "Mute"; activated => { root.toggle-mute(); } }
+                    Tool { height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Mute"; activated => { root.toggle-mute(); } }
                     PlayerSlider { width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
                         changed(value) => { root.set-volume(value); } }
-                    Tool { height: 17px; label: "■"; hint: "Stop"; activated => { root.stop(); } }
-                    Tool { height: 17px; label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                    Tool { height: 17px; icon: @image-url("../../../assets/icons/stop.svg"); hint: "Stop"; activated => { root.stop(); } }
+                    Tool { height: 17px; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
                 }
                 HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
                     Text { text: position-label; color: #d4d4d4; font-size: 11px; vertical-alignment: center; }

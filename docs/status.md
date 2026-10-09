@@ -149,7 +149,7 @@ These logs are local development artifacts; screenshots do not measure HDR lumin
 
 Next concrete implementation step: close native blur/composition, narrow-window,
 modal ownership and mixed-monitor DPI gaps, then choose the production direction
-in ADR 0001. Continue source-matched control geometry/icons and source transcription.
+in ADR 0001. Continue source-matched control geometry/icons and observable behavior inventory.
 
 Recursive folder startup now discovers and orders media on a background worker in
 both playback routes. Sixteen unit tests pass; both routes have observed folder
@@ -172,4 +172,11 @@ tests/visual/riina-volume-evidence.json. Exact IINA visual parity remains open.
 The shared floating panel now uses the recorded 460 x 67 outer geometry; actual
 GL/native captures confirm these bounds and seeking input. Full material/icon/
 typography parity still needs matching reference captures. The portable core
-workflow adds Windows/macOS/Linux tests and lint; results are pending.
+workflow tests and lint passed on Windows/macOS/Linux (run 38002087280).
+Full application ports still require native services and actual playback evidence.
+
+Original MIT vector controls now replace font-dependent playback and main
+sidebar glyphs. GL/native rendering and native mute-state changes were observed
+at 300% DPI; exact reference shapes remain unverified. The asset manifest now
+contains 13 checked author/license/hash records. The portable matrix is expanded
+to mpv interface unit tests, and HWND startup is gated to Windows.
