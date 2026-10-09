@@ -480,4 +480,3 @@ Windows workspace tests pass 22 tests with strict lint. The preceding backend
 increment's four native integration tests pass in 2.13 seconds, including an
 observed paused two-second seek and native completion counter advancement.
 These checks establish state handling, not rendered appearance or timeout parity.
-
