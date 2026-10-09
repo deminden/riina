@@ -4,6 +4,8 @@ Rust IINA reimplementation, targeting
 official **IINA v1.5.0**. This is an early development build, not a parity release.
 
 Windows 11 is the current supported platform; macOS and Linux ports are near-term work.
+Their shared GL application backends and build matrix are now under validation;
+see [port development](docs/port-development.md).
 Feature parity and pixel-perfect interface parity are primary goals, with original
 MIT code and assets. Volume is capped at 100% by default; an optional audio setting permits up to 200%.
 

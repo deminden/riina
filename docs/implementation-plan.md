@@ -69,3 +69,9 @@ of a Windows standard library on every host. HWND-based engine startup is
 Windows-only. Raw native identifiers are now behind an opaque platform
 presentation, retained until decoder shutdown. Next: implement native OS
 dialog/storage/presentation services and verify each application port.
+
+The macOS/Linux shared GL application now has preference storage, library discovery
+and owned asynchronous picker backends. Full application lint/test/build CI is
+running for these targets (ADR 0004); obtain actual outcomes before declaring the
+build gate closed. Next port work is runtime playback/dialog/lifecycle validation,
+native localized filename ordering and target-specific presentation/HDR integration.

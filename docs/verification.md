@@ -1,5 +1,15 @@
 # Verification record · native Windows · 2026-10-09
 
+2026-10-10 shared GL port services: Windows strict workspace lint, 18 unit tests,
+optimized x86_64 MSVC application build and all four explicit native libmpv tests
+pass (native tests: 2.03 seconds). Windows GUI picker behavior was not rerun for
+this extraction. macOS/Linux service source is target-gated and is not exercised
+by those local Windows checks. Application build run 38004319189 is active with
+macOS job 114069482844 and Linux job 114069483016; no result is claimed yet.
+Earlier portable run 38004060826 confirms all 17 core/interface tests and strict
+lint on all three systems at commit 7da08a1. This excludes application compilation,
+native engine loading and GUI runtime support.
+
 2026-10-10 shared file-selection extraction: `cargo fmt --all -- --check`,
 `cargo clippy --workspace --all-targets --locked -- -D warnings` and
 `cargo test --workspace --locked` pass. Eighteen unit tests comprise fourteen
