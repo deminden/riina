@@ -1,5 +1,7 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
+pub mod file_selection;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]

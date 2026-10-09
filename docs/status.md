@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+2026-10-10 portability increment: folder discovery, extension filtering,
+exact-path deduplication and playlist/disc bypass rules now live in riina-core.
+The application supplies its native filename comparator through a small adapter.
+Four filesystem/selection tests now join the three-OS portable CI matrix;
+Windows retains a separate native filename-order test. Local formatting, strict
+workspace lint and all 18 unit tests pass. Portable checks now contain 17 tests;
+full macOS/Linux application builds and playback remain open near-term gates.
+
 Milestone 0 foundation is implemented and built. Initial inventory is intentionally
 incomplete: 64 atomic parity rows and 19 plugin surfaces are tracked. Milestone 1
 is in progress; real SDR playback works, but HDR architecture, DPI coverage and

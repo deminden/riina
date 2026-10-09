@@ -1,5 +1,16 @@
 # Verification record · native Windows · 2026-10-09
 
+2026-10-10 shared file-selection extraction: `cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets --locked -- -D warnings` and
+`cargo test --workspace --locked` pass. Eighteen unit tests comprise fourteen
+core tests (including four moved filesystem/selection tests), three mpv-interface
+tests and one Windows native filename-order adapter test. The four explicitly
+ignored native playback tests were not run for this extraction. Shared tests use
+an injected synthetic ordering to verify collation delegation; they do not prove
+macOS localized ordering or Linux locale equivalence. The existing portable CI
+automatically runs all seventeen core/interface tests on its three targets;
+results for this change must be read from its actual run before claiming success.
+
 Commands below ran through `scripts/dev.ps1`, which sets process-local Rust/linker/LIB
 variables. Array syntax preserves Cargo's `--` separator through PowerShell.
 
