@@ -1,5 +1,12 @@
 # Verification record · native Windows · 2026-10-09
 
+The macOS/Linux storage backend now has two native-target tests: simultaneous
+Unicode preference replacements must leave a complete payload and no temporary
+files; replacement into an existing directory must fail, preserve its contents
+and clean the owned temporary file. These tests await the application matrix.
+Windows formatting and strict lint pass, but exclude this target-gated code and
+therefore are not storage-runtime evidence for macOS/Linux.
+
 Application port run 38004319189 reached application compilation on macOS/Linux
 but failed strict lint: UiSession's retained player field was only explicitly read
 by Windows native shutdown. UiSession now releases that owner explicitly in Drop

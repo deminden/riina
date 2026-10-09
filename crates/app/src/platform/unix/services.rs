@@ -13,19 +13,44 @@ pub fn preferences_path() -> std::io::Result<PathBuf> {
 }
 
 pub fn save_preferences(path: &Path, contents: &str) -> std::io::Result<()> {
-    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
-    let mut file = std::fs::File::create(&temporary)?;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let (temporary, mut file) = loop {
+        let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
+        let candidate = path.with_extension(format!("{}.{sequence}.tmp", std::process::id()));
+        // Multiple player sessions must never truncate each other's replacement.
+        // Successful exclusive creation is the only basis for cleanup ownership.
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
+            Ok(file) => break (PendingReplacement(candidate), file),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    };
     file.write_all(contents.as_bytes())?;
     file.sync_all()?;
     drop(file);
     // POSIX replacement stays on the same filesystem and never truncates the
     // previous preferences before the complete replacement is ready.
-    std::fs::rename(&temporary, path)?;
+    std::fs::rename(&temporary.0, path)?;
     #[cfg(target_os = "linux")]
     if let Some(parent) = path.parent() {
         std::fs::File::open(parent)?.sync_all()?;
     }
     Ok(())
+}
+
+struct PendingReplacement(PathBuf);
+
+impl Drop for PendingReplacement {
+    fn drop(&mut self) {
+        // Rename has already removed this name on success; failures remove only
+        // the temporary file exclusively created by this save operation.
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 pub fn playback_library() -> PathBuf {
@@ -149,5 +174,77 @@ mod macos_tests {
         })
         .join()
         .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod storage_tests {
+    use super::save_preferences;
+    use std::{
+        path::PathBuf,
+        sync::atomic::{AtomicU64, Ordering},
+    };
+
+    struct Fixture(PathBuf);
+
+    impl Fixture {
+        fn new() -> Self {
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let base = std::env::temp_dir().canonicalize().unwrap();
+            loop {
+                let path = base.join(format!(
+                    "riina-storage-{}-{}",
+                    std::process::id(),
+                    NEXT.fetch_add(1, Ordering::Relaxed)
+                ));
+                match std::fs::create_dir(&path) {
+                    Ok(()) => return Self(path),
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => panic!("Cannot create storage fixture: {error}"),
+                }
+            }
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            assert_eq!(
+                self.0.parent(),
+                Some(std::env::temp_dir().canonicalize().unwrap().as_path())
+            );
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn concurrent_replacements_preserve_complete_unicode_preferences() {
+        let fixture = Fixture::new();
+        let path = fixture.0.join("preferences.json");
+        save_preferences(&path, "initial").unwrap();
+        let values: Vec<_> = (0..8)
+            .map(|index| format!("{{\"title\":\"音楽 {index}\",\"volume_boost\":false}}"))
+            .collect();
+        std::thread::scope(|scope| {
+            for value in &values {
+                let path = &path;
+                scope.spawn(move || save_preferences(path, value).unwrap());
+            }
+        });
+        assert!(values.contains(&std::fs::read_to_string(&path).unwrap()));
+        assert_eq!(std::fs::read_dir(&fixture.0).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn failed_replacement_keeps_destination_and_cleans_owned_temporary() {
+        let fixture = Fixture::new();
+        let path = fixture.0.join("preferences.json");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("retained"), "keep").unwrap();
+        assert!(save_preferences(&path, "replacement").is_err());
+        assert_eq!(
+            std::fs::read_to_string(path.join("retained")).unwrap(),
+            "keep"
+        );
+        assert_eq!(std::fs::read_dir(&fixture.0).unwrap().count(), 1);
     }
 }

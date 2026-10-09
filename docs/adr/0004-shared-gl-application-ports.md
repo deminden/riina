@@ -14,6 +14,10 @@ background discovery and typed commands as Windows.
 Preferences use dirs 6.0.0 configuration-directory discovery: macOS Application
 Support and Linux XDG configuration locations. POSIX rename replaces a fully
 written, synchronized temporary file; Linux also synchronizes its parent directory.
+Replacement files are created exclusively with a process/sequence name so
+concurrent sessions cannot truncate each other's pending writes. A cleanup guard
+removes only the file successfully created by that save if replacement fails.
+Native tests cover simultaneous Unicode saves and failed destination replacement.
 Windows keeps its existing atomic replacement and legacy migration behavior.
 No preference migration from IINA is implied.
 
