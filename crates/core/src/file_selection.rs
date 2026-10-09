@@ -131,9 +131,22 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let path = base.join(format!("riina-discovery-{}-{stamp}", std::process::id()));
-            std::fs::create_dir(&path).unwrap();
-            Self(path)
+            static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            loop {
+                let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let path = base.join(format!(
+                    "riina-discovery-{}-{stamp}-{sequence}",
+                    std::process::id()
+                ));
+                // Clock resolution cannot distinguish parallel tests on every OS.
+                // Only successful creation establishes ownership for Drop cleanup;
+                // an existing directory belongs to someone else and stays intact.
+                match std::fs::create_dir(&path) {
+                    Ok(()) => return Self(path),
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => panic!("Cannot create discovery fixture: {error}"),
+                }
+            }
         }
 
         fn path(&self, name: &str) -> String {

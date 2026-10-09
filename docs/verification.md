@@ -11,6 +11,12 @@ macOS localized ordering or Linux locale equivalence. The existing portable CI
 automatically runs all seventeen core/interface tests on its three targets;
 results for this change must be read from its actual run before claiming success.
 
+Windows run 38003518018 passed asset integrity, formatting and lint, then failed
+a folder test because parallel fixtures shared a clock-derived directory name
+(Windows error 183, AlreadyExists). Fixture allocation now includes an atomic
+sequence and retries existing names without claiming or removing their contents.
+This fixes test ownership; it does not change application discovery behavior.
+
 Commands below ran through `scripts/dev.ps1`, which sets process-local Rust/linker/LIB
 variables. Array syntax preserves Cargo's `--` separator through PowerShell.
 
