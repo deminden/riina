@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-10",
+  "source_commit": "a48a1de69ab0ad099d7e5e39c95d536ca7a39864",
+  "run_id": 38004581488,
+  "url": "https://github.com/deminden/riina/actions/runs/38004581488",
+  "scope": "Full application strict lint, workspace unit tests and linked development build; no GUI/native playback claim",
+  "jobs": [
+    {
+      "id": 114070320144,
+      "name": "application (macos-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/deminden/riina/actions/runs/38004581488/job/114070320144",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux GUI build prerequisites",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Pinned Rust toolchain",
+          "conclusion": "success"
+        },
+        {
+          "name": "Full application lint",
+          "conclusion": "success"
+        },
+        {
+          "name": "Application and shared unit tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Full application build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114070320349,
+      "name": "application (ubuntu-latest)",
+      "conclusion": "success",
+      "url": "https://github.com/deminden/riina/actions/runs/38004581488/job/114070320349",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux GUI build prerequisites",
+          "conclusion": "success"
+        },
+        {
+          "name": "Pinned Rust toolchain",
+          "conclusion": "success"
+        },
+        {
+          "name": "Full application lint",
+          "conclusion": "success"
+        },
+        {
+          "name": "Application and shared unit tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Full application build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    "Native libmpv integration",
+    "GUI rendering and dialogs",
+    "Audible output",
+    "HDR presentation",
+    "Pixel-perfect IINA parity",
+    "Installers and release packaging"
+  ],
+  "subsequent_storage_tests": "Pending in run 38004680216 at recording time",
+  "macos_native_run": {
+    "id": 38005017036,
+    "commit": "4b21133bce2c95164954abd52f49a1526751fc4d",
+    "status_at_dispatch": "queued"
+  }
+}

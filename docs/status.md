@@ -1,5 +1,11 @@
 # Status · 2026-10-09
 
+Full macOS/Linux application lint, workspace unit tests and linked development
+builds now pass in run 38004581488 at a48a1de. Evidence is recorded in
+tests/visual/application-port-ci-evidence.json. Subsequent storage tests are
+still running on macOS; native decoding run 38005017036 has been dispatched.
+No GUI runtime, HDR presentation, packaging or exact interface parity is implied.
+
 macOS file discovery now delegates filename ordering to Foundation's documented
 localizedStandardCompare, using retained strings and a worker autorelease pool.
 The dedicated Unicode/numeric worker test awaits macOS application CI. Windows

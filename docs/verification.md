@@ -1,5 +1,12 @@
 # Verification record · native Windows · 2026-10-09
 
+Application run 38004581488 completed successfully at a48a1de: macOS job
+114070320144 and Linux job 114070320349 passed full workspace lint, workspace
+unit tests and cargo build -p riina --locked. See application-port-ci-evidence.json.
+New storage-test run 38004680216 has a successful Linux job; macOS remains live.
+Manual real libmpv macOS run 38005017036 is queued at 4b21133. These statuses are
+separate from native GUI/playback/HDR evidence and preserve exact tested revisions.
+
 Native-test portability increment: tests can explicitly select an existing
 absolute library with RIINA_TEST_MPV_LIBRARY; Windows keeps its pinned DLL default.
 The first reruns exposed a real duplicate-subtitle bug: mpv reported a filename
