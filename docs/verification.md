@@ -1,5 +1,16 @@
 # Verification record · native Windows · 2026-10-09
 
+macOS integration run 38005017036 completed successfully at 4b21133. Job
+114071692801 used macOS 26.6.2 (25G83), arm64, Homebrew mpv 0.41.0 and
+libmpv SHA-256 f701babc6b30630ce0e59243dcafce6dc8d6380024c18c231da15b2ed524d162.
+All four actual native tests pass in 3.45 seconds. Dynamic loading, original
+fixture decoding, PQ/HLG source metadata, replacement, seeking, stop/failure,
+catalogs, tracks and playlist commands are exercised through null video output.
+This does not verify GUI rendering, native panels, sound, displayed HDR or hardware
+decoding. The checked public summary is tests/visual/macos-native-evidence.json.
+Subsequent full application run 38004680216 also passes on both macOS/Linux,
+including concurrent preference replacement and failure cleanup tests at f5c265f.
+
 Application run 38004581488 completed successfully at a48a1de: macOS job
 114070320144 and Linux job 114070320349 passed full workspace lint, workspace
 unit tests and cargo build -p riina --locked. See application-port-ci-evidence.json.

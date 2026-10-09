@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Real macOS arm64 libmpv integration now passes all four tests (run 38005017036,
+3.45 seconds) with Homebrew mpv 0.41.0 on macOS 26.6.2. See
+tests/visual/macos-native-evidence.json for the exact runtime hash and commit.
+Full application builds and the subsequent concurrency/failure storage tests
+also pass on macOS/Linux in run 38004680216. These tests use null video output;
+displayed video, dialogs, audible output and HDR presentation remain unverified.
+Official pinned IINA visual-reference attempt 38005209380 is queued; no reference
+capture or pixel-perfect claim is made before image review.
+
 Full macOS/Linux application lint, workspace unit tests and linked development
 builds now pass in run 38004581488 at a48a1de. Evidence is recorded in
 tests/visual/application-port-ci-evidence.json. Subsequent storage tests are

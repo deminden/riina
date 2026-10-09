@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-10-10",
+  "commit": "4b21133bce2c95164954abd52f49a1526751fc4d",
+  "run_id": 38005017036,
+  "job_id": 114071692801,
+  "url": "https://github.com/deminden/riina/actions/runs/38005017036",
+  "conclusion": "success",
+  "runtime_log_evidence": [
+    "mpv v0.41.0 Copyright \u00a9 2000-2025 mpv/MPlayer/mplayer2 projects",
+    "ProductName:\t\tmacOS",
+    "ProductVersion:\t\t26.6.2",
+    "BuildVersion:\t\t25G83",
+    "arm64",
+    "f701babc6b30630ce0e59243dcafce6dc8d6380024c18c231da15b2ed524d162  /opt/homebrew/opt/mpv/lib/libmpv.2.dylib",
+    "test chapters_external_tracks_and_playlist_editing ... ok",
+    "test hdr_metadata_replacement_and_stop ... hdr-pq.mkv: VideoParameters { pixelformat: Some(\"yuv422p10\"), w: 192, h: 108, colormatrix: Some(\"bt.2020-ncl\"), colorlevels: Some(\"limited\"), primaries: Some(\"bt.2020\"), gamma: Some(\"pq\"), max_luma: Some(10000.0), min_luma: Some(0.0), signal_peak: Some(49.261085510253906) }",
+    "test multi_file_open_replaces_old_playlist_and_resumes ... ok",
+    "test playback_pause_seek_stop_failure_and_shutdown ... ok",
+    "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.45s"
+  ],
+  "scope": "Four real dynamically loaded libmpv integration tests on macOS, original fixtures, null video output",
+  "excluded": [
+    "Displayed video",
+    "GUI and picker behavior",
+    "Audible output",
+    "Displayed/calibrated HDR",
+    "Hardware decoding validation",
+    "Visual parity"
+  ],
+  "runtime_provenance": "Homebrew-provisioned runtime; complete formula metadata, version, hash and linkage in the job log. Not the Windows pinned DLL."
+}
