@@ -373,3 +373,10 @@ and float scRGB swapchain and end with native VO uninit. Default GL startup,
 seeking and close also passed. Tested binary and capture hashes are in
 tests/visual/presentation-boundary-evidence.json. Other OS application playback
 and forced-lifecycle stress are not covered by these checks.
+
+Asset publication correction (2026-10-10): Windows CI run 38002664116 failed
+the asset integrity step because the manifest had hashes of local CRLF SVG
+files while the published Git bytes use LF. All 13 records now match published
+SVG bytes. Checkout validation, Git-index validation and a clean staged-tree
+copy pass. check-assets.py --staged is the publication gate for future asset
+changes. This corrects provenance bytes; SVG geometry is unchanged.

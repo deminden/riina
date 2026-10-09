@@ -5,91 +5,91 @@
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "bc905c14483677f2fb46d5830c3ef3ebb0f83e7b78a68128c567602a32dc8ad2"
+      "sha256": "41275b89ade9b0e804e2377e53c2305905ce72dadfad2fdeef21faf8825737ae"
     },
     {
       "path": "assets/icons/audio.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "157405b72171411a7fbe149d039a318f1c7775f6d39481f4076cf742eeedecbb"
+      "sha256": "ec320b91ed887438be715c252c43ad01448fc29001675eb88dcc98eb7b5b853e"
     },
     {
       "path": "assets/icons/backward.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "13ab033e9914cc41d655bcb2dfd0d95ff446a23faad83db865b63ee2f49f4075"
+      "sha256": "91a3aa23562657f85e900a55d0f8c50c4666d3255e9674b80e76bc1008b61630"
     },
     {
       "path": "assets/icons/chapters.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "3ffc24830a5399820a5d5862e77d814b8f164fab59f9b0f25a63bc640f21992f"
+      "sha256": "5e1838f9f2b222af7db14edf8fb5749ab7d14e8518c2b1f179f470b76291b673"
     },
     {
       "path": "assets/icons/close.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "560f663c9119c496669cfc257a1a0d93d71d363ee4b776c552ef35520470d1a8"
+      "sha256": "12991e3a2205ccf0856eb181ca33e8d8bef152804bba5a59aa29365973430158"
     },
     {
       "path": "assets/icons/forward.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "1f93f1445c6857e25812b382d4acaa757efb37440b255d78e9cb49073d4659b2"
+      "sha256": "4cca48611377fdbf53cdbfc430ecdb7ee9652fcb7ee53b684cde647ada214bea"
     },
     {
       "path": "assets/icons/fullscreen.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "b4c2d3875708b6227dba1696bd956d06ae4b92e57c3e33523060960c4cd91303"
+      "sha256": "bcf7571bae2b574d179a524f14ec51e28b21a2ecde94f1902266f8c163644604"
     },
     {
       "path": "assets/icons/muted.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "82abb9b42e0e38d4fb6566abb1901d7939f7fba96298aec3be57e2442d9d5ca6"
+      "sha256": "c5d06b128748c3dc8f7bcc2661e9ea15d9ae9be02d84d91da95fd7b81aeacad5"
     },
     {
       "path": "assets/icons/pause.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "c6dd3751eaf57b28097add50829f8d83db6c510e4af73b4e21d0b3c7db0ce007"
+      "sha256": "278b74f3267d2d641b9d65a5b3492e5315fc58e50633b1e85ef6909180f96303"
     },
     {
       "path": "assets/icons/play.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "56e8e942ecea47133c6c893278bfe40f4f3716c589531f0ff4cf2e221d2256de"
+      "sha256": "8807810edfc8440c47890ba9a13532c8d4a168a4ee945d5866cc82b4ea07f76c"
     },
     {
       "path": "assets/icons/playlist.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "8d09b948425574030a3162406250822763e7d4f460ca994298e9e7c6d473f663"
+      "sha256": "1d5ad5986920147c957a172e246c3d238d753f0a341faa3b376b7475dae0fe36"
     },
     {
       "path": "assets/icons/stop.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "fba1edfd3dee6257c3b92fbf98e67b179922ceac55d67ba2b830bac756d1820f"
+      "sha256": "f6c445643509f2df7cf97f892a5a0f733fc202688bc11b890251ea5bb89e957c"
     },
     {
       "path": "assets/icons/volume.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "ea01f3faa25cf131187be2a3e5abbe51caa4f4681cbf33fe915c730c4bab1f3e"
+      "sha256": "97007dbdb618c0aa72c2861c25d4df13325fb9feeba54d4e017aad236219fa6e"
     }
   ],
   "notes": "Original vector player icons replace font-dependent controls. Remaining Unicode symbols, system typography, exact reference geometry and material matching still need review. No Apple artwork, fonts or SF Symbols are bundled."
