@@ -1,5 +1,13 @@
 # Source-derived visual specification
 
+Verified reference state IINA-1.5.0-PAUSED-SEEK-001 is now available from run
+38005949498: 320 x 180 pixels, scale 1, macOS 26.6.2, Light theme. Actual engine
+observations bracket the image at paused 2.0 seconds; frame 048 agrees. A transient
+seek OSD reads 00:02 / 00:05, with a progress indicator; main controls remain hidden.
+This is accepted reference evidence, not a matched-size riina comparison golden.
+The persistent playback phase/speed diagnostic line has been removed from riina;
+faithful transient OSD and visible-control/sidebar captures are still required.
+
 Baseline v1.5.0 only. Official macOS reference execution now exists: the initial
 capture is a 320 x 180 player window on macOS 26.6.2 at scale 1, Light theme,
 with the original catalog fixture visible and controls hidden. Its requested

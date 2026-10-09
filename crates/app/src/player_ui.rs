@@ -160,12 +160,9 @@ fn update_ui(app: &PlayerWindow, state: Playback, displayed: &mut Option<Playbac
     app.set_media_title(state.title.into());
     app.set_position_label(time_label(state.position).into());
     app.set_duration_label(time_label(state.duration).into());
-    app.set_status(
-        state
-            .error
-            .unwrap_or_else(|| format!("{:?} · {:.2}×", state.phase, state.speed))
-            .into(),
-    );
+    // Playback state belongs to controls and transient OSD, not permanent text
+    // over the video. Keep failures visible while ordinary clock ticks stay quiet.
+    app.set_status(state.error.unwrap_or_default().into());
 }
 
 pub(crate) struct UiSession {

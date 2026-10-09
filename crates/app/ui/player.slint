@@ -310,7 +310,7 @@ export component PlayerWindow inherits Window {
                 }
             }
         }
-        Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
+        if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
             text: status; color: #bbbbbb; font-size: 11px; overflow: elide; }
         key-pressed(event) => {
             root.controls-visible = true; root.activity();

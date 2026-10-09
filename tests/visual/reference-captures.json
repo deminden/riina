@@ -72,8 +72,69 @@
       "accepted_as_comparison_golden": false,
       "local_raw_directory": "reference/captures/38005523871",
       "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    },
+    {
+      "id": "IINA-1.5.0-PAUSED-SEEK-001",
+      "run_id": 38005949498,
+      "artifact_id": 11651446256,
+      "url": "https://github.com/deminden/riina/actions/runs/38005949498",
+      "source_commit": "350412963d9652caba640d7690148e71cb6212f5",
+      "reference_version": "1.5.0",
+      "macos_version": "26.6.2",
+      "macos_build": "25G83",
+      "theme": "Light",
+      "scale": 1,
+      "image_pixels": [
+        320,
+        180
+      ],
+      "window_bounds_points": {
+        "Height": 180,
+        "Width": 320,
+        "X": 352,
+        "Y": 280
+      },
+      "fixture": "catalog.mkv",
+      "observed_frame_label": "frame 048",
+      "playback_observation": {
+        "schema_version": 1,
+        "attempts": [
+          {
+            "attempt": 1,
+            "before_capture": {
+              "pause": true,
+              "time-pos": 2.0,
+              "seeking": false,
+              "filename": "catalog.mkv",
+              "mpv-version": "mpv v0.41.0"
+            },
+            "after_capture": {
+              "pause": true,
+              "time-pos": 2.0,
+              "seeking": false,
+              "filename": "catalog.mkv",
+              "mpv-version": "mpv v0.41.0"
+            },
+            "playback_state_verified": true,
+            "capture_exit_code": 0,
+            "capture_directory": "attempt-01"
+          }
+        ],
+        "accepted_attempt": 1,
+        "source": "Observed through official reference mpv JSON IPC; not riina state"
+      },
+      "image_sha256": "74c10cff742886b16b44f581c11847368996aa17cdeae19f1919c21259b72b83",
+      "metadata_sha256": "cea996f406c9f7fcbba5dc07d961941dac4252fa0fcc677218b9a3718ba1fb91",
+      "visible_panels": [
+        "Transient seek OSD; main OSC and titlebar hidden"
+      ],
+      "review": "Original frame 048 matches the observed paused time 2.0 seconds before and after capture. Seek OSD reads 00:02 / 00:05. Rounded player corners are visible. Reference state accepted; not a matched-size riina comparison or visible-OSC golden.",
+      "accepted_as_reference_state": true,
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38005949498/attempt-01",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
     }
   ],
-  "status": "Official macOS execution and initial image obtained; matching controls/position captures remain pending",
+  "status": "Official paused two-second reference state verified and reviewed; matched-size OSC/sidebar captures remain pending",
   "measurement_basis": "source-derived geometry; estimated colors and typography"
 }

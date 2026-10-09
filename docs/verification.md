@@ -1,5 +1,19 @@
 # Verification record · native Windows · 2026-10-09
 
+Normal-playback diagnostic removal: formatting, strict workspace Clippy and the
+optimized Windows application build pass. Actual default-GL accessibility state
+shows catalog.mkv, end position 5.0, volume 37 and playback controls without the
+previous phase/speed text. Left seeks to 0.0 and close removes the process.
+Screenshot output was blank, followed by monitor capture error 0x80070057;
+therefore no visual-rendering pass or screenshot comparison is claimed. Error
+status remains bound to playback errors; an error-state GUI check was not rerun.
+
+Official reference run 38005949498 passes at 3504129. Reviewed image frame 048
+matches paused 2.0 seconds observed before and after capture. The seek OSD is
+visible while the main OSC is hidden. Reference metadata/hashes and bounded
+observations are recorded in tests/visual/reference-captures.json. This establishes
+a real reference state, not full pixel parity or a matched-size comparison.
+
 macOS integration run 38005017036 completed successfully at 4b21133. Job
 114071692801 used macOS 26.6.2 (25G83), arm64, Homebrew mpv 0.41.0 and
 libmpv SHA-256 f701babc6b30630ce0e59243dcafce6dc8d6380024c18c231da15b2ed524d162.
