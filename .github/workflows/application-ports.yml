@@ -1,0 +1,31 @@
+name: macOS and Linux application builds
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  application:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Linux GUI build prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libx11-xcb-dev libxcb-shape0-dev libxcb-xfixes0-dev
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal --component clippy
+      - name: Full application lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Application and shared unit tests
+        run: cargo test --workspace --locked
+      - name: Full application build
+        run: cargo build -p riina --locked
+      # A linked application is necessary but insufficient: native dialogs,
+      # playback, fullscreen, accessibility and rendering require runtime evidence.

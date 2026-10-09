@@ -1,6 +1,5 @@
 //! One owned picker per player; native HWNDs outlive its dedicated COM apartment.
 use crate::{NativeVideoHost, PlayerWindow, file_dialog, media_open};
-use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::{
     ComponentHandle,
@@ -9,36 +8,7 @@ use slint::{
 use std::sync::Arc;
 use winit::{platform::windows::WindowExtWindows, window::Window};
 
-#[derive(Clone, Copy)]
-pub enum Purpose {
-    Media,
-    Audio,
-    Subtitle,
-    Playlist,
-}
-
-impl Purpose {
-    fn title(self) -> &'static str {
-        match self {
-            Self::Media => "Open File",
-            Self::Audio => "Load External Audio",
-            Self::Subtitle => "Load Subtitle",
-            Self::Playlist => "Add to Playlist",
-        }
-    }
-
-    fn command(self, paths: Vec<String>) -> Option<Command> {
-        if paths.is_empty() {
-            return None;
-        }
-        Some(match self {
-            Self::Media => Command::OpenFiles(paths),
-            Self::Audio => Command::AddAudio(paths[0].clone()),
-            Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
-            Self::Playlist => Command::AppendFiles(paths),
-        })
-    }
-}
+use crate::ui_dialogs::Purpose;
 
 struct ModalWindows {
     app: slint::Weak<PlayerWindow>,

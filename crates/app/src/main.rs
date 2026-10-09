@@ -4,7 +4,9 @@ mod file_selection;
 mod media_open;
 mod platform;
 mod player_ui;
-use platform::{file_dialog, native_window, ui_dialogs};
+mod ui_dialogs;
+#[cfg(target_os = "windows")]
+use platform::file_dialog;
 use player_ui::configure_player;
 use slint::ComponentHandle;
 slint::include_modules!();
@@ -15,7 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let native = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
     let media = if native { args.next() } else { first };
     if native {
-        return native_window::run(media);
+        #[cfg(target_os = "windows")]
+        return platform::native_window::run(media);
+        #[cfg(not(target_os = "windows"))]
+        return Err("Native video presentation is currently available on Windows; run without --native-video for shared OpenGL playback".into());
     }
     slint::BackendSelector::new()
         .backend_name("winit".into())

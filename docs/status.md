@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+2026-10-10 application port increment: macOS/Linux preference, library discovery
+and asynchronous owned picker backends now connect to the shared GL player.
+Dialog intent is shared; Windows retains its existing COM implementation.
+A new application CI matrix lints/tests/links on macOS/Linux. Results and native
+runtime behavior are pending; these systems are not yet supported targets.
+See ADR 0004 for remaining collation, modality, packaging and HDR gaps.
+
 2026-10-10 portability increment: folder discovery, extension filtering,
 exact-path deduplication and playlist/disc bypass rules now live in riina-core.
 The application supplies its native filename comparator through a small adapter.

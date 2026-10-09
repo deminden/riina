@@ -20,7 +20,7 @@ SidebarSubtitlesPane, SidebarPlaylistPane and SidebarChaptersPane by Hechen Li/l
 Command plans and track labels in crates/core/src/lib.rs follow the pinned sources;
 Rust implementations preserve explicit mpv ownership and have independent tests.
 
-Local selection behavior and extension lists in crates/app/src/file_selection.rs
+Local selection behavior and extension lists in crates/core/src/file_selection.rs
 follow PlayerCore.openURLs (lhc, 2016), DraggingDetect.getPlayableFiles (Yuze Jiang,
 2017; copyright lhc) and Utility (lhc, 2016), at the pinned commit above. Windows
 Explorer natural comparison replaces Foundation's localized comparison; directory
@@ -36,6 +36,15 @@ renderer implementation is independently written with mpv ABI declarations.
 glow 0.16.0: MIT/Apache-2.0/Zlib; libloading 0.8.9: ISC;
 serde/serde_json: MIT/Apache-2.0; windows 0.61.3: MIT/Apache-2.0.
 Resolved transitive dependency licenses must be inventoried before distribution.
+
+rfd 0.17.2 (https://github.com/PolyMeilex/rfd): MIT, copyright 2022
+Bartłomiej Maryńczak. Its portal window-identifier module retains the MIT notice
+of Bilal Elmoussaoui (2020). Used only by macOS/Linux application backends;
+macOS uses native panels and Linux uses XDG Desktop Portal with Wayland support.
+dirs 6.0.0 and dirs-sys 0.5.0: MIT OR Apache-2.0, used for those platforms'
+configuration directories. Exact resolved packages and checksums are in Cargo.lock.
+Their complete license texts remain in the dependency sources and must accompany
+any applicable binary distribution; no native release package is produced here.
 
 mpv public ABI headers: Copyright (C) 2018 the mpv developers (render_gl.h), ISC
 permission and warranty disclaimer retained in excluded reference source. The
