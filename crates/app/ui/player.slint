@@ -273,26 +273,29 @@ export component PlayerWindow inherits Window {
             }
         }
         if controls-visible && loaded : Rectangle {
-            width: min(460px, parent.width - 24px); height: 78px;
+            width: min(460px, parent.width - 24px); height: 67px;
             x: (parent.width - self.width) / 2;
             y: parent.height * 0.9 - self.height;
             border-radius: 6px; background: #202025e8;
             border-width: 1px; border-color: #ffffff25;
             // This is a tinted SDR spike, not a claim of matching AppKit video blur.
-            VerticalLayout { padding: 8px; spacing: 3px;
-                HorizontalLayout { spacing: 4px;
-                    Tool { label: "◀"; hint: "Half playback speed"; activated => { root.speed(0.5); } }
-                    Tool { label: paused ? "▶" : "Ⅱ"; hint: paused ? "Play" : "Pause";
+            // Keep the outer baseline separate from glyph/material estimates. A
+            // 17-point button row and 20-point timeline fit the recorded 67-point
+            // panel with spacious 14/8 insets and an 8-point row separation.
+            VerticalLayout { padding-top: 14px; padding-bottom: 8px; spacing: 8px;
+                HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
+                    Tool { height: 17px; label: "◀"; hint: "Half playback speed"; activated => { root.speed(0.5); } }
+                    Tool { height: 17px; label: paused ? "▶" : "Ⅱ"; hint: paused ? "Play" : "Pause";
                         activated => { root.toggle-pause(); } }
-                    Tool { label: "▶"; hint: "Double playback speed"; activated => { root.speed(2); } }
+                    Tool { height: 17px; label: "▶"; hint: "Double playback speed"; activated => { root.speed(2); } }
                     Rectangle { horizontal-stretch: 1; background: transparent; }
-                    Tool { label: muted ? "×" : "♪"; hint: "Mute"; activated => { root.toggle-mute(); } }
-                    PlayerSlider { width: 82px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
+                    Tool { height: 17px; label: muted ? "×" : "♪"; hint: "Mute"; activated => { root.toggle-mute(); } }
+                    PlayerSlider { width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
                         changed(value) => { root.set-volume(value); } }
-                    Tool { label: "■"; hint: "Stop"; activated => { root.stop(); } }
-                    Tool { label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                    Tool { height: 17px; label: "■"; hint: "Stop"; activated => { root.stop(); } }
+                    Tool { height: 17px; label: "⛶"; hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
                 }
-                HorizontalLayout { spacing: 8px;
+                HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
                     Text { text: position-label; color: #d4d4d4; font-size: 11px; vertical-alignment: center; }
                     PlayerSlider { minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
                         changed(value) => { root.seek(value); } }

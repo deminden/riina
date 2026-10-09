@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-09",
+  "binary_sha256": "2ad61fa71752b2197151e7d23969768d792a0450199578f7ea8a1be4a7920b9a",
+  "scale_factor": 3,
+  "verified": [
+    "GL and native route floating panel observed at 460 by 67 in downscaled captures",
+    "GL timeline absolute seek to 2 seconds observes Paused",
+    "Native keyboard relative seek from EOF to start observes Paused",
+    "Both test players closed normally; no riina process remains",
+    "Formatting, strict workspace Clippy, 17 unit tests and optimized Windows build pass"
+  ],
+  "measurements": [
+    {
+      "route": "GL",
+      "capture": "riina-osc-67.jpg",
+      "capture_sha256": "c47c8ad2602ee0c99e68e1080f207ba7140dd79d0cffb894fe4e7d829f23172b",
+      "capture_size": [
+        962,
+        624
+      ],
+      "border_bounds": [
+        251,
+        501,
+        710,
+        567
+      ],
+      "panel_size": [
+        460,
+        67
+      ],
+      "method": "Inspected JPEG; local border brightness peaks"
+    },
+    {
+      "route": "native",
+      "capture": "riina-osc-native-67.jpg",
+      "capture_sha256": "acfb091d6d8a4a61863ef120230c13465cbf9c7f64d22b2c7e9cfcfdf0b44ee1",
+      "capture_size": [
+        960,
+        600
+      ],
+      "border_bounds": [
+        250,
+        473,
+        709,
+        539
+      ],
+      "panel_size": [
+        460,
+        67
+      ],
+      "method": "Inspected JPEG; local red-channel border peaks"
+    }
+  ],
+  "unverified": [
+    "Matching macOS goldens and per-region difference scores",
+    "Typography, licensed icons, sampled video blur and exact internal geometry",
+    "Other DPI and narrow-window matrix",
+    "Calibrated HDR color and UI luminance"
+  ]
+}

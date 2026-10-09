@@ -168,3 +168,8 @@ GUI volume extension verified on the default renderer at 300% DPI: enabled
 200%, disable/clamp to 100%, disabled-range enforcement and persisted off state.
 Dark control contrast was corrected and visually inspected. See
 tests/visual/riina-volume-evidence.json. Exact IINA visual parity remains open.
+
+The shared floating panel now uses the recorded 460 x 67 outer geometry; actual
+GL/native captures confirm these bounds and seeking input. Full material/icon/
+typography parity still needs matching reference captures. The portable core
+workflow adds Windows/macOS/Linux tests and lint; results are pending.

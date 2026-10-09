@@ -329,3 +329,15 @@ values through 200%. GUI checks now observe enabled 200%, keyboard disabling to 
 150% requests capped at 100%, readable dark checkbox and normal shutdown saving
 boost off with restored volume 37. Evidence: tests/visual/riina-volume-evidence.json.
 The native-window GUI route and other OS builds remain unverified.
+
+Floating controls geometry (2026-10-09): the panel height is now 67 logical
+points, with recorded 14/8 vertical insets, 8-point row spacing and 460-point
+width. Original row allocation remains provisional until matching reference
+captures. Actual GL and native client captures each measure a 460 x 67 border
+rectangle. GL absolute seeking and native keyboard seeking preserve pause.
+Both players closed normally. Formatting, strict Clippy, 17 unit tests and the
+optimized build pass. Evidence: tests/visual/riina-osc-geometry-evidence.json.
+This is a specific geometry correction, not full pixel-perfect verification.
+
+Portable core workflow now runs its tests and lint on Windows, macOS and Linux.
+Its jobs exclude the GUI/native runtime and do not certify application ports.

@@ -21,8 +21,10 @@ have been downloaded or measured. Every color and glyph metric is currently esti
 | chapter rows | 40 points | SidebarChaptersPane.tableView |
 | auto-hide | 2.5 s | Preference.defaultPreference |
 
-Current spike uses 78 logical pixels for practical slider layout, a native Windows
-titlebar, estimated typography, substitute Unicode glyphs and a tinted panel. This
+The floating controls now use the recorded 67-point outer height, 460-point width,
+14/8 vertical insets and 8-point row separation. The 17-point button row is an
+independent layout allocation pending reference capture measurements. A native
+Windows titlebar, estimated typography, substitute Unicode glyphs and tint remain. This
 is not pixel parity or video-sampled blur. Replace toolkit sliders and glyphs with
 measured custom geometry after live baseline captures. Light/compact/docked layouts,
 window controls, full sidebar layout, animations and focus measurements remain incomplete.
