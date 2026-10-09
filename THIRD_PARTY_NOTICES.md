@@ -70,3 +70,9 @@ IINA v1.5.0 iina/VideoView.swift, VideoView.isHDRVideo (Copyright © 2016 lhc).
 The gamma/primaries combinations are compatibility facts; the MIT grant is for
 riina's original implementation, not for VideoView.swift. Windows scRGB presentation
 is an independent platform implementation; no Apple implementation or artwork is bundled.
+
+Player vector icons under assets/icons are original riina geometric artwork,
+MIT under the root LICENSE. Their authorship and exact hashes are recorded in
+assets/provenance.json and checked by scripts/check-assets.py. They do not
+contain copied SF Symbols or other Apple artwork. Exact reference matching
+remains unverified.

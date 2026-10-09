@@ -180,3 +180,7 @@ sidebar glyphs. GL/native rendering and native mute-state changes were observed
 at 300% DPI; exact reference shapes remain unverified. The asset manifest now
 contains 13 checked author/license/hash records. The portable matrix is expanded
 to mpv interface unit tests, and HWND startup is gated to Windows.
+
+Expanded portable CI passes 13 core/mpv-interface tests and strict lint on
+Windows/macOS/Linux (run 38002664122). Native engine loading, GUI and application
+ports are excluded from this evidence. See portable-interface-ci-evidence.json.

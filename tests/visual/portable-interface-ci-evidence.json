@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "feb5802586d64092397a1779686863ffb054d799",
+  "workflow": ".github/workflows/core.yml",
+  "run_id": 38002664122,
+  "run_url": "https://github.com/deminden/riina/actions/runs/38002664122",
+  "jobs": [
+    {
+      "id": 114064174025,
+      "runner": "macos-latest",
+      "conclusion": "success"
+    },
+    {
+      "id": 114064174241,
+      "runner": "windows-latest",
+      "conclusion": "success"
+    },
+    {
+      "id": 114064174258,
+      "runner": "ubuntu-latest",
+      "conclusion": "success"
+    }
+  ],
+  "scope": [
+    "riina-core unit tests",
+    "riina-mpv interface unit tests",
+    "Strict Clippy for these packages"
+  ],
+  "excluded": [
+    "Full application compilation on macOS/Linux",
+    "Native libmpv loading/decoding on macOS/Linux",
+    "GUI, audio, HDR, platform services and runtime window lifecycle"
+  ]
+}

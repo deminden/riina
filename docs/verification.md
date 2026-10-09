@@ -356,3 +356,9 @@ observes pause. Seventeen unit tests, strict Clippy, formatting, optimized build
 and all 13 asset hashes pass. Runtime evidence records each tested binary
 separately in tests/visual/riina-vector-evidence.json. Exact IINA icon matching,
 other DPI values and other OS interface rendering remain unverified.
+
+Expanded portable interface CI (2026-10-10): run 38002664122 passes on macOS
+(job 114064174025), Windows (114064174241) and Linux (114064174258). Each job
+runs core and mpv library unit tests and strict lint. The suite has 13 tests;
+no native decoding or GUI test runs in these jobs. Recorded source commit and
+job scope: tests/visual/portable-interface-ci-evidence.json.
