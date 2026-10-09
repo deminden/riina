@@ -15,9 +15,14 @@ observed libmpv SEEK/PLAYBACK_RESTART events. A retained completion counter
 survives coalesced snapshots; failed command submission does not fabricate a
 clock update. Replacement/Stop hides the panel. Geometry, colors and the 2.5-second
 timeout are provisional pending matched-size rendering and timing verification.
-Windows strict lint, 19 unit tests and four real native integration tests pass;
+Windows strict lint, 22 unit tests and four real native integration tests pass;
 the paused-seek test now requires a native completion notification as well as
 the observed 2-second clock. GUI rendering and port runtime validation are open.
+The shared OSD reducer now defers coalesced completion notifications until the
+clock is usable and no newer seek is in flight. Tests cover replacement, Stop,
+failure suppression, rapid completions and clock ticks that must not extend the
+display deadline. Native integration results above are from the preceding
+backend change; the reducer-only increment passes workspace tests and lint.
 
 Full macOS/Linux application lint, workspace unit tests and linked development
 builds now pass in run 38004581488 at a48a1de. Evidence is recorded in

@@ -4,6 +4,7 @@ mod file_selection;
 mod media_open;
 mod platform;
 mod player_ui;
+mod seek_osd;
 mod ui_dialogs;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;

@@ -1,3 +1,4 @@
+use crate::seek_osd::{self, Change, SeekOsd};
 use crate::{
     CatalogRow, PlayerWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
@@ -115,35 +116,19 @@ fn current_chapter(state: &Playback) -> Option<usize> {
     })
 }
 
-fn seek_clock(seconds: Option<f64>) -> String {
-    let label = time_label(seconds);
-    if label.len() == 4 {
-        format!("0{label}")
-    } else {
-        label
-    }
-}
-
 fn update_ui(
     app: &PlayerWindow,
     state: Playback,
     displayed: &mut Option<Playback>,
-    last_seek: &mut Option<(u64, u64)>,
+    last_seek: &mut SeekOsd,
 ) {
-    let seek_key = (state.generation, state.completed_seeks);
-    if last_seek.is_some_and(|old| old.0 != seek_key.0)
-        || matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed)
-    {
-        app.set_seek_osd_visible(false);
-    } else if last_seek.is_some_and(|old| old != seek_key)
-        && state.position.is_some()
-        && state.error.is_none()
-    {
-        app.invoke_show_seek_osd();
+    match last_seek.observe(&state) {
+        Change::Hide => app.set_seek_osd_visible(false),
+        Change::Show => app.invoke_show_seek_osd(),
+        Change::Keep => {}
     }
-    *last_seek = Some(seek_key);
-    app.set_seek_position_label(seek_clock(state.position).into());
-    app.set_seek_duration_label(seek_clock(state.duration).into());
+    app.set_seek_position_label(seek_osd::clock(state.position).into());
+    app.set_seek_duration_label(seek_osd::clock(state.duration).into());
     // Preserve row identity across clock ticks so focus and accessibility indexes
     // are not destroyed by unrelated time-pos notifications.
     if displayed.as_ref().is_none_or(|old| {
@@ -245,7 +230,7 @@ pub(crate) fn configure_player(
     let latest = Arc::new(std::sync::Mutex::new(None));
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
-    let last_seek = Arc::new(std::sync::Mutex::new(None));
+    let last_seek = Arc::new(std::sync::Mutex::new(SeekOsd::default()));
     let notify = move |state| {
         if let Ok(mut latest) = latest.lock() {
             *latest = Some(state);

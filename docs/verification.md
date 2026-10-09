@@ -470,3 +470,14 @@ files while the published Git bytes use LF. All 13 records now match published
 SVG bytes. Checkout validation, Git-index validation and a clean staged-tree
 copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
+# Seek OSD state verification · 2026-10-10
+
+The shared application reducer tests cover coalesced native completion counters,
+an overlapping seek, delayed/unknown clock values, ordinary ticks, file replacement,
+Stop and errors. Notifications remain pending until seeking ends and the observed
+clock/duration are usable; replacement and failure discard stale notifications.
+Windows workspace tests pass 22 tests with strict lint. The preceding backend
+increment's four native integration tests pass in 2.13 seconds, including an
+observed paused two-second seek and native completion counter advancement.
+These checks establish state handling, not rendered appearance or timeout parity.
+
