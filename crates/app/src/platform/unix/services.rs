@@ -1,6 +1,5 @@
 use std::{
     cmp::Ordering,
-    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -13,44 +12,7 @@ pub fn preferences_path() -> std::io::Result<PathBuf> {
 }
 
 pub fn save_preferences(path: &Path, contents: &str) -> std::io::Result<()> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let (temporary, mut file) = loop {
-        let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
-        let candidate = path.with_extension(format!("{}.{sequence}.tmp", std::process::id()));
-        // Multiple player sessions must never truncate each other's replacement.
-        // Successful exclusive creation is the only basis for cleanup ownership.
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&candidate)
-        {
-            Ok(file) => break (PendingReplacement(candidate), file),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(error),
-        }
-    };
-    file.write_all(contents.as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    // POSIX replacement stays on the same filesystem and never truncates the
-    // previous preferences before the complete replacement is ready.
-    std::fs::rename(&temporary.0, path)?;
-    #[cfg(target_os = "linux")]
-    if let Some(parent) = path.parent() {
-        std::fs::File::open(parent)?.sync_all()?;
-    }
-    Ok(())
-}
-
-struct PendingReplacement(PathBuf);
-
-impl Drop for PendingReplacement {
-    fn drop(&mut self) {
-        // Rename has already removed this name on success; failures remove only
-        // the temporary file exclusively created by this save operation.
-        let _ = std::fs::remove_file(&self.0);
-    }
+    super::super::settings_file::save(path, contents)
 }
 
 pub fn playback_library() -> PathBuf {

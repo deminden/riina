@@ -1,3 +1,8 @@
+Shared preferences save service now has native Windows concurrency and failure
+cleanup regressions. Verify accepted-folder screenshot routing and UI rollback in
+an isolated configuration; the latest folder-input automation was inconclusive.
+Keep external sharing failures explicit and verify macOS/Linux save/runtime.
+
 Complete the partial General Preferences window: implement save/clipboard
 destinations and folder chooser, then remaining General controls and tabbed
 preferences. Verify persistence failure rollback, repeated opening/close lifecycle

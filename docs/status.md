@@ -1,3 +1,24 @@
+Preferences saving now shares exclusive temporary-file allocation and failure
+cleanup across Windows/macOS/Linux. Each save creates its own same-directory
+replacement, writes/syncs/closes it and commits using the platform replacement
+API. Only its own temporary name is removed on failure. Windows native commit is
+serialized within the process: an eight-writer regression initially exposed
+Access denied failures with overlapping MoveFileExW calls, then passed with the
+commit lock. External process/sharing errors still propagate to the UI.
+
+Native Windows filesystem tests verify eight simultaneous saves yield one whole
+Unicode JSON payload, preserve an unrelated old temporary file and leave no owned
+replacements. A directory destination and read-only settings file both reject
+saving while preserving the original destination and cleaning owned temporary
+files. This verifies the actual save service, not UI rollback behavior.
+
+An isolated Windows GUI selection attempt exposed the folder dialog through AX,
+but field mutation reported element unavailable and keyboard focus/cancellation
+could not be verified. The live test process was deliberately stopped (exit -1);
+no restart was inferred from an observation timeout. Its read-only test attribute
+was restored; actual user settings were untouched. Accepted-folder capture, GUI
+save failure rollback, rendered pixels and non-Windows runtime remain pending.
+
 Windows folder-dialog runtime: Ctrl+comma opens Preferences; first Tab focuses
 the folder button; Return opens the native Choose screenshot save path dialog.
 AX exposes Folder edit / Select Folder / Cancel and disables the chooser behind

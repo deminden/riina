@@ -1,6 +1,7 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
+mod settings_file;
 
 pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::path::PathBuf> {
     let directory = if let Some(path) = configured {
