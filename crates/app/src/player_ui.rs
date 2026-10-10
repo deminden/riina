@@ -188,6 +188,8 @@ fn update_ui(
     app.set_speed_value(state.speed as f32);
     app.set_audio_delay(state.audio_delay as f32);
     app.set_subtitle_delay(state.subtitle_delay as f32);
+    app.set_secondary_subtitle_delay_known(state.secondary_subtitle_delay.is_some());
+    app.set_secondary_subtitle_delay(state.secondary_subtitle_delay.unwrap_or(0.0) as f32);
     app.set_subtitle_visible(state.subtitle_visible);
     app.set_secondary_subtitle_visibility_known(state.secondary_subtitle_visible.is_some());
     app.set_secondary_subtitle_visible(state.secondary_subtitle_visible.unwrap_or(false));
@@ -499,6 +501,7 @@ pub(crate) fn configure_player(
         let command = match category {
             1 => Some(Command::AudioDelay(value as f64)),
             2 => Some(Command::SubtitleDelay(value as f64)),
+            5 => Some(Command::SecondarySubtitleDelay(value as f64)),
             _ => None,
         };
         if let Some(app) = weak.upgrade() {

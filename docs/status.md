@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local secondary subtitle delay UI increment: the shared subtitle pane now exposes
+a separate -5 to +5 second secondary delay slider with 0.1 second keyboard steps.
+It dispatches the typed secondary command and displays native observations; an
+unknown delay disables editing instead of presenting an assumed known zero.
+The pinned SidebarSubtitlesPane defines the same slider range. All 24 unit tests,
+strict lint and formatting pass, and all eleven native tests pass (9.62 seconds),
+including independent shifted primary/secondary cues and reset. GUI routing and
+rendered layout remain unverified; reference tick snapping, numeric entry, reset
+button and section ordering remain incomplete. Nothing was published.
+
 Local subtitle loading accessibility increment: the shared external audio/subtitle
 load button now accepts keyboard focus, Enter and Space without consuming modified
 player shortcuts. Windows release runtime testing with catalog.mkv confirmed Tab
