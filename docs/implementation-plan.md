@@ -1,8 +1,9 @@
 # Implementation plan
 
-Empty/zero-area selection and confirmation remain a fidelity gap: riina rejects
-them, while the pinned reference forwards integer crop values. Verify native
-zero-dimension semantics and reference behavior, then reproduce that path.
+Empty/zero-area drafts and native confirmation are now supported. The native
+zero-at-origin test keeps full-source output and reports Custom. Verify offset
+zero-dimension outcomes, pointer/overlay behavior and reference GUI comparison;
+that one native case does not prove the whole empty-selection interaction.
 
 Crop next: verify free selection and edge resizing, then reproduce the reference
 video-area padding/shadow on both presentation routes. Custom... now opens the

@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Interactive crop drafts now retain zero extents through projection, integer
+conversion and explicit confirmation. The native rectangle command forwards
+zero dimensions, while strict nonempty filter validation remains available for
+ordinary geometry. Native evidence verifies crop=0:0:0:0 keeps 320×180 output,
+reports Custom and resets cleanly. All 30 native tests pass in 12.61 seconds;
+workspace unit tests, strict lint and formatting pass. Regressions retain the
+existing nonempty integer-selection contract and cover empty continuous drafts.
+An initial tiny-source regression exposed edge snapping bypassing the integer
+empty-drag guard; the guard now checks clamped endpoints before conversion.
+Actual mouse/empty-overlay rendering, offset zero-size native outcomes, edge
+crossing and reference GUI comparison remain open. No GUI test/public update.
+
 Crop preset selection now remains retained control state after pointer edits
 and editor re-entry, matching the pinned reference's persistent segmented
 control. Riina previously cleared it in both paths. Whole-source initialization

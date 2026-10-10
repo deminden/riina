@@ -32,8 +32,8 @@ impl Drag {
         ]
         .into_iter()
         .all(f64::is_finite)
-            || rectangle.width <= 0.0
-            || rectangle.height <= 0.0
+            || rectangle.width < 0.0
+            || rectangle.height < 0.0
         {
             return Err("Crop drag geometry is invalid".into());
         }

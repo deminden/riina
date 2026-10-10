@@ -333,7 +333,7 @@ impl Command {
                 vec![vec![
                     "vf".into(),
                     "add".into(),
-                    rectangle.filter(source.w, source.h)?,
+                    rectangle.editor_filter(source.w, source.h)?,
                 ]]
             }
             Self::VideoCrop(preset) => match preset {

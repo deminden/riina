@@ -35,8 +35,8 @@ impl SourceRect {
             .all(f64::is_finite)
             || self.x < 0.0
             || self.y < 0.0
-            || self.width <= 0.0
-            || self.height <= 0.0
+            || self.width < 0.0
+            || self.height < 0.0
             || self.x + self.width > f64::from(source.0)
             || self.y + self.height > f64::from(source.1)
         {
@@ -209,6 +209,18 @@ impl Projection {
     }
 
     pub fn select(&self, start: Point, end: Point) -> Result<Rectangle, String> {
+        let clamp = |point: Point| Point {
+            x: point
+                .x
+                .clamp(self.content.x, self.content.x + self.content.width),
+            y: point
+                .y
+                .clamp(self.content.y, self.content.y + self.content.height),
+        };
+        let (start, end) = (clamp(start), clamp(end));
+        if start.x == end.x || start.y == end.y {
+            return Err("Crop selection has no area".into());
+        }
         let rectangle = self
             .select_continuous(start, end)?
             .to_native((self.source_width, self.source_height))?;
@@ -246,9 +258,6 @@ impl Projection {
                 y: start.y,
             }),
         ]);
-        if selected.width == 0.0 || selected.height == 0.0 {
-            return Err("Crop selection has no area".into());
-        }
         let snap = |value: f64, size: u32, far: bool| {
             if far && f64::from(size) - value <= 4.0 {
                 f64::from(size)
@@ -286,9 +295,6 @@ impl Projection {
             width: right - left,
             height: bottom - top,
         };
-        if rectangle.width == 0.0 || rectangle.height == 0.0 {
-            return Err("Crop selection has no area".into());
-        }
         Ok(rectangle)
     }
 
@@ -348,6 +354,21 @@ fn bounds(points: [Point; 4]) -> DisplayRect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interactive_draft_retains_zero_extent_until_native_confirmation() {
+        let projection =
+            Projection::contain((320, 180), (320.0, 180.0), Rotation::Zero, viewport()).unwrap();
+        let point = Point { x: 300.0, y: 300.0 };
+        let empty = projection.select_continuous(point, point).unwrap();
+        assert_eq!((empty.width, empty.height), (0.0, 0.0));
+        let native = empty.to_native((320, 180)).unwrap();
+        assert_eq!((native.width, native.height), (0, 0));
+        assert!(native.editor_filter(320, 180).is_ok());
+        assert!(native.filter(320, 180).is_err());
+        let projected = projection.project_continuous(empty).unwrap();
+        assert_eq!((projected.width, projected.height), (0.0, 0.0));
+    }
 
     #[test]
     fn interactive_picture_is_top_anchored_and_reserves_controls() {

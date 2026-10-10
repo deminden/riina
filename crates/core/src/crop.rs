@@ -49,10 +49,19 @@ pub struct Rectangle {
 
 impl Rectangle {
     pub fn filter(self, source_width: u32, source_height: u32) -> Result<String, String> {
+        if self.width == 0 || self.height == 0 {
+            return Err("The crop rectangle has no area".into());
+        }
+        self.editor_filter(source_width, source_height)
+    }
+
+    /// Interactive confirmation forwards zero dimensions to the engine, as
+    /// the reference does; preset geometry still requires a nonempty rectangle.
+    pub fn editor_filter(self, source_width: u32, source_height: u32) -> Result<String, String> {
         // Validate against the source at dispatch, not the UI's possibly stale
         // frame. Subtraction after checking the origin avoids coordinate overflow.
-        if self.width == 0
-            || self.height == 0
+        if source_width == 0
+            || source_height == 0
             || self.x > source_width
             || self.y > source_height
             || self.width > source_width - self.x

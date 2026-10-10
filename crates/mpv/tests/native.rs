@@ -68,6 +68,60 @@ fn picture_viewport_preserves_pause_volume_and_source_geometry() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies explicit zero-size crop native semantics"]
+fn zero_size_crop_uses_native_full_source_dimensions() {
+    use riina_core::crop::{FILTER_LABEL, Rectangle};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video_output.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::VideoCropRectangle(Rectangle {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        }))
+        .unwrap();
+    let state = wait_for(&receiver, |state| {
+        state.video_filters.as_ref().is_some_and(|filters| {
+            filters
+                .iter()
+                .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+        })
+    });
+    assert!(state.paused);
+    assert_eq!(state.error, None);
+    assert_eq!(
+        state.video_output.as_ref().map(|video| (video.w, video.h)),
+        Some((320, 180))
+    );
+    assert_eq!(riina_core::crop::observed_index(&state), Some(6));
+    player.send(Command::VideoCrop(None)).unwrap();
+    let reset = wait_for(&receiver, |state| {
+        riina_core::crop::observed_index(state) == Some(0)
+    });
+    assert_eq!(reset.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies managed crop replacement and source geometry"]
 fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     use riina_core::crop::{FILTER_LABEL, Preset};
