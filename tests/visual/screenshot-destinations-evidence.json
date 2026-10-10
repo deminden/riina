@@ -1,0 +1,61 @@
+{
+  "source_commit": "2b7854220eb051e7d5136d0ae2be352fe72b21b6",
+  "windows_release_sha256": "67a25624107dbf0e590a6ba656f44b08f4c2a3b89dcb3ccd7444970976291240",
+  "scope": "Windows native release with synthetic SDR catalog media; keyboard/AX/settings/file and native arboard RGBA checks",
+  "gui_build_scope": "Supported PNG success path tested before final unsupported-decoder normal-feedback alignment; final fallback branch not GUI tested",
+  "isolated_settings": "tools/screenshot-destinations-gui/riina/preferences.json",
+  "observations": [
+    "Both destinations disabled: Ctrl+Shift+S produces zero files; format/folder controls disabled",
+    "Live Save to enabled: saved JSON true/false; controls enabled; capture writes catalog-0001.png",
+    "Both enabled: JSON true/true; capture writes catalog-0002.png; native clipboard exact RGBA matches it; preview exposes DELETE EDIT REVEAL",
+    "Clipboard only: JSON false/true; capture shows Screenshot Captured without file actions and leaves only two retained files",
+    "Explicit native fixture round trip replaces clipboard with distinct original 96x64 RGBA fixture; next clipboard-only capture replaces it with exact 320x180 reference pixels",
+    "Restart with OSD disabled after another distinct marker: no Screenshot Captured/accessory AX; native clipboard matches 320x180 reference; only two retained files",
+    "Both player processes exit0; actual user preferences untouched by isolated LOCALAPPDATA"
+  ],
+  "native_clipboard_tests": {
+    "native_clipboard_fixture_round_trip": "passed explicitly; exact 96x64 fixture RGBA",
+    "native_clipboard_pixels_match_saved_reference": "passed explicitly for both destinations, fresh clipboard-only after marker, OSD-disabled after marker and after player exit; exact 320x180 RGBA"
+  },
+  "retained_files": [
+    {
+      "path": "tools/screenshot-destinations-gui/captures/catalog-0001.png",
+      "sha256": "989f1499ee2ee032b766b018ba0a5b476ddad36cd2132d1943445975a42850bf",
+      "size": [
+        320,
+        180
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "tools/screenshot-destinations-gui/captures/catalog-0002.png",
+      "sha256": "989f1499ee2ee032b766b018ba0a5b476ddad36cd2132d1943445975a42850bf",
+      "size": [
+        320,
+        180
+      ],
+      "mode": "RGBA"
+    }
+  ],
+  "verification": {
+    "workspace_tests": "passed; app25 ordinary tests; 2 clipboard tests ignored by default; 36 engine native tests ignored",
+    "strict_lint": "passed",
+    "format": "passed",
+    "final_windows_release_seconds": 44.54,
+    "traceability_requirements": 142,
+    "inventory": "incomplete",
+    "notice_hashes": "nine staged notices match canonical Git bytes"
+  },
+  "dependency_audit": "docs/clipboard-dependencies.json",
+  "not_verified": [
+    "non-PNG image fallback",
+    "HDR/colorimetry",
+    "external-application paste interoperability",
+    "native clipboard contention/failure UI",
+    "rapid capture/shutdown lifecycle",
+    "rendered pixel/font/material parity",
+    "macOS/Linux builds/runtime",
+    "accepted folder chooser selection"
+  ],
+  "published": false
+}
