@@ -50,6 +50,33 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             app.set_subtitle_tracks(model);
         }
     }
+    let subtitle_tracks: Vec<_> = state
+        .tracks
+        .iter()
+        .filter(|t| t.kind == TrackKind::Sub)
+        .collect();
+    let secondary_selected =
+        |track: &&riina_core::Track| track.selected && track.main_selection == Some(1);
+    let mut secondary_rows = vec![CatalogRow {
+        token: "no".into(),
+        label: "<None>".into(),
+        language: "".into(),
+        selected: !subtitle_tracks.iter().any(secondary_selected),
+    }];
+    secondary_rows.extend(subtitle_tracks.into_iter().map(|track| {
+        CatalogRow {
+            token: track.id.to_string().into(),
+            label: track.display_name().into(),
+            language: track
+                .lang
+                .as_deref()
+                .filter(|lang| *lang != "und")
+                .unwrap_or("")
+                .into(),
+            selected: track.selected && track.main_selection == Some(1),
+        }
+    }));
+    app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
     app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
         state
             .chapters
@@ -162,6 +189,8 @@ fn update_ui(
     app.set_audio_delay(state.audio_delay as f32);
     app.set_subtitle_delay(state.subtitle_delay as f32);
     app.set_subtitle_visible(state.subtitle_visible);
+    app.set_secondary_subtitle_visibility_known(state.secondary_subtitle_visible.is_some());
+    app.set_secondary_subtitle_visible(state.secondary_subtitle_visible.unwrap_or(false));
     app.set_loop_label(
         match state.loop_mode() {
             LoopMode::Off => "Off",
@@ -426,6 +455,13 @@ pub(crate) fn configure_player(
     app.on_select_item(move |category, token| {
         // IDs stay strings in the UI: Slint's float numbers cannot preserve every i64.
         let command = match category {
+            5 => token
+                .as_str()
+                .parse::<i64>()
+                .map(Some)
+                .or_else(|error| if token == "no" { Ok(None) } else { Err(error) })
+                .map(Command::SelectSecondarySubtitle)
+                .map_err(|error| error.to_string()),
             1 | 2 => token
                 .as_str()
                 .parse::<i64>()

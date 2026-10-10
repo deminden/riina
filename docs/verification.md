@@ -747,3 +747,16 @@ secondary delay and pause with no native error. All eleven explicit native
 tests pass in 10.19 seconds; 24 unit tests, strict lint and formatting pass.
 This proves independent property handling, not rendered placement. Shared UI
 position controls, actual visual geometry and macOS/Linux runtime remain open.
+
+## Shared secondary selector controls · 2026-10-10
+
+The subtitle pane adds a Secondary catalog after Primary with separate visibility
+controls, based on the pinned SidebarSubtitlesPane two-lane requirement. The
+Rust catalog maps main-selection 1 to secondary highlights and provides a None
+entry. The shared selection callback submits a typed secondary setter with
+stable string IDs. Visibility is disabled until the optional native flag is
+known, then follows observed state. Strict lint and all 24 unit tests pass.
+Existing native two-lane tests verify the target command semantics, but the new
+UI wiring has not been exercised through GUI input. Row/switch geometry, complete
+reference ordering, keyboard selection, secondary timing/position controls and
+other-OS runtime remain pending. No rendered or pixel-perfect pass is claimed.

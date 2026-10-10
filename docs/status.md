@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Local secondary selector UI increment: the shared subtitle pane now exposes
+Primary and Secondary track lists and independent visibility controls, following
+the pinned pane's two-lane structure. Secondary rows retain native lane metadata
+and stable ID tokens; None disables only the secondary lane. Unknown visibility
+disables its control until a native observation arrives. Strict lint and all
+24 workspace unit tests pass. GUI selection/routing and rendered parity remain
+pending; load/timing section ordering and switch geometry are still provisional.
+Work remains local.
+
 Local secondary positioning increment: typed native secondary position accepts
 finite values from zero to 150 and observes an optional validated position.
 The two-lane SRT test verifies positions 25, zero, 150 and 100 while retaining
