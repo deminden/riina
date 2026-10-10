@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Native source 2c60229 retains ordinary single-F10 menu entry and shortcut
+recovery. In Custom Crop, F10 leaves the editor active; subsequent keyboard
+selection of 4:3 and Escape work, preserving Play/volume 37/EOF position 5.
+In the native file picker, F10 retains picker focus; cancellation restores the
+Video shortcut and playback observations. Close returns 0. Evidence/source/
+binary identity is in tests/visual/native-menu-input-scope-evidence.json.
+An external application-switch attempt exposes retained AX focus in both apps,
+so it does not prove foreground retention; queued transition races also remain
+unverified. Workspace tests, strict lint, formatting and release build pass
+(36.05 seconds). Nothing published.
+API basis for the foreground gate: [GetForegroundWindow](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getforegroundwindow).
+
 Native menu requests now recheck crop/dialog input scope when the queued entry
 and system command execute. A transition between activation and entry clears
 menu ownership and returns input to the crop editor without disturbing a dialog.

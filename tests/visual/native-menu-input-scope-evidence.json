@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "2c60229250f616c4f5710176d949175dbae1e8ad",
+  "binary_sha256": "51bfa27f98ea84fa4198bf76833b39de29fd560aa4c5d68d8ff16a9296e9df5d",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "Single F10/Return still opens Video > Flip; two Escapes leave dropdown and bar, and the Video shortcut opens the sidebar",
+    "Keyboard navigation and Space on Custom... enter whole-source crop editing",
+    "F10 leaves crop description (0, 0) (320×180), Cancel and Done present, without opening the Video menu",
+    "Tab focus reaches 4:3, Space changes selection to (40, 0) (240×180), and Escape returns to Play, volume 37, position 5",
+    "Control+O opens the native file picker; F10 retains its Search Box focus and Open File dialog, without a player Video menu",
+    "Two Escapes leave the picker keyboard scope and cancel; the Video shortcut works afterward with Play, volume 37, position 5 preserved",
+    "Alt+Tab closes the observed Video dropdown but reports owner focus; explicit Codex activation yields retained focus labels in both apps, so foreground ownership is not proven"
+  ],
+  "exit_code": 0,
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "unverified": [
+    "A queued entry racing an editor/dialog transition",
+    "External foreground focus retention",
+    "Checked menu state, reflected pixels, pointer/DPI geometry and ports"
+  ]
+}

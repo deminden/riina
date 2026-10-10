@@ -12,7 +12,10 @@ key release did not fix entry. Separate queued Windows activation/entry now has
 single-F10/Return, repeated-cycle, Escape-to-bar/full-exit, shortcut recovery and
 clean shutdown evidence. Menu-action input lost its tool reference; recovery is
 observed but the filter result still needs proof. Verify checked state, pixels,
-pointer access, crop/dialog exclusion and focus after external deactivation.
+pointer access, queued crop/dialog transition races and focus after external
+deactivation. Ordinary crop/file-picker input exclusion and recovery have
+Windows runtime evidence; retained AX focus labels do not prove which window
+owns the foreground after an application switch.
 Prove reflected pixels on both rendering routes;
 do not add arbitrary sidebar controls or claim backend commands finish parity.
 The reference gives these items no default shortcut or dedicated OSD message.
