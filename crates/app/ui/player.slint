@@ -450,6 +450,7 @@ export component PlayerWindow inherits Window {
     in property <[CatalogRow]> chapters;
     in property <[CatalogRow]> playlist;
     in-out property <int> sidebar: 0;
+    in-out property <int> leading-sidebar: 0;
     in-out property <string> selected-playlist-token: "";
     in property <float> audio-delay: 0;
     in property <float> subtitle-delay: 0;
@@ -588,13 +589,16 @@ export component PlayerWindow inherits Window {
                 Tool { icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.sidebar = root.sidebar == 6 ? 0 : 6; } }
                 Tool { icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.sidebar = root.sidebar == 1 ? 0 : 1; } }
                 Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.sidebar = root.sidebar == 2 ? 0 : 2; } }
-                Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.sidebar = root.sidebar == 3 ? 0 : 3; } }
-                Tool { icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.sidebar = root.sidebar == 4 ? 0 : 4; } }
+                Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.leading-sidebar = root.leading-sidebar == 3 ? 0 : 3; } }
+                Tool { icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.leading-sidebar = root.leading-sidebar == 4 ? 0 : 4; } }
                 Tool { icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
             }
         }
-        if sidebar != 0 && !crop-editing : Rectangle {
-            x: root.sidebar == 3 || root.sidebar == 4 ? 0px : parent.width - self.width;
+        for side in [0, 1] : Rectangle {
+            // Each side owns its selected pane; catalog callbacks retain their original kind.
+            private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
+            visible: pane-kind != 0 && !root.crop-editing;
+            x: pane-kind == 3 || pane-kind == 4 ? 0px : parent.width - self.width;
             y: 34px; width: min(360px, parent.width * 0.8);
             height: parent.height - 68px; background: #202025f5;
             // Track row height and None entry follow SidebarTrackSelector.swift.
@@ -605,51 +609,56 @@ export component PlayerWindow inherits Window {
                 HorizontalLayout {
                     // Tabs switch the visible pane without closing it or changing catalog tokens.
                     // Layout is still pending; do not expose an empty reference tab.
-                    if sidebar == 1 || sidebar == 2 || sidebar == 6 : HorizontalLayout {
+                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 6 : HorizontalLayout {
                         spacing: 4px;
-                        SidebarTab { label: "Video"; selected: root.sidebar == 6;
+                        SidebarTab { label: "Video"; selected: pane-kind == 6;
                             activated => { root.sidebar = 6; } }
-                        SidebarTab { label: "Audio"; selected: root.sidebar == 1;
+                        SidebarTab { label: "Audio"; selected: pane-kind == 1;
                             activated => { root.sidebar = 1; } }
-                        SidebarTab { label: "Subtitles"; selected: root.sidebar == 2;
+                        SidebarTab { label: "Subtitles"; selected: pane-kind == 2;
                             activated => { root.sidebar = 2; } }
                     }
-                    if sidebar == 3 || sidebar == 4 : HorizontalLayout {
+                    if pane-kind == 3 || pane-kind == 4 : HorizontalLayout {
                         spacing: 4px;
-                        SidebarTab { label: "Playlist"; selected: root.sidebar == 4;
-                            activated => { root.sidebar = 4; } }
-                        SidebarTab { label: "Chapters"; selected: root.sidebar == 3;
-                            activated => { root.sidebar = 3; } }
+                        SidebarTab { label: "Playlist"; selected: pane-kind == 4;
+                            activated => { root.leading-sidebar = 4; } }
+                        SidebarTab { label: "Chapters"; selected: pane-kind == 3;
+                            activated => { root.leading-sidebar = 3; } }
                     }
-                    Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar"; activated => { root.sidebar = 0; } }
+                    Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar";
+                        activated => {
+                            // Retire focus before hiding a pane so later shortcuts reach the player.
+                            keys.focus();
+                            if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
+                        } }
                 }
-                if sidebar == 1 : HorizontalLayout {
+                if pane-kind == 1 : HorizontalLayout {
                     Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
-                        accessible-role: button; accessible-label: root.sidebar == 1 ? "Load external audio" : "Load subtitle";
+                        accessible-role: button; accessible-label: pane-kind == 1 ? "Load external audio" : "Load subtitle";
                         accessible-enabled: root.loaded;
-                        accessible-action-default => { if root.loaded { root.browse-files(root.sidebar); } }
-                        Text { text: root.sidebar == 1 ? "Load External Audio…" : "Load Subtitle…";
+                        accessible-action-default => { if root.loaded { root.browse-files(pane-kind); } }
+                        Text { text: pane-kind == 1 ? "Load External Audio…" : "Load Subtitle…";
                             color: root.loaded ? #eeeeee : #777777; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
                         if load-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 4px; background: transparent; }
-                        TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.browse-files(root.sidebar); } }
+                        TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.browse-files(pane-kind); } }
                         load-focus := FocusScope {
                             enabled: root.loaded;
                             key-pressed(event) => {
                                 if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                                if event.text == Key.Return || event.text == " " { root.browse-files(root.sidebar); return accept; }
+                                if event.text == Key.Return || event.text == " " { root.browse-files(pane-kind); return accept; }
                                 return reject;
                             }
                         }
                     }
                 }
-                if sidebar == 1 : VerticalLayout {
+                if pane-kind == 1 : VerticalLayout {
                     height: 48px; vertical-stretch: 0;
-                    Text { text: "Delay: " + (root.sidebar == 1 ? root.audio-delay : root.subtitle-delay) + " s"; color: #bbbbbb; font-size: 11px; }
-                    PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.sidebar == 1 ? root.audio-delay : root.subtitle-delay;
-                        enabled: root.loaded; hint: root.sidebar == 1 ? "Audio delay" : "Subtitle delay";
-                        changed(value) => { root.set-delay(root.sidebar, value); } }
+                    Text { text: "Delay: " + (pane-kind == 1 ? root.audio-delay : root.subtitle-delay) + " s"; color: #bbbbbb; font-size: 11px; }
+                    PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: pane-kind == 1 ? root.audio-delay : root.subtitle-delay;
+                        enabled: root.loaded; hint: pane-kind == 1 ? "Audio delay" : "Subtitle delay";
+                        changed(value) => { root.set-delay(pane-kind, value); } }
                 }
-                if sidebar == 1 : Rectangle {
+                if pane-kind == 1 : Rectangle {
                     height: 28px; background: transparent;
                     accessible-role: checkbox;
                     accessible-label: "Allow volume boost (up to 200%)";
@@ -679,17 +688,17 @@ export component PlayerWindow inherits Window {
                 }
                 ScrollView {
                     VerticalLayout { alignment: start; spacing: 1px;
-                        if root.sidebar == 2 : HorizontalLayout {
+                        if pane-kind == 2 : HorizontalLayout {
                             height: 28px;
                             Text { text: "Primary"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                             Tool { label: root.subtitle-visible ? "●" : "○"; hint: "Toggle subtitle visibility";
                                 enabled: root.loaded; activated => { root.toggle-subtitle-visibility(); } }
                         }
-                        for row in (sidebar == 1 ? audio-tracks : sidebar == 2 ? subtitle-tracks : sidebar == 3 ? chapters : sidebar == 6 ? video-tracks : playlist): Rectangle {
-                            height: root.sidebar < 3 || root.sidebar == 6 ? 26px : root.sidebar == 3 ? 40px : 30px;
-                            background: (root.sidebar == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
+                        for row in (pane-kind == 1 ? audio-tracks : pane-kind == 2 ? subtitle-tracks : pane-kind == 3 ? chapters : pane-kind == 6 ? video-tracks : playlist): Rectangle {
+                            height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px : 30px;
+                            background: (pane-kind == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
                             accessible-role: button; accessible-label: row.label;
-                            accessible-action-default => { root.select-item(root.sidebar, row.token); }
+                            accessible-action-default => { root.select-item(pane-kind, row.token); }
                             if row-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
                             if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
                             Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label; color: #dddddd;
@@ -698,16 +707,16 @@ export component PlayerWindow inherits Window {
                                 y: (parent.height - self.height) / 2; border-radius: 3px; background: #ffffff20;
                                 Text { text: row.language; color: #dddddd; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
                             TouchArea {
-                                clicked => { row-focus.focus(); if root.sidebar < 3 { root.select-item(root.sidebar, row.token); }
-                                    if root.sidebar == 4 { root.selected-playlist-token = row.token; } }
-                                double-clicked => { if root.sidebar >= 3 { root.select-item(root.sidebar, row.token); root.selected-playlist-token = ""; } }
+                                clicked => { row-focus.focus(); if pane-kind < 3 { root.select-item(pane-kind, row.token); }
+                                    if pane-kind == 4 { root.selected-playlist-token = row.token; } }
+                                double-clicked => { if pane-kind >= 3 { root.select-item(pane-kind, row.token); root.selected-playlist-token = ""; } }
                             }
                             row-focus := FocusScope {
                                 key-pressed(event) => {
                                     // Preserve global playback shortcuts while a catalog row has focus.
                                     if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
                                     if event.text == Key.Return {
-                                        root.select-item(root.sidebar, row.token);
+                                        root.select-item(pane-kind, row.token);
                                         root.selected-playlist-token = "";
                                         return accept;
                                     }
@@ -715,7 +724,7 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                         }
-                        if sidebar == 6 : VideoControls {
+                        if pane-kind == 6 : VideoControls {
                             aspect-presets: root.video-aspect-presets;
                             aspect-index: root.video-aspect-index;
                             rotation-index: root.video-rotation-index;
@@ -728,7 +737,7 @@ export component PlayerWindow inherits Window {
                             aspect-changed(value) => { root.set-video-aspect(value); }
                             rotation-changed(value) => { root.set-video-rotation(value); }
                         }
-                        if sidebar == 6 : VerticalLayout { spacing: 8px;
+                        if pane-kind == 6 : VerticalLayout { spacing: 8px;
                             Text { text: "Speed"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
                             HorizontalLayout { spacing: 8px; height: 24px;
                                 PlayerSlider { minimum: 0; maximum: 24; step: 1;
@@ -765,12 +774,12 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                         }
-                        if sidebar == 6 : HardwareDecodingControls {
+                        if pane-kind == 6 : HardwareDecodingControls {
                             hardware-enabled: root.hardware-decoding-enabled;
                             hardware-known: root.hardware-decoding-known;
                             hardware-changed(value) => { root.set-hardware-decoding(value); }
                         }
-                        if sidebar == 6 : VerticalLayout { spacing: 8px;
+                        if pane-kind == 6 : VerticalLayout { spacing: 8px;
                             for label[index] in ["Brightness", "Contrast", "Saturation", "Gamma", "Hue"] : HorizontalLayout {
                                 height: 20px; spacing: 8px;
                                 Text { text: label; width: 65px; font-size: 11px; color: #dddddd;
@@ -787,14 +796,14 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                         }
-                        if root.sidebar == 2 : HorizontalLayout {
+                        if pane-kind == 2 : HorizontalLayout {
                             height: 28px;
                             Text { text: "Secondary"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                             Tool { label: root.secondary-subtitle-visible ? "●" : "○"; hint: "Toggle secondary subtitle visibility";
                                 enabled: root.loaded && root.secondary-subtitle-visibility-known;
                                 activated => { root.toggle-secondary-subtitle-visibility(); } }
                         }
-                        for row in (root.sidebar == 2 ? root.secondary-subtitle-tracks : []): Rectangle {
+                        for row in (pane-kind == 2 ? root.secondary-subtitle-tracks : []): Rectangle {
                             height: 26px;
                             background: row.selected ? #ffffff15 : transparent;
                             accessible-role: button; accessible-label: "Secondary subtitle: " + row.label;
@@ -817,26 +826,26 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                         }
-                        if sidebar == 2 : HorizontalLayout {
+                        if pane-kind == 2 : HorizontalLayout {
                             Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
-                                accessible-role: button; accessible-label: root.sidebar == 1 ? "Load external audio" : "Load subtitle";
+                                accessible-role: button; accessible-label: pane-kind == 1 ? "Load external audio" : "Load subtitle";
                                 accessible-enabled: root.loaded;
-                                accessible-action-default => { if root.loaded { root.browse-files(root.sidebar); } }
-                                Text { text: root.sidebar == 1 ? "Load External Audio…" : "Load Subtitle…";
+                                accessible-action-default => { if root.loaded { root.browse-files(pane-kind); } }
+                                Text { text: pane-kind == 1 ? "Load External Audio…" : "Load Subtitle…";
                                     color: root.loaded ? #eeeeee : #777777; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
                                 if subtitle-load-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 4px; background: transparent; }
-                                TouchArea { enabled: root.loaded; clicked => { subtitle-load-focus.focus(); root.browse-files(root.sidebar); } }
+                                TouchArea { enabled: root.loaded; clicked => { subtitle-load-focus.focus(); root.browse-files(pane-kind); } }
                                 subtitle-load-focus := FocusScope {
                                     enabled: root.loaded;
                                     key-pressed(event) => {
                                         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                                        if event.text == Key.Return || event.text == " " { root.browse-files(root.sidebar); return accept; }
+                                        if event.text == Key.Return || event.text == " " { root.browse-files(pane-kind); return accept; }
                                         return reject;
                                     }
                                 }
                             }
                         }
-                        if sidebar == 2 : VerticalLayout {
+                        if pane-kind == 2 : VerticalLayout {
                             height: 124px; vertical-stretch: 0;
                             Rectangle { height: 28px; border-radius: 5px; background: #ffffff0c;
                                 HorizontalLayout { padding: 2px; spacing: 1px;
@@ -871,7 +880,7 @@ export component PlayerWindow inherits Window {
                                 hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                         }
-                        if sidebar == 2 && root.subtitle-text-style-available : VerticalLayout {
+                        if pane-kind == 2 && root.subtitle-text-style-available : VerticalLayout {
                             height: 182px; vertical-stretch: 0; spacing: 8px;
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Scale"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
@@ -927,17 +936,17 @@ export component PlayerWindow inherits Window {
                                     edited(value) => { root.set-subtitle-color(2, value); } }
                             }
                         }
-                        if sidebar == 2 && !root.subtitle-text-style-available : Text {
+                        if pane-kind == 2 && !root.subtitle-text-style-available : Text {
                             text: "Some settings are not available for this subtitle type.";
                             wrap: word-wrap; color: #bbbbbb; font-size: 11px;
                         }
-                        if sidebar == 2 && root.subtitle-ass-style-warning : Text {
+                        if pane-kind == 2 && root.subtitle-ass-style-warning : Text {
                             text: "Setting style options for ASS subtitles may break rendering.";
                             wrap: word-wrap; color: #bbbbbb; font-size: 11px;
                         }
                     }
                 }
-                if sidebar == 4 : HorizontalLayout { spacing: 2px;
+                if pane-kind == 4 : HorizontalLayout { spacing: 2px;
                     Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist"; activated => { root.browse-files(4); } }
                     Tool { label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
@@ -1045,8 +1054,8 @@ export component PlayerWindow inherits Window {
                     if event.text == "L" { root.toggle-file-loop(); return accept; }
                     if event.text == ">" { root.adjust-chapter(1); return accept; }
                     if event.text == "<" { root.adjust-chapter(-1); return accept; }
-                    if event.text == "C" { root.sidebar = root.sidebar == 3 ? 0 : 3; return accept; }
-                    if event.text == "P" { root.sidebar = root.sidebar == 4 ? 0 : 4; return accept; }
+                    if event.text == "C" { root.leading-sidebar = root.leading-sidebar == 3 ? 0 : 3; return accept; }
+                    if event.text == "P" { root.leading-sidebar = root.leading-sidebar == 4 ? 0 : 4; return accept; }
                     if event.text == "A" { root.sidebar = root.sidebar == 1 ? 0 : 1; return accept; }
                     if event.text == "S" { root.take-screenshot(); return accept; }
                     if event.text == "V" { root.sidebar = root.sidebar == 6 ? 0 : 6; return accept; }
@@ -1120,7 +1129,7 @@ export component PlayerWindow inherits Window {
             if event.text == "f" { root.toggle-fullscreen(); return accept; }
             if event.text == Key.Return { if !root.fullscreen { root.toggle-fullscreen(); } return accept; }
             if event.text == Key.Escape && root.fullscreen { root.toggle-fullscreen(); return accept; }
-            if event.text == Key.Escape && root.sidebar != 0 { root.sidebar = 0; return accept; }
+            if event.text == Key.Escape && (root.sidebar != 0 || root.leading-sidebar != 0) { root.sidebar = 0; root.leading-sidebar = 0; return accept; }
             return reject;
         }
     }

@@ -1,10 +1,13 @@
 The user now prioritizes full interface parity before further feature expansion;
+leading Playlist/Chapters and trailing settings now keep independent selection.
+Actual Windows capture shows both sides together and independent switching/close.
 settings now has Video/Audio/Subtitles tabs and Playlist/Chapters navigation.
 All five panes were captured in the running Windows player; keyboard tab switching
-and Escape dismissal worked. Layout, independent simultaneous panels and exact
-reference appearance remain open; captured floating controls overlap sidebars.
+and Escape dismissal worked. Layout and exact reference appearance remain open.
+Floating controls may overlap sidebars in the reference default edge-to-edge mode;
+the captures alone do not establish a placement defect.
 Formatting, strict lint, workspace tests and the optimized Windows build passed.
-see docs/interface-parity-plan.md. Windows screen capture succeeds again. Actual
+See docs/interface-parity-plan.md. Windows screen capture succeeds again. Actual
 shared-renderer and General Preferences images were inspected: the chooser label
 was blank under toolkit padding and the folder path abutted Save to. An original
 small chooser now visibly renders its ellipsis, supports keyboard focus/Enter,

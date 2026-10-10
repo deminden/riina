@@ -45,6 +45,14 @@ also includes Layout, which remains unimplemented. Actual Windows shared-rendere
 captures show all five implemented panes, selected tabs and keyboard focus.
 Tab/Enter/Space navigation and Escape dismissal were exercised with catalog.mkv
 paused at 0:00 in the isolated capture profile; the owned player exited 0.
-The images expose floating controls overlapping the sidebar. Reference-matched
-tab glyphs/materials, Layout, simultaneous sidebars, resizing and control allocation
+The images show floating controls overlapping the sidebar. The reference default
+edgeToEdgeVideo=true keeps the video container across the window, so this is not
+alone evidence of a placement defect. Reference-matched tab glyphs/materials,
+Layout, resizing and non-edge-to-edge control allocation
 remain open. These captures are inspection evidence, not a passed pixel comparison.
+
+Both sides now retain their own selected pane. Captured Windows playback shows
+Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and
+closing Audio preserves Chapters. Crop entry closes both panes. Side-specific
+close actions restore player focus before hiding the focused control. This does
+not yet cover resizing, RTL placement, side preferences or animation fidelity.

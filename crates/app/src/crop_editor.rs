@@ -128,6 +128,7 @@ impl Editor {
         }
         if entering {
             app.set_sidebar(0);
+            app.set_leading_sidebar(0);
             app.set_seek_osd_visible(false);
             app.set_video_osd_visible(false);
             let weak = app.as_weak();
