@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Local secondary-subtitle increment: typed selection, independent visibility and
+secondary text observation are implemented, with Alt+v connected in shared UI.
+Track catalogs retain native lane metadata so secondary-only decoding cannot
+highlight a primary selection. Native verification observes distinct primary/
+secondary text together, independent visibility and disabling either selector,
+retained pause and cleared secondary text on replacement. A distinct original
+CC0 SRT fixture is generated and hashed. Secondary ASS override now defaults to
+scale as in pinned IINA rather than mpv's strip default. The secondary selector
+UI, GUI Alt+v routing, visual styling and other-OS runtime remain pending.
+All eleven Windows native tests pass (9.43 seconds), with 24 unit tests, strict
+lint, formatting and the release build. All original/new fixture hashes match.
+Work remains local.
+
 Local subtitle layout increment: G/F adjust native scale by +/-0.1, r raises
 subtitle position by one point, and R/t lower it by one point, matching the
 pinned default input config. Optional observed scale/position retain unknown

@@ -168,6 +168,7 @@ export component PlayerWindow inherits Window {
     callback show-seek-osd();
     callback cycle-ab-loop();
     callback toggle-file-loop();
+    callback toggle-secondary-subtitle-visibility();
     callback cycle-audio-track();
     callback cycle-subtitle-track();
     callback cycle-video-track();
@@ -391,6 +392,7 @@ export component PlayerWindow inherits Window {
                 return reject;
             }
             if event.modifiers.alt && !event.modifiers.shift {
+                if !event.modifiers.control && !event.modifiers.meta && event.text == "v" { root.toggle-secondary-subtitle-visibility(); return accept; }
                 if event.text == Key.RightArrow { root.frame-step(); return accept; }
                 if event.text == Key.LeftArrow { root.frame-back-step(); return accept; }
                 if event.text == Key.UpArrow { root.adjust-volume(1); return accept; }

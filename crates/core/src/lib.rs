@@ -23,6 +23,7 @@ pub enum Command {
     PlaylistPrevious,
     SelectTrack { kind: TrackKind, id: Option<i64> },
     CycleTrack(TrackKind),
+    SelectSecondarySubtitle(Option<i64>),
     SelectChapter(usize),
     AdjustChapter(i32),
     SelectPlaylistEntry(usize),
@@ -43,6 +44,7 @@ pub enum Command {
     AdjustSubtitlePosition(f64),
     SubtitleSeek(i32),
     ToggleSubtitleVisibility,
+    ToggleSecondarySubtitleVisibility,
     CycleLoop,
     ToggleFileLoop,
     CycleAbLoop,
@@ -93,6 +95,11 @@ impl Command {
                 // a catalog snapshot can lag external-track insertion/removal.
                 vec!["cycle".into(), kind.property().into()]
             }
+            Self::SelectSecondarySubtitle(id) if id.is_none_or(|id| id > 0) => vec![
+                "set".into(),
+                "secondary-sid".into(),
+                id.map_or_else(|| "no".into(), |id| id.to_string()),
+            ],
             Self::SelectChapter(index) => vec!["set".into(), "chapter".into(), index.to_string()],
             Self::AdjustChapter(delta) => {
                 // Relative navigation keeps native restart-threshold and boundary
@@ -128,6 +135,9 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::ToggleSecondarySubtitleVisibility => {
+                vec!["cycle".into(), "secondary-sub-visibility".into()]
+            }
             Self::AdjustAudioDelay(delta)
             | Self::AdjustSubtitleDelay(delta)
             | Self::AdjustSubtitleScale(delta)
@@ -436,6 +446,8 @@ pub struct Track {
     pub codec: Option<String>,
     #[serde(default)]
     pub selected: bool,
+    #[serde(default, rename = "main-selection")]
+    pub main_selection: Option<i64>,
     #[serde(default)]
     pub external: bool,
     #[serde(default, rename = "external-filename")]
@@ -449,6 +461,12 @@ pub struct Track {
 }
 
 impl Track {
+    pub fn is_primary_selected(&self) -> bool {
+        // Both subtitle lanes can be decoded simultaneously. `selected` alone
+        // cannot identify which lane should be highlighted in the primary list.
+        self.selected && self.main_selection == Some(0)
+    }
+
     pub fn display_name(&self) -> String {
         // MPVTrack.readableString excludes the language in the sidebar; the UI
         // displays it separately. Preserve title and codec/channel/rate metadata.
@@ -534,7 +552,9 @@ pub struct Playback {
     pub subtitle_scale: Option<f64>,
     pub subtitle_position: Option<f64>,
     pub subtitle_visible: bool,
+    pub secondary_subtitle_visible: Option<bool>,
     pub subtitle_text: Option<String>,
+    pub secondary_subtitle_text: Option<String>,
     pub loop_file: Option<String>,
     pub loop_playlist: Option<String>,
     pub ab_loop_a: Option<f64>,
@@ -571,6 +591,7 @@ impl Playback {
         self.tracks.clear();
         self.chapters.clear();
         self.subtitle_text = None;
+        self.secondary_subtitle_text = None;
         self.video = None;
         self.video_target = None;
     }

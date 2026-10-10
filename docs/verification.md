@@ -699,3 +699,26 @@ linker assumptions. Windows strict lint, all 24 unit tests, formatting and the
 release build pass after the fix. Current GUI
 shortcut routing, settings controls, actual rendered subtitle geometry/font
 parity and macOS/Linux build/runtime verification remain open.
+
+## Independent secondary subtitles · 2026-10-10
+
+Typed secondary selection targets `secondary-sid`; Alt+v cycles only secondary
+visibility. Backend observations include secondary text and an optional visibility
+flag. Track decoding now retains [mpv's main-selection metadata](https://mpv.io/manual/stable/#properties-track-list),
+where lane zero is primary and lane one secondary. Shared primary catalog rows
+use this metadata, preventing a secondary-only track from appearing selected
+in the primary list. Unknown lane metadata is not asserted to be primary.
+
+The native test loads two distinct original CC0 SRT files, assigns independent
+lanes and observes Unicode primary text and distinct secondary text at 0.5 seconds
+while paused. Hiding secondary retains primary visibility and selection; hiding
+primary leaves secondary visible. Disabling primary retains a selected secondary
+lane, then disabling secondary removes both selections. Replacement clears old
+secondary text and tracks. No native error occurs. The secondary override option
+uses scale, matching IINA's pinned preference default; native initialization accepts
+it, but styled ASS output has not been visually verified. GUI selector controls,
+Alt+v routing, subtitle OSD, native-rendered styling and other-OS runtime remain
+pending. The original fixture has a reproducible generator and manifest hash.
+All eleven explicit Windows native tests pass in 9.43 seconds after the default
+override change. The 24 unit tests, strict lint, formatting, Windows release
+build and all fixture hashes pass. Public GitHub was not updated.

@@ -48,5 +48,12 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-hdr-fixtures.py",
     "description": "Original patch values, quantized luma codes and marker geometry"
+  },
+  "secondary-captions.srt": {
+    "sha256": "99142386aa0c0b6d2bab2b50a67b4053416759a49c57c41431ca793dc4e41d38",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-secondary-fixture.py",
+    "description": "Original UTF-8 secondary subtitle text, two timed cues"
   }
 }

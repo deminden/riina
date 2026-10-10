@@ -28,7 +28,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             token: "no".into(),
             label: "<None>".into(),
             language: "".into(),
-            selected: !tracks.iter().any(|track| track.selected),
+            selected: !tracks.iter().any(|track| track.is_primary_selected()),
         }];
         rows.extend(tracks.into_iter().map(|track| {
             CatalogRow {
@@ -40,7 +40,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
                     .filter(|lang| *lang != "und")
                     .unwrap_or("")
                     .into(),
-                selected: track.selected,
+                selected: track.is_primary_selected(),
             }
         }));
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
@@ -410,6 +410,10 @@ pub(crate) fn configure_player(
     });
     connect!(on_cycle_ab_loop, Command::CycleAbLoop);
     connect!(on_toggle_file_loop, Command::ToggleFileLoop);
+    connect!(
+        on_toggle_secondary_subtitle_visibility,
+        Command::ToggleSecondarySubtitleVisibility
+    );
     connect!(on_cycle_audio_track, Command::CycleTrack(TrackKind::Audio));
     connect!(on_cycle_subtitle_track, Command::CycleTrack(TrackKind::Sub));
     connect!(on_cycle_video_track, Command::CycleTrack(TrackKind::Video));

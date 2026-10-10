@@ -117,6 +117,9 @@ impl Player {
                     for (key, value) in [("config", "no"), ("load-scripts", "no"), ("idle", "yes"),
                         ("vo", if headless { "null" } else { "libmpv" }),
                         ("volume-max", "100"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes"),
+                        // IINA's secondary override defaults to scale, whereas
+                        // mpv defaults to stripping the secondary lane's styles.
+                        ("secondary-sub-ass-override", "scale"),
                         // Loop points belong to the current media, unlike volume
                         // and speed. Reset in mpv too, not just in our UI snapshot.
                         ("reset-on-next-file", "ab-loop-a,ab-loop-b")] {
@@ -137,6 +140,7 @@ impl Player {
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
                         ("sub-scale", 5), ("sub-pos", 5),
+                        ("secondary-sub-visibility", 3), ("secondary-sub-text", 1),
                         ("sub-text", 1), ("loop-file", 1), ("loop-playlist", 1),
                         ("ab-loop-a", 6), ("ab-loop-b", 6)] {
                         let name = CString::new(name).unwrap();
@@ -291,6 +295,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
             b"sub-text" => state.subtitle_text = None,
+            b"secondary-sub-text" => state.secondary_subtitle_text = None,
+            b"secondary-sub-visibility" => state.secondary_subtitle_visible = None,
             b"sub-scale" => state.subtitle_scale = None,
             b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
@@ -382,6 +388,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"seekable" => state.seekable = flag,
             b"mute" => state.muted = flag,
             b"sub-visibility" => state.subtitle_visible = flag,
+            b"secondary-sub-visibility" => state.secondary_subtitle_visible = Some(flag),
             b"eof-reached" => {
                 if flag {
                     state.phase = Phase::Ended;
@@ -402,6 +409,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"current-ao" => state.audio_output = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
                 b"sub-text" => state.subtitle_text = Some(value),
+                b"secondary-sub-text" => state.secondary_subtitle_text = Some(value),
                 b"loop-file" => state.loop_file = Some(value),
                 b"loop-playlist" => state.loop_playlist = Some(value),
                 _ => {}

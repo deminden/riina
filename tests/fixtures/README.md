@@ -4,6 +4,9 @@
 moving amber square, frame labels and orientation markers, 48 kHz stereo PCM with
 a low-volume 440 Hz tone. Created by scripts/generate-fixtures.py using Pillow.
 No third-party media is included. Fixture data is CC0-1.0; generator is MIT.
+`secondary-captions.srt` contains two distinct original cues for simultaneous
+subtitle-lane tests. Regenerate with `python scripts/generate-secondary-fixture.py`.
+It is CC0-1.0 and its SHA-256 is recorded in manifest.json.
 Regenerate with `python scripts/generate-fixtures.py`; record SHA-256 in manifest.json.
 
 `catalog.mkv` wraps those same original JPEG/PCM packets in Matroska with two named

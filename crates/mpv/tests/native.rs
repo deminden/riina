@@ -118,8 +118,146 @@ fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {
     state
         .tracks
         .iter()
-        .find(|t| t.kind == kind && t.selected)
+        .find(|t| t.kind == kind && t.is_primary_selected())
         .map(|t| t.id)
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies independent primary and secondary subtitle lanes"]
+fn secondary_subtitles_keep_selection_and_visibility_independent() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let fixture = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(fixture("manual-captions.srt")))
+        .unwrap();
+    let first = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_some()
+    });
+    let primary_id = selected_track(&first, TrackKind::Sub).unwrap();
+    player
+        .send(Command::AddSubtitle(fixture("secondary-captions.srt")))
+        .unwrap();
+    let second = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_some_and(|id| id != primary_id)
+    });
+    let secondary_id = selected_track(&second, TrackKind::Sub).unwrap();
+    player
+        .send(Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: Some(primary_id),
+        })
+        .unwrap();
+    player
+        .send(Command::SelectSecondarySubtitle(Some(secondary_id)))
+        .unwrap();
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let both = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|s| s.contains("Привет"))
+            && state
+                .secondary_subtitle_text
+                .as_deref()
+                .is_some_and(|s| s.contains("bonjour"))
+            && state.tracks.iter().any(|t| {
+                t.id == secondary_id
+                    && t.kind == TrackKind::Sub
+                    && t.selected
+                    && t.main_selection == Some(1)
+            })
+    });
+    assert_eq!(selected_track(&both, TrackKind::Sub), Some(primary_id));
+    assert!(both.subtitle_visible);
+    assert_eq!(both.secondary_subtitle_visible, Some(true));
+    player
+        .send(Command::ToggleSecondarySubtitleVisibility)
+        .unwrap();
+    let hidden = wait_for(&receiver, |state| {
+        state.secondary_subtitle_visible == Some(false)
+    });
+    assert!(hidden.subtitle_visible);
+    assert_eq!(selected_track(&hidden, TrackKind::Sub), Some(primary_id));
+    assert!(
+        hidden
+            .secondary_subtitle_text
+            .as_deref()
+            .is_some_and(|s| s.contains("bonjour"))
+    );
+    player
+        .send(Command::ToggleSecondarySubtitleVisibility)
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.secondary_subtitle_visible == Some(true)
+    });
+    player.send(Command::ToggleSubtitleVisibility).unwrap();
+    let primary_hidden = wait_for(&receiver, |state| !state.subtitle_visible);
+    assert_eq!(primary_hidden.secondary_subtitle_visible, Some(true));
+    player.send(Command::ToggleSubtitleVisibility).unwrap();
+    wait_for(&receiver, |state| state.subtitle_visible);
+    player
+        .send(Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: None,
+        })
+        .unwrap();
+    let secondary_only = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_none()
+            && state.tracks.iter().any(|t| {
+                t.kind == TrackKind::Sub
+                    && t.id == secondary_id
+                    && t.selected
+                    && t.main_selection == Some(1)
+            })
+    });
+    assert!(secondary_only.paused);
+    assert_eq!(secondary_only.error, None);
+    player.send(Command::SelectSecondarySubtitle(None)).unwrap();
+    let off = wait_for(&receiver, |state| {
+        !state
+            .tracks
+            .iter()
+            .any(|t| t.kind == TrackKind::Sub && t.selected)
+    });
+    assert!(off.paused);
+    assert_eq!(off.error, None);
+    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    let replaced = wait_for(&receiver, |state| {
+        state.generation > both.generation
+            && state.phase == Phase::Playing
+            && !state.tracks.iter().any(|t| t.kind == TrackKind::Sub)
+    });
+    assert!(
+        !replaced
+            .secondary_subtitle_text
+            .as_deref()
+            .is_some_and(|s| s.contains("bonjour"))
+    );
+    assert_eq!(replaced.error, None);
 }
 
 #[test]
