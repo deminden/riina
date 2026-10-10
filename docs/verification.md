@@ -15,7 +15,7 @@ equalizer/hardware feedback, no stale replay after enabling, and a later new
 speed message. A coalesced speed/decoding check additionally verifies suppression
 is applied before message choice, retaining Hardware Decoding: Off rather than
 swallowing it behind the suppressed speed candidate. Updated workspace unit
-checks and strict lint pass; final updated build is in progress.
+checks, strict lint, formatting and final optimized build pass.
 
 The optimized Windows shared-GL GUI at cbee705 runs with process-local
 LOCALAPPDATA pointing to an isolated workspace preference directory; existing

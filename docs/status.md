@@ -8,7 +8,7 @@ change covered by unit regression. Isolated Windows GUI at cbee705 verifies
 speed 2 with no speed message, seek position 2 with no clock, and Brightness:
 -27 still visible. Saved flags remain true; close exits 0 with empty stderr.
 Evidence: tests/visual/osd-suppression-evidence.json. Updated unit checks and
-strict lint pass; final updated build is in progress. Settings-page
+strict lint, formatting and final optimized build pass. Settings-page
 switches, locale text, simultaneous coalesced-message ordering and current
 other OS runtime remain open. No public update.
 
