@@ -62,7 +62,7 @@ comparison passed; source dimensions are useful inputs, not matching pixels.
 | Audio/subtitles | Shared reference tab organization, row styles, selections, editable fields, warnings and secondary subtitle controls |
 | Playlist/chapters | Width, resize, row metrics, tabs, text treatment, selections, footer actions and drag/drop |
 | Menus | Complete structure, text, checks, enabled state, shortcut display and window ownership |
-| Preferences | Full source-list navigation and all nine categories; complete General/UI/Subtitle/Network/Control/Keybindings/Video-Audio/Advanced/Utilities panes; matched labels, alignment, enabled state, scrolling and sizing |
+| Preferences | Source-list search/navigation and all eleven categories; complete General/UI/Video/Audio/Subtitles/Network/Control/Key Bindings/Advanced/Plugin/Utilities panes; matched labels, alignment, enabled state, scrolling and sizing |
 | Auxiliary surfaces | Crop editor, font chooser, screenshot preview, transient OSD, dialogs and their focus/lifecycle |
 | Window modes | Fullscreen, music mode, PiP, ontop, multiple windows, theme and DPI behavior |
 
@@ -85,9 +85,10 @@ The images show floating controls overlapping the sidebar. The reference default
 edgeToEdgeVideo=true keeps the video container across the window, so this is not
 alone evidence of a placement defect. Reference-matched tab glyphs/materials,
 resizing and non-edge-to-edge control allocation remain open. The separate
-Preferences window now has a source-sized 820 x 480 shell, selectable navigation
-in the pinned nine-category order (General, Interface, Video & Audio, Subtitle,
-Network, Control, Key Bindings, Advanced and Utilities), the existing General
+Preferences window now has navigation in the pinned eleven-page order (General,
+UI, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugin,
+Utilities). The pinned Settings window is 600 x 480; Riina's 820 x 480 shell
+still needs reflow and rendered comparison. It has the existing General
 controls, and a functional partial Interface pane for OSC position, compact mode,
 docked controls and OSD visibility/speed/seek suppression. OSD settings update
 live overlay filters and persist through the shared settings path. Video & Audio
@@ -111,11 +112,10 @@ preference saves. Literal directory lists are passed to mpv; IINA's default `./*
 glob is retained but not misinterpreted as a literal directory. Priority keyword
 ranking and full directory/glob matching remain unimplemented; Online Subtitles is
 not implemented.
-Network, Control, Key Bindings and Utilities currently show their title only.
-Plugin settings are conditional
-upstream and omitted until the plugin system exists. Source-list geometry, full
-pane content and a fresh live capture remain open. These changes follow the
-source's category names/order; they do not establish pixel parity.
+Audio, Network, Control, Key Bindings, Plugin and Utilities remain title-only or
+otherwise incomplete. Source-list search, icons, selection behavior, geometry,
+full pane content and a fresh live capture remain open. The category order is
+source-checked; it does not establish pixel parity.
 
 Both sides now retain their own selected pane. Captured Windows playback shows
 Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and
@@ -165,6 +165,6 @@ matching. Literal directories map to `sub-file-paths`; the default `./*` glob is
 retained without being passed as an invalid directory. IINA keyword ranking and
 its complete directory/glob matcher remain unimplemented. Playlist effects, live
 GUI interaction, source comparison and matched macOS pixels remain open.
-Network, Control,
-Key Bindings and Utilities are still title-only; the remaining Subtitle sections
+Audio, Network, Control, Key Bindings, Plugin and Utilities are still title-only;
+the remaining Subtitle sections
 and full surface comparison are part of the complete parity goal.

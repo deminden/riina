@@ -31,6 +31,12 @@ permission/update/welcome overlays. No window resizing or layout customization
 is performed, so the initial capture is not automatically a matching-size golden.
 Additional states and measured comparison remain required for visual parity.
 
+The workflow also opens Settings through IINA's Command-comma shortcut and saves
+one screenshot for each of its eleven default pages. It captures only the Settings
+window and records page, window geometry, theme, scale and capture time. Inspect
+each image and its metadata before using it for layout work; a successful
+automation run is not itself a parity result.
+
 The harness now also captures the same paused two-second state after at least
 two seconds without another seek or pointer/key input. Both observations bracket
 this settled image; the manifest records the measured quiet interval and capture
