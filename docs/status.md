@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Local subtitle editor consolidation: separate primary/secondary timing controls
+are replaced with one shared delay/position section and a Primary/Secondary lane
+selector, defaulting to Primary as in the pinned SubPositionDelayView. Switching
+the editor changes only which observed values and command targets it exposes;
+track selection is independent. Primary position now has an absolute typed setter
+with the same finite 0–150 native validation as secondary; both UI sliders retain
+the reference 0–100 integer range. A new core test verifies both property targets,
+accepted boundaries and invalid values. Strict lint, formatting, all 25 unit tests
+and all eleven native tests pass (9.68 seconds). Native regression tests do not
+exercise the new primary absolute setter; GUI lane switching/routing, segment
+geometry, section ordering, numeric entry and reset parity remain pending.
+Changes remain local.
+
 Local secondary subtitle position UI increment: the shared pane now exposes the
 native secondary position through a keyboard-accessible slider. Its 0–100 range
 and integer dispatch follow the pinned SubPositionDelayView; the engine's wider

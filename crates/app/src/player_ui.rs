@@ -188,6 +188,8 @@ fn update_ui(
     app.set_speed_value(state.speed as f32);
     app.set_audio_delay(state.audio_delay as f32);
     app.set_subtitle_delay(state.subtitle_delay as f32);
+    app.set_subtitle_position_known(state.subtitle_position.is_some());
+    app.set_subtitle_position(state.subtitle_position.unwrap_or(0.0) as f32);
     app.set_secondary_subtitle_delay_known(state.secondary_subtitle_delay.is_some());
     app.set_secondary_subtitle_delay(state.secondary_subtitle_delay.unwrap_or(0.0) as f32);
     app.set_secondary_subtitle_position_known(state.secondary_subtitle_position.is_some());
@@ -432,12 +434,14 @@ pub(crate) fn configure_player(
     let delay_player = player.command_sender();
     let secondary_position_player = player.command_sender();
     let weak = app.as_weak();
-    app.on_set_secondary_subtitle_position(move |value| {
+    app.on_set_subtitle_position(move |secondary, value| {
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
-            if let Err(error) =
-                secondary_position_player.send(Command::SecondarySubtitlePosition(value as f64))
-            {
+            if let Err(error) = secondary_position_player.send(if secondary {
+                Command::SecondarySubtitlePosition(value as f64)
+            } else {
+                Command::SubtitlePosition(value as f64)
+            }) {
                 app.set_status(error.into());
             }
         }

@@ -41,6 +41,7 @@ pub enum Command {
     SubtitleDelay(f64),
     SecondarySubtitleDelay(f64),
     SecondarySubtitlePosition(f64),
+    SubtitlePosition(f64),
     AdjustSubtitleDelay(f64),
     AdjustSubtitleScale(f64),
     AdjustSubtitlePosition(f64),
@@ -142,10 +143,19 @@ impl Command {
                 "secondary-sub-delay".into(),
                 value.to_string(),
             ],
-            Self::SecondarySubtitlePosition(value)
+            Self::SubtitlePosition(value) | Self::SecondarySubtitlePosition(value)
                 if value.is_finite() && (0.0..=150.0).contains(value) =>
             {
-                vec!["set".into(), "secondary-sub-pos".into(), value.to_string()]
+                vec![
+                    "set".into(),
+                    if matches!(self, Self::SubtitlePosition(_)) {
+                        "sub-pos"
+                    } else {
+                        "secondary-sub-pos"
+                    }
+                    .into(),
+                    value.to_string(),
+                ]
             }
             Self::ToggleSecondarySubtitleVisibility => {
                 vec!["cycle".into(), "secondary-sub-visibility".into()]
@@ -911,6 +921,32 @@ mod tests {
     fn unknown_time_is_not_zero() {
         assert_eq!(time_label(None), "--:--");
         assert_eq!(time_label(Some(3661.9)), "1:01:01");
+    }
+
+    #[test]
+    fn absolute_subtitle_position_preserves_lane_and_validates_engine_range() {
+        for value in [0.0, 100.0, 150.0] {
+            for (command, property) in [
+                (Command::SubtitlePosition(value), "sub-pos"),
+                (
+                    Command::SecondarySubtitlePosition(value),
+                    "secondary-sub-pos",
+                ),
+            ] {
+                assert_eq!(
+                    command.mpv_args().unwrap(),
+                    ["set", property, &value.to_string()]
+                );
+            }
+        }
+        for value in [-1.0, 151.0, f64::NAN, f64::INFINITY] {
+            assert!(Command::SubtitlePosition(value).mpv_args().is_err());
+            assert!(
+                Command::SecondarySubtitlePosition(value)
+                    .mpv_args()
+                    .is_err()
+            );
+        }
     }
 
     #[test]
