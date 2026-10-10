@@ -1,4 +1,4 @@
-import { ListView } from "std-widgets.slint";
+import { ScrollView } from "std-widgets.slint";
 
 // Original shared rows expose the toolkit's double-click signal. The standard
 // list only forwards pointer down/up and cannot preserve native click counting.
@@ -11,7 +11,7 @@ export component FontList inherits Rectangle {
     callback activated(int);
     forward-focus: keys;
     accessible-role: list;
-    accessible-delegate-focus: root.cursor;
+    accessible-delegate-focus: root.cursor >= 0 && root.cursor < root.model.length ? root.cursor : -1;
     accessible-item-count: root.model.length;
     in property <bool> enabled: true;
     out property <length> viewport-height <=> rows.viewport-height;
@@ -48,13 +48,16 @@ export component FontList inherits Rectangle {
         if select { root.set-current-item(root.cursor); }
     }
 
-    rows := ListView {
+    // Keep accessible row IDs alive while scrolling. Recycling a focused row
+    // across End/Home caused an AccessKit missing-focus-ID panic on Windows.
+    rows := ScrollView {
     width: parent.width; height: parent.height;
     enabled: root.enabled;
     accessible-role: none;
     viewport-height: root.model.length * root.row-pitch;
     viewport-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
+    VerticalLayout { spacing: 0px;
     for item[index] in root.model: Rectangle {
         width: root.visible-width; height: root.row-pitch;
         background: root.current-item == index ? #365c98 : transparent;
@@ -80,6 +83,7 @@ export component FontList inherits Rectangle {
                 root.activated(index);
             }
         }
+    }
     }
     }
     keys := FocusScope {

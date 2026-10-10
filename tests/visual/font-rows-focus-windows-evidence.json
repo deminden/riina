@@ -1,0 +1,50 @@
+{
+  "source_commit": "893e8f5",
+  "observations": [
+    {
+      "action": "family-Tab-focus",
+      "focus": "34 list item (selectable) Verdana"
+    },
+    {
+      "action": "face-Tab-focus",
+      "focus": "35 list item (selectable) Italic"
+    },
+    {
+      "action": "face-Down-focus-Regular",
+      "focus": "36 list item (selectable) Regular",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Verdana"
+    },
+    {
+      "action": "full-catalog-restored-Verdana",
+      "focus": "10 list",
+      "lines": [
+        "\t\t\t69 list item (selectable) Verdana",
+        "\t\t29 edit (settable, string) Custom font name Value: Verdana"
+      ]
+    },
+    {
+      "action": "family-End",
+      "focus": "10 list",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: YuGothicUI-Light"
+    },
+    {
+      "action": "family-Home-unexpected-termination",
+      "error": "State returned null accessibility after Home; refreshed inventory empty and no riina process found."
+    },
+    {
+      "action": "diagnostic-repro-Home",
+      "exit_code": -1073740791,
+      "panic": "Focused ID #219043332096 is not in the node list",
+      "component": "accesskit_consumer 0.29.0"
+    }
+  ],
+  "binary_sha256": "371353a69d9adbd493fbe90f921faedc6093d382cb21f5a6583094aaf021d342",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "limitations": [
+    "Filtered family/face accessible focus repaired; full-catalog focus still reported container.",
+    "Home from last family was followed by unexpected process termination; cause pending diagnostics.",
+    "Double-click injection unavailable because pointer geometry missing.",
+    "Rendered metrics and other OS runtime remain unverified."
+  ]
+}

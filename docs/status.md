@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Font row boundary regression reproduced on 893e8f5: filtered family/face focus
+reports Verdana/Italic/Regular correctly, but full-catalog focus reports the
+container. End changes the draft to the last family; Home then terminates the
+player. A diagnostic reproduction exits -1073740791 and records AccessKit
+consumer 0.29.0 panic: Focused ID is not in the node list. Exact pre-repair
+observations and binary hash: tests/visual/font-rows-focus-windows-evidence.json.
+Rows now use ScrollView with retained row instances instead of virtualization;
+focus delegation also rejects absent indices. This preserves IDs when scrolling
+across the catalog. Strict lint passes; repaired boundary/focus runtime remains
+pending. Catalog memory/performance, pointer double-click and rendered metrics
+remain open. All work is local.
+
 Original shared font rows now expose native toolkit double-click activation.
 Double-clicking a face refreshes its exact font identity before accepting; family
 double-click does not accept. Selection and keyboard cursor share a bounded row
