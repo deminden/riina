@@ -51,6 +51,18 @@ gpl=false alone is not an LGPL grant. A release must select and verify compatibl
 native builds, codecs, notices and corresponding-source obligations. No native
 release binaries have been published.
 
+The first reproducible native inspection is recorded in
+[native-distribution-audit.json](native-distribution-audit.json). Run
+`python scripts/audit-native.py` on Windows to inspect the hash-pinned development
+DLL without loading media or user configuration. Its runtime configuration enables
+dvdnav and prefers static libraries. The exact producing workflow revision is
+`b2856ee6deed6957380b32465f359e67f67fafd8`; its FFmpeg recipe explicitly enables
+GPL, x264 and x265. The runtime FFmpeg revision resolves to
+`538d10d1878fb546c3a2645efa56119848f9ccfc`. These are concrete build facts, not an
+approved distribution arrangement. Lack of embedded configuration strings does
+not establish permissive licensing. Corresponding source, all dependency notices,
+the combined executable and a complete package smoke test remain outstanding.
+
 Primary references:
 
 - [GNU FAQ: translating code](https://www.gnu.org/licenses/gpl-faq.en.html#TranslateCode)

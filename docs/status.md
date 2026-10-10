@@ -1,3 +1,9 @@
+Native distribution audit now has hash-checked runtime inspection and the exact
+producing workflow/recipe revision. The development DLL enables dvdnav and the
+FFmpeg recipe enables GPL/x264/x265. No native binaries are approved for publishing;
+see docs/native-distribution-audit.json and scripts/audit-native.py. Source preview
+v0.1.0-preview.1 was published; subsequent work remains local.
+
 Clipboard-only captures now use an exclusively created session temporary folder,
 retained by the engine notification closure until native teardown. This also
 cleans output whose completion never reaches a closing UI. A filesystem regression

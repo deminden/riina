@@ -1,3 +1,9 @@
+Resolve native distribution using the inspected producing recipe and dependency
+revisions in docs/native-distribution-audit.json. Preserve parity requirements
+while choosing compatible dependencies; do not silently remove DVD or other
+features to obtain a superficially simpler license. Complete notices/source and
+package/runtime verification before attaching Windows binaries to GitHub Releases.
+
 Clipboard-only scratch ownership now lasts through engine teardown with an
 unreported-output filesystem regression. Verify actual rapid captures and close
 on native/GL backends, including settings changes while a capture is pending.
