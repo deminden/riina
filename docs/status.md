@@ -2217,3 +2217,14 @@ tests and strict all-target Clippy pass; the 38 native integration tests are
 ignored without the pinned runtime DLL, and no GUI interaction or pixel parity
 is claimed. Release v0.2.2 is available as a source archive and SHA-256 file;
 binary packaging remains behind the dependency audit gate.
+
+2026-10-10 IINA Settings reference capture: a research-only General pane image from
+the pinned v1.5.0 disk image records macOS 26.6.2, Light appearance, 1x scale,
+608 x 500 outer bounds, and the 200-point source-list sidebar. It visibly contains
+Search, the symbol-and-label page rows, General's selected-row treatment, and the
+Behavior/History/Playlist/Screenshots section indicator. The exact reference image
+and metadata hashes are recorded as `IINA-1.5.0-SETTINGS-GENERAL-001` in
+`tests/visual/reference-captures.json`; the 11-page capture failed after this image
+because System Events does not expose this source-list as `table 1`. This is useful
+reference evidence, not a matched Windows comparison or accepted golden. The next
+capture uses keyboard focus from Search and source-list arrow navigation.

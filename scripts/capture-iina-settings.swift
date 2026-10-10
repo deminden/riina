@@ -70,39 +70,8 @@ func settingsWindows() -> [[String: Any]] {
     }
 }
 
-func windowBounds(_ window: [String: Any]) -> CGRect? {
-    guard let bounds = window[kCGWindowBounds as String] as? [String: Any],
-          let x = bounds["X"] as? NSNumber,
-          let y = bounds["Y"] as? NSNumber,
-          let width = bounds["Width"] as? NSNumber,
-          let height = bounds["Height"] as? NSNumber else {
-        return nil
-    }
-    return CGRect(x: x.doubleValue, y: y.doubleValue,
-                  width: width.doubleValue, height: height.doubleValue)
-}
-
-func click(_ point: CGPoint) throws {
-    guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
-                             mouseCursorPosition: point, mouseButton: .left),
-          let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
-                           mouseCursorPosition: point, mouseButton: .left) else {
-        throw NSError(domain: "RiinaReferenceCapture", code: 5,
-                      userInfo: [NSLocalizedDescriptionKey: "Could not create sidebar click events"])
-    }
-    down.post(tap: .cghidEventTap)
-    Thread.sleep(forTimeInterval: 0.04)
-    up.post(tap: .cghidEventTap)
-}
-
-func pressDownArrow() throws {
-    guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 125, keyDown: true),
-          let up = CGEvent(keyboardEventSource: nil, virtualKey: 125, keyDown: false) else {
-        throw NSError(domain: "RiinaReferenceCapture", code: 6,
-                      userInfo: [NSLocalizedDescriptionKey: "Could not create sidebar navigation events"])
-    }
-    down.post(tap: .cghidEventTap)
-    up.post(tap: .cghidEventTap)
+func pressKeyCode(_ keyCode: Int) throws {
+    _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to key code \(keyCode)")
 }
 
 do {
@@ -139,22 +108,20 @@ do {
                       userInfo: [NSLocalizedDescriptionKey: "Expected exactly one visible Settings window"])
     }
     record["settings_window"] = window
-    record["navigation_method"] = "Focus the selected source-list row, then advance with Down Arrow; non-selectable section indicators are skipped by IINA."
-    guard let bounds = windowBounds(window) else {
-        throw NSError(domain: "RiinaReferenceCapture", code: 7,
-                      userInfo: [NSLocalizedDescriptionKey: "Settings window bounds were unavailable"])
-    }
-    // Search owns initial focus. Clicking the already-selected General row
-    // transfers focus to IINA's source list before using native row navigation.
-    try click(CGPoint(x: bounds.minX + 90, y: bounds.minY + 110))
+    record["navigation_method"] = "Tab from the focused search field to the source list, then advance with Down Arrow; IINA skips its non-selectable section indicator."
+    // The search field owns initial focus; native Tab moves focus into the
+    // source list, whose selected General row is already established by IINA.
+    try pressKeyCode(48)
     Thread.sleep(forTimeInterval: 0.25)
+    record["settings_windows_after_sidebar_focus"] = settingsWindows()
 
     var captures = [[String: Any]]()
     for (index, page) in pages.enumerated() {
         if index > 0 {
             // The selected page inserts a non-selectable section indicator;
             // AppKit's source list advances to the next selectable category.
-            try pressDownArrow()
+            try pressKeyCode(125)
+            Thread.sleep(forTimeInterval: 0.1)
         }
         let pageDeadline = Date().addingTimeInterval(5)
         var currentWindow = settingsWindows().first { ($0[kCGWindowName as String] as? String) == page }

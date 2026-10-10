@@ -49,9 +49,17 @@ and matched pixels remain open; this is functional coverage, not completion of
 General Preferences parity.
 
 The existing accepted macOS reference captures establish a small paused player
-and seek OSD. They do not establish visible floating controls, sidebars, menus or
-Preferences. Obtain and inspect those reference states before declaring a visual
-comparison passed; source dimensions are useful inputs, not matching pixels.
+and seek OSD, but not matching-state controls or menus. A separate research-only
+capture now records IINA 1.5.0 Settings > General on macOS 26.6.2: a 608 x 500
+outer window at 1x scale, with a 200-point source-list sidebar, Search field,
+24-point icon slots with 18-point symbols, selected-row treatment, and the four
+General section jump labels. It is not an accepted comparison golden: the first
+page was captured, then automation could not address AppKit's source-list table
+through System Events.
+The capture workflow now moves keyboard focus from Search to the selected category
+before advancing. Capture all eleven pages and obtain a matching Windows image
+before using the window as visual verification; source dimensions alone do not
+prove matching pixels.
 
 | Surface | Current gap and required comparison |
 |---|---|

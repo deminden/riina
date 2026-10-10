@@ -259,6 +259,45 @@
       "accepted_as_comparison_golden": false,
       "local_raw_directory": "reference/captures/38007160214/settled",
       "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    },
+    {
+      "id": "IINA-1.5.0-SETTINGS-GENERAL-001",
+      "run_id": 38090458605,
+      "job_id": 114325646978,
+      "artifact_id": 11683554439,
+      "url": "https://github.com/deminden/riina/actions/runs/38090458605",
+      "source_commit": "cbb0a302c939ba14fd4856cefbfb77f032775729",
+      "reference_release_sha256": "8fad50479b10e09645053457cec46bd53d054ced2242cfe68f74586735a20dc7",
+      "image_sha256": "49ff6f0b7cd6117cf8a225a2cd4e3ec55b44c307c5bb5b9eb04175aa61329ca3",
+      "metadata_sha256": "75bb4219550cee322265616130f9d5742772e9c3e2dd6b27e58fadbb4de3451a",
+      "macos_version": "26.6.2",
+      "macos_build": "25G83",
+      "reference_version": "1.5.0",
+      "theme": "Light",
+      "scale": 1,
+      "window_bounds_points": {
+        "Height": 500,
+        "Width": 608,
+        "X": 0,
+        "Y": 208
+      },
+      "image_pixels": [
+        608,
+        500
+      ],
+      "page": "General",
+      "media_fixture": "catalog.mkv",
+      "visible_panels": [
+        "Settings sidebar and search",
+        "General > Behavior",
+        "General > History",
+        "General > Playlist",
+        "General > Screenshots"
+      ],
+      "review": "Actual Settings > General window; screenshot records the 608x500 window, 208-point sidebar, search field, page icons, selected-page treatment, section indicator and scrollable 400-point content. Only the initial page was captured before System Events could not address the source-list table. Research evidence only; no matched Windows comparison has passed.",
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38090458605/unpacked/settings",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
     }
   ],
   "status": "Official paused two-second reference state verified and reviewed; matched-size OSC/sidebar captures remain pending",
