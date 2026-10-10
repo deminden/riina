@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Native menu focus testing found two remaining issues on source 6d9d181: first
+F10 focuses the owner but does not retain menu focus; second F10 reaches the
+menu bar. Escape leaves owner focus and the Video shortcut does not reopen its
+sidebar. Evidence/binary identity is saved in native-menu-focus-timing-evidence.json.
+F10 handoff now occurs on key release, and a retained UI-thread window subclass
+defers chrome focus restoration after WM_EXITMENULOOP, including cancellation.
+Compilation and strict lint pass. Revised entry/recovery and subclass lifetime
+still require runtime verification; the tested build closed with exit 0. No
+public update. The pre-fix release build passed in 38.25 seconds.
+Workspace unit tests and formatting pass after the changes.
+
 Native menu runtime exposed a real focus gap on source 42552b5: the owner has
 Video in its native menu bar, but F10 remains in the transparent shared chrome.
 The tested build closes cleanly; its identity/failure limits are recorded in

@@ -893,9 +893,13 @@ export component PlayerWindow inherits Window {
             move-drag(x,y) => { root.move-crop-drag(x,y); }
             end-drag => { root.end-crop-drag(); }
         }
+        key-released(event) => {
+            if native-video && !crop-editing && event.text == Key.F10 { root.open-application-menu(); return accept; }
+            return reject;
+        }
         key-pressed(event) => {
             if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
-            if native-video && event.text == Key.F10 { root.open-application-menu(); return accept; }
+            if native-video && event.text == Key.F10 { return accept; }
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
                 if event.modifiers.shift {

@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "6d9d181d612441e7ae7a7a672fc4f9032c56fd8c",
+  "binary_sha256": "1872f5af5bd9a87cb84958505b1fe2542524a74aabfcae59b9a7be035a3dc5d5",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "First F10 focuses owner, not application menu bar; Return does not open Video",
+    "Second F10 focuses native Application menu bar",
+    "Escape restores owner focus, then Control+Shift+V leaves Video sidebar absent"
+  ],
+  "exit_code": 0,
+  "followup": "F10 handoff moved to key release; owner WM_EXITMENULOOP restores shared chrome focus on a deferred UI callback. These changes were made after this test.",
+  "unverified": ["revised single-F10 entry", "revised cancellation recovery", "menu action recovery", "check marks", "pixels"]
+}

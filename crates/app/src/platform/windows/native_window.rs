@@ -63,6 +63,8 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let weak_host = host.as_weak();
     let startup_chrome = chrome.clone();
     let startup_session = session.clone();
+    let menu_lifecycle = Rc::new(RefCell::new(None));
+    let startup_menu_lifecycle = menu_lifecycle.clone();
     let menu_focus = Rc::new(Cell::new(false));
     let startup_menu_focus = menu_focus.clone();
     host.show()?;
@@ -81,6 +83,10 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
             let menu_handle = presentation.owner_handle();
+            *startup_menu_lifecycle.borrow_mut() = Some(
+                super::menu_focus::MenuFocus::install(menu_handle, app.as_weak())
+                    .map_err(std::io::Error::other)?,
+            );
             let keyboard_host = host.as_weak();
             let keyboard_app = app.as_weak();
             let keyboard_menu_focus = startup_menu_focus.clone();

@@ -7,6 +7,9 @@ Verify actual menu checks/input and native client geometry/focus, and wire confi
 Native F10 previously stayed in chrome; owner menu routing now exists. Verify
 the fix, action focus restoration and Escape/cancel keyboard recovery before
 claiming native menu accessibility.
+Runtime exposed first-press timing and missing cancel recovery. Key-release
+handoff and WM_EXITMENULOOP focus restoration now need single-F10, Escape,
+action, repeated-cycle and shutdown verification.
 Prove reflected pixels on both rendering routes;
 do not add arbitrary sidebar controls or claim backend commands finish parity.
 The reference gives these items no default shortcut or dedicated OSD message.
