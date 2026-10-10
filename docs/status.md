@@ -2094,8 +2094,11 @@ workspace build, parity inventory and asset provenance checks pass.
 2026-10-10 Preferences navigation parity increment: matched the pinned Settings
 category names and order (General, Interface, Video & Audio, Subtitle, Network,
 Control, Key Bindings, Advanced, Utilities). The other seven categories remain
-title-only placeholders; no capture or pixel comparison is claimed. Local
-formatting, strict Clippy, workspace tests and the workspace build pass.
+title-only placeholders. Corrected the actual window constraint to the measured
+820 x 480 start and 820 x 320 minimum from the source XIB; the content had been
+clipped by an outdated 600-point minimum. No capture or pixel comparison is
+claimed. Local formatting, strict Clippy, workspace tests and the workspace
+build pass.
 
 2026-10-10 release re-audit: verified the pinned OpenSSL source commit and its
 Apache-2.0 `LICENSE.txt`; the FFmpeg configure source explicitly permits OpenSSL
