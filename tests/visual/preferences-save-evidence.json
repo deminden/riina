@@ -1,0 +1,32 @@
+{
+  "source_commit": "7c712823f33556f0905f61e571331dbf5257cd29",
+  "windows_release_sha256": "f12b1635065ed114dc03efa272662f905558c5704d29b6f28ec4bda7fb21e325",
+  "scope": "Shared settings replacement; actual Windows filesystem tests",
+  "verification": {
+    "workspace_tests": "passed; app23; native36 ignored",
+    "strict_lint": "passed",
+    "format": "passed",
+    "windows_release_seconds": 43.24,
+    "traceability": 141
+  },
+  "filesystem_tests": {
+    "concurrent_saves": "eight writers synchronize start; all complete; final file exactly one whole Unicode JSON payload; foreign temporary intact; no owned temporaries",
+    "directory_destination": "replacement fails; sentinel intact; owned temporary removed",
+    "read_only_destination": "replacement fails; original bytes retained; owned temporary removed; original permissions restored"
+  },
+  "initial_failure": "Distinct temporary files still allowed overlapping MoveFileExW Access denied failures; in-process native commit mutex resolves regression",
+  "gui_attempt": {
+    "binary_source": "6756682f68ed7ffb274eb4515d5ad71b33968896",
+    "isolated_localappdata": "tools/folder-selection-2ae098498f1d41c5b70a24736cb8d2e1",
+    "folder_field": "Sky set_value reported element82 unavailable; focus/cancellation unverified; no acceptance or UI rollback pass",
+    "cleanup": "Deliberately stopped task-owned process; actual exit-1; readonly test attribute restored; user settings hash equals unchanged copied baseline"
+  },
+  "remaining": [
+    "accepted folder screenshot routing",
+    "GUI rollback after save error",
+    "cross-process sharing errors",
+    "macOS/Linux filesystem/runtime verification",
+    "pixel-perfect preferences"
+  ],
+  "published": false
+}
