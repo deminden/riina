@@ -33,6 +33,8 @@ pub enum Command {
     SubtitleDelay(f64),
     ToggleSubtitleVisibility,
     CycleLoop,
+    CycleAbLoop,
+    SetAbLoop { a: Option<f64>, b: Option<f64> },
     Shutdown,
 }
 
@@ -100,9 +102,11 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::CycleAbLoop => vec!["ab-loop".into()],
             Self::OpenFiles(_)
             | Self::AppendFiles(_)
             | Self::CycleLoop
+            | Self::SetAbLoop { .. }
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
             | Self::MovePlaylistId { .. } => {
@@ -117,6 +121,24 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::SetAbLoop { a, b } => {
+                let point = |value: Option<f64>| -> Result<String, String> {
+                    match value {
+                        None => Ok("no".into()),
+                        Some(value) if value.is_finite() && value >= 0.0 => {
+                            // The pinned IINA contract preserves a point at the
+                            // beginning using its minimum nonzero loop timestamp.
+                            Ok(value.max(0.000001).to_string())
+                        }
+                        _ => Err("Invalid A–B loop point".into()),
+                    }
+                };
+                let (a, b) = (point(*a)?, point(*b)?);
+                vec![
+                    vec!["set".into(), "ab-loop-a".into(), a],
+                    vec!["set".into(), "ab-loop-b".into(), b],
+                ]
+            }
             Self::SelectPlaylistId(id)
             | Self::RemovePlaylistId(id)
             | Self::MovePlaylistId { id, .. } => {
@@ -429,6 +451,8 @@ pub struct Playback {
     pub subtitle_text: Option<String>,
     pub loop_file: Option<String>,
     pub loop_playlist: Option<String>,
+    pub ab_loop_a: Option<f64>,
+    pub ab_loop_b: Option<f64>,
 }
 
 impl Playback {
@@ -454,6 +478,8 @@ impl Playback {
         self.position = None;
         self.duration = None;
         self.seekable = false;
+        self.ab_loop_a = None;
+        self.ab_loop_b = None;
         self.error = None;
         // Track IDs belong to one file; never offer a stale selector during replacement.
         self.tracks.clear();
@@ -578,6 +604,57 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ab_loop_points_preserve_zero_and_validate_the_whole_intent() {
+        let state = Playback::default();
+        assert_eq!(
+            Command::SetAbLoop {
+                a: Some(0.0),
+                b: Some(2.0)
+            }
+            .plan(&state)
+            .unwrap()
+            .commands,
+            vec![
+                vec!["set", "ab-loop-a", "0.000001"],
+                vec!["set", "ab-loop-b", "2"]
+            ]
+        );
+        assert!(
+            Command::SetAbLoop {
+                a: Some(0.0),
+                b: Some(f64::NAN)
+            }
+            .plan(&state)
+            .is_err()
+        );
+        assert!(
+            Command::SetAbLoop {
+                a: Some(-1.0),
+                b: None
+            }
+            .plan(&state)
+            .is_err()
+        );
+        assert_eq!(
+            Command::SetAbLoop { a: None, b: None }
+                .plan(&state)
+                .unwrap()
+                .commands,
+            vec![
+                vec!["set", "ab-loop-a", "no"],
+                vec!["set", "ab-loop-b", "no"]
+            ]
+        );
+        let mut loaded = Playback {
+            ab_loop_a: Some(1.0),
+            ab_loop_b: Some(2.0),
+            ..Default::default()
+        };
+        loaded.begin_load();
+        assert!(loaded.ab_loop_a.is_none() && loaded.ab_loop_b.is_none());
+    }
 
     #[test]
     fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {

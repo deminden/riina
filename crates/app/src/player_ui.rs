@@ -225,6 +225,7 @@ pub(crate) fn configure_player(
     };
     app.set_volume_boost(prefs.volume_boost);
     app.set_osd_enabled(prefs.enable_osd);
+    app.set_primary_shortcut_is_meta(cfg!(target_os = "macos"));
     let osd_timeout = Duration::try_from_secs_f64(prefs.osd_timeout_secs)?;
     let app_weak = app.as_weak();
     // Only one pending state snapshot is retained; a decoder can produce updates
@@ -329,6 +330,7 @@ pub(crate) fn configure_player(
     connect!(on_toggle_mute, Command::ToggleMute);
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
+    connect!(on_cycle_ab_loop, Command::CycleAbLoop);
     connect!(
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility

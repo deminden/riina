@@ -116,6 +116,7 @@ export component PlayerWindow inherits Window {
     in property <string> seek-duration-label;
     in-out property <bool> seek-osd-visible: false;
     in property <bool> osd-enabled: true;
+    in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
     in property <float> position: 0;
     in property <float> duration: 0;
@@ -150,6 +151,7 @@ export component PlayerWindow inherits Window {
     callback toggle-fullscreen();
     callback activity();
     callback show-seek-osd();
+    callback cycle-ab-loop();
     callback select-item(int, string);
     callback browse-files(int);
     callback set-delay(int, float);
@@ -332,6 +334,10 @@ export component PlayerWindow inherits Window {
             text: status; color: #bbbbbb; font-size: 11px; overflow: elide; }
         key-pressed(event) => {
             root.controls-visible = true; root.activity();
+            if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control)
+                && !event.modifiers.shift && event.text == "l" {
+                root.cycle-ab-loop(); return accept;
+            }
             if event.text == " " { root.toggle-pause(); return accept; }
             if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
             if event.text == Key.LeftArrow { root.seek-relative(-5); return accept; }

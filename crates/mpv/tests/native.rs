@@ -28,6 +28,94 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies A–B point cycling and actual loop playback"]
+fn ab_repeat_observes_points_and_wraps_playback() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::SetAbLoop {
+            a: Some(0.0),
+            b: Some(0.6),
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .ab_loop_a
+            .is_some_and(|a| (a - 0.000001).abs() < 0.0000001)
+            && state.ab_loop_b.is_some_and(|b| (b - 0.6).abs() < 0.001)
+    });
+    player
+        .send(Command::Seek {
+            seconds: 0.25,
+            absolute: true,
+        })
+        .unwrap();
+    let start = wait_for(&receiver, |state| {
+        state.paused && !state.seeking && state.position.is_some_and(|p| (p - 0.25).abs() < 0.01)
+    });
+    player.send(Command::TogglePause).unwrap();
+    let wrapped = wait_for(&receiver, |state| {
+        !state.paused
+            && !state.seeking
+            && state.completed_seeks > start.completed_seeks
+            && state.position.is_some_and(|p| p < 0.2)
+    });
+    assert_eq!(wrapped.error, None);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::CycleAbLoop).unwrap();
+    wait_for(&receiver, |state| {
+        state.ab_loop_a.is_none() && state.ab_loop_b.is_none()
+    });
+    player.send(Command::CycleAbLoop).unwrap();
+    let a_set = wait_for(&receiver, |state| {
+        state.ab_loop_a.is_some() && state.ab_loop_b.is_none()
+    });
+    player
+        .send(Command::Seek {
+            seconds: 0.4,
+            absolute: true,
+        })
+        .unwrap();
+    let sought = wait_for(&receiver, |state| {
+        !state.seeking
+            && state.completed_seeks > a_set.completed_seeks
+            && state.position.is_some_and(|p| (p - 0.4).abs() < 0.05)
+    });
+    player.send(Command::CycleAbLoop).unwrap();
+    wait_for(&receiver, |state| {
+        state.ab_loop_a.is_some()
+            && state
+                .ab_loop_b
+                .is_some_and(|b| (b - sought.position.unwrap()).abs() < 0.05)
+    });
+    player.send(Command::CycleAbLoop).unwrap();
+    let cleared = wait_for(&receiver, |state| {
+        state.ab_loop_a.is_none() && state.ab_loop_b.is_none()
+    });
+    assert_eq!(cleared.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; decodes original PQ/HLG and checks replacement metadata"]
 fn hdr_metadata_replacement_and_stop() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

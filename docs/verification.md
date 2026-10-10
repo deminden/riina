@@ -472,6 +472,18 @@ copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
 # Seek OSD state verification · 2026-10-10
 
+Local A–B repeat increment: Windows workspace checks pass 24 unit tests and
+strict lint. All five explicit native tests pass in 2.56 seconds. The added test
+observes A=0.000001 and B=0.6, resumes from 0.25 and requires a completed native
+seek with position below 0.2 to establish actual looping. It then verifies native
+clear/A/B/clear cycling. Frame-rounded B is compared with the observed paused
+clock, after native seek completion; a requested decimal is not assumed to be
+the decoded frame time. Unit coverage rejects invalid point pairs before any
+submission, preserves zero through the pinned minimum and clears cached points
+on replacement. Other-OS native runtime, GUI shortcuts, loop markers, menus and
+OSD are unverified. Commands use the documented
+[mpv A–B loop interface](https://mpv.io/manual/stable/#command-interface).
+
 OSD preference increment: 23 Windows workspace tests and strict lint pass.
 Legacy preference JSON receives enabled/one-second defaults; disabled OSD and
 fractional timeout values round-trip while preserving saved volume. Zero is

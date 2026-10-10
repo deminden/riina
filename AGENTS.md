@@ -11,6 +11,9 @@ Original riina contributions are MIT. Develop independently from observable
 behavior and documented platform APIs; do not translate IINA implementation code
 or copy its protected assets. Read docs/licensing.md before changing license terms.
 
+Keep incremental development and commits local. Publish public GitHub updates
+only at substantial verified milestones or when the user explicitly requests it.
+
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
 Verify `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,

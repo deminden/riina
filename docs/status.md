@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Local playback increment: typed A–B point setting and native point cycling are
+connected to shared playback, with observed optional numeric points. Command–L
+on macOS and Control–L on Windows/Linux invoke the default action. Five Windows
+native integration tests pass (2.56 seconds), including an actual wrap from B
+back to A, point cycling and clearing. Point editing preserves the pinned minimum
+nonzero timestamp for zero. Menus, timeline markers, A–B OSD, persistence rules
+and other-OS runtime comparison remain incomplete. Incremental work stays local;
+public GitHub updates are reserved for substantial verified milestones.
+
 Shared preferences now retain the OSD enable flag and timeout, defaulting to true
 and one second for existing settings. Timeout validation rejects values the
 event-loop timer cannot represent. Windows strict lint and 23 unit tests pass;

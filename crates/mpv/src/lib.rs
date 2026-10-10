@@ -133,7 +133,8 @@ impl Player {
                         ("current-ao", 1), ("hwdec-current", 1),
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
-                        ("sub-text", 1), ("loop-file", 1), ("loop-playlist", 1)] {
+                        ("sub-text", 1), ("loop-file", 1), ("loop-playlist", 1),
+                        ("ab-loop-a", 6), ("ab-loop-b", 6)] {
                         let name = CString::new(name).unwrap();
                         worker_api.check((worker_api.observe)(handle, 0, name.as_ptr(), format))?;
                     }
@@ -287,6 +288,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"current-ao" => state.audio_output = None,
             b"loop-file" => state.loop_file = None,
             b"loop-playlist" => state.loop_playlist = None,
+            b"ab-loop-a" => state.ab_loop_a = None,
+            b"ab-loop-b" => state.ab_loop_b = None,
             _ => {}
         }
         return;
@@ -295,6 +298,18 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
         let node = unsafe { &*property.data.cast::<ffi::Node>() };
         let result = unsafe { node.copy_json() }.and_then(|value| {
             match name {
+                b"ab-loop-a" | b"ab-loop-b" => {
+                    // Native values are either a numeric timestamp or "no".
+                    // Unknown/unavailable points must not become a zero marker.
+                    let point = value
+                        .as_f64()
+                        .filter(|point| point.is_finite() && *point >= 0.0);
+                    if name == b"ab-loop-a" {
+                        state.ab_loop_a = point;
+                    } else {
+                        state.ab_loop_b = point;
+                    }
+                }
                 b"track-list" => {
                     state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?
                 }
