@@ -4,6 +4,12 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      build_audit_candidate:
+        description: Build and test a private Windows package candidate without publishing a release
+        type: boolean
+        required: true
+        default: false
 permissions:
   contents: write
   actions: read
@@ -22,7 +28,7 @@ jobs:
           echo "approved=$approved" >> "$GITHUB_OUTPUT"
 
   native-engine:
-    if: needs.distribution-audit.outputs.approved == 'true'
+    if: needs.distribution-audit.outputs.approved == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate)
     runs-on: ubuntu-latest
     needs: distribution-audit
     container:
@@ -40,7 +46,7 @@ jobs:
           name: windows-native-engine
           path: native-runtime/
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
         with:
           name: windows-native-source
@@ -48,10 +54,10 @@ jobs:
             riina-native-source.tar.zst
             riina-native-source.tar.zst.sha256
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
 
   windows-package:
-    if: needs.distribution-audit.outputs.approved == 'true'
+    if: needs.distribution-audit.outputs.approved == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate)
     runs-on: windows-latest
     needs: [distribution-audit, native-engine]
     timeout-minutes: 90
@@ -120,10 +126,10 @@ jobs:
             dist/riina-*-windows-x86_64.zip
             dist/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
 
   source-package:
-    if: needs.distribution-audit.outputs.approved == 'true'
+    if: needs.distribution-audit.outputs.approved == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate)
     runs-on: ubuntu-latest
     needs: [distribution-audit, native-engine]
     timeout-minutes: 60
@@ -160,7 +166,7 @@ jobs:
             riina-*-source.tar.zst
             riina-*-source.tar.zst.sha256
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true'
