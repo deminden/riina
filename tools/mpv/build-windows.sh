@@ -27,6 +27,11 @@ report_configure_logs() {
 }
 trap report_configure_logs EXIT
 
+# Upstream dependency patches are applied with `git am`, which requires a
+# committer identity even when the checkouts are disposable build inputs.
+git config --global user.name 'Riina Release Builder'
+git config --global user.email 'riina-release-builder@users.noreply.github.com'
+
 rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
 mkdir -p "$WORK_ROOT"
 git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git "$BUILDER"
