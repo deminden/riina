@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Native menu requests now recheck crop/dialog input scope when the queued entry
+and system command execute. A transition between activation and entry clears
+menu ownership and returns input to the crop editor without disturbing a dialog.
+Menu-exit recovery now requires the foreground window to remain this owner's
+host/chrome pair and skips modal dialogs, preventing recovery from reclaiming
+another application's input. Strict lint passes; editor/dialog and external
+activation runtime verification is pending. Nothing published.
+
 Native queued-entry source 8a517fe now has runtime evidence for single-F10/Return
 entry and repeated Video > Flip navigation. Right exposes both exact reflection
 labels. Returning on Mirror loses the tool's window reference; fresh inventory

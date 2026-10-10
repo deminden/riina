@@ -15,8 +15,9 @@ use windows::{
             Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
-                IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU, WM_ENTERMENULOOP,
-                WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
+                GetForegroundWindow, IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
+                WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND,
+                WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
@@ -131,6 +132,14 @@ unsafe extern "system" fn menu_proc(
         }
     }
     if message == context.enter_message {
+        // A queued keyboard request can outlive the transition into an editor
+        // or modal dialog. Recheck the current input scope before activation.
+        let Some(app) = context.app.upgrade() else {
+            return LRESULT(0);
+        };
+        if app.get_crop_editing() || app.get_dialog_open() {
+            return LRESULT(0);
+        }
         context.active.set(true);
         context
             .generation
@@ -161,6 +170,19 @@ unsafe extern "system" fn menu_proc(
         return LRESULT(0);
     }
     if message == WM_SYSCOMMAND && wparam.0 & 0xfff0 == SC_KEYMENU as usize {
+        let Some(app) = context.app.upgrade() else {
+            context.active.set(false);
+            return LRESULT(0);
+        };
+        if app.get_crop_editing() || app.get_dialog_open() {
+            context.active.set(false);
+            // Editing may begin between activation and its queued system
+            // command. Return input to the editor without disturbing a dialog.
+            if !app.get_dialog_open() {
+                focus_chrome(app.window());
+            }
+            return LRESULT(0);
+        }
         context.active.set(true);
     }
     if message == WM_ENTERMENULOOP {
@@ -185,8 +207,21 @@ unsafe extern "system" fn menu_proc(
     if message == context.restore_message {
         if wparam.0 == context.generation.get() {
             context.active.set(false);
-            if let Some(app) = context.app.upgrade() {
-                focus_chrome(app.window());
+            if let Some(app) = context.app.upgrade()
+                && !app.get_dialog_open()
+            {
+                // Cancelling by activating another application must not bring
+                // this player back. Only recover within this owner/popup pair.
+                // SAFETY: this only queries the foreground handle.
+                let foreground = unsafe { GetForegroundWindow() };
+                let owns_foreground = foreground == hwnd || app.window().with_winit_window(|window| {
+                    window.window_handle().is_ok_and(|handle| {
+                        matches!(handle.as_raw(), RawWindowHandle::Win32(handle) if HWND(handle.hwnd.get() as *mut _) == foreground)
+                    })
+                }).unwrap_or(false);
+                if owns_foreground {
+                    focus_chrome(app.window());
+                }
             }
         }
         return LRESULT(0);
