@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "8a517feb6e2fbe0b2f40471e8cb53895330e4b47",
+  "binary_sha256": "d15824c3cc3973321ab1953d5604fffb72aa6ed9d37737933b3ea756ef6503f5",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "One F10 followed by Return opens Video with Flip focused; no second F10 is needed",
+    "Right opens Flip with Horizontal (Mirror) focused and Vertical (Flip) present",
+    "Return on Mirror reports a no-longer-usable window from the input tool; fresh inventory recovers the live player, with menus closed and shared chrome focused",
+    "After that attempted action, Control+Shift+V opens the Video sidebar",
+    "After closing the sidebar, a second single-F10/Return cycle again opens Video > Flip",
+    "Escape closes the dropdown; a shortcut at this intermediate menu-bar scope does not open the sidebar",
+    "A second Escape leaves the menu bar; Control+Shift+V then opens the sidebar",
+    "A third cycle cancels directly from the menu bar with one Escape; the subsequent Video shortcut works",
+    "Play and volume 37 remain observed; EOF position changes from 5 to 4.997667 during the attempted action"
+  ],
+  "exit_code": 0,
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "limits": [
+    "AX focus after F10 reports shared chrome despite working subsequent Return; it does not expose native menu checked state",
+    "The attempted Mirror action's filter result is not proven by these observations",
+    "No screenshot, reflected pixels, pointer, DPI/client alignment, full macOS parity or port runtime proof"
+  ]
+}

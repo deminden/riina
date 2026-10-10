@@ -1,5 +1,19 @@
 # Status · 2026-10-09
 
+Native queued-entry source 8a517fe now has runtime evidence for single-F10/Return
+entry and repeated Video > Flip navigation. Right exposes both exact reflection
+labels. Returning on Mirror loses the tool's window reference; fresh inventory
+recovers a live player with menus closed, chrome focused, Play and volume 37
+preserved, and working Video shortcut. This proves recovery, not the filter
+result. Escape closes the dropdown to menu-bar scope, then another Escape exits
+the bar and restores shortcuts. Direct bar cancellation needs one Escape and
+also restores the Video shortcut. Close returns 0 with only the expected layout
+diagnostic. Source/binary identity and limits are recorded in
+tests/visual/native-menu-queued-entry-evidence.json. Checked state, reflected
+pixels, pointer/DPI/client geometry and ports remain unverified. Nothing published.
+After these changes, all 32 native playback tests pass (12.89 seconds), workspace
+tests pass, strict lint passes and the release build passes (36.14 seconds).
+
 Owner activation inside SC_KEYMENU still left first F10 on the owner
 (source 9c04399, binary
 61f0489a7e180e0cd19336e6378fce0e1276f2687e044090e9537d0d92efac16).

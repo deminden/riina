@@ -8,9 +8,11 @@ Native F10 previously stayed in chrome; owner menu routing now exists. Verify
 the fix, action focus restoration and Escape/cancel keyboard recovery before
 claiming native menu accessibility.
 Runtime exposed first-press timing and missing cancel recovery. Deferring Slint
-key release did not fix entry. Explicit native menu-loop ownership and queued
-Windows focus recovery now need single-F10, Escape, action, repeated-cycle and
-shutdown verification.
+key release did not fix entry. Separate queued Windows activation/entry now has
+single-F10/Return, repeated-cycle, Escape-to-bar/full-exit, shortcut recovery and
+clean shutdown evidence. Menu-action input lost its tool reference; recovery is
+observed but the filter result still needs proof. Verify checked state, pixels,
+pointer access, crop/dialog exclusion and focus after external deactivation.
 Prove reflected pixels on both rendering routes;
 do not add arbitrary sidebar controls or claim backend commands finish parity.
 The reference gives these items no default shortcut or dedicated OSD message.
