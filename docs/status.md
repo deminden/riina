@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Reusable font chooser state is now retained after OK, Cancel and native close.
+Preview text and filter persist in the same component/catalog; each invocation
+refreshes custom entry and matching face from observed playback, including when
+already visible. This corrects the earlier draft-preservation claim for the font
+entry itself: only preview/search survive, while selection is refreshed. A scan
+may populate the hidden reusable chooser without showing it; shutdown drops it.
+Pinned AppDelegate's single chooser and Utility's selection-before-show define
+the contract. Strict lint passes; runtime close/reopen and hidden-scan checks
+remain pending. Application-wide reuse across multiple players/Settings and
+other OS runtime remain open. All work stays local.
+
 Native font chooser lifecycle verified on ebf6d9c: chooser now appears as a
 separate targetable Choose a Font window instead of being nested under the video
 host. Parent Left seeks the paused five-second fixture from its endpoint to zero

@@ -15,6 +15,7 @@ export component FontPicker inherits Window {
     in property <int> preview-font-weight: 400;
     in property <bool> preview-font-italic: false;
     in-out property <string> preview-text: "Test";
+    in-out property <string> filter-text;
     callback search(string);
     callback family-selected(int);
     callback face-selected(int);
@@ -57,6 +58,7 @@ export component FontPicker inherits Window {
         }
     VerticalLayout { padding: 20px; spacing: 12px;
         LineEdit { placeholder-text: "Type to filter…";
+            text <=> root.filter-text;
             accessible-label: "Filter font families";
             edited => { root.search(self.text); } }
         HorizontalLayout { spacing: 12px;

@@ -49,6 +49,20 @@ fn preview_face(
     picker.set_preview_font_italic(face.style != "Normal");
 }
 
+fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
+    let font = app.get_subtitle_font();
+    picker.set_custom_name(
+        if font == riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT {
+            "".into()
+        } else {
+            font
+        },
+    );
+    if picker.get_ready() {
+        picker.invoke_search(picker.get_filter_text());
+    }
+}
+
 pub fn connect(app: &PlayerWindow, sender: CommandSender) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
     let owned = current.clone();
@@ -66,11 +80,17 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
         if app.get_dialog_open() {
             return;
         }
-        // The player's chooser is an ordinary auxiliary window; only Settings
-        // uses a sheet in the reference. Reopening raises the same live draft.
-        if let Some(picker) = current.borrow().as_ref()
-            && picker.get_picker_active()
-        {
+        // Reuse the auxiliary window's sample, search and discovered catalog.
+        // Every invocation refreshes playback selection, even if already visible.
+        let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
+        if let Some(picker) = existing {
+            refresh_selection(&picker, &app);
+            picker.set_picker_active(true);
+            if let Err(error) = picker.show() {
+                picker.set_picker_active(false);
+                app.set_status(error.to_string().into());
+                return;
+            }
             let window = picker.as_weak();
             let _ = slint::spawn_local(async move {
                 if let Some(picker) = window.upgrade()
@@ -89,14 +109,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                 return;
             }
         };
-        let font = app.get_subtitle_font();
-        picker.set_custom_name(
-            if font == riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT {
-                "".into()
-            } else {
-                font
-            },
-        );
+        refresh_selection(&picker, &app);
         let parent = app.as_weak();
         let window = picker.as_weak();
         let commands = sender.clone();
@@ -146,17 +159,14 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
         }
         let window = picker.as_weak();
         *current.borrow_mut() = Some(picker);
-        // Only owned metadata crosses threads. The weak window prevents a late
-        // scan from reviving a picker replaced or closed with its player.
+        // Only owned metadata crosses threads. A hidden reusable picker may
+        // finish discovery, but no scan shows it; player shutdown drops it.
         let failure = window.clone();
         if let Err(error) = std::thread::Builder::new()
             .name("font-discovery".into())
             .spawn(move || {
                 let families = font_catalog::installed_families();
                 let _ = window.upgrade_in_event_loop(move |picker| {
-                    if !picker.get_picker_active() {
-                        return;
-                    }
                     let families = Rc::new(families);
                     let filtered = Rc::new(RefCell::new(Vec::<usize>::new()));
                     let selected = Rc::new(Cell::new(None::<usize>));
@@ -243,7 +253,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             preview_face(&picker, family, face);
                         }
                     });
-                    picker.invoke_search("".into());
+                    picker.invoke_search(picker.get_filter_text());
                     picker.set_ready(true);
                 });
             })
