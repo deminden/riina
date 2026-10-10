@@ -20,7 +20,19 @@ The first full suite has 22 passes and the new navigation test times out with
 raw completion 1 but navigation completion 0; a focused repeat reproduces it.
 Inspection identifies premature clearing on successful command reply. The
 repair retains that request, and its unit check covers reply before SEEK.
-Full suite/build checks and GUI retest pending. No-op navigation followed by
+All 23 native tests then pass, including the repaired navigation test. Workspace
+unit tests, formatting, strict lint and optimized Windows build pass.
+
+At source 149f48f, shared-GL GUI toggles expose Hardware Decoding: Off then On;
+deliberate timeline seek to 2 displays 00:02. Native-video-candidate GUI also
+exposes Off then On, and deliberate Left navigation displays 00:00 at position
+0. Both retain Play and volume 37. The native helper rejects set-value despite
+the editor's settable label; ordinary Tab navigation reaches the switch before
+Space/Return activation. Shared-GL closes with exit 0 and empty stderr; native
+closes with exit 0 and only the existing 74-byte chrome-layout diagnostic.
+Evidence with source and binary hash: tests/visual/decoding-feedback-evidence.json.
+These are accessibility text/state checks, not pixels, HDR or color validation.
+No-op navigation followed by
 automatic loops and command-reply/event interleaving
 under rapid mixed seeks/decoder changes, automatic loop feedback equivalence,
 current other OS runtime and rendered visual parity remain open.

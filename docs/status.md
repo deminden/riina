@@ -6,8 +6,12 @@ counter retains decoder refreshes. Worker feedback clears on replacement,
 decoder-changing intent and failed reply. Native testing exposes reply-before-
 SEEK ordering; successful replies now retain provenance until playback completes.
 Regression checks cover internal restart suppression and repeated same-position
-navigation. Full native/build checks and decoding-message GUI retest are in
-progress. Asynchronous mixed-command stress, rendered parity and current other
+navigation. All 23 native tests, workspace unit tests, formatting, strict lint
+and optimized build pass. Shared-GL and native-video-candidate GUIs show Off/On
+for decoding toggles, then clock feedback for deliberate navigation, with Play
+and volume 37 retained. Both close with exit 0; GL stderr is empty and native
+stderr has only the existing chrome diagnostic. Evidence:
+tests/visual/decoding-feedback-evidence.json. Asynchronous mixed-command stress, rendered parity and current other
 OS runtime remain open. Nothing published.
 
 Video-setting OSD now derives messages from confirmed native speed, configured

@@ -1,0 +1,37 @@
+{
+  "source_commit": "149f48f5186631c14e93f8f62fac6c2afea1a832",
+  "binary_sha256": "386904cf9ece2ef8712c4a0a06fc2cee0586985b7b2691bcd5863a8dc7712484",
+  "platform": "Windows x64",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "shared_gl": {
+    "play_button": "Play",
+    "messages": [
+      "Hardware Decoding: Off",
+      "Hardware Decoding: On"
+    ],
+    "exit_code": 0,
+    "volume": 37,
+    "position_seconds": 2,
+    "stderr_bytes": 0,
+    "deliberate_seek_message": "00:02"
+  },
+  "native_video_candidate": {
+    "position_seconds": 0,
+    "stderr_bytes": 74,
+    "deliberate_keyboard_seek_message": "00:00",
+    "stderr_diagnostic": "Native chrome: scale=3, client=2880x1800 physical, layout=960x600 logical",
+    "exit_code": 0,
+    "play_button": "Play",
+    "volume": 37,
+    "automation_note": "Set-value rejected despite settable label; used keyboard Tab navigation and captured focus before activation.",
+    "messages": [
+      "Hardware Decoding: Off",
+      "Hardware Decoding: On"
+    ]
+  },
+  "limitations": [
+    "Accessibility text and playback state; no rendered pixel comparison or HDR/color validation.",
+    "Rapid mixed navigation and decoder changes and no-op navigation followed by automatic loops remain unverified.",
+    "Current macOS/Linux runtime remains unverified."
+  ]
+}
