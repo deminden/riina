@@ -1,0 +1,29 @@
+{
+  "source_commit": "cbee705f6d5cbab27a729cb6fcbf36b2e609c753",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "preference_location": "tools/osd-suppression/riina/preferences.json",
+  "process_local_data_override": true,
+  "flags": {
+    "disable_osd_seek": true,
+    "disable_osd_speed": true,
+    "enable_osd": true,
+    "osd_timeout_secs": 3
+  },
+  "observed_speed": 2,
+  "speed_message_present": false,
+  "observed_seek_position": 2,
+  "seek_clock_present": false,
+  "unaffected_message": "Brightness: -27",
+  "volume": 37,
+  "play_button": "Play",
+  "saved_flags_preserved": true,
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Source recorded; GUI binary hash was not retained before subsequent rebuild.",
+    "Suppression verified in immediate AX snapshots; no pixel or exact timeout measurement.",
+    "Settings-page switches and current other OS runtime remain open."
+  ]
+}

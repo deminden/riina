@@ -12,7 +12,23 @@ raw completions are consumed without presentation.
 
 Unit checks cover legacy defaults, persistence, suppressed speed followed by
 equalizer/hardware feedback, no stale replay after enabling, and a later new
-speed message. Workspace unit checks pass. Final build and GUI checks pending;
+speed message. A coalesced speed/decoding check additionally verifies suppression
+is applied before message choice, retaining Hardware Decoding: Off rather than
+swallowing it behind the suppressed speed candidate. Updated workspace unit
+checks and strict lint pass; final updated build is in progress.
+
+The optimized Windows shared-GL GUI at cbee705 runs with process-local
+LOCALAPPDATA pointing to an isolated workspace preference directory; existing
+user settings are untouched. With both suppression flags true, global OSD true
+and timeout 3 seconds, custom speed 2 updates without Speed text, deliberate
+seek to 2 updates without seek-clock text, and a brightness edit displays
+Brightness: -27. Play and volume 37 remain; close exits 0 with empty stderr.
+Saved JSON preserves both flags and global settings. Evidence:
+tests/visual/osd-suppression-evidence.json. The GUI binary hash was not retained
+before the subsequent coalesced-case rebuild; the source and build/launch
+sequence are recorded. These are immediate AX checks, not rendered pixels.
+No GUI retest of the subsequent coalesced-case change is claimed.
+
 Settings-page switches, exact simultaneous-message ordering, locale formatting,
 rendered OSD materials and current other OS runtime remain open.
 

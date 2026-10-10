@@ -29,6 +29,13 @@ impl VideoOsd {
         }
     }
     pub(crate) fn observe(&mut self, state: &Playback) -> Option<Message> {
+        // Ignore the suppressed category before choosing a message. Filtering
+        // only afterwards would swallow a hardware change coalesced with speed.
+        if self.disable_speed
+            && let Some(previous) = &mut self.previous
+        {
+            previous.speed = state.speed;
+        }
         let message = changed(self.previous.as_ref(), state);
         // Catalog caches intentionally ignore clock/settings-only snapshots.
         // Consume every observation here, retaining only feedback fields so a
@@ -154,6 +161,7 @@ mod tests {
         state.video_equalizer[0] = Some(-27);
         assert_eq!(feedback.observe(&state).unwrap().kind, Kind::Equalizer);
         state.hardware_decoding = Some("no".into());
+        state.speed = 3.0;
         assert_eq!(
             feedback.observe(&state).unwrap().text,
             "Hardware Decoding: Off"
