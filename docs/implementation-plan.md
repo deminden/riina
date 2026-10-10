@@ -7,6 +7,8 @@ keyboard evidence. Drag handlers exist but need actual pointer verification.
 The edge-drag model now preserves grab offset; hit strips/cursors/outline follow
 the pinned source requirements. Verify actual hit targeting, corner priority,
 edge crossing and small selections, then pointer movement on both render routes.
+Vertical hit strips now normalize reversed endpoints for selections below four
+points high; verify their actual targeting and overlapping edge priority.
 Continuous source coordinates are now retained separately from the integer
 native crop/label; verify their actual overlay motion and edge dragging with
 pointer input and rendered evidence.

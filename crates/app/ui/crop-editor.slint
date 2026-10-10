@@ -59,9 +59,11 @@ export component CropEditor inherits Rectangle {
         for edge[index] in [1,2,3,4] : TouchArea {
             enabled: root.ready; mouse-cursor: edge <= 2 ? ew-resize : ns-resize;
             x: (edge == 1 ? root.box-x - 2 : edge == 2 ? root.box-x + root.box-width - 2 : root.box-x) * 1px;
-            y: (edge == 3 ? root.box-y - 2 : edge == 4 ? root.box-y + root.box-height - 2 : root.box-y + 2) * 1px;
+            // Standardize the inset strip even below four points: a negative
+            // span reverses its endpoints rather than removing the resize target.
+            y: (edge == 3 ? root.box-y - 2 : edge == 4 ? root.box-y + root.box-height - 2 : root.box-y + min(2,root.box-height - 2)) * 1px;
             width: (edge <= 2 ? 4 : root.box-width) * 1px;
-            height: (edge <= 2 ? max(0,root.box-height - 4) : 4) * 1px;
+            height: (edge <= 2 ? max(root.box-height - 4,4 - root.box-height) : 4) * 1px;
             pointer-event(event) => {
                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { root.begin-drag(edge,(self.x+self.mouse-x) / 1px,(self.y+self.mouse-y) / 1px); }
                 if event.kind == PointerEventKind.up { root.end-drag(); }

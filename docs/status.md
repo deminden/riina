@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+Tiny crop selections now retain standardized vertical resize hit strips when
+their height is below four logical points. Previously those strips collapsed
+to zero, unlike the pinned reference's rectangle normalization. Shared Slint
+compilation, workspace unit tests, strict lint and formatting pass. Actual
+pointer targeting and rendered comparison remain unverified; no GUI or native
+suite rerun was performed for this layout correction. Changes remain local.
+
 Crop edge dragging now preserves the pointer's grab offset inside each resize
 strip. Source inspection exposed an absolute-pointer mismatch that could jump
 an edge; the portable drag model now applies deltas from the initial grab.
