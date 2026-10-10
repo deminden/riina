@@ -28,6 +28,101 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies native cycling of video audio and external subtitle tracks"]
+fn track_cycling_includes_disabled_and_external_tracks() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let fixture = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing
+            && state
+                .tracks
+                .iter()
+                .any(|t| t.kind == TrackKind::Audio && t.selected)
+    });
+    let internal_audio = selected_track(&loaded, TrackKind::Audio).unwrap();
+    let video = selected_track(&loaded, TrackKind::Video).unwrap();
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddAudio(fixture("external-tone.wav")))
+        .unwrap();
+    let external = wait_for(&receiver, |state| {
+        state
+            .tracks
+            .iter()
+            .any(|t| t.kind == TrackKind::Audio && t.external && t.selected)
+    });
+    let external_audio = selected_track(&external, TrackKind::Audio).unwrap();
+    assert_ne!(internal_audio, external_audio);
+    for expected in [None, Some(internal_audio), Some(external_audio)] {
+        player.send(Command::CycleTrack(TrackKind::Audio)).unwrap();
+        let cycled = wait_for(&receiver, |state| {
+            selected_track(state, TrackKind::Audio) == expected
+        });
+        assert!(cycled.paused);
+        assert_eq!(cycled.error, None);
+        assert_eq!(selected_track(&cycled, TrackKind::Video), Some(video));
+    }
+    player
+        .send(Command::AddSubtitle(fixture("manual-captions.srt")))
+        .unwrap();
+    let subtitle = wait_for(&receiver, |state| {
+        state
+            .tracks
+            .iter()
+            .any(|t| t.kind == TrackKind::Sub && t.external && t.selected)
+    });
+    let subtitle_id = selected_track(&subtitle, TrackKind::Sub).unwrap();
+    for expected in [None, Some(subtitle_id)] {
+        player.send(Command::CycleTrack(TrackKind::Sub)).unwrap();
+        let cycled = wait_for(&receiver, |state| {
+            selected_track(state, TrackKind::Sub) == expected
+        });
+        assert!(cycled.paused);
+        assert_eq!(cycled.error, None);
+        assert_eq!(
+            selected_track(&cycled, TrackKind::Audio),
+            Some(external_audio)
+        );
+    }
+    for expected in [None, Some(video)] {
+        player.send(Command::CycleTrack(TrackKind::Video)).unwrap();
+        let cycled = wait_for(&receiver, |state| {
+            selected_track(state, TrackKind::Video) == expected
+        });
+        assert!(cycled.paused);
+        assert_eq!(cycled.error, None);
+        assert_eq!(
+            selected_track(&cycled, TrackKind::Audio),
+            Some(external_audio)
+        );
+        assert_eq!(selected_track(&cycled, TrackKind::Sub), Some(subtitle_id));
+    }
+}
+
+fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {
+    state
+        .tracks
+        .iter()
+        .find(|t| t.kind == kind && t.selected)
+        .map(|t| t.id)
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies file repeat playback and independent playlist repeat"]
 fn file_repeat_wraps_and_preserves_playlist_repeat() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

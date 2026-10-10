@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local track-shortcut increment: native cycling now covers video, audio and
+primary subtitles, retaining the engine's disabled sentinel and external-track
+ordering. Shared routing adds macOS Command+Control+A/S/V and Windows/Linux
+Control+Alt+A/S/V, Shift+primary+A/S panel toggles and plain v subtitle visibility.
+Ten Windows native tests pass (9.34 seconds), including internal/external audio
+cycling through disabled, external subtitle disable/restore and video disable/
+restore with pause and unrelated selections retained. All 24 unit tests, strict
+lint and the release build pass. GUI routing, other layouts/AltGr, visual feedback
+and other-OS runtime remain pending. This increment stays local.
+
 Local file-repeat increment: Shift+Command+L (macOS) / Shift+Control+L
 (Windows/Linux) toggles only current-file repeat. Native integration verifies
 actual EOF-to-start playback wrapping, file-repeat priority when both modes

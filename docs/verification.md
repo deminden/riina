@@ -653,3 +653,23 @@ binary/canonical source hashes are recorded in
 tests/visual/file-repeat-windows-evidence.json. The app closes with no remaining
 window or process. This check has no screenshot or pixel comparison; repeat
 OSD, rendering, alternate layouts and macOS/Linux runtime remain unverified.
+
+## Native track cycling · 2026-10-10
+
+Typed cycle intents delegate to native video/audio/subtitle ID properties rather
+than calculating the next ID from a possibly stale catalog. A new explicit
+Windows native test adds an external audio file, observes its selection, cycles
+through disabled → internal → external audio, and checks video selection is
+retained. It adds an external SRT, cycles disabled → selected subtitle and checks
+audio is unchanged, then cycles disabled → selected video while retaining both
+audio and subtitle selection. Each observed transition retains pause and reports
+no native error. All ten native tests pass in 9.34 seconds, with 24 workspace unit
+tests, strict lint, formatting and a successful release build.
+
+Shared shortcuts implement IINA Command+Control+A/S/V on macOS; Windows/Linux
+use Control+Alt+A/S/V as described in docs/platform-differences.md. Audio and
+subtitle panel toggles use Shift+primary+A/S, and plain v toggles subtitle
+visibility. The video panel remains missing. Current GUI input routing,
+rendered feedback, AltGr/alternate layouts, multiple embedded subtitle/video
+tracks and other-OS runtime are unverified; native track-property observation
+does not prove actual audible or visible output.

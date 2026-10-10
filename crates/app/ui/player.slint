@@ -166,6 +166,9 @@ export component PlayerWindow inherits Window {
     callback show-seek-osd();
     callback cycle-ab-loop();
     callback toggle-file-loop();
+    callback cycle-audio-track();
+    callback cycle-subtitle-track();
+    callback cycle-video-track();
     callback select-item(int, string);
     callback browse-files(int);
     callback set-delay(int, float);
@@ -350,13 +353,24 @@ export component PlayerWindow inherits Window {
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
                 if event.modifiers.shift {
-                    if event.modifiers.alt { return reject; }
+                    if event.modifiers.alt || (primary-shortcut-is-meta && event.modifiers.control) { return reject; }
                     if event.text == "L" { root.toggle-file-loop(); return accept; }
                     if event.text == ">" { root.adjust-chapter(1); return accept; }
                     if event.text == "<" { root.adjust-chapter(-1); return accept; }
                     if event.text == "C" { root.sidebar = root.sidebar == 3 ? 0 : 3; return accept; }
                     if event.text == "P" { root.sidebar = root.sidebar == 4 ? 0 : 4; return accept; }
+                    if event.text == "A" { root.sidebar = root.sidebar == 1 ? 0 : 1; return accept; }
+                    if event.text == "S" { root.sidebar = root.sidebar == 2 ? 0 : 2; return accept; }
                     return reject;
+                }
+                // Windows/Linux map the extra macOS Control modifier to Alt;
+                // primary itself is already Control on those platforms.
+                if (primary-shortcut-is-meta ? event.modifiers.control : event.modifiers.alt) {
+                    if primary-shortcut-is-meta && event.modifiers.alt { return reject; }
+                    if event.text == "a" { root.cycle-audio-track(); return accept; }
+                    if event.text == "s" { root.cycle-subtitle-track(); return accept; }
+                    if event.text == "v" { root.cycle-video-track(); return accept; }
+                    if primary-shortcut-is-meta { return reject; }
                 }
                 if event.modifiers.alt {
                     if event.text == "[" { root.speed(1 / 1.1); return accept; }
@@ -401,6 +415,7 @@ export component PlayerWindow inherits Window {
             if event.text == Key.UpArrow { root.adjust-volume(5); return accept; }
             if event.text == Key.DownArrow { root.adjust-volume(-5); return accept; }
             if event.text == "m" { root.toggle-mute(); return accept; }
+            if event.text == "v" { root.toggle-subtitle-visibility(); return accept; }
             if event.text == "." { root.frame-step(); return accept; }
             if event.text == "," { root.frame-back-step(); return accept; }
             if event.text == "f" { root.toggle-fullscreen(); return accept; }

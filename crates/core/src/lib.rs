@@ -22,6 +22,7 @@ pub enum Command {
     PlaylistNext,
     PlaylistPrevious,
     SelectTrack { kind: TrackKind, id: Option<i64> },
+    CycleTrack(TrackKind),
     SelectChapter(usize),
     AdjustChapter(i32),
     SelectPlaylistEntry(usize),
@@ -85,6 +86,11 @@ impl Command {
                 kind.property().into(),
                 id.map_or_else(|| "no".into(), |id| id.to_string()),
             ],
+            Self::CycleTrack(kind) => {
+                // Native cycling owns track ordering and the disabled sentinel;
+                // a catalog snapshot can lag external-track insertion/removal.
+                vec!["cycle".into(), kind.property().into()]
+            }
             Self::SelectChapter(index) => vec!["set".into(), "chapter".into(), index.to_string()],
             Self::AdjustChapter(delta) => {
                 // Relative navigation keeps native restart-threshold and boundary

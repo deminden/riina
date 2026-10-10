@@ -1,5 +1,12 @@
 # Differences and validation gaps
 
+Shared primary shortcuts use Command on macOS and Control on Windows/Linux.
+IINA's Command+Control track-cycle shortcuts use Control+Alt on Windows/Linux,
+because mapping both macOS modifiers to Control would lose their distinction.
+Command+Control+A/S/V remain unchanged on macOS; Control+Alt+A/S/V cycle audio,
+primary subtitle and video tracks on the other targets. Alternative layouts,
+AltGr interaction and actual other-OS routing are not yet verified.
+
 Windows 11 x64 MSVC is the sole supported application target. The shared core and
 mpv interface tests/lint pass on Windows, macOS and Linux; full application ports
 are near-term work. Other Windows versions and Windows ARM64 are untested.
