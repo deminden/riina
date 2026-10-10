@@ -219,6 +219,79 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies configured subtitle font names and independent style state"]
+fn subtitle_font_selection_preserves_other_style_options() {
+    use riina_core::subtitle_controls::{DEFAULT_SUBTITLE_FONT, font_from_text};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    wait_for(&receiver, |state| {
+        state.subtitle_font.as_deref() == Some(DEFAULT_SUBTITLE_FONT)
+    });
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(
+            root.join("tests/fixtures/manual-captions.srt")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let selected = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_some()
+    });
+    let subtitle_id = selected_track(&selected, TrackKind::Sub);
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let before = wait_for(&receiver, |state| {
+        state
+            .subtitle_text
+            .as_deref()
+            .is_some_and(|text| text.contains("café"))
+    });
+    // The custom entry is an engine preference, not proof a matching font is
+    // installed. Missing families must remain eligible for libass fallback.
+    for name in ["serif", "monospace", "Riina 字体 Привет", ""] {
+        player.send(font_from_text(name).unwrap()).unwrap();
+        let expected = if name.is_empty() {
+            DEFAULT_SUBTITLE_FONT
+        } else {
+            name
+        };
+        let changed = wait_for(&receiver, |state| {
+            state.subtitle_font.as_deref() == Some(expected)
+        });
+        assert!(changed.paused);
+        assert_eq!(selected_track(&changed, TrackKind::Sub), subtitle_id);
+        assert_eq!(changed.subtitle_font_size, before.subtitle_font_size);
+        assert_eq!(changed.subtitle_outline_size, before.subtitle_outline_size);
+        assert_eq!(changed.subtitle_text_color, before.subtitle_text_color);
+        assert_eq!(changed.subtitle_border_color, before.subtitle_border_color);
+        assert_eq!(changed.subtitle_shadow_color, before.subtitle_shadow_color);
+        assert_eq!(changed.subtitle_delay, before.subtitle_delay);
+        assert_eq!(changed.error, None);
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies ten-minute relative seeks away from endpoints"]
 fn long_relative_seeks_preserve_pause_and_volume() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

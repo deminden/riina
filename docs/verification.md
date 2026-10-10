@@ -755,6 +755,18 @@ tests pass in 10.19 seconds; 24 unit tests, strict lint and formatting pass.
 This proves independent property handling, not rendered placement. Shared UI
 position controls, actual visual geometry and macOS/Linux runtime remain open.
 
+## Subtitle font engine contract · 2026-10-10
+
+`subtitle_font_selection_preserves_other_style_options` verifies the initial
+sans-serif option, then loads the original catalog and external SRT. Configured
+serif, monospace and a custom Unicode name are observed without disturbing
+size, border, colors, timing, selection or pause. Empty entry restores sans-serif.
+All 15 native tests pass in 10.32 seconds. The two portable font tests preserve
+names as a single native argument and reject control characters before dispatch;
+all 32 unit tests and strict lint pass. This is configured-font evidence, not
+font installation, libass resolution/fallback or rendered glyph evidence.
+The font picker UI and actual installed families/faces/search/preview remain open.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red

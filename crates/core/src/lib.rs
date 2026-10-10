@@ -46,6 +46,7 @@ pub enum Command {
     SubtitlePosition(f64),
     SubtitleScale(f64),
     SubtitleFontSize(f64),
+    SubtitleFont(String),
     SubtitleOutlineSize(f64),
     SubtitleTextColor(subtitle_color::SubtitleColor),
     SubtitleBorderColor(subtitle_color::SubtitleColor),
@@ -146,6 +147,9 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::SubtitleFont(font) if subtitle_controls::valid_font_name(font) => {
+                vec!["set".into(), "sub-font".into(), font.clone()]
+            }
             Self::SubtitleTextColor(color)
             | Self::SubtitleBorderColor(color)
             | Self::SubtitleShadowColor(color) => {
@@ -600,6 +604,7 @@ pub struct Playback {
     pub subtitle_delay: f64,
     pub subtitle_scale: Option<f64>,
     pub subtitle_font_size: Option<f64>,
+    pub subtitle_font: Option<String>,
     pub subtitle_outline_size: Option<f64>,
     pub subtitle_text_color: Option<subtitle_color::SubtitleColor>,
     pub subtitle_border_color: Option<subtitle_color::SubtitleColor>,

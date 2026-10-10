@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Local subtitle font contract: shared font-name intent and optional native
+observation now preserve Unicode and custom family strings. Empty custom entry
+restores the pinned sans-serif default. Control characters are rejected before
+native dispatch; names are single FFI arguments, including spaces and commas.
+Native tests with an external SRT selected change serif, monospace and a custom
+Unicode name, then restore the default while preserving size, border, colors,
+delay, selection and pause. All 15 native tests pass in 10.32 seconds, all 32
+unit tests and strict lint pass. This observes the configured option, not actual
+installed-font selection or glyph rendering. Font chooser UI, family/face lists,
+search/preview, persistence and other OS runtime remain open. Inventory now has
+98 atomic requirements and is incomplete. Changes remain local.
+
 Local color editor focus boundary: unhandled popup keys are now consumed within
 the editor while channel arrows remain active and Tab navigates channels.
 Windows checks at paused position 2 show p and Shift+Page Down do not pause or
