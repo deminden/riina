@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "be6569e28c2b3ec2ebe3cf22bdc8bce72b8f57f2",
+  "binary_sha256": "2b083838c7e82c3cb6acb5e8e7b23170e187e5802c74775de3fcbb4124a03e03",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "dependency_evidence": [
+    "muda 0.17.2 src/platform_impl/windows/mod.rs menu_selected toggles check items before dispatch",
+    "i-slint-backend-winit 1.13.1 muda.rs MudaPropertyTracker schedules menu rebuild on tracked property dirtiness; invoke only activates the entry",
+    "The independent application refreshes the label model identity, preserving observed crop and reflection values"
+  ],
+  "observations": [
+    "F10/Return/Right opens the ordered crop list with None focused, native ID 1027",
+    "Return on None loses the input tool window reference; fresh inventory recovers the live player with menus closed and chrome focused",
+    "Recovered player retains Play, volume 37 and position 5",
+    "F10/Return/Right reopens the ordered crop list; None now has native ID 1044 and other item IDs have also changed",
+    "Up focuses Custom… and Return opens whole-source editor (0, 0) (320×180), with Close disabled and Minimise/Maximise absent",
+    "Escape cancels editing, restores all three window controls, and preserves Play, volume 37 and position 5"
+  ],
+  "exit_code": 0,
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "checks": {
+    "format": "passed",
+    "strict_workspace_lint": "passed",
+    "workspace_tests": "passed",
+    "windows_release_build": "passed in 37.14 seconds"
+  },
+  "unverified": [
+    "Native checked state and separator appearance are not exposed by the accessibility tree",
+    "Backend failure and rapid repeated activation",
+    "Shared GL menu and current macOS/Linux application runtime",
+    "Named preset identity when source dimensions round multiple ratios to the same crop"
+  ]
+}

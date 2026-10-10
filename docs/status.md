@@ -12,6 +12,7 @@ Custom… entry and Cancel restoration with Play/volume 37/position 5 preserved.
 Native checks are still not exposed by the accessibility view; checked pixels,
 failure/burst behavior, shared GL and other-platform runtime remain unverified.
 The player closes with exit 0 and only the expected native layout diagnostic.
+Source/binary identity and observations: tests/visual/native-video-menu-refresh-evidence.json.
 Nothing published.
 
 Native Crop menu evidence on source e6b97ed verifies the complete ordered ratio
