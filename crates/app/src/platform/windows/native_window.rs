@@ -91,32 +91,39 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             let keyboard_app = app.as_weak();
             let keyboard_menu_focus = startup_menu_focus.clone();
             app.on_open_application_menu(move || {
-                use windows::Win32::{
-                    Foundation::{HWND, LPARAM, WPARAM},
-                    UI::WindowsAndMessaging::{PostMessageW, SC_KEYMENU, WM_SYSCOMMAND},
-                };
-                if let Some(host) = keyboard_host.upgrade() {
-                    // Menu focus belongs to the framed owner. Suppress one
-                    // automatic chrome refocus, then let Windows own its menu loop.
-                    keyboard_menu_focus.set(true);
-                    host.window()
-                        .with_winit_window(|window| window.focus_window());
-                    // SAFETY: the retained host owns this HWND on the UI thread.
-                    let result = unsafe {
-                        PostMessageW(
-                            Some(HWND(menu_handle as *mut _)),
-                            WM_SYSCOMMAND,
-                            WPARAM(SC_KEYMENU as usize),
-                            LPARAM(0),
-                        )
+                let keyboard_host = keyboard_host.clone();
+                let keyboard_app = keyboard_app.clone();
+                let keyboard_menu_focus = keyboard_menu_focus.clone();
+                // Finish the original F10 key-up before focusing another HWND:
+                // its default processing can otherwise dismiss the new menu.
+                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                    use windows::Win32::{
+                        Foundation::{HWND, LPARAM, WPARAM},
+                        UI::WindowsAndMessaging::{PostMessageW, SC_KEYMENU, WM_SYSCOMMAND},
                     };
-                    if let Err(error) = result {
-                        keyboard_menu_focus.set(false);
-                        if let Some(app) = keyboard_app.upgrade() {
-                            app.set_status(error.to_string().into());
+                    if let Some(host) = keyboard_host.upgrade() {
+                        // Menu focus belongs to the framed owner. Suppress one
+                        // automatic chrome refocus, then let Windows own its menu loop.
+                        keyboard_menu_focus.set(true);
+                        host.window()
+                            .with_winit_window(|window| window.focus_window());
+                        // SAFETY: the retained host owns this HWND on the UI thread.
+                        let result = unsafe {
+                            PostMessageW(
+                                Some(HWND(menu_handle as *mut _)),
+                                WM_SYSCOMMAND,
+                                WPARAM(SC_KEYMENU as usize),
+                                LPARAM(0),
+                            )
+                        };
+                        if let Err(error) = result {
+                            keyboard_menu_focus.set(false);
+                            if let Some(app) = keyboard_app.upgrade() {
+                                app.set_status(error.to_string().into());
+                            }
                         }
                     }
-                }
+                });
             });
             // The framed owner hosts the native menu; its transparent popup
             // retains controller state. Bridge observations without a second

@@ -1,5 +1,11 @@
 # Status · 2026-10-09
 
+The key-release-only native menu revision still returned focus to chrome on its
+first F10 in a runtime check (source f8aff94, binary e965dcc289cf49b72d83f11b86a04011d31307b51d741d3b8301810917e6ff76).
+That player closed with exit 0. Owner focus/menu entry is now deferred until the
+next event-loop turn, after default key-up handling. Strict lint passes; the
+deferred handoff remains pending runtime verification. Nothing published.
+
 Native menu focus testing found two remaining issues on source 6d9d181: first
 F10 focuses the owner but does not retain menu focus; second F10 reaches the
 menu bar. Escape leaves owner focus and the Video shortcut does not reopen its
