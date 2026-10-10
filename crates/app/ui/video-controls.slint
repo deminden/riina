@@ -1,0 +1,96 @@
+import { ScrollView } from "std-widgets.slint";
+
+// Original segmented controls. Native materials and text metrics need captures;
+// sidebar option order and the 24px control row follow the pinned requirements.
+component VideoSegment inherits Rectangle {
+    in property <string> label;
+    in property <string> hint;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    callback chosen();
+    height: 24px;
+    border-radius: 3px;
+    background: selected ? #ffffff28 : touch.has-hover && enabled ? #ffffff14 : #ffffff08;
+    accessible-role: button;
+    accessible-label: hint;
+    accessible-enabled: enabled;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { if enabled { chosen(); } }
+    Text { text: label; font-size: 12px; color: root.enabled ? #eeeeee : #777777;
+        horizontal-alignment: center; vertical-alignment: center; }
+    if focus.has-focus : Rectangle { background: transparent; border-radius: 3px;
+        border-width: 1px; border-color: #90b7ef; }
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.chosen(); } }
+    focus := FocusScope { enabled: root.enabled;
+        key-pressed(event) => {
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == Key.Return || event.text == " " { root.chosen(); return accept; }
+            return reject;
+        }
+    }
+}
+
+export component VideoControls inherits Rectangle {
+    in property <[string]> aspect-presets;
+    in property <int> aspect-index: 0;
+    in property <int> rotation-index: -1;
+    in property <bool> aspect-enabled: false;
+    in property <bool> rotation-enabled: false;
+    callback aspect-changed(string);
+    callback rotation-changed(int);
+    height: 100px;
+    background: transparent;
+    VerticalLayout { spacing: 8px;
+        Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+        Rectangle { height: 24px;
+            ScrollView { width: parent.width; height: 24px;
+                horizontal-scrollbar-policy: always-off;
+                vertical-scrollbar-policy: always-off;
+                HorizontalLayout { spacing: 8px;
+                    HorizontalLayout { spacing: 1px;
+                        for label[index] in root.aspect-presets : VideoSegment {
+                            width: index == 0 ? 54px : 43px;
+                            label: label; hint: "Aspect ratio " + label;
+                            enabled: root.aspect-enabled;
+                            selected: root.aspect-index == index;
+                            chosen => { root.aspect-changed(label); }
+                        }
+                    }
+                    Rectangle { width: 40px; height: 24px; background: #ffffff10;
+                        border-radius: 4px; border-width: 1px;
+                        border-color: custom.has-focus ? #90b7ef : #ffffff20;
+                        forward-focus: custom;
+                        FocusScope {
+                            width: parent.width; height: parent.height;
+                            forward-focus: custom;
+                            // Unmodified editing keys must not seek, pause or
+                            // change volume when the text editor rejects them.
+                            key-pressed(event) => {
+                                if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+                                if event.text == Key.Escape { return reject; }
+                                return accept;
+                            }
+                            custom := TextInput { x: 3px; width: parent.width - 6px; height: parent.height;
+                                single-line: true; enabled: root.aspect-enabled;
+                                color: root.aspect-enabled ? #eeeeee : #777777; font-size: 12px;
+                                vertical-alignment: center; accessible-label: "Custom aspect ratio";
+                                accessible-action-set-value(value) => { self.text = value; }
+                                accepted => { if self.text != "" { root.aspect-changed(self.text); } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Text { text: "Rotation"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+        HorizontalLayout { height: 24px; spacing: 1px;
+            for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
+                label: label; hint: "Video rotation " + label;
+                enabled: root.rotation-enabled;
+                selected: root.rotation-index == index;
+                chosen => { root.rotation-changed(index * 90); }
+            }
+        }
+    }
+}

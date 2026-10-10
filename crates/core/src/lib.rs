@@ -3,6 +3,7 @@
 pub mod file_selection;
 pub mod subtitle_color;
 pub mod subtitle_controls;
+pub mod video_controls;
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +22,8 @@ pub enum Command {
     MultiplySpeed(f64),
     FrameStep,
     FrameBackStep,
+    VideoAspect(video_controls::AspectRatio),
+    VideoRotation(video_controls::Rotation),
     PlaylistNext,
     PlaylistPrevious,
     SelectTrack { kind: TrackKind, id: Option<i64> },
@@ -107,6 +110,16 @@ impl Command {
                 // a catalog snapshot can lag external-track insertion/removal.
                 vec!["cycle".into(), kind.property().into()]
             }
+            Self::VideoAspect(aspect) => vec![
+                "set".into(),
+                "video-aspect-override".into(),
+                aspect.native_value().into(),
+            ],
+            Self::VideoRotation(rotation) => vec![
+                "set".into(),
+                "video-rotate".into(),
+                rotation.degrees().to_string(),
+            ],
             Self::SelectSecondarySubtitle(id) if id.is_none_or(|id| id > 0) => vec![
                 "set".into(),
                 "secondary-sid".into(),
@@ -595,6 +608,9 @@ pub struct Playback {
     pub hardware_decoder: Option<String>,
     pub video: Option<VideoParameters>,
     pub video_target: Option<VideoParameters>,
+    pub video_output: Option<VideoParameters>,
+    pub video_aspect_override: Option<f64>,
+    pub video_rotation: Option<i64>,
     pub title: String,
     pub error: Option<String>,
     pub tracks: Vec<Track>,
@@ -684,6 +700,7 @@ impl Playback {
         self.secondary_subtitle_text = None;
         self.video = None;
         self.video_target = None;
+        self.video_output = None;
     }
 
     pub fn reconcile(&mut self) {
@@ -712,6 +729,9 @@ pub struct VideoParameters {
     pub pixelformat: Option<String>,
     pub w: u32,
     pub h: u32,
+    pub dw: Option<u32>,
+    pub dh: Option<u32>,
+    pub rotate: Option<i64>,
     pub colormatrix: Option<String>,
     pub colorlevels: Option<String>,
     pub primaries: Option<String>,

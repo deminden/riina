@@ -1,4 +1,5 @@
 import { ScrollView, ComboBox } from "std-widgets.slint";
+import { VideoControls } from "video-controls.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
@@ -275,6 +276,12 @@ export component PlayerWindow inherits Window {
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
     in property <[CatalogRow]> audio-tracks;
+    in property <[CatalogRow]> video-tracks;
+    in property <[string]> video-aspect-presets;
+    in-out property <int> video-aspect-index: 0;
+    in property <bool> video-aspect-known: false;
+    in property <bool> video-rotation-known: false;
+    in property <int> video-rotation-index: -1;
     in property <[CatalogRow]> subtitle-tracks;
     in property <[CatalogRow]> secondary-subtitle-tracks;
     in property <bool> secondary-subtitle-visible;
@@ -325,6 +332,8 @@ export component PlayerWindow inherits Window {
     callback speed(float);
     callback frame-step();
     callback frame-back-step();
+    callback set-video-aspect(string);
+    callback set-video-rotation(int);
     callback subtitle-seek(int);
     callback adjust-chapter(int);
     callback adjust-subtitle-delay(float);
@@ -385,6 +394,7 @@ export component PlayerWindow inherits Window {
                 Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
                 Text { text: media-title; color: #dddddd; font-size: 12px;
                     horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+                Tool { icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.sidebar = root.sidebar == 6 ? 0 : 6; } }
                 Tool { icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.sidebar = root.sidebar == 1 ? 0 : 1; } }
                 Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.sidebar = root.sidebar == 2 ? 0 : 2; } }
                 Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.sidebar = root.sidebar == 3 ? 0 : 3; } }
@@ -393,7 +403,7 @@ export component PlayerWindow inherits Window {
             }
         }
         if sidebar != 0 : Rectangle {
-            x: root.sidebar >= 3 ? 0px : parent.width - self.width;
+            x: root.sidebar == 3 || root.sidebar == 4 ? 0px : parent.width - self.width;
             y: 34px; width: min(360px, parent.width * 0.8);
             height: parent.height - 68px; background: #202025f5;
             // Track row height and None entry follow SidebarTrackSelector.swift.
@@ -402,7 +412,7 @@ export component PlayerWindow inherits Window {
             // Insets and material remain provisional until reference captures exist.
             VerticalLayout { padding: 12px; spacing: 8px;
                 HorizontalLayout {
-                    Text { text: sidebar == 1 ? "Audio" : sidebar == 2 ? "Subtitles" : sidebar == 3 ? "Chapters" : "Playlist";
+                    Text { text: sidebar == 1 ? "Audio" : sidebar == 2 ? "Subtitles" : sidebar == 3 ? "Chapters" : sidebar == 6 ? "Video" : "Playlist";
                         color: #eeeeee; vertical-alignment: center; }
                     Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar"; activated => { root.sidebar = 0; } }
                 }
@@ -468,8 +478,8 @@ export component PlayerWindow inherits Window {
                             Tool { label: root.subtitle-visible ? "●" : "○"; hint: "Toggle subtitle visibility";
                                 enabled: root.loaded; activated => { root.toggle-subtitle-visibility(); } }
                         }
-                        for row in (sidebar == 1 ? audio-tracks : sidebar == 2 ? subtitle-tracks : sidebar == 3 ? chapters : playlist): Rectangle {
-                            height: root.sidebar < 3 ? 26px : root.sidebar == 3 ? 40px : 30px;
+                        for row in (sidebar == 1 ? audio-tracks : sidebar == 2 ? subtitle-tracks : sidebar == 3 ? chapters : sidebar == 6 ? video-tracks : playlist): Rectangle {
+                            height: root.sidebar < 3 || root.sidebar == 6 ? 26px : root.sidebar == 3 ? 40px : 30px;
                             background: (root.sidebar == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
                             accessible-role: button; accessible-label: row.label;
                             accessible-action-default => { root.select-item(root.sidebar, row.token); }
@@ -497,6 +507,15 @@ export component PlayerWindow inherits Window {
                                     return reject;
                                 }
                             }
+                        }
+                        if sidebar == 6 : VideoControls {
+                            aspect-presets: root.video-aspect-presets;
+                            aspect-index: root.video-aspect-index;
+                            rotation-index: root.video-rotation-index;
+                            aspect-enabled: root.loaded && root.video-aspect-known;
+                            rotation-enabled: root.loaded && root.video-rotation-known;
+                            aspect-changed(value) => { root.set-video-aspect(value); }
+                            rotation-changed(value) => { root.set-video-rotation(value); }
                         }
                         if root.sidebar == 2 : HorizontalLayout {
                             height: 28px;
@@ -719,6 +738,7 @@ export component PlayerWindow inherits Window {
                     if event.text == "P" { root.sidebar = root.sidebar == 4 ? 0 : 4; return accept; }
                     if event.text == "A" { root.sidebar = root.sidebar == 1 ? 0 : 1; return accept; }
                     if event.text == "S" { root.sidebar = root.sidebar == 2 ? 0 : 2; return accept; }
+                    if event.text == "V" { root.sidebar = root.sidebar == 6 ? 0 : 6; return accept; }
                     return reject;
                 }
                 // Windows/Linux map the extra macOS Control modifier to Alt;

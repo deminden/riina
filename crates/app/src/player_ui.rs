@@ -19,7 +19,7 @@ use std::{
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
     let languages = crate::language_names::LanguageNames::current();
-    for kind in [TrackKind::Audio, TrackKind::Sub] {
+    for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
         let tracks: Vec<_> = state
             .tracks
             .iter()
@@ -38,10 +38,10 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             selected: track.is_primary_selected(),
         }));
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
-        if kind == TrackKind::Audio {
-            app.set_audio_tracks(model);
-        } else {
-            app.set_subtitle_tracks(model);
+        match kind {
+            TrackKind::Video => app.set_video_tracks(model),
+            TrackKind::Audio => app.set_audio_tracks(model),
+            TrackKind::Sub => app.set_subtitle_tracks(model),
         }
     }
     let subtitle_tracks: Vec<_> = state
@@ -173,6 +173,14 @@ fn update_ui(
     app.set_volume(state.volume as f32);
     app.set_muted(state.muted);
     app.set_speed_value(state.speed as f32);
+    app.set_video_aspect_known(state.video_aspect_override.is_some());
+    app.set_video_rotation_known(state.video_rotation.is_some());
+    app.set_video_rotation_index(
+        state
+            .video_rotation
+            .filter(|value| matches!(value, 0 | 90 | 180 | 270))
+            .map_or(-1, |value| (value / 90) as i32),
+    );
     app.set_audio_delay(state.audio_delay as f32);
     app.set_subtitle_delay(state.subtitle_delay as f32);
     app.set_subtitle_scale_known(state.subtitle_scale.is_some());
@@ -281,6 +289,11 @@ pub(crate) fn configure_player(
         Err(error) => return Err(error.into()),
     };
     app.set_volume_boost(prefs.volume_boost);
+    app.set_video_aspect_presets(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::video_controls::ASPECT_PRESETS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
     app.set_osd_enabled(prefs.enable_osd);
     app.set_primary_shortcut_is_meta(cfg!(target_os = "macos"));
     let osd_timeout = Duration::try_from_secs_f64(prefs.osd_timeout_secs)?;
@@ -415,6 +428,37 @@ pub(crate) fn configure_player(
     connect!(on_playlist_next, Command::PlaylistNext);
     connect!(on_playlist_previous, Command::PlaylistPrevious);
     connect!(on_reset_speed, Command::Speed(1.0));
+    let aspect_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_video_aspect(move |text| {
+        if text.is_empty() {
+            return;
+        }
+        let aspect = riina_core::video_controls::AspectRatio::from_text(text.as_str());
+        let index = aspect.preset_index().map_or(-1, |index| index as i32);
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            match aspect_player.send(Command::VideoAspect(aspect)) {
+                // The reference keeps exact requested text, so 8:6 must not
+                // select the 4:3 preset merely because their ratios are equal.
+                Ok(()) => app.set_video_aspect_index(index),
+                Err(error) => app.set_status(error.into()),
+            }
+        }
+    });
+    let rotation_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_video_rotation(move |degrees| {
+        if let Some(app) = weak.upgrade()
+            && let Some(rotation) =
+                riina_core::video_controls::Rotation::from_degrees(degrees.into())
+        {
+            app.invoke_activity();
+            if let Err(error) = rotation_player.send(Command::VideoRotation(rotation)) {
+                app.set_status(error.into());
+            }
+        }
+    });
     connect!(on_reset_subtitle_delay, Command::SubtitleDelay(0.0));
     let scale_player = player.command_sender();
     let absolute_scale_player = player.command_sender();
@@ -586,16 +630,16 @@ pub(crate) fn configure_player(
                 .or_else(|error| if token == "no" { Ok(None) } else { Err(error) })
                 .map(Command::SelectSecondarySubtitle)
                 .map_err(|error| error.to_string()),
-            1 | 2 => token
+            1 | 2 | 6 => token
                 .as_str()
                 .parse::<i64>()
                 .map(Some)
                 .or_else(|error| if token == "no" { Ok(None) } else { Err(error) })
                 .map(|id| Command::SelectTrack {
-                    kind: if category == 1 {
-                        TrackKind::Audio
-                    } else {
-                        TrackKind::Sub
+                    kind: match category {
+                        1 => TrackKind::Audio,
+                        6 => TrackKind::Video,
+                        _ => TrackKind::Sub,
                     },
                     id,
                 })

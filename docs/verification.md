@@ -1,5 +1,32 @@
 # Verification record · native Windows · 2026-10-09
 
+## Video aspect and rotation · 2026-10-10
+
+Original portable video intent and a shared trailing Video panel now include the
+reference's six aspect presets in order, 40x24 custom ratio field, four rotation
+choices and video track catalog. Shift+primary+V opens the panel (Control on
+Windows/Linux, Meta on macOS). Exact custom text is retained for selection:
+8:6 does not select the 4:3 segment. Empty custom input is ignored; invalid
+nonempty ratio syntax requests Default (-1). Rotation selection uses observed
+native state. The original film icon has MIT provenance; no Apple art is copied.
+
+Two core checks pass for ratio syntax, exact text/preset identity and quarter
+turn validation. The native video_geometry_controls_preserve_pause_and_unrelated_options
+test passes on the original catalog fixture: all five non-default presets,
+2.39:1 and 8:6 change both video-aspect-override and video-out-params display
+ratio (within integer display-size rounding). Invalid custom input restores -1;
+90/180/270/0 rotation properties are observed with pause and volume 37 retained
+and no playback error. Initial mpv "no" override is -2; it remains unchanged
+until an action, while explicit Default uses IINA's -1 container preference.
+All 17 explicitly enabled native tests and workspace unit checks pass.
+
+This native test verifies output display parameters and rotation option values,
+not displayed rotated pixels. GUI controls, overflow behavior, native segmented
+keyboard semantics, custom-entry focus handoff, aspect/rotation OSD, menus,
+crop/speed/hardware/equalizer sections and other OS runtime remain open. Current
+materials, typography and row metrics remain provisional until reference capture
+comparison. GUI retest is pending. Work remains local.
+
 ## Localized track badges · 2026-10-10
 
 Repaired source 3b81c9d is verified in both Windows application routes: shared

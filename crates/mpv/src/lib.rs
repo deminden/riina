@@ -144,6 +144,8 @@ impl Player {
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("hwdec-current", 1),
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
+                        ("video-aspect-override", 5), ("video-rotate", 4),
+                        ("video-out-params", 6),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
                         ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5), ("sub-outline-size", 5),
                         ("sub-color", 1), ("sub-outline-color", 1), ("sub-back-color", 1),
@@ -319,6 +321,9 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
             b"video-target-params" => state.video_target = None,
+            b"video-out-params" => state.video_output = None,
+            b"video-aspect-override" => state.video_aspect_override = None,
+            b"video-rotate" => state.video_rotation = None,
             b"hwdec-current" => state.hardware_decoder = None,
             b"current-ao" => state.audio_output = None,
             b"loop-file" => state.loop_file = None,
@@ -354,13 +359,15 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"playlist" => {
                     state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?
                 }
-                b"video-params" | b"video-target-params" => {
+                b"video-params" | b"video-target-params" | b"video-out-params" => {
                     // The native VO target describes presentation, while source
                     // parameters can still carry a PQ/HLG transfer function.
                     let destination = if name == b"video-params" {
                         &mut state.video
-                    } else {
+                    } else if name == b"video-target-params" {
                         &mut state.video_target
+                    } else {
+                        &mut state.video_output
                     };
                     *destination =
                         if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
@@ -376,10 +383,16 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
         if let Err(error) = result {
             state.error = Some(format!("Cannot decode mpv property: {error}"));
         }
+    } else if property.format == 4 {
+        let value = unsafe { *property.data.cast::<i64>() };
+        if name == b"video-rotate" {
+            state.video_rotation = Some(value);
+        }
     } else if property.format == 5 {
         let value = unsafe { *property.data.cast::<f64>() };
         if !value.is_finite() {
             match name {
+                b"video-aspect-override" => state.video_aspect_override = None,
                 b"sub-scale" => state.subtitle_scale = None,
                 b"sub-font-size" => state.subtitle_font_size = None,
                 b"sub-outline-size" => state.subtitle_outline_size = None,
@@ -395,6 +408,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"duration" => state.duration = (value >= 0.0).then_some(value),
             b"volume" => state.volume = value,
             b"speed" => state.speed = value,
+            b"video-aspect-override" => state.video_aspect_override = Some(value),
             b"audio-delay" => state.audio_delay = value,
             b"sub-delay" => state.subtitle_delay = value,
             b"secondary-sub-delay" => state.secondary_subtitle_delay = Some(value),

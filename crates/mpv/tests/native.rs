@@ -28,6 +28,77 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies video aspect and rotation while paused"]
+fn video_geometry_controls_preserve_pause_and_unrelated_options() {
+    use riina_core::video_controls::{ASPECT_PRESETS, AspectRatio, Rotation};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video_output.is_some()
+    });
+    // The current engine reports its initial "no" override as -2. The explicit
+    // Default action uses the reference player's container-preference sentinel.
+    assert!(matches!(loaded.video_aspect_override, Some(-2.0 | -1.0)));
+    assert_eq!(loaded.video_rotation, Some(0));
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    for ratio in ASPECT_PRESETS.into_iter().skip(1).chain(["2.39:1", "8:6"]) {
+        let (width, height) = ratio.split_once(':').unwrap();
+        let expected = width.parse::<f64>().unwrap() / height.parse::<f64>().unwrap();
+        player
+            .send(Command::VideoAspect(AspectRatio::from_text(ratio)))
+            .unwrap();
+        let changed = wait_for(&receiver, |state| {
+            state
+                .video_aspect_override
+                .is_some_and(|value| (value - expected).abs() < 1e-9)
+                && state.video_output.as_ref().is_some_and(|video| {
+                    video
+                        .dw
+                        .zip(video.dh)
+                        .is_some_and(|(w, h)| ((w as f64 / h as f64) - expected).abs() < 0.01)
+                })
+        });
+        assert!(changed.paused);
+        assert_eq!(changed.volume, 37.0);
+        assert_eq!(changed.video_rotation, Some(0));
+        assert_eq!(changed.error, None);
+    }
+    player
+        .send(Command::VideoAspect(AspectRatio::from_text("invalid")))
+        .unwrap();
+    wait_for(&receiver, |state| state.video_aspect_override == Some(-1.0));
+    for degrees in [90, 180, 270, 0] {
+        player
+            .send(Command::VideoRotation(
+                Rotation::from_degrees(degrees).unwrap(),
+            ))
+            .unwrap();
+        let changed = wait_for(&receiver, |state| state.video_rotation == Some(degrees));
+        assert!(changed.paused);
+        assert_eq!(changed.volume, 37.0);
+        assert_eq!(changed.video_aspect_override, Some(-1.0));
+        assert_eq!(changed.error, None);
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies real ISO and BCP 47 track metadata"]
 fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

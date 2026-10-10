@@ -20,6 +20,11 @@ SidebarSubtitlesPane, SidebarPlaylistPane and SidebarChaptersPane by Hechen Li/l
 Command plans and track labels in crates/core/src/lib.rs follow the pinned sources;
 Rust implementations preserve explicit mpv ownership and have independent tests.
 
+Video sidebar requirements additionally reference SidebarVideoPane (Hechen
+Li/lhc, 2026), AppData preset values and PlayerCore video actions at the same
+pinned commit. The original Rust typed intent, native observations and Slint
+controls are independently implemented; native AppKit code/artwork is not copied.
+
 Local selection behavior and extension lists in crates/core/src/file_selection.rs
 follow PlayerCore.openURLs (lhc, 2016), DraggingDetect.getPlayableFiles (Yuze Jiang,
 2017; copyright lhc) and Utility (lhc, 2016), at the pinned commit above. Windows

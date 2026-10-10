@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Video aspect/rotation and video track selection are implemented in the portable
+intent/backend and shared trailing panel. Native tests verify six aspect presets,
+custom ratios, invalid-input Default reset and quarter-turn properties without
+changing pause/volume. Exact ratio text distinguishes 8:6 from the 4:3 preset.
+Two new core checks and all 17 native tests pass. Actual GUI interaction/rendering,
+OSD, segmented keyboard parity, crop and remaining video sections, and current
+macOS/Linux runtime remain open. No public update was made.
+
 Repaired Windows source 3b81c9d verifies readable audio and both subtitle language
 labels on shared OpenGL and experimental native-video routes. Both close with
 exit 0; GL stderr is empty and native has only its existing chrome diagnostic.
