@@ -528,6 +528,8 @@ export component PlayerWindow inherits Window {
     in-out property <float> leading-sidebar-width: 360;
     in-out property <float> trailing-sidebar-width: 360;
     in-out property <bool> compact-ui: false;
+    in-out property <bool> edge-to-edge-video: true;
+    in-out property <bool> docked-controls: false;
     in-out property <int> osc-position: 0;
     callback layout-settings-changed();
     callback toggle-settings-pane(int);
@@ -564,16 +566,31 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
     in-out property <bool> controls-visible: true;
-    out property <length> video-width: root.width;
-    out property <length> video-height: root.height;
+    // One logical-point viewport drives both GL texture size and native mpv margins.
+    private property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
+    private property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
+    private property <length> video-inset-top: root.edge-to-edge-video || !root.docked-controls ? 0px : (root.compact-ui ? 30px : 34px);
+    private property <length> video-inset-bottom: root.edge-to-edge-video || !root.docked-controls ? 0px : (root.compact-ui ? 59px : 67px);
+    out property <length> window-width: root.width;
+    out property <length> window-height: root.height;
+    out property <length> video-origin-x: video-inset-leading;
+    out property <length> video-origin-y: video-inset-top;
+    out property <length> video-width: max(1px, root.width - video-inset-leading - video-inset-trailing);
+    out property <length> video-height: max(1px, root.height - video-inset-top - video-inset-bottom);
     in property <float> crop-picture-x;
     in property <float> crop-picture-y;
     in property <float> crop-picture-width;
     in property <float> crop-picture-height;
-    out property <length> render-width: crop-editing && !native-video ? crop-picture-width * 1px : root.width;
-    out property <length> render-height: crop-editing && !native-video ? crop-picture-height * 1px : root.height;
+    out property <length> render-width: crop-editing && !native-video ? crop-picture-width * 1px : video-width;
+    out property <length> render-height: crop-editing && !native-video ? crop-picture-height * 1px : video-height;
     changed video-width => { root.crop-viewport-changed(); }
     changed video-height => { root.crop-viewport-changed(); }
+    changed edge-to-edge-video => { root.crop-viewport-changed(); }
+    changed docked-controls => { root.crop-viewport-changed(); }
+    changed sidebar => { root.crop-viewport-changed(); }
+    changed leading-sidebar => { root.crop-viewport-changed(); }
+    changed leading-sidebar-width => { root.crop-viewport-changed(); }
+    changed trailing-sidebar-width => { root.crop-viewport-changed(); }
     callback open-file();
     callback toggle-pause();
     callback stop();
@@ -637,7 +654,7 @@ export component PlayerWindow inherits Window {
         width: root.width;
         height: root.height;
         if crop-editing && !native-video : Rectangle {
-            x: crop-picture-x * 1px; y: crop-picture-y * 1px;
+            x: video-inset-leading + crop-picture-x * 1px; y: video-inset-top + crop-picture-y * 1px;
             width: root.render-width; height: root.render-height;
             background: #000000;
             drop-shadow-blur: 10px;
@@ -646,9 +663,23 @@ export component PlayerWindow inherits Window {
         }
         Image {
             source: video-frame;
-            x: crop-editing && !native-video ? crop-picture-x * 1px : 0px;
-            y: crop-editing && !native-video ? crop-picture-y * 1px : 0px;
+            x: video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
+            y: video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
             width: root.render-width; height: root.render-height; image-fit: contain;
+        }
+        if !root.edge-to-edge-video && root.native-video : Rectangle {
+            x: 0px; y: 0px; width: root.video-inset-leading; height: root.height; background: #000000;
+        }
+        if !root.edge-to-edge-video && root.native-video && root.video-inset-trailing > 0px : Rectangle {
+            x: root.width - root.video-inset-trailing; y: 0px;
+            width: root.video-inset-trailing; height: root.height; background: #000000;
+        }
+        if !root.edge-to-edge-video && root.native-video && root.video-inset-top > 0px : Rectangle {
+            x: 0px; y: 0px; width: root.width; height: root.video-inset-top; background: #000000;
+        }
+        if !root.edge-to-edge-video && root.native-video && root.video-inset-bottom > 0px : Rectangle {
+            x: 0px; y: root.height - root.video-inset-bottom;
+            width: root.width; height: root.video-inset-bottom; background: #000000;
         }
         TouchArea { moved => { root.controls-visible = true; root.activity(); }
             clicked => {
@@ -729,18 +760,6 @@ export component PlayerWindow inherits Window {
                 }
                 if pane-kind == 5 : VerticalLayout {
                     spacing: 10px;
-                    Text { text: "On-Screen Controller"; color: #bdbdc5;
-                        font-size: 11px; font-weight: 700; }
-                    HorizontalLayout {
-                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
-                        spacing: 6px;
-                        LayoutChoice { label: "Floating"; position: 0; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 0;
-                            activated => { root.osc-position = 0; root.layout-settings-changed(); } }
-                        LayoutChoice { label: "Top"; position: 1; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 1;
-                            activated => { root.osc-position = 1; root.layout-settings-changed(); } }
-                        LayoutChoice { label: "Bottom"; position: 2; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 2;
-                            activated => { root.osc-position = 2; root.layout-settings-changed(); } }
-                    }
                     Rectangle { width: parent.width; height: 30px; accessible-role: checkbox;
                         accessible-label: "Compact interface"; accessible-checkable: true;
                         accessible-checked: root.compact-ui;
@@ -754,6 +773,24 @@ export component PlayerWindow inherits Window {
                                 horizontal-alignment: center; vertical-alignment: center; font-size: 12px; } }
                         TouchArea { clicked => { root.compact-ui = !root.compact-ui; root.layout-settings-changed(); } }
                     }
+                    Text { text: "Video"; color: #bdbdc5; font-size: 11px; font-weight: 700; }
+                    SidebarPositionToggle { label: "Edge-to-edge video"; leading: root.edge-to-edge-video;
+                        changed(value) => { root.edge-to-edge-video = value; root.layout-settings-changed(); } }
+                    if !root.edge-to-edge-video : SidebarPositionToggle { label: "Dock control bar and titlebar"; leading: root.docked-controls;
+                        changed(value) => { root.docked-controls = value; root.layout-settings-changed(); } }
+                    Text { text: "On-Screen Controller"; color: #bdbdc5;
+                        font-size: 11px; font-weight: 700; }
+                    HorizontalLayout {
+                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
+                        spacing: 6px;
+                        LayoutChoice { label: "Floating"; position: 0; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 0;
+                            activated => { root.osc-position = 0; root.layout-settings-changed(); } }
+                        LayoutChoice { label: "Top"; position: 1; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 1;
+                            activated => { root.osc-position = 1; root.layout-settings-changed(); } }
+                        LayoutChoice { label: "Bottom"; position: 2; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 2;
+                            activated => { root.osc-position = 2; root.layout-settings-changed(); } }
+                    }
+                    Text { text: "Sidebar Position"; color: #bdbdc5; font-size: 11px; font-weight: 700; }
                     SidebarPositionToggle { label: "Settings on leading side"; leading: root.settings-at-leading;
                         changed(value) => { root.settings-at-leading = value; root.layout-settings-changed(); } }
                     SidebarPositionToggle { label: "Playlist on leading side"; leading: root.playlist-at-leading;

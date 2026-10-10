@@ -1952,5 +1952,9 @@ The Layout pane now persists Compact, Floating/Top/Bottom controller placement,
 and Settings/Playlist leading-or-trailing assignment. Position changes move the
 active pane; a side holds one pane at a time and a same-side selection replaces
 its content. Windows capture confirmed the Settings move and Playlist replacing
-Settings when both use the leading edge. Theme/material, window fit/sizing, dock
-behavior, plugin placement and matched macOS pixel comparisons remain open.
+Settings when both use the leading edge. Edge-to-edge video now adjusts shared
+GL/native viewport geometry through mpv margins; disabling it moves visible
+sidebars outside the picture and exposes the docked-control option. The native
+viewport regression passes. Live geometry capture, window-aspect lock, fit-to-
+video, theme/material, plugin placement and matched macOS pixel comparison
+remain open.

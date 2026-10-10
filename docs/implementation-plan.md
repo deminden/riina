@@ -260,6 +260,8 @@ native localized filename ordering and target-specific presentation/HDR integrat
 
 Full interface parity remains the priority. Layout now persists controller
 placement and Compact plus the leading/trailing assignment for Settings and
-Playlist/Chapters. Continue through remaining Layout controls, then matched
+Playlist/Chapters. Edge-to-edge and docked-controller settings now drive shared
+GL/native viewport geometry, with the native mpv margin regression passing.
+Continue through window-aspect lock and fit-to-video behavior, then matched
 capture comparisons for menus, Preferences, window modes, DPI, materials and
 sidebar resize/animation.

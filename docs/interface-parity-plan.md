@@ -72,6 +72,9 @@ Playlist/Chapters. Top/Bottom reserve their own space alongside an open sidebar.
 The position switches move the selected pane, preserve one pane per physical
 side, and replace content when both categories share an edge. Windows capture
 confirmed the Settings move and same-side replacement; defaults remain Settings
-trailing and Playlist leading. Theme/material, edge-to-edge/window sizing, dock
-behavior, video fit, plugin placement and matched macOS pixel comparisons remain
-open.
+trailing and Playlist leading. Edge-to-edge video now uses the shared viewport
+geometry and native mpv margin commands; turning it off places open sidebars
+outside the video viewport, and enables the reference Dock control bar and
+titlebar choice. The native viewport regression passes. Live GUI geometry and
+matched macOS pixels remain unverified. Window aspect locking, fit-to-video,
+theme/material, plugin placement and port runtime remain open.

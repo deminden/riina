@@ -10,6 +10,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         i32::from(baseline.osc_position),
         baseline.settings_at_leading,
         baseline.playlist_at_leading,
+        baseline.edge_to_edge_video,
+        baseline.docked_controls,
     )));
     let weak = app.as_weak();
     app.on_layout_settings_changed(move || {
@@ -19,6 +21,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.get_osc_position().clamp(0, 2),
             app.get_settings_at_leading(),
             app.get_playlist_at_leading(),
+            app.get_edge_to_edge_video(),
+            app.get_docked_controls(),
         );
         let previous = saved.get();
         let result = screenshot_preferences::current(&app).and_then(|screenshot| {
@@ -27,6 +31,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                 osc_position: selected.1 as u8,
                 settings_at_leading: selected.2,
                 playlist_at_leading: selected.3,
+                edge_to_edge_video: selected.4,
+                docked_controls: selected.5,
                 leading_sidebar_width: app.get_leading_sidebar_width() as u32,
                 trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                 volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
@@ -49,6 +55,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.set_osc_position(previous.1);
             app.set_settings_at_leading(previous.2);
             app.set_playlist_at_leading(previous.3);
+            app.set_edge_to_edge_video(previous.4);
+            app.set_docked_controls(previous.5);
             app.set_status(error.into());
         } else {
             // IINA relocates a changed pane and dismisses other open sidebars.

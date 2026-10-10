@@ -3,7 +3,7 @@ use crate::PlayerWindow;
 use riina_core::{
     Command, Playback,
     crop_drag::{Drag, Edge},
-    crop_geometry::{Point, Projection, SourceRect},
+    crop_geometry::{DisplayRect, Point, Projection, SourceRect},
     crop_session::Session,
     video_viewport::Viewport,
 };
@@ -96,20 +96,36 @@ impl Editor {
         app.set_crop_editing(editing);
         app.set_crop_ready(ready && screen.is_some());
         if app.get_native_video() {
-            let viewport = if editing {
-                content.and_then(|content| {
-                    Viewport::new(
-                        (
-                            f64::from(app.get_video_width()),
-                            f64::from(app.get_video_height()),
-                        ),
-                        content,
-                    )
-                    .ok()
+            let window_size = (
+                f64::from(app.get_window_width()),
+                f64::from(app.get_window_height()),
+            );
+            let origin = (
+                f64::from(app.get_video_origin_x()),
+                f64::from(app.get_video_origin_y()),
+            );
+            let video_size = (
+                f64::from(app.get_video_width()),
+                f64::from(app.get_video_height()),
+            );
+            let picture = if editing {
+                content.map(|content| DisplayRect {
+                    x: origin.0 + content.x,
+                    y: origin.1 + content.y,
+                    width: content.width,
+                    height: content.height,
                 })
-            } else {
+            } else if app.get_edge_to_edge_video() {
                 None
+            } else {
+                Some(DisplayRect {
+                    x: origin.0,
+                    y: origin.1,
+                    width: video_size.0,
+                    height: video_size.1,
+                })
             };
+            let viewport = picture.and_then(|picture| Viewport::new(window_size, picture).ok());
             let mut data = self.0.lock().expect("Crop editor state is available");
             if data.viewport != Some(viewport)
                 && let Some(sender) = data.sender.as_ref()

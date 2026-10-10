@@ -1035,6 +1035,8 @@ pub struct Preferences {
     pub trailing_sidebar_width: u32,
     pub settings_at_leading: bool,
     pub playlist_at_leading: bool,
+    pub edge_to_edge_video: bool,
+    pub docked_controls: bool,
     pub compact_ui: bool,
     pub osc_position: u8,
     pub pause_when_open: bool,
@@ -1060,6 +1062,8 @@ impl Default for Preferences {
             trailing_sidebar_width: 360,
             settings_at_leading: false,
             playlist_at_leading: true,
+            edge_to_edge_video: true,
+            docked_controls: false,
             compact_ui: false,
             osc_position: 0,
             pause_when_open: false,
@@ -1153,6 +1157,8 @@ mod tests {
         assert_eq!(legacy.osc_position, 0);
         assert!(!legacy.settings_at_leading);
         assert!(legacy.playlist_at_leading);
+        assert!(legacy.edge_to_edge_video);
+        assert!(!legacy.docked_controls);
         let selected = Preferences::parse(r#"{"compact_ui":true,"osc_position":2}"#).unwrap();
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert!(restored.compact_ui);
@@ -1163,11 +1169,15 @@ mod tests {
     #[test]
     fn sidebar_positions_round_trip_without_changing_existing_layout_defaults() {
         let selected =
-            Preferences::parse(r#"{"settings_at_leading":true,"playlist_at_leading":false}"#)
-                .unwrap();
+            Preferences::parse(
+                r#"{"settings_at_leading":true,"playlist_at_leading":false,"edge_to_edge_video":false,"docked_controls":true}"#,
+            )
+            .unwrap();
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert!(restored.settings_at_leading);
         assert!(!restored.playlist_at_leading);
+        assert!(!restored.edge_to_edge_video);
+        assert!(restored.docked_controls);
         assert!(!Preferences::parse("{}").unwrap().settings_at_leading);
         assert!(Preferences::parse("{}").unwrap().playlist_at_leading);
     }

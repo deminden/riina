@@ -70,6 +70,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                                 trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                                 settings_at_leading: app.get_settings_at_leading(),
                                 playlist_at_leading: app.get_playlist_at_leading(),
+                                edge_to_edge_video: app.get_edge_to_edge_video(),
+                                docked_controls: app.get_docked_controls(),
                                 compact_ui: app.get_compact_ui(),
                                 osc_position: app.get_osc_position() as u8,
                                 ..baseline.clone()
