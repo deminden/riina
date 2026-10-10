@@ -76,6 +76,7 @@ jobs:
         shell: pwsh
         run: |
           python scripts/check-parity.py
+          python scripts/check-settings-navigation.py
           python scripts/check-fixtures.py
           python scripts/check-assets.py
           cargo fmt --all -- --check

@@ -1,3 +1,12 @@
+The public `main` branch now includes a non-publishing Windows audit-candidate
+workflow so the native release package can be built and tested before the
+redistribution decision is opened. Run #9 is in progress; it does not publish a
+GitHub Release. The Settings sidebar now follows IINA v1.5.0's enabled page order
+(General, UI, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced,
+Plugin, Utilities). Several page bodies, search, native toolbar, dimensions and
+pixel comparison remain incomplete; workspace tests and strict clippy pass after
+the navigation change. No GUI capture was made for this edit.
+
 The user now prioritizes full interface parity before further feature expansion;
 sidebar edges now resize independently and persist on release. Actual Windows
 dragging verified saved widths 439/440, minimum 300 and maximum 500; restart

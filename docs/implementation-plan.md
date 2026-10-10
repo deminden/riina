@@ -1,4 +1,7 @@
-Current priority is full interface parity before further feature expansion.
+Current priority is full interface parity before further feature expansion. The
+Preferences sidebar now follows all 11 pages in IINA v1.5.0's default new Settings
+window. Continue page bodies, search/navigation behavior, source-matched geometry,
+and capture comparison; this increment is structural, not visual-parity evidence.
 Windows capture succeeds again. Follow docs/interface-parity-plan.md: obtain
 visible-control/sidebar/menu/preferences reference states and compare complete
 surfaces. General chooser rendering and path spacing plus macOS 26 floating
