@@ -14,7 +14,8 @@ The shared application now displays a transient seek clock/progress panel from
 observed libmpv SEEK/PLAYBACK_RESTART events. A retained completion counter
 survives coalesced snapshots; failed command submission does not fabricate a
 clock update. Replacement/Stop hides the panel. Geometry, colors and the 2.5-second
-timeout are provisional pending matched-size rendering and timing verification.
+timeout were provisional. The timeout now uses the pinned IINA default of one
+second; rendering, fade and actual event-relative timing remain unverified.
 Windows strict lint, 22 unit tests and four real native integration tests pass;
 the paused-seek test now requires a native completion notification as well as
 the observed 2-second clock. GUI rendering and port runtime validation are open.

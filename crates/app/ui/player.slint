@@ -319,7 +319,7 @@ export component PlayerWindow inherits Window {
             x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
             border-radius: 14px; background: #181818dc;
             seek-clock := HorizontalLayout {
-                x: 16px; y: 8px; height: 25px; spacing: 5px;
+                x: 16px; y: 8px; width: parent.width - 32px; height: 25px; spacing: 5px;
                 Text { text: seek-position-label; color: white; font-size: 20px; font-weight: 600; }
                 Text { text: "/ " + seek-duration-label; color: #b0b0b0; font-size: 20px; font-weight: 600; }
             }

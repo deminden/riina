@@ -66,6 +66,8 @@ The shared seek panel now uses estimated geometry from the reviewed paused-seek
 capture: an upper-left rounded dark panel, bright elapsed clock, subdued total
 clock and blue progress indicator. Values come from observed playback, triggered
 by a native seek completion counter rather than the requested destination. The
-2.5-second timeout is provisional: the capture proves a visible state, not its
-duration. Typeface, material, exact metrics, animation and timing remain open
+one-second timeout follows the pinned Preference.swift osdAutoHideTimeout default
+(line 1088). The capture proves a visible state, not its duration. The clock
+layout now explicitly reserves the panel's 16-point left/right padding.
+Typeface, material, exact metrics, animation and event-relative timing remain open
 comparison gates. No reference pixels or protected assets are shipped in the UI.

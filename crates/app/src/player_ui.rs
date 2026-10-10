@@ -276,7 +276,9 @@ pub(crate) fn configure_player(
         let weak = weak.clone();
         seek_timer.start(
             slint::TimerMode::SingleShot,
-            Duration::from_millis(2500),
+            // IINA 1.5.0's osdAutoHideTimeout defaults to one second;
+            // the independently timed controller auto-hide remains 2.5 seconds.
+            Duration::from_secs(1),
             move || {
                 if let Some(app) = weak.upgrade() {
                     app.set_seek_osd_visible(false);

@@ -1,0 +1,13 @@
+{
+  "source_commit": "293126c513e92df9a8b213a0483a0b4384504727",
+  "run_id": 38006676795,
+  "workflow": ".github/workflows/application-ports.yml",
+  "jobs": [
+    { "id": 114076949384, "name": "application (macos-latest)", "conclusion": "success" },
+    { "id": 114076949565, "name": "application (ubuntu-latest)", "conclusion": "success" }
+  ],
+  "verified_steps": ["Full application lint", "Application and shared unit tests", "Full application build"],
+  "scope": "Both application targets build and their workspace tests include the shared seek OSD reducer. Native integration tests are ignored in this workflow.",
+  "does_not_prove": ["GUI runtime", "pixel parity", "native displayed playback", "HDR presentation"],
+  "subsequent_changes": "The one-second source-default timeout and explicit clock padding correction are later changes and are not covered by this run."
+}
