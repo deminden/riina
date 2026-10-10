@@ -778,6 +778,19 @@ Scoped observations and exact executable SHA-256 are recorded in
 tests/visual/font-picker-repair-windows-evidence.json. No screenshot, glyph
 identity, native modality, exact geometry or other OS runtime pass is implied.
 
+Font chooser lifecycle retest (Windows 11 x64, shared OpenGL, source 80b4000):
+the player font-size picker accepts Down 55→60 and Up→55 while the ordinary
+chooser stays open. Opening again preserves the same native chooser window and
+its Unicode preview draft. Parent Alt+F4 dismisses the chooser; after settling,
+native window inventory and process inspection contain no riina instance.
+Exact binary hash and scoped observations are saved in
+tests/visual/font-picker-lifecycle-windows-evidence.json. An indexed parent
+set-value attempt encountered the automation cache; fresh parent activation and
+keyboard navigation succeeded. These findings do not verify native-video
+lifecycle, other OS runtime, application-wide reusable picker, Settings sheets
+or exact visual metrics. Formatting, strict workspace lint, all workspace unit
+checks and the optimized Windows release build passed for this source.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red

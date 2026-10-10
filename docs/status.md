@@ -6,9 +6,16 @@ live draft, and player shutdown dismisses it in both shared GL and Windows nativ
 routes. Its title now matches Choose a Font. Source contract: PlayerCore
 chooseSubFont calls Utility quickFontPickerWindow without a sheet owner; the
 new Settings page supplies an owner and is a separate pending requirement.
-Strict lint and unit checks pass. Runtime parent interaction, repeated raising,
-shutdown and other OS behavior need verification; no native ownership pass is
-claimed. All work stays local.
+Strict lint, unit checks and release build pass. Windows shared GL runtime on
+80b4000 verifies parent font size Down 55→60 and Up→55 while the chooser stays
+open; repeated opening reuses the same chooser and preserves Keep draft café.
+Closing the parent dismisses the chooser and settled inventory has no riina
+windows or process. Scoped binary-hashed evidence is in
+tests/visual/font-picker-lifecycle-windows-evidence.json. One parent set-value
+attempt hit the automation cache; fresh activation and keyboard navigation
+worked. Native-video route and other OS runtime, global application-wide reuse
+and Settings sheet remain open. No native ownership or pixel pass is claimed.
+All work stays local.
 
 Repaired font chooser runtime verified locally on source 321225e. Accessibility
 set-value changes Test to Preview café Привет. Committing Verdana and reopening

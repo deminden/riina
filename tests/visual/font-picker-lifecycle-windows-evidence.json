@@ -1,0 +1,43 @@
+{
+  "source_commit": "80b4000",
+  "observations": [
+    {
+      "action": "chooser-open",
+      "window_title": "Choose a Font"
+    },
+    {
+      "action": "preview-draft",
+      "focus": "21 edit (settable, string) Font preview text Value: Keep draft café"
+    },
+    {
+      "action": "reopen-existing",
+      "same_picker_id": true,
+      "preview": "\t\t21 edit (settable, string) Font preview text Value: Keep draft café"
+    },
+    {
+      "action": "parent-size-Down",
+      "focus": "69 combo box (settable, float) Subtitle font size Value: 60"
+    },
+    {
+      "action": "parent-size-restored",
+      "focus": "69 combo box (settable, float) Subtitle font size Value: 55"
+    },
+    {
+      "action": "close-player",
+      "remaining_riina_windows": 1
+    },
+    {
+      "action": "settled-close",
+      "remaining_riina_windows": 0
+    }
+  ],
+  "binary_sha256": "cecb42c499548990cd7ad07fedb9772953852e127e9b5bf01342ac0e401833bd",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "limitations": [
+    "AX and native window inventory only; no screenshot or pixel proof.",
+    "One parent set-value attempt reported stale automation cache; refreshed foreground and used keyboard navigation successfully.",
+    "Native-video route and other OS runtime not tested.",
+    "Global application-wide picker reuse and Settings sheet remain pending."
+  ]
+}
