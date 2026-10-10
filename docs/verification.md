@@ -2,6 +2,20 @@
 
 ## Video aspect and rotation · 2026-10-10
 
+Repaired Windows shared-OpenGL source f3cfed8 passes the custom-field focus
+retest: entering 8:6 and Return, then Tab focuses the 0° rotation control.
+At an interior paused position of 2 seconds, Right and Left on that control
+leave position 2 and volume 37 unchanged; no player seek/pause/volume shortcut
+leaks through. A Default custom submission also retains that state. Normal
+close exits 0 with empty stderr. Scoped observations and binary digest are in
+tests/visual/video-settings-repair-evidence.json. The AX tree omits selected
+segment state, so these observations prove focus and input routing, not the
+displayed angle or native aspect value. Those effects are separately exercised
+by the native test. Strict lint and optimized release build pass after repair.
+Current GUI material/pixels, full native segmented focus behavior, horizontal
+overflow indicator/wheel mapping, Unicode decimal-digit syntax, video track
+dimensions/FPS labels, OSD and native-video/macOS/Linux runtime remain open.
+
 Initial GUI at 9a9d1ad exposes the Video shortcut/panel, video catalog, all six
 aspect choices, editable custom ratio and four rotation choices. Setting 2.39:1
 and Return retains Play and volume 37 without an error, but the AX snapshot

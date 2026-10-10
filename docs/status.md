@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Video custom-entry Tab repair is verified on f3cfed8: Tab reaches rotation;
+Right/Left do not seek a paused 2-second timeline or change volume 37. Normal
+close exits 0 with empty stderr. AX cannot expose selected segments, so actual
+aspect/output-ratio and rotation values remain backed by the separate native
+test, not a pixel claim. Evidence: video-settings-repair-evidence.json. Strict
+lint and release build pass; all 17 native tests passed on unchanged backend.
+Rendered/native control parity and current other OS runtime remain open. Local
+commits only; nothing published.
+
 Initial video GUI at 9a9d1ad confirms the controls/labels and custom edit, with
 clean shutdown, but Tab is trapped in the custom field. Repair passes Tab
 through, exposes selectable segment state and routes Left/Right to video choices

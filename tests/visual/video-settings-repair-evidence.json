@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "source_commit": "f3cfed84f74e48cc278cf9a3933a5f088e209d35",
+  "binary_sha256": "724c910dc13c4f5b26431029cd45cf043a939a153bea5904d2c87225ce9986d0",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "observations": [
+    {
+      "action": "custom-Tab",
+      "focus": "93 button Video rotation 0°",
+      "lines": [
+        "\t\t50 button Playlist",
+        "\t\t91 edit (settable, string) Custom aspect ratio Value: 8:6",
+        "\t\t93 button Video rotation 0°",
+        "\t\t95 button Video rotation 90°",
+        "\t\t97 button Video rotation 180°",
+        "\t\t99 button Video rotation 270°",
+        "\t\t56 button Play",
+        "\t\t62 slider (settable, float) Volume Value: 37",
+        "\t\t68 slider (settable, float) Playback position Value: 4.999979",
+        "The focused UI element is 93 button Video rotation 0°."
+      ]
+    },
+    {
+      "action": "rotation-Right",
+      "focus": "93 button Video rotation 0°",
+      "lines": [
+        "\t\t50 button Playlist",
+        "\t\t56 button Play",
+        "\t\t62 slider (settable, float) Volume Value: 37",
+        "\t\t68 slider (settable, float) Playback position Value: 2"
+      ],
+      "limitation": "The accessible tree omits selected/toggled segment state; this proves no seek, not the displayed angle."
+    },
+    {
+      "action": "rotation-Left",
+      "lines": [
+        "\t\t50 button Playlist",
+        "\t\t56 button Play",
+        "\t\t62 slider (settable, float) Volume Value: 37",
+        "\t\t68 slider (settable, float) Playback position Value: 2"
+      ]
+    },
+    {
+      "action": "Default-return",
+      "lines": [
+        "\t\t50 button Playlist",
+        "\t\t91 edit (settable, string) Custom aspect ratio Value: Default",
+        "\t\t56 button Play",
+        "\t\t62 slider (settable, float) Volume Value: 37",
+        "\t\t68 slider (settable, float) Playback position Value: 2",
+        "The focused UI element is 91 edit (settable, string) Custom aspect ratio Value: Default."
+      ]
+    }
+  ],
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "AX does not expose chosen/toggled segment state; no displayed rotation or native ratio claim from these observations.",
+    "No pixel comparison or native-video/macOS/Linux panel interaction in this sequence.",
+    "Keyboard segment focus remains separate from the reference native group semantics."
+  ]
+}
