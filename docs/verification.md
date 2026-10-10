@@ -1,5 +1,20 @@
 # Verification record · native Windows · 2026-10-09
 
+## Selected subtitle boundary and resumed loops · 2026-10-10
+
+The new native test selects manual-captions.srt, pauses at position 3 in its
+last cue and sets A–B to 2.8 / 3.2. Sub-seek forward leaves navigation completion
+unchanged until playback resumes; before repair the automatic loop incorrectly
+advances it from 1 to 2. Explicit pause/resume now clears only an unstarted
+feedback token. Worker tests verify that transition retires an acknowledged
+no-op, while an already-started seek still completes normally. Native command
+dispatch and raw native completion counting remain unchanged.
+
+Full native/unit/lint/build checks are in progress. This tests a paused final
+cue followed by explicit resume, not no-op navigation during an already-running
+loop. First-cue boundaries, event interleaving, GUI and actual IINA presentation
+comparison and current other OS runtime remain open.
+
 ## Subtitle no-op navigation and automatic loops · 2026-10-10
 
 The new native regression loads the catalog with no subtitle selection, pauses,

@@ -28,6 +28,85 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies selected last-cue navigation before an automatic loop"]
+fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(
+            root.join("tests/fixtures/manual-captions.srt")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Sub && track.is_primary_selected())
+    });
+    player
+        .send(Command::Seek {
+            seconds: 3.0,
+            absolute: true,
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        !state.seeking
+            && state
+                .position
+                .is_some_and(|clock| (clock - 3.0).abs() < 0.05)
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Chapter two"))
+    });
+    player
+        .send(Command::SetAbLoop {
+            a: Some(2.8),
+            b: Some(3.2),
+        })
+        .unwrap();
+    let before = wait_for(&receiver, |state| {
+        state.ab_loop_a == Some(2.8) && state.ab_loop_b == Some(3.2)
+    });
+    player.send(Command::SubtitleSeek(1)).unwrap();
+    player.send(Command::Volume(37.0)).unwrap();
+    let baseline = wait_for(&receiver, |state| state.volume == 37.0);
+    assert_eq!(
+        baseline.completed_navigation_seeks, before.completed_navigation_seeks,
+        "Past-last-cue request unexpectedly moved playback"
+    );
+    player.send(Command::TogglePause).unwrap();
+    let looped = wait_for(&receiver, |state| {
+        state.completed_seeks > baseline.completed_seeks && !state.seeking
+    });
+    assert_eq!(
+        looped.completed_navigation_seeks,
+        baseline.completed_navigation_seeks
+    );
+    assert_eq!(looped.volume, 37.0);
+    assert!(looped.error.is_none(), "{:?}", looped.error);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies no-cue navigation does not label an automatic loop"]
 fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

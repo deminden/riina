@@ -183,6 +183,7 @@ impl Player {
                         if command == Command::Shutdown { break; }
                         match command.plan(&state) {
                             Ok(plan) => {
+                                if matches!(command, Command::TogglePause) { seek_feedback.playback_transition(); }
                                 if matches!(command, Command::Load(_) | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;
                                 // Validate the whole intent before submitting any part. Multi-file

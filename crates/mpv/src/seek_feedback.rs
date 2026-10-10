@@ -28,6 +28,14 @@ impl SeekFeedback {
         self.request = None;
         self.started = false;
     }
+    pub fn playback_transition(&mut self) {
+        // A completed cue no-op can leave an acknowledged request without SEEK.
+        // A later explicit pause/resume supersedes that unstarted feedback; an
+        // already-started seek retains its completion through the transition.
+        if !self.started {
+            self.clear();
+        }
+    }
 }
 
 pub(crate) fn navigation(args: &[String], state: &riina_core::Playback) -> bool {
@@ -56,6 +64,15 @@ mod tests {
         assert!(!feedback.completed());
         feedback.submitted(1);
         feedback.started();
+        assert!(feedback.completed());
+        feedback.submitted(5);
+        feedback.replied(5, false);
+        feedback.playback_transition();
+        feedback.started();
+        assert!(!feedback.completed());
+        feedback.submitted(6);
+        feedback.started();
+        feedback.playback_transition();
         assert!(feedback.completed());
         feedback.started();
         assert!(!feedback.completed());

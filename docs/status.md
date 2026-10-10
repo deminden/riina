@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+The selected-track last-cue case also reproduces stale feedback: requesting the
+next cue at position 3 makes a later resumed A–B loop count as navigation.
+Explicit pause/resume now retires unstarted feedback while retaining a seek
+that has already started. New native and worker regressions cover that boundary.
+Full checks are in progress. No-op requests during already-running loops, first
+cue boundaries, rapid mixed-command timing, GUI/reference presentation and
+current other OS runtime remain open. No public update.
+
 Native testing reproduces stale navigation feedback: sub-seek with no selected
 subtitle arms a token that an automatic A–B loop consumes. The worker now only
 arms subtitle-navigation feedback when a primary subtitle selection is observed;
