@@ -738,6 +738,13 @@ and macOS/Linux runtime remain unverified. No public update was made.
 
 ## Independent secondary position · 2026-10-10
 
+The subsequent primary absolute setter is now covered by the same native test:
+after secondary positions finish at 100, primary positions 40, zero, 150 and 100
+are observed independently. Every observation retains secondary position 100,
+primary delay, secondary delay one second, primary and secondary track IDs,
+pause and no native error. All eleven Windows native tests pass (9.68 seconds).
+These are property observations, not proof of the rendered subtitle placement.
+
 A typed secondary position setter validates finite values in the native zero
 to 150 range before submission. Optional native observations clear unavailable,
 nonfinite or out-of-range values. The two-lane subtitle test changes secondary

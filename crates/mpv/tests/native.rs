@@ -237,6 +237,26 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         );
         assert_eq!(positioned.error, None);
     }
+    // Exercise the opposite lane after secondary edits to catch target aliasing.
+    for position in [40.0, 0.0, 150.0, 100.0] {
+        player.send(Command::SubtitlePosition(position)).unwrap();
+        let positioned = wait_for(&receiver, |state| state.subtitle_position == Some(position));
+        assert!(positioned.paused);
+        assert_eq!(positioned.secondary_subtitle_position, Some(100.0));
+        assert_eq!(positioned.subtitle_delay, both.subtitle_delay);
+        assert_eq!(positioned.secondary_subtitle_delay, Some(1.0));
+        assert_eq!(
+            selected_track(&positioned, TrackKind::Sub),
+            Some(primary_id)
+        );
+        assert!(positioned.tracks.iter().any(|track| {
+            track.id == secondary_id
+                && track.kind == TrackKind::Sub
+                && track.selected
+                && track.main_selection == Some(1)
+        }));
+        assert_eq!(positioned.error, None);
+    }
     player.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
     player
         .send(Command::Seek {

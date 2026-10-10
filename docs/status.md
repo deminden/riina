@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Local primary position native verification: the two-lane subtitle integration
+test now applies primary positions 40, zero, 150 and 100 after secondary edits.
+Observed primary position changes preserve secondary position 100, both delays,
+both selected lane IDs, pause and an error-free native state. All eleven native
+tests pass (9.68 seconds), with formatting and strict lint passing. This closes
+the new absolute setter's native verification gap; actual rendered placement,
+GUI routing and other-OS runtime remain unverified. Nothing was published.
+
 Local subtitle editor consolidation: separate primary/secondary timing controls
 are replaced with one shared delay/position section and a Primary/Secondary lane
 selector, defaulting to Primary as in the pinned SubPositionDelayView. Switching
