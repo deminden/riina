@@ -1,0 +1,307 @@
+{
+  "scope": "Saved native video pixels and native flags; no GUI/monitor/HDR/hardware/IINA-runtime comparison",
+  "production_defaults_changed": false,
+  "fixture_encoder": "Development-only PyAV 16.0.1; bitexact MPEG-2; two repeat generations have identical hashes",
+  "independent_oracle": "All four clips decode 75 woven frames and produce 150 correctly ordered progressive bwdif fields",
+  "runs": {
+    "default": {
+      "captures": 72,
+      "failures": 6,
+      "fixtures": [
+        {
+          "fixture": "interlaced-bff.mkv",
+          "captures": 18,
+          "failures": 6,
+          "on_failures": [
+            {
+              "fixture": "interlaced-bff.mkv",
+              "deinterlace": true,
+              "position": 0.3,
+              "expected_edges": [
+                38,
+                38
+              ],
+              "observed_edges": [
+                36,
+                36
+              ],
+              "bar_widths": [
+                12,
+                12
+              ],
+              "passed": false,
+              "png_sha256": "094e3e76612304260ec41892df4075fef2d8ea3778735af47fcb45a0bd452a59"
+            },
+            {
+              "fixture": "interlaced-bff.mkv",
+              "deinterlace": true,
+              "position": 0.32,
+              "expected_edges": [
+                40,
+                40
+              ],
+              "observed_edges": [
+                42,
+                42
+              ],
+              "bar_widths": [
+                12,
+                12
+              ],
+              "passed": false,
+              "png_sha256": "f85da2b306ed6eeda93468344c74aef76dc6415bc5d8182dab0f4187e356924d"
+            },
+            {
+              "fixture": "interlaced-bff.mkv",
+              "deinterlace": true,
+              "position": 0.33999999999999997,
+              "expected_edges": [
+                42,
+                42
+              ],
+              "observed_edges": [
+                40,
+                40
+              ],
+              "bar_widths": [
+                12,
+                12
+              ],
+              "passed": false,
+              "png_sha256": "51da0bf63707c338fd10e1e1b0649be771128d3710c3959bf3d732b4c38c4f75"
+            },
+            {
+              "fixture": "interlaced-bff.mkv",
+              "deinterlace": true,
+              "position": 0.36,
+              "expected_edges": [
+                44,
+                44
+              ],
+              "observed_edges": [
+                46,
+                46
+              ],
+              "bar_widths": [
+                12,
+                12
+              ],
+              "passed": false,
+              "png_sha256": "0e0ffa681fb6afdd9098b38295ac0f45e8d1cdde626de548d786c86bed7937da"
+            },
+            {
+              "fixture": "interlaced-bff.mkv",
+              "deinterlace": true,
+              "position": 0.38,
+              "expected_edges": [
+                46,
+                46
+              ],
+              "observed_edges": [
+                44,
+                44
+              ],
+              "bar_widths": [
+                12,
+                12
+              ],
+              "passed": false,
+              "png_sha256": "7459cc4ec1d79d90e23c9e9dafdf3696d00e470c759b3ad22aa34f0d4ab886ae"
+            },
+            {
+              "fixture": "interlaced-bff.mkv",
+              "deinterlace": true,
+              "position": 0.39999999999999997,
+              "expected_edges": [
+                48,
+                48
+              ],
+              "observed_edges": [
+                50,
+                50
+              ],
+              "bar_widths": [
+                12,
+                12
+              ],
+              "passed": false,
+              "png_sha256": "52feaed45814c99efb5357ead59098401fc149fbde363ca48f0810ca6e1c45cb"
+            }
+          ]
+        },
+        {
+          "fixture": "interlaced-mpeg2-bff.mkv",
+          "captures": 18,
+          "failures": 0,
+          "on_failures": []
+        },
+        {
+          "fixture": "interlaced-mpeg2-tff.mkv",
+          "captures": 18,
+          "failures": 0,
+          "on_failures": []
+        },
+        {
+          "fixture": "interlaced-tff.mkv",
+          "captures": 18,
+          "failures": 0,
+          "on_failures": []
+        }
+      ],
+      "report_path": "tools\\interlaced-native-test\\16052-1791616635820816900\\report.json",
+      "report_sha256": "fe3ee3295b4778c37e97a88c874d4da98695a1c687fd31b3c2125aa46119f0d1",
+      "capture_hashes": [
+        "97a422aa900ddb6855c0fe40d0c7a7f9566f4bbfad8074b5e7c2fd421bd499b0",
+        "5689b1f4a1691873271178a7ee9597d3a6bc9bf63bd3bfc598b47fede0c38cb7",
+        "60c363995e20ac5e266df6c8ef8c09718416d6bbe81ab3b8c3caf9fcb9f3174d",
+        "912dbdd1c674130b82ab240d2cc77c01afa25a2885f47ad3e6ba336bc22f2e47",
+        "30d6349110da4276bccf2e93e0803e9b3bc0d9b7dcc85132cd6afd04043fb3e7",
+        "dc066211a68df7be9330ea08a2960012b5059f77c898ffd17fc501d3da24f765",
+        "b4b33d646dd92dee65aa58a5c934aafabe35b18bdbdedd3e2cfe711eb3dc263b",
+        "a86535df4b82dc94d2cfbe870d1bc3366b407ea541ae606f9b2fbaa8f29b82be",
+        "9e0fde307daeea26230323e70fa538b0d7a3d70b55a8cb2d6fb1f8617d7b69a4",
+        "27e2f0ecd779ce0ad9d797f4629f8a7f80b97f702e371cee2717e7e53f395296",
+        "4bbdf0eee17c3800c7c83310668ed1727218214650a7b0cb413aa3a5009a9de2",
+        "8b6b90edbe590195b24ea92e84793033f9290778dcc02133733cb245719a9de9",
+        "7e2f13618b7dd7ec82eb449141b423aa06cacbc7908fda9a7212fe5306cc3e74",
+        "42dc37da692356b7a3e936bdb2574bf144cfc094c8c3cfcdb26744050286380d",
+        "064c0887ef51b5e340ea5dde6713fbaf50c987914687142c5367904ecb45fe78",
+        "584df43958644b05dbd53eddd45928db694e7edd9f2fef951fc7a5a07bb67080",
+        "6ff4a0bf50b9620538f7ed1f7a3f147ed99c9b868c7022cbd78eec17040f9602",
+        "f97b0368e80bebfd1cd5889f640aeddabc1c18d2e4f24a116c2b28deb0e12a2a",
+        "b88a87795ca721d6d50473ae41e6e3315d25c179d00b1350cade3f5333eb93c3",
+        "03305240432a70ff54e27daa46908397b8a883e59f34cba66edd9967c91ddcce",
+        "39dfa0418768f7ab511e048b948924b9077ffdcd73934ec90a02823a2843fed5",
+        "20fc2bdfe4772dd3c680f50a15f5d6529477645e4701644a241f635fb60c6c12",
+        "ef98c2acd8372b809f2c4eebaebacec477d4d7a965971f9045bceffa8c16fb36",
+        "bbe7355444ccf4ae3286da2386c1c6c21333bc1a1046a606ac6da64ff6e6e999",
+        "094e3e76612304260ec41892df4075fef2d8ea3778735af47fcb45a0bd452a59",
+        "f85da2b306ed6eeda93468344c74aef76dc6415bc5d8182dab0f4187e356924d",
+        "51da0bf63707c338fd10e1e1b0649be771128d3710c3959bf3d732b4c38c4f75",
+        "0e0ffa681fb6afdd9098b38295ac0f45e8d1cdde626de548d786c86bed7937da",
+        "7459cc4ec1d79d90e23c9e9dafdf3696d00e470c759b3ad22aa34f0d4ab886ae",
+        "52feaed45814c99efb5357ead59098401fc149fbde363ca48f0810ca6e1c45cb",
+        "cc5879822ef098758c027c4cc729f4a4224170bee4434d09b75c94ba20498f8d",
+        "f798aca3d68a69fcaee746081561a6418cb4d329e5ddccbd523c14c7a7280c3f",
+        "b30b78ba525af5c7ae9e3c49dac9e1dd6f5769508b82598b01da9e0f536428ce",
+        "b3f2c2d1e211eaed3cb6a336aa3b83ffc96c92228d34096cec84c883eb8448ef",
+        "2a5fcd208339ac7058f664d70e39823a31fa0ae822de9f3fa5d11898c5ef879f",
+        "2c634e3bc4d05b813c5ce9dea7fd25d90d7c97f987b058bf1fb2de91f8249ff4",
+        "57efb47266f57606fb0fc713971e0656e91d3620600c046f89863b8d197e2366",
+        "b9870bd6577166559ea0a1b14461954d15252b5092cda9cef467d030040505ac",
+        "2c7d059752c735052287e2738f43c40d7fd3e5069ddad4192e43b8ae63cb8b21",
+        "4459a9ef3eb54c86378b2fc6d9817a8cb96c6e990409286f84f1ccd8ba1951c8",
+        "147aab1f1117a33e687226e65430509f237ee6b5fc7147ce58200b7b82f39cff",
+        "50817c80afc8985d95d21829129c79cc4c4242f99a8573f88503e477abf08d1f",
+        "c6f13c5163a092a932c23467936127d7265e0dcb7c525c54a575673537721704",
+        "9136ed1182d43db8081aa3f3b566501043497730843562ff2280f3f46016e5ca",
+        "4cc665bd06d30f782843123016e62cbc66836ec14cfddd11d281e68a87e22efb",
+        "589e9dd15b597cec4472701c6ded48a20f570f085ab51c25fb6ea051dab0f814",
+        "6501ef1247cea5892eefe8e2a3a0d2e0c54ac59cea32771208184833abad0642",
+        "b9828a27606ba30c85d83691f059a2e0644eb784866258b010d64b6f7cfdf449",
+        "d5048f3d88cb68b371a85367e6654faddb5e55b43b4e419b5de6049d99e53c23",
+        "9f05e3d8c744cf8bbc8a5541fc227cf78ef25658eb2f920bee7566bc9a13cefc",
+        "75ca20ca1294528cdc907cfa27edc63ebaadc903aae7a95d2c919abb29cb3f82",
+        "b4721416d548434f772361fdf8130a817c0314c1b0a2b418bdc17d0cb931c9ee",
+        "0785cd093ffbbed8db4e149f39f11f8590394920a9611e59d614e340c5606a9d",
+        "13175c5d9ea5dd6f3d433c591d9c8226febaf35f753726edfd3f47dbdea98af7",
+        "9614eb4ba80437336ba7fedabeda2ada49a5650a2d2c8d65382a27f2434c9a02",
+        "c200dfa0b205519bcc22466d8012a209e30c95935d7bf8b0755e9048ddc3bd37",
+        "48e5e8d9232649f22035db49a6cc7223f7a9f69cf6ae4f36e61125334e02c0d2",
+        "85c0aef820bb9644ce30180c10b5c5894fb4f09ef1026e82bee133bcb5e950df",
+        "c8359daf7425eeaea649344d542e2bada0b104cf34d769f1ac8b3493fbf4638e",
+        "c944a983513bb701ba61392a082f5ed6f7792624d622e40c750135ac234c1fd9",
+        "7a0098575dd30d9a263b8a56c2aeedc2651d6871e7cf34df1c59fd5d542bb3f7",
+        "1eeae7211c92c422e7952edbb7c2a44ad4ad92d6ee48e3e8a2a9d3fa05b161b2",
+        "10b5a2fe94eb544b83de76877d37d715190cc2fb1a550ae669cf55718288eac4",
+        "a6b91eb7badeb6de375d7a4f4bcced929ea758c1c6c7d1d478b1555e0e19062a",
+        "d58133299170271deb27d3b5240f8c350669a9a9306ac34ee56b3ae4d00684cd",
+        "4e5d936e32e8c41a24286e28091dd22d2832491747e7ce390cf3249d6aad526c",
+        "2177b9bc5fa5fce01ce354b830283e83478fb06b783a541a28053c77749d73e4",
+        "285fa7af6675cd22bb86ff5d3ab24f7d713edb109f6c7ac93d5ac49c742e7bf9",
+        "71dc64a2807a4f3645d89614f56e264dd1b14b5ceaec682b709bbf143e5c8b44",
+        "e47282a2582c108760538f4e8052af22e3df76869f2cb8ddd7efa7edd0155965",
+        "3f74322a673881954d02bb89124b3e865283841b04dc5c2217cb5cb72edfbf6d",
+        "415d24ad59eed1d41be7258eb65fd224150c61c91e0fc3fa92cea1c9dc25ca69"
+      ]
+    },
+    "lavf": {
+      "captures": 36,
+      "failures": 0,
+      "fixtures": [
+        {
+          "fixture": "interlaced-bff.mkv",
+          "captures": 18,
+          "failures": 0,
+          "on_failures": []
+        },
+        {
+          "fixture": "interlaced-tff.mkv",
+          "captures": 18,
+          "failures": 0,
+          "on_failures": []
+        }
+      ],
+      "report_path": "tools\\interlaced-lavf-test\\20320-1791616711621278000\\report.json",
+      "report_sha256": "b1b15074aa7f5c97adaa64398443dec955f39630febbdbd3b685d916742375ab",
+      "capture_hashes": [
+        "97a422aa900ddb6855c0fe40d0c7a7f9566f4bbfad8074b5e7c2fd421bd499b0",
+        "5689b1f4a1691873271178a7ee9597d3a6bc9bf63bd3bfc598b47fede0c38cb7",
+        "60c363995e20ac5e266df6c8ef8c09718416d6bbe81ab3b8c3caf9fcb9f3174d",
+        "912dbdd1c674130b82ab240d2cc77c01afa25a2885f47ad3e6ba336bc22f2e47",
+        "30d6349110da4276bccf2e93e0803e9b3bc0d9b7dcc85132cd6afd04043fb3e7",
+        "dc066211a68df7be9330ea08a2960012b5059f77c898ffd17fc501d3da24f765",
+        "b4b33d646dd92dee65aa58a5c934aafabe35b18bdbdedd3e2cfe711eb3dc263b",
+        "a86535df4b82dc94d2cfbe870d1bc3366b407ea541ae606f9b2fbaa8f29b82be",
+        "9e0fde307daeea26230323e70fa538b0d7a3d70b55a8cb2d6fb1f8617d7b69a4",
+        "27e2f0ecd779ce0ad9d797f4629f8a7f80b97f702e371cee2717e7e53f395296",
+        "4bbdf0eee17c3800c7c83310668ed1727218214650a7b0cb413aa3a5009a9de2",
+        "8b6b90edbe590195b24ea92e84793033f9290778dcc02133733cb245719a9de9",
+        "7e2f13618b7dd7ec82eb449141b423aa06cacbc7908fda9a7212fe5306cc3e74",
+        "42dc37da692356b7a3e936bdb2574bf144cfc094c8c3cfcdb26744050286380d",
+        "064c0887ef51b5e340ea5dde6713fbaf50c987914687142c5367904ecb45fe78",
+        "584df43958644b05dbd53eddd45928db694e7edd9f2fef951fc7a5a07bb67080",
+        "6ff4a0bf50b9620538f7ed1f7a3f147ed99c9b868c7022cbd78eec17040f9602",
+        "f97b0368e80bebfd1cd5889f640aeddabc1c18d2e4f24a116c2b28deb0e12a2a",
+        "b88a87795ca721d6d50473ae41e6e3315d25c179d00b1350cade3f5333eb93c3",
+        "03305240432a70ff54e27daa46908397b8a883e59f34cba66edd9967c91ddcce",
+        "39dfa0418768f7ab511e048b948924b9077ffdcd73934ec90a02823a2843fed5",
+        "20fc2bdfe4772dd3c680f50a15f5d6529477645e4701644a241f635fb60c6c12",
+        "ef98c2acd8372b809f2c4eebaebacec477d4d7a965971f9045bceffa8c16fb36",
+        "bbe7355444ccf4ae3286da2386c1c6c21333bc1a1046a606ac6da64ff6e6e999",
+        "93252d8ed48a0129674729750f12e1d2169b18d442d6111c6a579170b7270e71",
+        "60515072305782adccf7e2c94727e8e3d59e6f74ec35c84046455f5098aa683d",
+        "95fcb2cb60b14836148d9ad4392a6e7f5a2dfe0cd1cdf1df5d783fc5d587de04",
+        "7bb4a1b6113c05e761e8a917062628d2b57412db82303f239e85f056f0d2fd23",
+        "90059592b4f8faf8a15419b5f74e386db4a53cee411be05d4fc7a301e50e0dbf",
+        "248dce767d311829b333489346dc5f3f883d22102ab5f2953fa2d96cb777a473",
+        "cc5879822ef098758c027c4cc729f4a4224170bee4434d09b75c94ba20498f8d",
+        "f798aca3d68a69fcaee746081561a6418cb4d329e5ddccbd523c14c7a7280c3f",
+        "b30b78ba525af5c7ae9e3c49dac9e1dd6f5769508b82598b01da9e0f536428ce",
+        "b3f2c2d1e211eaed3cb6a336aa3b83ffc96c92228d34096cec84c883eb8448ef",
+        "2a5fcd208339ac7058f664d70e39823a31fa0ae822de9f3fa5d11898c5ef879f",
+        "2c634e3bc4d05b813c5ce9dea7fd25d90d7c97f987b058bf1fb2de91f8249ff4"
+      ]
+    }
+  },
+  "fixture_hashes": {
+    "interlaced-tff.mkv": "c484fb18c826af425fed1ea6980b1267512f54b66b57bb48d9ac2e05550f5b3c",
+    "interlaced-bff.mkv": "9e07fd1668854e2bb859f9644f113aee0e93176372abf00912bc7f96c8206298",
+    "interlaced-mpeg2-tff.mkv": "a773d3d8a3b7707048d43535bb7e6eab96144e8295034905193791a0a5a986b5",
+    "interlaced-mpeg2-bff.mkv": "9efedce5e211eefb9c6d6dcf14ecb901ff9f10ea9ff44d0a44ef942b6d2f7eb3"
+  },
+  "source_commit": "961988e4dd6107a0b8e6bf0c2d22eb19aa69f9c2",
+  "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "verification": {
+    "workspace_tests": "passed",
+    "strict_lint": "passed",
+    "format": "passed",
+    "fixture_hashes": 15,
+    "traceability_rows": 135,
+    "native_four_fixture_cadence_and_capture_test": "passed; 5.76 seconds; 72 captures",
+    "native_lavf_diagnostic": "passed; 3.02 seconds; 36 captures",
+    "default_pixel_checker_exit_code": 1,
+    "lavf_pixel_checker_exit_code": 0,
+    "release_build": "Not rerun; production behavior unchanged; new Rust module is cfg(test)"
+  }
+}
