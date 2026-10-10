@@ -1,0 +1,45 @@
+component CaptureAction inherits Rectangle {
+    in property <string> label;
+    callback activated();
+    height: 16px;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { root.activated(); }
+    background: touch.has-hover ? #ffffff20 : transparent;
+    Text { text: root.label; color: white; font-size: 13px; font-weight: 700;
+        horizontal-alignment: center; vertical-alignment: center; }
+    if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; background: transparent; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope { key-pressed(event) => {
+        if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+        return reject;
+    } }
+}
+
+export component ScreenshotPreview inherits Rectangle {
+    in property <image> capture;
+    in property <length> image-width;
+    in property <length> image-height;
+    callback delete-capture();
+    callback edit-capture();
+    callback reveal-capture();
+    width: max(header.preferred-width, image-width) + 32px;
+    height: image-height + 85px;
+    border-radius: 14px; background: #181818dc;
+    header := Text { x: 16px; y: 8px; text: "Screenshot Captured";
+        color: white; font-size: 20px; font-weight: 600; }
+    // Accessory constraints: 8 above the image, 36 below, three 16-point
+    // actions with 12-point gaps. Material colors still need capture calibration.
+    Rectangle { x: 16px; y: 49px; width: root.image-width; height: root.image-height;
+        border-radius: 4px; clip: true;
+        Image { width: parent.width; height: parent.height; source: root.capture; image-fit: contain; }
+        Rectangle { width: parent.width; height: parent.height; background: transparent;
+            border-radius: 4px; border-width: 1px; border-color: #80808099; }
+    }
+    CaptureAction { x: 16px; y: root.image-height + 61px; width: 54px; label: "DELETE";
+        activated => { root.delete-capture(); } }
+    CaptureAction { x: 82px; y: root.image-height + 61px; width: 35px; label: "EDIT";
+        activated => { root.edit-capture(); } }
+    CaptureAction { x: 129px; y: root.image-height + 61px; width: 56px; label: "REVEAL";
+        activated => { root.reveal-capture(); } }
+}

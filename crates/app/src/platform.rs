@@ -45,6 +45,62 @@ pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+pub fn reveal_file(path: &std::path::Path) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use ::windows::{
+            Win32::{
+                System::Com::{
+                    COINIT_APARTMENTTHREADED, CoInitializeEx, CoTaskMemFree, CoUninitialize,
+                },
+                UI::Shell::{SHOpenFolderAndSelectItems, SHParseDisplayName},
+            },
+            core::{HRESULT, PCWSTR},
+        };
+        use std::os::windows::ffi::OsStrExt;
+        let text: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        // SAFETY: COM is balanced only when this call acquired an initialization.
+        // A pre-existing different apartment already satisfies Shell's COM need.
+        let initialized = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        let owns_com = initialized.is_ok();
+        if !owns_com && initialized != HRESULT(0x80010106_u32 as i32) {
+            return Err(std::io::Error::other(initialized.to_string()));
+        }
+        let mut item = std::ptr::null_mut();
+        // SAFETY: the terminated path and output PIDL remain live. Zero selected
+        // children means the absolute PIDL itself is the file to reveal.
+        let result = unsafe {
+            let parsed = SHParseDisplayName(PCWSTR(text.as_ptr()), None, &mut item, 0, None);
+            let selected = parsed.and_then(|()| SHOpenFolderAndSelectItems(item, None, 0));
+            if !item.is_null() {
+                CoTaskMemFree(Some(item.cast()));
+            }
+            if owns_com {
+                CoUninitialize();
+            }
+            selected
+        };
+        result.map_err(std::io::Error::other)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()?;
+        Ok(())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // FileManager1 selection still needs a verified desktop integration;
+        // opening the parent is the current explicit Linux adaptation.
+        open_directory(
+            path.parent()
+                .ok_or_else(|| std::io::Error::other("Screenshot has no parent folder"))?,
+        )
+    }
+}
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]

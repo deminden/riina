@@ -17,6 +17,12 @@ use std::{
     time::Duration,
 };
 
+fn clear_screenshot_preview(app: &PlayerWindow) {
+    app.set_screenshot_preview_visible(false);
+    app.set_screenshot_preview_path("".into());
+    app.set_screenshot_preview_image(slint::Image::default());
+}
+
 fn refresh_video_menu(app: &PlayerWindow) {
     // Native check items toggle before dispatch. A no-op or rejected command
     // cannot dirty the observed selection, so renew the model identity to make
@@ -152,6 +158,7 @@ fn update_ui(
     displayed: &mut Option<Playback>,
     last_seek: &mut SeekOsd,
     last_video: &mut crate::video_osd::VideoOsd,
+    last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
 ) {
     use riina_core::video_reflection::Axis;
     app.set_screenshot_available(
@@ -194,6 +201,39 @@ fn update_ui(
         app.set_video_osd_text(message.text.into());
         app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
         app.invoke_show_video_osd();
+    }
+    match last_screenshot.observe(&state) {
+        crate::screenshot_osd::Change::Hide => {
+            clear_screenshot_preview(app);
+        }
+        crate::screenshot_osd::Change::Show(path)
+            if app.get_osd_enabled() && !app.get_crop_editing() =>
+        {
+            match slint::Image::load_from_path(std::path::Path::new(&path)) {
+                Ok(image) => {
+                    let size = image.size();
+                    let (width, height) =
+                        crate::screenshot_osd::preview_size(size.width, size.height);
+                    app.set_screenshot_preview_image(image);
+                    app.set_screenshot_preview_width(width);
+                    app.set_screenshot_preview_height(height);
+                    app.set_screenshot_preview_path(path.into());
+                    app.invoke_show_screenshot_preview();
+                }
+                Err(_) => {
+                    // Saving succeeded even if the preview decoder cannot open
+                    // this format; preserve reference normal-message fallback.
+                    app.set_video_osd_request_feedback(false);
+                    app.set_video_osd_text("Screenshot Captured".into());
+                    app.set_video_osd_progress(-1.0);
+                    app.invoke_show_video_osd();
+                }
+            }
+        }
+        _ => {}
+    }
+    if app.get_crop_editing() {
+        clear_screenshot_preview(app);
     }
     app.set_seek_position_label(seek_osd::clock(state.position).into());
     app.set_seek_duration_label(seek_osd::clock(state.duration).into());
@@ -414,6 +454,9 @@ pub(crate) fn configure_player(
     let last_video = Arc::new(std::sync::Mutex::new(crate::video_osd::VideoOsd::new(
         prefs.disable_osd_speed,
     )));
+    let last_screenshot = Arc::new(std::sync::Mutex::new(
+        crate::screenshot_osd::ScreenshotOsd::default(),
+    ));
     let notify = move |state| {
         if let Ok(mut latest) = latest.lock() {
             *latest = Some(state);
@@ -427,6 +470,7 @@ pub(crate) fn configure_player(
         let displayed = displayed.clone();
         let last_seek = last_seek.clone();
         let last_video = last_video.clone();
+        let last_screenshot = last_screenshot.clone();
         let crop_editor = observed_crop_editor.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
@@ -435,9 +479,17 @@ pub(crate) fn configure_player(
                 && let Ok(mut displayed) = displayed.lock()
                 && let Ok(mut last_seek) = last_seek.lock()
                 && let Ok(mut last_video) = last_video.lock()
+                && let Ok(mut last_screenshot) = last_screenshot.lock()
             {
                 crop_editor.observe(&app, &state);
-                update_ui(&app, state, &mut displayed, &mut last_seek, &mut last_video);
+                update_ui(
+                    &app,
+                    state,
+                    &mut displayed,
+                    &mut last_seek,
+                    &mut last_video,
+                    &mut last_screenshot,
+                );
             }
         });
     };
@@ -536,6 +588,7 @@ pub(crate) fn configure_player(
                 return;
             }
             app.set_seek_osd_visible(true);
+            clear_screenshot_preview(&app);
             app.set_video_osd_visible(false);
         }
         let weak = weak.clone();
@@ -546,6 +599,53 @@ pub(crate) fn configure_player(
         });
     });
     let video_timer = slint::Timer::default();
+    let screenshot_timer = slint::Timer::default();
+    let weak = app.as_weak();
+    app.on_show_screenshot_preview(move || {
+        let Some(app) = weak.upgrade() else { return };
+        if !app.get_osd_enabled() || app.get_crop_editing() {
+            return;
+        }
+        app.set_seek_osd_visible(false);
+        app.set_video_osd_visible(false);
+        app.set_screenshot_preview_visible(true);
+        let weak = weak.clone();
+        screenshot_timer.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_secs(5),
+            move || {
+                if let Some(app) = weak.upgrade() {
+                    clear_screenshot_preview(&app);
+                }
+            },
+        );
+    });
+    let weak = app.as_weak();
+    app.on_screenshot_preview_action(move |action| {
+        let Some(app) = weak.upgrade() else { return };
+        if !app.get_screenshot_preview_visible() || app.get_crop_editing() || app.get_dialog_open()
+        {
+            return;
+        }
+        let path = app.get_screenshot_preview_path();
+        if path.is_empty() {
+            return;
+        }
+        let path = std::path::Path::new(path.as_str());
+        let result = match action {
+            0 => {
+                let _ = std::fs::remove_file(path);
+                Ok(())
+            }
+            1 => platform::open_directory(path),
+            2 => platform::reveal_file(path),
+            _ => return,
+        };
+        clear_screenshot_preview(&app);
+        if let Err(error) = result {
+            app.set_status(error.to_string().into());
+        }
+    });
     let weak = app.as_weak();
     app.on_show_video_osd(move || {
         if let Some(app) = weak.upgrade() {
@@ -553,6 +653,7 @@ pub(crate) fn configure_player(
                 return;
             }
             app.set_seek_osd_visible(false);
+            clear_screenshot_preview(&app);
             app.set_video_osd_visible(true);
         }
         let weak = weak.clone();

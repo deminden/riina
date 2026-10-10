@@ -78,3 +78,9 @@ frames remain a failing default-demuxer regression. The ignored mpv library
 test `lavf_woven_field_captures` privately selects libavformat for comparison
 and writes a separate 36-frame manifest; that pixel check passes. Production
 defaults are unchanged. Both runs capture engine video pixels, not GUI output.
+
+`preview-rgb16.png` contains eight original 16-bit RGB patches. Regenerate with
+`python scripts/generate-preview-fixture.py` (standard library only). The fixture
+is CC0-1.0, generator MIT; its manifest hash is verified. An app test loads it
+through Slint's actual preview decoder and checks dimensions, eight colors and
+opaque alpha. It validates decoding, not rendered UI, colorimetry or HDR output.

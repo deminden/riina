@@ -104,5 +104,12 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-encoded-interlaced-fixtures.py",
     "description": "Original woven bff fields encoded as MPEG-2; 96x64; 75 frames; 25 fps; bitstream field order"
+  },
+  "preview-rgb16.png": {
+    "sha256": "64a9750058de16df509c5a61e0e5bac3016fdb9d424efcc54a7ca39a5dc45b81",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-preview-fixture.py",
+    "description": "96x64 original eight-patch RGB PNG; 16 bits/channel; no HDR/colorimetry claim"
   }
 }

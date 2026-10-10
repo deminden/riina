@@ -1,3 +1,30 @@
+Screenshot completion now drives a shared image preview with Screenshot Captured
+feedback, five-second replacement timer, 300x200 aspect-preserving image bounds
+and DELETE/EDIT/REVEAL accessory actions. The accessory uses the reference's
+8-point top spacing, 36-point bottom region, 16-point buttons and 12-point gaps;
+image border/radius are 1/4 points. Outer material, header stacking and typography
+remain uncalibrated until rendered reference comparison. PNG preview failure
+falls back to normal captured feedback. Source replacement, stop/failure phases,
+crop entry and later video/seek messages retire the preview and its actionable
+path. Completion consumes every snapshot independently of catalog caches; failed
+captures do not increment or replay feedback, and a later confirmed success is
+not masked by an unrelated stale general playback error.
+
+DELETE attempts only the currently displayed native-returned file and hides the
+accessory; EDIT opens its default system handler. Windows REVEAL uses an owned
+absolute Shell PIDL and balanced COM initialization to select the exact file.
+macOS uses open -R; Linux currently opens the parent folder and still needs
+verified FileManager1 selection. No runtime action or deletion was automated.
+
+Three meaningful checks pass: coalesced captures/retry/source retirement, landscape/
+portrait/zero-size preview bounds, and actual Slint decoding of an original 16-bit
+RGB PNG with expected patch colors/alpha. All 20 app unit tests, workspace tests,
+formatting and strict lint pass. Windows optimized build passes (41.76 seconds).
+Native engine is unchanged; its ignored suite was not rerun. No GUI activation,
+five-second wall-clock timing, rendered pixels/materials, action outcome, shared
+GL or other OS runtime pass is claimed. Evidence: tests/visual/screenshot-preview-evidence.json.
+Nothing published.
+
 Playback now exposes Take a Screenshot and Go to Screenshot Folder on both
 player surfaces. The default action saves PNG with subtitles to the platform
 Pictures/Screenshots folder, using native %F-%n naming. Command/Control+Shift+S

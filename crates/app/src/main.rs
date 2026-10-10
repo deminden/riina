@@ -8,6 +8,7 @@ mod language_names;
 mod media_open;
 mod platform;
 mod player_ui;
+mod screenshot_osd;
 mod seek_osd;
 mod ui_dialogs;
 mod video_osd;

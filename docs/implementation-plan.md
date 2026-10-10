@@ -1,5 +1,12 @@
 # Implementation plan
 
+Screenshot preview/default accessory now exists, with confirmed completion,
+coalescing/source retirement, five-second timer and actual deep-RGB PNG decode
+tests. Verify rendered geometry/material/font and wall-clock timing, callback
+activation and DELETE/EDIT/REVEAL outcomes. Linux exact file selection still needs
+FileManager1 integration; macOS/Windows service paths need runtime evidence.
+Preferences, clipboard and complete screenshot shortcut/menu parity remain open.
+
 Screenshot defaults and shared/native Playback callbacks now exist: PNG,
 subtitles, platform Pictures/Screenshots and native %F-%n naming. Verify runtime
 menu/shortcut activation after the inconclusive Windows AX attempt; finish native

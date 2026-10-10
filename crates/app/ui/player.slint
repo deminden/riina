@@ -1,6 +1,7 @@
 import { ScrollView, ComboBox } from "std-widgets.slint";
 import { VideoControls, HardwareDecodingControls } from "video-controls.slint";
 import { CropEditor } from "crop-editor.slint";
+import { ScreenshotPreview } from "screenshot-preview.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
@@ -354,6 +355,13 @@ export component PlayerWindow inherits Window {
     in property <string> seek-duration-label;
     in-out property <bool> seek-osd-visible: false;
     in-out property <bool> video-osd-visible: false;
+    in-out property <bool> screenshot-preview-visible: false;
+    in property <image> screenshot-preview-image;
+    in property <float> screenshot-preview-width: 300;
+    in property <float> screenshot-preview-height: 200;
+    in property <string> screenshot-preview-path;
+    callback show-screenshot-preview();
+    callback screenshot-preview-action(int);
     in property <string> video-osd-text;
     in property <float> video-osd-progress: -1;
     in property <bool> osd-enabled: true;
@@ -940,6 +948,15 @@ export component PlayerWindow inherits Window {
             if root.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;
                 width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
                 height: 2px; background: #168bff; border-radius: 1px; }
+        }
+        if screenshot-preview-visible && osd-enabled && loaded && !crop-editing : ScreenshotPreview {
+            x: 8px; y: 49px;
+            capture: root.screenshot-preview-image;
+            image-width: root.screenshot-preview-width * 1px;
+            image-height: root.screenshot-preview-height * 1px;
+            delete-capture => { root.screenshot-preview-action(0); }
+            edit-capture => { root.screenshot-preview-action(1); }
+            reveal-capture => { root.screenshot-preview-action(2); }
         }
         crop-editor := CropEditor {
             width:parent.width; height:parent.height;
