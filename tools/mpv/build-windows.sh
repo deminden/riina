@@ -49,6 +49,13 @@ cmake \
 ninja -C build_x86_64 download
 ninja -C build_x86_64 update
 
+# The mpv target does not bootstrap the selected cross-toolchain. The pinned
+# builder documents these as explicit build targets; in particular, skipping
+# llvm leaves the clang wrapper pointing at a nonexistent clang executable.
+ninja -C build_x86_64 llvm
+ninja -C build_x86_64 rustup
+ninja -C build_x86_64 llvm-clang
+
 # The GPLv3 package depends on OpenSSL 3's Apache-2.0 terms. Verify both the
 # source revision pinned by the builder recipe and the license shipped with it.
 openssl_source="$BUILDER/src_packages/openssl"
