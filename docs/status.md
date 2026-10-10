@@ -4,8 +4,12 @@ The video panel now includes a logarithmic speed slider, precise custom entry
 and reset hidden at 1x, ordered before hardware decoding and equalizer controls.
 Shared Rust conversion spans 25 ticks from 0.25x to 16x, rounding slider rates
 to two decimals; custom entry keeps six decimals without passing through f32.
-Blank input resets 1x. Unit checks pass. Native and final GUI/build checks are
-in progress. Locale formatting, fractional rounding equivalence, above-100
+Blank input resets 1x. Unit checks and all 21 native tests pass, as do optimized
+build, strict lint and formatting. Windows GUI confirms 1.2345675 submission
+refreshes to 1.234567 and Tab / Return reset restores 1 and slider position 8;
+Play, volume 37 and position 5 remain. Close exits 0 with empty stderr. The reset
+node remains in AX after reset, so actual hidden visibility remains unverified.
+Evidence: tests/visual/video-speed-evidence.json. Locale formatting, fractional rounding equivalence, above-100
 requests, OSD, measured control rendering and current port runtime remain open.
 No public update.
 

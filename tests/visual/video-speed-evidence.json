@@ -1,0 +1,31 @@
+{
+  "source_commit": "80a8da42e2b986a44dfee63d9d700a1a07dcc188",
+  "binary_sha256": "577144cdc267f8cccdeaa9e577bb430e1c7d5f01bc3a9f37ac088dd6846ab69b",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "initial": {
+    "numeric": 1,
+    "reset_present": false,
+    "slider": 8
+  },
+  "custom_input": "1.2345675",
+  "observed_custom": "1.234567",
+  "observed_custom_slider": 9.216021,
+  "reset_focus": "Reset playback speed",
+  "after_tab_return_reset": {
+    "numeric": 1,
+    "slider": 8,
+    "reset_still_in_accessibility_tree": true
+  },
+  "volume": 37,
+  "play_button": "Play",
+  "position_seconds": 5,
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Reset remains in accessibility snapshot after reset; actual visibility needs rendered verification.",
+    "Blank accessibility set-value rejected by helper numeric parsing; blank reset is tested in core and native checks only.",
+    "No pixel comparison, locale formatter parity, above-100 rate behavior or current other OS runtime."
+  ]
+}

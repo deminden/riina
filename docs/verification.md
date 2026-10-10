@@ -11,8 +11,22 @@ an integer tick. Speed precedes the hardware switch in the shared video panel.
 
 Unit checks cover octave anchors, intermediate tick 9 → 1.19, custom
 1.2345674 / 1.2345675 / 1.2345676 rounding, below-slider input 0.01, above-slider
-input 32, blank reset and invalid/nonfinite input. Native and final GUI/build
-checks pending. Locale grouping/decimal separators and exhaustive decimal ties
+input 32, blank reset and invalid/nonfinite input. All 21 native tests pass:
+the new speed test observes 0.25 / 1.19 / 16 / 1.234567 / 0.01 / 32 / 1 while
+preserving pause and volume 37 without errors. Workspace unit checks, strict
+lint, formatting and optimized Windows build pass.
+
+Optimized shared-OpenGL GUI at 80a8da4 exposes slider position 8 and input 1 with
+no reset node initially. Submit 1.2345675 and Return yields observed editor
+1.234567 and slider position 9.216021. Tab from the editor reaches Reset playback
+speed; Return restores editor 1 and slider position 8. Play, volume 37 and
+position 5 remain. The reset node remains in subsequent AX snapshots despite
+the conditional hiding rule, so its actual rendered visibility is not proven.
+The helper rejects blank set-value for this numerically reported editor; blank
+reset is established only by core/native checks. Close exits 0 with empty
+stderr. Evidence: tests/visual/video-speed-evidence.json.
+
+Locale grouping/decimal separators and exhaustive decimal ties
 are unverified; the existing Command::Speed ceiling of 100 remains a gap for
 unbounded reference custom entry. Native tick drag, neutral indicator, reset
 artwork, measured layout, OSD and current other OS runtime remain open.
