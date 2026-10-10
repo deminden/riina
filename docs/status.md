@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Local font chooser reveal wiring: restoring a matching face now uses the shared
+list's selection API, which brings the row into view and updates its keyboard
+cursor rather than changing only the highlighted index. A restoration guard
+suppresses user-choice callbacks, preserving the custom name, filter and preview.
+Choosing a family similarly reveals its first face through the guarded API.
+Strict lint and unit checks pass. Offscreen row visibility, initial Tab behavior
+and rendered scrolling still require a GUI retest; no runtime scrolling pass
+is claimed. Inventory has 103 atomic rows and remains incomplete. All work is local.
+
 Local font preview fidelity: the chooser now has the source-defined editable
 single-line centered Test sample, 24px type and 36px source-height field. Preview
 uses the selected family's name plus weight/italic metadata instead of treating

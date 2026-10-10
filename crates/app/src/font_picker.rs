@@ -165,8 +165,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             picker.set_faces(items(
                                 data[family].faces.iter().map(|face| face.label.clone()),
                             ));
-                            picker.set_family_index(row as i32);
-                            picker.set_face_index(face as i32);
+                            picker.invoke_restore_selection(row as i32, face as i32);
                             preview_face(&picker, &data[family], &data[family].faces[face]);
                         }
                     });
@@ -190,7 +189,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             data[index].faces.iter().map(|face| face.label.clone()),
                         ));
                         if let Some(face) = data[index].faces.first() {
-                            picker.set_face_index(0);
+                            picker.invoke_restore_selection(picker.get_family_index(), 0);
                             picker.set_custom_name(face.postscript_name.clone().into());
                             preview_face(&picker, &data[index], face);
                         }
