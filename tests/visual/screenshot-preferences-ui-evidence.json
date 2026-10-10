@@ -1,0 +1,35 @@
+{
+  "source_commit": "3128ad177de5f45e8640305165777afad3881160",
+  "windows_release_sha256": "0276afa9513c2e5e9a1d2153930c93d74389a2be1d1353fcbb23c0b41301df66",
+  "scope": "Partial General preferences; Windows native-release keyboard/accessibility and on-disk persistence",
+  "observations": [
+    "Ctrl+comma opens separate Preferences window",
+    "General Screenshots Format labels and two checkboxes appear in AX tree",
+    "Tab focuses ComboBox then Include subtitles then Show previews",
+    "Space persists include_subtitles false; Space restores true",
+    "Space persists show_preview false; Space restores true",
+    "Down changes ComboBox PNG to JPEG (.jpg); saved encoding.format becomes jpg",
+    "Up restores PNG; saved format becomes png",
+    "Final defaults png/%F-%n/directory null/include_subtitles true/show_preview true; volume37 and boostfalse retained",
+    "Alt+F4 closes Preferences; Alt+F4 closes player; actual process exit0"
+  ],
+  "verification": {
+    "workspace_tests": "passed; app20; native36 ignored",
+    "strict_lint": "passed",
+    "format": "passed",
+    "windows_release_seconds": 46.96,
+    "traceability_requirements": 139,
+    "inventory": "incomplete"
+  },
+  "rendered_capture": "failed IGraphicsCaptureItemInterop.CreateForMonitor 0x80070057; fresh accessibility observation recovered",
+  "not_verified": [
+    "pixel/font/material geometry",
+    "save failure rollback",
+    "repeat/reopen and concurrent lifecycle",
+    "menu activation",
+    "shared GL macOS Linux",
+    "AVIF preservation UI runtime",
+    "remaining General controls and destinations"
+  ],
+  "published": false
+}
