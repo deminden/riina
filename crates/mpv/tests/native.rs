@@ -28,6 +28,40 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies native rejection of an above-limit custom speed"]
+fn excessive_custom_speed_reports_native_error_without_changing_playback() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    player.send(Command::Speed(1.25)).unwrap();
+    wait_for(&receiver, |state| state.speed == 1.25);
+    let request = riina_core::speed_controls::from_text("101").unwrap();
+    player.send(request).unwrap();
+    let rejected = wait_for(&receiver, |state| state.error.is_some());
+    assert_eq!(rejected.speed, 1.25);
+    assert!(rejected.paused);
+    assert_eq!(rejected.volume, 37.0);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies speed slider ticks and precise custom entries"]
 fn speed_controls_preserve_pause_volume_and_custom_precision() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

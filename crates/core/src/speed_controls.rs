@@ -27,7 +27,14 @@ pub fn from_text(text: &str) -> Result<Command, &'static str> {
     }
     // Positive half-down rounding limits custom precision before dispatch;
     // libmpv can echo an unrounded request despite using six decimal places.
-    let speed = (speed * 1_000_000.0 - 0.5).ceil() / 1_000_000.0;
+    let scaled = speed * 1_000_000.0;
+    let speed = if scaled.is_finite() {
+        (scaled - 0.5).ceil() / 1_000_000.0
+    } else {
+        // At this magnitude an f64 has no fractional decimal precision left.
+        // Do not manufacture infinity merely while formatting a finite request.
+        speed
+    };
     let command = Command::Speed(speed);
     command
         .mpv_args()
@@ -72,6 +79,7 @@ mod tests {
             ("1.2345675", 1.234567),
             ("1.2345676", 1.234568),
             ("32", 32.0),
+            ("101", 101.0),
         ] {
             assert_eq!(from_text(input), Ok(Command::Speed(speed)));
         }
@@ -80,5 +88,6 @@ mod tests {
         }
         assert_eq!(text(1.0), "1");
         assert_eq!(text(1.234567), "1.234567");
+        assert_eq!(from_text("1e308"), Ok(Command::Speed(1e308)));
     }
 }

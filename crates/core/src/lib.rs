@@ -114,7 +114,10 @@ impl Command {
             Self::Volume(value) if value.is_finite() && (0.0..=200.0).contains(value) => {
                 vec!["set".into(), "volume".into(), value.to_string()]
             }
-            Self::Speed(value) if value.is_finite() && (0.01..=100.0).contains(value) => {
+            // The reference's custom field has no upper bound. Submit finite
+            // requests above the engine limit so native rejection remains an
+            // observed failure instead of inventing a narrower input contract.
+            Self::Speed(value) if value.is_finite() && *value >= 0.01 => {
                 vec!["set".into(), "speed".into(), value.to_string()]
             }
             Self::MultiplySpeed(factor) if factor.is_finite() && *factor > 0.0 => {

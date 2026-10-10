@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Custom speed entry now submits finite above-100 requests to libmpv instead of
+inventing an upper UI boundary absent from IINA's formatter. A native check
+confirms 101 reports an error and preserves speed 1.25, pause and volume 37.
+Very large finite input remains finite through six-decimal normalization.
+Full native confirmation, final build and reset keyboard visibility checks are
+in progress; equivalent native error presentation and pixel visibility remain
+open. Changes stay local.
+
 The video panel now includes a logarithmic speed slider, precise custom entry
 and reset hidden at 1x, ordered before hardware decoding and equalizer controls.
 Shared Rust conversion spans 25 ticks from 0.25x to 16x, rounding slider rates

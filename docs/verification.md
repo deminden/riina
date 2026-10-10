@@ -1,5 +1,18 @@
 # Verification record · native Windows · 2026-10-09
 
+## Custom speed engine boundary · 2026-10-10
+
+The reference formatter has a minimum but no maximum and PlayerCore.setSpeed
+dispatches the finite request. The provisioned engine documents a 0.01–100
+option range. riina previously rejected above-100 requests before dispatch;
+it now leaves upper-range rejection to the native engine. Focused native test
+excessive_custom_speed_reports_native_error_without_changing_playback passes:
+101 reports a native error while speed 1.25, pause and volume 37 remain. Core
+coverage retains 101 and 1e308 as finite requests; normalization avoids overflow
+while scaling very large finite input to decimal precision. This does not prove
+IINA's error presentation or recovery. Full suite/build checks and keyboard
+visibility investigation are pending. No public update.
+
 ## Video speed controls · 2026-10-10
 
 Pinned SidebarVideoPane.SpeedView defines 25 logarithmic ticks from 0.25x to
