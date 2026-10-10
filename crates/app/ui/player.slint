@@ -151,6 +151,7 @@ export component PlayerWindow inherits Window {
     callback speed(float);
     callback frame-step();
     callback frame-back-step();
+    callback subtitle-seek(int);
     callback playlist-next();
     callback playlist-previous();
     callback reset-speed();
@@ -363,6 +364,10 @@ export component PlayerWindow inherits Window {
                 if event.text == Key.LeftArrow { root.frame-back-step(); return accept; }
                 if event.text == Key.UpArrow { root.set-volume(min(root.volume-limit, root.volume + 1)); return accept; }
                 if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 1)); return accept; }
+            }
+            if event.modifiers.shift && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
+                if event.text == Key.RightArrow { root.subtitle-seek(1); return accept; }
+                if event.text == Key.LeftArrow { root.subtitle-seek(-1); return accept; }
             }
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == " " || event.text == "p" { root.toggle-pause(); return accept; }

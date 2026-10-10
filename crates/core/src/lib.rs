@@ -32,6 +32,7 @@ pub enum Command {
     AddAudio(String),
     AudioDelay(f64),
     SubtitleDelay(f64),
+    SubtitleSeek(i32),
     ToggleSubtitleVisibility,
     CycleLoop,
     CycleAbLoop,
@@ -104,6 +105,11 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::SubtitleSeek(skip) => {
+                // Let the engine resolve selected-track cues and subtitle delay;
+                // a UI timestamp search would bypass both timing semantics.
+                vec!["sub-seek".into(), skip.to_string()]
+            }
             Self::CycleAbLoop => vec!["ab-loop".into()],
             Self::OpenFiles(_)
             | Self::AppendFiles(_)

@@ -331,6 +331,18 @@ pub(crate) fn configure_player(
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
     connect!(on_frame_back_step, Command::FrameBackStep);
+    let subtitle_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_subtitle_seek(move |direction| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        if let Err(error) = subtitle_player.send(Command::SubtitleSeek(direction))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
     connect!(on_playlist_next, Command::PlaylistNext);
     connect!(on_playlist_previous, Command::PlaylistPrevious);
     connect!(on_reset_speed, Command::Speed(1.0));

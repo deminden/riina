@@ -472,6 +472,19 @@ copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
 # Seek OSD state verification · 2026-10-10
 
+Local subtitle cue navigation: 24 Windows unit tests, strict lint and eight
+explicit native tests pass (8.75 seconds). The external original SRT fixture's
+Unicode first cue and English second cue are verified through observed subtitle
+text as well as position and completed native seek. Next/previous keep pause and
+do not change delay. With sub-delay=0.25, navigation follows the adjusted second
+cue, and `sub-seek 0` returns from inside it to its adjusted start. Cue positions
+allow decoded-frame rounding; requested positions are not reported as actual.
+The engine owns cue resolution, matching its documented
+[subtitle seek command](https://mpv.io/manual/stable/#command-interface-sub-seek).
+Shared Shift+Arrow routes compile but are not GUI-tested in this increment.
+Embedded subtitle prefetch, secondary selection, boundaries and rendering parity
+remain unverified.
+
 Windows GUI shortcut verification at edeb05c: with the playback slider focused,
 Alt+Right moves the observed position from 2.000 to 2.042 seconds and Alt+Left
 returns to 2.000. Comma moves to 1.958; period returns to 2.000. The pause button

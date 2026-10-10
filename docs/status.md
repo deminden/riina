@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+Local subtitle increment: shared Shift+Right/Left shortcuts invoke native cue
+navigation. Observed-clock/text tests verify next/previous cues with retained
+pause and unchanged delay, then repeat with a 0.25-second delay and restart the
+current cue. All eight explicit Windows native tests pass (8.75 seconds), with
+24 workspace unit tests and strict lint. GUI routing, embedded-subtitle prefetch,
+secondary cue selection, boundaries and rendering/style parity remain open.
+
 Local Windows GUI evidence now verifies focused-slider Alt+Right/Left and
 period/comma frame navigation, fine volume increments and Control+period Stop.
 The seek clock also appears in accessibility observations. Capture still fails

@@ -116,6 +116,140 @@ fn ab_repeat_observes_points_and_wraps_playback() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies subtitle cue navigation with observed clock and text"]
+fn subtitle_navigation_seeks_cues_without_changing_delay() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
+    });
+    player.send(Command::TogglePause).unwrap();
+    let paused = wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(
+            root.join("tests/fixtures/manual-captions.srt")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .tracks
+            .iter()
+            .any(|t| t.kind == TrackKind::Sub && t.external && t.selected)
+    });
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let first = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > paused.completed_seeks
+            && state.position.is_some_and(|p| (p - 0.5).abs() < 0.05)
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Привет"))
+    });
+    player.send(Command::SubtitleSeek(1)).unwrap();
+    let second = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > first.completed_seeks
+            && state.position.is_some_and(|p| (1.9..2.2).contains(&p))
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Chapter two"))
+    });
+    assert_eq!(second.subtitle_delay, first.subtitle_delay);
+    assert_eq!(second.error, None);
+    player.send(Command::SubtitleSeek(-1)).unwrap();
+    let returned = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > second.completed_seeks
+            && state.position.is_some_and(|p| p < 0.2)
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Привет"))
+    });
+    assert_eq!(returned.subtitle_delay, first.subtitle_delay);
+    assert_eq!(returned.error, None);
+    player.send(Command::SubtitleDelay(0.25)).unwrap();
+    wait_for(&receiver, |state| {
+        (state.subtitle_delay - 0.25).abs() < 0.001
+    });
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let delayed_first = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > returned.completed_seeks
+            && state.position.is_some_and(|p| (p - 0.5).abs() < 0.05)
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Привет"))
+    });
+    player.send(Command::SubtitleSeek(1)).unwrap();
+    let delayed_second = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > delayed_first.completed_seeks
+            && state.position.is_some_and(|p| (2.15..2.4).contains(&p))
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Chapter two"))
+    });
+    assert!((delayed_second.subtitle_delay - 0.25).abs() < 0.001);
+    player
+        .send(Command::Seek {
+            seconds: 2.8,
+            absolute: true,
+        })
+        .unwrap();
+    let inside = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > delayed_second.completed_seeks
+            && state.position.is_some_and(|p| (p - 2.8).abs() < 0.05)
+    });
+    player.send(Command::SubtitleSeek(0)).unwrap();
+    let restarted = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > inside.completed_seeks
+            && state.position.is_some_and(|p| (2.15..2.4).contains(&p))
+    });
+    assert!((restarted.subtitle_delay - 0.25).abs() < 0.001);
+    assert_eq!(restarted.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies observed forward/backward frame navigation"]
 fn frame_navigation_moves_one_frame_and_retains_pause() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
