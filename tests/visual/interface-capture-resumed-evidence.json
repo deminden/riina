@@ -2,7 +2,6 @@
   "source_commit": "cea3e62200d3f389ba68f35347088039b437027a",
   "windows_release_sha256": "e0aa41f0df6e8e2be16160968e483ed6e0ac60f6ad76a2649e81a21c7327ca4b",
   "scope": "Actual Windows captures inspected for initial interface corrections; no matched macOS golden comparison",
-  "isolated_profile": "tools/interface-capture-3rd-party-path-in-local-record",
   "profile_record": "tools/interface-capture-profile.txt",
   "observations": [
     "Native and shared windows now capture successfully via the computer-use tool",
