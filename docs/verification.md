@@ -1,5 +1,32 @@
 # Verification record · native Windows · 2026-10-09
 
+## Track metadata and Unicode ratio validation · 2026-10-10
+
+Video track labels now deserialize demux-w/h/fps, display paired dimensions with
+the multiplication sign, and round rates to three decimals without trailing zeroes.
+Labels retain codec → dimensions → fps → Default order. Audio channel/kHz and
+subtitle labels remain kind-specific; an explicitly empty title no longer adds
+a leading blank before metadata. Core checks pass for 24/23.976/29.97 fps,
+half-away rounding, missing fields, empty title and audio/subtitle isolation.
+The original catalog native test verifies 320×180, 24fps and the complete label,
+unchanged through all aspect overrides and quarter-turn rotation properties.
+
+Custom ratio classification now recognizes Unicode Nd, including Arabic, Indic
+and fullwidth digits. The original text remains the native argument and custom
+selection identity; numeric fractions, Roman numerals, superscripts and Arabic
+decimal separators are rejected. This uses the existing pinned regex 1.13.1 as
+a direct core dependency. Unicode category semantics are documented by
+[ICU](https://unicode-org.github.io/icu/userguide/strings/regexp.html) and
+[Rust regex](https://docs.rs/regex/1.13.1/regex/#syntax). The BMP-only boundary is
+inferred from the pinned reference's character-count NSRegularExpression search
+range; supplementary-digit acceptance requires an actual macOS check.
+
+The new explicit native test passes: after a valid 4:3 override, original Arabic
+ratio ١٦:٩ is rejected by libmpv and reports an error while the 4:3 override,
+pause and volume 37 remain. This proves no silent transliteration/default reset,
+not equivalent IINA error presentation or recovery. Actual GUI labels and other
+OS runtime remain pending. All work remains local.
+
 ## Video aspect and rotation · 2026-10-10
 
 Repaired Windows shared-OpenGL source f3cfed8 passes the custom-field focus

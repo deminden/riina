@@ -3,6 +3,7 @@
 pub mod file_selection;
 pub mod subtitle_color;
 pub mod subtitle_controls;
+mod track_labels;
 pub mod video_controls;
 
 use serde::{Deserialize, Serialize};
@@ -524,6 +525,12 @@ pub struct Track {
     pub channels: Option<i64>,
     #[serde(default, rename = "demux-samplerate")]
     pub sample_rate: Option<i64>,
+    #[serde(default, rename = "demux-w")]
+    pub width: Option<i64>,
+    #[serde(default, rename = "demux-h")]
+    pub height: Option<i64>,
+    #[serde(default, rename = "demux-fps")]
+    pub frame_rate: Option<f64>,
 }
 
 impl Track {
@@ -537,13 +544,26 @@ impl Track {
         // MPVTrack.readableString excludes the language in the sidebar; the UI
         // displays it separately. Preserve title and codec/channel/rate metadata.
         let mut info = self.codec.iter().cloned().collect::<Vec<_>>();
-        if self.kind == TrackKind::Audio {
-            if let Some(channels) = self.channels {
-                info.push(format!("{channels}ch"));
+        match self.kind {
+            TrackKind::Video => {
+                // Demux dimensions identify the track; a crop or rotation must
+                // not rewrite its catalog description using output dimensions.
+                if let Some((width, height)) = self.width.zip(self.height) {
+                    info.push(format!("{width}×{height}"));
+                }
+                if let Some(rate) = self.frame_rate {
+                    info.push(format!("{}fps", track_labels::number(rate)));
+                }
             }
-            if let Some(rate) = self.sample_rate {
-                info.push(format!("{}kHz", rate as f64 / 1000.0));
+            TrackKind::Audio => {
+                if let Some(channels) = self.channels {
+                    info.push(format!("{channels}ch"));
+                }
+                if let Some(rate) = self.sample_rate {
+                    info.push(format!("{}kHz", track_labels::number(rate as f64 / 1000.0)));
+                }
             }
+            TrackKind::Sub => {}
         }
         if self.is_default {
             info.push("Default".into());
@@ -551,6 +571,8 @@ impl Track {
         let title = self.title.as_deref().unwrap_or("No Title");
         if info.is_empty() {
             title.into()
+        } else if title.is_empty() {
+            format!("({})", info.join(", "))
         } else {
             format!("{title} ({})", info.join(", "))
         }

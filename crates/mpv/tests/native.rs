@@ -28,6 +28,46 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies Unicode ratio text is not silently normalized"]
+fn unicode_aspect_input_preserves_text_and_native_failure_state() {
+    use riina_core::video_controls::AspectRatio;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    player
+        .send(Command::VideoAspect(AspectRatio::from_text("4:3")))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.video_aspect_override == Some(4.0 / 3.0)
+    });
+    player
+        .send(Command::VideoAspect(AspectRatio::from_text("١٦:٩")))
+        .unwrap();
+    let rejected = wait_for(&receiver, |state| state.error.is_some());
+    assert_eq!(rejected.video_aspect_override, Some(4.0 / 3.0));
+    assert!(rejected.paused);
+    assert_eq!(rejected.volume, 37.0);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies video aspect and rotation while paused"]
 fn video_geometry_controls_preserve_pause_and_unrelated_options() {
     use riina_core::video_controls::{ASPECT_PRESETS, AspectRatio, Rotation};
@@ -50,6 +90,20 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
     let loaded = wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.video_output.is_some()
     });
+    let video_track = loaded
+        .tracks
+        .iter()
+        .find(|track| track.kind == TrackKind::Video)
+        .unwrap();
+    assert_eq!(video_track.width, Some(320));
+    assert_eq!(video_track.height, Some(180));
+    assert!(
+        video_track
+            .frame_rate
+            .is_some_and(|rate| (rate - 24.0).abs() < 1e-5)
+    );
+    let track_label = video_track.display_name();
+    assert_eq!(track_label, "No Title (mjpeg, 320×180, 24fps, Default)");
     // The current engine reports its initial "no" override as -2. The explicit
     // Default action uses the reference player's container-preference sentinel.
     assert!(matches!(loaded.video_aspect_override, Some(-2.0 | -1.0)));
@@ -79,6 +133,15 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
         assert_eq!(changed.volume, 37.0);
         assert_eq!(changed.video_rotation, Some(0));
         assert_eq!(changed.error, None);
+        assert_eq!(
+            changed
+                .tracks
+                .iter()
+                .find(|track| track.kind == TrackKind::Video)
+                .unwrap()
+                .display_name(),
+            track_label,
+        );
     }
     player
         .send(Command::VideoAspect(AspectRatio::from_text("invalid")))
@@ -95,6 +158,15 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
         assert_eq!(changed.volume, 37.0);
         assert_eq!(changed.video_aspect_override, Some(-1.0));
         assert_eq!(changed.error, None);
+        assert_eq!(
+            changed
+                .tracks
+                .iter()
+                .find(|track| track.kind == TrackKind::Video)
+                .unwrap()
+                .display_name(),
+            track_label,
+        );
     }
 }
 

@@ -42,6 +42,13 @@ glow 0.16.0: MIT/Apache-2.0/Zlib; libloading 0.8.9: ISC;
 serde/serde_json: MIT/Apache-2.0; windows 0.61.3: MIT/Apache-2.0.
 Resolved transitive dependency licenses must be inventoried before distribution.
 
+regex 1.13.1 (https://github.com/rust-lang/regex): selected MIT option from
+MIT OR Apache-2.0, Rust Project Developers. Already present in the dependency
+graph; now a direct core dependency for Unicode decimal-digit classification.
+The core requests only std and Unicode general-category support. Original
+ratio syntax/intent logic remains independently implemented; third-party
+license files are retained in the pinned development cache.
+
 ICU4X icu_experimental 0.6.0 / icu_experimental_data 0.6.0 and icu_locale
 2.3.0 / icu_locale_data 2.3.0: Unicode-3.0, Unicode, Inc. The complete notice is
 retained in third-party-licenses/Unicode-3.0.txt. Compiled display-name data uses

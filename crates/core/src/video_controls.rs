@@ -1,4 +1,5 @@
 //! Portable video intent; presentation labels remain distinct from native ratios.
+use std::sync::LazyLock;
 
 pub const ASPECT_PRESETS: [&str; 6] = ["Default", "4:3", "16:9", "16:10", "21:9", "5:4"];
 
@@ -31,7 +32,14 @@ impl AspectRatio {
 }
 
 fn decimal(value: &str) -> bool {
-    let digits = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+    static DIGITS: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"\A\p{Nd}+\z").expect("The fixed decimal-digit pattern is valid")
+    });
+    // ICU decimal digits include Arabic/Indic/fullwidth digits, unlike ASCII
+    // parsing or Rust's broader numeric category (which includes fractions).
+    // The pinned reference's character-count search range excludes supplementary
+    // characters; keep that acceptance boundary pending a native comparison.
+    let digits = |part: &str| part.chars().all(|ch| ch <= '\u{ffff}') && DIGITS.is_match(part);
     value.split_once('.').map_or_else(
         || digits(value),
         |(integer, fraction)| digits(integer) && digits(fraction),
@@ -112,6 +120,19 @@ mod tests {
         }
         for invalid in [-90, 45, 360, i64::MAX] {
             assert_eq!(Rotation::from_degrees(invalid), None);
+        }
+    }
+
+    #[test]
+    fn aspect_digits_preserve_unicode_decimal_syntax_without_transliterating() {
+        for ratio in ["١٦:٩", "१६:९", "１６:９", "۱۶.۵:۹", "1６:9"] {
+            let aspect = AspectRatio::from_text(ratio);
+            assert_eq!(aspect.native_value(), ratio);
+            assert_eq!(aspect.label(), ratio);
+            assert_eq!(aspect.preset_index(), None);
+        }
+        for invalid in ["²:1", "Ⅳ:Ⅲ", "½:1", "١٫٥:١", "𝟙𝟞:𝟡"] {
+            assert_eq!(AspectRatio::from_text(invalid).native_value(), "-1");
         }
     }
 }
