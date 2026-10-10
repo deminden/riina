@@ -94,8 +94,9 @@ docked controls and OSD visibility/speed/seek suppression. OSD settings update
 live overlay filters and persist through the shared settings path. Video & Audio
 now includes the source-sized hardware-decoder selector for Disabled, Auto and
 Auto (Copy), with the selected mode applied to libmpv and persisted. Advanced
-includes an opt-in volume boost control, retaining the 100% default and allowing
-up to 200% when enabled. Subtitle now includes the source's independent Primary
+Audio > Volume now contains the opt-in 200% cap extension, retaining the
+user-requested 100% default; moving it here leaves Advanced for source settings.
+Subtitle now includes the source's independent Primary
 and Secondary ASS override selectors with the five-level slider, current level
 and explanation, all persisted with the libmpv policy. The Text Subtitles group
 now has the editable font size, font chooser, bold and italic toggles,

@@ -721,6 +721,17 @@ export component PreferencesWindow inherits Window {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
         background: #ededed;
         Text { x: 22px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
+        // Keep the opt-in extension with IINA's Audio > Volume settings; leaving
+        // it here makes the 0–100 default cap difficult to discover and reverse.
+        Rectangle { x: 20px; y: 52px; width: 576px; height: 92px; background: transparent;
+            Text { x: 0; y: 8px; text: "Volume";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            CheckBox { x: 98px; y: 4px; height: 24px;
+                text: "Allow volume boost (up to 200%)";
+                checked <=> root.volume-boost;
+                toggled => { root.settings-changed(); }
+            }
+        }
     }
     if root.selected-pane == 5 : Rectangle {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
@@ -741,15 +752,6 @@ export component PreferencesWindow inherits Window {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
         background: #ededed;
         Text { x: 22px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle { x: 20px; y: 52px; width: 576px; height: 92px; background: transparent;
-            Text { x: 0; y: 8px; text: "Audio:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            CheckBox { x: 98px; y: 4px; height: 24px;
-                text: "Allow volume boost (up to 200%)";
-                checked <=> root.volume-boost;
-                toggled => { root.settings-changed(); }
-            }
-        }
     }
     if root.selected-pane == 9 : Rectangle {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;

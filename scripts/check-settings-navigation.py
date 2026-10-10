@@ -27,7 +27,23 @@ def main():
 
     bodies = {int(index) for index in re.findall(r"if root\.selected-pane == (\d+)", SOURCE)}
     assert bodies == set(range(len(EXPECTED))), f"Missing or extra page routes: {bodies!r}"
-    print("Settings sidebar order and all 11 page routes match the pinned default.")
+    audio = re.search(
+        r"if root\.selected-pane == 3\s*:(.*?)(?=\n\s*if root\.selected-pane == \d+\s*:|\Z)",
+        SOURCE,
+        re.DOTALL,
+    )
+    advanced = re.search(
+        r"if root\.selected-pane == 8\s*:(.*?)(?=\n\s*if root\.selected-pane == \d+\s*:|\Z)",
+        SOURCE,
+        re.DOTALL,
+    )
+    assert audio and "Allow volume boost (up to 200%)" in audio.group(1), (
+        "The opt-in volume cap belongs with Audio settings"
+    )
+    assert advanced and "Allow volume boost" not in advanced.group(1), (
+        "The volume control must not be hidden under Advanced"
+    )
+    print("Settings page order, routes and Audio volume control placement match the product contract.")
 
 
 if __name__ == "__main__":

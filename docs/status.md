@@ -1,16 +1,18 @@
 The Settings sidebar now follows IINA v1.5.0's enabled page order (General, UI,
 Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugin,
-Utilities). Several page bodies, search, native toolbar, dimensions and pixel
-comparison remain incomplete; workspace tests and strict clippy pass after the
-navigation change. The pinned macOS capture workflow now requests images for each
-default Settings page; run #6 is in progress and still needs image review.
+Utilities). The opt-in 200% range now appears in Audio > Volume; default playback
+still caps at 100%. Several page bodies, search, native toolbar, dimensions and
+pixel comparison remain incomplete. Workspace tests, strict clippy, build, source
+navigation check and parity ledger check pass. The pinned macOS capture runner
+still cannot open Settings: run #7 could not resolve its menu item by the expected
+name. The next attempt records the real menu labels before selecting the item.
 
 Windows audit candidate #9 failed during the native dependency configure phase,
 before the mpv engine build. Several independent dependencies (zlib, brotli,
 Vulkan headers and libiconv) failed configuration; the old failure trap omitted
-their configure logs. The build script now captures the latest configure and
-compile logs so the next run can expose the actual toolchain errors. No package
-was produced or approved for release.
+their configure logs. Candidate #10 is rerunning with the improved configure and
+compile log capture to expose the underlying errors. No package was produced or
+approved for release.
 
 The user now prioritizes full interface parity before further feature expansion;
 sidebar edges now resize independently and persist on release. Actual Windows

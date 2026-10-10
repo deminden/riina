@@ -24,16 +24,23 @@ func saveRecord() throws {
     try data.write(to: destination.appendingPathComponent("settings-capture-metadata.json"), options: .atomic)
 }
 
-func runAppleScript(_ source: String) throws {
+func runAppleScript(_ source: String) throws -> String {
     let script = Process()
     script.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
     script.arguments = ["-e", source]
+    let output = Pipe()
+    let errors = Pipe()
+    script.standardOutput = output
+    script.standardError = errors
     try script.run()
     script.waitUntilExit()
+    let outputText = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     guard script.terminationStatus == 0 else {
+        let errorText = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         throw NSError(domain: "RiinaReferenceCapture", code: Int(script.terminationStatus),
-                      userInfo: [NSLocalizedDescriptionKey: "AppleScript could not control the pinned reference UI"])
+                      userInfo: [NSLocalizedDescriptionKey: "AppleScript could not control the pinned reference UI: \(errorText)"])
     }
+    return outputText
 }
 
 func referenceWindows() -> [[String: Any]] {
@@ -58,11 +65,15 @@ do {
     // Use the app's visible Preferences menu item so CI follows the same action
     // and accessibility path as a person selecting it.
     do {
-        try runAppleScript("tell application id \"com.colliderli.iina\" to activate\ntell application \"System Events\" to tell process \"IINA\"\nset frontmost to true\nclick menu item \"Preferences…\" of menu 1 of menu bar item \"IINA\" of menu bar 1\nend tell")
+        try runAppleScript("tell application id \"com.colliderli.iina\" to activate")
+        let menuItems = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to get name of every menu item of menu 1 of menu bar item \"IINA\" of menu bar 1")
+        record["iina_menu_items"] = menuItems
+        let label = menuItems.contains("Preferences") ? "Preferences" : "Settings"
+        try runAppleScript("tell application \"System Events\" to tell process \"IINA\"\nset frontmost to true\nclick first menu item of menu 1 of menu bar item \"IINA\" of menu bar 1 whose name contains \"\(label)\"\nend tell")
     } catch {
         record["menu_automation_failure"] = error.localizedDescription
         // Command-comma is the same action's documented shortcut.
-        try runAppleScript("tell application id \"com.colliderli.iina\" to activate\ntell application \"System Events\" to tell process \"IINA\" to keystroke \",\" using {command down}")
+        _ = try runAppleScript("tell application id \"com.colliderli.iina\" to activate\ntell application \"System Events\" to tell process \"IINA\" to keystroke \",\" using {command down}")
     }
 
     let windowDeadline = Date().addingTimeInterval(12)
@@ -85,7 +96,7 @@ do {
         // The source list inserts a non-page subsection indicator after the
         // selected page, so later rows shift as navigation advances.
         let sidebarRow = index + 1 + (index > selectedPage ? 1 : 0)
-        try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to select row \(sidebarRow) of table 1 of window \"Settings\"")
+        _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to select row \(sidebarRow) of table 1 of window \"Settings\"")
         Thread.sleep(forTimeInterval: 0.35)
 
         let imageName = String(format: "iina-settings-%02d.png", index + 1)
