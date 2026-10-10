@@ -1,5 +1,34 @@
 # Verification record · native Windows · 2026-10-09
 
+## Interactive crop session lifecycle · 2026-10-10
+
+Pinned InteractiveMode.swift enter/exit/cancel establishes explicit pause during
+editing and restoration of the prior pause state. SidebarVideoPane.swift Custom
+clears the managed crop before entering. Cancellation leaves it cleared.
+Original portable Session validates source generation and pixel dimensions at
+worker dispatch. Enter/Exit command plans validate before emitting any native
+commands; resume uses explicit pause yes/no rather than a toggle. Readiness
+requires observed pause and disappearance of the managed label.
+
+The new native regression runs cancellation and rectangle confirmation from
+both playing and paused sources. Every entry removes the old 4:3 crop and
+pauses with volume 37/speed 1.5 retained. Confirmation submits 300×160 at (10,12),
+cancellation leaves no managed crop, and both restore the original pause state.
+A changed speed provides a barrier when an already-paused exit has no new pause
+observation. Same-file replacement increments generation; stale confirmation
+reports the source-changed error and preserves replacement pause and filters.
+Unit checks cover source changes, unavailable video and invalid confirmation
+without partially constructing crop/resume plans.
+
+This does not implement the interactive editor or prove its appearance. Shared
+selection surface, coordinate conversion under aspect/rotation, pointer handles,
+presets (including interactive 3:2), confirmation/cancel controls, native route
+layout and current macOS/Linux runtime remain open. No GUI test was run for this
+backend-only increment.
+All 27 native tests run explicitly pass, as do workspace unit tests, strict
+workspace/all-target lint and formatting. Optimized Windows build passes in
+34.70 seconds.
+
 ## Shared crop preset controls · 2026-10-10
 
 Crop row labels/order and 24px segment height follow the pinned CropView

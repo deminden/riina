@@ -1,5 +1,19 @@
 # Status · 2026-10-09
 
+Interactive crop now has a portable editing-session lifecycle tied to source
+generation and dimensions. Entry clears the managed crop and explicitly pauses;
+confirmation applies the validated rectangle and restores prior pause state,
+while cancellation only restores pause and leaves the entry-cleared crop absent.
+Native coverage checks Done/Cancel from playing and paused sources, volume 37,
+and rejection of stale confirmation after same-file replacement without
+changing the replacement's pause or filters. This is backend lifecycle work;
+the shared Custom... control remains disabled until the editor exists.
+Selection overlay, source/display coordinate mapping, confirmation/cancel UI,
+native route layout, crop OSD, pixel parity and current port runtime remain open.
+All 27 native tests, workspace unit tests, strict lint, formatting and optimized
+Windows build pass (34.70 seconds).
+No public update.
+
 The shared video sidebar now includes the crop row between aspect and rotation,
 with None and five working preset commands. Selection maps observed native
 filter parameters to presets; unknown state stays unknown and explicit

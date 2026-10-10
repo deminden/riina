@@ -1,6 +1,7 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
 pub mod crop;
+pub mod crop_session;
 pub mod file_selection;
 pub mod speed_controls;
 pub mod subtitle_color;
@@ -35,6 +36,11 @@ pub enum Command {
     VideoRotation(video_controls::Rotation),
     VideoCrop(Option<crop::Preset>),
     VideoCropRectangle(crop::Rectangle),
+    EnterCrop(crop_session::Session),
+    ExitCrop {
+        session: crop_session::Session,
+        rectangle: Option<crop::Rectangle>,
+    },
     HardwareDecoding(video_controls::HardwareDecoder),
     VideoEqualizer {
         option: video_controls::Equalizer,
@@ -281,6 +287,8 @@ impl Command {
             Self::OpenFiles(_)
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
+            | Self::EnterCrop(_)
+            | Self::ExitCrop { .. }
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
@@ -300,6 +308,8 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::EnterCrop(session) => session.enter_commands(state)?,
+            Self::ExitCrop { session, rectangle } => session.exit_commands(state, *rectangle)?,
             Self::VideoCropRectangle(rectangle) => {
                 let source = state
                     .video

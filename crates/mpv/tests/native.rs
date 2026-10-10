@@ -197,6 +197,131 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     );
 }
 
+#[test]
+#[ignore = "requires provisioned libmpv; verifies crop entry and exit restore playback state"]
+fn interactive_crop_session_restores_pause_on_done_and_cancel() {
+    use riina_core::{
+        crop::{FILTER_LABEL, Preset, Rectangle},
+        crop_session::Session,
+    };
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let mut state = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video.is_some() && state.video_filters.is_some()
+    });
+    player.send(Command::Volume(37.0)).unwrap();
+    for (was_paused, confirm) in [(false, false), (true, false), (false, true), (true, true)] {
+        if state.paused != was_paused {
+            player.send(Command::TogglePause).unwrap();
+            wait_for(&receiver, |state| state.paused == was_paused);
+        }
+        player.send(Command::Speed(1.5)).unwrap();
+        wait_for(&receiver, |state| {
+            state.speed == 1.5 && state.volume == 37.0
+        });
+        player
+            .send(Command::VideoCrop(Some(Preset::FourThree)))
+            .unwrap();
+        state = wait_for(&receiver, |state| {
+            state.video_filters.as_ref().is_some_and(|filters| {
+                filters
+                    .iter()
+                    .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+            })
+        });
+        assert_eq!(state.paused, was_paused);
+        let session = Session::begin(&state).unwrap();
+        player.send(Command::EnterCrop(session.clone())).unwrap();
+        let editing = wait_for(&receiver, |state| session.ready(state));
+        assert_eq!(editing.volume, 37.0);
+        assert_eq!(editing.speed, 1.5);
+        assert_eq!(editing.error, None);
+        let rectangle = confirm.then_some(Rectangle {
+            x: 10,
+            y: 12,
+            width: 300,
+            height: 160,
+        });
+        player
+            .send(Command::ExitCrop { session, rectangle })
+            .unwrap();
+        // An unrelated changed option provides a barrier even when restoring
+        // an already-paused source does not produce a new pause observation.
+        player.send(Command::Speed(1.25)).unwrap();
+        state = wait_for(&receiver, |state| {
+            state.speed == 1.25
+                && state.paused == was_paused
+                && state.video_filters.as_ref().is_some_and(|filters| {
+                    filters
+                        .iter()
+                        .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+                        == confirm
+                })
+        });
+        assert_eq!(state.volume, 37.0);
+        assert_eq!(state.error, None);
+        if confirm {
+            let filter = state
+                .video_filters
+                .as_ref()
+                .unwrap()
+                .iter()
+                .find(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+                .unwrap();
+            assert_eq!(filter.params.get("@0").map(String::as_str), Some("300"));
+            assert_eq!(filter.params.get("@2").map(String::as_str), Some("10"));
+        }
+    }
+    let stale = Session::begin(&state).unwrap();
+    let previous_generation = state.generation;
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let replacement = wait_for(&receiver, |state| {
+        state.generation > previous_generation
+            && state.phase == Phase::Playing
+            && !state.paused
+            && state.video.is_some()
+            && state.video_filters.is_some()
+    });
+    player
+        .send(Command::ExitCrop {
+            session: stale,
+            rectangle: Some(Rectangle {
+                x: 0,
+                y: 0,
+                width: 240,
+                height: 180,
+            }),
+        })
+        .unwrap();
+    let rejected = wait_for(&receiver, |state| {
+        state.error.as_deref() == Some("The video changed while cropping")
+    });
+    assert_eq!(rejected.generation, replacement.generation);
+    assert!(!rejected.paused);
+    assert_eq!(rejected.volume, 37.0);
+    assert_eq!(rejected.video_filters, replacement.video_filters);
+}
+
 fn test_library(root: &std::path::Path) -> PathBuf {
     if let Some(path) = std::env::var_os("RIINA_TEST_MPV_LIBRARY") {
         let path = PathBuf::from(path);

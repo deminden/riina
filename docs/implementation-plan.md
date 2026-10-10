@@ -3,6 +3,12 @@
 Crop next: implement the full custom crop interaction (selection, confirmation
 and cancel) and enable Custom... in the shared sidebar. Preset commands and
 observed filter selection are now connected; current custom control is disabled.
+Use the generation-bound crop_session::Session lifecycle for entry and exit;
+wait for native pause and cleared crop before presenting the selection surface.
+Retire the editor on replacement/Stop without restoring the old file's pause.
+Entry clears the old crop; Cancel restores pause but does not restore that crop.
+Next geometry work must map source pixels through display aspect/rotation and
+letterboxing, then resize the video area on both presentation routes.
 Resolve requested-preset identity where small source dimensions yield identical
 geometry, and verify actual UI highlight and crop output with rendered evidence.
 The portable preset/managed-filter foundation has native Windows coverage; add
