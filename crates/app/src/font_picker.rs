@@ -20,6 +20,21 @@ fn items(values: impl Iterator<Item = String>) -> ModelRc<StandardListViewItem> 
     .into()
 }
 
+fn selection_for_name(
+    families: &[font_catalog::FontFamily],
+    visible: &[usize],
+    name: &str,
+) -> Option<(usize, usize, usize)> {
+    visible.iter().enumerate().find_map(|(row, &family)| {
+        let face = families
+            .get(family)?
+            .faces
+            .iter()
+            .position(|face| face.postscript_name == name)?;
+        Some((row, family, face))
+    })
+}
+
 pub fn connect(app: &PlayerWindow, sender: CommandSender) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
     let weak = app.as_weak();
@@ -126,6 +141,21 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         *map.borrow_mut() = indices;
                         picker.set_faces(items(std::iter::empty()));
                         picker.set_families(rows);
+                        // Restore a visible exact face without firing user intent
+                        // or changing the filter/custom entry to force a match.
+                        if let Some((row, family, face)) =
+                            selection_for_name(&data, &map.borrow(), &picker.get_custom_name())
+                        {
+                            selection.set(Some(family));
+                            picker.set_faces(items(
+                                data[family]
+                                    .faces
+                                    .iter()
+                                    .map(|face| face.postscript_name.clone()),
+                            ));
+                            picker.set_family_index(row as i32);
+                            picker.set_face_index(face as i32);
+                        }
                     });
                     let data = families.clone();
                     let map = filtered.clone();
@@ -149,7 +179,10 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                                 .iter()
                                 .map(|face| face.postscript_name.clone()),
                         ));
-                        picker.set_custom_name(data[index].name.clone().into());
+                        if let Some(face) = data[index].faces.first() {
+                            picker.set_face_index(0);
+                            picker.set_custom_name(face.postscript_name.clone().into());
+                        }
                     });
                     let data = families;
                     let weak = picker.as_weak();
@@ -176,4 +209,46 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn observed_face_selection_respects_filtered_identity_and_exact_names() {
+        let family = |name: &str, faces: &[&str]| font_catalog::FontFamily {
+            name: name.into(),
+            aliases: vec![],
+            faces: faces
+                .iter()
+                .map(|name| font_catalog::FontFace {
+                    weight: 400,
+                    style: "Normal".into(),
+                    postscript_name: (*name).into(),
+                })
+                .collect(),
+        };
+        let data = [
+            family("Alpha", &["Alpha-Regular", "Alpha-Bold"]),
+            family("Beta", &["字体-常规"]),
+        ];
+        assert_eq!(
+            selection_for_name(&data, &[1, 0], "Alpha-Bold"),
+            Some((1, 0, 1))
+        );
+        assert_eq!(selection_for_name(&data, &[1], "Alpha-Bold"), None);
+        assert_eq!(
+            selection_for_name(&data, &[1], "字体-常规"),
+            Some((0, 1, 0))
+        );
+        assert_eq!(selection_for_name(&data, &[0], "alpha-bold"), None);
+        assert_eq!(selection_for_name(&data, &[0], "Alpha"), None);
+        assert_eq!(selection_for_name(&data, &[0, 1], ""), None);
+        assert_eq!(selection_for_name(&data, &[0, 1], "sans-serif"), None);
+        assert_eq!(
+            selection_for_name(&data, &[99, 0], "Alpha-Regular"),
+            Some((1, 0, 0))
+        );
+    }
 }

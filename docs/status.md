@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local font picker selection fidelity: choosing a family now selects its first
+face and fills custom entry with that face's PostScript name, matching the
+pinned selection behavior. Opening or filtering restores a visible exact face
+match without changing custom entry or the search. Generic/custom names without
+a matching installed face stay unselected. A focused unit check covers filtered
+row identity, Unicode, exact case, hidden matches and generic names; all unit
+checks and strict lint pass. New GUI routing/highlights and platform face order,
+scroll-to-selected behavior, preview and other OS runtime remain unverified.
+Inventory now contains 100 atomic rows and remains incomplete. Changes stay local.
+
 Local font chooser runtime retest on 8f86c69: Windows filtering to Arial leaves
 one family; keyboard family focus fills five face rows and updates the draft.
 A no-match filter clears both lists. Escape closes the chooser, restores button
