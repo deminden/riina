@@ -235,7 +235,16 @@ export component PlayerWindow inherits Window {
                         accessible-action-default => { if root.loaded { root.browse-files(root.sidebar); } }
                         Text { text: root.sidebar == 1 ? "Load External Audio…" : "Load Subtitle…";
                             color: root.loaded ? #eeeeee : #777777; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-                        TouchArea { enabled: root.loaded; clicked => { root.browse-files(root.sidebar); } }
+                        if load-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 4px; background: transparent; }
+                        TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.browse-files(root.sidebar); } }
+                        load-focus := FocusScope {
+                            enabled: root.loaded;
+                            key-pressed(event) => {
+                                if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                                if event.text == Key.Return || event.text == " " { root.browse-files(root.sidebar); return accept; }
+                                return reject;
+                            }
+                        }
                     }
                 }
                 if sidebar == 1 || sidebar == 2 : VerticalLayout {

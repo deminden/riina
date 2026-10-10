@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local subtitle loading accessibility increment: the shared external audio/subtitle
+load button now accepts keyboard focus, Enter and Space without consuming modified
+player shortcuts. Windows release runtime testing with catalog.mkv confirmed Tab
+reaches Load Subtitle, Enter opens its native picker and Escape cancels it and
+restores focus to the load button. Further Tab navigation reaches Subtitle delay,
+primary visibility, primary None, secondary visibility and secondary None in order.
+Strict lint, formatting, release build and all 24 unit tests pass. This verifies
+focus traversal and picker cancellation, not actual track activation or rendered
+parity; external audio and other-OS runtime remain pending. Work stays local.
+
 Local catalog keyboard increment: audio, primary subtitle, secondary subtitle,
 chapter and playlist rows now expose keyboard focus and an Enter activation path.
 Mouse selection retains the existing single/double-click behavior. Modified keys
