@@ -10,6 +10,10 @@ export component FontPicker inherits Window {
     in-out property <string> custom-name;
     in-out property <int> family-index: -1;
     in-out property <int> face-index: -1;
+    in property <string> preview-font-family;
+    in property <int> preview-font-weight: 400;
+    in property <bool> preview-font-italic: false;
+    in-out property <string> preview-text: "Test";
     callback search(string);
     callback family-selected(int);
     callback face-selected(int);
@@ -43,11 +47,14 @@ export component FontPicker inherits Window {
         LineEdit { text <=> root.custom-name; placeholder-text: "sans-serif";
             accessible-label: "Custom font name";
             accepted => { root.accept-font(root.custom-name); } }
-        Rectangle { height: 76px; background: #202024; border-radius: 4px;
-            Text { text: "The quick brown fox jumps over the lazy dog.";
-                font-family: root.custom-name == "" ? "sans-serif" : root.custom-name;
-                color: #eeeeee; font-size: 20px; wrap: word-wrap;
-                x: 10px; y: 10px; width: parent.width - 20px; height: parent.height - 20px; }
+        Rectangle { height: 36px; background: #202024; border-radius: 4px;
+            TextInput { text <=> root.preview-text; single-line: true;
+                accessible-label: "Font preview text";
+                font-family: root.preview-font-family;
+                font-weight: root.preview-font-weight; font-italic: root.preview-font-italic;
+                color: #eeeeee; font-size: 24px; horizontal-alignment: center;
+                vertical-alignment: center;
+                x: 10px; width: parent.width - 20px; height: parent.height; }
         }
         HorizontalLayout { spacing: 8px;
             Text { text: root.ready ? "" : "Loading fonts…"; color: #bbbbbb; font-size: 11px; }

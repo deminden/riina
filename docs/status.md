@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local font preview fidelity: the chooser now has the source-defined editable
+single-line centered Test sample, 24px type and 36px source-height field. Preview
+uses the selected family's name plus weight/italic metadata instead of treating
+an arbitrary custom/PostScript identifier as a toolkit family. Empty/filtered-out
+selection resets to the system font; preview edits have no font-command callback.
+Strict lint and unit checks pass. This is source-derived layout and compiled
+wiring, not rendered font equivalence. GUI editing/Enter behavior, preview text
+lifetime, condensed/variable faces, fallback glyphs and exact native metrics
+remain open. Inventory now contains 102 atomic requirements and remains
+incomplete. No public update was made.
+
 Local font face labels: chooser rows now show readable typographic/subfamily
 labels while exact PostScript names remain selection and playback identities.
 Pinned ttf-parser 0.25.1 reads existing font metadata during the background scan;

@@ -35,6 +35,18 @@ fn selection_for_name(
     })
 }
 
+fn preview_face(
+    picker: &FontPicker,
+    family: &font_catalog::FontFamily,
+    face: &font_catalog::FontFace,
+) {
+    // Toolkit font lookup uses family plus style; PostScript names remain the
+    // libass selection identity. Feeding that identity as a family can fall back.
+    picker.set_preview_font_family(family.name.clone().into());
+    picker.set_preview_font_weight(i32::from(face.weight).clamp(1, 1000));
+    picker.set_preview_font_italic(face.style != "Normal");
+}
+
 pub fn connect(app: &PlayerWindow, sender: CommandSender) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
     let weak = app.as_weak();
@@ -137,6 +149,9 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         picker.set_family_index(-1);
                         picker.set_face_index(-1);
                         selection.set(None);
+                        picker.set_preview_font_family("".into());
+                        picker.set_preview_font_weight(400);
+                        picker.set_preview_font_italic(false);
                         let rows = items(indices.iter().map(|index| data[*index].name.clone()));
                         *map.borrow_mut() = indices;
                         picker.set_faces(items(std::iter::empty()));
@@ -152,6 +167,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             ));
                             picker.set_family_index(row as i32);
                             picker.set_face_index(face as i32);
+                            preview_face(&picker, &data[family], &data[family].faces[face]);
                         }
                     });
                     let data = families.clone();
@@ -176,20 +192,24 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         if let Some(face) = data[index].faces.first() {
                             picker.set_face_index(0);
                             picker.set_custom_name(face.postscript_name.clone().into());
+                            preview_face(&picker, &data[index], face);
                         }
                     });
                     let data = families;
                     let weak = picker.as_weak();
                     picker.on_face_selected(move |row| {
-                        let Some(face) = selected.get().and_then(|index| {
-                            usize::try_from(row)
-                                .ok()
-                                .and_then(|row| data[index].faces.get(row))
-                        }) else {
+                        let Some(family) = selected.get().and_then(|index| data.get(index)) else {
+                            return;
+                        };
+                        let Some(face) = usize::try_from(row)
+                            .ok()
+                            .and_then(|row| family.faces.get(row))
+                        else {
                             return;
                         };
                         if let Some(picker) = weak.upgrade() {
                             picker.set_custom_name(face.postscript_name.clone().into());
+                            preview_face(&picker, family, face);
                         }
                     });
                     picker.invoke_search("".into());
