@@ -150,6 +150,15 @@ component SubtitleColorWell inherits Rectangle {
         width: 240px; height: 176px;
         close-policy: close-on-click-outside;
         Rectangle { background: #29292e; border-width: 1px; border-color: #ffffff30; border-radius: 6px; }
+        // Channel sliders consume arrows first. Other keys stay in the editor
+        // instead of bubbling into the player's seek/pause/track shortcuts.
+        FocusScope {
+            width: 100%; height: 100%;
+            key-pressed(event) => {
+                if event.text == Key.Tab { return reject; }
+                if event.text == Key.Escape { editor.close(); return accept; }
+                return accept;
+            }
         VerticalLayout { padding: 12px; spacing: 8px;
             Text { text: root.hint; color: #eeeeee; font-size: 12px; }
             HorizontalLayout { spacing: 8px;
@@ -172,6 +181,7 @@ component SubtitleColorWell inherits Rectangle {
                 PlayerSlider { minimum: 0; maximum: 255; step: 1; value: root.alpha-channel; hint: root.hint + " opacity";
                     changed(value) => { root.alpha-channel = round(value); root.submit(); } }
             }
+        }
         }
     }
 }

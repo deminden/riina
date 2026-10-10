@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local color editor focus boundary: unhandled popup keys are now consumed within
+the editor while channel arrows remain active and Tab navigates channels.
+Windows checks at paused position 2 show p and Shift+Page Down do not pause or
+seek, Left edits red 255 → 254 and Right restores 255, Tab reaches green, and
+Escape restores the text well's focus. Pause is also preserved when pressing p
+immediately after opening the popup before channel focus. Evidence and hashes:
+tests/visual/subtitle-color-focus-windows-evidence.json. Release build, strict
+lint and all 30 unit tests pass. Native panel appearance, rendered subtitles
+and other OS runtime remain open. Nothing was published.
+
 Local subtitle color UI: shared Scale/Font/Color/Border/Shadow rows now include
 observed color wells and continuous RGB/opacity editing. Unknown observations
 disable their well. Windows keyboard checks open the text editor, change red
