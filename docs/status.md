@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Video equalizer controls now expose brightness, contrast, saturation, gamma and
+hue in reference order, with independent reset, integer range -100–100 and a
+neutral marker. Portable typed commands reject out-of-range values; observed
+unknown channels disable their controls. All 20 native tests pass, including
+independent channel edits and resets that preserve pause, volume 37 and speed
+1.5. GUI checks and final build checks are in progress. Rendered controls, OSD,
+actual color-output comparisons and current macOS/Linux runtime remain open.
+Changes remain local.
+
 Hardware decoding now has a shared sidebar switch and typed portable Disabled /
 Auto / AutoCopy policies. The observed configured policy drives the switch;
 hwdec-current remains a distinct active-decoder diagnostic. Preference default

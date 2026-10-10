@@ -3,6 +3,42 @@ use std::sync::LazyLock;
 
 pub const ASPECT_PRESETS: [&str; 6] = ["Default", "4:3", "16:9", "16:10", "21:9", "5:4"];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Equalizer {
+    Brightness,
+    Contrast,
+    Saturation,
+    Gamma,
+    Hue,
+}
+
+impl Equalizer {
+    pub const ALL: [Self; 5] = [
+        Self::Brightness,
+        Self::Contrast,
+        Self::Saturation,
+        Self::Gamma,
+        Self::Hue,
+    ];
+
+    pub fn property(self) -> &'static str {
+        match self {
+            Self::Brightness => "brightness",
+            Self::Contrast => "contrast",
+            Self::Saturation => "saturation",
+            Self::Gamma => "gamma",
+            Self::Hue => "hue",
+        }
+    }
+
+    pub fn index(self) -> usize {
+        Self::ALL
+            .iter()
+            .position(|option| *option == self)
+            .expect("All equalizer options have a display slot")
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum HardwareDecoder {
@@ -98,6 +134,31 @@ impl Rotation {
 mod tests {
     use super::*;
     use crate::Command;
+
+    #[test]
+    fn equalizer_intents_validate_all_channels_and_signed_boundaries() {
+        for option in Equalizer::ALL {
+            for value in [-100, -1, 0, 1, 100] {
+                assert_eq!(
+                    Command::VideoEqualizer { option, value }
+                        .mpv_args()
+                        .unwrap(),
+                    [
+                        "set".to_owned(),
+                        option.property().to_owned(),
+                        value.to_string()
+                    ]
+                );
+            }
+            for value in [-101, 101, i64::MIN, i64::MAX] {
+                assert!(
+                    Command::VideoEqualizer { option, value }
+                        .mpv_args()
+                        .is_err()
+                );
+            }
+        }
+    }
 
     #[test]
     fn hardware_preferences_keep_auto_default_and_restore_copy_policy() {

@@ -146,6 +146,7 @@ impl Player {
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("video-out-params", 6),
+                        ("brightness", 4), ("contrast", 4), ("saturation", 4), ("gamma", 4), ("hue", 4),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
                         ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5), ("sub-outline-size", 5),
                         ("sub-color", 1), ("sub-outline-color", 1), ("sub-back-color", 1),
@@ -300,6 +301,12 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
     // tags are checked before dereferencing; unavailable properties remain unknown.
     let name = unsafe { CStr::from_ptr(property.name) }.to_bytes();
     if property.data.is_null() {
+        if let Some(option) = riina_core::video_controls::Equalizer::ALL
+            .into_iter()
+            .find(|option| option.property().as_bytes() == name)
+        {
+            state.video_equalizer[option.index()] = None;
+        }
         match name {
             b"time-pos" => state.position = None,
             b"duration" => state.duration = None,
@@ -388,6 +395,14 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
         let value = unsafe { *property.data.cast::<i64>() };
         if name == b"video-rotate" {
             state.video_rotation = Some(value);
+        }
+        if let Some(option) = riina_core::video_controls::Equalizer::ALL
+            .into_iter()
+            .find(|option| option.property().as_bytes() == name)
+        {
+            // Unavailable or invalid native values must not masquerade as a
+            // neutral setting in controls that would overwrite an unknown state.
+            state.video_equalizer[option.index()] = (-100..=100).contains(&value).then_some(value);
         }
     } else if property.format == 5 {
         let value = unsafe { *property.data.cast::<f64>() };

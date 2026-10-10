@@ -14,9 +14,15 @@ pub enum Command {
     OpenFiles(Vec<String>),
     TogglePause,
     Stop,
-    Seek { seconds: f64, absolute: bool },
+    Seek {
+        seconds: f64,
+        absolute: bool,
+    },
     Volume(f64),
-    AdjustVolume { delta: f64, boost: bool },
+    AdjustVolume {
+        delta: f64,
+        boost: bool,
+    },
     SetVolumeBoost(bool),
     ToggleMute,
     Speed(f64),
@@ -26,9 +32,16 @@ pub enum Command {
     VideoAspect(video_controls::AspectRatio),
     VideoRotation(video_controls::Rotation),
     HardwareDecoding(video_controls::HardwareDecoder),
+    VideoEqualizer {
+        option: video_controls::Equalizer,
+        value: i64,
+    },
     PlaylistNext,
     PlaylistPrevious,
-    SelectTrack { kind: TrackKind, id: Option<i64> },
+    SelectTrack {
+        kind: TrackKind,
+        id: Option<i64>,
+    },
     CycleTrack(TrackKind),
     SelectSecondarySubtitle(Option<i64>),
     SelectChapter(usize),
@@ -36,10 +49,16 @@ pub enum Command {
     SelectPlaylistEntry(usize),
     SelectPlaylistId(i64),
     RemovePlaylistId(i64),
-    MovePlaylistId { id: i64, direction: i32 },
+    MovePlaylistId {
+        id: i64,
+        direction: i32,
+    },
     AppendFiles(Vec<String>),
     RemovePlaylistEntry(usize),
-    MovePlaylistEntry { from: usize, to: usize },
+    MovePlaylistEntry {
+        from: usize,
+        to: usize,
+    },
     ClearPlaylist,
     AddSubtitle(String),
     AddAudio(String),
@@ -65,7 +84,10 @@ pub enum Command {
     CycleLoop,
     ToggleFileLoop,
     CycleAbLoop,
-    SetAbLoop { a: Option<f64>, b: Option<f64> },
+    SetAbLoop {
+        a: Option<f64>,
+        b: Option<f64>,
+    },
     Shutdown,
 }
 
@@ -124,6 +146,9 @@ impl Command {
             ],
             Self::HardwareDecoding(mode) => {
                 vec!["set".into(), "hwdec".into(), mode.native_value().into()]
+            }
+            Self::VideoEqualizer { option, value } if (-100..=100).contains(value) => {
+                vec!["set".into(), option.property().into(), value.to_string()]
             }
             Self::SelectSecondarySubtitle(id) if id.is_none_or(|id| id > 0) => vec![
                 "set".into(),
@@ -640,6 +665,7 @@ pub struct Playback {
     pub video_output: Option<VideoParameters>,
     pub video_aspect_override: Option<f64>,
     pub video_rotation: Option<i64>,
+    pub video_equalizer: [Option<i64>; 5],
     pub title: String,
     pub error: Option<String>,
     pub tracks: Vec<Track>,

@@ -1,5 +1,25 @@
 # Verification record · native Windows · 2026-10-09
 
+## Video equalizer · 2026-10-10
+
+Requirements: pinned SidebarVideoPane.EqualizerView orders brightness, contrast,
+saturation, gamma and hue. Each small slider spans -100–100, passes integer
+values, and has a reset-to-zero action; macOS 26 adds neutral zero marking.
+PlayerCore.setVideoEqualizer sets the corresponding native option. This original
+implementation retains typed channel identity and independent optional observed
+values. Missing or invalid native values disable the affected control rather
+than treating an unknown channel as neutral. The shared UI uses equal-width
+labels, 8px spacing, original slider geometry and a temporary text reset glyph;
+native rendered geometry is unverified.
+
+Unit coverage checks all five commands at signed limits and rejects overflow
+and out-of-range values. The new native test observes initial zero values,
+edits channels sequentially to -100 / 100 / -27 / 13 / 61, then independently
+resets each while comparing the complete five-channel state. Every step retains
+pause, volume 37 and speed 1.5 without errors. All 20 native tests pass. This
+headless test proves configuration, not actual rendered color changes. GUI,
+final optimized build, equalizer OSD and current other OS runtime remain open.
+
 ## Hardware decoding policy · 2026-10-10
 
 Pinned requirements come from SidebarVideoPane.HwdecSwitch, PlaybackInfo.hwdecEnabled,

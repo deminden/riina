@@ -175,6 +175,15 @@ fn update_ui(
     app.set_speed_value(state.speed as f32);
     app.set_video_aspect_known(state.video_aspect_override.is_some());
     app.set_video_rotation_known(state.video_rotation.is_some());
+    app.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
+        state
+            .video_equalizer
+            .map(|value| value.unwrap_or(0) as i32)
+            .to_vec(),
+    )));
+    app.set_video_equalizer_known(slint::ModelRc::new(slint::VecModel::from(
+        state.video_equalizer.map(|value| value.is_some()).to_vec(),
+    )));
     app.set_hardware_decoding_known(state.hardware_decoding.is_some());
     app.set_hardware_decoding_enabled(
         state
@@ -483,6 +492,30 @@ pub(crate) fn configure_player(
         }
     });
     connect!(on_reset_subtitle_delay, Command::SubtitleDelay(0.0));
+    let equalizer_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_video_equalizer(move |index, value| {
+        let option = usize::try_from(index).ok().and_then(|index| {
+            riina_core::video_controls::Equalizer::ALL
+                .get(index)
+                .copied()
+        });
+        if let Some(option) = option
+            && value.is_finite()
+            && (-100.0..=100.0).contains(&value)
+            && let Some(app) = weak.upgrade()
+        {
+            app.invoke_activity();
+            // NSSlider's integer action uses whole units. The backend validates
+            // the range again so every caller obeys the same portable contract.
+            if let Err(error) = equalizer_player.send(Command::VideoEqualizer {
+                option,
+                value: value as i64,
+            }) {
+                app.set_status(error.into());
+            }
+        }
+    });
     let scale_player = player.command_sender();
     let absolute_scale_player = player.command_sender();
     let font_size_player = player.command_sender();

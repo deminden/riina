@@ -12,6 +12,7 @@ component PlayerSlider inherits Rectangle {
     in property <float> step: 1;
     in property <bool> enabled: true;
     in property <string> hint;
+    in property <bool> neutral-mark: false;
     callback changed(float);
     height: 20px;
     horizontal-stretch: 1;
@@ -31,6 +32,8 @@ component PlayerSlider inherits Rectangle {
     private property <float> fraction: clamp((value - minimum) / max(0.001, maximum - minimum), 0, 1);
     Rectangle { x: 3px; y: 9px; width: parent.width - 6px; height: 2px;
         background: #ffffff40; border-radius: 1px; }
+    if neutral-mark : Rectangle { x: parent.width / 2 - 0.5px; y: 6px;
+        width: 1px; height: 8px; background: #ffffff60; }
     Rectangle { x: 3px; y: 9px; width: (parent.width - 6px) * fraction; height: 2px;
         background: enabled ? #dddde5 : #666666; border-radius: 1px; }
     Rectangle { x: (parent.width - 6px) * fraction; y: 6px; width: 6px; height: 8px;
@@ -284,6 +287,8 @@ export component PlayerWindow inherits Window {
     in property <int> video-rotation-index: -1;
     in property <bool> hardware-decoding-known: false;
     in property <bool> hardware-decoding-enabled: false;
+    in property <[int]> video-equalizer-values;
+    in property <[bool]> video-equalizer-known;
     in property <[CatalogRow]> subtitle-tracks;
     in property <[CatalogRow]> secondary-subtitle-tracks;
     in property <bool> secondary-subtitle-visible;
@@ -337,6 +342,7 @@ export component PlayerWindow inherits Window {
     callback set-video-aspect(string);
     callback set-video-rotation(int);
     callback set-hardware-decoding(bool);
+    callback set-video-equalizer(int, float);
     callback subtitle-seek(int);
     callback adjust-chapter(int);
     callback adjust-subtitle-delay(float);
@@ -522,6 +528,23 @@ export component PlayerWindow inherits Window {
                             hardware-enabled: root.hardware-decoding-enabled;
                             hardware-known: root.hardware-decoding-known;
                             hardware-changed(value) => { root.set-hardware-decoding(value); }
+                        }
+                        if sidebar == 6 : VerticalLayout { spacing: 8px;
+                            for label[index] in ["Brightness", "Contrast", "Saturation", "Gamma", "Hue"] : HorizontalLayout {
+                                height: 20px; spacing: 8px;
+                                Text { text: label; width: 65px; font-size: 11px; color: #dddddd;
+                                    vertical-alignment: center; }
+                                PlayerSlider { minimum: -100; maximum: 100; step: 1;
+                                    neutral-mark: true;
+                                    value: root.video-equalizer-values[index]; hint: label;
+                                    enabled: root.video-equalizer-known[index];
+                                    changed(value) => { root.set-video-equalizer(index, value); }
+                                }
+                                Tool { width: 20px; height: 20px; label: "↺";
+                                    hint: "Reset " + label; enabled: root.video-equalizer-known[index];
+                                    activated => { root.set-video-equalizer(index, 0); }
+                                }
+                            }
                         }
                         if root.sidebar == 2 : HorizontalLayout {
                             height: 28px;

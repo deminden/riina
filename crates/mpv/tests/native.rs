@@ -28,6 +28,60 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies independent video equalizer channels and resets"]
+fn video_equalizer_preserves_other_channels_and_playback_options() {
+    use riina_core::video_controls::Equalizer;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video_equalizer == [Some(0); 5]
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    player.send(Command::Speed(1.5)).unwrap();
+    wait_for(&receiver, |state| state.speed == 1.5);
+    let mut expected = [Some(0); 5];
+    for (option, value) in Equalizer::ALL.into_iter().zip([-100, 100, -27, 13, 61]) {
+        expected[option.index()] = Some(value);
+        player
+            .send(Command::VideoEqualizer { option, value })
+            .unwrap();
+        let state = wait_for(&receiver, |state| state.video_equalizer == expected);
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert_eq!(state.speed, 1.5);
+        assert!(state.error.is_none(), "{:?}", state.error);
+    }
+    for option in Equalizer::ALL {
+        expected[option.index()] = Some(0);
+        player
+            .send(Command::VideoEqualizer { option, value: 0 })
+            .unwrap();
+        let state = wait_for(&receiver, |state| state.video_equalizer == expected);
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert_eq!(state.speed, 1.5);
+        assert!(state.error.is_none(), "{:?}", state.error);
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies configured decoding independently of codec fallback"]
 fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
     use riina_core::video_controls::HardwareDecoder;
