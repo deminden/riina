@@ -73,6 +73,13 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
             Some((320, 180))
         );
         assert_eq!(changed.completed_navigation_seeks, 0);
+        assert_eq!(
+            riina_core::crop::observed_index(&changed),
+            Preset::ALL
+                .iter()
+                .position(|value| *value == preset)
+                .map(|index| index + 1)
+        );
     }
     player.send(Command::VideoCrop(None)).unwrap();
     let reset = wait_for(&receiver, |state| {
@@ -162,6 +169,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     assert_eq!(custom.volume, 37.0);
     assert_eq!(custom.video_aspect_override, Some(1.0));
     assert_eq!(custom.error, None);
+    assert_eq!(riina_core::crop::observed_index(&custom), Some(6));
     player
         .send(Command::VideoCropRectangle(riina_core::crop::Rectangle {
             x: 0,

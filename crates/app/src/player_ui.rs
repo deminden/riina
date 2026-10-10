@@ -191,6 +191,16 @@ fn update_ui(
     app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
     app.set_video_aspect_known(state.video_aspect_override.is_some());
     app.set_video_rotation_known(state.video_rotation.is_some());
+    app.set_video_crop_known(
+        state.video_filters.is_some()
+            && state
+                .video
+                .as_ref()
+                .is_some_and(|video| video.w > 0 && video.h > 0),
+    );
+    app.set_video_crop_index(
+        riina_core::crop::observed_index(&state).map_or(-1, |index| index as i32),
+    );
     app.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
         state
             .video_equalizer
@@ -327,6 +337,11 @@ pub(crate) fn configure_player(
             .to_vec(),
     )));
     app.set_osd_enabled(prefs.enable_osd);
+    app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::crop::LABELS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
     app.set_primary_shortcut_is_meta(cfg!(target_os = "macos"));
     let osd_timeout = Duration::try_from_secs_f64(prefs.osd_timeout_secs)?;
     let app_weak = app.as_weak();
@@ -531,6 +546,27 @@ pub(crate) fn configure_player(
         }
     });
     let rotation_player = player.command_sender();
+    let crop_player = player.command_sender();
+    let crop_ui = app.as_weak();
+    app.on_set_video_crop(move |index| {
+        let preset = if index == 0 {
+            None
+        } else if let Some(preset) = usize::try_from(index - 1)
+            .ok()
+            .and_then(|index| riina_core::crop::Preset::ALL.get(index))
+            .copied()
+        {
+            Some(preset)
+        } else {
+            return;
+        };
+        if let Some(app) = crop_ui.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = crop_player.send(Command::VideoCrop(preset)) {
+                app.set_status(error.into());
+            }
+        }
+    });
     let weak = app.as_weak();
     app.on_set_video_rotation(move |degrees| {
         if let Some(app) = weak.upgrade()

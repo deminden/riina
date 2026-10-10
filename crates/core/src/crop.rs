@@ -1,6 +1,42 @@
 //! Source-pixel crop geometry, independent of presentation aspect and rotation.
 
 pub const FILTER_LABEL: &str = "riina-crop";
+pub const LABELS: [&str; 7] = ["None", "4:3", "16:9", "16:10", "21:9", "5:4", "Custom..."];
+
+/// Catalog-derived selection; unknown native state must not look like None.
+pub fn observed_index(state: &crate::Playback) -> Option<usize> {
+    let filters = state.video_filters.as_ref()?;
+    let Some(filter) = filters
+        .iter()
+        .find(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+    else {
+        return Some(0);
+    };
+    let source = state.video.as_ref()?;
+    let param = |name: &str, position: &str| {
+        filter
+            .params
+            .get(name)
+            .or_else(|| filter.params.get(position))
+    };
+    // Explicit coordinates identify custom intent even if the dimensions happen
+    // to equal a preset. Unrecognized native syntax stays Custom.
+    if filter.name != "crop" || param("x", "@2").is_some() || param("y", "@3").is_some() {
+        return Some(6);
+    }
+    let dimensions = param("w", "@0")
+        .and_then(|w| w.parse::<u32>().ok())
+        .zip(param("h", "@1").and_then(|h| h.parse::<u32>().ok()));
+    let Some(dimensions) = dimensions else {
+        return Some(6);
+    };
+    Some(
+        Preset::ALL
+            .iter()
+            .position(|preset| preset.dimensions(source.w, source.h).ok() == Some(dimensions))
+            .map_or(6, |index| index + 1),
+    )
+}
 
 /// Source pixels with a top-left origin, as used by the native crop filter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +134,24 @@ pub struct VideoFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn observed_selection_distinguishes_unknown_none_preset_and_explicit_rectangle() {
+        let mut state = crate::Playback::default();
+        assert_eq!(observed_index(&state), None);
+        state.video_filters = Some(vec![]);
+        assert_eq!(observed_index(&state), Some(0));
+        state.video = Some(serde_json::from_value(serde_json::json!({"w":320,"h":180})).unwrap());
+        state.video_filters = Some(vec![serde_json::from_value(serde_json::json!({"name":"crop","label":FILTER_LABEL,"params":{"@0":"240","@1":"180"}})).unwrap()]);
+        assert_eq!(observed_index(&state), Some(1));
+        state.video_filters.as_mut().unwrap()[0]
+            .params
+            .insert("@2".into(), "0".into());
+        assert_eq!(observed_index(&state), Some(6));
+        state.video_filters.as_mut().unwrap()[0].params =
+            [("w".into(), "288".into()), ("h".into(), "180".into())].into();
+        assert_eq!(observed_index(&state), Some(3));
+    }
 
     #[test]
     fn custom_rectangles_validate_source_edges_without_overflow() {

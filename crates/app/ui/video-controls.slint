@@ -40,11 +40,15 @@ export component VideoControls inherits Rectangle {
     in property <[string]> aspect-presets;
     in property <int> aspect-index: 0;
     in property <int> rotation-index: -1;
+    in property <[string]> crop-presets;
+    in property <int> crop-index: -1;
+    in property <bool> crop-enabled: false;
+    callback crop-changed(int);
     in property <bool> aspect-enabled: false;
     in property <bool> rotation-enabled: false;
     callback aspect-changed(string);
     callback rotation-changed(int);
-    height: 100px;
+    height: 152px;
     background: transparent;
     VerticalLayout { spacing: 8px;
         Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
@@ -90,6 +94,26 @@ export component VideoControls inherits Rectangle {
                                 accepted => { if self.text != "" { root.aspect-changed(self.text); } }
                             }
                         }
+                    }
+                }
+            }
+        }
+        Text { text: "Crop"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+        Rectangle { height: 24px;
+            ScrollView { width: parent.width; height: 24px;
+                horizontal-scrollbar-policy: always-off;
+                vertical-scrollbar-policy: always-off;
+                HorizontalLayout { spacing: 1px;
+                    for label[index] in root.crop-presets : VideoSegment {
+                        width: index == 6 ? 76px : 43px;
+                        label: label; hint: "Crop " + label;
+                        // Custom selection is displayed from native state; its
+                        // interactive editor is the remaining part of this feature.
+                        enabled: root.crop-enabled && index < 6;
+                        selected: root.crop-index == index;
+                        chosen => { root.crop-changed(index); }
+                        navigate(direction) => { root.crop-changed(clamp(
+                            (root.crop-index >= 0 && root.crop-index < 6 ? root.crop-index : index) + direction, 0, 5)); }
                     }
                 }
             }

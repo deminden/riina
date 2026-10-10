@@ -288,6 +288,9 @@ export component PlayerWindow inherits Window {
     in property <bool> video-aspect-known: false;
     in property <bool> video-rotation-known: false;
     in property <int> video-rotation-index: -1;
+    in property <[string]> video-crop-presets;
+    in property <int> video-crop-index: -1;
+    in property <bool> video-crop-known: false;
     in property <bool> hardware-decoding-known: false;
     in property <bool> hardware-decoding-enabled: false;
     in property <[int]> video-equalizer-values;
@@ -346,6 +349,7 @@ export component PlayerWindow inherits Window {
     callback frame-back-step();
     callback set-video-aspect(string);
     callback set-video-rotation(int);
+    callback set-video-crop(int);
     callback set-hardware-decoding(bool);
     callback set-video-equalizer(int, float);
     callback set-speed-slider(float);
@@ -529,6 +533,10 @@ export component PlayerWindow inherits Window {
                             aspect-presets: root.video-aspect-presets;
                             aspect-index: root.video-aspect-index;
                             rotation-index: root.video-rotation-index;
+                            crop-presets: root.video-crop-presets;
+                            crop-index: root.video-crop-index;
+                            crop-enabled: root.loaded && root.video-crop-known;
+                            crop-changed(value) => { root.set-video-crop(value); }
                             aspect-enabled: root.loaded && root.video-aspect-known;
                             rotation-enabled: root.loaded && root.video-rotation-known;
                             aspect-changed(value) => { root.set-video-aspect(value); }
