@@ -96,12 +96,17 @@ component Tool inherits Rectangle {
 
 component DelayInput inherits Rectangle {
     in property <float> value;
+    in property <bool> secondary: false;
     in property <bool> enabled: true;
     in property <string> hint;
     callback committed(string);
     width: 72px; height: 24px;
     border-radius: 4px; background: #ffffff10;
     border-width: 1px; border-color: input.has-focus ? #90b7ef : #ffffff20;
+    // Editing breaks TextInput's text binding; native updates and lane changes
+    // must explicitly restore the observed value rather than retaining a draft.
+    changed value => { input.text = "" + root.value; }
+    changed secondary => { input.text = "" + root.value; }
     input := TextInput {
         x: 6px; width: parent.width - 12px; height: parent.height;
         text: "" + root.value;
@@ -447,6 +452,7 @@ export component PlayerWindow inherits Window {
                             HorizontalLayout { height: 24px;
                                 Text { text: "Delay"; color: #bbbbbb; font-size: 11px; vertical-alignment: center; }
                                 DelayInput { value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
+                                    secondary: root.edit-secondary-subtitle;
                                     enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                     hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
                                     committed(text) => { root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text); } }

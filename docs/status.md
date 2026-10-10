@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local numeric delay Windows verification and binding fix: actual keyboard typing
+6.125 leaves native delay zero until Enter, then the observed slider reports
+6.125 while playback remains paused. Clearing and submitting the field resets
+native delay to zero. The same test exposed an edited TextInput retaining a blank
+draft instead of displaying the observed zero. Explicit value/lane change handlers
+now restore observed text after editing breaks the declarative binding. The old
+binary's scoped evidence is saved in numeric-delay-windows-evidence.json; this
+binding fix still needs runtime verification. Strict lint and all 26 unit tests
+pass. Secondary numeric routing, formatter/focus parity and rendered geometry
+remain pending. Changes stay local.
+
 Local numeric subtitle delay entry: the shared lane editor now has a custom
 keyboard-editable seconds field alongside its slider. Enter submits native
 double-precision text rather than constraining values to ±5 seconds; blank input
