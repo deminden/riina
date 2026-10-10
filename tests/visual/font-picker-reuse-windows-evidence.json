@@ -1,0 +1,66 @@
+{
+  "source_commit": "37c4623",
+  "observations": [
+    {
+      "action": "prepare-cancel",
+      "lines": [
+        "\t\t7 edit (settable, string) Filter font families Value: Verdana",
+        "\t\t20 edit (settable, string) Custom font name Value: Uncommitted-Font",
+        "\t\t21 edit (settable, string) Font preview text Value: Retain café Привет",
+        "The focused UI element is 20 edit (settable, string) Custom font name Value: Uncommitted-Font."
+      ]
+    },
+    {
+      "action": "reopen-after-cancel",
+      "lines": [
+        "\t\t7 edit (settable, string) Filter font families Value: Verdana",
+        "\t\t\t28 list item (selectable) Verdana",
+        "\t\t20 edit (settable, string) Custom font name Description: sans-serif",
+        "\t\t21 edit (settable, string) Font preview text Value: Retain café Привет",
+        "The focused UI element is 20 edit (settable, string) Custom font name Description: sans-serif."
+      ]
+    },
+    {
+      "action": "reopen-after-accept",
+      "lines": [
+        "\t\t7 edit (settable, string) Filter font families Value: Verdana",
+        "\t\t\t30 list item (selectable) Verdana",
+        "\t\t\t32 list item (selectable) Regular",
+        "\t\t20 edit (settable, string) Custom font name Value: Verdana",
+        "\t\t21 edit (settable, string) Font preview text Value: Retain café Привет",
+        "The focused UI element is 20 edit (settable, string) Custom font name Value: Verdana."
+      ]
+    },
+    {
+      "action": "reopen-after-native-close",
+      "lines": [
+        "\t\t7 edit (settable, string) Filter font families Value: Verdana",
+        "\t\t20 edit (settable, string) Custom font name Value: Verdana",
+        "\t\t21 edit (settable, string) Font preview text Value: Retain café Привет",
+        "The focused UI element is 20 edit (settable, string) Custom font name Value: Verdana."
+      ]
+    },
+    {
+      "action": "restore-default",
+      "lines": [
+        "\t\t\t68 text sans-serif",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "settled-close",
+      "remaining_riina_windows": 0
+    }
+  ],
+  "binary_sha256": "769f23d892b0081823aa1cc92fc516dc1788b2f1e19df86614d23b7e5feefa16",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "limitations": [
+    "AX observations only; no glyph or pixel proof.",
+    "Hidden-scan close-before-discovery race not exercised.",
+    "Already-visible custom entry refresh not exercised.",
+    "Other OS runtime and application-wide multiple-player/Settings reuse remain pending."
+  ]
+}

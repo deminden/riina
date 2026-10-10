@@ -807,6 +807,19 @@ was used instead. Formatting, strict lint, workspace unit checks and release
 build pass. No screenshot, pixel comparison, calibrated HDR, other OS runtime,
 global reusable picker or Settings sheet completion is implied.
 
+Reusable chooser state retest (Windows 11 x64, shared OpenGL, source 37c4623):
+the Unicode preview sample and Verdana search survive Escape Cancel, accepted
+custom-entry Enter and native Alt+F4 close/reopen. Cancelling Uncommitted-Font
+keeps playback sans-serif; reopening refreshes the entry from that observed font.
+Accepting Verdana and reopening restores the readable face list while retaining
+search/sample. Blank custom-entry Enter restores sans-serif, with size 55, pause
+and volume 37 retained. Settled player shutdown leaves no riina windows.
+Scoped observations and exact executable hash:
+tests/visual/font-picker-reuse-windows-evidence.json. Formatting, strict lint,
+unit checks and release build pass. The hidden-scan race, already-visible custom
+font refresh, native-video reuse, multiple-player/Settings reuse and other OS
+runtime remain untested. No glyph identity or pixel parity is proved.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red

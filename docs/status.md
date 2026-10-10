@@ -7,9 +7,17 @@ already visible. This corrects the earlier draft-preservation claim for the font
 entry itself: only preview/search survive, while selection is refreshed. A scan
 may populate the hidden reusable chooser without showing it; shutdown drops it.
 Pinned AppDelegate's single chooser and Utility's selection-before-show define
-the contract. Strict lint passes; runtime close/reopen and hidden-scan checks
-remain pending. Application-wide reuse across multiple players/Settings and
-other OS runtime remain open. All work stays local.
+the contract. Strict lint, unit checks and release build pass. Windows shared GL
+retest on 37c4623 verifies Unicode sample and Verdana search retained across
+Escape Cancel, accepted custom-entry Enter and native Alt+F4 close/reopen.
+Cancelled custom font is replaced by observed sans-serif on reopening; accepted
+Verdana restores its face list. Defaults were restored, with size 55, pause and
+volume 37 unchanged; settled shutdown leaves no player windows. Exact binary hash
+and scoped AX evidence: tests/visual/font-picker-reuse-windows-evidence.json.
+Close-before-scan race and already-visible font refresh remain untested.
+Application-wide reuse across multiple players/Settings, native-video reuse and
+other OS runtime remain open. No rendered sample or pixel parity is claimed.
+All work stays local.
 
 Native font chooser lifecycle verified on ebf6d9c: chooser now appears as a
 separate targetable Choose a Font window instead of being nested under the video
