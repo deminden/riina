@@ -2,6 +2,15 @@
 
 ## Video setting feedback · 2026-10-10
 
+Initial GUI at 201fb77 shows Brightness: -27 and eventual expiry, but speed
+changes to 1.234567 and 2 do not expose their speed messages. Inspection finds
+the catalog-only displayed cache is being reused as feedback history; unchanged
+catalogs leave old brightness values in that cache. Repair adds an independent
+VideoOsd history that consumes every snapshot while retaining only feedback
+fields. A regression check verifies brightness once, no repeat on unchanged
+observations, then speed once and no repeat on clock-only updates. Initial GUI
+close exits 0 with empty stderr. Repaired GUI checks remain pending.
+
 Pinned OSDMessage.speed / hwdec / brightness / contrast / saturation / gamma /
 hue define speed text with up to six decimals, On/Off for configured hardware
 decoding and signed equalizer labels with progress mapping -100 → 0, 0 → 0.5,

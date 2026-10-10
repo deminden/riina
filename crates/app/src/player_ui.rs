@@ -135,6 +135,7 @@ fn update_ui(
     state: Playback,
     displayed: &mut Option<Playback>,
     last_seek: &mut SeekOsd,
+    last_video: &mut crate::video_osd::VideoOsd,
 ) {
     if displayed
         .as_ref()
@@ -149,7 +150,7 @@ fn update_ui(
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
     }
-    if let Some(message) = crate::video_osd::changed(displayed.as_ref(), &state) {
+    if let Some(message) = last_video.observe(&state) {
         app.set_video_osd_text(message.text.into());
         app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
         app.invoke_show_video_osd();
@@ -335,6 +336,7 @@ pub(crate) fn configure_player(
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
     let last_seek = Arc::new(std::sync::Mutex::new(SeekOsd::default()));
+    let last_video = Arc::new(std::sync::Mutex::new(crate::video_osd::VideoOsd::default()));
     let notify = move |state| {
         if let Ok(mut latest) = latest.lock() {
             *latest = Some(state);
@@ -347,14 +349,16 @@ pub(crate) fn configure_player(
         let weak = app_weak.clone();
         let displayed = displayed.clone();
         let last_seek = last_seek.clone();
+        let last_video = last_video.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
                 && let Some(state) = latest.take()
                 && let Ok(mut displayed) = displayed.lock()
                 && let Ok(mut last_seek) = last_seek.lock()
+                && let Ok(mut last_video) = last_video.lock()
             {
-                update_ui(&app, state, &mut displayed, &mut last_seek);
+                update_ui(&app, state, &mut displayed, &mut last_seek, &mut last_video);
             }
         });
     };

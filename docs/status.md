@@ -2,6 +2,10 @@
 
 Video-setting OSD now derives messages from confirmed native speed, configured
 hardware decoding and five equalizer channels, with signed equalizer progress.
+Initial GUI showed brightness feedback but missed speed messages. The catalog
+cache did not consume settings-only updates; repair gives feedback independent
+observation history, with a regression test for sequential brightness/speed
+changes and clock-only suppression. Repaired GUI retest is pending.
 Initial/unknown values and generation changes do not create feedback; replacement,
 stop and errors hide it. Existing global OSD enable/timeout controls apply, and
 video and seek messages exclude each other. Unit checks pass; final updated

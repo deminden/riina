@@ -7,6 +7,28 @@ pub(crate) struct Message {
     pub progress: Option<f32>,
 }
 
+#[derive(Default)]
+pub(crate) struct VideoOsd {
+    previous: Option<Playback>,
+}
+
+impl VideoOsd {
+    pub(crate) fn observe(&mut self, state: &Playback) -> Option<Message> {
+        let message = changed(self.previous.as_ref(), state);
+        // Catalog caches intentionally ignore clock/settings-only snapshots.
+        // Consume every observation here, retaining only feedback fields so a
+        // prior edit cannot repeatedly mask a later edit or restart its timer.
+        self.previous = Some(Playback {
+            generation: state.generation,
+            speed: state.speed,
+            hardware_decoding: state.hardware_decoding.clone(),
+            video_equalizer: state.video_equalizer,
+            ..Default::default()
+        });
+        message
+    }
+}
+
 pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<Message> {
     let previous = previous?;
     if previous.generation != state.generation
@@ -85,6 +107,20 @@ mod tests {
         state.generation = old.generation;
         state.error = Some("Rejected command".into());
         assert_eq!(changed(Some(&old), &state), None);
+    }
+
+    #[test]
+    fn feedback_consumes_each_observation_independently_of_catalog_updates() {
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        assert_eq!(feedback.observe(&state), None);
+        state.video_equalizer[0] = Some(-27);
+        assert_eq!(feedback.observe(&state).unwrap().text, "Brightness: -27");
+        assert_eq!(feedback.observe(&state), None);
+        state.speed = 2.0;
+        assert_eq!(feedback.observe(&state).unwrap().text, "Speed: 2x");
+        state.position = Some(4.0);
+        assert_eq!(feedback.observe(&state), None);
     }
     #[test]
     fn equalizer_progress_and_hardware_policy_keep_distinct_semantics() {
