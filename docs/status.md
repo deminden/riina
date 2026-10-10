@@ -2189,3 +2189,15 @@ invalid input. The live test did not exercise these controls; file discovery,
 subtitle matching, playlist effects, and live save/restart remain unimplemented.
 Source capture matching and full Windows/macOS visual comparison remain open.
 This local progress was not published.
+
+2026-10-10 Subtitle Auto Load behavior increment: the validated mode and literal
+search-directory lists now configure mpv's portable `sub-auto` and
+`sub-file-paths` properties on startup and live Preferences saves. Disabled maps
+to no matching, filename match to fuzzy matching, and IINA's intelligent mode to
+exact matching. The IINA-default `./*` glob remains saved and is not passed as an
+invalid literal mpv path. This makes basic sidecar loading functional, but does
+not reproduce IINA's priority-keyword ranking or complete directory/glob matcher. Rust 1.99.0 workspace
+tests and strict all-target Clippy pass; the 38 native integration tests are
+ignored without the pinned runtime DLL, and no GUI interaction or pixel parity
+is claimed. Release v0.2.2 is available as a source archive and SHA-256 file;
+binary packaging remains behind the dependency audit gate.

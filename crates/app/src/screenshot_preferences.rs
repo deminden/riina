@@ -375,6 +375,9 @@ pub(crate) fn connect(
                     )
                 })
                 .and_then(|()| {
+                    decoder_player.send(Command::SubtitleAutoLoad(selected_auto_load.clone()))
+                })
+                .and_then(|()| {
                     crate::subtitle_position_preferences::install_player(&app, selected_position);
                     crate::subtitle_other_preferences::install_player(
                         &app,
@@ -435,6 +438,8 @@ pub(crate) fn connect(
                         }
                     }
                     Err(error) => {
+                        let _ = decoder_player
+                            .send(Command::SubtitleAutoLoad(previous_auto_load.clone()));
                         let _ = crate::subtitle_other_preferences::apply(
                             &decoder_player,
                             &selected_subtitle_other,

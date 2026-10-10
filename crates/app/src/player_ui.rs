@@ -102,16 +102,26 @@ fn refresh_welcome_history(
 fn resume_engine_options(
     watch_later_directory: &std::path::Path,
     resume_last_position: bool,
+    subtitle_auto_load: &riina_core::subtitle_controls::AutoLoadPreferences,
 ) -> Vec<(String, String)> {
     let enabled = if resume_last_position { "yes" } else { "no" }.to_owned();
-    vec![
+    let mut options = vec![
         (
             "watch-later-directory".into(),
             watch_later_directory.to_string_lossy().into_owned(),
         ),
         ("save-position-on-quit".into(), enabled.clone()),
         ("resume-playback".into(), enabled),
-    ]
+    ];
+    options.push((
+        "sub-auto".into(),
+        subtitle_auto_load.mpv_matching_mode().into(),
+    ));
+    options.push((
+        "sub-file-paths".into(),
+        subtitle_auto_load.mpv_search_paths().unwrap_or_default(),
+    ));
+    options
 }
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
@@ -630,7 +640,11 @@ pub(crate) fn configure_player(
     };
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
-    let engine_options = resume_engine_options(&watch_later_directory, prefs.resume_last_position);
+    let engine_options = resume_engine_options(
+        &watch_later_directory,
+        prefs.resume_last_position,
+        &prefs.subtitle_auto_load,
+    );
     app.set_volume_boost(prefs.volume_boost);
     app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
     app.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
@@ -1974,15 +1988,25 @@ mod welcome_tests {
     }
 
     #[test]
-    fn resume_preference_configures_both_native_watch_later_directions() {
+    fn startup_options_configure_resume_and_subtitle_autoload() {
         let directory = std::path::Path::new("profile/watch-later");
-        let enabled = resume_engine_options(directory, true);
+        let enabled = resume_engine_options(
+            directory,
+            true,
+            &riina_core::subtitle_controls::AutoLoadPreferences::default(),
+        );
         assert_eq!(enabled[0].0, "watch-later-directory");
         assert_eq!(enabled[0].1, directory.to_string_lossy());
         assert_eq!(enabled[1], ("save-position-on-quit".into(), "yes".into()));
         assert_eq!(enabled[2], ("resume-playback".into(), "yes".into()));
+        assert_eq!(enabled[3], ("sub-auto".into(), "exact".into()));
+        assert_eq!(enabled[4], ("sub-file-paths".into(), "".into()));
 
-        let disabled = resume_engine_options(directory, false);
+        let disabled = resume_engine_options(
+            directory,
+            false,
+            &riina_core::subtitle_controls::AutoLoadPreferences::default(),
+        );
         assert_eq!(disabled[1].1, "no");
         assert_eq!(disabled[2].1, "no");
     }

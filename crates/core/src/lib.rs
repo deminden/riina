@@ -82,6 +82,7 @@ pub enum Command {
     SubtitleMarginY(f64),
     SubtitlePreferredLanguages(String),
     SubtitleEncoding(String),
+    SubtitleAutoLoad(subtitle_controls::AutoLoadPreferences),
     VideoEqualizer {
         option: video_controls::Equalizer,
         value: i64,
@@ -441,6 +442,7 @@ impl Command {
             | Self::AppendFiles(_)
             | Self::SubtitleLetterboxMargins(_)
             | Self::SubtitleEncoding(_)
+            | Self::SubtitleAutoLoad(_)
             | Self::CycleLoop
             | Self::SetAbLoop { .. }
             | Self::SelectPlaylistId(_)
@@ -480,6 +482,20 @@ impl Command {
                         .filter(|track| track.kind == TrackKind::Sub)
                         .map(|track| vec!["sub-reload".into(), track.id.to_string()]),
                 );
+                commands
+            }
+            Self::SubtitleAutoLoad(preferences) => {
+                preferences.validate().map_err(str::to_owned)?;
+                let mut commands = vec![vec![
+                    "set".into(),
+                    "sub-auto".into(),
+                    preferences.mpv_matching_mode().into(),
+                ]];
+                commands.push(vec![
+                    "set".into(),
+                    "sub-file-paths".into(),
+                    preferences.mpv_search_paths().unwrap_or_default(),
+                ]);
                 commands
             }
             Self::Screenshot {
@@ -1609,17 +1625,61 @@ mod tests {
         assert_eq!(AutoLoadMode::Filename.index(), 1);
         assert_eq!(AutoLoadMode::Intelligent.index(), 2);
         assert_eq!(AutoLoadMode::from_index(3), None);
+        assert_eq!(
+            AutoLoadPreferences {
+                mode: AutoLoadMode::Disabled,
+                ..AutoLoadPreferences::default()
+            }
+            .mpv_matching_mode(),
+            "no"
+        );
+        assert_eq!(
+            AutoLoadPreferences {
+                mode: AutoLoadMode::Filename,
+                ..AutoLoadPreferences::default()
+            }
+            .mpv_matching_mode(),
+            "fuzzy"
+        );
+        assert_eq!(AutoLoadPreferences::default().mpv_matching_mode(), "exact");
 
         let configured = Preferences {
             subtitle_auto_load: AutoLoadPreferences {
                 mode: AutoLoadMode::Filename,
                 priority_keywords: "forced, SDH".into(),
-                search_paths: "./subs:../captions".into(),
+                search_paths: std::env::join_paths(["./subs", "../captions"])
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned(),
             },
             ..legacy
         };
         let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
         assert_eq!(restored.subtitle_auto_load, configured.subtitle_auto_load);
+        assert_eq!(
+            Command::SubtitleAutoLoad(configured.subtitle_auto_load.clone())
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            [
+                ["set", "sub-auto", "fuzzy"].map(str::to_owned).to_vec(),
+                [
+                    "set",
+                    "sub-file-paths",
+                    std::env::join_paths(["./subs", "../captions"])
+                        .unwrap()
+                        .to_string_lossy()
+                        .as_ref(),
+                ]
+                .map(str::to_owned)
+                .to_vec(),
+            ]
+        );
+        assert_eq!(
+            AutoLoadPreferences::default().mpv_search_paths(),
+            None,
+            "IINA's default glob is not an mpv directory path"
+        );
         for invalid in [
             r#"{"subtitle_auto_load":{"priority_keywords":"eng\nforced"}}"#,
             r#"{"subtitle_auto_load":{"search_paths":"subs\u0000"}}"#,

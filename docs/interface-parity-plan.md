@@ -105,8 +105,12 @@ section stack scrolls within the pane; the Advanced disclosure starts folded and
 reveals Shadow and Other Styles. Subtitle > Other now contains a preferred-language
 field and the pinned 44-entry encoding menu; changing encoding updates `sub-codepage`
 and reloads each current subtitle track. The plain-text language editor, exact group
-geometry, live save/restart and matched rendering remain open. Auto Load and Online
-Subtitles are not implemented yet.
+geometry, live save/restart and matched rendering remain open. Auto Load controls
+persist and configure mpv's disabled/fuzzy/exact sidecar modes on startup and live
+preference saves. Literal directory lists are passed to mpv; IINA's default `./*`
+glob is retained but not misinterpreted as a literal directory. Priority keyword
+ranking and full directory/glob matching remain unimplemented; Online Subtitles is
+not implemented.
 Network, Control, Key Bindings and Utilities currently show their title only.
 Plugin settings are conditional
 upstream and omitted until the plugin system exists. Source-list geometry, full
@@ -154,10 +158,13 @@ encoding change. Its 44-choice menu follows the pinned source order and passes a
 menu round-trip test. The language field is not yet the source token-field control;
 runtime save/restart and matched pixels remain open.
 Subtitle Auto Load now precedes ASS in the section stack. It exposes the three
-source-ordered modes and the Advanced priority-keyword and search-path fields with
-the pinned defaults. Settings persist, but file discovery, matching and playlist
-behavior are still open; live comparison against the source and macOS pixels is
-also still required.
+source-ordered modes and Advanced priority-keyword/search-path fields with the
+pinned defaults. Startup and live preference saves configure mpv's `sub-auto`
+property, translating Disabled/filename/IINA modes to no/fuzzy/exact sidecar
+matching. Literal directories map to `sub-file-paths`; the default `./*` glob is
+retained without being passed as an invalid directory. IINA keyword ranking and
+its complete directory/glob matcher remain unimplemented. Playlist effects, live
+GUI interaction, source comparison and matched macOS pixels remain open.
 Network, Control,
 Key Bindings and Utilities are still title-only; the remaining Subtitle sections
 and full surface comparison are part of the complete parity goal.

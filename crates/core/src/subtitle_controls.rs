@@ -66,6 +66,35 @@ impl AutoLoadPreferences {
         }
         Ok(())
     }
+
+    /// Map the preference intent onto mpv's portable sidecar matching modes.
+    /// Priority-keyword ranking is applied by the app-level matcher in a later
+    /// parity increment; mpv owns directory traversal and external-track loading.
+    pub const fn mpv_matching_mode(&self) -> &'static str {
+        match self.mode {
+            AutoLoadMode::Disabled => "no",
+            AutoLoadMode::Filename => "fuzzy",
+            AutoLoadMode::Intelligent => "exact",
+        }
+    }
+
+    /// mpv accepts directory lists, while IINA's default path is a glob.
+    /// Leave glob expansion to the future portable matcher instead of passing
+    /// an unsupported pattern through as if it were an ordinary directory.
+    pub fn mpv_search_paths(&self) -> Option<String> {
+        let paths = std::env::split_paths(&self.search_paths).collect::<Vec<_>>();
+        if paths.iter().any(|path| {
+            path.as_os_str()
+                .to_string_lossy()
+                .chars()
+                .any(|character| matches!(character, '*' | '?'))
+        }) {
+            return None;
+        }
+        std::env::join_paths(paths)
+            .ok()
+            .map(|paths| paths.to_string_lossy().into_owned())
+    }
 }
 
 /// Display labels and mpv values from the pinned IINA encoding menu.
