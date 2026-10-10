@@ -1,0 +1,46 @@
+{
+  "scope": "Native default saving and Windows AX inventory; GUI activation remains unverified",
+  "defaults": {
+    "format": "png",
+    "content": "subtitles",
+    "template": "%F-%n",
+    "directory": "platform Pictures/Screenshots"
+  },
+  "native_test": {
+    "unicode_directory": "passed",
+    "collision": "existing 0001 bytes unchanged; created 0002 and 0003",
+    "pause_position": "preserved",
+    "actual_filename_reply": "observed",
+    "no_frame_failure": "no success counter/file"
+  },
+  "verification": {
+    "workspace_tests": "passed",
+    "native_tests": 35,
+    "native_seconds": 20.06,
+    "format": "passed",
+    "strict_lint": "passed",
+    "windows_release_seconds": 54.17,
+    "logged_template_test": "passed"
+  },
+  "gui": {
+    "inventory": "Playback before Video",
+    "actions": "F10/Return and Ctrl+Shift+S completion not established; no catalog PNG observed",
+    "menu_click_error": "coordinate input geometry is unavailable",
+    "capture_error": "IGraphicsCaptureItemInterop.CreateForMonitor failed: 0x80070057",
+    "close_exit": 0,
+    "stderr": "expected scale=3 native chrome layout diagnostic"
+  },
+  "release_sha256": "de7f3d897194a97b51f30e3b25a14086f118aed795000b6c82041e2b35934068",
+  "remaining": [
+    "GUI activation",
+    "complete Playback menu and accelerator display",
+    "preferences",
+    "clipboard",
+    "five-second image preview/accessory",
+    "window-mode capture",
+    "active subtitle composition",
+    "shared GL and other OS runtime"
+  ],
+  "published": false,
+  "source_commit": "1e8a9a5dd4d588f75d8e76b58d07ea89dbe22f00"
+}
