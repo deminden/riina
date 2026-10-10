@@ -1,10 +1,30 @@
 //! Source-pixel crop geometry, independent of presentation aspect and rotation.
 
 pub const FILTER_LABEL: &str = "riina-crop";
-pub const LABELS: [&str; 7] = ["None", "4:3", "16:9", "16:10", "21:9", "5:4", "Custom..."];
+pub const LABELS: [&str; 7] = ["None", "4:3", "16:9", "16:10", "21:9", "5:4", "Custom…"];
+// The reference menu and quick-settings panel intentionally offer different lists.
+pub const MENU_LABELS: [&str; 10] = [
+    "None", "4:3", "5:4", "16:9", "16:10", "1:1", "3:2", "2.21:1", "2.35:1", "2.39:1",
+];
+pub const MENU_CUSTOM_INDEX: usize = MENU_LABELS.len();
 
 /// Catalog-derived selection; unknown native state must not look like None.
 pub fn observed_index(state: &crate::Playback) -> Option<usize> {
+    observed_for(state, &Preset::ALL)
+}
+
+pub fn observed_menu_index(state: &crate::Playback) -> Option<usize> {
+    let index = observed_for(state, &Preset::MENU_ALL)?;
+    // 21:9 belongs to the panel, not the menu. A panel preset must not falsely
+    // check Custom; explicit rectangle parameters still identify custom intent.
+    if index == MENU_CUSTOM_INDEX && observed_index(state) == Some(4) {
+        None
+    } else {
+        Some(index)
+    }
+}
+
+fn observed_for(state: &crate::Playback, presets: &[Preset]) -> Option<usize> {
     let filters = state.video_filters.as_ref()?;
     let Some(filter) = filters
         .iter()
@@ -22,20 +42,25 @@ pub fn observed_index(state: &crate::Playback) -> Option<usize> {
     // Explicit coordinates identify custom intent even if the dimensions happen
     // to equal a preset. Unrecognized native syntax stays Custom.
     if filter.name != "crop" || param("x", "@2").is_some() || param("y", "@3").is_some() {
-        return Some(6);
+        return Some(presets.len() + 1);
     }
     let dimensions = param("w", "@0")
         .and_then(|w| w.parse::<u32>().ok())
         .zip(param("h", "@1").and_then(|h| h.parse::<u32>().ok()));
     let Some(dimensions) = dimensions else {
-        return Some(6);
+        return Some(presets.len() + 1);
     };
-    Some(
-        Preset::ALL
-            .iter()
-            .position(|preset| preset.dimensions(source.w, source.h).ok() == Some(dimensions))
-            .map_or(6, |index| index + 1),
-    )
+    let mut matches = presets
+        .iter()
+        .enumerate()
+        .filter(|(_, preset)| preset.dimensions(source.w, source.h).ok() == Some(dimensions));
+    match (matches.next(), matches.next()) {
+        (None, _) => Some(presets.len() + 1),
+        (Some((index, _)), None) => Some(index + 1),
+        // Tiny sources can produce identical dimensions for different ratios.
+        // Native geometry alone cannot establish which named preset was chosen.
+        (Some(_), Some(_)) => None,
+    }
 }
 
 /// Source pixels with a top-left origin, as used by the native crop filter.
@@ -83,9 +108,25 @@ pub enum Preset {
     SixteenTen,
     TwentyOneNine,
     FiveFour,
+    Square,
+    ThreeTwo,
+    Cinema221,
+    Cinema235,
+    Cinema239,
 }
 
 impl Preset {
+    pub const MENU_ALL: [Self; 9] = [
+        Self::FourThree,
+        Self::FiveFour,
+        Self::SixteenNine,
+        Self::SixteenTen,
+        Self::Square,
+        Self::ThreeTwo,
+        Self::Cinema221,
+        Self::Cinema235,
+        Self::Cinema239,
+    ];
     pub const ALL: [Self; 5] = [
         Self::FourThree,
         Self::SixteenNine,
@@ -101,6 +142,11 @@ impl Preset {
             Self::SixteenTen => "16:10",
             Self::TwentyOneNine => "21:9",
             Self::FiveFour => "5:4",
+            Self::Square => "1:1",
+            Self::ThreeTwo => "3:2",
+            Self::Cinema221 => "2.21:1",
+            Self::Cinema235 => "2.35:1",
+            Self::Cinema239 => "2.39:1",
         }
     }
 
@@ -111,6 +157,11 @@ impl Preset {
             Self::SixteenTen => (16, 10),
             Self::TwentyOneNine => (21, 9),
             Self::FiveFour => (5, 4),
+            Self::Square => (1, 1),
+            Self::ThreeTwo => (3, 2),
+            Self::Cinema221 => (221, 100),
+            Self::Cinema235 => (235, 100),
+            Self::Cinema239 => (239, 100),
         };
         // Integer cross-products avoid floating-point boundary drift. Presets
         // truncate the reduced dimension; the native filter centers the crop.
@@ -143,6 +194,44 @@ pub struct VideoFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn menu_geometry_preserves_decimal_ratios_and_distinct_panel_selection() {
+        let expected = [
+            (240, 180),
+            (225, 180),
+            (320, 180),
+            (288, 180),
+            (180, 180),
+            (270, 180),
+            (320, 144),
+            (320, 136),
+            (320, 133),
+        ];
+        let mut state = crate::Playback {
+            video: Some(serde_json::from_value(serde_json::json!({"w":320,"h":180})).unwrap()),
+            ..Default::default()
+        };
+        for (index, preset) in Preset::MENU_ALL.into_iter().enumerate() {
+            let dimensions = preset.dimensions(320, 180).unwrap();
+            assert_eq!(dimensions, expected[index]);
+            state.video_filters = Some(vec![serde_json::from_value(serde_json::json!({
+                "name":"crop","label":FILTER_LABEL,"params":{"w":dimensions.0.to_string(),"h":dimensions.1.to_string()}
+            })).unwrap()]);
+            assert_eq!(observed_menu_index(&state), Some(index + 1));
+        }
+        state.video_filters = Some(vec![serde_json::from_value(serde_json::json!({"name":"crop","label":FILTER_LABEL,"params":{"w":"320","h":"137"}})).unwrap()]);
+        assert_eq!(observed_index(&state), Some(4));
+        assert_eq!(observed_menu_index(&state), None);
+        state.video_filters.as_mut().unwrap()[0]
+            .params
+            .insert("x".into(), "0".into());
+        assert_eq!(observed_menu_index(&state), Some(MENU_CUSTOM_INDEX));
+        state.video = Some(serde_json::from_value(serde_json::json!({"w":8,"h":8})).unwrap());
+        state.video_filters.as_mut().unwrap()[0].params =
+            [("w".into(), "8".into()), ("h".into(), "3".into())].into();
+        assert_eq!(observed_menu_index(&state), None);
+    }
 
     #[test]
     fn observed_selection_distinguishes_unknown_none_preset_and_explicit_rectangle() {

@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Video > Crop now exists on the shared player and native owner, with the pinned
+menu's distinct nine ratios, None, separator and Custom… entry. It routes through
+the existing typed crop command/editor and shares observed catalog state; panel
+presets remain separate. Decimal cinema ratios use exact integer fractions.
+The native crop replacement test now covers all menu ratios plus panel 21:9,
+preserving pause/volume/source geometry and navigation provenance. It passes;
+workspace tests and strict lint pass after fixing a test initializer lint.
+Geometry collisions on tiny sources now leave selection unknown rather than
+checking an arbitrary ratio; preserving named intent in that case remains open.
+GUI menu checks/actions, Custom… entry and pixels are pending verification.
+Nothing published.
+
 Native crop window-control evidence on source d9bc274 shows Close disabled and
 Minimise/Maximise absent from the accessible title bar during editing. Return
 confirms the whole-source selection and restores all three controls enabled,

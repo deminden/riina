@@ -339,7 +339,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     wait_for(&receiver, |state| state.paused);
     player.send(Command::Volume(37.0)).unwrap();
     wait_for(&receiver, |state| state.volume == 37.0);
-    for preset in Preset::ALL {
+    for preset in Preset::MENU_ALL.into_iter().chain([Preset::TwentyOneNine]) {
         let (width, height) = preset.dimensions(320, 180).unwrap();
         // This fixture decodes to YUV420: libavfilter aligns odd dimensions
         // down to chroma boundaries, while vf retains the requested dimensions.
@@ -378,7 +378,16 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
         assert_eq!(changed.completed_navigation_seeks, 0);
         assert_eq!(
             riina_core::crop::observed_index(&changed),
-            Preset::ALL
+            Some(
+                Preset::ALL
+                    .iter()
+                    .position(|value| *value == preset)
+                    .map_or(6, |index| index + 1)
+            )
+        );
+        assert_eq!(
+            riina_core::crop::observed_menu_index(&changed),
+            Preset::MENU_ALL
                 .iter()
                 .position(|value| *value == preset)
                 .map(|index| index + 1)

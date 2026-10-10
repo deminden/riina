@@ -251,15 +251,24 @@ export component PlayerWindow inherits Window {
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
     callback toggle-video-reflection(bool);
-    callback reflection-menu-changed();
+    callback video-menu-changed();
     callback open-application-menu();
-    changed reflection-known => { root.reflection-menu-changed(); }
-    changed video-mirrored => { root.reflection-menu-changed(); }
-    changed video-flipped => { root.reflection-menu-changed(); }
+    changed reflection-known => { root.video-menu-changed(); }
+    changed video-mirrored => { root.video-menu-changed(); }
+    changed video-flipped => { root.video-menu-changed(); }
     callback crop-window-controls-changed();
-    changed crop-editing => { root.reflection-menu-changed(); root.crop-window-controls-changed(); }
+    changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); }
     if !native-video : MenuBar {
         Menu { title: "Video";
+            Menu { title: "Crop"; enabled: root.loaded && root.video-crop-known && !root.crop-editing;
+                for label[index] in root.video-crop-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: root.video-crop-menu-index == index;
+                    activated => { root.set-menu-video-crop(index); }
+                }
+                MenuSeparator {}
+                MenuItem { title: "Custom…"; checkable: true; checked: root.video-crop-menu-index == 10;
+                    activated => { root.set-menu-video-crop(10); } }
+            }
             Menu { title: "Flip"; enabled: root.loaded && root.reflection-known && !root.crop-editing;
                 MenuItem { title: "Horizontal (Mirror)"; checkable: true; checked: root.video-mirrored;
                     activated => { root.toggle-video-reflection(true); } }
@@ -332,6 +341,11 @@ export component PlayerWindow inherits Window {
     in property <[string]> video-crop-presets;
     in property <int> video-crop-index: -1;
     in property <bool> video-crop-known: false;
+    in property <[string]> video-crop-menu-labels;
+    in property <int> video-crop-menu-index: -1;
+    changed video-crop-known => { root.video-menu-changed(); }
+    changed video-crop-menu-labels => { root.video-menu-changed(); }
+    changed video-crop-menu-index => { root.video-menu-changed(); }
     in property <bool> hardware-decoding-known: false;
     in property <bool> hardware-decoding-enabled: false;
     in property <[int]> video-equalizer-values;
@@ -399,6 +413,7 @@ export component PlayerWindow inherits Window {
     callback set-video-aspect(string);
     callback set-video-rotation(int);
     callback set-video-crop(int);
+    callback set-menu-video-crop(int);
     callback set-hardware-decoding(bool);
     callback set-video-equalizer(int, float);
     callback set-speed-slider(float);
@@ -988,7 +1003,7 @@ export component PlayerWindow inherits Window {
         }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
-    changed loaded => { root.reflection-menu-changed(); if !root.loaded { keys.focus(); } }
+    changed loaded => { root.video-menu-changed(); if !root.loaded { keys.focus(); } }
     changed controls-visible => { if !root.controls-visible { keys.focus(); } }
     init => { keys.focus(); }
 }

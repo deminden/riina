@@ -1,5 +1,10 @@
 # Implementation plan
 
+Video > Crop now uses the menu's nine-ratio list, distinct from the panel list,
+with a separator before Custom…. Verify GUI menu navigation and preset actions,
+Custom… editor lifecycle, checked state and rendered output. Preserve named
+preset identity when multiple ratios round to identical native dimensions.
+
 Crop standard window controls now have a shared temporary disable/restore
 coordinator. Windows native Close-disabled and Minimise/Maximise-absent AX state
 and restoration after whole-source Done have runtime evidence. Verify visual

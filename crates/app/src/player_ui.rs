@@ -217,6 +217,9 @@ fn update_ui(
     app.set_video_crop_index(
         riina_core::crop::observed_index(&state).map_or(-1, |index| index as i32),
     );
+    app.set_video_crop_menu_index(
+        riina_core::crop::observed_menu_index(&state).map_or(-1, |index| index as i32),
+    );
     app.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
         state
             .video_equalizer
@@ -353,6 +356,11 @@ pub(crate) fn configure_player(
             .to_vec(),
     )));
     app.set_osd_enabled(prefs.enable_osd);
+    app.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::crop::MENU_LABELS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::LABELS
             .map(slint::SharedString::from)
@@ -607,6 +615,37 @@ pub(crate) fn configure_player(
             if let Err(error) = crop_player.send(Command::VideoCrop(preset)) {
                 app.set_status(error.into());
             }
+        }
+    });
+    let menu_crop_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_menu_video_crop(move |index| {
+        let Some(app) = weak.upgrade() else { return };
+        if !app.get_loaded()
+            || !app.get_video_crop_known()
+            || app.get_crop_editing()
+            || app.get_dialog_open()
+        {
+            return;
+        }
+        if index == riina_core::crop::MENU_CUSTOM_INDEX as i32 {
+            app.invoke_begin_custom_crop();
+            return;
+        }
+        let preset = if index == 0 {
+            None
+        } else if let Some(preset) = usize::try_from(index - 1)
+            .ok()
+            .and_then(|index| riina_core::crop::Preset::MENU_ALL.get(index))
+            .copied()
+        {
+            Some(preset)
+        } else {
+            return;
+        };
+        app.invoke_activity();
+        if let Err(error) = menu_crop_player.send(Command::VideoCrop(preset)) {
+            app.set_status(error.into());
         }
     });
     let weak = app.as_weak();

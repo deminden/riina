@@ -106,13 +106,18 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             // playback model or sending window handles across threads.
             let menu_host = host.as_weak();
             let menu_app = app.as_weak();
-            app.on_reflection_menu_changed(move || {
+            app.on_video_menu_changed(move || {
                 if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
                     host.set_reflection_menu_enabled(
                         app.get_loaded() && app.get_reflection_known() && !app.get_crop_editing(),
                     );
                     host.set_video_mirrored(app.get_video_mirrored());
                     host.set_video_flipped(app.get_video_flipped());
+                    host.set_crop_menu_enabled(
+                        app.get_loaded() && app.get_video_crop_known() && !app.get_crop_editing(),
+                    );
+                    host.set_crop_menu_labels(app.get_video_crop_menu_labels());
+                    host.set_crop_menu_index(app.get_video_crop_menu_index());
                 }
             });
             let menu_app = app.as_weak();
@@ -122,6 +127,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
             let configured = configure_player(&app, Some(presentation), media)?;
+            let menu_app = app.as_weak();
+            host.on_set_menu_video_crop(move |index| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_set_menu_video_crop(index);
+                }
+            });
             *startup_session.borrow_mut() = Some(configured);
             let close_session = startup_session.clone();
             let close_host = host.as_weak();

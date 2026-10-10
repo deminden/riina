@@ -7,8 +7,21 @@ export component NativeVideoHost inherits Window {
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
     callback toggle-video-reflection(bool);
+    in property <bool> crop-menu-enabled: false;
+    in property <[string]> crop-menu-labels;
+    in property <int> crop-menu-index: -1;
+    callback set-menu-video-crop(int);
     MenuBar {
         Menu { title: "Video";
+            Menu { title: "Crop"; enabled: root.crop-menu-enabled;
+                for label[index] in root.crop-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: root.crop-menu-index == index;
+                    activated => { root.set-menu-video-crop(index); }
+                }
+                MenuSeparator {}
+                MenuItem { title: "Custom…"; checkable: true; checked: root.crop-menu-index == 10;
+                    activated => { root.set-menu-video-crop(10); } }
+            }
             Menu { title: "Flip"; enabled: root.reflection-menu-enabled;
                 MenuItem { title: "Horizontal (Mirror)"; checkable: true; checked: root.video-mirrored;
                     activated => { root.toggle-video-reflection(true); } }
