@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local numeric delay focus completion: successful text submission now returns
+focus to the player's shortcut scope, matching the pinned subtitle editor's
+content-view focus handoff. Invalid or nonfinite numeric text stays editable
+and reports an error; nonfinite values are rejected before queueing rather than
+waiting for the decoder worker to reject them. Queue rejection also retains
+field focus. Strict lint, formatting and all 26 unit tests pass for the focus
+callback change; the subsequent finite-value guard passes lint and formatting.
+Runtime focus handoff and invalid-entry correction remain unverified. Playback
+renderer and cross-platform ownership are unchanged. Changes remain local.
+
 Local numeric delay refresh Windows verification: the fixed release displays
 observed primary delay one after slider input, then displays zero after clearing
 and submitting the numeric field. Secondary keyboard text -7.375 submits to its

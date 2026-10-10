@@ -245,7 +245,7 @@ export component PlayerWindow inherits Window {
     callback select-item(int, string);
     callback browse-files(int);
     callback set-delay(int, float);
-    callback set-delay-text(int, string);
+    callback set-delay-text(int, string) -> bool;
     callback toggle-subtitle-visibility();
     callback playlist-action(int, string);
 
@@ -455,7 +455,9 @@ export component PlayerWindow inherits Window {
                                     secondary: root.edit-secondary-subtitle;
                                     enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                     hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
-                                    committed(text) => { root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text); } }
+                                    committed(text) => {
+                                        if root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text) { keys.focus(); }
+                                    } }
                                 Text { text: "s"; color: #bbbbbb; font-size: 11px; vertical-alignment: center; }
                             }
                             PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;

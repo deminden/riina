@@ -476,6 +476,13 @@ pub(crate) fn configure_player(
             };
             let command = value
                 .map_err(|_| "Enter a numeric delay in seconds".to_string())
+                .and_then(|value| {
+                    if value.is_finite() {
+                        Ok(value)
+                    } else {
+                        Err("Enter a finite delay in seconds".into())
+                    }
+                })
                 .and_then(|value| match category {
                     2 => Ok(Command::SubtitleDelay(value)),
                     5 => Ok(Command::SecondarySubtitleDelay(value)),
@@ -483,8 +490,11 @@ pub(crate) fn configure_player(
                 });
             if let Err(error) = command.and_then(|command| text_delay_player.send(command)) {
                 app.set_status(error.into());
+                return false;
             }
+            return true;
         }
+        false
     });
     let secondary_position_player = player.command_sender();
     let weak = app.as_weak();
