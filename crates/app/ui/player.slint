@@ -422,6 +422,14 @@ export component PlayerWindow inherits Window {
     keys := FocusScope {
         width: root.width;
         height: root.height;
+        if crop-editing && !native-video : Rectangle {
+            x: crop-picture-x * 1px; y: crop-picture-y * 1px;
+            width: root.render-width; height: root.render-height;
+            background: #000000;
+            drop-shadow-blur: 10px;
+            drop-shadow-color: #00000080;
+            drop-shadow-offset-x: 0px; drop-shadow-offset-y: 0px;
+        }
         Image {
             source: video-frame;
             x: crop-editing && !native-video ? crop-picture-x * 1px : 0px;

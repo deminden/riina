@@ -21,7 +21,8 @@ and use the source/display mapping for the editor overlay.
 Use Projection::interactive for the reserved, top-anchored picture geometry;
 it is regression-tested and connected to the shared OpenGL picture/overlay.
 Wire the native window route to the same bounds, then verify both routes and
-add the reference shadow. Current native geometry remains full-area explicitly.
+verify shadow pixels. The shared OpenGL route has the reference shadow's numeric
+parameters; current native geometry remains full-area without that shadow.
 The portable crop_geometry projection now maps source rectangles and pointer
 drags through contain-fit content and quarter turns, with observed source display
 parameters covered natively. Geometry is now wired to the selection overlay;

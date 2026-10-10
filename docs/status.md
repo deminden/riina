@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Shared OpenGL crop mode now draws a shadow behind the padded picture, with
+10-point blur, black at approximately 50% alpha and zero offset, matching the
+pinned reference's explicit parameters and NSShadow initialization defaults
+([Apple documentation](https://developer.apple.com/documentation/appkit/nsshadow/init%28%29)).
+Slint compilation, workspace unit tests, strict lint and formatting pass.
+This does not prove matching blur kernels or rendered pixels. No GUI/native
+suite rerun; native viewport/shadow wiring and other OS runtime remain open.
+No public update.
+
 The shared OpenGL route now renders its crop-editing picture into the reserved,
 top-anchored interactive bounds and projects the selection through those same
 bounds. Rendering dimensions are separate from the full window/editor viewport,
