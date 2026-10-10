@@ -18,6 +18,7 @@ use std::{
 };
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
+    let languages = crate::language_names::LanguageNames::current();
     for kind in [TrackKind::Audio, TrackKind::Sub] {
         let tracks: Vec<_> = state
             .tracks
@@ -30,18 +31,11 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             language: "".into(),
             selected: !tracks.iter().any(|track| track.is_primary_selected()),
         }];
-        rows.extend(tracks.into_iter().map(|track| {
-            CatalogRow {
-                token: track.id.to_string().into(),
-                label: track.display_name().into(),
-                language: track
-                    .lang
-                    .as_deref()
-                    .filter(|lang| *lang != "und")
-                    .unwrap_or("")
-                    .into(),
-                selected: track.is_primary_selected(),
-            }
+        rows.extend(tracks.into_iter().map(|track| CatalogRow {
+            token: track.id.to_string().into(),
+            label: track.display_name().into(),
+            language: languages.display_name(track.lang.as_deref()).into(),
+            selected: track.is_primary_selected(),
         }));
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
         if kind == TrackKind::Audio {
@@ -63,18 +57,11 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
         language: "".into(),
         selected: !subtitle_tracks.iter().any(secondary_selected),
     }];
-    secondary_rows.extend(subtitle_tracks.into_iter().map(|track| {
-        CatalogRow {
-            token: track.id.to_string().into(),
-            label: track.display_name().into(),
-            language: track
-                .lang
-                .as_deref()
-                .filter(|lang| *lang != "und")
-                .unwrap_or("")
-                .into(),
-            selected: track.selected && track.main_selection == Some(1),
-        }
+    secondary_rows.extend(subtitle_tracks.into_iter().map(|track| CatalogRow {
+        token: track.id.to_string().into(),
+        label: track.display_name().into(),
+        language: languages.display_name(track.lang.as_deref()).into(),
+        selected: track.selected && track.main_selection == Some(1),
     }));
     app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
     app.set_chapters(slint::ModelRc::new(slint::VecModel::from(

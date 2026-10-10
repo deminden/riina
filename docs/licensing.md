@@ -36,6 +36,7 @@ original contributions is not a blanket legal certification.
 | Original synthetic fixture bytes | CC0-1.0, fixture README and manifest |
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |
 | Slint 1.13.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b) |
+| ICU4X locale/display-name code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
 | Development libmpv DLL and native dependencies | Existing terms, redistribution audit incomplete |
 
 Slint itself has not been relicensed. Its royalty-free license permits desktop

@@ -3,6 +3,7 @@
 mod file_selection;
 mod font_catalog;
 mod font_picker;
+mod language_names;
 mod media_open;
 mod platform;
 mod player_ui;

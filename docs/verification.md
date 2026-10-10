@@ -1,5 +1,24 @@
 # Verification record · native Windows · 2026-10-09
 
+## Localized track badges · 2026-10-10
+
+Original shared presentation now resolves language codes independently of the
+raw mpv track metadata. Windows reads the user's locale name; Linux uses system
+locale discovery; the macOS route calls Foundation directly. Three unit checks
+pass for bibliographic/terminologic ISO aliases, underscore/BCP 47 script and
+region names, German/French/Japanese display locales, absent/invalid identifiers,
+explicit und and unknown qzz fallback. The pinned ICU4X formatter is experimental:
+non-English locale punctuation, locale extensions and exact macOS equivalence
+remain open; these unit expectations do not certify Foundation equivalence.
+
+The original track-languages.mkv fixture is hash-verified. Its native libmpv test
+passes: seven subtitle tracks retain eng/ger/fre/zh-Hant/pt-BR/qzz metadata; und
+is absent in the observed catalog. German primary and Traditional Chinese
+secondary selections coexist while paused, with all title/language metadata
+unchanged and no playback error. This does not prove displayed subtitle text,
+badge geometry, other OS runtime or a pixel comparison. GUI verification remains
+pending until recorded separately. No public update was made.
+
 Normal-playback diagnostic removal: formatting, strict workspace Clippy and the
 optimized Windows application build pass. Actual default-GL accessibility state
 shows catalog.mkv, end position 5.0, volume 37 and playback controls without the

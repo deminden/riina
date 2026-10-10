@@ -1,4 +1,5 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
+pub(crate) mod language;
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]

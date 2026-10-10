@@ -37,6 +37,19 @@ glow 0.16.0: MIT/Apache-2.0/Zlib; libloading 0.8.9: ISC;
 serde/serde_json: MIT/Apache-2.0; windows 0.61.3: MIT/Apache-2.0.
 Resolved transitive dependency licenses must be inventoried before distribution.
 
+ICU4X icu_experimental 0.6.0 / icu_experimental_data 0.6.0 and icu_locale
+2.3.0 / icu_locale_data 2.3.0: Unicode-3.0, Unicode, Inc. The complete notice is
+retained in third-party-licenses/Unicode-3.0.txt. Compiled display-name data uses
+CLDR 48.2.1 and ICU release-78.1rc (the pinned data crate's README). The lockfile
+records additional ICU4X formatting/provider/data crates. These are Unicode
+locale data, not copied IINA strings or Apple assets. The experimental formatter
+is pinned; its locale patterns and macOS name equivalence remain unverified.
+
+sys-locale 0.3.2 (https://github.com/1Password/sys-locale): selected MIT option
+from MIT OR Apache-2.0. Already resolved through Slint, now used directly for
+Linux display-locale discovery. Windows uses GetUserDefaultLocaleName and macOS
+uses Foundation's localized locale-identifier API.
+
 fontdb 0.23.0 (https://github.com/RazrFalcon/fontdb): MIT, copyright 2020
 Yevhenii Reizner. Promoted from the existing rendering dependency graph to a
 direct dependency for installed-font metadata discovery. The pinned registry

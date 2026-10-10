@@ -40,3 +40,11 @@ Compressed HDR, malformed containers and network fixtures remain pending.
 output or a large video fixture. Regenerate with
 `python scripts/generate-long-seek-fixture.py`; it is CC0-1.0 with its hash in
 manifest.json. It proves timeline behavior, not video seek accuracy.
+
+`track-languages.mkv` preserves catalog.mkv's original video/audio/chapter bytes
+and adds seven original UTF-8 subtitle tracks: English, German, French,
+Traditional Chinese, Brazilian Portuguese, unspecified and an unknown code.
+Legacy ISO 639-2 and LanguageBCP47 metadata exercise both naming paths. Generate
+with `python scripts/generate-language-fixture.py`; fixture bytes are CC0-1.0,
+generator is MIT, and the hash is in manifest.json. Native decoding confirms
+mpv omits `und` but preserves the other language codes and both subtitle lanes.

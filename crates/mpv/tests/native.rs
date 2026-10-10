@@ -28,6 +28,96 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies real ISO and BCP 47 track metadata"]
+fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/track-languages.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing
+            && state
+                .tracks
+                .iter()
+                .filter(|t| t.kind == TrackKind::Sub)
+                .count()
+                == 7
+    });
+    for (title, language) in [
+        ("English captions", Some("eng")),
+        ("German captions", Some("ger")),
+        ("French captions", Some("fre")),
+        ("Traditional Chinese captions", Some("zh-Hant")),
+        ("Brazilian Portuguese captions", Some("pt-BR")),
+        // mpv omits und instead of supplying an explicit language property.
+        ("Unspecified captions", None),
+        ("Unknown captions", Some("qzz")),
+    ] {
+        let track = loaded
+            .tracks
+            .iter()
+            .find(|track| track.title.as_deref() == Some(title))
+            .unwrap();
+        assert_eq!(track.lang.as_deref(), language, "{title}");
+    }
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    let id = |title: &str| {
+        loaded
+            .tracks
+            .iter()
+            .find(|track| track.title.as_deref() == Some(title))
+            .unwrap()
+            .id
+    };
+    let primary = id("German captions");
+    let secondary = id("Traditional Chinese captions");
+    player
+        .send(Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: Some(primary),
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub) == Some(primary)
+    });
+    player
+        .send(Command::SelectSecondarySubtitle(Some(secondary)))
+        .unwrap();
+    let both = wait_for(&receiver, |state| {
+        state
+            .tracks
+            .iter()
+            .any(|track| track.id == secondary && track.selected && track.main_selection == Some(1))
+    });
+    assert_eq!(selected_track(&both, TrackKind::Sub), Some(primary));
+    assert!(both.paused);
+    assert_eq!(both.error, None);
+    for track in &loaded.tracks {
+        // mpv numbers each track kind independently; ID alone is not identity.
+        let observed = both
+            .tracks
+            .iter()
+            .find(|t| t.kind == track.kind && t.id == track.id)
+            .unwrap();
+        assert_eq!(observed.lang, track.lang);
+        assert_eq!(observed.title, track.title);
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies native cycling of video audio and external subtitle tracks"]
 fn track_cycling_includes_disabled_and_external_tracks() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

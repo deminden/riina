@@ -69,5 +69,12 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-long-seek-fixture.py",
     "description": "1300 s silent mono unsigned 8-bit PCM at 1000 Hz for long relative seeks"
+  },
+  "track-languages.mkv": {
+    "sha256": "5c64bad4aa6f4df44a4a119d68f30f3d6ce6efd40d621fe88338808325863c98",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-language-fixture.py",
+    "description": "Original MJPEG/PCM and seven UTF-8 tracks with ISO and BCP 47 language metadata"
   }
 }

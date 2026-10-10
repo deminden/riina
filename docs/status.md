@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Readable audio/primary/secondary subtitle language badges now use locale names,
+including ISO three-letter aliases and script/region identifiers. macOS uses
+Foundation directly; Windows/Linux use pinned Unicode data behind a portable
+presentation boundary. Three unit checks and an original seven-track libmpv
+fixture pass. Backend omits und; absent metadata has no badge. Exact native-name
+equivalence, experimental formatter locale patterns, GUI rendering and other OS
+runtime remain unverified. Full parity remains incomplete; work stays local.
+
 Observed-face restoration guard verified on 5d865e7: filtered Verdana family,
 face Down→Regular and Return commit are followed by reopening with custom name
 Verdana and accessible Regular focus intact. Earlier first-face overwrite is
