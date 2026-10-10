@@ -8,7 +8,7 @@ let destination = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: tr
 try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 let permitted = CGPreflightScreenCaptureAccess()
 // Use the displayed names, including IINA's user-facing "Interface" label.
-let pages = ["General", "Interface", "Video", "Audio", "Subtitles", "Network", "Control", "Key Bindings", "Advanced", "Plugin", "Utilities"]
+let pages = ["General", "Interface", "Video", "Audio", "Subtitles", "Network", "Control", "Key Bindings", "Advanced", "Plugins", "Utilities"]
 var record: [String: Any] = [
     "schema_version": 1,
     "captured_at_utc": ISO8601DateFormatter().string(from: Date()),
@@ -227,7 +227,9 @@ do {
             throw NSError(domain: "RiinaReferenceCapture", code: 8,
                           userInfo: [NSLocalizedDescriptionKey: "Settings sidebar did not select \(page)"])
         }
-        Thread.sleep(forTimeInterval: 0.35)
+        // The selected-row/window-title accessibility update precedes some
+        // settings panes' content refresh, especially for the first switch.
+        Thread.sleep(forTimeInterval: 1.0)
 
         let imageName = String(format: "iina-settings-%02d.png", index + 1)
         let imageURL = destination.appendingPathComponent(imageName)
