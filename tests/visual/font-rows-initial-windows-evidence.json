@@ -1,0 +1,43 @@
+{
+  "source_commit": "ca9000d",
+  "observations": [
+    {
+      "action": "family-Tab-selects",
+      "lines": [
+        "\t\t\t47 list item (selectable) Verdana",
+        "\t\t\t51 list item (selectable) Regular",
+        "\t\t42 edit (settable, string) Custom font name Value: Verdana-Italic",
+        "The focused UI element is 0 window Choose a Font Secondary Actions: Raise."
+      ]
+    },
+    {
+      "action": "double-click-unavailable",
+      "error": "coordinate input geometry is unavailable"
+    },
+    {
+      "action": "face-Down-selects-Regular",
+      "lines": [
+        "\t\t42 edit (settable, string) Custom font name Value: Verdana",
+        "The focused UI element is 0 window Choose a Font Secondary Actions: Raise."
+      ]
+    },
+    {
+      "action": "Cancel-preserves-default",
+      "lines": [
+        "\t\t\t68 text sans-serif",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    }
+  ],
+  "binary_sha256": "299ce692062c901cb59673b84b55b696ef3f36f2aed0d8d7a371131263a9dad3",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "closed_riina_windows": 0,
+  "limitations": [
+    "Pre-repair accessibility focus reported window instead of row.",
+    "Double-click injection could not run because pointer geometry is unavailable.",
+    "Scrolling/rendered row pitch and other OS runtime remain unverified."
+  ]
+}

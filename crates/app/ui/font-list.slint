@@ -10,6 +10,9 @@ export component FontList inherits Rectangle {
     callback current-item-changed(int);
     callback activated(int);
     forward-focus: keys;
+    accessible-role: list;
+    accessible-delegate-focus: root.cursor;
+    accessible-item-count: root.model.length;
     in property <bool> enabled: true;
     out property <length> viewport-height <=> rows.viewport-height;
     private property <length> visible-height <=> rows.visible-height;
@@ -48,8 +51,7 @@ export component FontList inherits Rectangle {
     rows := ListView {
     width: parent.width; height: parent.height;
     enabled: root.enabled;
-    accessible-delegate-focus: root.cursor;
-    accessible-item-count: root.model.length;
+    accessible-role: none;
     viewport-height: root.model.length * root.row-pitch;
     viewport-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
@@ -65,6 +67,7 @@ export component FontList inherits Rectangle {
         accessible-item-selected: root.current-item == index;
         accessible-action-default => { root.set-current-item(index); keys.focus(); }
         Text {
+            accessible-role: none;
             text: item.text; x: 4px; width: parent.width - 8px;
             height: parent.height; font-size: 13px; color: #eeeeee;
             vertical-alignment: center; overflow: elide;

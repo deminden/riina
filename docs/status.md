@@ -7,8 +7,16 @@ index, with Home/End/Page/arrow navigation and reveal. Rows expose accessible
 labels/selection and default selection action. The list remains virtualized;
 first build rejected additional ListView children, so focus and background now
 sit outside its single repeater. Formatting, strict lint, unit checks and release
-build pass. Runtime double-click,
-keyboard/scroll/accessibility regressions and rendering remain pending.
+build pass. Initial Windows GL runtime on ca9000d verifies filtered Verdana
+family Tab selects its first face, face Down selects Regular, and Escape Cancel
+preserves sans-serif, size 55, pause and volume 37. Accessible focus incorrectly
+reported the window, because the keyboard focus scope was outside the list node.
+The list role/focus delegate now sit on their common parent; row text no longer
+adds duplicate accessible labels. Strict lint passes for the repair; its runtime
+retest is pending. Double-click injection failed with coordinate input geometry
+is unavailable; no activation pass is claimed. Exact pre-repair binary findings:
+tests/visual/font-rows-initial-windows-evidence.json. Player windows were closed.
+Scrolling, double-click runtime and rendering remain pending.
 19pt pitch is derived from recorded scroll increments, not a proven native row
 height; colors/type/focus are provisional. Other OS runtime remains open.
 All work stays local.
