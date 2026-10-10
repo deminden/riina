@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local font face labels: chooser rows now show readable typographic/subfamily
+labels while exact PostScript names remain selection and playback identities.
+Pinned ttf-parser 0.25.1 reads existing font metadata during the background scan;
+missing/invalid labels fall back to the identity without copying font files.
+Windows probe still discovers 72 families/166 faces, now with readable labels
+for all 166 faces in 127 ms. Only counts are saved. Strict lint and unit checks
+pass; tests cover name-table priority, Unicode, invalid/control labels and
+corrupt font input. This is metadata evidence, not a rendered chooser or glyph
+pass. Locale-specific labels, platform face ordering, chooser visual verification
+and other OS runtime remain open. Changes stay local.
+
 Local font picker selection fidelity: choosing a family now selects its first
 face and fills custom entry with that face's PostScript name, matching the
 pinned selection behavior. Opening or filtering restores a visible exact face

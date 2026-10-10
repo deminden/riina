@@ -148,10 +148,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         {
                             selection.set(Some(family));
                             picker.set_faces(items(
-                                data[family]
-                                    .faces
-                                    .iter()
-                                    .map(|face| face.postscript_name.clone()),
+                                data[family].faces.iter().map(|face| face.label.clone()),
                             ));
                             picker.set_family_index(row as i32);
                             picker.set_face_index(face as i32);
@@ -174,10 +171,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         selection.set(Some(index));
                         picker.set_face_index(-1);
                         picker.set_faces(items(
-                            data[index]
-                                .faces
-                                .iter()
-                                .map(|face| face.postscript_name.clone()),
+                            data[index].faces.iter().map(|face| face.label.clone()),
                         ));
                         if let Some(face) = data[index].faces.first() {
                             picker.set_face_index(0);
@@ -226,6 +220,7 @@ mod tests {
                     weight: 400,
                     style: "Normal".into(),
                     postscript_name: (*name).into(),
+                    label: (*name).into(),
                 })
                 .collect(),
         };

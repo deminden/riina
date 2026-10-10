@@ -7,12 +7,18 @@ fn main() {
     let families = font_catalog::installed_families();
     let faces: usize = families.iter().map(|family| family.faces.len()).sum();
     let aliases: usize = families.iter().map(|family| family.aliases.len()).sum();
+    let readable_face_labels = families
+        .iter()
+        .flat_map(|family| &family.faces)
+        .filter(|face| face.label != face.postscript_name)
+        .count();
     let all_searchable = families.iter().all(|family| family.matches(&family.name));
     // Report counts, not the user's installed names, paths, or font data.
     println!(
         "{}",
         serde_json::json!({
             "families": families.len(), "faces": faces, "aliases": aliases,
+        "readable_face_labels": readable_face_labels,
             "self_search_matches": all_searchable, "scan_ms": started.elapsed().as_millis(),
             "os": std::env::consts::OS,
         })

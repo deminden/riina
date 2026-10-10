@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "date": "2026-10-10",
+  "source_base_commit": "d3f9d02",
+  "method": "Read-only font-catalog-probe using pinned fontdb 0.23.0 and ttf-parser 0.25.1",
+  "observed": {
+    "families": 72,
+    "faces": 166,
+    "aliases": 84,
+    "readable_face_labels": 166,
+    "scan_ms": 127,
+    "self_search_matches": true,
+    "os": "windows"
+  },
+  "limitations": [
+    "Counts are host-specific and do not establish complete platform font coverage",
+    "No font names, paths or bytes are saved",
+    "Chooser rendering and glyph preview unverified",
+    "Locale-specific labeling and macOS/Linux runtime remain open"
+  ],
+  "source_sha256": {
+    "crates/app/src/font_catalog.rs": "b2eb4267ae5a643c50a0a212f71a1af6a8bd7f8616130d5893c2e5a53b0fddad",
+    "crates/app/src/font_picker.rs": "b85c2042b1a81ebaf73cd163af6a5d164e0ecd37b3d7eeac8921bd5611c5437a",
+    "crates/app/src/bin/font-catalog-probe.rs": "4e87089fe3296d185d6a3abcc91aa49e38909dc58f8b267f76b3bb4b3e2ef9ab",
+    "crates/app/Cargo.toml": "52d77c3b9d308339b43fb6a88b7786d253532b972859484b096231f72a59158d",
+    "Cargo.lock": "745997415b38da3af065365d6fd11c0d72461ee0aead3f740bfe235056f55b57"
+  },
+  "binary_sha256": "e76cd5a06d5f1d8d437604f601d1661d1b6339a9b0be847182dc665d3c02ebf3"
+}

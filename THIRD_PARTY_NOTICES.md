@@ -44,6 +44,12 @@ license is retained in the development dependency cache; no system font files
 are bundled or copied into riina. Desktop font resolution and any font packaging
 require separate verification.
 
+ttf-parser 0.25.1 (https://github.com/harfbuzz/ttf-parser): selected MIT option
+from MIT OR Apache-2.0, copyright 2018 Yevhenii Reizner. Already present through
+the font dependency graph; now used directly to read face-label metadata.
+The registry MIT grant is retained. Font data is inspected locally during
+discovery, not copied into riina's source or distribution.
+
 rfd 0.17.2 (https://github.com/PolyMeilex/rfd): MIT, copyright 2022
 Bartłomiej Maryńczak. Its portal window-identifier module retains the MIT notice
 of Bilal Elmoussaoui (2020). Used only by macOS/Linux application backends;
