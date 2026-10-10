@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Repaired font chooser runtime verified locally on source 321225e. Accessibility
+set-value changes Test to Preview café Привет. Committing Verdana and reopening
+now exposes Verdana in the family viewport; Tab into the face list focuses
+Regular without replacing the draft. Family Tab exposes the list container,
+so its precise keyboard cursor is still unproven. Default sans-serif was restored;
+size 55, paused playback and volume 37 remained unchanged, and both windows closed.
+Evidence: tests/visual/font-picker-repair-windows-evidence.json, including the
+exact release binary hash. Release build succeeds. This is accessibility evidence,
+not rendered glyph or pixel parity. Native modality, platform ordering/metrics
+and other OS runtime remain open. Nothing was published.
+
 Local font preview/face GUI test on 0a5f367: real keyboard editing changes Test
 to a Unicode sample and retains it during family/face changes. Verdana selection
 shows readable Italic/Regular/Bold Italic/Bold rows; Down selects Regular and OK

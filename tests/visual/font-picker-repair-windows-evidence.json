@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "source_commit": "321225e",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "binary_sha256": "9898d6c0625d4961c7bf917877b65741da6e341c80b54064c9338f119ac6d6d2",
+  "observations": [
+    {
+      "action": "set-preview-accessibility",
+      "lines": [
+        "\t\t20 edit (settable, string) Custom font name Description: sans-serif",
+        "\t\t21 edit (settable, string) Font preview text Value: Preview café Привет",
+        "The focused UI element is 21 edit (settable, string) Font preview text Value: Preview café Привет."
+      ]
+    },
+    {
+      "action": "commit-Verdana",
+      "lines": [
+        "\t\t17 button Playlist",
+        "\t\t67 button Choose subtitle font",
+        "\t\t\t68 text Verdana",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37",
+        "The focused UI element is 67 button Choose subtitle font."
+      ]
+    },
+    {
+      "action": "reopen-reveals-Verdana",
+      "lines": [
+        "\t\t\t16 list item (selectable) Verdana",
+        "\t\t\t20 list item (selectable) Regular",
+        "\t\t24 edit (settable, string) Custom font name Value: Verdana",
+        "\t\t25 edit (settable, string) Font preview text Value: Test",
+        "The focused UI element is 0 window Choose Subtitle Font Secondary Actions: Raise."
+      ]
+    },
+    {
+      "action": "tab-family",
+      "focus": "9 list"
+    },
+    {
+      "action": "tab-restored-Regular",
+      "lines": [
+        "\t\t\t35 list item (selectable) Verdana",
+        "\t\t\t37 list item (selectable) Regular",
+        "\t\t24 edit (settable, string) Custom font name Value: Verdana",
+        "\t\t25 edit (settable, string) Font preview text Value: Test",
+        "The focused UI element is 37 list item (selectable) Regular."
+      ]
+    },
+    {
+      "action": "restore-sans-serif",
+      "lines": [
+        "\t\t17 button Playlist",
+        "\t\t67 button Choose subtitle font",
+        "\t\t\t68 text sans-serif",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37",
+        "The focused UI element is 67 button Choose subtitle font."
+      ]
+    }
+  ],
+  "closed_player_windows": 0,
+  "limitations": [
+    "Accessibility observations only; no screenshot or rendered glyph proof.",
+    "Family Tab exposed the list container; selected family keyboard cursor is not proven.",
+    "Native modality, exact metrics, platform face ordering and other OS runtime remain open."
+  ]
+}

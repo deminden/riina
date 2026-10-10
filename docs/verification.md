@@ -767,6 +767,17 @@ all 32 unit tests and strict lint pass. This is configured-font evidence, not
 font installation, libass resolution/fallback or rendered glyph evidence.
 The font picker UI and actual installed families/faces/search/preview remain open.
 
+Font chooser repair retest (Windows 11 x64, shared OpenGL, source 321225e):
+the release build succeeds. Accessibility set-value edits the preview to a
+Unicode sample. After committing Verdana, reopening exposes that late family
+in the virtualized list, and Tab into faces focuses Regular. Family focus is
+reported as the list container, so its exact keyboard cursor remains unproven.
+Restoring the blank custom entry returns sans-serif, with font size 55, paused
+playback and volume 37 unchanged. Both owned test windows were closed.
+Scoped observations and exact executable SHA-256 are recorded in
+tests/visual/font-picker-repair-windows-evidence.json. No screenshot, glyph
+identity, native modality, exact geometry or other OS runtime pass is implied.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red
