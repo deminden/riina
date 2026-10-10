@@ -1,0 +1,48 @@
+{
+  "source_commit": "5a2655f51e2d71b9070266a7320d19e711589dcd",
+  "windows_release_sha256": "006cac22b5c738011a8906e6be458c355c57e048d955054a029015ad4f06bc92",
+  "scope": "Shared pause-on-open intent with headless native integration and isolated Windows native-release keyboard/AX/persistence/restart checks",
+  "native_test": {
+    "name": "pause_when_open_applies_to_replacement_and_batch_without_changing_current_playback",
+    "result": "passed",
+    "observations": [
+      "Default single load plays",
+      "Enabling policy does not pause current playing media",
+      "Replacement with policy enabled reaches native Paused at first frame",
+      "Batch opening pauses and retains both playlist entries",
+      "Appending preserves generation and pause state",
+      "Disabling policy leaves current paused media untouched",
+      "Next replacement resumes with policy disabled"
+    ],
+    "initial_test_correction": "Initial predicate incorrectly required Playing alongside native paused=true; native observed Phase::Paused. Corrected predicate; no production change needed."
+  },
+  "windows_gui": {
+    "isolated_localappdata": "tools/pause-open-gui-54405daa92094673ad44f033cac5f23c",
+    "fixture": "tests/fixtures/catalog.mkv",
+    "observations": [
+      "Ctrl+, exposes Behavior, When media is opened, Pause, Destination and Options accessible labels",
+      "Tab focuses Pause; Space enables it and immediately saves pause_when_open=true",
+      "Saved volume=100, boost=false and all screenshot defaults remain unchanged",
+      "Close preferences and player; owned process exits 0",
+      "Relaunch same private configuration; after startup observation Play button and position=0 with clock 0:00",
+      "Reopen preferences; Tab and Space save pause_when_open=false",
+      "Close preferences; current media remains at position=0 with Play button",
+      "Close player; second owned process exits 0"
+    ],
+    "rendered_capture": "failed: IGraphicsCaptureItemInterop.CreateForMonitor 0x80070057; fresh accessibility state recovered",
+    "user_preferences": "not read or written; private LOCALAPPDATA used"
+  },
+  "checks": {
+    "workspace_tests": "passed including legacy/default policy migration",
+    "native_engine_suite": "37 passed, 0 failed, 21.80 seconds",
+    "strict_lint": "passed",
+    "format": "passed",
+    "optimized_windows_build": "passed, 51.34 seconds"
+  },
+  "remaining": [
+    "Rendered reference geometry/materials/pixels",
+    "GUI save failure rollback",
+    "macOS/Linux full application runtime",
+    "Other General Behavior controls and preferences navigation"
+  ]
+}
