@@ -1,5 +1,10 @@
 # Synthetic media
 
+`styled-captions.ass` contains an original ASS style and two original timed cues
+for style eligibility tests. No font is bundled. Regenerate with
+`python scripts/generate-ass-fixture.py`; its CC0-1.0 provenance and hash are in
+manifest.json. The generator is MIT.
+
 `moving-square.avi` is original generated test data: 5 s, 320×180 MJPEG, 24 fps,
 moving amber square, frame labels and orientation markers, 48 kHz stereo PCM with
 a low-volume 440 Hz tone. Created by scripts/generate-fixtures.py using Pillow.

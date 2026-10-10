@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local ASS style eligibility native verification: an original CC0 ASS fixture
+with two cues is reproducibly generated and hashed without bundling a font.
+Real playback decodes its first cue and observes the ASS warning state. Selecting
+plain SRT removes the warning; selecting ASS in secondary restores it while
+preserving the primary SRT ID and pause. Disabling primary retains the secondary
+ASS warning; disabling secondary removes it while retaining available text
+controls. All twelve native tests pass (9.73 seconds), with strict lint,
+formatting and all fixture hashes verified. Rendered ASS styling/warnings, bitmap
+runtime fixtures and other-OS runtime remain pending. Changes remain local.
+
 Local subtitle style eligibility increment: the portable model now combines both
 selected subtitle lanes to determine text-control availability and ASS warnings.
 The pinned codec rules classify PGS and DVB as bitmap; absent or unknown codecs

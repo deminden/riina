@@ -55,5 +55,12 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-secondary-fixture.py",
     "description": "Original UTF-8 secondary subtitle text, two timed cues"
+  },
+  "styled-captions.ass": {
+    "sha256": "a7c8000396e902b5d3fea6120b36dac320948286cd6bafa45d2b4e874a8f780e",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-ass-fixture.py",
+    "description": "Original ASS subtitle style and two timed cues; no bundled font"
   }
 }

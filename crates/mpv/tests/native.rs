@@ -123,6 +123,87 @@ fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies selected ASS warning across subtitle lanes"]
+fn subtitle_style_warning_follows_selected_ass_lanes() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let fixture = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(fixture("styled-captions.ass")))
+        .unwrap();
+    let styled = wait_for(&receiver, |state| {
+        state.subtitle_style_availability().ass_warning
+    });
+    let ass_id = selected_track(&styled, TrackKind::Sub).unwrap();
+    assert!(styled.subtitle_style_availability().text_controls);
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let decoded = wait_for(&receiver, |state| {
+        state
+            .subtitle_text
+            .as_deref()
+            .is_some_and(|text| text.contains("Styled first cue"))
+    });
+    assert!(decoded.paused);
+    assert_eq!(decoded.error, None);
+    player
+        .send(Command::AddSubtitle(fixture("manual-captions.srt")))
+        .unwrap();
+    let plain = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_some_and(|id| id != ass_id)
+    });
+    let plain_id = selected_track(&plain, TrackKind::Sub).unwrap();
+    assert!(!plain.subtitle_style_availability().ass_warning);
+    player
+        .send(Command::SelectSecondarySubtitle(Some(ass_id)))
+        .unwrap();
+    let mixed = wait_for(&receiver, |state| {
+        state.subtitle_style_availability().ass_warning
+    });
+    assert_eq!(selected_track(&mixed, TrackKind::Sub), Some(plain_id));
+    assert!(mixed.subtitle_style_availability().text_controls);
+    assert!(mixed.paused);
+    assert_eq!(mixed.error, None);
+    player
+        .send(Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: None,
+        })
+        .unwrap();
+    let secondary_only = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_none()
+    });
+    assert!(secondary_only.subtitle_style_availability().ass_warning);
+    player.send(Command::SelectSecondarySubtitle(None)).unwrap();
+    let disabled = wait_for(&receiver, |state| {
+        !state.subtitle_style_availability().ass_warning
+    });
+    assert!(disabled.subtitle_style_availability().text_controls);
+    assert!(disabled.paused);
+    assert_eq!(disabled.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies independent primary and secondary subtitle lanes"]
 fn secondary_subtitles_keep_selection_and_visibility_independent() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
