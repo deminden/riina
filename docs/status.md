@@ -1,5 +1,24 @@
 # Status · 2026-10-09
 
+Video > Aspect Ratio now precedes Crop/Rotation/Flip on both player surfaces,
+with Default and the pinned nine menu ratios. Exact requested text belongs to
+the playback worker and remains distinct from the observed native numeric
+override: 8:6 selects neither 4:3 segment nor menu item; native Unicode parsing
+failure retains requested text and reports the unchanged actual ratio/error.
+The reference records requested text even on native failure. Invalid syntax
+selects Default while aspect OSD reports the submitted text. Repeated requests
+produce feedback even when the numeric property does not change. Request state
+persists across source replacement, matching the player-wide aspect option.
+Menu actions share the sidebar command path and reject crop/dialog/unknown
+scopes. Formatting, strict lint, workspace tests and release build pass (40.62
+seconds); all 32 native tests pass (12.77 seconds). Expanded geometry tests cover
+all nine menu ratios plus panel 21:9 and custom 8:6; native repeat/failure/source
+replacement checks and OSD unit checks pass. GUI evidence verifies menu order
+and labels; 5:4 and Default activations recover a live player after transient
+tool reference loss, preserving Play/volume 37. The one-second OSD was not
+captured; exact GUI ratios/checks/pixels, timed OSD and ports remain unverified.
+Clean close returns 0 with only the expected layout diagnostic. Nothing pushed.
+
 Video > Rotation now exposes the pinned four degree labels between Crop and
 Flip on shared and native player menus. Selection derives from observed native
 rotation; menu callbacks validate loaded/known state and crop/dialog scopes,

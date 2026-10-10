@@ -3,6 +3,10 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // A feasibility surface, not the source-matched player UI. Keeping it separate
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
+    in property <bool> aspect-menu-enabled: false;
+    in property <[string]> aspect-menu-labels;
+    in property <int> video-aspect-menu-index: 0;
+    callback set-menu-video-aspect(int);
     in property <bool> reflection-menu-enabled: false;
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
@@ -16,6 +20,12 @@ export component NativeVideoHost inherits Window {
     callback set-menu-video-rotation(int);
     MenuBar {
         Menu { title: "Video";
+            Menu { title: "Aspect Ratio"; enabled: root.aspect-menu-enabled;
+                for label[index] in root.aspect-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: root.video-aspect-menu-index == index;
+                    activated => { root.set-menu-video-aspect(index); }
+                }
+            }
             Menu { title: "Crop"; enabled: root.crop-menu-enabled;
                 for label[index] in root.crop-menu-labels : MenuItem {
                     title: label; checkable: true; checked: root.crop-menu-index == index;

@@ -2,6 +2,9 @@
 use std::sync::LazyLock;
 
 pub const ASPECT_PRESETS: [&str; 6] = ["Default", "4:3", "16:9", "16:10", "21:9", "5:4"];
+pub const ASPECT_MENU_PRESETS: [&str; 10] = [
+    "Default", "4:3", "5:4", "16:9", "16:10", "1:1", "3:2", "2.21:1", "2.35:1", "2.39:1",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Equalizer {
@@ -59,7 +62,16 @@ impl HardwareDecoder {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AspectRatio(Option<String>);
+pub struct AspectRatio {
+    text: String,
+    valid: bool,
+}
+
+impl Default for AspectRatio {
+    fn default() -> Self {
+        Self::from_text("Default")
+    }
+}
 
 impl AspectRatio {
     pub fn from_text(text: &str) -> Self {
@@ -68,15 +80,28 @@ impl AspectRatio {
         let valid = text.split_once(':').is_some_and(|(width, height)| {
             decimal(width) && decimal(height) && !height.contains(':')
         });
-        Self(valid.then(|| text.to_owned()))
+        Self {
+            text: text.to_owned(),
+            valid,
+        }
     }
 
     pub fn native_value(&self) -> &str {
-        self.0.as_deref().unwrap_or("-1")
+        if self.valid { &self.text } else { "-1" }
     }
 
     pub fn label(&self) -> &str {
-        self.0.as_deref().unwrap_or("Default")
+        if self.valid { &self.text } else { "Default" }
+    }
+
+    pub fn requested_text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn menu_index(&self) -> Option<usize> {
+        ASPECT_MENU_PRESETS
+            .iter()
+            .position(|preset| *preset == self.label())
     }
 
     pub fn preset_index(&self) -> Option<usize> {
@@ -188,6 +213,7 @@ mod tests {
         for ratio in ["4:3", "8:6", "2.39:1", "1:1.5", "01.00:02.00", "0:1"] {
             let aspect = AspectRatio::from_text(ratio);
             assert_eq!(aspect.label(), ratio);
+            assert_eq!(aspect.requested_text(), ratio);
             assert_eq!(
                 Command::VideoAspect(aspect).mpv_args().unwrap(),
                 ["set", "video-aspect-override", ratio]
@@ -198,10 +224,16 @@ mod tests {
         ] {
             let aspect = AspectRatio::from_text(invalid);
             assert_eq!(aspect.label(), "Default");
+            assert_eq!(aspect.requested_text(), invalid);
             assert_eq!(aspect.preset_index(), Some(0));
             assert_eq!(aspect.native_value(), "-1");
         }
         assert_eq!(AspectRatio::from_text("8:6").preset_index(), None);
+        assert_eq!(AspectRatio::from_text("8:6").menu_index(), None);
+        assert_eq!(AspectRatio::from_text("21:9").menu_index(), None);
+        assert_eq!(AspectRatio::default().menu_index(), Some(0));
+        assert_eq!(AspectRatio::from_text("1:1").preset_index(), None);
+        assert_eq!(AspectRatio::from_text("1:1").menu_index(), Some(5));
         for (index, preset) in ASPECT_PRESETS.iter().enumerate() {
             assert_eq!(AspectRatio::from_text(preset).preset_index(), Some(index));
         }

@@ -1,8 +1,9 @@
-//! Transient feedback derives from confirmed native values, never queued intent.
+//! Native-value feedback and reference-defined requested aspect feedback.
 use riina_core::{Phase, Playback, speed_controls};
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum Kind {
+    Aspect,
     Speed,
     Equalizer,
     HardwareDecoding,
@@ -45,6 +46,8 @@ impl VideoOsd {
             speed: state.speed,
             hardware_decoding: state.hardware_decoding.clone(),
             video_equalizer: state.video_equalizer,
+            video_aspect: state.video_aspect.clone(),
+            aspect_requests: state.aspect_requests,
             ..Default::default()
         });
         // Consume suppressed changes too: re-enabling feedback must not replay
@@ -57,8 +60,19 @@ pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<M
     let previous = previous?;
     if previous.generation != state.generation
         || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
-        || state.error.is_some()
     {
+        return None;
+    }
+    // Aspect feedback reports the exact submitted text even for a no-op or a
+    // native parse failure. A numeric ratio cannot preserve that distinction.
+    if previous.aspect_requests != state.aspect_requests {
+        return Some(Message {
+            kind: Kind::Aspect,
+            text: format!("Aspect Ratio: {}", state.video_aspect.requested_text()),
+            progress: None,
+        });
+    }
+    if state.error.is_some() {
         return None;
     }
     // One native snapshot can coalesce several channels. Display one complete
@@ -201,5 +215,30 @@ mod tests {
             changed(Some(&old), &state).unwrap().text,
             "Hardware Decoding: On"
         );
+    }
+    #[test]
+    fn aspect_feedback_retains_raw_text_repeats_and_native_failures() {
+        use riina_core::video_controls::AspectRatio;
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        assert_eq!(feedback.observe(&state), None);
+        for text in ["8:6", "8:6", "Default", "invalid", "١٦:٩"] {
+            state.video_aspect = AspectRatio::from_text(text);
+            state.aspect_requests += 1;
+            state.error = Some("Native parse failure".into());
+            assert_eq!(
+                feedback.observe(&state),
+                Some(Message {
+                    kind: Kind::Aspect,
+                    text: format!("Aspect Ratio: {text}"),
+                    progress: None,
+                })
+            );
+            assert_eq!(feedback.observe(&state), None);
+        }
+        state.generation += 1;
+        state.aspect_requests += 1;
+        assert_eq!(feedback.observe(&state), None);
+        assert_eq!(feedback.observe(&state), None);
     }
 }

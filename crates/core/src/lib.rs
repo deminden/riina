@@ -755,6 +755,11 @@ pub struct Playback {
     pub video_output: Option<VideoParameters>,
     pub video_filters: Option<Vec<crop::VideoFilter>>,
     pub video_aspect_override: Option<f64>,
+    /// Exact requested aspect, separate from the numeric backend result. The
+    /// reference retains this selection even when native parsing rejects it.
+    pub video_aspect: video_controls::AspectRatio,
+    /// Worker-dispatched aspect requests, including repeats and native failures.
+    pub aspect_requests: u64,
     pub video_rotation: Option<i64>,
     pub video_equalizer: [Option<i64>; 5],
     pub title: String,

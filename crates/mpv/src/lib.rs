@@ -183,6 +183,13 @@ impl Player {
                         if command == Command::Shutdown { break; }
                         match command.plan(&state) {
                             Ok(plan) => {
+                                // Requested text is player intent, not proof of the native ratio.
+                                // Keep it even on native failure and across source replacement:
+                                // aspect is a player option, unlike generation-bound crop geometry.
+                                if let Command::VideoAspect(aspect) = &command {
+                                    state.video_aspect = aspect.clone();
+                                    state.aspect_requests = state.aspect_requests.wrapping_add(1);
+                                }
                                 if matches!(command, Command::TogglePause) { seek_feedback.playback_transition(); }
                                 if matches!(command, Command::Load(_) | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;

@@ -26,6 +26,11 @@ fn refresh_video_menu(app: &PlayerWindow) {
             .map(slint::SharedString::from)
             .to_vec(),
     )));
+    app.set_video_aspect_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::video_controls::ASPECT_MENU_PRESETS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
 }
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
@@ -168,7 +173,7 @@ fn update_ui(
         .as_ref()
         .is_none_or(|old| old.generation != state.generation)
         || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
-        || state.error.is_some()
+        || (state.error.is_some() && !app.get_video_osd_request_feedback())
     {
         app.set_video_osd_visible(false);
     }
@@ -178,6 +183,7 @@ fn update_ui(
         Change::Keep => {}
     }
     if let Some(message) = last_video.observe(&state) {
+        app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
         app.set_video_osd_text(message.text.into());
         app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
         app.invoke_show_video_osd();
@@ -217,6 +223,18 @@ fn update_ui(
     app.set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
     app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
     app.set_video_aspect_known(state.video_aspect_override.is_some());
+    app.set_video_aspect_index(
+        state
+            .video_aspect
+            .preset_index()
+            .map_or(-1, |index| index as i32),
+    );
+    app.set_video_aspect_menu_index(
+        state
+            .video_aspect
+            .menu_index()
+            .map_or(-1, |index| index as i32),
+    );
     app.set_video_rotation_known(state.video_rotation.is_some());
     app.set_video_crop_known(
         state.video_filters.is_some()
@@ -593,18 +611,32 @@ pub(crate) fn configure_player(
             return;
         }
         let aspect = riina_core::video_controls::AspectRatio::from_text(text.as_str());
-        let index = aspect.preset_index().map_or(-1, |index| index as i32);
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
-            match aspect_player.send(Command::VideoAspect(aspect)) {
-                // The reference keeps exact requested text, so 8:6 must not
-                // select the 4:3 preset merely because their ratios are equal.
-                Ok(()) => app.set_video_aspect_index(index),
-                Err(error) => app.set_status(error.into()),
+            if let Err(error) = aspect_player.send(Command::VideoAspect(aspect)) {
+                app.set_status(error.into());
             }
         }
     });
     let rotation_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_menu_video_aspect(move |index| {
+        let Some(app) = weak.upgrade() else { return };
+        refresh_video_menu(&app);
+        if !app.get_loaded()
+            || !app.get_video_aspect_known()
+            || app.get_crop_editing()
+            || app.get_dialog_open()
+        {
+            return;
+        }
+        if let Some(label) = usize::try_from(index)
+            .ok()
+            .and_then(|index| riina_core::video_controls::ASPECT_MENU_PRESETS.get(index))
+        {
+            app.invoke_set_video_aspect((*label).into());
+        }
+    });
     let crop_player = player.command_sender();
     let crop_ui = app.as_weak();
     app.on_set_video_crop(move |index| {

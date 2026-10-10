@@ -3,9 +3,13 @@
 Video > Rotation is wired on both presentation surfaces with observed checks
 and scoped menu dispatch. Native ordered-label/navigation evidence and native
 four-angle geometry tests pass; verify menu output/checks, failure/no-op behavior
-and shared GL/macOS/Linux runtime. Implement Video > Aspect Ratio with exact
-requested-text provenance (8:6 must not select 4:3) and reference aspect OSD;
-do not infer named selection solely from the numeric native override.
+and shared GL/macOS/Linux runtime. Video > Aspect Ratio now preserves exact
+worker-dispatched requested text (8:6 does not select 4:3), separate from the
+native numeric override. Native failure/repeat/source-replacement behavior and
+aspect OSD text have test evidence; menu labels have Windows native AX evidence.
+Verify GUI selection/output, timed OSD and rejected/repeated menu actions on
+shared GL and current macOS/Linux application ports. Preserve the reference's
+requested-text behavior on native failure; do not equate it with actual ratio.
 
 Video > Crop now uses the menu's nine-ratio list, distinct from the panel list,
 with a separator before Custom…. Native GUI navigation, Custom… entry and Cancel

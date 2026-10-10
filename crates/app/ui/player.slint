@@ -248,6 +248,7 @@ component SubtitleLaneSegment inherits Rectangle {
 
 export component PlayerWindow inherits Window {
     in property <bool> reflection-known: false;
+    in-out property <bool> video-osd-request-feedback: false;
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
     callback toggle-video-reflection(bool);
@@ -260,6 +261,12 @@ export component PlayerWindow inherits Window {
     changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); }
     if !native-video : MenuBar {
         Menu { title: "Video";
+            Menu { title: "Aspect Ratio"; enabled: root.loaded && root.video-aspect-known && !root.crop-editing;
+                for label[index] in root.video-aspect-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: root.video-aspect-menu-index == index;
+                    activated => { root.set-menu-video-aspect(index); }
+                }
+            }
             Menu { title: "Crop"; enabled: root.loaded && root.video-crop-known && !root.crop-editing;
                 for label[index] in root.video-crop-menu-labels : MenuItem {
                     title: label; checkable: true; checked: root.video-crop-menu-index == index;
@@ -346,6 +353,11 @@ export component PlayerWindow inherits Window {
     in property <[string]> video-aspect-presets;
     in-out property <int> video-aspect-index: 0;
     in property <bool> video-aspect-known: false;
+    in property <[string]> video-aspect-menu-labels;
+    in property <int> video-aspect-menu-index: 0;
+    changed video-aspect-known => { root.video-menu-changed(); }
+    changed video-aspect-menu-labels => { root.video-menu-changed(); }
+    changed video-aspect-menu-index => { root.video-menu-changed(); }
     in property <bool> video-rotation-known: false;
     in property <int> video-rotation-index: -1;
     changed video-rotation-known => { root.video-menu-changed(); }
@@ -423,6 +435,7 @@ export component PlayerWindow inherits Window {
     callback frame-step();
     callback frame-back-step();
     callback set-video-aspect(string);
+    callback set-menu-video-aspect(int);
     callback set-video-rotation(int);
     callback set-menu-video-rotation(int);
     callback set-video-crop(int);

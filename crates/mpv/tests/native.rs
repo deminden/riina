@@ -1150,22 +1150,60 @@ fn unicode_aspect_input_preserves_text_and_native_failure_state() {
     player
         .send(Command::VideoAspect(AspectRatio::from_text("4:3")))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.video_aspect_override == Some(4.0 / 3.0)
+    let mut accepted = wait_for(&receiver, |state| {
+        state.video_aspect_override == Some(4.0 / 3.0) && state.video_aspect.label() == "4:3"
     });
+    // Equal numeric ratios and repeated requests still carry distinct intent
+    // and feedback. Native property-change events alone cannot establish this.
+    for text in ["8:6", "8:6", "4:3"] {
+        let previous = accepted.aspect_requests;
+        player
+            .send(Command::VideoAspect(AspectRatio::from_text(text)))
+            .unwrap();
+        accepted = wait_for(&receiver, |state| {
+            state.aspect_requests != previous
+                && state.video_aspect.label() == text
+                && state.video_aspect_override == Some(4.0 / 3.0)
+        });
+        assert!(accepted.paused);
+        assert_eq!(accepted.volume, 37.0);
+        assert_eq!(
+            accepted.video_aspect.menu_index(),
+            (text == "4:3").then_some(1)
+        );
+    }
     player
         .send(Command::VideoAspect(AspectRatio::from_text("١٦:٩")))
         .unwrap();
     let rejected = wait_for(&receiver, |state| state.error.is_some());
+    assert_eq!(rejected.video_aspect.label(), "١٦:٩");
+    assert_eq!(rejected.video_aspect.requested_text(), "١٦:٩");
+    assert_eq!(rejected.aspect_requests, accepted.aspect_requests + 1);
     assert_eq!(rejected.video_aspect_override, Some(4.0 / 3.0));
     assert!(rejected.paused);
     assert_eq!(rejected.volume, 37.0);
+    assert_eq!(rejected.completed_navigation_seeks, 0);
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let replaced = wait_for(&receiver, |state| {
+        state.generation > rejected.generation
+            && state.phase == Phase::Playing
+            && state.video_aspect_override == Some(4.0 / 3.0)
+    });
+    assert_eq!(replaced.video_aspect.label(), "١٦:٩");
+    assert_eq!(replaced.aspect_requests, rejected.aspect_requests);
+    assert_eq!(replaced.error, None);
 }
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies video aspect and rotation while paused"]
 fn video_geometry_controls_preserve_pause_and_unrelated_options() {
-    use riina_core::video_controls::{ASPECT_PRESETS, AspectRatio, Rotation};
+    use riina_core::video_controls::{ASPECT_MENU_PRESETS, AspectRatio, Rotation};
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
@@ -1207,16 +1245,21 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
     wait_for(&receiver, |state| state.paused);
     player.send(Command::Volume(37.0)).unwrap();
     wait_for(&receiver, |state| state.volume == 37.0);
-    for ratio in ASPECT_PRESETS.into_iter().skip(1).chain(["2.39:1", "8:6"]) {
+    for ratio in ASPECT_MENU_PRESETS
+        .into_iter()
+        .skip(1)
+        .chain(["21:9", "8:6"])
+    {
         let (width, height) = ratio.split_once(':').unwrap();
         let expected = width.parse::<f64>().unwrap() / height.parse::<f64>().unwrap();
         player
             .send(Command::VideoAspect(AspectRatio::from_text(ratio)))
             .unwrap();
         let changed = wait_for(&receiver, |state| {
-            state
-                .video_aspect_override
-                .is_some_and(|value| (value - expected).abs() < 1e-9)
+            state.video_aspect.label() == ratio
+                && state
+                    .video_aspect_override
+                    .is_some_and(|value| (value - expected).abs() < 1e-9)
                 && state.video_output.as_ref().is_some_and(|video| {
                     video
                         .dw
@@ -1241,7 +1284,9 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
     player
         .send(Command::VideoAspect(AspectRatio::from_text("invalid")))
         .unwrap();
-    wait_for(&receiver, |state| state.video_aspect_override == Some(-1.0));
+    let reset = wait_for(&receiver, |state| state.video_aspect_override == Some(-1.0));
+    assert_eq!(reset.video_aspect.label(), "Default");
+    assert_eq!(reset.video_aspect.requested_text(), "invalid");
     for degrees in [90, 180, 270, 0] {
         player
             .send(Command::VideoRotation(

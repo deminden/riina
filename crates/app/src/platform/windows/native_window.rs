@@ -118,6 +118,11 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     );
                     host.set_crop_menu_labels(app.get_video_crop_menu_labels());
                     host.set_crop_menu_index(app.get_video_crop_menu_index());
+                    host.set_aspect_menu_enabled(
+                        app.get_loaded() && app.get_video_aspect_known() && !app.get_crop_editing(),
+                    );
+                    host.set_aspect_menu_labels(app.get_video_aspect_menu_labels());
+                    host.set_video_aspect_menu_index(app.get_video_aspect_menu_index());
                     host.set_rotation_menu_enabled(
                         app.get_loaded()
                             && app.get_video_rotation_known()
@@ -146,6 +151,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
             *startup_session.borrow_mut() = Some(configured);
+            let menu_app = app.as_weak();
+            host.on_set_menu_video_aspect(move |index| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_set_menu_video_aspect(index);
+                }
+            });
             let close_session = startup_session.clone();
             let close_host = host.as_weak();
             let weak_app = app.as_weak();
