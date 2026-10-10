@@ -2107,5 +2107,8 @@ optional x264 encoder remains excluded because its published grant is GPLv2-only
 the built-in H.264 decoder remains enabled. The corrected check and audit are on
 public `main` at `ca9d309`. Tag `v0.2.0` is pushed and its release workflow is
 building; GitHub publishes the Windows ZIP, matching source archive and checksums
-only after all package tests pass. The previous release-readiness note above was
-superseded by this re-audit.
+only after all package tests pass. The first tagged attempt stopped before compile:
+the upstream `mpv-packaging` target only packages an existing build and does not
+depend on the `mpv` engine target. The release script now builds `mpv` explicitly
+before packaging, and the tag will be retried on the corrected commit. The previous
+release-readiness note above was superseded by this re-audit.
