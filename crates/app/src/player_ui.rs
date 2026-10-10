@@ -787,6 +787,9 @@ pub(crate) fn configure_player(
         if weak.upgrade().is_some_and(|app| app.get_dialog_open()) {
             slint::CloseRequestResponse::KeepWindowShown
         } else {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_dismiss_font_picker();
+            }
             slint::CloseRequestResponse::HideWindow
         }
     });

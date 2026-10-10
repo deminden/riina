@@ -156,6 +156,9 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn close(session: &RefCell<Option<UiSession>>, app: Option<&PlayerWindow>) {
+    if let Some(app) = app {
+        app.invoke_dismiss_font_picker();
+    }
     if let Some(mut session) = session.borrow_mut().take() {
         if let Some(app) = app
             && let Err(error) = session.save(app)

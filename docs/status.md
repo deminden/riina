@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+The player font chooser now follows the pinned ordinary-window behavior rather
+than setting the modal file-dialog gate. Repeated opening raises the existing
+live draft, and player shutdown dismisses it in both shared GL and Windows native
+routes. Its title now matches Choose a Font. Source contract: PlayerCore
+chooseSubFont calls Utility quickFontPickerWindow without a sheet owner; the
+new Settings page supplies an owner and is a separate pending requirement.
+Strict lint and unit checks pass. Runtime parent interaction, repeated raising,
+shutdown and other OS behavior need verification; no native ownership pass is
+claimed. All work stays local.
+
 Repaired font chooser runtime verified locally on source 321225e. Accessibility
 set-value changes Test to Preview café Привет. Committing Verdana and reopening
 now exposes Verdana in the family viewport; Tab into the face list focuses

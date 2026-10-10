@@ -1,7 +1,9 @@
 //! Shared picker lifetime and background font discovery.
 use crate::{FontPicker, PlayerWindow, font_catalog};
 use riina_mpv::CommandSender;
-use slint::{ComponentHandle, ModelRc, StandardListViewItem, VecModel};
+use slint::{
+    ComponentHandle, ModelRc, StandardListViewItem, VecModel, winit_030::WinitWindowAccessor,
+};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -49,12 +51,35 @@ fn preview_face(
 
 pub fn connect(app: &PlayerWindow, sender: CommandSender) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
+    let owned = current.clone();
+    app.on_dismiss_font_picker(move || {
+        if let Some(picker) = owned.borrow_mut().take() {
+            picker.set_picker_active(false);
+            let _ = picker.hide();
+        }
+    });
     let weak = app.as_weak();
     app.on_choose_subtitle_font(move || {
         let Some(app) = weak.upgrade() else {
             return;
         };
         if app.get_dialog_open() {
+            return;
+        }
+        // The player's chooser is an ordinary auxiliary window; only Settings
+        // uses a sheet in the reference. Reopening raises the same live draft.
+        if let Some(picker) = current.borrow().as_ref()
+            && picker.get_picker_active()
+        {
+            let window = picker.as_weak();
+            let _ = slint::spawn_local(async move {
+                if let Some(picker) = window.upgrade()
+                    && let Ok(window) = picker.window().winit_window().await
+                    && picker.get_picker_active()
+                {
+                    window.focus_window();
+                }
+            });
             return;
         }
         let picker = match FontPicker::new() {
@@ -88,7 +113,6 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         window.set_picker_active(false);
                         let _ = window.hide();
                     }
-                    app.set_dialog_open(false);
                     app.invoke_activity();
                 }
                 Err(error) => app.set_status(error.into()),
@@ -102,7 +126,6 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                 let _ = window.hide();
             }
             if let Some(app) = parent.upgrade() {
-                app.set_dialog_open(false);
                 app.invoke_activity();
             }
         });
@@ -113,7 +136,6 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                 window.set_picker_active(false);
             }
             if let Some(app) = parent.upgrade() {
-                app.set_dialog_open(false);
                 app.invoke_activity();
             }
             slint::CloseRequestResponse::HideWindow
@@ -122,7 +144,6 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
             app.set_status(error.to_string().into());
             return;
         }
-        app.set_dialog_open(true);
         let window = picker.as_weak();
         *current.borrow_mut() = Some(picker);
         // Only owned metadata crosses threads. The weak window prevents a late
