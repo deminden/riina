@@ -192,7 +192,7 @@ impl Player {
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
-                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
+                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
                                         seek_feedback.clear();
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {

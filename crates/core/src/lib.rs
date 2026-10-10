@@ -10,6 +10,7 @@ pub mod subtitle_color;
 pub mod subtitle_controls;
 mod track_labels;
 pub mod video_controls;
+pub mod video_reflection;
 pub mod video_viewport;
 
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,10 @@ pub enum Command {
     VideoCrop(Option<crop::Preset>),
     VideoCropRectangle(crop::Rectangle),
     VideoViewport(Option<video_viewport::Viewport>),
+    VideoReflection {
+        axis: video_reflection::Axis,
+        enabled: bool,
+    },
     EnterCrop(crop_session::Session),
     ExitCrop {
         session: crop_session::Session,
@@ -292,6 +297,7 @@ impl Command {
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
             | Self::VideoViewport(_)
+            | Self::VideoReflection { .. }
             | Self::EnterCrop(_)
             | Self::ExitCrop { .. }
             | Self::AdjustVolume { .. }
@@ -314,6 +320,7 @@ impl Command {
         let mut resume_on_load = false;
         let commands = match self {
             Self::VideoViewport(viewport) => video_viewport::Viewport::commands(*viewport),
+            Self::VideoReflection { axis, enabled } => axis.commands(*enabled, state)?,
             Self::EnterCrop(session) => session.enter_commands(state)?,
             Self::ExitCrop { session, rectangle } => session.exit_commands(state, *rectangle)?,
             Self::VideoCropRectangle(rectangle) => {

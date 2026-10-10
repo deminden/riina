@@ -1,5 +1,10 @@
 # Implementation plan
 
+Video > Flip backend now has independent Horizontal (Mirror)/Vertical managed
+axis commands and native coexistence coverage with crop. Wire the reference
+menu/shortcut/OSD behavior and prove reflected pixels on both rendering routes;
+do not add arbitrary sidebar controls or claim backend commands finish parity.
+
 Empty/zero-area drafts and native confirmation are now supported. The native
 zero-at-origin test keeps full-source output and reports Custom. Offset (10,12)
 tests now verify zero width/height/both settle at full output while retaining

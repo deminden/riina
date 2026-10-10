@@ -68,6 +68,78 @@ fn picture_viewport_preserves_pause_volume_and_source_geometry() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies independent flip/mirror managed filters"]
+fn video_reflection_axes_preserve_crop_and_playback() {
+    use riina_core::{crop::Preset, video_reflection::Axis};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video_filters.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    player
+        .send(Command::VideoCrop(Some(Preset::FourThree)))
+        .unwrap();
+    let cropped = wait_for(&receiver, |state| {
+        riina_core::crop::observed_index(state) == Some(1)
+            && state.video_output.as_ref().map(|video| (video.w, video.h)) == Some((240, 180))
+    });
+    for (axis, enabled, horizontal, vertical) in [
+        (Axis::Horizontal, true, true, false),
+        (Axis::Vertical, true, true, true),
+        (Axis::Horizontal, false, false, true),
+        (Axis::Vertical, false, false, false),
+    ] {
+        player
+            .send(Command::VideoReflection { axis, enabled })
+            .unwrap();
+        let state = wait_for(&receiver, |state| {
+            Axis::Horizontal.observed(state.video_filters.as_deref()) == Some(horizontal)
+                && Axis::Vertical.observed(state.video_filters.as_deref()) == Some(vertical)
+        });
+        assert_eq!(riina_core::crop::observed_index(&state), Some(1));
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert_eq!(
+            state.completed_navigation_seeks,
+            cropped.completed_navigation_seeks
+        );
+        assert_eq!(state.error, None);
+        // Repeated explicit state is idempotent, including removal of absent labels.
+        player
+            .send(Command::VideoReflection { axis, enabled })
+            .unwrap();
+    }
+    player.send(Command::Speed(1.25)).unwrap();
+    let settled = wait_for(&receiver, |state| state.speed == 1.25);
+    assert_eq!(settled.error, None);
+    assert_eq!(
+        settled
+            .video_output
+            .as_ref()
+            .map(|video| (video.w, video.h)),
+        Some((240, 180))
+    );
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies zero-size crop behavior with explicit offsets"]
 fn zero_size_crop_offsets_preserve_requested_parameters() {
     use riina_core::crop::{FILTER_LABEL, Rectangle};

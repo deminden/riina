@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Flip/mirror now have portable explicit-state commands with independently owned
+hflip/vflip labels. Unknown filter state is rejected; repeated enabled/disabled
+requests are idempotent and removal touches only the requested axis. Native
+coverage verifies both axes together, individual removal, existing 4:3 crop,
+pause and volume 37 preservation, and no navigation feedback. The focused test
+passes. This is backend/filter-catalog evidence, not reflected-pixel proof or a
+user-facing feature: the reference exposes these in Video > Flip; application
+menu/shortcut/OSD wiring and other OS runtime remain open. Nothing published.
+Workspace unit tests, strict lint and formatting pass; no GUI or full native
+suite rerun for this change.
+
 Additional native coverage verifies zero-width, zero-height and both-zero custom
 crops at offset (10,12). Each retains the exact requested filter parameters,
 settles after a raw decoder restart with full 320×180 output, preserves pause
