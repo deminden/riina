@@ -2235,12 +2235,29 @@ Interface, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced,
 Plugins and Utilities surfaces. Image and metadata hashes are recorded under
 `IINA-1.5.0-SETTINGS-SURFACES-001` in `tests/visual/reference-captures.json`.
 These are actual upstream references, not matched Windows comparisons or accepted
-goldens. Riina's Settings shell remains 820 x 480 and its page layouts are not yet
-reflowed to the measured content width; correcting two page names alone does not
-close the interface gap.
+goldens. Riina's Settings shell was subsequently reflowed toward the measured
+content width; this is one layout increment, not evidence of full pixel parity.
 
 The 2026-10-10 macOS/Linux application matrix caught a Foundation wrapper return-
 type mismatch in macOS locale naming. The adapter now consumes Foundation's
 non-optional retained string and leaves empty results for the portable fallback.
 Windows cargo check and rustfmt pass; rerun the macOS application build to verify
 this target-only fix before treating the port build gate as closed.
+
+2026-10-11 Settings geometry parity increment: the Preferences window now uses the
+captured 600 x 480 client size and 200-point sidebar split. General, Interface,
+Video, Audio and Subtitle settings content was reflowed to the narrower pane;
+primary preference groups gained the reference's rounded, lightly bordered card
+treatment. Rust 1.99.0 Windows app check, workspace Clippy and workspace tests
+pass. The live Riina capture still shows video rather than Preferences, so no
+matched Settings screenshot or pixel-parity claim is recorded. Several settings
+groups and pages remain incomplete, and native-runtime integration tests remain
+ignored without the pinned DLL.
+
+2026-10-11 binary candidate run 38090431610: GitHub reports `native-engine` failed
+after about 65 minutes at “Build pinned native engine and corresponding source.”
+The Windows package and complete-source jobs were consequently skipped; no
+candidate artifacts were created. The unauthenticated Actions log endpoint
+returns 403, so the actionable build diagnostic is still pending from the run
+viewer. The native distribution audit remains open and false; no binary has been
+published or claimed.

@@ -327,14 +327,14 @@ component AssOverrideSlider inherits Rectangle {
     }
 }
 
-// Original controls follow the reference General screenshot section's 120px
-// label column. Toolkit metrics remain provisional until rendered comparison.
+// The captured IINA settings window has a 600×480 client area and 200px sidebar.
+// Keep those measured content coordinates independent of platform title bars.
 export component PreferencesWindow inherits Window {
     title: "Settings";
-    preferred-width: 820px;
+    preferred-width: 600px;
     preferred-height: 480px;
-    min-width: 820px;
-    min-height: 320px;
+    min-width: 600px;
+    min-height: 480px;
     background: #ededed;
     in-out property <int> selected-pane: 0;
     in-out property <string> search-query: "";
@@ -447,14 +447,15 @@ export component PreferencesWindow inherits Window {
             selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
     }
     if root.selected-pane == 0 : ScrollView {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-height: 386px;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
         width: parent.width; height: 386px; background: #ededed;
-        Text { x: 22px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle { x: 20px; y: 52px; width: 480px; height: 64px; background: transparent;
+        Text { x: 28px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 64px;
+        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
         Text { x: 0px; y: 8px; text: "Behavior:"; font-weight: 600; font-size: 13px; color: #222222; }
         Text { x: 118px; y: 8px; text: "When media is opened:"; font-size: 13px; color: #222222; }
         CheckBox { x: 120px; y: 28px; height: 24px; text: "Pause";
@@ -466,7 +467,8 @@ export component PreferencesWindow inherits Window {
             toggled => { root.settings-changed(); }
         }
         }
-        Rectangle { x: 20px; y: 132px; width: 480px; height: 184px; background: transparent;
+        Rectangle { x: 20px; y: 132px; width: parent.width - 40px; height: 184px;
+        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
         Text { x: 0px; y: 8px; text: "Screenshots:"; font-weight: 600; font-size: 13px; color: #222222; }
         Text { x: 118px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
         Text { x: 118px; y: 112px; text: "Options:"; font-size: 13px; color: #222222; }
@@ -474,9 +476,9 @@ export component PreferencesWindow inherits Window {
             checked <=> root.save-to-file;
             toggled => { root.settings-changed(); }
         }
-        Text { x: 198px; y: 32px; width: 154px; text: root.directory;
+        Text { x: 198px; y: 32px; width: 112px; text: root.directory;
             overflow: elide; font-size: 13px; color: #666666; }
-        FolderChooser { x: 357px; y: 29px; width: 24px; height: 22px;
+        FolderChooser { x: parent.width - 43px; y: 29px; width: 24px; height: 22px;
             enabled: root.save-to-file && !root.folder-dialog-open;
             activated => { root.choose-folder(); } }
         Text { x: 137px; y: 56px; text: "Format:"; font-size: 13px; color: #222222; }
@@ -500,7 +502,8 @@ export component PreferencesWindow inherits Window {
             toggled => { root.settings-changed(); }
         }
         }
-        Rectangle { x: 20px; y: 326px; width: 480px; height: 48px; background: transparent;
+        Rectangle { x: 20px; y: 326px; width: parent.width - 40px; height: 48px;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 0px; y: 8px; text: "History:"; font-weight: 600; font-size: 13px; color: #222222; }
             CheckBox { x: 120px; y: 4px; height: 24px; text: "Resume last position";
                 checked <=> root.resume-last-position;
@@ -510,10 +513,11 @@ export component PreferencesWindow inherits Window {
         }
     }
     if root.selected-pane == 1 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Interface"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle { x: 20px; y: 52px; width: 576px; height: 138px; background: transparent;
+        Text { x: 28px; y: 16px; text: "Interface"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 138px;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 0; y: 8px; text: "On-Screen Controller:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             ComboBox { x: 160px; y: 4px; width: 150px; height: 24px;
@@ -531,7 +535,8 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.settings-changed(); }
             }
         }
-        Rectangle { x: 20px; y: 204px; width: 350px; height: 92px; background: transparent;
+        Rectangle { x: 20px; y: 204px; width: parent.width - 40px; height: 92px;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 0; y: 8px; text: "On-Screen Display:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             CheckBox { x: 160px; y: 4px; height: 24px; text: "Show OSD messages";
@@ -549,18 +554,19 @@ export component PreferencesWindow inherits Window {
         }
     }
     if root.selected-pane == 2 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
         Text {
             x: 22px; y: 16px; text: "Video";
             font-size: 15px; font-weight: 600; color: #222222;
         }
-        Rectangle { x: 20px; y: 52px; width: 576px; height: 92px; background: transparent;
+        Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 92px;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 0; y: 8px; text: "Video:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Text { x: 98px; y: 8px; text: "Hardware decoder:";
                 font-size: 13px; color: #222222; }
-            ComboBox { x: 220px; y: 4px; width: 150px; height: 24px;
+            ComboBox { x: 220px; y: 4px; width: 130px; height: 24px;
                 model: ["Disabled", "Auto", "Auto (Copy)"];
                 current-index <=> root.hardware-decoder-index;
                 selected => { root.settings-changed(); }
@@ -568,7 +574,7 @@ export component PreferencesWindow inherits Window {
         }
     }
     if root.selected-pane == 4 : ScrollView {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-y <=> root.subtitle-scroll-position;
         content-height: 1050px;
         content-width: self.visible-width;
@@ -576,8 +582,8 @@ export component PreferencesWindow inherits Window {
         Rectangle { width: parent.width;
         height: 1050px;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle { x: 20px; y: 52px; width: 480px; height: 193px; background: transparent;
+        Text { x: 28px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 193px; background: transparent;
             Text { x: 0; y: 8px; text: "Auto Load:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             ComboBox { x: 98px; y: 4px; width: 255px; height: 25px;
@@ -590,10 +596,10 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.subtitle-auto-load-advanced-expanded = !root.subtitle-auto-load-advanced-expanded; }
             }
             if root.subtitle-auto-load-advanced-expanded : Rectangle {
-                x: 98px; y: 58px; width: 366px; height: 132px; background: transparent;
+                x: 98px; y: 58px; width: parent.width - 102px; height: 132px; background: transparent;
                 Text { x: -2px; y: 13px; text: "Subtitles have priority when filename containing:";
                     font-size: 10px; color: #222222; }
-                Rectangle { x: 0; y: 22px; width: 360px; height: 19px;
+                Rectangle { x: 0; y: 22px; width: parent.width; height: 19px;
                     border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
                     background: #ffffff;
                     TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
@@ -606,7 +612,7 @@ export component PreferencesWindow inherits Window {
                     font-size: 10px; color: #77777d; }
                 Text { x: -2px; y: 65px; text: "Also search subtitles in following directories:";
                     font-size: 10px; color: #222222; }
-                Rectangle { x: 0; y: 83px; width: 360px; height: 19px;
+                Rectangle { x: 0; y: 83px; width: parent.width; height: 19px;
                     border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
                     background: #ffffff;
                     TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
@@ -617,10 +623,10 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        Rectangle { x: 20px; y: 245px; width: 480px; height: 99px; background: transparent;
+        Rectangle { x: 20px; y: 245px; width: parent.width - 40px; height: 99px; background: transparent;
             Text { x: 0; y: 8px; text: "ASS Subtitles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 6px; width: 366px; height: 89px;
+            Rectangle { x: 98px; y: 6px; width: parent.width - 102px; height: 89px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 OverrideLaneButton { x: 49px; y: 10px; label: "Primary Subtitles";
@@ -666,10 +672,10 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        Rectangle { x: 20px; y: 359px; width: 480px; height: 115px; background: transparent;
+        Rectangle { x: 20px; y: 359px; width: parent.width - 40px; height: 115px; background: transparent;
             Text { x: 0; y: 8px; text: "Text Subtitles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 4px; width: 366px; height: 105px;
+            Rectangle { x: 98px; y: 4px; width: parent.width - 102px; height: 105px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 Text { x: 12px; y: 5px; text: "Font";
@@ -715,10 +721,10 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        Rectangle { x: 20px; y: 484px; width: 480px; height: 58px; background: transparent;
+        Rectangle { x: 20px; y: 484px; width: parent.width - 40px; height: 58px; background: transparent;
             Text { x: 0; y: 8px; text: "Border:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
+            Rectangle { x: 98px; y: 0; width: parent.width - 102px; height: 56px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 Text { x: 12px; y: 21px; text: "Size:";
@@ -739,10 +745,10 @@ export component PreferencesWindow inherits Window {
             label: "Advanced"; expanded: root.subtitle-text-advanced-expanded;
             toggled => { root.subtitle-text-advanced-expanded = !root.subtitle-text-advanced-expanded; }
         }
-        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 578px; width: 480px; height: 58px; background: transparent;
+        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 578px; width: parent.width - 40px; height: 58px; background: transparent;
             Text { x: 0; y: 8px; text: "Shadow:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
+            Rectangle { x: 98px; y: 0; width: parent.width - 102px; height: 56px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 Text { x: 12px; y: 21px; text: "Offset:";
@@ -763,10 +769,10 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 640px; width: 480px; height: 58px; background: transparent;
+        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 640px; width: parent.width - 40px; height: 58px; background: transparent;
             Text { x: 0; y: 8px; text: "Other Styles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
+            Rectangle { x: 98px; y: 0; width: parent.width - 102px; height: 56px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 Text { x: 12px; y: 21px; text: "Blur:";
@@ -783,10 +789,10 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        Rectangle { x: 20px; y: 714px; width: 480px; height: 208px; background: transparent;
+        Rectangle { x: 20px; y: 714px; width: parent.width - 40px; height: 208px; background: transparent;
             Text { x: 0; y: 8px; text: "Position:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 6px; width: 366px; height: 56px;
+            Rectangle { x: 98px; y: 6px; width: parent.width - 102px; height: 56px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 Text { x: 12px; y: 20px; text: "X:"; font-size: 11px; color: #222222; }
@@ -802,7 +808,7 @@ export component PreferencesWindow inherits Window {
                     selected => { root.settings-changed(); }
                 }
             }
-            Rectangle { x: 98px; y: 68px; width: 366px; height: 56px;
+            Rectangle { x: 98px; y: 68px; width: parent.width - 102px; height: 56px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
                 Text { x: 12px; y: 5px; text: "Margin";
@@ -837,7 +843,7 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.settings-changed(); }
             }
         }
-        Rectangle { x: 20px; y: 938px; width: 480px; height: 90px; background: transparent;
+        Rectangle { x: 20px; y: 938px; width: parent.width - 40px; height: 90px; background: transparent;
             Text { x: 0; y: 8px; text: "Other:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Text { x: 98px; y: 8px; text: "Preferred language:";
@@ -851,7 +857,7 @@ export component PreferencesWindow inherits Window {
                     accepted => { root.settings-changed(); }
                 }
             }
-            Text { x: 98px; y: 30px; width: 364px; height: 28px;
+            Text { x: 98px; y: 30px; width: parent.width - 102px; height: 28px;
                 text: "Use comma-separated ISO 639-2 language codes. These preferences also guide subtitle track selection.";
                 font-size: 10px; color: #77777d; wrap: word-wrap;
             }
@@ -866,12 +872,12 @@ export component PreferencesWindow inherits Window {
         }
     }
     if root.selected-pane == 3 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
         // Keep the opt-in extension with IINA's Audio > Volume settings; leaving
         // it here makes the 0–100 default cap difficult to discover and reverse.
-        Rectangle { x: 20px; y: 52px; width: 576px; height: 92px; background: transparent;
+        Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 92px; background: transparent;
             Text { x: 0; y: 8px; text: "Volume";
                 font-weight: 600; font-size: 13px; color: #222222; }
             CheckBox { x: 98px; y: 4px; height: 24px;
@@ -882,34 +888,34 @@ export component PreferencesWindow inherits Window {
         }
     }
     if root.selected-pane == 5 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
     }
     if root.selected-pane == 6 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: #222222; }
     }
     if root.selected-pane == 7 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Key Bindings"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Key Bindings"; font-size: 15px; font-weight: 600; color: #222222; }
     }
     if root.selected-pane == 8 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
     }
     if root.selected-pane == 9 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Plugins"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Plugins"; font-size: 15px; font-weight: 600; color: #222222; }
     }
     if root.selected-pane == 10 : Rectangle {
-        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: #222222; }
     }
 
     if !root.search-query.is-empty : Rectangle {
