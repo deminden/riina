@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Native source 15cbd57 restores shared chrome after Escape and the subsequent
+Video shortcut opens its sidebar; the player closes with exit 0. First F10 still
+focuses only the owner, and Return does not open Video. Evidence/binary identity
+is in native-menu-loop-recovery-evidence.json. The framed owner now also handles
+F10 key release directly through the same queued entry, covering input that
+never reaches shared controls. Strict lint passes; revised entry remains pending
+runtime verification. No public update.
+
 The deferred native menu revision (source 12057a9, binary
 92e9a507004ded136b919f6a33d9cf6f8dab542c3de5e9f7a094ad38967c7484)
 still returned to chrome on first F10 and closed with exit 0. Temporary message

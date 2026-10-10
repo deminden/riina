@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "15cbd57e772ef5a1872782418d82ec04dba0282b",
+  "binary_sha256": "7b258354aaec72193e979708df7f9c6be56cd3e2fa909d9d0998af3f93325f2d",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "First F10 focuses owner; Return does not open Video",
+    "Second F10 returns to shared chrome",
+    "Escape leaves shared chrome focused",
+    "Control+Shift+V subsequently opens Video sidebar with Aspect Ratio, Crop, Rotation and Hardware Decoding controls"
+  ],
+  "exit_code": 0,
+  "stderr": "Only expected scale/client/layout diagnostic",
+  "followup": "Handle F10 arriving directly at the framed owner; this change was made after the recorded test.",
+  "unverified": ["revised single-F10 entry", "menu action recovery", "check marks", "pixels", "ports"]
+}

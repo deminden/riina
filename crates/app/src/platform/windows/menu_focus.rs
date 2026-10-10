@@ -12,11 +12,11 @@ use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
         UI::{
-            Input::KeyboardAndMouse::SetFocus,
+            Input::KeyboardAndMouse::{SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
                 IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU, WM_ENTERMENULOOP,
-                WM_EXITMENULOOP, WM_SYSCOMMAND,
+                WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
@@ -117,6 +117,17 @@ unsafe extern "system" fn menu_proc(
 ) -> LRESULT {
     // SAFETY: MenuFocus retains the stable box until subclass removal.
     let context = unsafe { &*(refdata as *const MenuContext) };
+    if wparam.0 == VK_F10.0 as usize && !context.active.get() {
+        if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {
+            return LRESULT(0);
+        }
+        if matches!(message, WM_KEYUP | WM_SYSKEYUP) {
+            // F10 can reach the framed owner directly, without visiting the
+            // shared controls. Use the same queued entry for either input scope.
+            let _ = request(hwnd.0 as isize);
+            return LRESULT(0);
+        }
+    }
     if message == WM_SYSCOMMAND && wparam.0 & 0xfff0 == SC_KEYMENU as usize {
         context.active.set(true);
         // SAFETY: this owner belongs to the current thread and subclass chain.
