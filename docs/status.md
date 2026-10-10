@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local subtitle style eligibility increment: the portable model now combines both
+selected subtitle lanes to determine text-control availability and ASS warnings.
+The pinned codec rules classify PGS and DVB as bitmap; absent or unknown codecs
+retain text controls. With no selected subtitles text controls remain available.
+Only bitmap-selected lanes hide text scaling; a text/bitmap mix keeps it visible.
+A selected ASS lane shows the reference warning, while unselected subtitle and
+audio tracks cannot trigger it. Seven modeled catalog cases pass in a new unit
+test; all 26 unit tests, strict lint and formatting pass. Runtime bitmap/ASS
+fixtures, warning rendering and other-OS behavior remain unverified. Font/color/
+border controls are still missing. Nothing was published.
+
 Local subtitle text scale increment: the shared subtitle pane now includes a
 text-size slider and reset action. The reference -5 to +5 slider uses rounded
 0.05 magnitude increments with a reciprocal reduction below its neutral point;

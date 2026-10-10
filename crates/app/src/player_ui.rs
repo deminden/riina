@@ -189,6 +189,9 @@ fn update_ui(
     app.set_audio_delay(state.audio_delay as f32);
     app.set_subtitle_delay(state.subtitle_delay as f32);
     app.set_subtitle_scale_known(state.subtitle_scale.is_some());
+    let subtitle_style = state.subtitle_style_availability();
+    app.set_subtitle_text_style_available(subtitle_style.text_controls);
+    app.set_subtitle_ass_style_warning(subtitle_style.ass_warning);
     let scale = state.subtitle_scale.unwrap_or(1.0).clamp(0.1, 10.0);
     app.set_subtitle_scale_slider(
         (if scale >= 1.0 {

@@ -175,6 +175,8 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-position-known: false;
     in property <float> subtitle-scale-slider: 0;
     in property <bool> subtitle-scale-known: false;
+    in property <bool> subtitle-text-style-available: true;
+    in property <bool> subtitle-ass-style-warning: false;
     in-out property <bool> edit-secondary-subtitle: false;
     in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
@@ -435,7 +437,7 @@ export component PlayerWindow inherits Window {
                                 hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                         }
-                        if sidebar == 2 : VerticalLayout {
+                        if sidebar == 2 && root.subtitle-text-style-available : VerticalLayout {
                             height: 54px; vertical-stretch: 0;
                             Text { text: "Text size"; color: #dddddd; font-size: 12px; font-weight: 700; }
                             HorizontalLayout {
@@ -446,6 +448,14 @@ export component PlayerWindow inherits Window {
                                     enabled: root.loaded && root.subtitle-scale-known;
                                     activated => { root.set-subtitle-scale-slider(0); } }
                             }
+                        }
+                        if sidebar == 2 && !root.subtitle-text-style-available : Text {
+                            text: "Some settings are not available for this subtitle type.";
+                            wrap: word-wrap; color: #bbbbbb; font-size: 11px;
+                        }
+                        if sidebar == 2 && root.subtitle-ass-style-warning : Text {
+                            text: "Setting style options for ASS subtitles may break rendering.";
+                            wrap: word-wrap; color: #bbbbbb; font-size: 11px;
                         }
                     }
                 }

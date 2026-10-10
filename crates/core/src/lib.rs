@@ -589,7 +589,36 @@ pub struct Playback {
     pub ab_loop_b: Option<f64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SubtitleStyleAvailability {
+    pub text_controls: bool,
+    pub ass_warning: bool,
+}
+
 impl Playback {
+    pub fn subtitle_style_availability(&self) -> SubtitleStyleAvailability {
+        let mut any_selected = false;
+        let mut any_text = false;
+        let mut any_ass = false;
+        for track in self.tracks.iter().filter(|track| {
+            track.kind == TrackKind::Sub
+                && track.selected
+                && matches!(track.main_selection, Some(0 | 1))
+        }) {
+            any_selected = true;
+            // Match the pinned pane's codec classification, including unknown
+            // codecs as text, rather than guessing from filename extensions.
+            any_text |= !matches!(
+                track.codec.as_deref(),
+                Some("hdmv_pgs_subtitle" | "dvb_subtitle")
+            );
+            any_ass |= track.codec.as_deref() == Some("ass");
+        }
+        SubtitleStyleAvailability {
+            text_controls: !any_selected || any_text,
+            ass_warning: any_ass,
+        }
+    }
     pub fn loop_mode(&self) -> LoopMode {
         fn active(value: &Option<String>) -> bool {
             value.as_deref().is_some_and(|value| {
@@ -925,6 +954,56 @@ mod tests {
     fn unknown_time_is_not_zero() {
         assert_eq!(time_label(None), "--:--");
         assert_eq!(time_label(Some(3661.9)), "1:01:01");
+    }
+
+    #[test]
+    fn subtitle_style_eligibility_combines_both_selected_lanes() {
+        for (tracks, text_controls, ass_warning) in [
+            ("[]", true, false),
+            (
+                r#"[{"id":1,"type":"sub","codec":"hdmv_pgs_subtitle","selected":true,"main-selection":0}]"#,
+                false,
+                false,
+            ),
+            (
+                r#"[{"id":1,"type":"sub","codec":"dvb_subtitle","selected":true,"main-selection":1}]"#,
+                false,
+                false,
+            ),
+            (
+                r#"[{"id":1,"type":"sub","codec":"hdmv_pgs_subtitle","selected":true,"main-selection":0},{"id":2,"type":"sub","codec":"subrip","selected":true,"main-selection":1}]"#,
+                true,
+                false,
+            ),
+            (
+                r#"[{"id":1,"type":"sub","codec":"ass","selected":true,"main-selection":1}]"#,
+                true,
+                true,
+            ),
+            (
+                r#"[{"id":1,"type":"sub","codec":"ass","selected":false},{"id":2,"type":"audio","codec":"ass","selected":true,"main-selection":0}]"#,
+                true,
+                false,
+            ),
+            (
+                r#"[{"id":1,"type":"sub","selected":true,"main-selection":0}]"#,
+                true,
+                false,
+            ),
+        ] {
+            let state = Playback {
+                tracks: serde_json::from_str(tracks).unwrap(),
+                ..Playback::default()
+            };
+            assert_eq!(
+                state.subtitle_style_availability(),
+                SubtitleStyleAvailability {
+                    text_controls,
+                    ass_warning
+                },
+                "{tracks}"
+            );
+        }
     }
 
     #[test]
