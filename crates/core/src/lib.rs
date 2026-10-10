@@ -31,6 +31,7 @@ pub enum Command {
     AddSubtitle(String),
     AddAudio(String),
     AudioDelay(f64),
+    AdjustAudioDelay(f64),
     SubtitleDelay(f64),
     AdjustSubtitleDelay(f64),
     SubtitleSeek(i32),
@@ -106,10 +107,21 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
-            Self::AdjustSubtitleDelay(delta) if delta.is_finite() => {
+            Self::AdjustAudioDelay(delta) | Self::AdjustSubtitleDelay(delta)
+                if delta.is_finite() =>
+            {
                 // Apply on the decoder worker's current value; rapid key presses
                 // must not reuse a stale delay from a coalesced UI snapshot.
-                vec!["add".into(), "sub-delay".into(), delta.to_string()]
+                vec![
+                    "add".into(),
+                    if matches!(self, Self::AdjustAudioDelay(_)) {
+                        "audio-delay"
+                    } else {
+                        "sub-delay"
+                    }
+                    .into(),
+                    delta.to_string(),
+                ]
             }
             Self::SubtitleSeek(skip) => {
                 // Let the engine resolve selected-track cues and subtitle delay;
@@ -769,6 +781,12 @@ mod tests {
             .is_err()
         );
         assert!(Command::Volume(201.0).mpv_args().is_err());
+        assert!(Command::AdjustAudioDelay(f64::NAN).mpv_args().is_err());
+        assert!(
+            Command::AdjustAudioDelay(f64::NEG_INFINITY)
+                .mpv_args()
+                .is_err()
+        );
         assert!(Command::AdjustSubtitleDelay(f64::NAN).mpv_args().is_err());
         assert!(
             Command::AdjustSubtitleDelay(f64::INFINITY)

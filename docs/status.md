@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local audio timing increment: Shift+( and Shift+) adjust audio delay by
++/-0.5 seconds; Alt adds fine +/-0.1-second steps, and Shift+_ resets it.
+Decoder-relative commands preserve rapid adjustments. All eight explicit
+Windows native tests pass (8.98 seconds), alongside 24 unit tests, strict lint
+and the release build. Actual Windows keyboard/accessibility observations
+verify audio and uppercase subtitle timing steps and reset with slider focus,
+retaining pause at two seconds. Evidence is in
+tests/visual/timing-shortcut-windows-evidence.json. Screen capture still fails;
+rendered feedback, acoustic synchronization and other-OS runtime remain open.
+No public GitHub update was made.
+
 Local subtitle timing increment: uppercase Z/X adjust delay by -/+0.5 seconds,
 Alt+Z/X use -/+0.1 seconds, and C resets it. Relative commands accumulate on
 the decoder rather than reusing a stale UI snapshot. Eight Windows native

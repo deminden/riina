@@ -347,6 +347,19 @@ pub(crate) fn configure_player(
     connect!(on_playlist_previous, Command::PlaylistPrevious);
     connect!(on_reset_speed, Command::Speed(1.0));
     connect!(on_reset_subtitle_delay, Command::SubtitleDelay(0.0));
+    connect!(on_reset_audio_delay, Command::AudioDelay(0.0));
+    let audio_delay_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_adjust_audio_delay(move |delta| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        if let Err(error) = audio_delay_player.send(Command::AdjustAudioDelay(delta as f64))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
     let delay_player = player.command_sender();
     let weak = app.as_weak();
     app.on_adjust_subtitle_delay(move |delta| {

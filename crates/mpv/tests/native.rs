@@ -788,6 +788,25 @@ fn chapters_external_tracks_and_playlist_editing() {
     });
     player.send(Command::AudioDelay(-0.2)).unwrap();
     wait_for(&receiver, |state| (state.audio_delay + 0.2).abs() < 0.001);
+    // Native relative changes must accumulate even when no UI snapshots are
+    // consumed between commands, and must leave the playback clock paused.
+    for _ in 0..12 {
+        player.send(Command::AdjustAudioDelay(0.1)).unwrap();
+    }
+    let delayed = wait_for(&receiver, |state| (state.audio_delay - 1.0).abs() < 0.001);
+    assert!(delayed.paused);
+    assert_eq!(delayed.error, None);
+    for _ in 0..2 {
+        player.send(Command::AdjustAudioDelay(-0.5)).unwrap();
+    }
+    let restored = wait_for(&receiver, |state| state.audio_delay.abs() < 0.001);
+    assert!(restored.paused);
+    player.send(Command::AdjustAudioDelay(-0.1)).unwrap();
+    wait_for(&receiver, |state| (state.audio_delay + 0.1).abs() < 0.001);
+    player.send(Command::AudioDelay(0.0)).unwrap();
+    let reset = wait_for(&receiver, |state| state.audio_delay.abs() < 0.001);
+    assert!(reset.paused);
+    assert_eq!(reset.error, None);
     player.send(Command::SelectChapter(1)).unwrap();
     wait_for(&receiver, |state| {
         !state.paused

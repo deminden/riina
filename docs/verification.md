@@ -564,5 +564,26 @@ adjustments without consuming playback snapshots and observes the delay rise
 from 0.25 to 2.25 seconds. Four -0.5-second adjustments restore 0.25, then an
 absolute reset restores zero. Pause is retained and no native error is reported.
 All eight explicit native tests pass in 8.85 seconds; 24 workspace unit tests and
-strict lint pass. Shared uppercase Z/X/C and Alt+Z/X bindings are implemented,
-but keyboard routing, rendered feedback and macOS/Linux runtime are unverified.
+strict lint pass. Shared uppercase Z/X/C and Alt+Z/X bindings are implemented.
+Subsequent Windows keyboard observations verify these bindings; rendered
+feedback and macOS/Linux runtime remain unverified.
+
+## Audio timing and shared keyboard verification · 2026-10-10
+
+The native catalog test queues twelve +0.1-second audio adjustments from -0.2,
+observes 1.0, then queues two -0.5-second adjustments and observes zero. A negative
+fine adjustment followed by reset is also observed; pause is retained and no
+native error is reported. All eight native tests pass in 8.98 seconds, with
+24 workspace unit tests, strict lint and a successful Windows release build.
+
+Real keyboard inputs observe audio delay 0 → 0.5 → 0.6 → 0.5 → 0 using shifted
+parentheses and Alt fine steps, then reset -1 to zero with Shift+underscore.
+Uppercase subtitle shortcuts observe 0 → -0.5 → -0.6 → -0.5 → 0 and reset 1 to
+zero with C. Both resets work with the delay slider focused. Playback remains
+paused at two seconds throughout. The fixture has no selected subtitle track
+in this GUI check; native SRT coverage separately verifies delay accumulation.
+The app closes cleanly with no remaining window or process. Exact binary and
+canonical source hashes and observations are in
+tests/visual/timing-shortcut-windows-evidence.json. No screenshot was obtained:
+CreateForMonitor failed with 0x80070057. This verifies input/state routing, not
+rendered feedback, acoustic synchronization or macOS/Linux runtime behavior.
