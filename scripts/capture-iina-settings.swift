@@ -111,9 +111,12 @@ do {
         // The source list inserts a non-page subsection indicator after the
         // selected page, so later rows shift as navigation advances.
         let sidebarRow = index + 1 + (index > selectedPage ? 1 : 0)
-        // The selected page changes the window title on each navigation, so
-        // address the frontmost Settings window instead of a fixed title.
-        _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to select row \(sidebarRow) of table 1 of window 1")
+        if index != selectedPage {
+            // AppKit renames the Settings window to its selected page and
+            // System Events does not order it like the screen-capture list.
+            let currentPage = pages[selectedPage]
+            _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to select row \(sidebarRow) of table 1 of window \"\(currentPage)\"")
+        }
         Thread.sleep(forTimeInterval: 0.35)
 
         let imageName = String(format: "iina-settings-%02d.png", index + 1)
