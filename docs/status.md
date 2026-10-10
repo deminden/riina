@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Direct owner F10 routing still required another press in the runtime check
+(source e9c576e, binary
+211d844f8b39ef5ed21d53b1a3d6eca5861ab971ffabafa8ec2d0e6cf9c8b506).
+Temporary tracing showed the first SC_KEYMENU reaching the owner without
+WM_ENTERMENULOOP, while a later request entered the loop and Return opened
+Video > Flip. The player closed with exit 0. Entry now explicitly activates
+the framed owner before assigning focus; strict lint passes, runtime verification
+is pending. Traces were removed. No public update.
+API basis: [SetActiveWindow](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setactivewindow).
+
 Native source 15cbd57 restores shared chrome after Escape and the subsequent
 Video shortcut opens its sidebar; the player closes with exit 0. First F10 still
 focuses only the owner, and Return does not open Video. Evidence/binary identity

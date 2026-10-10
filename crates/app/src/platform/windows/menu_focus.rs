@@ -12,7 +12,7 @@ use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
         UI::{
-            Input::KeyboardAndMouse::{SetFocus, VK_F10},
+            Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
                 IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU, WM_ENTERMENULOOP,
@@ -130,7 +130,11 @@ unsafe extern "system" fn menu_proc(
     }
     if message == WM_SYSCOMMAND && wparam.0 & 0xfff0 == SC_KEYMENU as usize {
         context.active.set(true);
+        // Keyboard focus alone can leave the owned popup active. Windows needs
+        // the framed menu owner active before processing its system command.
         // SAFETY: this owner belongs to the current thread and subclass chain.
+        let _ = unsafe { SetActiveWindow(hwnd) };
+        // SAFETY: activation retains the same live owner.
         let _ = unsafe { SetFocus(Some(hwnd)) };
     }
     if message == WM_ENTERMENULOOP {
