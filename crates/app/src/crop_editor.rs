@@ -201,6 +201,11 @@ impl Editor {
                 None
             };
             session.exit_commands(state, rectangle)?;
+            if app.get_native_video() {
+                // Exit can resume a playing source. Restore its full picture
+                // area first so that resumed frames do not use editor margins.
+                sender.send(Command::VideoViewport(None))?;
+            }
             sender.send(Command::ExitCrop {
                 session: session.clone(),
                 rectangle,

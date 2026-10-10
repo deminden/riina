@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Native crop exit now queues margin reset before the crop-exit command that can
+restore playing state. This removes an ordering gap in which resumed frames
+could briefly retain editor margins. All 29 native tests pass in 12.38 seconds
+on the preceding viewport implementation; that suite verifies engine behavior,
+not this app coordinator's visual ordering. After the coordinator change,
+workspace unit tests, strict lint and formatting pass. Actual native-window
+Done/Cancel playback and rendered transitions still need GUI verification.
+No public update.
+
 Native crop editing now queues four normalized video margins from the same
 interactive picture projection used by the shared renderer/selection overlay.
 Viewport changes update margins; ending or retiring the editor queues zero
