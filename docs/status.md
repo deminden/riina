@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local secondary subtitle position UI increment: the shared pane now exposes the
+native secondary position through a keyboard-accessible slider. Its 0–100 range
+and integer dispatch follow the pinned SubPositionDelayView; the engine's wider
+0–150 range remains available through the existing typed command. Unknown native
+position disables editing. Strict lint, formatting and all 24 unit tests pass.
+Runtime GUI routing, rendered placement and the reference's shared segmented
+primary/secondary position-delay layout remain pending. While auditing reset,
+SidebarSubtitlesPane.swift SubDelayView.resetButtonAction was found to dispatch
+audio delay zero; observable macOS reset behavior must be established before
+implementing that action. This increment remains local.
+
 Local secondary subtitle delay UI increment: the shared subtitle pane now exposes
 a separate -5 to +5 second secondary delay slider with 0.1 second keyboard steps.
 It dispatches the typed secondary command and displays native observations; an

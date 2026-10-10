@@ -140,6 +140,8 @@ export component PlayerWindow inherits Window {
     in property <float> subtitle-delay: 0;
     in property <float> secondary-subtitle-delay: 0;
     in property <bool> secondary-subtitle-delay-known: false;
+    in property <float> secondary-subtitle-position: 0;
+    in property <bool> secondary-subtitle-position-known: false;
     in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
     in-out property <bool> controls-visible: true;
@@ -163,6 +165,7 @@ export component PlayerWindow inherits Window {
     callback reset-subtitle-delay();
     callback adjust-subtitle-scale(float);
     callback adjust-subtitle-position(float);
+    callback set-secondary-subtitle-position(float);
     callback adjust-audio-delay(float);
     callback reset-audio-delay();
     callback playlist-next();
@@ -263,6 +266,15 @@ export component PlayerWindow inherits Window {
                     PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.secondary-subtitle-delay;
                         enabled: root.loaded && root.secondary-subtitle-delay-known; hint: "Secondary subtitle delay";
                         changed(value) => { root.set-delay(5, value); } }
+                }
+                if sidebar == 2 : VerticalLayout {
+                    height: 48px; vertical-stretch: 0;
+                    Text { text: root.secondary-subtitle-position-known ? "Secondary position: " + root.secondary-subtitle-position : "Secondary position: —";
+                        color: #bbbbbb; font-size: 11px; }
+                    // The reference slider ends at 100 even though the engine accepts 150.
+                    PlayerSlider { minimum: 0; maximum: 100; step: 1; value: root.secondary-subtitle-position;
+                        enabled: root.loaded && root.secondary-subtitle-position-known; hint: "Secondary subtitle position";
+                        changed(value) => { root.set-secondary-subtitle-position(round(value)); } }
                 }
                 if sidebar == 1 : Rectangle {
                     height: 28px; background: transparent;

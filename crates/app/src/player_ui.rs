@@ -190,6 +190,8 @@ fn update_ui(
     app.set_subtitle_delay(state.subtitle_delay as f32);
     app.set_secondary_subtitle_delay_known(state.secondary_subtitle_delay.is_some());
     app.set_secondary_subtitle_delay(state.secondary_subtitle_delay.unwrap_or(0.0) as f32);
+    app.set_secondary_subtitle_position_known(state.secondary_subtitle_position.is_some());
+    app.set_secondary_subtitle_position(state.secondary_subtitle_position.unwrap_or(0.0) as f32);
     app.set_subtitle_visible(state.subtitle_visible);
     app.set_secondary_subtitle_visibility_known(state.secondary_subtitle_visible.is_some());
     app.set_secondary_subtitle_visible(state.secondary_subtitle_visible.unwrap_or(false));
@@ -428,6 +430,18 @@ pub(crate) fn configure_player(
         }
     });
     let delay_player = player.command_sender();
+    let secondary_position_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_secondary_subtitle_position(move |value| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) =
+                secondary_position_player.send(Command::SecondarySubtitlePosition(value as f64))
+            {
+                app.set_status(error.into());
+            }
+        }
+    });
     let weak = app.as_weak();
     app.on_adjust_subtitle_delay(move |delta| {
         if let Some(app) = weak.upgrade() {
