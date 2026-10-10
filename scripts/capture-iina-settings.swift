@@ -2,6 +2,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import ApplicationServices
 
 let destination = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
@@ -70,8 +71,83 @@ func settingsWindows() -> [[String: Any]] {
     }
 }
 
-func pressKeyCode(_ keyCode: Int) throws {
-    _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to key code \(keyCode)")
+func axValue(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
+        return nil
+    }
+    return value
+}
+
+func axString(_ element: AXUIElement, _ attribute: String) -> String? {
+    axValue(element, attribute) as? String
+}
+
+func axChildren(_ element: AXUIElement) -> [AXUIElement] {
+    axValue(element, kAXChildrenAttribute as String) as? [AXUIElement] ?? []
+}
+
+func axWindow(pid: Int, title: String) -> AXUIElement? {
+    let application = AXUIElementCreateApplication(pid_t(pid))
+    let windows = axValue(application, kAXWindowsAttribute as String) as? [AXUIElement] ?? []
+    return windows.first { axString($0, kAXTitleAttribute as String) == title }
+}
+
+func axTree(_ element: AXUIElement, depth: Int = 0, budget: inout Int) -> [String: Any] {
+    budget -= 1
+    var node: [String: Any] = [
+        "role": axString(element, kAXRoleAttribute as String) ?? "",
+    ]
+    for (key, attribute) in [("title", kAXTitleAttribute), ("description", kAXDescriptionAttribute),
+                             ("value", kAXValueAttribute), ("identifier", "AXIdentifier" as CFString)] {
+        if let value = axString(element, attribute as String), !value.isEmpty {
+            node[key] = value
+        }
+    }
+    if depth < 10 && budget > 0 {
+        let children = axChildren(element)
+        if !children.isEmpty {
+            var descendants = [[String: Any]]()
+            for child in children {
+                guard budget > 0 else { break }
+                descendants.append(axTree(child, depth: depth + 1, budget: &budget))
+            }
+            node["children"] = descendants
+        }
+    }
+    return node
+}
+
+func axContainsLabel(_ element: AXUIElement, _ page: String) -> Bool {
+    let labels = [kAXTitleAttribute as String, kAXDescriptionAttribute as String,
+                  kAXValueAttribute as String, "AXLabel"]
+        .compactMap { axString(element, $0) }
+    return labels.contains(page) || axChildren(element).contains { axContainsLabel($0, page) }
+}
+
+func axRow(_ element: AXUIElement, page: String) -> AXUIElement? {
+    let role = axString(element, kAXRoleAttribute as String)
+    if role == kAXRowRole as String && axContainsLabel(element, page) { return element }
+    for child in axChildren(element) {
+        if let row = axRow(child, page: page) { return row }
+    }
+    return nil
+}
+
+func selectSidebarPage(_ page: String, windowInfo: [String: Any]) -> String {
+    guard AXIsProcessTrusted(),
+          let pid = windowInfo[kCGWindowOwnerPID as String] as? Int,
+          let currentTitle = windowInfo[kCGWindowName as String] as? String,
+          let settingsWindow = axWindow(pid: pid, title: currentTitle) else {
+        return "Accessibility API did not expose the active Settings window"
+    }
+    guard let row = axRow(settingsWindow, page: page) else {
+        return "Accessibility API found no selectable \(page) row"
+    }
+    let pressed = AXUIElementPerformAction(row, kAXPressAction as CFString)
+    if pressed == .success { return "AXPress succeeded" }
+    let selected = AXUIElementSetAttributeValue(row, kAXSelectedAttribute as CFString, kCFBooleanTrue)
+    return "AXPress=\(pressed.rawValue), AXSelected=\(selected.rawValue)"
 }
 
 do {
@@ -108,20 +184,31 @@ do {
                       userInfo: [NSLocalizedDescriptionKey: "Expected exactly one visible Settings window"])
     }
     record["settings_window"] = window
-    record["navigation_method"] = "Tab from the focused search field to the source list, then advance with Down Arrow; IINA skips its non-selectable section indicator."
-    // The search field owns initial focus; native Tab moves focus into the
-    // source list, whose selected General row is already established by IINA.
-    try pressKeyCode(48)
-    Thread.sleep(forTimeInterval: 0.25)
-    record["settings_windows_after_sidebar_focus"] = settingsWindows()
+    record["navigation_method"] = "Select the named source-list row through macOS Accessibility, then verify the window title before capture."
+    record["accessibility_trusted"] = AXIsProcessTrusted()
+    if let pid = window[kCGWindowOwnerPID as String] as? Int,
+       let title = window[kCGWindowName as String] as? String,
+       let accessibilityWindow = axWindow(pid: pid, title: title) {
+        var budget = 1600
+        record["settings_accessibility_tree"] = axTree(accessibilityWindow, budget: &budget)
+        record["accessibility_nodes_recorded"] = 1600 - budget
+    } else {
+        record["settings_accessibility_tree"] = "No accessible Settings window"
+    }
+    try saveRecord()
 
     var captures = [[String: Any]]()
     for (index, page) in pages.enumerated() {
         if index > 0 {
-            // The selected page inserts a non-selectable section indicator;
-            // AppKit's source list advances to the next selectable category.
-            try pressKeyCode(125)
-            Thread.sleep(forTimeInterval: 0.1)
+            guard let previousWindow = settingsWindows().first(where: {
+                ($0[kCGWindowName as String] as? String) == pages[index - 1]
+            }) else {
+                throw NSError(domain: "RiinaReferenceCapture", code: 9,
+                              userInfo: [NSLocalizedDescriptionKey: "Could not find the selected \(pages[index - 1]) Settings window"])
+            }
+            let action = selectSidebarPage(page, windowInfo: previousWindow)
+            record["last_accessibility_navigation"] = ["from": pages[index - 1], "to": page, "result": action]
+            try saveRecord()
         }
         let pageDeadline = Date().addingTimeInterval(5)
         var currentWindow = settingsWindows().first { ($0[kCGWindowName as String] as? String) == page }
