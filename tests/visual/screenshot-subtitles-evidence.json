@@ -1,0 +1,41 @@
+{
+  "scope": "Native saved SDR pixels; not GUI, reference font parity or HDR output",
+  "directory": "tools/screenshot-subtitles/20240-1791619373414328600",
+  "size": [
+    320,
+    180
+  ],
+  "active_cue_bounds": [
+    105,
+    153,
+    215,
+    175
+  ],
+  "active_cue_changed_pixels": 1626,
+  "hidden_matches_video": true,
+  "sha256": {
+    "video": "aa6bafcda3a100edee294a61a3ad8a981f5f01e0902d086a49d2492b8765c10a",
+    "subtitles": "3b53abdf2fce793e3eaab283342d13185d4828a07caf89ef5f5e6f491f888942",
+    "hidden": "aa6bafcda3a100edee294a61a3ad8a981f5f01e0902d086a49d2492b8765c10a"
+  },
+  "passed": true,
+  "published": false,
+  "source_commit": "4772a53d9ca9b1a9cb56b12ff919aa21d046453b",
+  "verification": {
+    "native_focused_test": "passed; 0.42 seconds",
+    "workspace_tests": "passed",
+    "strict_lint": "passed",
+    "format": "passed",
+    "pixel_checker": "passed",
+    "release": "not rebuilt; product code unchanged"
+  },
+  "pause_preserved": true,
+  "position_preserved": 0.5,
+  "remaining": [
+    "secondary and SRT/bitmap cues",
+    "reference font and GUI pixels",
+    "preferences UI",
+    "HDR",
+    "ports runtime"
+  ]
+}
