@@ -1,0 +1,32 @@
+{
+  "scope": "Native headless cadence and independent fixture oracle; no rendered-pixel verification",
+  "native_tests": {
+    "passed": 34,
+    "seconds": 14.46
+  },
+  "release_sha256": "bcf245c3416b7160fab060eb6a1a5c3b2a3b34666f9263cd1d2cc3eef93b1675",
+  "workspace_tests": "passed",
+  "format": "passed",
+  "strict_lint": "passed",
+  "oracle": {
+    "pyav": "16.0.1",
+    "input_frames": 75,
+    "output_frames": 150,
+    "field_order": "Both TFF and BFF temporal order verified",
+    "centre_comb_edges": "removed by independent bwdif oracle"
+  },
+  "native_cadence_ms": [
+    40,
+    20,
+    40
+  ],
+  "steps_per_mode_per_fixture": 6,
+  "native_frame_flags": "false/false even Off; not reliable source classification evidence",
+  "remaining": [
+    "native rendered comb removal and field order",
+    "hardware decoding",
+    "shared GL",
+    "macOS/Linux runtime"
+  ],
+  "published": false
+}

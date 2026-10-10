@@ -3,8 +3,8 @@
 Video > Deinterlace now has portable On/Off commands, native observed option and
 automatic-filter activity, shared/native menu checks and confirmed-state OSD.
 Native coexistence/repeat/burst/source-replacement tests and Windows native GUI
-On/Off messages pass. Add original interlaced fixtures and verify comb removal,
-cadence, hardware decoding paths, checks/materials and shared GL/macOS/Linux
+On/Off messages pass. Original interlaced fixtures and native cadence now pass; verify rendered comb removal,
+field order, hardware decoding paths, checks/materials and shared GL/macOS/Linux
 application runtime. mpv auto is outside the pinned two-state menu; preserve
 unknown state instead of claiming it is Off. Native GUI feedback for repeated
 Default aspect activation is now captured; custom/rejected input OSD, exact

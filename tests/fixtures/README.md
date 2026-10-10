@@ -48,3 +48,13 @@ Legacy ISO 639-2 and LanguageBCP47 metadata exercise both naming paths. Generate
 with `python scripts/generate-language-fixture.py`; fixture bytes are CC0-1.0,
 generator is MIT, and the hash is in manifest.json. Native decoding confirms
 mpv omits `und` but preserves the other language codes and both subtitle lanes.
+
+
+`interlaced-tff.mkv` and `interlaced-bff.mkv` are original CC0 woven v210 clips.
+Regenerate with `python scripts/generate-interlaced-fixtures.py` (standard library
+only). Each contains 75 frames at 25 fps, with two moving fields 20 ms apart.
+For an independent development oracle, install `av==16.0.1` with pip's
+`--only-binary=:all: --no-deps --target tools/fixture-python` options, then run
+`python scripts/check-interlaced-fixtures.py`. This ignored development dependency
+is not bundled. The check decodes the woven fields and verifies 150 ordered
+progressive bwdif outputs; it does not verify riina's rendered pixels.

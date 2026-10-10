@@ -779,6 +779,7 @@ pub struct Playback {
     pub deinterlace: Option<bool>,
     /// Native automatic filter activity, distinct from the configured option.
     pub deinterlace_active: Option<bool>,
+    pub video_frame_info: Option<VideoFrameInfo>,
     pub video_equalizer: [Option<i64>; 5],
     pub title: String,
     pub error: Option<String>,
@@ -871,6 +872,7 @@ impl Playback {
         self.video_target = None;
         self.video_output = None;
         self.deinterlace_active = None;
+        self.video_frame_info = None;
     }
 
     pub fn reconcile(&mut self) {
@@ -894,6 +896,15 @@ impl Playback {
 
 /// Effective source parameters, not the renderer's output/display color space.
 /// mpv can publish only container dimensions before a decoded frame exists.
+/// Approximate current-frame flags from mpv, separate from source parameters.
+/// They can lag presentation; pixel validation must not rely on these alone.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct VideoFrameInfo {
+    pub interlaced: Option<bool>,
+    #[serde(rename = "tff")]
+    pub top_field_first: Option<bool>,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct VideoParameters {
     pub pixelformat: Option<String>,

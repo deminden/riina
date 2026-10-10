@@ -76,5 +76,19 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-language-fixture.py",
     "description": "Original MJPEG/PCM and seven UTF-8 tracks with ISO and BCP 47 language metadata"
+  },
+  "interlaced-tff.mkv": {
+    "sha256": "c484fb18c826af425fed1ea6980b1267512f54b66b57bb48d9ac2e05550f5b3c",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-interlaced-fixtures.py",
+    "description": "96x64 v210 neutral moving bar; tff; 3 seconds at 25 frames/50 fields per second; alternating rows sampled 20 ms apart"
+  },
+  "interlaced-bff.mkv": {
+    "sha256": "9e07fd1668854e2bb859f9644f113aee0e93176372abf00912bc7f96c8206298",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-interlaced-fixtures.py",
+    "description": "96x64 v210 neutral moving bar; bff; 3 seconds at 25 frames/50 fields per second; alternating rows sampled 20 ms apart"
   }
 }

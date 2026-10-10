@@ -148,6 +148,7 @@ impl Player {
                         ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("deinterlace", 1), ("deinterlace-active", 3),
+                        ("video-frame-info", 6),
                         ("video-out-params", 6),
                         ("brightness", 4), ("contrast", 4), ("saturation", 4), ("gamma", 4), ("hue", 4),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
@@ -358,6 +359,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"video-rotate" => state.video_rotation = None,
             b"deinterlace" => state.deinterlace = None,
             b"deinterlace-active" => state.deinterlace_active = None,
+            b"video-frame-info" => state.video_frame_info = None,
             b"hwdec-current" => state.hardware_decoder = None,
             b"hwdec" => state.hardware_decoding = None,
             b"current-ao" => state.audio_output = None,
@@ -397,6 +399,14 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 }
                 b"playlist" => {
                     state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?
+                }
+                b"video-frame-info" => {
+                    state.video_frame_info =
+                        if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
+                            None
+                        } else {
+                            Some(serde_json::from_value(value).map_err(|e| e.to_string())?)
+                        };
                 }
                 b"video-params" | b"video-target-params" | b"video-out-params" => {
                     // The native VO target describes presentation, while source

@@ -1,3 +1,14 @@
+Original top-first and bottom-first interlaced fixtures now validate native
+frame cadence: six steps each at 40 ms Off, 20 ms On, then 40 ms Off, with pause
+preserved. An independent pinned PyAV decoder confirms 75 interlaced frames
+and 150 correctly ordered progressive bwdif outputs per clip, with centre comb
+edges removed. Native headless frame-info reports progressive flags even Off;
+these approximate flags are not source classification evidence. Native rendered
+comb removal, field order, hardware paths and current ports remain unverified.
+All 34 native tests pass (14.46 seconds), workspace tests, formatting and strict
+lint pass, and Windows release builds (43.51 seconds). All 13 fixture hashes
+validate. Evidence: tests/visual/interlaced-cadence-evidence.json. Nothing published.
+
 # Status · 2026-10-09
 
 Video > Deinterlace now follows Flip on both player surfaces, defaults Off and

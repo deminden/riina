@@ -8,6 +8,84 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
+fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    for name in ["interlaced-tff.mkv", "interlaced-bff.mkv"] {
+        let (sender, receiver) = mpsc::channel();
+        let player = Player::start(&test_library(&root), true, move |state| {
+            let _ = sender.send(state);
+        })
+        .unwrap();
+        player
+            .send(Command::HardwareDecoding(
+                riina_core::video_controls::HardwareDecoder::Disabled,
+            ))
+            .unwrap();
+        player
+            .send(Command::Load(
+                root.join("tests/fixtures")
+                    .join(name)
+                    .to_string_lossy()
+                    .into_owned(),
+            ))
+            .unwrap();
+        wait_for(&receiver, |state| {
+            state.phase == Phase::Playing && state.position.is_some()
+        });
+        player.send(Command::TogglePause).unwrap();
+        let mut previous = wait_for(&receiver, |state| state.paused && state.position.is_some());
+        assert_eq!(previous.deinterlace, Some(false));
+        assert_eq!(previous.deinterlace_active, Some(false));
+        assert_eq!(
+            previous.video.as_ref().map(|video| (video.w, video.h)),
+            Some((96, 64))
+        );
+        for enabled in [false, true, false] {
+            player.send(Command::Deinterlace(enabled)).unwrap();
+            previous = wait_for(&receiver, |state| {
+                state.paused
+                    && !state.seeking
+                    && state.deinterlace == Some(enabled)
+                    && state.deinterlace_active == Some(enabled)
+                    && state.position.is_some()
+            });
+            for _ in 0..6 {
+                let from = previous.position.unwrap();
+                player.send(Command::FrameStep).unwrap();
+                let next = wait_for(&receiver, |state| {
+                    state.paused
+                        && !state.seeking
+                        && state
+                            .position
+                            .is_some_and(|position| position > from + 0.005)
+                });
+                let delta = next.position.unwrap() - from;
+                let expected = if enabled { 0.020 } else { 0.040 };
+                assert!(
+                    (delta - expected).abs() < 0.002,
+                    "{name}: enabled={enabled}, step={delta}"
+                );
+                assert_eq!(next.error, None);
+                assert_eq!(
+                    next.video_output.as_ref().map(|video| (video.w, video.h)),
+                    Some((96, 64))
+                );
+                previous = next;
+            }
+            println!(
+                "{name}: deinterlace={enabled}; six {} ms steps; frame flags {:?}",
+                if enabled { 20 } else { 40 },
+                previous.video_frame_info
+            );
+        }
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies deinterlace state and automatic filter coexistence"]
 fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
     use riina_core::{crop::Preset, video_reflection::Axis};
