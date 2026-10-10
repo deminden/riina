@@ -94,6 +94,35 @@ component Tool inherits Rectangle {
     }
 }
 
+component SubtitleLaneSegment inherits Rectangle {
+    in property <string> label;
+    in property <string> hint;
+    in property <bool> selected;
+    callback activated();
+    height: 24px;
+    horizontal-stretch: 1;
+    border-radius: 4px;
+    background: selected ? #ffffff28 : touch.has-hover ? #ffffff10 : transparent;
+    accessible-role: button;
+    accessible-label: hint;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { activated(); }
+    Text { text: label; font-size: 12px; color: #eeeeee;
+        horizontal-alignment: center; vertical-alignment: center; }
+    if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef;
+        border-radius: 4px; background: transparent; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        key-pressed(event) => {
+            // Lane choice is idempotent; modified player shortcuts still bubble.
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
+
 export component PlayerWindow inherits Window {
     title: "riina";
     preferred-width: 960px; preferred-height: 600px;
@@ -379,13 +408,15 @@ export component PlayerWindow inherits Window {
                         }
                         if sidebar == 2 : VerticalLayout {
                             height: 124px; vertical-stretch: 0;
-                            HorizontalLayout { height: 28px; spacing: 0;
-                                Tool { width: 100px; label: "Primary"; hint: "Edit primary subtitle timing and position";
-                                    background: !root.edit-secondary-subtitle ? #ffffff20 : transparent;
-                                    activated => { root.edit-secondary-subtitle = false; } }
-                                Tool { width: 100px; label: "Secondary"; hint: "Edit secondary subtitle timing and position";
-                                    background: root.edit-secondary-subtitle ? #ffffff20 : transparent;
-                                    activated => { root.edit-secondary-subtitle = true; } }
+                            Rectangle { height: 28px; border-radius: 5px; background: #ffffff0c;
+                                HorizontalLayout { padding: 2px; spacing: 1px;
+                                    SubtitleLaneSegment { label: "Primary"; hint: "Edit primary subtitle timing and position";
+                                        selected: !root.edit-secondary-subtitle;
+                                        activated => { root.edit-secondary-subtitle = false; } }
+                                    SubtitleLaneSegment { label: "Secondary"; hint: "Edit secondary subtitle timing and position";
+                                        selected: root.edit-secondary-subtitle;
+                                        activated => { root.edit-secondary-subtitle = true; } }
+                                }
                             }
                             Text { text: root.edit-secondary-subtitle && !root.secondary-subtitle-delay-known ? "Delay: —" : "Delay: " + (root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay) + " s";
                                 color: #bbbbbb; font-size: 11px; }

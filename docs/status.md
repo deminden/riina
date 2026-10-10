@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local subtitle lane selector refinement: the editor's generic large text buttons
+are replaced by a compact equal-width segmented control with 12px labels and
+explicit accessible checked state. Choosing a segment is idempotent; keyboard
+Enter/Space and pointer activation share the same lane-selection callback while
+modified playback shortcuts bubble. Focus has a visible indicator. Strict lint,
+formatting and all 25 unit tests pass. Native segment appearance, light theme,
+runtime keyboard switching and exact macOS dimensions remain unverified; this
+uses original portable UI geometry and does not claim pixel-perfect parity.
+Changes remain local.
+
 Local subtitle section ordering increment: Primary and Secondary track lists now
 precede Load Subtitle and the shared timing/position editor, matching the pinned
 SidebarSubtitlesPane section sequence. All subtitle sections share the scrolling
