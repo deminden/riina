@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Flip/mirror now also have native atomic toggle commands. Passing the full
+managed filter specification to vf toggle adds/removes the filter; label-only
+toggle would merely change its enabled flag. This keeps rapid activations from
+using a stale UI catalog. Native coverage passes for single on/off and an
+interleaved two-axis burst, retaining crop, pause, volume and navigation count.
+The pinned menu items have no default key equivalents, and their handlers do
+not emit a dedicated flip/mirror OSD; do not invent either. Menu and configurable
+IINA-command binding integration, reflected pixels and OS runtime remain open.
+No GUI/full-native-suite rerun and no public update.
+Workspace unit tests, strict lint and formatting pass.
+
 Flip/mirror now have portable explicit-state commands with independently owned
 hflip/vflip labels. Unknown filter state is rejected; repeated enabled/disabled
 requests are idempotent and removal touches only the requested axis. Native

@@ -137,6 +137,45 @@ fn video_reflection_axes_preserve_crop_and_playback() {
             .map(|video| (video.w, video.h)),
         Some((240, 180))
     );
+    player
+        .send(Command::ToggleVideoReflection(Axis::Horizontal))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        Axis::Horizontal.observed(state.video_filters.as_deref()) == Some(true)
+    });
+    player
+        .send(Command::ToggleVideoReflection(Axis::Horizontal))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        Axis::Horizontal.observed(state.video_filters.as_deref()) == Some(false)
+    });
+    // Native chain ordering must survive a burst without UI observation.
+    for axis in [
+        Axis::Horizontal,
+        Axis::Vertical,
+        Axis::Horizontal,
+        Axis::Vertical,
+    ] {
+        player.send(Command::ToggleVideoReflection(axis)).unwrap();
+    }
+    player.send(Command::Speed(1.5)).unwrap();
+    let toggled = wait_for(&receiver, |state| state.speed == 1.5);
+    assert_eq!(
+        Axis::Horizontal.observed(toggled.video_filters.as_deref()),
+        Some(false)
+    );
+    assert_eq!(
+        Axis::Vertical.observed(toggled.video_filters.as_deref()),
+        Some(false)
+    );
+    assert_eq!(riina_core::crop::observed_index(&toggled), Some(1));
+    assert!(toggled.paused);
+    assert_eq!(toggled.volume, 37.0);
+    assert_eq!(
+        toggled.completed_navigation_seeks,
+        cropped.completed_navigation_seeks
+    );
+    assert_eq!(toggled.error, None);
 }
 
 #[test]

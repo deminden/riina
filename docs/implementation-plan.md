@@ -1,9 +1,10 @@
 # Implementation plan
 
 Video > Flip backend now has independent Horizontal (Mirror)/Vertical managed
-axis commands and native coexistence coverage with crop. Wire the reference
-menu/shortcut/OSD behavior and prove reflected pixels on both rendering routes;
+axis commands, atomic toggles and native coexistence coverage with crop. Wire
+the reference menu/configurable-command behavior and prove reflected pixels on both rendering routes;
 do not add arbitrary sidebar controls or claim backend commands finish parity.
+The reference gives these items no default shortcut or dedicated OSD message.
 
 Empty/zero-area drafts and native confirmation are now supported. The native
 zero-at-origin test keeps full-source output and reports Custom. Offset (10,12)

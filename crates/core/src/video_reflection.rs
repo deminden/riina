@@ -8,6 +8,16 @@ pub enum Axis {
 }
 
 impl Axis {
+    pub fn filter(self) -> String {
+        format!(
+            "@{}:{}",
+            self.label(),
+            match self {
+                Self::Horizontal => "hflip",
+                Self::Vertical => "vflip",
+            }
+        )
+    }
     pub fn label(self) -> &'static str {
         match self {
             Self::Horizontal => "riina-mirror",
@@ -31,18 +41,7 @@ impl Axis {
             return Ok(Vec::new());
         }
         Ok(vec![if enabled {
-            vec![
-                "vf".into(),
-                "add".into(),
-                format!(
-                    "@{}:{}",
-                    self.label(),
-                    match self {
-                        Self::Horizontal => "hflip",
-                        Self::Vertical => "vflip",
-                    }
-                ),
-            ]
+            vec!["vf".into(), "add".into(), self.filter()]
         } else {
             vec!["vf".into(), "remove".into(), format!("@{}", self.label())]
         }])

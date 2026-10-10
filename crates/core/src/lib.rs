@@ -40,6 +40,7 @@ pub enum Command {
     VideoRotation(video_controls::Rotation),
     VideoCrop(Option<crop::Preset>),
     VideoCropRectangle(crop::Rectangle),
+    ToggleVideoReflection(video_reflection::Axis),
     VideoViewport(Option<video_viewport::Viewport>),
     VideoReflection {
         axis: video_reflection::Axis,
@@ -161,6 +162,9 @@ impl Command {
                 "video-aspect-override".into(),
                 aspect.native_value().into(),
             ],
+            // Read the native chain at execution; rapid activations must not
+            // invert the same stale observed state twice.
+            Self::ToggleVideoReflection(axis) => vec!["vf".into(), "toggle".into(), axis.filter()],
             Self::VideoRotation(rotation) => vec![
                 "set".into(),
                 "video-rotate".into(),
