@@ -84,46 +84,22 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             app.set_native_video(true);
             let menu_handle = presentation.owner_handle();
             *startup_menu_lifecycle.borrow_mut() = Some(
-                super::menu_focus::MenuFocus::install(menu_handle, app.as_weak())
-                    .map_err(std::io::Error::other)?,
+                super::menu_focus::MenuFocus::install(
+                    menu_handle,
+                    app.as_weak(),
+                    startup_menu_focus.clone(),
+                )
+                .map_err(std::io::Error::other)?,
             );
             let keyboard_host = host.as_weak();
             let keyboard_app = app.as_weak();
-            let keyboard_menu_focus = startup_menu_focus.clone();
             app.on_open_application_menu(move || {
-                let keyboard_host = keyboard_host.clone();
-                let keyboard_app = keyboard_app.clone();
-                let keyboard_menu_focus = keyboard_menu_focus.clone();
-                // Finish the original F10 key-up before focusing another HWND:
-                // its default processing can otherwise dismiss the new menu.
-                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
-                    use windows::Win32::{
-                        Foundation::{HWND, LPARAM, WPARAM},
-                        UI::WindowsAndMessaging::{PostMessageW, SC_KEYMENU, WM_SYSCOMMAND},
-                    };
-                    if let Some(host) = keyboard_host.upgrade() {
-                        // Menu focus belongs to the framed owner. Suppress one
-                        // automatic chrome refocus, then let Windows own its menu loop.
-                        keyboard_menu_focus.set(true);
-                        host.window()
-                            .with_winit_window(|window| window.focus_window());
-                        // SAFETY: the retained host owns this HWND on the UI thread.
-                        let result = unsafe {
-                            PostMessageW(
-                                Some(HWND(menu_handle as *mut _)),
-                                WM_SYSCOMMAND,
-                                WPARAM(SC_KEYMENU as usize),
-                                LPARAM(0),
-                            )
-                        };
-                        if let Err(error) = result {
-                            keyboard_menu_focus.set(false);
-                            if let Some(app) = keyboard_app.upgrade() {
-                                app.set_status(error.to_string().into());
-                            }
-                        }
-                    }
-                });
+                if let Some(_host) = keyboard_host.upgrade()
+                    && let Err(error) = super::menu_focus::request(menu_handle)
+                    && let Some(app) = keyboard_app.upgrade()
+                {
+                    app.set_status(error.to_string().into());
+                }
             });
             // The framed owner hosts the native menu; its transparent popup
             // retains controller state. Bridge observations without a second
@@ -143,8 +119,6 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             host.on_toggle_video_reflection(move |horizontal| {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_toggle_video_reflection(horizontal);
-                    app.window()
-                        .with_winit_window(|window| window.focus_window());
                 }
             });
             let configured = configure_player(&app, Some(presentation), media)?;
@@ -189,14 +163,13 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let event_chrome = chrome.clone();
     host.window().on_winit_window_event(move |host, event| {
         if matches!(event, winit::event::WindowEvent::Focused(true))
-            && !menu_focus.replace(false)
+            && !menu_focus.get()
             && let Some(app) = event_chrome.borrow().as_ref()
             && !app.get_dialog_open()
         {
             // Fullscreen and taskbar activation focus the owner. Keyboard commands
             // belong to the shared chrome, not mpv's otherwise inactive host.
-            app.window()
-                .with_winit_window(|window| window.focus_window());
+            super::menu_focus::focus_chrome(app.window());
         }
         if matches!(
             event,

@@ -1,5 +1,20 @@
 # Status · 2026-10-09
 
+The deferred native menu revision (source 12057a9, binary
+92e9a507004ded136b919f6a33d9cf6f8dab542c3de5e9f7a094ad38967c7484)
+still returned to chrome on first F10 and closed with exit 0. Temporary message
+tracing then showed owner menu entry followed by automatic chrome refocus.
+The Windows winit focus helper also synthesizes Alt. Menu-loop ownership now
+persists across owner focus events, uses direct same-thread SetFocus, and queues
+entry/recovery through Windows messages rather than Slint timers. Registered
+recovery messages carry a generation so an older exit cannot reclaim input from
+a later menu loop. Temporary traces were removed. Workspace tests and strict
+lint pass; revised first-entry, cancellation/action recovery and lifecycle need
+runtime verification. Nothing published.
+API basis: [SetFocus](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setfocus),
+[menu entry](https://learn.microsoft.com/en-us/windows/win32/menurc/wm-entermenuloop),
+[menu exit](https://learn.microsoft.com/en-us/windows/win32/menurc/wm-exitmenuloop).
+
 The key-release-only native menu revision still returned focus to chrome on its
 first F10 in a runtime check (source f8aff94, binary e965dcc289cf49b72d83f11b86a04011d31307b51d741d3b8301810917e6ff76).
 That player closed with exit 0. Owner focus/menu entry is now deferred until the
