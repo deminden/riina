@@ -676,6 +676,27 @@ pub(crate) fn configure_player(
             }
         }
     });
+    let menu_rotation_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_menu_video_rotation(move |degrees| {
+        let Some(app) = weak.upgrade() else { return };
+        refresh_video_menu(&app);
+        if !app.get_loaded()
+            || !app.get_video_rotation_known()
+            || app.get_crop_editing()
+            || app.get_dialog_open()
+        {
+            return;
+        }
+        let Some(rotation) = riina_core::video_controls::Rotation::from_degrees(degrees.into())
+        else {
+            return;
+        };
+        app.invoke_activity();
+        if let Err(error) = menu_rotation_player.send(Command::VideoRotation(rotation)) {
+            app.set_status(error.into());
+        }
+    });
     let hardware_player = player.command_sender();
     let preferred_decoder = prefs.hardware_decoder;
     let weak = app.as_weak();

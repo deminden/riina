@@ -269,6 +269,16 @@ export component PlayerWindow inherits Window {
                 MenuItem { title: "Custom…"; checkable: true; checked: root.video-crop-menu-index == 10;
                     activated => { root.set-menu-video-crop(10); } }
             }
+            Menu { title: "Rotation"; enabled: root.loaded && root.video-rotation-known && !root.crop-editing;
+                MenuItem { title: "0°"; checkable: true; checked: root.video-rotation-index == 0;
+                    activated => { root.set-menu-video-rotation(0); } }
+                MenuItem { title: "90°"; checkable: true; checked: root.video-rotation-index == 1;
+                    activated => { root.set-menu-video-rotation(90); } }
+                MenuItem { title: "180°"; checkable: true; checked: root.video-rotation-index == 2;
+                    activated => { root.set-menu-video-rotation(180); } }
+                MenuItem { title: "270°"; checkable: true; checked: root.video-rotation-index == 3;
+                    activated => { root.set-menu-video-rotation(270); } }
+            }
             Menu { title: "Flip"; enabled: root.loaded && root.reflection-known && !root.crop-editing;
                 MenuItem { title: "Horizontal (Mirror)"; checkable: true; checked: root.video-mirrored;
                     activated => { root.toggle-video-reflection(true); } }
@@ -338,6 +348,8 @@ export component PlayerWindow inherits Window {
     in property <bool> video-aspect-known: false;
     in property <bool> video-rotation-known: false;
     in property <int> video-rotation-index: -1;
+    changed video-rotation-known => { root.video-menu-changed(); }
+    changed video-rotation-index => { root.video-menu-changed(); }
     in property <[string]> video-crop-presets;
     in property <int> video-crop-index: -1;
     in property <bool> video-crop-known: false;
@@ -412,6 +424,7 @@ export component PlayerWindow inherits Window {
     callback frame-back-step();
     callback set-video-aspect(string);
     callback set-video-rotation(int);
+    callback set-menu-video-rotation(int);
     callback set-video-crop(int);
     callback set-menu-video-crop(int);
     callback set-hardware-decoding(bool);

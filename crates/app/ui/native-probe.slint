@@ -11,6 +11,9 @@ export component NativeVideoHost inherits Window {
     in property <[string]> crop-menu-labels;
     in property <int> crop-menu-index: -1;
     callback set-menu-video-crop(int);
+    in property <bool> rotation-menu-enabled: false;
+    in property <int> video-rotation-index: -1;
+    callback set-menu-video-rotation(int);
     MenuBar {
         Menu { title: "Video";
             Menu { title: "Crop"; enabled: root.crop-menu-enabled;
@@ -21,6 +24,16 @@ export component NativeVideoHost inherits Window {
                 MenuSeparator {}
                 MenuItem { title: "Custom…"; checkable: true; checked: root.crop-menu-index == 10;
                     activated => { root.set-menu-video-crop(10); } }
+            }
+            Menu { title: "Rotation"; enabled: root.rotation-menu-enabled;
+                MenuItem { title: "0°"; checkable: true; checked: root.video-rotation-index == 0;
+                    activated => { root.set-menu-video-rotation(0); } }
+                MenuItem { title: "90°"; checkable: true; checked: root.video-rotation-index == 1;
+                    activated => { root.set-menu-video-rotation(90); } }
+                MenuItem { title: "180°"; checkable: true; checked: root.video-rotation-index == 2;
+                    activated => { root.set-menu-video-rotation(180); } }
+                MenuItem { title: "270°"; checkable: true; checked: root.video-rotation-index == 3;
+                    activated => { root.set-menu-video-rotation(270); } }
             }
             Menu { title: "Flip"; enabled: root.reflection-menu-enabled;
                 MenuItem { title: "Horizontal (Mirror)"; checkable: true; checked: root.video-mirrored;

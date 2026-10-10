@@ -1,5 +1,21 @@
 # Status · 2026-10-09
 
+Video > Rotation now exposes the pinned four degree labels between Crop and
+Flip on shared and native player menus. Selection derives from observed native
+rotation; menu callbacks validate loaded/known state and crop/dialog scopes,
+renew the native menu model and dispatch the existing portable rotation intent.
+No additional shortcut or optimistic selection is introduced. Formatting,
+strict lint, workspace tests and Windows release build pass (42.95 seconds).
+The native geometry test passes (0.17 seconds) for 90/180/270/0 with pause,
+volume 37, aspect reset and track identity preserved. Native GUI testing verifies
+the hierarchy and ordered labels; 90° activation loses the input tool reference,
+then fresh inventory recovers the responsive player at Play/volume 37/position
+4.999979. The Video sidebar opens; checks and rendered rotation are not exposed
+by this accessibility view. Clean close returns 0 with only the expected layout
+diagnostic. Exact GUI output, no-op/failure checks, shared GL and ports remain
+unverified. Aspect Ratio menu remains pending exact requested-text provenance
+and its reference OSD. Nothing published.
+
 Crop and Flip menu activations now renew menu model identity before dispatch or
 input-scope rejection. The pinned muda backend automatically toggles native
 check items before delivering actions; the Slint backend rebuilds them only when

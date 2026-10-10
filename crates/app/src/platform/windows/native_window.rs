@@ -118,6 +118,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     );
                     host.set_crop_menu_labels(app.get_video_crop_menu_labels());
                     host.set_crop_menu_index(app.get_video_crop_menu_index());
+                    host.set_rotation_menu_enabled(
+                        app.get_loaded()
+                            && app.get_video_rotation_known()
+                            && !app.get_crop_editing(),
+                    );
+                    host.set_video_rotation_index(app.get_video_rotation_index());
                 }
             });
             let menu_app = app.as_weak();
@@ -131,6 +137,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             host.on_set_menu_video_crop(move |index| {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_set_menu_video_crop(index);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_set_menu_video_rotation(move |degrees| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_set_menu_video_rotation(degrees);
                 }
             });
             *startup_session.borrow_mut() = Some(configured);
