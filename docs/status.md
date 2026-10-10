@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+The shared OpenGL route now renders its crop-editing picture into the reserved,
+top-anchored interactive bounds and projects the selection through those same
+bounds. Rendering dimensions are separate from the full window/editor viewport,
+so returning from editing restores the normal full-area render target. Native
+window presentation remains on the previous full-area geometry pending native
+viewport wiring; shadow, actual pixels, pointer operation and port runtime remain
+unverified. Workspace unit tests, strict lint and formatting pass. No GUI/native
+suite rerun and no publication for this wiring change.
+Optimized Windows build passes in 37.63 seconds.
+
 A portable interactive-picture projection now encodes the reference's 20-point
 top/horizontal inset and 108-point height reservation, with top anchoring after
 contain-fit. Regression coverage checks numeric landscape/rotated layouts,

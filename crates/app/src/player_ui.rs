@@ -1077,8 +1077,8 @@ pub(crate) fn configure_player(
                 slint::RenderingState::BeforeRendering => {
                     if let (Some(video), Some(app)) = (surface.as_mut(), render_weak.upgrade()) {
                         let scale = app.window().scale_factor();
-                        let width = (app.get_video_width() * scale).clamp(1.0, 8192.0) as u32;
-                        let height = (app.get_video_height() * scale).clamp(1.0, 8192.0) as u32;
+                        let width = (app.get_render_width() * scale).clamp(1.0, 8192.0) as u32;
+                        let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
                         // SAFETY: the notifier uses the same context throughout its lifetime.
                         match unsafe { video.render(width, height) } {
                             Ok(()) => {

@@ -48,6 +48,15 @@ impl Editor {
             .as_ref()
             .and_then(|state| state.video.as_ref())
             .ok_or("Source video is unavailable")?;
+        if !app.get_native_video() {
+            return Projection::interactive(
+                video,
+                (
+                    f64::from(app.get_video_width()),
+                    f64::from(app.get_video_height()),
+                ),
+            );
+        }
         Projection::for_video(
             video,
             DisplayRect {
@@ -60,7 +69,7 @@ impl Editor {
     }
 
     fn refresh(&self, app: &PlayerWindow) {
-        let (editing, ready, rectangle, screen) = {
+        let (editing, ready, rectangle, screen, content) = {
             let data = self.0.lock().expect("Crop editor state is available");
             let ready = data
                 .session
@@ -77,12 +86,21 @@ impl Editor {
                 let whole = data.session.as_ref()?.whole_source();
                 rectangle.to_native((whole.width, whole.height)).ok()
             });
-            (data.session.is_some(), ready, rectangle, screen)
+            let content = Self::projection(&data, app)
+                .ok()
+                .map(|projection| projection.content());
+            (data.session.is_some(), ready, rectangle, screen, content)
         };
         // Property changes may call back into layout. Never hold the coordinator
         // mutex while publishing UI properties or moving keyboard focus.
         let entering = !app.get_crop_editing() && editing;
         let exiting = app.get_crop_editing() && !editing;
+        if let Some(content) = content {
+            app.set_crop_picture_x(content.x as f32);
+            app.set_crop_picture_y(content.y as f32);
+            app.set_crop_picture_width(content.width as f32);
+            app.set_crop_picture_height(content.height as f32);
+        }
         app.set_crop_editing(editing);
         app.set_crop_ready(ready && screen.is_some());
         if exiting {

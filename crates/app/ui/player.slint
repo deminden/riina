@@ -355,6 +355,12 @@ export component PlayerWindow inherits Window {
     in-out property <bool> controls-visible: true;
     out property <length> video-width: root.width;
     out property <length> video-height: root.height;
+    in property <float> crop-picture-x;
+    in property <float> crop-picture-y;
+    in property <float> crop-picture-width;
+    in property <float> crop-picture-height;
+    out property <length> render-width: crop-editing && !native-video ? crop-picture-width * 1px : root.width;
+    out property <length> render-height: crop-editing && !native-video ? crop-picture-height * 1px : root.height;
     changed video-width => { root.crop-viewport-changed(); }
     changed video-height => { root.crop-viewport-changed(); }
     callback open-file();
@@ -416,7 +422,12 @@ export component PlayerWindow inherits Window {
     keys := FocusScope {
         width: root.width;
         height: root.height;
-        Image { source: video-frame; width: parent.width; height: parent.height; image-fit: contain; }
+        Image {
+            source: video-frame;
+            x: crop-editing && !native-video ? crop-picture-x * 1px : 0px;
+            y: crop-editing && !native-video ? crop-picture-y * 1px : 0px;
+            width: root.render-width; height: root.render-height; image-fit: contain;
+        }
         TouchArea { moved => { root.controls-visible = true; root.activity(); }
             double-clicked => { root.toggle-fullscreen(); } }
         if !loaded : VerticalLayout {
