@@ -11,8 +11,8 @@ use windows::Win32::{
         CoTaskMemFree, CoUninitialize,
     },
     UI::Shell::{
-        FOS_ALLOWMULTISELECT, FOS_FORCEFILESYSTEM, FileOpenDialog, IFileOpenDialog,
-        SIGDN_FILESYSPATH,
+        FOS_ALLOWMULTISELECT, FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, FileOpenDialog,
+        IFileOpenDialog, SIGDN_FILESYSPATH,
     },
 };
 use windows::core::PCWSTR;
@@ -42,6 +42,23 @@ impl DialogOwner {
 }
 
 pub fn open_files(owner: &DialogOwner, multiple: bool, title: &str) -> Result<Vec<String>, String> {
+    open_selection(owner, multiple, false, title)
+}
+
+pub fn pick_folder(owner: &DialogOwner) -> Result<Option<String>, String> {
+    Ok(
+        open_selection(owner, false, true, "Choose screenshot save path")?
+            .into_iter()
+            .next(),
+    )
+}
+
+fn open_selection(
+    owner: &DialogOwner,
+    multiple: bool,
+    folders: bool,
+    title: &str,
+) -> Result<Vec<String>, String> {
     let hwnd = HWND(owner.handle as *mut _);
     // SAFETY: the caller retains the native owner for this entire modal operation.
     // This dedicated STA balances COM setup and keeps interfaces on one thread.
@@ -64,6 +81,9 @@ pub fn open_files(owner: &DialogOwner, multiple: bool, title: &str) -> Result<Ve
             dialog.GetOptions().map_err(|error| error.to_string())? | FOS_FORCEFILESYSTEM;
         if multiple {
             options |= FOS_ALLOWMULTISELECT;
+        }
+        if folders {
+            options |= FOS_PICKFOLDERS;
         }
         dialog
             .SetOptions(options)

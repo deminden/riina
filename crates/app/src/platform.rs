@@ -1,4 +1,5 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
+pub(crate) mod folder_dialog;
 pub(crate) mod language;
 
 pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::path::PathBuf> {

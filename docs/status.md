@@ -1,3 +1,22 @@
+Windows folder-dialog runtime: Ctrl+comma opens Preferences; first Tab focuses
+the folder button; Return opens the native Choose screenshot save path dialog.
+AX exposes Folder edit / Select Folder / Cancel and disables the chooser behind
+it. Escape closes the dialog, restores the enabled chooser and focus, and saved
+JSON remains directory null with PNG/subtitles/preview defaults intact. Preferences
+closes; player exits 0. Acceptance of a selected folder was not exercised.
+Workspace tests, strict lint and formatting pass; final Windows release passes
+in 42.23 seconds. Engine code unchanged; native playback suite not rerun.
+Rendered pixels, accepted-path capture and macOS/Linux runtime remain pending.
+
+The shared General screenshot section now displays its configured folder and
+provides a folder chooser. Windows uses the existing retained native owner and
+dedicated COM STA with filesystem-only folder selection; macOS/Linux use the
+existing asynchronous native/portal dialog backend. The preferences close request
+and player dialog gate prevent closing/reopening while selection is active.
+Cancellation clears those gates without changing saved settings. Selection
+updates the window draft then invokes the existing persistence/rollback path.
+Save-to-file checkbox and clipboard destination are still unfinished.
+
 A shared Preferences window now opens from riina > Preferences… on both menu
 surfaces and the primary comma shortcut. Its initial General screenshot section
 provides the pinned five visible formats, Include subtitles and Show previews.

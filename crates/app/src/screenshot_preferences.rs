@@ -48,6 +48,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                 }
                 app.set_screenshot_include_subtitles(window.get_include_subtitles());
                 app.set_screenshot_show_preview(window.get_show_preview());
+                app.set_screenshot_custom_directory(window.get_custom_directory());
+                app.set_screenshot_directory(window.get_directory());
                 let result =
                     self::current(&app).and_then(|screenshot| {
                         let preferences =
@@ -69,9 +71,74 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                     app.set_status(error.into());
                 }
             });
+            let parent = app.as_weak();
+            let weak = window.as_weak();
+            window.on_choose_folder(move || {
+                let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
+                    return;
+                };
+                if app.get_dialog_open() || app.get_crop_editing() {
+                    return;
+                }
+                app.set_dialog_open(true);
+                window.set_folder_dialog_open(true);
+                let parent = app.as_weak();
+                let weak = window.as_weak();
+                let failure_parent = parent.clone();
+                let failure_window = weak.clone();
+                let started = slint::spawn_local(async move {
+                    let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
+                        return;
+                    };
+                    let result = async {
+                        let owner = window
+                            .window()
+                            .winit_window()
+                            .await
+                            .map_err(|error| error.to_string())?;
+                        let parent = parent.clone();
+                        let weak = weak.clone();
+                        crate::platform::folder_dialog::pick(owner, move |result| {
+                            let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade())
+                            else {
+                                return;
+                            };
+                            app.set_dialog_open(false);
+                            window.set_folder_dialog_open(false);
+                            match result {
+                                Ok(Some(directory)) => {
+                                    window.set_directory(directory.into());
+                                    window.set_custom_directory(true);
+                                    window.invoke_settings_changed();
+                                }
+                                Ok(None) => {}
+                                Err(error) => app.set_status(error.into()),
+                            }
+                        })
+                    }
+                    .await;
+                    if let Err(error) = result {
+                        app.set_dialog_open(false);
+                        window.set_folder_dialog_open(false);
+                        app.set_status(error.into());
+                    }
+                });
+                if let Err(error) = started {
+                    if let Some(app) = failure_parent.upgrade() {
+                        app.set_dialog_open(false);
+                        app.set_status(error.to_string().into());
+                    }
+                    if let Some(window) = failure_window.upgrade() {
+                        window.set_folder_dialog_open(false);
+                    }
+                }
+            });
             let weak = window.as_weak();
             window.window().on_close_requested(move || {
                 if let Some(window) = weak.upgrade() {
+                    if window.get_folder_dialog_open() {
+                        return slint::CloseRequestResponse::KeepWindowShown;
+                    }
                     let _ = window.hide();
                 }
                 slint::CloseRequestResponse::KeepWindowShown
@@ -103,6 +170,15 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_format_index(index);
     window.set_include_subtitles(app.get_screenshot_include_subtitles());
     window.set_show_preview(app.get_screenshot_show_preview());
+    window.set_custom_directory(app.get_screenshot_custom_directory());
+    window.set_directory(if app.get_screenshot_custom_directory() {
+        app.get_screenshot_directory()
+    } else {
+        dirs::picture_dir()
+            .map(|path| path.join("Screenshots").to_string_lossy().into_owned())
+            .unwrap_or_default()
+            .into()
+    });
 }
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {

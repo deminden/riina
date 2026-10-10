@@ -1,4 +1,4 @@
-import { CheckBox, ComboBox } from "std-widgets.slint";
+import { CheckBox, ComboBox, Button } from "std-widgets.slint";
 
 // Original controls follow the reference General screenshot section's 120px
 // label column. Toolkit metrics remain provisional until rendered comparison.
@@ -11,9 +11,19 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> include-subtitles: true;
     in-out property <bool> show-preview: true;
     callback settings-changed();
+    callback choose-folder();
+    in-out property <string> directory;
+    in-out property <bool> custom-directory: false;
+    in-out property <bool> folder-dialog-open: false;
     Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
     Rectangle { x: 20px; y: 52px; width: 480px; height: 184px; background: transparent;
         Text { x: 0px; y: 8px; text: "Screenshots:"; font-weight: 600; font-size: 13px; color: #222222; }
+        Text { x: 120px; y: 32px; text: "Save to"; font-size: 13px; color: #222222; }
+        Text { x: 190px; y: 32px; width: 162px; text: root.directory;
+            overflow: elide; font-size: 13px; color: #666666; }
+        Button { x: 357px; y: 29px; width: 24px; height: 22px; text: "…";
+            enabled: !root.folder-dialog-open;
+            clicked => { root.choose-folder(); } }
         Text { x: 137px; y: 56px; text: "Format:"; font-size: 13px; color: #222222; }
         ComboBox {
             x: 194px; y: 52px; width: 132px; height: 24px;
