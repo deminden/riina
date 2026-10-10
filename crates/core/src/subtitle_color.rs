@@ -1,7 +1,17 @@
 //! Portable subtitle colors; mpv uses alpha-first hex rather than CSS RGBA.
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct SubtitleColor([f64; 4]);
+
+impl<'de> serde::Deserialize<'de> for SubtitleColor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let channels = <[f64; 4]>::deserialize(deserializer)?;
+        Self::from_rgba(channels).map_err(serde::de::Error::custom)
+    }
+}
 
 impl SubtitleColor {
     pub const WHITE: Self = Self([1.0, 1.0, 1.0, 1.0]);

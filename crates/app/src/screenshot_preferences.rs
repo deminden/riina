@@ -1,11 +1,30 @@
 //! The UI owns live preferences; capture and session saving read the same intent.
 use crate::PlayerWindow;
-use riina_core::screenshot::{Format, Settings};
+use riina_core::{
+    Command,
+    screenshot::{Format, Settings},
+};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
-pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::Preferences) {
+pub(crate) fn connect(
+    app: &PlayerWindow,
+    decoder_player: riina_mpv::CommandSender,
+    path: PathBuf,
+    baseline: riina_core::Preferences,
+) {
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
+    let preferences_window = current.clone();
+    app.on_subtitle_font_selected(move |font| {
+        if let Some(window) = preferences_window
+            .borrow()
+            .as_ref()
+            .map(ComponentHandle::clone_strong)
+        {
+            window.set_subtitle_font(font);
+            window.invoke_settings_changed();
+        }
+    });
     let parent = app.as_weak();
     app.on_open_preferences(move || {
         let Some(app) = parent.upgrade() else { return };
@@ -27,6 +46,19 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
             let weak = window.as_weak();
             let path = path.clone();
             let baseline = baseline.clone();
+            let decoder_player = decoder_player.clone();
+            let selected_font = app.get_subtitle_font().to_string();
+            window.set_subtitle_font(selected_font.into());
+            let choose_parent = app.as_weak();
+            let choose_window = window.as_weak();
+            window.on_choose_subtitle_font(move || {
+                if let (Some(app), Some(window)) =
+                    (choose_parent.upgrade(), choose_window.upgrade())
+                {
+                    window.set_subtitle_font(app.get_subtitle_font());
+                    app.invoke_choose_subtitle_font();
+                }
+            });
             window.on_settings_changed(move || {
                 let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
                     return;
@@ -49,6 +81,208 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                     app.get_compact_ui(),
                     app.get_docked_controls(),
                 );
+                let previous_volume_boost = app.get_volume_boost();
+                let previous_volume = app.get_volume();
+                let previous_decoder = app.get_hardware_decoder_index();
+                let previous_font = app.get_subtitle_font().to_string();
+                let previous_font_size = crate::subtitle_preferences::current_font_size(&app);
+                let previous_text_style = match crate::subtitle_preferences::current_style(&app) {
+                    Ok(style) => style,
+                    Err(error) => {
+                        app.set_status(error.into());
+                        refresh(&window, &app);
+                        return;
+                    }
+                };
+                let previous_ass = (
+                    app.get_subtitle_ass_override_index(),
+                    app.get_secondary_subtitle_ass_override_index(),
+                );
+                let decoder_index = window.get_hardware_decoder_index();
+                let Some(decoder) = crate::codec_preferences::hardware_decoder(decoder_index)
+                else {
+                    app.set_status("Invalid hardware decoder selection".into());
+                    refresh(&window, &app);
+                    return;
+                };
+                let mut decoder_applied = false;
+                let volume_boost = window.get_volume_boost();
+                let mut volume_boost_applied = false;
+                if volume_boost != previous_volume_boost {
+                    if let Err(error) = decoder_player.send(Command::SetVolumeBoost(volume_boost)) {
+                        app.set_status(error.into());
+                        refresh(&window, &app);
+                        return;
+                    }
+                    if !volume_boost {
+                        let capped_volume = previous_volume.min(100.0);
+                        if capped_volume != previous_volume
+                            && let Err(error) =
+                                decoder_player.send(Command::Volume(capped_volume as f64))
+                        {
+                            let _ =
+                                decoder_player.send(Command::SetVolumeBoost(previous_volume_boost));
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                        app.set_volume(capped_volume);
+                    }
+                    app.set_volume_boost(volume_boost);
+                    volume_boost_applied = true;
+                }
+                if decoder_index != previous_decoder {
+                    if let Err(error) = decoder_player.send(Command::HardwareDecoding(decoder)) {
+                        if volume_boost_applied {
+                            let _ =
+                                decoder_player.send(Command::SetVolumeBoost(previous_volume_boost));
+                            if previous_volume != app.get_volume() {
+                                let _ =
+                                    decoder_player.send(Command::Volume(previous_volume as f64));
+                            }
+                            app.set_volume_boost(previous_volume_boost);
+                            app.set_volume(previous_volume);
+                        }
+                        app.set_status(error.into());
+                        refresh(&window, &app);
+                        return;
+                    }
+                    app.set_hardware_decoder_index(decoder_index);
+                    decoder_applied = true;
+                }
+                let desired_ass = (
+                    window.get_subtitle_ass_override_primary_index(),
+                    window.get_subtitle_ass_override_secondary_index(),
+                );
+                let desired_font = window.get_subtitle_font().to_string();
+                let desired_font_size = match crate::subtitle_preferences::font_size(
+                    window.get_subtitle_font_size_text().as_str(),
+                ) {
+                    Ok(size) => size,
+                    Err(error) => {
+                        restore_live_volume_and_decoder(
+                            &app,
+                            &decoder_player,
+                            volume_boost_applied,
+                            previous_volume_boost,
+                            previous_volume,
+                            decoder_applied,
+                            previous_decoder,
+                        );
+                        app.set_status(error.into());
+                        refresh(&window, &app);
+                        return;
+                    }
+                };
+                let (subtitle_font, subtitle_font_size) = match apply_subtitle_text_preferences(
+                    &app,
+                    &decoder_player,
+                    &previous_font,
+                    previous_font_size,
+                    &desired_font,
+                    desired_font_size,
+                ) {
+                    Ok(values) => values,
+                    Err(error) => {
+                        restore_live_volume_and_decoder(
+                            &app,
+                            &decoder_player,
+                            volume_boost_applied,
+                            previous_volume_boost,
+                            previous_volume,
+                            decoder_applied,
+                            previous_decoder,
+                        );
+                        app.set_status(error.into());
+                        refresh(&window, &app);
+                        return;
+                    }
+                };
+                let desired_text_style =
+                    match crate::subtitle_preferences::current_window_style(&window) {
+                        Ok(style) => style,
+                        Err(error) => {
+                            restore_subtitle_text_preferences(
+                                &app,
+                                &decoder_player,
+                                &previous_font,
+                                previous_font_size,
+                                &subtitle_font,
+                                subtitle_font_size,
+                            );
+                            restore_live_volume_and_decoder(
+                                &app,
+                                &decoder_player,
+                                volume_boost_applied,
+                                previous_volume_boost,
+                                previous_volume,
+                                decoder_applied,
+                                previous_decoder,
+                            );
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                if let Err(error) = apply_text_style(
+                    &app,
+                    &decoder_player,
+                    previous_text_style,
+                    desired_text_style,
+                ) {
+                    restore_subtitle_text_preferences(
+                        &app,
+                        &decoder_player,
+                        &previous_font,
+                        previous_font_size,
+                        &subtitle_font,
+                        subtitle_font_size,
+                    );
+                    restore_live_volume_and_decoder(
+                        &app,
+                        &decoder_player,
+                        volume_boost_applied,
+                        previous_volume_boost,
+                        previous_volume,
+                        decoder_applied,
+                        previous_decoder,
+                    );
+                    app.set_status(error.into());
+                    refresh(&window, &app);
+                    return;
+                }
+                let (ass_primary, ass_secondary) =
+                    match apply_ass_override(&app, &decoder_player, previous_ass, desired_ass) {
+                        Ok(levels) => levels,
+                        Err(error) => {
+                            restore_text_style(
+                                &app,
+                                &decoder_player,
+                                previous_text_style,
+                                desired_text_style,
+                            );
+                            restore_subtitle_text_preferences(
+                                &app,
+                                &decoder_player,
+                                &previous_font,
+                                previous_font_size,
+                                &subtitle_font,
+                                subtitle_font_size,
+                            );
+                            restore_live_volume_and_decoder(
+                                &app,
+                                &decoder_player,
+                                volume_boost_applied,
+                                previous_volume_boost,
+                                previous_volume,
+                                decoder_applied,
+                                previous_decoder,
+                            );
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
                 let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
                 // AVIF can be configured externally but has no item in the pinned
                 // General pane. Editing another control must preserve that choice.
@@ -96,6 +330,12 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                                 docked_controls: app.get_docked_controls(),
                                 compact_ui: app.get_compact_ui(),
                                 osc_position: app.get_osc_position() as u8,
+                                hardware_decoder: decoder,
+                                subtitle_ass_override: ass_primary,
+                                secondary_subtitle_ass_override: ass_secondary,
+                                subtitle_font: subtitle_font.clone(),
+                                subtitle_font_size,
+                                subtitle_text_style: desired_text_style,
                                 ..baseline.clone()
                             };
                         let text = serde_json::to_string_pretty(&preferences)
@@ -113,6 +353,30 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                         }
                     }
                     Err(error) => {
+                        restore_text_style(
+                            &app,
+                            &decoder_player,
+                            previous_text_style,
+                            desired_text_style,
+                        );
+                        restore_subtitle_text_preferences(
+                            &app,
+                            &decoder_player,
+                            &previous_font,
+                            previous_font_size,
+                            &subtitle_font,
+                            subtitle_font_size,
+                        );
+                        restore_ass_override(&app, &decoder_player, previous_ass, desired_ass);
+                        restore_live_volume_and_decoder(
+                            &app,
+                            &decoder_player,
+                            volume_boost_applied,
+                            previous_volume_boost,
+                            previous_volume,
+                            decoder_applied,
+                            previous_decoder,
+                        );
                         app.set_pause_when_open(previous_pause);
                         app.set_fullscreen_when_open(previous_fullscreen);
                         app.set_resume_last_position(previous_resume);
@@ -220,6 +484,13 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
 }
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
+    window.set_subtitle_font(app.get_subtitle_font());
+    window.set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
+        app.get_subtitle_font_size_preference(),
+    ));
+    if let Ok(style) = crate::subtitle_preferences::current_style(app) {
+        crate::subtitle_preferences::install_window_style(window, style);
+    }
     window.set_pause_when_open(app.get_pause_when_open());
     window.set_fullscreen_when_open(app.get_fullscreen_when_open());
     window.set_resume_last_position(app.get_resume_last_position());
@@ -227,6 +498,11 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_disable_osd_speed(app.get_disable_osd_speed());
     window.set_disable_osd_seek(app.get_disable_osd_seek());
     window.set_osc_position(app.get_osc_position());
+    window.set_hardware_decoder_index(app.get_hardware_decoder_index());
+    window.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
+    window
+        .set_subtitle_ass_override_secondary_index(app.get_secondary_subtitle_ass_override_index());
+    window.set_volume_boost(app.get_volume_boost());
     window.set_compact_ui(app.get_compact_ui());
     window.set_docked_controls(app.get_docked_controls());
     window.set_edge_to_edge_video(app.get_edge_to_edge_video());
@@ -248,6 +524,201 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
             .unwrap_or_default()
             .into()
     });
+}
+
+fn apply_text_style(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    previous: riina_core::subtitle_controls::TextStylePreferences,
+    selected: riina_core::subtitle_controls::TextStylePreferences,
+) -> Result<(), String> {
+    selected.validate().map_err(str::to_owned)?;
+    let previous_commands = crate::subtitle_preferences::commands(previous);
+    let selected_commands = crate::subtitle_preferences::commands(selected);
+    let mut applied = Vec::<usize>::new();
+    for (index, (old, new)) in previous_commands
+        .into_iter()
+        .zip(selected_commands)
+        .enumerate()
+    {
+        if old == new {
+            continue;
+        }
+        if let Err(error) = player.send(new) {
+            let rollback = crate::subtitle_preferences::commands(previous);
+            for applied_index in applied.into_iter().rev() {
+                let _ = player.send(rollback[applied_index].clone());
+            }
+            return Err(error.to_string());
+        }
+        applied.push(index);
+    }
+    crate::subtitle_preferences::install_style(app, selected);
+    Ok(())
+}
+
+fn restore_text_style(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    previous: riina_core::subtitle_controls::TextStylePreferences,
+    selected: riina_core::subtitle_controls::TextStylePreferences,
+) {
+    if previous != selected {
+        for command in crate::subtitle_preferences::commands(previous) {
+            let _ = player.send(command);
+        }
+    }
+    crate::subtitle_preferences::install_style(app, previous);
+}
+
+fn apply_subtitle_text_preferences(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    previous_font: &str,
+    previous_size: f64,
+    selected_font: &str,
+    selected_size: f64,
+) -> Result<(String, f64), String> {
+    let font_command =
+        riina_core::subtitle_controls::font_from_text(selected_font).map_err(str::to_owned)?;
+    let font = match font_command {
+        Command::SubtitleFont(value) => value,
+        _ => return Err("Invalid subtitle font".into()),
+    };
+    if (selected_size - previous_size).abs() > f64::EPSILON {
+        player
+            .send(Command::SubtitleFontSize(selected_size))
+            .map_err(|error| error.to_string())?;
+    }
+    if font != previous_font
+        && let Err(error) = player.send(Command::SubtitleFont(font.clone()))
+    {
+        if (selected_size - previous_size).abs() > f64::EPSILON {
+            let _ = player.send(Command::SubtitleFontSize(previous_size));
+        }
+        return Err(error.to_string());
+    }
+    app.set_subtitle_font(font.clone().into());
+    app.set_subtitle_font_size_preference(selected_size as f32);
+    Ok((font, selected_size))
+}
+
+fn restore_subtitle_text_preferences(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    previous_font: &str,
+    previous_size: f64,
+    selected_font: &str,
+    selected_size: f64,
+) {
+    if selected_size != previous_size {
+        let _ = player.send(Command::SubtitleFontSize(previous_size));
+    }
+    if selected_font != previous_font {
+        let _ = player.send(Command::SubtitleFont(previous_font.to_owned()));
+    }
+    app.set_subtitle_font(previous_font.into());
+    app.set_subtitle_font_size_preference(previous_size as f32);
+}
+
+fn apply_ass_override(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    previous: (i32, i32),
+    selected: (i32, i32),
+) -> Result<
+    (
+        riina_core::subtitle_controls::AssOverrideLevel,
+        riina_core::subtitle_controls::AssOverrideLevel,
+    ),
+    String,
+> {
+    use riina_core::subtitle_controls::{AssOverrideLevel, SubtitleLane};
+
+    let primary = AssOverrideLevel::from_slider_index(selected.0)
+        .ok_or_else(|| "Invalid primary ASS override selection".to_owned())?;
+    let secondary = AssOverrideLevel::from_slider_index(selected.1)
+        .ok_or_else(|| "Invalid secondary ASS override selection".to_owned())?;
+    if selected.0 != previous.0 {
+        player
+            .send(Command::SubtitleAssOverride {
+                lane: SubtitleLane::Primary,
+                level: primary,
+            })
+            .map_err(|error| error.to_string())?;
+    }
+    if selected.1 != previous.1
+        && let Err(error) = player.send(Command::SubtitleAssOverride {
+            lane: SubtitleLane::Secondary,
+            level: secondary,
+        })
+    {
+        if selected.0 != previous.0
+            && let Some(previous_level) = AssOverrideLevel::from_slider_index(previous.0)
+        {
+            let _ = player.send(Command::SubtitleAssOverride {
+                lane: SubtitleLane::Primary,
+                level: previous_level,
+            });
+        }
+        return Err(error.to_string());
+    }
+    app.set_subtitle_ass_override_index(selected.0);
+    app.set_secondary_subtitle_ass_override_index(selected.1);
+    Ok((primary, secondary))
+}
+
+fn restore_ass_override(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    previous: (i32, i32),
+    selected: (i32, i32),
+) {
+    use riina_core::subtitle_controls::{AssOverrideLevel, SubtitleLane};
+
+    if selected.0 != previous.0
+        && let Some(level) = AssOverrideLevel::from_slider_index(previous.0)
+    {
+        let _ = player.send(Command::SubtitleAssOverride {
+            lane: SubtitleLane::Primary,
+            level,
+        });
+    }
+    if selected.1 != previous.1
+        && let Some(level) = AssOverrideLevel::from_slider_index(previous.1)
+    {
+        let _ = player.send(Command::SubtitleAssOverride {
+            lane: SubtitleLane::Secondary,
+            level,
+        });
+    }
+    app.set_subtitle_ass_override_index(previous.0);
+    app.set_secondary_subtitle_ass_override_index(previous.1);
+}
+
+fn restore_live_volume_and_decoder(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    volume_boost_applied: bool,
+    previous_volume_boost: bool,
+    previous_volume: f32,
+    decoder_applied: bool,
+    previous_decoder: i32,
+) {
+    if volume_boost_applied {
+        let _ = player.send(Command::SetVolumeBoost(previous_volume_boost));
+        if previous_volume != app.get_volume() {
+            let _ = player.send(Command::Volume(previous_volume as f64));
+        }
+        app.set_volume_boost(previous_volume_boost);
+        app.set_volume(previous_volume);
+    }
+    if decoder_applied {
+        if let Some(previous_mode) = crate::codec_preferences::hardware_decoder(previous_decoder) {
+            let _ = player.send(Command::HardwareDecoding(previous_mode));
+        }
+        app.set_hardware_decoder_index(previous_decoder);
+    }
 }
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {

@@ -1,7 +1,7 @@
 # riina
 
 Rust IINA reimplementation, targeting
-official **IINA v1.5.0**. Riina 0.2.0 is an early development build, not a parity release.
+official **IINA v1.5.0**. Riina 0.2.1 is an early development build, not a parity release.
 
 [![Latest release](https://img.shields.io/github/v/release/deminden/riina?label=Download%20Windows%20x64)](https://github.com/deminden/riina/releases/latest)
 

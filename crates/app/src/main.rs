@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod codec_preferences;
 mod crop_editor;
 mod file_selection;
 mod font_catalog;
@@ -15,6 +16,7 @@ mod screenshot_output;
 mod screenshot_preferences;
 mod seek_osd;
 mod sidebar_preferences;
+mod subtitle_preferences;
 mod ui_dialogs;
 mod video_osd;
 mod window_controls;

@@ -426,8 +426,13 @@ fn update_ui(
     app.set_subtitle_scale_known(state.subtitle_scale.is_some());
     app.set_subtitle_font_size_known(state.subtitle_font_size.is_some());
     app.set_subtitle_font_known(state.subtitle_font.is_some());
-    app.set_subtitle_font(state.subtitle_font.clone().unwrap_or_default().into());
+    if let Some(font) = &state.subtitle_font {
+        app.set_subtitle_font(font.clone().into());
+    }
     app.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
+    if let Some(size) = state.subtitle_font_size {
+        app.set_subtitle_font_size_preference(size as f32);
+    }
     app.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
     app.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);
     let ui_color = |color: Option<riina_core::subtitle_color::SubtitleColor>| {
@@ -534,6 +539,22 @@ impl UiSession {
             docked_controls: app.get_docked_controls(),
             compact_ui: app.get_compact_ui(),
             osc_position: app.get_osc_position() as u8,
+            hardware_decoder: crate::codec_preferences::hardware_decoder(
+                app.get_hardware_decoder_index(),
+            )
+            .ok_or_else(|| std::io::Error::other("Invalid hardware decoder selection"))?,
+            subtitle_ass_override: crate::subtitle_preferences::level(
+                app.get_subtitle_ass_override_index(),
+            )
+            .ok_or_else(|| std::io::Error::other("Invalid ASS override selection"))?,
+            secondary_subtitle_ass_override: crate::subtitle_preferences::level(
+                app.get_secondary_subtitle_ass_override_index(),
+            )
+            .ok_or_else(|| std::io::Error::other("Invalid secondary ASS override selection"))?,
+            subtitle_font: app.get_subtitle_font().to_string(),
+            subtitle_font_size: crate::subtitle_preferences::current_font_size(app),
+            subtitle_text_style: crate::subtitle_preferences::current_style(app)
+                .map_err(std::io::Error::other)?,
             screenshot: crate::screenshot_preferences::current(app)
                 .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
@@ -605,6 +626,16 @@ pub(crate) fn configure_player(
     std::fs::create_dir_all(&watch_later_directory)?;
     let engine_options = resume_engine_options(&watch_later_directory, prefs.resume_last_position);
     app.set_volume_boost(prefs.volume_boost);
+    app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
+    app.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
+        prefs.subtitle_ass_override,
+    ));
+    app.set_secondary_subtitle_ass_override_index(crate::subtitle_preferences::index(
+        prefs.secondary_subtitle_ass_override,
+    ));
+    app.set_subtitle_font(prefs.subtitle_font.clone().into());
+    app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
+    crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
     if let Some(welcome) = welcome {
         welcome.set_app_version(env!("CARGO_PKG_VERSION").into());
         refresh_welcome_history(welcome, &prefs.recent_media, prefs.resume_last_position);
@@ -631,7 +662,6 @@ pub(crate) fn configure_player(
     app.set_osc_position(i32::from(prefs.osc_position));
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.clone(), prefs.clone());
-    crate::screenshot_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::LABELS
@@ -739,6 +769,12 @@ pub(crate) fn configure_player(
             return Err(std::io::Error::other(error).into());
         }
     };
+    crate::screenshot_preferences::connect(
+        app,
+        player.command_sender(),
+        prefs_path.clone(),
+        prefs.clone(),
+    );
     let idle_timer = Rc::new(slint::Timer::default());
     let opening_player = player.command_sender();
     let opening_app = app.as_weak();
@@ -1158,13 +1194,13 @@ pub(crate) fn configure_player(
         }
     });
     let hardware_player = player.command_sender();
-    let preferred_decoder = prefs.hardware_decoder;
     let weak = app.as_weak();
     app.on_set_hardware_decoding(move |enabled| {
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
             let mode = if enabled {
-                preferred_decoder
+                crate::codec_preferences::hardware_decoder(app.get_hardware_decoder_index())
+                    .unwrap_or(riina_core::video_controls::HardwareDecoder::Auto)
             } else {
                 riina_core::video_controls::HardwareDecoder::Disabled
             };
@@ -1201,7 +1237,7 @@ pub(crate) fn configure_player(
     let scale_player = player.command_sender();
     let absolute_scale_player = player.command_sender();
     let font_size_player = player.command_sender();
-    crate::font_picker::connect(app, player.command_sender());
+    crate::font_picker::connect(app);
     let outline_size_player = player.command_sender();
     let color_player = player.command_sender();
     let weak = app.as_weak();
@@ -1221,6 +1257,16 @@ pub(crate) fn configure_player(
             app.invoke_activity();
             if let Err(error) = color_player.send(command) {
                 app.set_status(error.into());
+            } else {
+                match target {
+                    1 => app.set_subtitle_text_preference_color(value),
+                    2 => {
+                        app.set_subtitle_shadow_preference_color(value);
+                        app.set_subtitle_background_preference_color(value);
+                    }
+                    3 => app.set_subtitle_outline_preference_color(value),
+                    _ => unreachable!("target was validated above"),
+                }
             }
         }
     });
@@ -1231,6 +1277,8 @@ pub(crate) fn configure_player(
             if let Err(error) = outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
             {
                 app.set_status(error.into());
+            } else {
+                app.set_subtitle_outline_size_preference(value);
             }
         }
     });
@@ -1240,6 +1288,8 @@ pub(crate) fn configure_player(
             app.invoke_activity();
             if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
                 app.set_status(error.into());
+            } else {
+                app.set_subtitle_font_size_preference(value);
             }
         }
     });
@@ -1719,6 +1769,27 @@ pub(crate) fn configure_player(
     player
         .send(Command::HardwareDecoding(prefs.hardware_decoder))
         .map_err(std::io::Error::other)?;
+    player
+        .send(Command::SubtitleAssOverride {
+            lane: riina_core::subtitle_controls::SubtitleLane::Primary,
+            level: prefs.subtitle_ass_override,
+        })
+        .map_err(std::io::Error::other)?;
+    player
+        .send(Command::SubtitleAssOverride {
+            lane: riina_core::subtitle_controls::SubtitleLane::Secondary,
+            level: prefs.secondary_subtitle_ass_override,
+        })
+        .map_err(std::io::Error::other)?;
+    player
+        .send(Command::SubtitleFont(prefs.subtitle_font.clone()))
+        .map_err(std::io::Error::other)?;
+    player
+        .send(Command::SubtitleFontSize(prefs.subtitle_font_size))
+        .map_err(std::io::Error::other)?;
+    for command in crate::subtitle_preferences::commands(prefs.subtitle_text_style) {
+        player.send(command).map_err(std::io::Error::other)?;
+    }
     if native.is_some() {
         app.set_engine_ready(true);
         player

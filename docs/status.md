@@ -2112,3 +2112,40 @@ the upstream `mpv-packaging` target only packages an existing build and does not
 depend on the `mpv` engine target. The release script now builds `mpv` explicitly
 before packaging, and the tag will be retried on the corrected commit. The previous
 release-readiness note above was superseded by this re-audit.
+
+2026-10-10 Preferences increment: added the pinned Hardware decoder selector (Disabled, Auto, Auto (Copy)) to Video & Audio and an opt-in 200% volume boost control to Advanced. Hardware decoding applies to libmpv, persists across preference saves and session shutdown, and defaults to Auto; volume remains capped at 100% unless boost is enabled. Rust tests, strict Clippy and the optimized build passed. No live screenshot or pixel comparison is claimed. Subtitle, Network, Control, Key Bindings and Utilities still show their title only, and complete visual parity remains open.
+
+2026-10-10 Subtitle Preferences increment: implemented the ASS style override control from the pinned Subtitle pane, including independent Primary/Secondary policies, the reference's five-level slider order, labels and explanatory copy. Policies now use typed libmpv commands, retain IINA's `scale` default and round-trip through preferences, including saves from Layout, sidebar changes and shutdown. Workspace tests pass. Exact pixels, live GUI interaction, native option observation and the other five subtitle sections remain open.
+
+2026-10-10 Subtitle Text increment: completed the source-defined Text Subtitles controls for font/size, bold, italic, text/background color, border size/color, shadow offset/color, blur and spacing. The Advanced disclosure starts folded and opens Shadow/Other Styles. Controls use shared reusable widgets, validated native commands, three-digit numeric precision, and saved settings that survive layout/sidebar changes and shutdown; failed writes restore the prior style. A headless run against the pinned libmpv verified all style options without disturbing subtitle selection or pause. Workspace tests and strict lint pass. Live Preferences interaction, exact rendering and four other Subtitle sections remain open.
+
+2026-10-10 release follow-up: the v0.2.0 Windows release workflow assembles the
+portable ZIP, complete source archive and checksums, then adds direct download
+links to the GitHub release notes and Actions summary. The latest tagged run
+(Windows release #6) failed in `native-engine` after 61 minutes, before package
+jobs started; GitHub has no published v0.2.0 release assets yet. The public run
+summary does not include the failed build's diagnostic output, so the engine
+failure still needs its authenticated Actions log before a reliable fix or retry.
+
+2026-10-10 local development version: bumped the workspace to 0.2.1 in Cargo
+metadata, the lockfile, the welcome surface and README. This is a local development
+bump only; no GitHub publication was made. The complete interface-parity goal stays
+open. The source-sized Preferences shell still has title-only Network, Control,
+Key Bindings and Utilities panes, and four Subtitle sections remain incomplete;
+full visual comparison against matching macOS reference states is still required.
+A fresh capture of the running Windows process showed only the Riina launch artwork,
+so it did not provide a player or Preferences comparison. Rust 1.99.0 formatting,
+locked metadata, workspace tests, strict all-target Clippy and a clean serialized
+optimized build in `target/verification-021` pass. Two earlier builds in reused
+verification directories hit linker access denial while replacing generated import
+libraries; the clean output directory resolved it.
+
+2026-10-10 GitHub release repair: the release workflow now reads the native
+distribution audit before building. With its current `distribution_approved: false`
+decision, a version tag publishes a checksummed source snapshot with a direct
+download link in the Releases panel and skips native/application binary packaging.
+Binary assets remain gated on closing the dependency, notices, corresponding-source
+and package-test audit. The workflow change passes whitespace validation;
+Rust 1.99.0 formatting, strict all-target Clippy and workspace tests pass locally.
+The v0.2.1 source tag and GitHub publication are the next step; no binary release is
+claimed.

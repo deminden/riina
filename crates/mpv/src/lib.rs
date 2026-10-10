@@ -128,6 +128,7 @@ impl Player {
                         ("volume-max", "100"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes"),
                         // IINA's secondary override defaults to scale, whereas
                         // mpv defaults to stripping the secondary lane's styles.
+                        ("sub-ass-override", "scale"),
                         ("secondary-sub-ass-override", "scale"),
                         ("deinterlace", "no"),
                         ("screenshot-format", "png"),
@@ -142,6 +143,11 @@ impl Player {
                         ("sub-color", "1/1/1/1"),
                         ("sub-outline-color", "0/0/0/1"),
                         ("sub-back-color", "0/0/0/0"),
+                        ("sub-bold", "no"),
+                        ("sub-italic", "no"),
+                        ("sub-blur", "0"),
+                        ("sub-spacing", "0"),
+                        ("sub-shadow-offset", "0"),
                         // Loop points belong to the current media, unlike volume
                         // and speed. Reset in mpv too, not just in our UI snapshot.
                         ("reset-on-next-file", "ab-loop-a,ab-loop-b")] {
@@ -167,7 +173,9 @@ impl Player {
                         ("brightness", 4), ("contrast", 4), ("saturation", 4), ("gamma", 4), ("hue", 4),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
                         ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5), ("sub-outline-size", 5),
+                        ("sub-blur", 5), ("sub-spacing", 5), ("sub-shadow-offset", 5),
                         ("sub-color", 1), ("sub-outline-color", 1), ("sub-back-color", 1),
+                        ("sub-bold", 3), ("sub-italic", 3),
                         ("sub-font", 1),
                         ("secondary-sub-visibility", 3), ("secondary-sub-text", 1),
                         ("secondary-sub-delay", 5),
@@ -395,6 +403,11 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"sub-color" => state.subtitle_text_color = None,
             b"sub-outline-color" => state.subtitle_border_color = None,
             b"sub-back-color" => state.subtitle_shadow_color = None,
+            b"sub-bold" => state.subtitle_bold = None,
+            b"sub-italic" => state.subtitle_italic = None,
+            b"sub-blur" => state.subtitle_blur = None,
+            b"sub-spacing" => state.subtitle_spacing = None,
+            b"sub-shadow-offset" => state.subtitle_shadow_offset = None,
             b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
             b"video-target-params" => state.video_target = None,
@@ -498,6 +511,9 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"sub-scale" => state.subtitle_scale = None,
                 b"sub-font-size" => state.subtitle_font_size = None,
                 b"sub-outline-size" => state.subtitle_outline_size = None,
+                b"sub-blur" => state.subtitle_blur = None,
+                b"sub-spacing" => state.subtitle_spacing = None,
+                b"sub-shadow-offset" => state.subtitle_shadow_offset = None,
                 b"sub-pos" => state.subtitle_position = None,
                 b"secondary-sub-delay" => state.secondary_subtitle_delay = None,
                 b"secondary-sub-pos" => state.secondary_subtitle_position = None,
@@ -520,6 +536,9 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"sub-scale" => state.subtitle_scale = (0.0..=100.0).contains(&value).then_some(value),
             b"sub-font-size" => state.subtitle_font_size = (value > 0.0).then_some(value),
             b"sub-outline-size" => state.subtitle_outline_size = (value >= 0.0).then_some(value),
+            b"sub-blur" => state.subtitle_blur = (0.0..=20.0).contains(&value).then_some(value),
+            b"sub-spacing" => state.subtitle_spacing = Some(value),
+            b"sub-shadow-offset" => state.subtitle_shadow_offset = (value >= 0.0).then_some(value),
             b"sub-pos" => state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value),
             _ => {}
         }
@@ -533,6 +552,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"mute" => state.muted = flag,
             b"sub-visibility" => state.subtitle_visible = flag,
             b"secondary-sub-visibility" => state.secondary_subtitle_visible = Some(flag),
+            b"sub-bold" => state.subtitle_bold = Some(flag),
+            b"sub-italic" => state.subtitle_italic = Some(flag),
             b"deinterlace-active" => state.deinterlace_active = Some(flag),
             b"eof-reached" => {
                 if flag {

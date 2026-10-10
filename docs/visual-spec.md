@@ -102,3 +102,24 @@ pitch remains an estimate until native row measurements are available. Labels
 use provisional 13px system text, flat dark background, blue selection and a
 keyboard cursor outline. These replace the default toolkit rows to support
 native double-click callbacks; they do not close table-material or pixel gates.
+
+Subtitle Preferences / ASS group (source-derived from the pinned
+`PrefSubViewController.xib`): the ASS section is 99 points high. Its source
+container begins 117 points from the section's leading edge and is 89 points
+high. In the container, the Primary/Secondary segmented control is 304 × 21 at
+(45, 53), the five-tick override slider is 124 points wide at (133, 28), and the
+level and explanatory labels share the slider row and lower inset. XIB frame y
+coordinates use AppKit's bottom origin. Riina now uses the source's visual order
+(lane selector, override level, explanation) and the same slider ordering
+(`no`, `yes`, `scale`, `force`, `strip`) with a 99-point section. Windows
+rendered metrics, materials, interaction and matching macOS pixels are still
+unverified; these allocations are not a pixel-parity claim.
+
+Subtitle Preferences / Text Subtitles (source-derived from the pinned
+`PrefSubViewController.xib`): the section is a 480 × 319 point view. Its Font box
+is 366 × 105 at (117, 206); Border is 366 × 56 at (117, 146). Shadow and Other
+Styles sit below the folded Advanced disclosure, then reveal on demand. Riina
+keeps the 366-point box width inside a 480-point section and scrolls the expanded
+content. The font-size, border-size, shadow-offset, blur and spacing fields use
+the source's three-fractional-digit number format. Current Windows rendering and
+matched macOS pixels remain unverified.

@@ -70,6 +70,10 @@ pub enum Command {
         rectangle: Option<crop::Rectangle>,
     },
     HardwareDecoding(video_controls::HardwareDecoder),
+    SubtitleAssOverride {
+        lane: subtitle_controls::SubtitleLane,
+        level: subtitle_controls::AssOverrideLevel,
+    },
     VideoEqualizer {
         option: video_controls::Equalizer,
         value: i64,
@@ -113,6 +117,11 @@ pub enum Command {
     SubtitleTextColor(subtitle_color::SubtitleColor),
     SubtitleBorderColor(subtitle_color::SubtitleColor),
     SubtitleShadowColor(subtitle_color::SubtitleColor),
+    SubtitleBold(bool),
+    SubtitleItalic(bool),
+    SubtitleBlur(f64),
+    SubtitleSpacing(f64),
+    SubtitleShadowOffset(f64),
     AdjustSubtitleDelay(f64),
     AdjustSubtitleScale(f64),
     AdjustSubtitlePosition(f64),
@@ -223,6 +232,15 @@ impl Command {
             Self::HardwareDecoding(mode) => {
                 vec!["set".into(), "hwdec".into(), mode.native_value().into()]
             }
+            Self::SubtitleAssOverride { lane, level } => vec![
+                "set".into(),
+                match lane {
+                    subtitle_controls::SubtitleLane::Primary => "sub-ass-override",
+                    subtitle_controls::SubtitleLane::Secondary => "secondary-sub-ass-override",
+                }
+                .into(),
+                level.mpv_value().into(),
+            ],
             Self::VideoEqualizer { option, value } if (-100..=100).contains(value) => {
                 vec!["set".into(), option.property().into(), value.to_string()]
             }
@@ -268,6 +286,25 @@ impl Command {
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
             Self::SubtitleFont(font) if subtitle_controls::valid_font_name(font) => {
                 vec!["set".into(), "sub-font".into(), font.clone()]
+            }
+            Self::SubtitleBold(value) => vec![
+                "set".into(),
+                "sub-bold".into(),
+                if *value { "yes" } else { "no" }.into(),
+            ],
+            Self::SubtitleItalic(value) => vec![
+                "set".into(),
+                "sub-italic".into(),
+                if *value { "yes" } else { "no" }.into(),
+            ],
+            Self::SubtitleBlur(value) if value.is_finite() && (0.0..=20.0).contains(value) => {
+                vec!["set".into(), "sub-blur".into(), value.to_string()]
+            }
+            Self::SubtitleSpacing(value) if value.is_finite() => {
+                vec!["set".into(), "sub-spacing".into(), value.to_string()]
+            }
+            Self::SubtitleShadowOffset(value) if value.is_finite() && *value >= 0.0 => {
+                vec!["set".into(), "sub-shadow-offset".into(), value.to_string()]
             }
             Self::SubtitleTextColor(color)
             | Self::SubtitleBorderColor(color)
@@ -903,6 +940,11 @@ pub struct Playback {
     pub subtitle_text_color: Option<subtitle_color::SubtitleColor>,
     pub subtitle_border_color: Option<subtitle_color::SubtitleColor>,
     pub subtitle_shadow_color: Option<subtitle_color::SubtitleColor>,
+    pub subtitle_bold: Option<bool>,
+    pub subtitle_italic: Option<bool>,
+    pub subtitle_blur: Option<f64>,
+    pub subtitle_spacing: Option<f64>,
+    pub subtitle_shadow_offset: Option<f64>,
     pub subtitle_position: Option<f64>,
     pub subtitle_visible: bool,
     pub secondary_subtitle_visible: Option<bool>,
@@ -1073,6 +1115,11 @@ pub struct Preferences {
     pub volume: f64,
     pub volume_boost: bool,
     pub hardware_decoder: video_controls::HardwareDecoder,
+    pub subtitle_ass_override: subtitle_controls::AssOverrideLevel,
+    pub secondary_subtitle_ass_override: subtitle_controls::AssOverrideLevel,
+    pub subtitle_font: String,
+    pub subtitle_font_size: f64,
+    pub subtitle_text_style: subtitle_controls::TextStylePreferences,
     pub dark: bool,
     pub compact: bool,
     pub enable_osd: bool,
@@ -1110,6 +1157,11 @@ impl Default for Preferences {
             volume: 100.0,
             volume_boost: false,
             hardware_decoder: video_controls::HardwareDecoder::Auto,
+            subtitle_ass_override: subtitle_controls::AssOverrideLevel::Scale,
+            secondary_subtitle_ass_override: subtitle_controls::AssOverrideLevel::Scale,
+            subtitle_font: subtitle_controls::DEFAULT_SUBTITLE_FONT.into(),
+            subtitle_font_size: 55.0,
+            subtitle_text_style: subtitle_controls::TextStylePreferences::default(),
             dark: true,
             compact: false,
             enable_osd: true,
@@ -1140,9 +1192,15 @@ impl Preferences {
         if prefs.schema_version != 1
             || !prefs.volume.is_finite()
             || !(0.0..=200.0).contains(&prefs.volume)
+            || !subtitle_controls::valid_preference_font_size(prefs.subtitle_font_size)
+            || !subtitle_controls::valid_font_name(&prefs.subtitle_font)
         {
             return Err("Unsupported preference version or invalid volume".into());
         }
+        prefs
+            .subtitle_text_style
+            .validate()
+            .map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
         prefs.volume = prefs.volume.min(prefs.volume_limit());
         prefs.leading_sidebar_width = prefs.leading_sidebar_width.clamp(300, 500);
@@ -1364,6 +1422,117 @@ mod tests {
         );
     }
 
+    #[test]
+    fn subtitle_ass_override_preferences_default_to_scale_and_round_trip_per_lane() {
+        use subtitle_controls::AssOverrideLevel;
+
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(legacy.subtitle_ass_override, AssOverrideLevel::Scale);
+        assert_eq!(
+            legacy.secondary_subtitle_ass_override,
+            AssOverrideLevel::Scale
+        );
+        let configured = Preferences {
+            subtitle_ass_override: AssOverrideLevel::Force,
+            secondary_subtitle_ass_override: AssOverrideLevel::No,
+            ..legacy
+        };
+        let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(restored.subtitle_ass_override, AssOverrideLevel::Force);
+        assert_eq!(
+            restored.secondary_subtitle_ass_override,
+            AssOverrideLevel::No
+        );
+    }
+
+    #[test]
+    fn subtitle_text_preferences_keep_legacy_defaults_and_fractional_sizes() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(
+            legacy.subtitle_font,
+            subtitle_controls::DEFAULT_SUBTITLE_FONT
+        );
+        assert_eq!(legacy.subtitle_font_size, 55.0);
+
+        let configured = Preferences {
+            subtitle_font: "Noto Sans CJK JP".into(),
+            subtitle_font_size: 42.375,
+            ..legacy
+        };
+        let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(restored.subtitle_font, "Noto Sans CJK JP");
+        assert_eq!(restored.subtitle_font_size, 42.375);
+
+        for invalid in ["-1", "1e300", "NaN"] {
+            assert!(Preferences::parse(&format!(r#"{{"subtitle_font_size":{invalid}}}"#)).is_err());
+        }
+        assert!(Preferences::parse(r#"{"subtitle_font_size":0}"#).is_err());
+        assert!(Preferences::parse(r#"{"subtitle_font":"bad\nfont"}"#).is_err());
+    }
+
+    #[test]
+    fn subtitle_text_style_options_validate_and_round_trip() {
+        use subtitle_controls::TextStylePreferences;
+
+        let configured = Preferences {
+            subtitle_text_style: TextStylePreferences {
+                bold: true,
+                italic: true,
+                blur: 1.25,
+                spacing: -0.5,
+                outline_size: 4.5,
+                shadow_offset: 2.25,
+                text_color: subtitle_color::SubtitleColor::from_rgba([0.25, 0.5, 0.75, 1.0])
+                    .unwrap(),
+                ..TextStylePreferences::default()
+            },
+            ..Preferences::default()
+        };
+        let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(restored.subtitle_text_style, configured.subtitle_text_style);
+
+        for invalid in [
+            r#"{"subtitle_text_style":{"blur":20.001}}"#,
+            r#"{"subtitle_text_style":{"spacing":"wide"}}"#,
+            r#"{"subtitle_text_style":{"outline_size":-0.1}}"#,
+            r#"{"subtitle_text_style":{"shadow_offset":-1}}"#,
+            r#"{"subtitle_text_style":{"text_color":[2,0,0,1]}}"#,
+        ] {
+            assert!(Preferences::parse(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn subtitle_text_style_commands_use_native_option_names() {
+        let cases = [
+            (Command::SubtitleBold(true), vec!["set", "sub-bold", "yes"]),
+            (
+                Command::SubtitleItalic(false),
+                vec!["set", "sub-italic", "no"],
+            ),
+            (Command::SubtitleBlur(2.5), vec!["set", "sub-blur", "2.5"]),
+            (
+                Command::SubtitleSpacing(-0.25),
+                vec!["set", "sub-spacing", "-0.25"],
+            ),
+            (
+                Command::SubtitleShadowOffset(3.0),
+                vec!["set", "sub-shadow-offset", "3"],
+            ),
+        ];
+        for (command, expected) in cases {
+            assert_eq!(command.mpv_args().unwrap(), expected);
+        }
+        for command in [
+            Command::SubtitleBlur(20.1),
+            Command::SubtitleBlur(f64::NAN),
+            Command::SubtitleSpacing(f64::INFINITY),
+            Command::SubtitleShadowOffset(-1.0),
+        ] {
+            assert!(command.mpv_args().is_err(), "{command:?}");
+        }
+    }
+
     #[cfg(target_os = "windows")]
     #[test]
     fn subtitle_reload_recognizes_mpv_normalized_windows_paths() {
@@ -1473,6 +1642,8 @@ mod tests {
             .is_err()
         );
         assert!(Command::Volume(201.0).mpv_args().is_err());
+        assert!(Command::SubtitleFontSize(0.0).mpv_args().is_err());
+        assert!(Command::SubtitleFontSize(-1.0).mpv_args().is_err());
         for factor in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             assert!(Command::MultiplySpeed(factor).mpv_args().is_err());
         }

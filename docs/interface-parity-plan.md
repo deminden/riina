@@ -90,8 +90,21 @@ in the pinned nine-category order (General, Interface, Video & Audio, Subtitle,
 Network, Control, Key Bindings, Advanced and Utilities), the existing General
 controls, and a functional partial Interface pane for OSC position, compact mode,
 docked controls and OSD visibility/speed/seek suppression. OSD settings update
-live overlay filters and persist through the shared settings path. The other
-seven categories currently show their title only. Plugin settings are conditional
+live overlay filters and persist through the shared settings path. Video & Audio
+now includes the source-sized hardware-decoder selector for Disabled, Auto and
+Auto (Copy), with the selected mode applied to libmpv and persisted. Advanced
+includes an opt-in volume boost control, retaining the 100% default and allowing
+up to 200% when enabled. Subtitle now includes the source's independent Primary
+and Secondary ASS override selectors with the five-level slider, current level
+and explanation, all persisted with the libmpv policy. The Text Subtitles group
+now has the editable font size, font chooser, bold and italic toggles,
+text/background colors, border size/color, shadow offset/color, blur and spacing
+fields. Changes map to shared typed libmpv commands and persist through
+preferences, layout changes, sidebar changes and shutdown. Its source-sized
+section stack scrolls within the pane; the Advanced disclosure starts folded and
+reveals Shadow and Other Styles. The other four Subtitle sections remain open.
+Network, Control, Key Bindings and Utilities currently show their title only.
+Plugin settings are conditional
 upstream and omitted until the plugin system exists. Source-list geometry, full
 pane content and a fresh live capture remain open. These changes follow the
 source's category names/order; they do not establish pixel parity.

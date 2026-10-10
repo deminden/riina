@@ -8,8 +8,23 @@ permissions:
   contents: write
   actions: read
 jobs:
-  native-engine:
+  distribution-audit:
     runs-on: ubuntu-latest
+    outputs:
+      approved: ${{ steps.audit.outputs.approved }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Read binary distribution decision
+        id: audit
+        shell: bash
+        run: |
+          approved="$(python -c 'import json; print(str(json.load(open("docs/native-distribution-audit.json"))["distribution_approved"]).lower())')"
+          echo "approved=$approved" >> "$GITHUB_OUTPUT"
+
+  native-engine:
+    if: needs.distribution-audit.outputs.approved == 'true'
+    runs-on: ubuntu-latest
+    needs: distribution-audit
     container:
       image: ghcr.io/shinchiro/archlinux:latest
     timeout-minutes: 360
@@ -34,8 +49,9 @@ jobs:
           retention-days: 2
 
   windows-package:
+    if: needs.distribution-audit.outputs.approved == 'true'
     runs-on: windows-latest
-    needs: native-engine
+    needs: [distribution-audit, native-engine]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
@@ -105,8 +121,9 @@ jobs:
           retention-days: 2
 
   source-package:
+    if: needs.distribution-audit.outputs.approved == 'true'
     runs-on: ubuntu-latest
-    needs: native-engine
+    needs: [distribution-audit, native-engine]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
@@ -144,9 +161,9 @@ jobs:
           retention-days: 2
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true'
     runs-on: ubuntu-latest
-    needs: [windows-package, source-package]
+    needs: [distribution-audit, windows-package, source-package]
     steps:
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
         with:
@@ -195,4 +212,45 @@ jobs:
             echo "[Download Windows x64]($release_url)"
             echo ""
             echo "The release page is also surfaced in the repository's Releases panel."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-source:
+    if: startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved != 'true'
+    runs-on: ubuntu-latest
+    needs: distribution-audit
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Package versioned source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p release-assets
+          git archive --format=tar.gz --prefix="riina-$version/" "$GITHUB_SHA" \
+            > "release-assets/riina-$version-source.tar.gz"
+          sha256sum "release-assets/riina-$version-source.tar.gz" \
+            > "release-assets/riina-$version-source.tar.gz.sha256"
+      - name: Publish source release with a direct download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          repo="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          tag="$GITHUB_REF_NAME"
+          cat > release-notes.md <<EOF
+          Riina $version source release.
+
+          [Download source snapshot]($repo/releases/download/$tag/riina-$version-source.tar.gz) · [SHA-256 checksum]($repo/releases/download/$tag/riina-$version-source.tar.gz.sha256)
+
+          The Windows binary is not attached while the native dependency and redistribution audit remains open. The audited release workflow will add the portable Windows package, complete corresponding source and checksums after that gate is closed and all package tests pass.
+          EOF
+          gh release create "$tag" \
+            "release-assets/riina-$version-source.tar.gz" \
+            "release-assets/riina-$version-source.tar.gz.sha256" \
+            --title "Riina $version" --notes-file release-notes.md
+          {
+            echo "## Riina $version source release"
+            echo "[Download source snapshot]($repo/releases/download/$tag/riina-$version-source.tar.gz)"
           } >> "$GITHUB_STEP_SUMMARY"

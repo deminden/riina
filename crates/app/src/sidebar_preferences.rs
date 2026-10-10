@@ -98,6 +98,21 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                     100.0
                 }),
                 volume_boost: app.get_volume_boost(),
+                hardware_decoder: crate::codec_preferences::hardware_decoder(
+                    app.get_hardware_decoder_index(),
+                )
+                .ok_or("Invalid hardware decoder selection")?,
+                subtitle_ass_override: crate::subtitle_preferences::level(
+                    app.get_subtitle_ass_override_index(),
+                )
+                .ok_or("Invalid ASS override selection")?,
+                secondary_subtitle_ass_override: crate::subtitle_preferences::level(
+                    app.get_secondary_subtitle_ass_override_index(),
+                )
+                .ok_or("Invalid secondary ASS override selection")?,
+                subtitle_font: app.get_subtitle_font().to_string(),
+                subtitle_font_size: crate::subtitle_preferences::current_font_size(&app),
+                subtitle_text_style: crate::subtitle_preferences::current_style(&app)?,
                 pause_when_open: app.get_pause_when_open(),
                 fullscreen_when_open: app.get_fullscreen_when_open(),
                 ..baseline.clone()

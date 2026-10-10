@@ -1,6 +1,5 @@
 //! Shared picker lifetime and background font discovery.
 use crate::{FontPicker, PlayerWindow, font_catalog};
-use riina_mpv::CommandSender;
 use slint::{
     ComponentHandle, ModelRc, StandardListViewItem, VecModel, winit_030::WinitWindowAccessor,
 };
@@ -63,7 +62,7 @@ fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
     }
 }
 
-pub fn connect(app: &PlayerWindow, sender: CommandSender) {
+pub fn connect(app: &PlayerWindow) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
     let owned = current.clone();
     app.on_dismiss_font_picker(move || {
@@ -112,24 +111,21 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
         refresh_selection(&picker, &app);
         let parent = app.as_weak();
         let window = picker.as_weak();
-        let commands = sender.clone();
         picker.on_accept_font(move |text| {
             let Some(app) = parent.upgrade() else {
                 return;
             };
-            match riina_core::subtitle_controls::font_from_text(&text)
-                .map_err(str::to_owned)
-                .and_then(|command| commands.send(command))
-            {
-                Ok(()) => {
-                    if let Some(window) = window.upgrade() {
-                        window.set_picker_active(false);
-                        let _ = window.hide();
-                    }
-                    app.invoke_activity();
-                }
-                Err(error) => app.set_status(error.into()),
+            let selected = if text.is_empty() {
+                riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT.to_owned()
+            } else {
+                text.to_string()
+            };
+            app.invoke_subtitle_font_selected(selected.into());
+            if let Some(window) = window.upgrade() {
+                window.set_picker_active(false);
+                let _ = window.hide();
             }
+            app.invoke_activity();
         });
         let parent = app.as_weak();
         let window = picker.as_weak();

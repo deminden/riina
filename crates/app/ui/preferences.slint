@@ -1,4 +1,5 @@
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+import { PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
 
 // Native toolkit button padding can consume a 24px chooser's entire label.
 // Keep this small reference control explicit, including keyboard activation.
@@ -51,6 +52,144 @@ component PreferenceNavItem inherits Rectangle {
     }
 }
 
+component OverrideLaneButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback activated();
+    width: 150px;
+    height: 21px;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { root.activated(); }
+    Rectangle {
+        border-radius: 4px;
+        background: root.selected ? #d0d0d5 : touch.has-hover ? #ffffffb8 : transparent;
+        border-width: focus.has-focus ? 1px : 0px;
+        border-color: #168bff;
+        Text { text: root.label; font-size: 11px; color: #242428;
+            horizontal-alignment: center; vertical-alignment: center; }
+        touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
+
+component PreferenceActionButton inherits Rectangle {
+    in property <string> label;
+    callback activated();
+    width: 78px;
+    height: 24px;
+    border-radius: 4px;
+    border-width: focus.has-focus ? 2px : 1px;
+    border-color: focus.has-focus ? #168bff : #b8b8b8;
+    background: touch.pressed ? #d9d9dd : #f7f7f8;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { root.activated(); }
+    Text { text: root.label; font-size: 11px; color: #222222;
+        horizontal-alignment: center; vertical-alignment: center; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
+
+component PreferenceDisclosure inherits FocusScope {
+    in property <string> label;
+    in property <bool> expanded: false;
+    callback toggled();
+    width: 480px;
+    height: 21px;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: expanded;
+    accessible-action-default => { root.toggled(); }
+    Text { x: 0; y: 0; width: 13px; height: parent.height;
+        text: root.expanded ? "▾" : "▸";
+        font-size: 11px; color: #44444a; vertical-alignment: center;
+    }
+    Text { x: 15px; y: 0; width: parent.width - 15px; height: parent.height;
+        text: root.label; font-size: 13px; color: #222222;
+        vertical-alignment: center;
+    }
+    if focus.has-focus : Rectangle { border-width: 1px; border-color: #168bff;
+        border-radius: 3px; background: transparent;
+    }
+    touch := TouchArea { clicked => { focus.focus(); root.toggled(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+            if event.text == Key.Return || event.text == " " {
+                root.toggled(); return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+component AssOverrideSlider inherits Rectangle {
+    in property <float> value: 2;
+    callback changed(float);
+    width: 124px;
+    height: 20px;
+    background: transparent;
+    accessible-role: slider;
+    accessible-label: "ASS subtitle override level";
+    accessible-value: value;
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 4;
+    accessible-value-step: 1;
+    accessible-action-set-value(text) => {
+        if text.is-float() { root.changed(round(clamp(text.to-float(), 0, 4))); }
+    }
+    accessible-action-increment => { root.changed(min(4, value + 1)); }
+    accessible-action-decrement => { root.changed(max(0, value - 1)); }
+    Rectangle { x: 7px; y: 7px; width: parent.width - 14px; height: 2px;
+        border-radius: 1px; background: #a7a7ad; }
+    Rectangle { x: 7px; y: 6px; width: 1px; height: 5px; background: #77777e; }
+    Rectangle { x: parent.width * 0.25; y: 6px; width: 1px; height: 5px; background: #77777e; }
+    Rectangle { x: parent.width * 0.5; y: 6px; width: 1px; height: 5px; background: #77777e; }
+    Rectangle { x: parent.width * 0.75; y: 6px; width: 1px; height: 5px; background: #77777e; }
+    Rectangle { x: parent.width - 7px; y: 6px; width: 1px; height: 5px; background: #77777e; }
+    Rectangle { x: 4px + (parent.width - 8px) * root.value / 4; y: 3px;
+        width: 7px; height: 8px; border-radius: 3px; background: #55555d; }
+    if focus.has-focus : Rectangle { border-width: 1px; border-color: #168bff;
+        border-radius: 4px; background: transparent; }
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                focus.focus();
+                root.changed(round(clamp((self.mouse-x - 4px) / (root.width - 8px), 0, 1) * 4));
+            }
+        }
+        moved => { if self.pressed {
+            root.changed(round(clamp((self.mouse-x - 4px) / (root.width - 8px), 0, 1) * 4));
+        } }
+    }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == Key.RightArrow { root.changed(min(4, root.value + 1)); return accept; }
+            if event.text == Key.LeftArrow { root.changed(max(0, root.value - 1)); return accept; }
+            return reject;
+        }
+    }
+}
+
 // Original controls follow the reference General screenshot section's 120px
 // label column. Toolkit metrics remain provisional until rendered comparison.
 export component PreferencesWindow inherits Window {
@@ -62,6 +201,24 @@ export component PreferencesWindow inherits Window {
     background: #ededed;
     in-out property <int> selected-pane: 0;
     in-out property <int> osc-position: 0;
+    in-out property <int> hardware-decoder-index: 1;
+    in-out property <int> subtitle-ass-override-lane: 0;
+    in-out property <int> subtitle-ass-override-primary-index: 2;
+    in-out property <int> subtitle-ass-override-secondary-index: 2;
+    in-out property <string> subtitle-font: "sans-serif";
+    in-out property <string> subtitle-font-size-text: "55";
+    in-out property <color> subtitle-text-color: #ffffff;
+    in-out property <bool> subtitle-bold: false;
+    in-out property <bool> subtitle-italic: false;
+    in-out property <color> subtitle-background-color: #00000000;
+    in-out property <string> subtitle-outline-size-text: "3";
+    in-out property <color> subtitle-outline-color: #000000;
+    in-out property <string> subtitle-shadow-offset-text: "0";
+    in-out property <color> subtitle-shadow-color: #00000000;
+    in-out property <string> subtitle-blur-text: "0";
+    in-out property <string> subtitle-spacing-text: "0";
+    in-out property <bool> subtitle-text-advanced-expanded: false;
+    in-out property <bool> volume-boost: false;
     in-out property <bool> compact-ui: false;
     in-out property <bool> docked-controls: false;
     in-out property <bool> edge-to-edge-video: true;
@@ -78,6 +235,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> resume-last-position: true;
     callback settings-changed();
     callback choose-folder();
+    callback choose-subtitle-font();
     in-out property <string> directory;
     in-out property <bool> custom-directory: false;
     in-out property <bool> folder-dialog-open: false;
@@ -203,17 +361,239 @@ export component PreferencesWindow inherits Window {
             }
         }
     }
-    if root.selected-pane >= 2 : Rectangle {
+    if root.selected-pane == 2 : Rectangle {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
         background: #ededed;
         Text {
-            x: 22px; y: 16px; font-size: 15px; font-weight: 600; color: #222222;
-            text: root.selected-pane == 2 ? "Video & Audio" :
-                root.selected-pane == 3 ? "Subtitle" :
-                root.selected-pane == 4 ? "Network" :
-                root.selected-pane == 5 ? "Control" :
-                root.selected-pane == 6 ? "Key Bindings" :
-                root.selected-pane == 7 ? "Advanced" : "Utilities";
+            x: 22px; y: 16px; text: "Video & Audio";
+            font-size: 15px; font-weight: 600; color: #222222;
         }
+        Rectangle { x: 20px; y: 52px; width: 576px; height: 92px; background: transparent;
+            Text { x: 0; y: 8px; text: "Video:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Text { x: 98px; y: 8px; text: "Hardware decoder:";
+                font-size: 13px; color: #222222; }
+            ComboBox { x: 220px; y: 4px; width: 150px; height: 24px;
+                model: ["Disabled", "Auto", "Auto (Copy)"];
+                current-index <=> root.hardware-decoder-index;
+                selected => { root.settings-changed(); }
+            }
+        }
+    }
+    if root.selected-pane == 3 : ScrollView {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        content-height: root.subtitle-text-advanced-expanded ? 532px : 380px;
+        content-width: self.visible-width;
+        horizontal-scrollbar-policy: always-off;
+        Rectangle { width: parent.width;
+        height: root.subtitle-text-advanced-expanded ? 532px : 380px;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "Subtitle"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: 480px; height: 99px; background: transparent;
+            Text { x: 0; y: 8px; text: "ASS Subtitles:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Rectangle { x: 98px; y: 6px; width: 366px; height: 89px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                OverrideLaneButton { x: 49px; y: 10px; label: "Primary Subtitles";
+                    selected: root.subtitle-ass-override-lane == 0;
+                    activated => { root.subtitle-ass-override-lane = 0; }
+                }
+                OverrideLaneButton { x: 201px; y: 10px; label: "Secondary Subtitles";
+                    selected: root.subtitle-ass-override-lane == 1;
+                    activated => { root.subtitle-ass-override-lane = 1; }
+                }
+                Text { x: 41px; y: 40px; text: "Override level:";
+                    font-size: 12px; color: #222222; vertical-alignment: center; }
+                AssOverrideSlider { x: 137px; y: 36px;
+                    value: root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index;
+                    changed(value) => {
+                        if root.subtitle-ass-override-lane == 0 {
+                            root.subtitle-ass-override-primary-index = value;
+                        } else {
+                            root.subtitle-ass-override-secondary-index = value;
+                        }
+                        root.settings-changed();
+                    }
+                }
+                Text { x: 269px; y: 40px; width: 50px;
+                    text: (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 0 ? "no" :
+                        (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 1 ? "yes" :
+                        (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 2 ? "scale" :
+                        (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 3 ? "force" : "strip";
+                    font-family: "monospace"; font-size: 11px; color: #222222;
+                    vertical-alignment: center;
+                }
+                Text { x: 10px; y: 62px; width: parent.width - 20px; height: 20px;
+                    text: root.subtitle-ass-override-lane == 0 ?
+                        (root.subtitle-ass-override-primary-index == 0 ? "Render subtitles as specified by their scripts, without overrides." :
+                        root.subtitle-ass-override-primary-index == 1 ? "Apply all style settings in this section." :
+                        root.subtitle-ass-override-primary-index == 2 ? "Apply scale together with the style settings in this section." :
+                        root.subtitle-ass-override-primary-index == 3 ? "Apply all subtitle styles." : "Remove all ASS tags and styles.") :
+                        (root.subtitle-ass-override-secondary-index == 0 ? "Render subtitles as specified by their scripts, without overrides." :
+                        root.subtitle-ass-override-secondary-index == 1 ? "Apply all style settings in this section." :
+                        root.subtitle-ass-override-secondary-index == 2 ? "Apply scale together with the style settings in this section." :
+                        root.subtitle-ass-override-secondary-index == 3 ? "Apply all subtitle styles." : "Remove all ASS tags and styles.");
+                    font-size: 10px; color: #77777d; vertical-alignment: center;
+                }
+            }
+        }
+        Rectangle { x: 20px; y: 166px; width: 480px; height: 115px; background: transparent;
+            Text { x: 0; y: 8px; text: "Text Subtitles:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Rectangle { x: 98px; y: 4px; width: 366px; height: 105px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                Text { x: 12px; y: 5px; text: "Font";
+                    font-size: 11px; font-weight: 600; color: #55555d; }
+                Text { x: 16px; y: 28px; text: "Font:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                Text { x: 60px; y: 25px; width: 186px; height: 20px;
+                    text: root.subtitle-font; overflow: elide;
+                    font-size: 11px; color: #666666; vertical-alignment: center;
+                }
+                PreferenceActionButton { x: 278px; y: 22px; label: "Choose...";
+                    activated => { root.choose-subtitle-font(); }
+                }
+                Text { x: 16px; y: 60px; text: "Size:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                TextInput { x: 60px; y: 55px; width: 38px; height: 24px;
+                    text <=> root.subtitle-font-size-text;
+                    font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                CheckBox { x: 104px; y: 55px; width: 54px; height: 24px;
+                    text: "Bold"; checked <=> root.subtitle-bold;
+                    toggled => { root.settings-changed(); }
+                }
+                CheckBox { x: 168px; y: 55px; width: 55px; height: 24px;
+                    text: "Italic"; checked <=> root.subtitle-italic;
+                    toggled => { root.settings-changed(); }
+                }
+                Text { x: 16px; y: 87px; text: "Color:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                SubtitleColorWell { x: 60px; y: 80px; observed-color: root.subtitle-text-color;
+                    hint: "Subtitle text color";
+                    edited(value) => { root.subtitle-text-color = value; root.settings-changed(); }
+                }
+                Text { x: 116px; y: 87px; text: "Background:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                SubtitleColorWell { x: 188px; y: 80px; observed-color: root.subtitle-background-color;
+                    hint: "Subtitle background color";
+                    edited(value) => {
+                        root.subtitle-background-color = value;
+                        root.subtitle-shadow-color = value;
+                        root.settings-changed();
+                    }
+                }
+            }
+        }
+        Rectangle { x: 20px; y: 291px; width: 480px; height: 58px; background: transparent;
+            Text { x: 0; y: 8px; text: "Border:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                Text { x: 12px; y: 21px; text: "Size:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                TextInput { x: 52px; y: 15px; width: 38px; height: 24px;
+                    text <=> root.subtitle-outline-size-text;
+                    font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 112px; y: 21px; text: "Color:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                SubtitleColorWell { x: 157px; y: 15px; observed-color: root.subtitle-outline-color;
+                    hint: "Subtitle border color";
+                    edited(value) => { root.subtitle-outline-color = value; root.settings-changed(); }
+                }
+            }
+        }
+        PreferenceDisclosure { x: 20px; y: 357px;
+            label: "Advanced"; expanded: root.subtitle-text-advanced-expanded;
+            toggled => { root.subtitle-text-advanced-expanded = !root.subtitle-text-advanced-expanded; }
+        }
+        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 385px; width: 480px; height: 58px; background: transparent;
+            Text { x: 0; y: 8px; text: "Shadow:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                Text { x: 12px; y: 21px; text: "Offset:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                TextInput { x: 56px; y: 15px; width: 38px; height: 24px;
+                    text <=> root.subtitle-shadow-offset-text;
+                    font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 119px; y: 21px; text: "Color:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                SubtitleColorWell { x: 164px; y: 15px; observed-color: root.subtitle-shadow-color;
+                    hint: "Subtitle shadow color";
+                    edited(value) => {
+                        root.subtitle-shadow-color = value;
+                        root.subtitle-background-color = value;
+                        root.settings-changed();
+                    }
+                }
+            }
+        }
+        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 447px; width: 480px; height: 58px; background: transparent;
+            Text { x: 0; y: 8px; text: "Other Styles:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                Text { x: 12px; y: 21px; text: "Blur:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                TextInput { x: 48px; y: 15px; width: 38px; height: 24px;
+                    text <=> root.subtitle-blur-text;
+                    font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 109px; y: 21px; text: "Font spacing:";
+                    font-size: 11px; color: #222222; vertical-alignment: center; }
+                TextInput { x: 190px; y: 15px; width: 38px; height: 24px;
+                    text <=> root.subtitle-spacing-text;
+                    font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+            }
+        }
+        }
+    }
+    if root.selected-pane == 4 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
+    }
+    if root.selected-pane == 5 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: #222222; }
+    }
+    if root.selected-pane == 6 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "Key Bindings"; font-size: 15px; font-weight: 600; color: #222222; }
+    }
+    if root.selected-pane == 7 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: 576px; height: 92px; background: transparent;
+            Text { x: 0; y: 8px; text: "Audio:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            CheckBox { x: 98px; y: 4px; height: 24px;
+                text: "Allow volume boost (up to 200%)";
+                checked <=> root.volume-boost;
+                toggled => { root.settings-changed(); }
+            }
+        }
+    }
+    if root.selected-pane == 8 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: #222222; }
     }
 }

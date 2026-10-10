@@ -2225,6 +2225,11 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
             && state.subtitle_shadow_color == Some(SubtitleColor::CLEAR)
             && state.subtitle_font_size == Some(55.0)
             && state.subtitle_outline_size == Some(3.0)
+            && state.subtitle_bold == Some(false)
+            && state.subtitle_italic == Some(false)
+            && state.subtitle_blur == Some(0.0)
+            && state.subtitle_spacing == Some(0.0)
+            && state.subtitle_shadow_offset == Some(0.0)
     });
     assert_eq!(defaults.error, None);
     player
@@ -2285,6 +2290,50 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
     assert_eq!(selected_track(&shaded, TrackKind::Sub), subtitle_id);
     assert_eq!(shaded.subtitle_delay, 0.0);
     assert_eq!(shaded.error, None);
+    for command in [
+        Command::SubtitleBold(true),
+        Command::SubtitleItalic(true),
+        Command::SubtitleBlur(1.25),
+        Command::SubtitleSpacing(-0.5),
+        Command::SubtitleOutlineSize(4.5),
+        Command::SubtitleShadowOffset(2.25),
+    ] {
+        player.send(command).unwrap();
+    }
+    let styled = wait_for(&receiver, |state| {
+        state.subtitle_bold == Some(true)
+            && state.subtitle_italic == Some(true)
+            && state.subtitle_blur == Some(1.25)
+            && state.subtitle_spacing == Some(-0.5)
+            && state.subtitle_outline_size == Some(4.5)
+            && state.subtitle_shadow_offset == Some(2.25)
+    });
+    assert_eq!(styled.subtitle_text_color, Some(text));
+    assert_eq!(styled.subtitle_border_color, Some(border));
+    assert_eq!(styled.subtitle_shadow_color, Some(shadow));
+    assert!(styled.paused);
+    assert_eq!(selected_track(&styled, TrackKind::Sub), subtitle_id);
+    assert_eq!(styled.error, None);
+    for command in [
+        Command::SubtitleBold(false),
+        Command::SubtitleItalic(false),
+        Command::SubtitleBlur(0.0),
+        Command::SubtitleSpacing(0.0),
+        Command::SubtitleOutlineSize(3.0),
+        Command::SubtitleShadowOffset(0.0),
+    ] {
+        player.send(command).unwrap();
+    }
+    let neutral = wait_for(&receiver, |state| {
+        state.subtitle_bold == Some(false)
+            && state.subtitle_italic == Some(false)
+            && state.subtitle_blur == Some(0.0)
+            && state.subtitle_spacing == Some(0.0)
+            && state.subtitle_outline_size == Some(3.0)
+            && state.subtitle_shadow_offset == Some(0.0)
+    });
+    assert!(neutral.paused);
+    assert_eq!(selected_track(&neutral, TrackKind::Sub), subtitle_id);
     for command in [
         Command::SubtitleTextColor(SubtitleColor::WHITE),
         Command::SubtitleBorderColor(SubtitleColor::BLACK),
