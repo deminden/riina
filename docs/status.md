@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+The shared player now exposes Video > Flip > Horizontal (Mirror)/Vertical (Flip)
+through Slint's menu bar, with observed filter checks and native atomic toggle
+callbacks. Entries require a known video/filter catalog and are disabled during
+crop editing. No default key equivalents or dedicated OSD were introduced.
+The experimental native video route excludes this menu until attachment to its
+owner window is implemented. Other reference menus, configurable bindings,
+actual menu input/check behavior, reflected pixels and port runtime remain open.
+Workspace unit tests, strict lint and formatting pass. No publication.
+
 Flip/mirror now also have native atomic toggle commands. Passing the full
 managed filter specification to vf toggle adds/removes the filter; label-only
 toggle would merely change its enabled flag. This keeps rapid activations from

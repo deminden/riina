@@ -1,8 +1,10 @@
 # Implementation plan
 
 Video > Flip backend now has independent Horizontal (Mirror)/Vertical managed
-axis commands, atomic toggles and native coexistence coverage with crop. Wire
-the reference menu/configurable-command behavior and prove reflected pixels on both rendering routes;
+axis commands, atomic toggles and native coexistence coverage with crop. The
+shared player has its reference menu hierarchy; verify actual menu checks/input,
+attach it to the experimental native video owner and wire configurable commands.
+Prove reflected pixels on both rendering routes;
 do not add arbitrary sidebar controls or claim backend commands finish parity.
 The reference gives these items no default shortcut or dedicated OSD message.
 

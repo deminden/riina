@@ -137,6 +137,22 @@ fn update_ui(
     last_seek: &mut SeekOsd,
     last_video: &mut crate::video_osd::VideoOsd,
 ) {
+    use riina_core::video_reflection::Axis;
+    app.set_reflection_known(
+        state.video_filters.is_some()
+            && state.video.is_some()
+            && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed),
+    );
+    app.set_video_mirrored(
+        Axis::Horizontal
+            .observed(state.video_filters.as_deref())
+            .unwrap_or(false),
+    );
+    app.set_video_flipped(
+        Axis::Vertical
+            .observed(state.video_filters.as_deref())
+            .unwrap_or(false),
+    );
     if displayed
         .as_ref()
         .is_none_or(|old| old.generation != state.generation)
@@ -397,6 +413,20 @@ pub(crate) fn configure_player(
     };
     let idle_timer = Rc::new(slint::Timer::default());
     crop_editor.install(app, player.command_sender());
+    let reflection_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_toggle_video_reflection(move |horizontal| {
+        if let Some(app) = weak.upgrade() {
+            let axis = if horizontal {
+                riina_core::video_reflection::Axis::Horizontal
+            } else {
+                riina_core::video_reflection::Axis::Vertical
+            };
+            if let Err(error) = reflection_player.send(Command::ToggleVideoReflection(axis)) {
+                app.set_status(error.into());
+            }
+        }
+    });
     let seek_timer = slint::Timer::default();
     let disable_seek_osd = prefs.disable_osd_seek;
     let weak = app.as_weak();
