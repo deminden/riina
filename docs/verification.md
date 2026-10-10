@@ -791,6 +791,22 @@ lifecycle, other OS runtime, application-wide reusable picker, Settings sheets
 or exact visual metrics. Formatting, strict workspace lint, all workspace unit
 checks and the optimized Windows release build passed for this source.
 
+Native font chooser lifecycle retest (Windows 11 x64, source ebf6d9c):
+the native-video attributes hook consumes its pending owner once, isolating the
+transparent overlay attributes from subsequently constructed auxiliary windows.
+The corrected chooser is exposed as its own targetable Choose a Font window.
+Parent Left changes the paused five-second fixture from endpoint to zero while
+the chooser remains open, with volume 37 and its Unicode preview draft retained.
+Repeated opening reuses the same chooser and preview. Parent activation followed
+by Alt+F4 dismisses the chooser and host; settled native inventory and process
+inspection are empty. Scoped evidence and exact binary SHA-256:
+tests/visual/font-picker-native-lifecycle-evidence.json. The pre-fix chooser was
+nested beneath the host and activating the host left chooser focus in place.
+One indexed parent setter hit the automation cache; fresh keyboard navigation
+was used instead. Formatting, strict lint, workspace unit checks and release
+build pass. No screenshot, pixel comparison, calibrated HDR, other OS runtime,
+global reusable picker or Settings sheet completion is implied.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red

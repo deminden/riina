@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Native font chooser lifecycle verified on ebf6d9c: chooser now appears as a
+separate targetable Choose a Font window instead of being nested under the video
+host. Parent Left seeks the paused five-second fixture from its endpoint to zero
+with volume 37 retained; the chooser and Native draft café preview stay open.
+Repeated opening reuses the same chooser and draft. Activating the parent then
+Alt+F4 dismisses both windows; settled inventory and process inspection are empty.
+Exact binary hash and scoped AX observations:
+tests/visual/font-picker-native-lifecycle-evidence.json. Formatting, strict lint,
+workspace unit checks and optimized release build pass. This proves the narrow
+native candidate behavior only; no pixels or calibrated HDR pass is claimed.
+Other OS runtime, global reusable picker and Settings sheets remain open.
+All changes are local.
+
 Native-route auxiliary window isolation: the winit attributes hook now consumes
 the pending host owner for exactly the next adapter (the video chrome). Previously
 it remained installed and applied transparent/non-resizable/taskbar-hidden owner

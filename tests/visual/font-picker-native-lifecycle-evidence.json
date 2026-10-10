@@ -1,0 +1,49 @@
+{
+  "source_commit": "ebf6d9c",
+  "observations": [
+    {
+      "action": "separate-chooser",
+      "title": "Choose a Font",
+      "riina_window_count": 2
+    },
+    {
+      "action": "preview-draft",
+      "focus": "21 edit (settable, string) Font preview text Value: Native draft café"
+    },
+    {
+      "action": "activate-parent",
+      "focus": "1 window riina Secondary Actions: Raise"
+    },
+    {
+      "action": "parent-seek-left",
+      "lines": [
+        "\t\t\t12 button Playlist",
+        "\t\t\t18 button Play",
+        "\t\t\t24 slider (settable, float) Volume Value: 37",
+        "\t\t\t30 slider (settable, float) Playback position Value: 0.0000000000000008881784"
+      ]
+    },
+    {
+      "action": "chooser-preserved-after-parent-seek",
+      "preview": "\t\t21 edit (settable, string) Font preview text Value: Native draft café"
+    },
+    {
+      "action": "reopen-existing",
+      "same_picker_id": true,
+      "preview": "\t\t21 edit (settable, string) Font preview text Value: Native draft café"
+    },
+    {
+      "action": "settled-parent-close",
+      "remaining_riina_windows": 0
+    }
+  ],
+  "binary_sha256": "b6fd642d6f051f802cde79476023e0fc110b49d5a6686693236313083159c7bd",
+  "platform": "Windows 11 x64",
+  "renderer": "native video candidate",
+  "limitations": [
+    "AX and native window inventory only; no screenshot or pixel proof.",
+    "Parent seek tested on five-second fixture at endpoint; no broader seek claim.",
+    "Native parent indexed setter failed with automation cache; keyboard navigation used.",
+    "Other OS runtime and global picker and Settings sheet remain pending."
+  ]
+}
