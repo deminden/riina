@@ -113,3 +113,51 @@ fn lavf_woven_field_captures() {
     std::fs::write(&manifest, serde_json::to_vec_pretty(&captures).unwrap()).unwrap();
     println!("Forced lavf captures: {}", manifest.display());
 }
+
+#[test]
+#[ignore = "requires provisioned libmpv; checks screenshot template result"]
+fn screenshot_template_returns_saved_path() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let library = root.join("tools/mpv/libmpv-2.dll");
+    let output = root.join("tools/screenshot-template-log");
+    std::fs::create_dir_all(&output).unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start_options(
+        &library,
+        true,
+        vec![
+            (
+                "log-file".into(),
+                output.join("native.log").to_string_lossy().into_owned(),
+            ),
+            ("msg-level".into(), "all=v".into()),
+        ],
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/interlaced-tff.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait(&receiver, |state| state.paused);
+    player
+        .send(Command::Screenshot {
+            directory: output.to_string_lossy().into_owned(),
+            content: riina_core::screenshot::Content::default(),
+        })
+        .unwrap();
+    let saved = wait(&receiver, |state| state.completed_screenshots == 1);
+    println!("Saved {:?}", saved.screenshot_file);
+}

@@ -154,6 +154,13 @@ fn update_ui(
     last_video: &mut crate::video_osd::VideoOsd,
 ) {
     use riina_core::video_reflection::Axis;
+    app.set_screenshot_available(
+        state
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Video && track.is_primary_selected())
+            && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed),
+    );
     app.set_reflection_known(
         state.video_filters.is_some()
             && state.video.is_some()
@@ -472,6 +479,38 @@ pub(crate) fn configure_player(
         }
     });
     let seek_timer = slint::Timer::default();
+    let screenshot_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_take_screenshot(move || {
+        let Some(app) = weak.upgrade() else { return };
+        if !app.get_screenshot_available() || app.get_crop_editing() || app.get_dialog_open() {
+            return;
+        }
+        app.invoke_activity();
+        let result = platform::screenshot_directory()
+            .map_err(|error| error.to_string())
+            .and_then(|directory| {
+                screenshot_player.send(Command::Screenshot {
+                    directory: directory.to_string_lossy().into_owned(),
+                    content: riina_core::screenshot::Content::default(),
+                })
+            });
+        if let Err(error) = result {
+            app.set_status(error.into());
+        }
+    });
+    let weak = app.as_weak();
+    app.on_open_screenshot_folder(move || {
+        let Some(app) = weak.upgrade() else { return };
+        if app.get_crop_editing() || app.get_dialog_open() {
+            return;
+        }
+        if let Err(error) = platform::screenshot_directory()
+            .and_then(|directory| platform::open_directory(&directory))
+        {
+            app.set_status(error.to_string().into());
+        }
+    });
     let deinterlace_player = player.command_sender();
     let weak = app.as_weak();
     app.on_toggle_deinterlace(move || {

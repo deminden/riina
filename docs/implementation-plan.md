@@ -1,5 +1,14 @@
 # Implementation plan
 
+Screenshot defaults and shared/native Playback callbacks now exist: PNG,
+subtitles, platform Pictures/Screenshots and native %F-%n naming. Verify runtime
+menu/shortcut activation after the inconclusive Windows AX attempt; finish native
+accelerator display, five-second image preview/accessory, format/folder/template
+preferences and clipboard semantics. Preserve native trailing directory separators
+for Windows verbatim paths, and use returned filenames rather than guessing the
+latest directory entry. Existing screenshot engine tests preserve collisions and
+pause/position. Ports retain platform directory/file-manager services.
+
 Native screenshot exports and successful completion tracking now exist. Finish
 reference menus/shortcuts, PNG default and format/folder/clipboard preferences,
 window/subtitle semantics and success/failure OSD. Native saved-frame checks expose

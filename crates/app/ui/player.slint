@@ -251,6 +251,10 @@ export component PlayerWindow inherits Window {
     in property <bool> deinterlace-known: false;
     in property <bool> deinterlace-enabled: false;
     callback toggle-deinterlace();
+    in property <bool> screenshot-available: false;
+    callback take-screenshot();
+    callback open-screenshot-folder();
+    changed screenshot-available => { root.video-menu-changed(); }
     changed deinterlace-known => { root.video-menu-changed(); }
     changed deinterlace-enabled => { root.video-menu-changed(); }
     in-out property <bool> video-osd-request-feedback: false;
@@ -265,6 +269,12 @@ export component PlayerWindow inherits Window {
     callback crop-window-controls-changed();
     changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); }
     if !native-video : MenuBar {
+        Menu { title: "Playback";
+            MenuItem { title: "Take a Screenshot"; enabled: root.screenshot-available && !root.crop-editing;
+                activated => { root.take-screenshot(); } }
+            MenuItem { title: "Go to Screenshot Folder"; enabled: !root.crop-editing;
+                activated => { root.open-screenshot-folder(); } }
+        }
         Menu { title: "Video";
             Menu { title: "Aspect Ratio"; enabled: root.loaded && root.video-aspect-known && !root.crop-editing;
                 for label[index] in root.video-aspect-menu-labels : MenuItem {
@@ -960,7 +970,7 @@ export component PlayerWindow inherits Window {
                     if event.text == "C" { root.sidebar = root.sidebar == 3 ? 0 : 3; return accept; }
                     if event.text == "P" { root.sidebar = root.sidebar == 4 ? 0 : 4; return accept; }
                     if event.text == "A" { root.sidebar = root.sidebar == 1 ? 0 : 1; return accept; }
-                    if event.text == "S" { root.sidebar = root.sidebar == 2 ? 0 : 2; return accept; }
+                    if event.text == "S" { root.take-screenshot(); return accept; }
                     if event.text == "V" { root.sidebar = root.sidebar == 6 ? 0 : 6; return accept; }
                     return reject;
                 }

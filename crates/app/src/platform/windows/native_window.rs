@@ -133,6 +133,10 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                         app.get_loaded() && app.get_deinterlace_known() && !app.get_crop_editing(),
                     );
                     host.set_deinterlace_enabled(app.get_deinterlace_enabled());
+                    host.set_screenshot_available(
+                        app.get_screenshot_available() && !app.get_crop_editing(),
+                    );
+                    host.set_screenshot_folder_enabled(!app.get_crop_editing());
                 }
             });
             let menu_app = app.as_weak();
@@ -166,6 +170,18 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             host.on_toggle_deinterlace(move || {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_toggle_deinterlace();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_take_screenshot(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_take_screenshot();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_screenshot_folder(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_screenshot_folder();
                 }
             });
             let close_host = host.as_weak();

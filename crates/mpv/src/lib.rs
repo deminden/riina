@@ -124,6 +124,8 @@ impl Player {
                         // mpv defaults to stripping the secondary lane's styles.
                         ("secondary-sub-ass-override", "scale"),
                         ("deinterlace", "no"),
+                        ("screenshot-format", "png"),
+                        ("screenshot-template", "%F-%n"),
                         ("sub-font-size", "55"),
                         ("sub-font", riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT),
                         ("sub-outline-size", "3"),
@@ -215,7 +217,10 @@ impl Player {
                                     }
                                     if seek_feedback::navigation(&args, &state) { seek_feedback.submitted(next_id); }
                                     if let Command::ScreenshotToFile { path, .. } = &command {
-                                        pending_screenshots.insert(next_id, path.clone());
+                                        pending_screenshots.insert(next_id, Some(path.clone()));
+                                    } else if matches!(command, Command::Screenshot { .. })
+                                        && args.first().is_some_and(|name| name == "screenshot") {
+                                        pending_screenshots.insert(next_id, None);
                                     }
                                 }
                             }
@@ -237,8 +242,20 @@ impl Player {
                                     } else if let Some(path) = screenshot {
                                         // Queue acceptance is not capture success. Retire replies
                                         // from replaced sources without replaying old feedback.
-                                        state.screenshot_file = Some(path);
-                                        state.completed_screenshots = state.completed_screenshots.wrapping_add(1);
+                                        let path = path.or_else(|| {
+                                            if event.data.is_null() { return None; }
+                                            // SAFETY: COMMAND_REPLY owns this node until the
+                                            // next wait_event; copy its returned filename now.
+                                            let reply = &*event.data.cast::<ffi::CommandReply>();
+                                            reply.result.copy_json().ok()?.get("filename")?
+                                                .as_str().map(str::to_owned)
+                                        });
+                                        if let Some(path) = path {
+                                            state.screenshot_file = Some(path);
+                                            state.completed_screenshots = state.completed_screenshots.wrapping_add(1);
+                                        } else {
+                                            state.error = Some("Screenshot completed without a saved filename".into());
+                                        }
                                     }
                                 }
                             }

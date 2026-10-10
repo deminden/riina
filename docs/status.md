@@ -1,3 +1,32 @@
+Playback now exposes Take a Screenshot and Go to Screenshot Folder on both
+player surfaces. The default action saves PNG with subtitles to the platform
+Pictures/Screenshots folder, using native %F-%n naming. Command/Control+Shift+S
+now requests capture, replacing the conflicting subtitle-panel binding; extra
+modifiers, crop editing, dialogs and unavailable selected video retain guards.
+The native owner forwards both actions to shared callbacks. Platform directory
+resolution and file-manager opening remain outside core behavior. Screenshot
+preferences, clipboard, five-second preview/accessory, complete Playback menu
+and native accelerator display remain pending.
+
+Native default capture returns the actual filename in its command reply. Success
+counts update only after a successful current-generation reply with a filename.
+A Unicode directory with an existing 0001 image produces 0002 then 0003 while
+preserving the existing bytes, pause and position. An initial failure exposed
+mpv appending '/' to verbatim Windows directories; retaining the platform-native
+trailing separator fixes that path without stripping long-path prefixes. Explicit
+video/subtitle PNG captures and no-frame failure still pass. All 35 native control
+tests pass (20.06 seconds), workspace tests, strict lint and formatting pass, and
+Windows release builds (54.17 seconds). A private logged template test also passes.
+
+Windows native AX shows Playback before Video. F10/Return and screenshot shortcut
+did not establish action completion; no catalog screenshot appeared. Clicking the
+menu reported coordinate input geometry unavailable; screenshot capture reported
+CreateForMonitor 0x80070057. Recovery found the player, but runtime menu/shortcut
+activation remains unverified. Alt+F4 ends the process with exit 0 and only the
+expected layout diagnostic. No pixels, preview, folder-open or other OS runtime
+pass is claimed. Evidence: tests/visual/native-screenshot-defaults-evidence.json.
+Nothing published.
+
 Interlaced decoding investigation now compares original encoded MPEG-2 fields
 with the v210 container-only fields. Both new fixtures regenerate byte-for-byte
 with pinned development PyAV; all four clips pass the independent 75-to-150-frame

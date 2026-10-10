@@ -39,6 +39,11 @@ pub struct Node {
 }
 
 #[repr(C)]
+pub struct CommandReply {
+    pub result: Node,
+}
+
+#[repr(C)]
 pub struct NodeList {
     pub count: c_int,
     pub values: *const Node,

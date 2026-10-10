@@ -37,6 +37,10 @@ pub enum Command {
     MultiplySpeed(f64),
     FrameStep,
     FrameBackStep,
+    Screenshot {
+        directory: String,
+        content: screenshot::Content,
+    },
     ScreenshotToFile {
         path: String,
         content: screenshot::Content,
@@ -323,6 +327,7 @@ impl Command {
                 ]
             }
             Self::OpenFiles(_)
+            | Self::Screenshot { .. }
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
             | Self::VideoViewport(_)
@@ -348,6 +353,24 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::Screenshot { directory, content } => {
+                if !valid_path(directory) {
+                    return Err("The screenshot directory is empty or contains a NUL byte".into());
+                }
+                vec![
+                    // Keep the native trailing separator: mixed '/' in a
+                    // verbatim Windows path is rejected by screenshot writing.
+                    vec![
+                        "set".into(),
+                        "screenshot-dir".into(),
+                        std::path::Path::new(directory)
+                            .join("")
+                            .to_string_lossy()
+                            .into_owned(),
+                    ],
+                    vec!["screenshot".into(), content.native_value().into()],
+                ]
+            }
             Self::VideoViewport(viewport) => video_viewport::Viewport::commands(*viewport),
             Self::VideoReflection { axis, enabled } => axis.commands(*enabled, state)?,
             Self::EnterCrop(session) => session.enter_commands(state)?,

@@ -82,6 +82,31 @@ fn screenshots_complete_only_after_native_success() {
         assert_eq!(&bytes[bytes.len() - 8..bytes.len() - 4], b"IEND");
     }
     println!("Native completed PNGs: {}", output.display());
+    let directory = output.join("Снимки 字");
+    std::fs::create_dir(&directory).unwrap();
+    let existing = directory.join("interlaced-tff-0001.png");
+    std::fs::write(&existing, b"existing image must survive").unwrap();
+    for (index, number) in ["0002", "0003"].into_iter().enumerate() {
+        player
+            .send(Command::Screenshot {
+                directory: directory.to_string_lossy().into_owned(),
+                content: riina_core::screenshot::Content::default(),
+            })
+            .unwrap();
+        let saved = wait_for(&receiver, |state| {
+            state.completed_screenshots == index as u64 + 3 || state.error.is_some()
+        });
+        assert_eq!(saved.error, None);
+        let path = PathBuf::from(saved.screenshot_file.unwrap());
+        assert_eq!(path, directory.join(format!("interlaced-tff-{number}.png")));
+        assert_eq!(&std::fs::read(&path).unwrap()[..8], b"\x89PNG\r\n\x1a\n");
+        assert!(saved.paused);
+        assert_eq!(saved.position, paused.position);
+    }
+    assert_eq!(
+        std::fs::read(existing).unwrap(),
+        b"existing image must survive"
+    );
 }
 
 #[test]
