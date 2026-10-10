@@ -5,6 +5,7 @@ pub mod crop_drag;
 pub mod crop_geometry;
 pub mod crop_session;
 pub mod file_selection;
+pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
 pub mod subtitle_controls;
@@ -36,6 +37,10 @@ pub enum Command {
     MultiplySpeed(f64),
     FrameStep,
     FrameBackStep,
+    ScreenshotToFile {
+        path: String,
+        content: screenshot::Content,
+    },
     VideoAspect(video_controls::AspectRatio),
     VideoRotation(video_controls::Rotation),
     Deinterlace(bool),
@@ -147,6 +152,11 @@ impl Command {
             Self::ToggleMute => vec!["cycle".into(), "mute".into()],
             Self::FrameStep => vec!["frame-step".into()],
             Self::FrameBackStep => vec!["frame-back-step".into()],
+            Self::ScreenshotToFile { path, content } if valid_path(path) => vec![
+                "screenshot-to-file".into(),
+                path.clone(),
+                content.native_value().into(),
+            ],
             Self::PlaylistNext => vec!["playlist-next".into(), "weak".into()],
             Self::PlaylistPrevious => vec!["playlist-prev".into(), "weak".into()],
             Self::SelectTrack { kind, id } if id.is_none_or(|id| id > 0) => vec![
@@ -780,6 +790,9 @@ pub struct Playback {
     /// Native automatic filter activity, distinct from the configured option.
     pub deinterlace_active: Option<bool>,
     pub video_frame_info: Option<VideoFrameInfo>,
+    /// Native successful captures, retained through snapshot coalescing.
+    pub completed_screenshots: u64,
+    pub screenshot_file: Option<String>,
     pub video_equalizer: [Option<i64>; 5],
     pub title: String,
     pub error: Option<String>,
@@ -873,6 +886,7 @@ impl Playback {
         self.video_output = None;
         self.deinterlace_active = None;
         self.video_frame_info = None;
+        self.screenshot_file = None;
     }
 
     pub fn reconcile(&mut self) {

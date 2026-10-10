@@ -58,3 +58,11 @@ For an independent development oracle, install `av==16.0.1` with pip's
 `python scripts/check-interlaced-fixtures.py`. This ignored development dependency
 is not bundled. The check decodes the woven fields and verifies 150 ordered
 progressive bwdif outputs; it does not verify riina's rendered pixels.
+
+The ignored native cadence test now writes 36 PNGs and a `captures.json` under
+`tools/interlaced-native-test/<unique-run>`. Run
+`python scripts/check-native-interlaced-captures.py <captures.json> --report <report.json>`
+to compare actual saved native video pixels with the original field pattern.
+The checker intentionally fails for current bottom-first temporal reversal; do
+not treat cadence or a successfully written PNG as proof of correct field order.
+This requires Pillow and does not capture GUI or monitor output.

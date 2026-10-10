@@ -1,5 +1,13 @@
 # Implementation plan
 
+Native screenshot exports and successful completion tracking now exist. Finish
+reference menus/shortcuts, PNG default and format/folder/clipboard preferences,
+window/subtitle semantics and success/failure OSD. Native saved-frame checks expose
+bottom-first temporal reversal for the woven v210 Matroska fixture: preserve the
+failing pixel oracle, compare an encoded interlaced stream and demuxer behavior,
+and establish the cause before changing default decoding. Saved pixels do not
+prove GUI or HDR monitor output.
+
 Video > Deinterlace now has portable On/Off commands, native observed option and
 automatic-filter activity, shared/native menu checks and confirmed-state OSD.
 Native coexistence/repeat/burst/source-replacement tests and Windows native GUI

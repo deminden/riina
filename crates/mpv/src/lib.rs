@@ -178,6 +178,7 @@ impl Player {
                 let mut state = Playback { volume: 100.0, speed: 1.0, ..Default::default() };
                 let mut next_id = 0u64;
                 let mut pending = HashMap::new();
+                let mut pending_screenshots = HashMap::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
                 let mut seek_feedback = seek_feedback::SeekFeedback::default();
@@ -211,6 +212,9 @@ impl Player {
                                         break;
                                     }
                                     if seek_feedback::navigation(&args, &state) { seek_feedback.submitted(next_id); }
+                                    if let Command::ScreenshotToFile { path, .. } = &command {
+                                        pending_screenshots.insert(next_id, path.clone());
+                                    }
                                 }
                             }
                             Err(error) => state.error = Some(error),
@@ -222,10 +226,18 @@ impl Player {
                         match event.id {
                             5 => {
                                 seek_feedback.replied(event.userdata, event.error < 0);
+                                let screenshot = pending_screenshots.remove(&event.userdata);
                                 if let Some(generation) = pending.remove(&event.userdata)
-                                    && generation == state.generation && event.error < 0 {
-                                    state.error = worker_api.check(event.error).err();
-                                    resume_on_load = false;
+                                    && generation == state.generation {
+                                    if event.error < 0 {
+                                        state.error = worker_api.check(event.error).err();
+                                        resume_on_load = false;
+                                    } else if let Some(path) = screenshot {
+                                        // Queue acceptance is not capture success. Retire replies
+                                        // from replaced sources without replaying old feedback.
+                                        state.screenshot_file = Some(path);
+                                        state.completed_screenshots = state.completed_screenshots.wrapping_add(1);
+                                    }
                                 }
                             }
                             6 => { seek_pending = false; seek_feedback.clear(); state.begin_load(); },

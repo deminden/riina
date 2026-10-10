@@ -8,12 +8,99 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; writes native PNG captures to ignored tools"]
+fn screenshots_complete_only_after_native_success() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let output = root.join("tools/screenshot-test").join(format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&output).unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    // Failure before any frame exists cannot advertise a saved image.
+    player
+        .send(Command::ScreenshotToFile {
+            path: output.join("no-frame.png").to_string_lossy().into_owned(),
+            content: riina_core::screenshot::Content::Video,
+        })
+        .unwrap();
+    let failed = wait_for(&receiver, |state| state.error.is_some());
+    assert_eq!(failed.completed_screenshots, 0);
+    assert_eq!(failed.screenshot_file, None);
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/interlaced-tff.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    let paused = wait_for(&receiver, |state| state.paused && state.position.is_some());
+    for (index, content) in [
+        riina_core::screenshot::Content::Video,
+        riina_core::screenshot::Content::Subtitles,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let path = output
+            .join(format!("capture-{index}.png"))
+            .to_string_lossy()
+            .into_owned();
+        player
+            .send(Command::ScreenshotToFile {
+                path: path.clone(),
+                content,
+            })
+            .unwrap();
+        let saved = wait_for(&receiver, |state| {
+            state.completed_screenshots == index as u64 + 1 || state.error.is_some()
+        });
+        assert_eq!(saved.error, None);
+        assert_eq!(saved.screenshot_file.as_deref(), Some(path.as_str()));
+        assert!(saved.paused);
+        assert_eq!(saved.position, paused.position);
+        let bytes = std::fs::read(&path).unwrap();
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n");
+        assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()), 96);
+        assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()), 64);
+        assert_eq!(&bytes[bytes.len() - 12..bytes.len() - 8], &[0, 0, 0, 0]);
+        assert_eq!(&bytes[bytes.len() - 8..bytes.len() - 4], b"IEND");
+    }
+    println!("Native completed PNGs: {}", output.display());
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
 fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .unwrap();
+    let output = root.join("tools/interlaced-native-test").join(format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&output).unwrap();
+    let mut captures = Vec::new();
     for name in ["interlaced-tff.mkv", "interlaced-bff.mkv"] {
         let (sender, receiver) = mpsc::channel();
         let player = Player::start(&test_library(&root), true, move |state| {
@@ -74,7 +161,25 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
                     next.video_output.as_ref().map(|video| (video.w, video.h)),
                     Some((96, 64))
                 );
-                previous = next;
+                let path = output.join(format!("capture-{}.png", captures.len()));
+                player
+                    .send(Command::ScreenshotToFile {
+                        path: path.to_string_lossy().into_owned(),
+                        content: riina_core::screenshot::Content::Video,
+                    })
+                    .unwrap();
+                let captured = wait_for(&receiver, |state| {
+                    state.completed_screenshots > next.completed_screenshots
+                        || state.error.is_some()
+                });
+                assert_eq!(captured.error, None);
+                assert!(captured.paused);
+                assert_eq!(captured.position, next.position);
+                captures.push(serde_json::json!({
+                    "fixture": name, "deinterlace": enabled,
+                    "position": captured.position, "path": path,
+                }));
+                previous = captured;
             }
             println!(
                 "{name}: deinterlace={enabled}; six {} ms steps; frame flags {:?}",
@@ -83,6 +188,9 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
             );
         }
     }
+    let manifest = output.join("captures.json");
+    std::fs::write(&manifest, serde_json::to_vec_pretty(&captures).unwrap()).unwrap();
+    println!("Native field captures: {}", manifest.display());
 }
 
 #[test]

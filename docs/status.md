@@ -1,3 +1,24 @@
+Native screenshot export now has typed video/subtitles/window content and
+generation-scoped successful completion tracking. Failed or merely queued
+requests cannot advertise a saved file. Native PNG tests verify no-frame failure,
+96x64 output, completed PNG structure and unchanged pause/position. Screenshot
+menus, shortcuts, preference formats/destinations, clipboard and window-mode
+capture remain pending; this is engine groundwork, not completed screenshot parity.
+
+The cadence test now saves 36 native video PNGs. The pixel checker passes all
+24 woven Off captures and six top-first On captures, including bar widths and
+timestamp-aligned motion. All six bottom-first On captures fail temporal order,
+although their centre comb edges are removed. This is a retained failing
+regression, not a verified deinterlacing-quality claim. Independent PyAV bwdif
+orders the same source correctly. Native Matroska metadata handling is a candidate
+for investigation; the precise cause remains unproven. Next compare an encoded
+interlaced stream and demuxer behavior before changing production decoding.
+Evidence: tests/visual/native-interlaced-pixels-evidence.json. These are saved
+engine video pixels, not GUI/monitor screenshots. All 35 native control tests pass
+(15.99 seconds), workspace tests, strict lint and formatting pass; Windows release
+build passes (39.42 seconds). The separate image checker exits 1 with six failures.
+Nothing published.
+
 Original top-first and bottom-first interlaced fixtures now validate native
 frame cadence: six steps each at 40 ms Off, 20 ms On, then 40 ms Off, with pause
 preserved. An independent pinned PyAV decoder confirms 75 interlaced frames
