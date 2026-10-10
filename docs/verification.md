@@ -2,6 +2,15 @@
 
 ## Track metadata and Unicode ratio validation · 2026-10-10
 
+The first full native suite at 8d4b1d1 has 17 passes and one failure in the
+pre-existing secondary visibility test: its hidden-text assertion fails after
+a same-position seek. Five isolated repeats pass, so no reproducible product
+regression or exact missing-text value is established. Inspection finds its
+cue predicate can accept the previous clock/text before the new seek completes.
+The test now waits for completed_seeks to advance and seeking to finish before
+checking the refreshed cue and hiding it; the text-retention assertion remains.
+Three full-suite confirmation runs and the optimized build are in progress.
+
 Video track labels now deserialize demux-w/h/fps, display paired dimensions with
 the multiplication sign, and round rates to three decimals without trailing zeroes.
 Labels retain codec → dimensions → fps → Default order. Audio channel/kHz and

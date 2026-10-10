@@ -818,7 +818,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     player
         .send(Command::SubtitleDelay(both.subtitle_delay))
         .unwrap();
-    wait_for(&receiver, |state| {
+    let before_seek = wait_for(&receiver, |state| {
         state.subtitle_delay == both.subtitle_delay
     });
     player.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
@@ -829,7 +829,12 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         })
         .unwrap();
     wait_for(&receiver, |state| {
-        state.secondary_subtitle_delay == Some(0.0)
+        // The requested position can already equal the previous clock. Wait
+        // for this seek's completion before treating cached cue text as current;
+        // decoder refresh can otherwise clear it while visibility is toggled.
+        state.completed_seeks > before_seek.completed_seeks
+            && !state.seeking
+            && state.secondary_subtitle_delay == Some(0.0)
             && state
                 .secondary_subtitle_text
                 .as_deref()
@@ -848,7 +853,11 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         hidden
             .secondary_subtitle_text
             .as_deref()
-            .is_some_and(|s| s.contains("bonjour"))
+            .is_some_and(|s| s.contains("bonjour")),
+        "Hidden secondary text {:?}, delay {:?}, clock {:?}",
+        hidden.secondary_subtitle_text,
+        hidden.secondary_subtitle_delay,
+        hidden.position,
     );
     player
         .send(Command::ToggleSecondarySubtitleVisibility)

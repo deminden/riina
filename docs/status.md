@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+The full native run exposes an intermittent pre-existing secondary-text
+assertion failure; five isolated repeats pass. Its same-position seek wait can
+accept stale cue text, so the test now waits for an observed seek completion
+before hiding the lane, retaining its original assertion. Full-suite rechecks
+and optimized build are in progress. New labels/Unicode cases pass; no broad
+stability or full-parity conclusion is claimed.
+
 Video labels now include source dimensions and rounded frame rate; tests verify
 the native catalog label 320×180, 24fps stays unchanged under aspect/rotation.
 Custom ratios preserve Unicode decimal digits; a native test verifies original
