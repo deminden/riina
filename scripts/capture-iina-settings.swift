@@ -98,9 +98,14 @@ func axTree(_ element: AXUIElement, depth: Int = 0, budget: inout Int) -> [Strin
     var node: [String: Any] = [
         "role": axString(element, kAXRoleAttribute as String) ?? "",
     ]
-    for (key, attribute) in [("title", kAXTitleAttribute), ("description", kAXDescriptionAttribute),
-                             ("value", kAXValueAttribute), ("identifier", "AXIdentifier" as CFString)] {
-        if let value = axString(element, attribute as String), !value.isEmpty {
+    let attributes: [(String, String)] = [
+        ("title", kAXTitleAttribute as String),
+        ("description", kAXDescriptionAttribute as String),
+        ("value", kAXValueAttribute as String),
+        ("identifier", "AXIdentifier"),
+    ]
+    for (key, attribute) in attributes {
+        if let value = axString(element, attribute), !value.isEmpty {
             node[key] = value
         }
     }
@@ -179,7 +184,7 @@ do {
     }
     record["observed_windows_after_open"] = referenceWindows()
     guard windows.count == 1, let window = windows.first,
-          let number = window[kCGWindowNumber as String] as? UInt32 else {
+          window[kCGWindowNumber as String] is UInt32 else {
         throw NSError(domain: "RiinaReferenceCapture", code: 3,
                       userInfo: [NSLocalizedDescriptionKey: "Expected exactly one visible Settings window"])
     }
