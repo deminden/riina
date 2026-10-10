@@ -1,4 +1,4 @@
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, ComboBox } from "std-widgets.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
 // Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
@@ -200,6 +200,8 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-position-known: false;
     in property <float> subtitle-scale-slider: 0;
     in property <bool> subtitle-scale-known: false;
+    in property <float> subtitle-font-size: 0;
+    in property <bool> subtitle-font-size-known: false;
     in property <bool> subtitle-text-style-available: true;
     in property <bool> subtitle-ass-style-warning: false;
     in-out property <bool> edit-secondary-subtitle: false;
@@ -226,6 +228,7 @@ export component PlayerWindow inherits Window {
     callback reset-subtitle-delay();
     callback adjust-subtitle-scale(float);
     callback set-subtitle-scale-slider(float);
+    callback set-subtitle-font-size(float);
     callback adjust-subtitle-position(float);
     callback set-subtitle-position(bool, float);
     callback adjust-audio-delay(float);
@@ -473,8 +476,15 @@ export component PlayerWindow inherits Window {
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                         }
                         if sidebar == 2 && root.subtitle-text-style-available : VerticalLayout {
-                            height: 54px; vertical-stretch: 0;
+                            height: 84px; vertical-stretch: 0;
                             Text { text: "Text size"; color: #dddddd; font-size: 12px; font-weight: 700; }
+                            ComboBox { height: 24px;
+                                model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
+                                current-value: root.subtitle-font-size-known ? "" + root.subtitle-font-size : "—";
+                                enabled: root.loaded && root.subtitle-font-size-known;
+                                accessible-label: "Subtitle font size";
+                                selected(value) => { if value.is-float() { root.set-subtitle-font-size(value.to-float()); } }
+                            }
                             HorizontalLayout {
                                 PlayerSlider { minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
                                     enabled: root.loaded && root.subtitle-scale-known; hint: "Subtitle text scale";

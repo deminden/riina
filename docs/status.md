@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Local subtitle font-size increment: typed finite positive font size dispatch and
+optional native observation now back the shared style picker. Choices 25–75 in
+steps of five follow the pinned SubStyleView; startup explicitly pins size 55
+from Preference.subTextSize. Unknown size disables editing and bitmap-only
+selection hides the text controls. Real SRT playback verifies observed default
+55 and sizes 25, 75 and 55 with pause, position and delay retained. All twelve
+native tests pass (9.83 seconds); the added default assertion passes a focused
+native run (0.50 seconds). All 28 unit tests passed before the explicit startup
+option; strict lint and formatting pass on the final code. Picker keyboard/
+pointer routing, popup appearance, rendered font size, preference persistence
+and other-OS runtime remain pending. No public update was made.
+
 Local portable subtitle edit validation: numeric text parsing and typed Primary/
 Secondary lane targeting now live in riina-core rather than the application UI
 callback. The shared contract preserves double precision beyond f32, accepts

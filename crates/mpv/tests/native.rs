@@ -667,6 +667,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .as_deref()
                 .is_some_and(|text| text.contains("Привет"))
     });
+    assert_eq!(first.subtitle_font_size, Some(55.0));
     player.send(Command::SubtitleSeek(1)).unwrap();
     let second = wait_for(&receiver, |state| {
         state.paused
@@ -807,6 +808,14 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .subtitle_scale
                 .is_some_and(|s| (s - expected).abs() < 0.001)
         });
+    }
+    for size in [25.0, 75.0, 55.0] {
+        player.send(Command::SubtitleFontSize(size)).unwrap();
+        let resized = wait_for(&receiver, |state| state.subtitle_font_size == Some(size));
+        assert!(resized.paused);
+        assert_eq!(resized.subtitle_position, Some(100.0));
+        assert!(resized.subtitle_delay.abs() < 0.001);
+        assert_eq!(resized.error, None);
     }
     for scale in [1.0 / 6.0, 6.0, 1.0] {
         player.send(Command::SubtitleScale(scale)).unwrap();
