@@ -7,7 +7,8 @@ import ApplicationServices
 let destination = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 let permitted = CGPreflightScreenCaptureAccess()
-let pages = ["General", "UI", "Video", "Audio", "Subtitles", "Network", "Control", "Key Bindings", "Advanced", "Plugin", "Utilities"]
+// Use the displayed names, including IINA's user-facing "Interface" label.
+let pages = ["General", "Interface", "Video", "Audio", "Subtitles", "Network", "Control", "Key Bindings", "Advanced", "Plugin", "Utilities"]
 var record: [String: Any] = [
     "schema_version": 1,
     "captured_at_utc": ISO8601DateFormatter().string(from: Date()),
