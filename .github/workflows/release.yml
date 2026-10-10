@@ -26,12 +26,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: distribution-audit
     container:
-      image: ghcr.io/shinchiro/archlinux:latest
+      image: ghcr.io/shinchiro/archlinux@sha256:c7dffe77b57d98b10e327dde12d3977faf4cb90aa7cb4f5eeac4e9d68d724239
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
       - name: Build pinned native engine and corresponding source
         shell: bash
+        env:
+          RIINA_BUILD_IMAGE: ghcr.io/shinchiro/archlinux@sha256:c7dffe77b57d98b10e327dde12d3977faf4cb90aa7cb4f5eeac4e9d68d724239
         run: bash tools/mpv/build-windows.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
         with:

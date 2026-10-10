@@ -10,6 +10,23 @@ readonly WORK_ROOT="${RUNNER_TEMP:-$PWD}/riina-native-build"
 readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
 readonly SOURCE_ARCHIVE_ROOT="$PWD/native-source"
 
+print_build_failure() {
+  local status=$?
+  trap - ERR
+  echo "Native engine build failed with exit code $status. Recent dependency build logs:" >&2
+  if [[ -d "$BUILDER/build_x86_64/packages" ]]; then
+    find "$BUILDER/build_x86_64/packages" -type f \
+      \( -name '*-build-err.log' -o -name '*-build-out.log' \) -size +0c -print0 \
+      | sort -z | tail -z -n 12 \
+      | while IFS= read -r -d '' log; do
+          echo "--- $log ---" >&2
+          tail -n 100 "$log" >&2
+        done
+  fi
+  exit "$status"
+}
+trap print_build_failure ERR
+
 rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
 mkdir -p "$WORK_ROOT"
 git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git "$BUILDER"

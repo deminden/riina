@@ -2147,5 +2147,7 @@ download link in the Releases panel and skips native/application binary packagin
 Binary assets remain gated on closing the dependency, notices, corresponding-source
 and package-test audit. The workflow change passes whitespace validation;
 Rust 1.99.0 formatting, strict all-target Clippy and workspace tests pass locally.
-The v0.2.1 source tag and GitHub publication are the next step; no binary release is
-claimed.
+Tag `v0.2.1` is published at
+https://github.com/deminden/riina/releases/tag/v0.2.1 with a direct source-download
+link and SHA-256 file. Its Actions run completed successfully; native and Windows
+package jobs were skipped by the explicit audit gate. No binary release is claimed.

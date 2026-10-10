@@ -25,15 +25,20 @@
       "Runtime inspection does not certify distribution license compliance"
     ]
   },
+  "release_candidate_policy": {
+    "builder_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
+    "openssl_revision": "d8bf6cdd4849925c30e4f1911c7acb49cb34b702",
+    "x264_encoder": "Removed by tools/mpv/remove-x264.patch; built-in H.264 decoding is retained",
+    "source_capture": "The release build records each source checkout revision and each non-Git source file hash in SOURCE-MANIFEST.tsv, then packages those sources with the build scripts.",
+    "build_container": "Pinned by digest in .github/workflows/release.yml"
+  },
   "remaining": [
-    "Verify GPLv3 compatibility and redistribution rights for every native dependency without silently dropping parity requirements",
-    "Resolve exact revisions and notices of all native dependencies and patches; the pinned builder recipe does not pin many dependency revisions",
-    "Resolve the GPLv3 compatibility of the enabled x264 component against its exact source revision and license grant",
-    "Rebuild FFmpeg without the optional x264 encoder, then verify H.264 playback and the full media fixture set",
-    "Audit all 344 Windows-targeted Rust dependencies for selected license alternatives and ship the required notices",
-    "Provide corresponding source and reproducible build information for the chosen artifact",
-    "Verify the selected Slint Royalty-free 2.0 terms and attribution for the combined GPLv3 package",
-    "Build and test the complete package outside the development workspace"
+    "Build the release candidate after the audit gate is approved, then inventory every dependency actually linked into the runtime and verify GPLv3 compatibility and redistribution rights without dropping required playback parity",
+    "Review the native source manifest and verify that the package includes every required native license, copyright notice and corresponding source for the exact candidate",
+    "Audit all 344 Windows-targeted Rust dependencies, select compatible license grants, and include required license and copyright notices in the portable package",
+    "Verify and include the selected Slint Royalty-free 2.0 attribution and terms in the portable package",
+    "Run the complete native playback and lifecycle suite plus playback against the final extracted portable package",
+    "Rebuild the complete package from its captured sources in the pinned build environment and record verification results"
   ],
   "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
   "build_repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
