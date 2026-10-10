@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local subtitle style row layout and traceability: implemented style controls now
+follow Scale, Font and Border order with inline labels, a 30px scale row and
+60px size pickers derived from the pinned SubStyleView. Shared geometry remains
+provisional: font chooser, color/shadow wells, source icons, exact spacing/theme
+and rendered parity are still missing. Five atomic inventory rows now distinguish
+style eligibility, scale/reset, font size, outline width and numeric delay entry,
+with scoped evidence and explicit remaining differences. All 92 inventory rows
+pass traceability validation; this is not a completeness or parity percentage.
+Strict lint and all 28 unit tests pass. Runtime row layout and keyboard traversal
+after rearrangement remain pending. Changes remain local.
+
 Local subtitle outline width increment: the shared style picker now offers the
 pinned border values zero, 0.25, 0.5, one, 1.5, two, 2.5, three, four and five.
 A typed finite nonnegative setter and optional native outline observation back
