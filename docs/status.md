@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Hardware decoding now has a shared sidebar switch and typed portable Disabled /
+Auto / AutoCopy policies. The observed configured policy drives the switch;
+hwdec-current remains a distinct active-decoder diagnostic. Preference default
+is Auto and the legacy settings format retains that default. Toggle off/on
+restores the preferred mode without overwriting it. All 19 native tests pass,
+including policy changes while paused at volume 37 and preservation across file
+replacement. GUI verification and final build checks are in progress. Native
+switch rendering, Settings mode picker, OSD, accelerated codec coverage and
+current macOS/Linux runtime remain open. No public update.
+
 The full native run exposes an intermittent pre-existing secondary-text
 assertion failure; five isolated repeats pass. Its same-position seek wait can
 accept stale cue text, so the test now waits for an observed seek completion

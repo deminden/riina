@@ -44,7 +44,10 @@ export component VideoControls inherits Rectangle {
     in property <bool> rotation-enabled: false;
     callback aspect-changed(string);
     callback rotation-changed(int);
-    height: 100px;
+    in property <bool> hardware-enabled: false;
+    in property <bool> hardware-known: false;
+    callback hardware-changed(bool);
+    height: 132px;
     background: transparent;
     VerticalLayout { spacing: 8px;
         Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
@@ -103,6 +106,33 @@ export component VideoControls inherits Rectangle {
                 chosen => { root.rotation-changed(index * 90); }
                 navigate(direction) => { root.rotation-changed(clamp(
                     (root.rotation-index >= 0 ? root.rotation-index : index) + direction, 0, 3) * 90); }
+            }
+        }
+        HorizontalLayout { height: 24px; spacing: 8px;
+            Text { text: "Hardware Decoding"; font-size: 12px; color: #dddddd;
+                vertical-alignment: center; horizontal-stretch: 1; }
+            hardware := Rectangle { width: 30px; height: 18px; border-radius: 9px;
+                background: root.hardware-enabled ? #478adc : #ffffff28;
+                accessible-role: switch; accessible-label: "Hardware Decoding";
+                accessible-enabled: root.hardware-known;
+                accessible-checkable: true; accessible-checked: root.hardware-enabled;
+                accessible-action-default => { if root.hardware-known { root.hardware-changed(!root.hardware-enabled); } }
+                Rectangle { x: root.hardware-enabled ? 14px : 2px; y: 2px;
+                    width: 14px; height: 14px; border-radius: 7px;
+                    background: root.hardware-known ? #eeeeee : #777777; }
+                if hardware-focus.has-focus : Rectangle { background: transparent;
+                    border-radius: 9px; border-width: 1px; border-color: #90b7ef; }
+                TouchArea { enabled: root.hardware-known;
+                    clicked => { hardware-focus.focus(); root.hardware-changed(!root.hardware-enabled); } }
+                hardware-focus := FocusScope { enabled: root.hardware-known;
+                    key-pressed(event) => {
+                        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                        if event.text == " " || event.text == Key.Return {
+                            root.hardware-changed(!root.hardware-enabled); return accept;
+                        }
+                        return reject;
+                    }
+                }
             }
         }
     }

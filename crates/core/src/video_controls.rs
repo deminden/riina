@@ -3,6 +3,25 @@ use std::sync::LazyLock;
 
 pub const ASPECT_PRESETS: [&str; 6] = ["Default", "4:3", "16:9", "16:10", "21:9", "5:4"];
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HardwareDecoder {
+    Disabled,
+    #[default]
+    Auto,
+    AutoCopy,
+}
+
+impl HardwareDecoder {
+    pub fn native_value(self) -> &'static str {
+        match self {
+            Self::Disabled => "no",
+            Self::Auto => "auto",
+            Self::AutoCopy => "auto-copy",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AspectRatio(Option<String>);
 
@@ -79,6 +98,29 @@ impl Rotation {
 mod tests {
     use super::*;
     use crate::Command;
+
+    #[test]
+    fn hardware_preferences_keep_auto_default_and_restore_copy_policy() {
+        let legacy = crate::Preferences::parse(r#"{"volume":37}"#).unwrap();
+        assert_eq!(legacy.hardware_decoder, HardwareDecoder::Auto);
+        let prefs = crate::Preferences {
+            hardware_decoder: HardwareDecoder::AutoCopy,
+            ..Default::default()
+        };
+        let restored = crate::Preferences::parse(&serde_json::to_string(&prefs).unwrap()).unwrap();
+        assert_eq!(restored.hardware_decoder, HardwareDecoder::AutoCopy);
+        assert!(crate::Preferences::parse(r#"{"hardware_decoder":"unknown"}"#).is_err());
+        for mode in [
+            HardwareDecoder::Disabled,
+            HardwareDecoder::Auto,
+            HardwareDecoder::AutoCopy,
+        ] {
+            assert_eq!(
+                Command::HardwareDecoding(mode).mpv_args().unwrap(),
+                ["set", "hwdec", mode.native_value()]
+            );
+        }
+    }
 
     #[test]
     fn aspect_input_keeps_exact_ratio_text_and_resets_invalid_syntax() {

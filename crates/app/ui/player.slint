@@ -282,6 +282,8 @@ export component PlayerWindow inherits Window {
     in property <bool> video-aspect-known: false;
     in property <bool> video-rotation-known: false;
     in property <int> video-rotation-index: -1;
+    in property <bool> hardware-decoding-known: false;
+    in property <bool> hardware-decoding-enabled: false;
     in property <[CatalogRow]> subtitle-tracks;
     in property <[CatalogRow]> secondary-subtitle-tracks;
     in property <bool> secondary-subtitle-visible;
@@ -334,6 +336,7 @@ export component PlayerWindow inherits Window {
     callback frame-back-step();
     callback set-video-aspect(string);
     callback set-video-rotation(int);
+    callback set-hardware-decoding(bool);
     callback subtitle-seek(int);
     callback adjust-chapter(int);
     callback adjust-subtitle-delay(float);
@@ -516,6 +519,9 @@ export component PlayerWindow inherits Window {
                             rotation-enabled: root.loaded && root.video-rotation-known;
                             aspect-changed(value) => { root.set-video-aspect(value); }
                             rotation-changed(value) => { root.set-video-rotation(value); }
+                            hardware-enabled: root.hardware-decoding-enabled;
+                            hardware-known: root.hardware-decoding-known;
+                            hardware-changed(value) => { root.set-hardware-decoding(value); }
                         }
                         if root.sidebar == 2 : HorizontalLayout {
                             height: 28px;

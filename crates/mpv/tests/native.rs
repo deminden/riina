@@ -28,6 +28,65 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies configured decoding independently of codec fallback"]
+fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
+    use riina_core::video_controls::HardwareDecoder;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    let fixture = root
+        .join("tests/fixtures/catalog.mkv")
+        .to_string_lossy()
+        .into_owned();
+    player.send(Command::Load(fixture.clone())).unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    for mode in [
+        HardwareDecoder::Disabled,
+        HardwareDecoder::AutoCopy,
+        HardwareDecoder::Auto,
+    ] {
+        player.send(Command::HardwareDecoding(mode)).unwrap();
+        let state = wait_for(&receiver, |state| {
+            state.hardware_decoding.as_deref() == Some(mode.native_value())
+        });
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert!(state.error.is_none(), "{:?}", state.error);
+        // Headless MJPEG has no hardware presentation. The configured switch
+        // must still be on for auto modes instead of following fallback state.
+        assert!(matches!(
+            state.hardware_decoder.as_deref(),
+            None | Some("no")
+        ));
+    }
+    player
+        .send(Command::HardwareDecoding(HardwareDecoder::AutoCopy))
+        .unwrap();
+    let previous = wait_for(&receiver, |state| {
+        state.hardware_decoding.as_deref() == Some("auto-copy")
+    });
+    player.send(Command::Load(fixture)).unwrap();
+    let replaced = wait_for(&receiver, |state| {
+        state.generation > previous.generation && state.phase == Phase::Playing
+    });
+    assert_eq!(replaced.hardware_decoding.as_deref(), Some("auto-copy"));
+    // Explicit replacement resumes playback by contract; the decoding policy
+    // must survive that transition rather than resetting to startup defaults.
+    assert_eq!(replaced.volume, 37.0);
+    assert!(replaced.error.is_none(), "{:?}", replaced.error);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies Unicode ratio text is not silently normalized"]
 fn unicode_aspect_input_preserves_text_and_native_failure_state() {
     use riina_core::video_controls::AspectRatio;

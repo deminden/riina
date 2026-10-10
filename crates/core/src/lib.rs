@@ -25,6 +25,7 @@ pub enum Command {
     FrameBackStep,
     VideoAspect(video_controls::AspectRatio),
     VideoRotation(video_controls::Rotation),
+    HardwareDecoding(video_controls::HardwareDecoder),
     PlaylistNext,
     PlaylistPrevious,
     SelectTrack { kind: TrackKind, id: Option<i64> },
@@ -121,6 +122,9 @@ impl Command {
                 "video-rotate".into(),
                 rotation.degrees().to_string(),
             ],
+            Self::HardwareDecoding(mode) => {
+                vec!["set".into(), "hwdec".into(), mode.native_value().into()]
+            }
             Self::SelectSecondarySubtitle(id) if id.is_none_or(|id| id > 0) => vec![
                 "set".into(),
                 "secondary-sid".into(),
@@ -628,6 +632,9 @@ pub struct Playback {
     pub speed: f64,
     pub audio_output: Option<String>,
     pub hardware_decoder: Option<String>,
+    // Configured policy is separate from hwdec-current: unsupported codecs can
+    // use software while the user's hardware-decoding switch remains enabled.
+    pub hardware_decoding: Option<String>,
     pub video: Option<VideoParameters>,
     pub video_target: Option<VideoParameters>,
     pub video_output: Option<VideoParameters>,
@@ -793,6 +800,7 @@ pub struct Preferences {
     pub schema_version: u32,
     pub volume: f64,
     pub volume_boost: bool,
+    pub hardware_decoder: video_controls::HardwareDecoder,
     pub dark: bool,
     pub compact: bool,
     pub enable_osd: bool,
@@ -806,6 +814,7 @@ impl Default for Preferences {
             schema_version: 1,
             volume: 100.0,
             volume_boost: false,
+            hardware_decoder: video_controls::HardwareDecoder::Auto,
             dark: true,
             compact: false,
             enable_osd: true,

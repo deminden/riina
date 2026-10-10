@@ -142,7 +142,7 @@ impl Player {
                     for (name, format) in [("time-pos", 5), ("duration", 5), ("pause", 3),
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("eof-reached", 3),
-                        ("current-ao", 1), ("hwdec-current", 1),
+                        ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("video-out-params", 6),
@@ -325,6 +325,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"video-aspect-override" => state.video_aspect_override = None,
             b"video-rotate" => state.video_rotation = None,
             b"hwdec-current" => state.hardware_decoder = None,
+            b"hwdec" => state.hardware_decoding = None,
             b"current-ao" => state.audio_output = None,
             b"loop-file" => state.loop_file = None,
             b"loop-playlist" => state.loop_playlist = None,
@@ -450,6 +451,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"media-title" => state.title = value,
                 b"current-ao" => state.audio_output = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
+                b"hwdec" => state.hardware_decoding = Some(value),
                 b"sub-text" => state.subtitle_text = Some(value),
                 b"sub-font" => {
                     state.subtitle_font =

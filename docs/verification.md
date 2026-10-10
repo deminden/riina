@@ -1,5 +1,23 @@
 # Verification record · native Windows · 2026-10-09
 
+## Hardware decoding policy · 2026-10-10
+
+Pinned requirements come from SidebarVideoPane.HwdecSwitch, PlaybackInfo.hwdecEnabled,
+PlayerCore.toggleHardwareDecoding and Preference.HardwareDecoderOption. Configured
+hwdec determines switch state independently of hwdec-current. Off sets no;
+on restores the preferred Auto / AutoCopy / Disabled policy. The mode preference
+defaults to Auto, is preserved by legacy settings and round-trips through JSON;
+invalid modes are rejected. The Settings preference picker is not implemented.
+
+The native policy test observes Disabled → AutoCopy → Auto while paused at volume
+37 without errors, then verifies AutoCopy survives explicit file replacement.
+Headless MJPEG has no active hardware decoder; hwdec-current is unavailable here.
+An initial test incorrectly expected the explicit no sentinel and another
+incorrectly expected replacement to retain pause; both assumptions were corrected
+to the actual property availability and existing replacement-resumes contract.
+All 19 native tests then pass. These checks do not prove hardware acceleration,
+HDR or equivalent rendered native switch geometry. GUI and build checks pending.
+
 ## Track metadata and Unicode ratio validation · 2026-10-10
 
 The first full native suite at 8d4b1d1 has 17 passes and one failure in the

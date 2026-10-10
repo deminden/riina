@@ -175,6 +175,13 @@ fn update_ui(
     app.set_speed_value(state.speed as f32);
     app.set_video_aspect_known(state.video_aspect_override.is_some());
     app.set_video_rotation_known(state.video_rotation.is_some());
+    app.set_hardware_decoding_known(state.hardware_decoding.is_some());
+    app.set_hardware_decoding_enabled(
+        state
+            .hardware_decoding
+            .as_deref()
+            .is_some_and(|mode| mode != "no"),
+    );
     app.set_video_rotation_index(
         state
             .video_rotation
@@ -455,6 +462,22 @@ pub(crate) fn configure_player(
         {
             app.invoke_activity();
             if let Err(error) = rotation_player.send(Command::VideoRotation(rotation)) {
+                app.set_status(error.into());
+            }
+        }
+    });
+    let hardware_player = player.command_sender();
+    let preferred_decoder = prefs.hardware_decoder;
+    let weak = app.as_weak();
+    app.on_set_hardware_decoding(move |enabled| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            let mode = if enabled {
+                preferred_decoder
+            } else {
+                riina_core::video_controls::HardwareDecoder::Disabled
+            };
+            if let Err(error) = hardware_player.send(Command::HardwareDecoding(mode)) {
                 app.set_status(error.into());
             }
         }
@@ -832,6 +855,9 @@ pub(crate) fn configure_player(
 
     player
         .send(Command::SetVolumeBoost(prefs.volume_boost))
+        .map_err(std::io::Error::other)?;
+    player
+        .send(Command::HardwareDecoding(prefs.hardware_decoder))
         .map_err(std::io::Error::other)?;
     if native.is_some() {
         app.set_engine_ready(true);
