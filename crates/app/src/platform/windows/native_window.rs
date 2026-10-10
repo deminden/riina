@@ -38,7 +38,9 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
         .backend_name("winit".into())
         .renderer_name("femtovg".into())
         .with_winit_window_attributes_hook(move |attributes| {
-            let handle = hook_owner.load(Ordering::Relaxed);
+            // Consume the next adapter's owner once. Leaving it installed also
+            // styles auxiliary windows as transparent, taskbar-hidden overlays.
+            let handle = hook_owner.swap(0, Ordering::Relaxed);
             if handle == 0 {
                 attributes
             } else {

@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Native-route auxiliary window isolation: the winit attributes hook now consumes
+the pending host owner for exactly the next adapter (the video chrome). Previously
+it remained installed and applied transparent/non-resizable/taskbar-hidden owner
+attributes to every later auxiliary window. Pinned Slint backend inspection confirms
+the hook runs at adapter creation. Strict lint and unit checks pass; corrected
+release runtime retest is pending. Pre-fix native chooser was nested under the host
+in Windows accessibility inventory; native window styling and parent interaction
+were not verified. The pre-fix chooser and player were closed. All work is local.
+
 The player font chooser now follows the pinned ordinary-window behavior rather
 than setting the modal file-dialog gate. Repeated opening raises the existing
 live draft, and player shutdown dismisses it in both shared GL and Windows native
