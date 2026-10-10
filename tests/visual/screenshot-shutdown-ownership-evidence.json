@@ -1,0 +1,21 @@
+{
+  "source_commit": "0ca132185259aad0eddaf99a36c5067aa17172ce",
+  "windows_release_sha256": "6dd936be124f818f41d16e0f77f281b9f6871dd844a938342fc7ce0880ed14a4",
+  "verification": {
+    "scratch_outlives_ui_and_removes_unreported_worker_output": "passed; actual filesystem and shared ownership, simulated delayed worker output",
+    "workspace_tests": "passed",
+    "strict_workspace_lint": "passed",
+    "format_check": "passed",
+    "native_engine_tests": "36 passed, 0 failed, 19.89 seconds",
+    "optimized_windows_build": "passed, 43.43 seconds",
+    "asset_provenance": "14 staged records verified",
+    "fixture_provenance": "16 original fixture hashes verified",
+    "parity_traceability": "142 valid rows; incomplete inventory"
+  },
+  "limits": [
+    "Actual rapid capture and application shutdown not GUI verified",
+    "Abrupt process termination does not run destructor cleanup",
+    "macOS/Linux execution not verified",
+    "No binaries distributed"
+  ]
+}
