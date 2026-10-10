@@ -1,0 +1,38 @@
+{
+  "source_commit": "5d865e7",
+  "observations": [
+    {
+      "action": "choose-Regular",
+      "focus": "36 list item (selectable) Regular",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Verdana"
+    },
+    {
+      "action": "commit-Regular",
+      "font": "\t\t\t97 text Verdana"
+    },
+    {
+      "action": "reopen-Regular-restored",
+      "focus": "41 list item (selectable) Regular",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Verdana"
+    },
+    {
+      "action": "restore-default",
+      "lines": [
+        "\t\t\t97 text sans-serif",
+        "\t\t98 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t52 button Play",
+        "\t\t58 slider (settable, float) Volume Value: 37"
+      ]
+    }
+  ],
+  "binary_sha256": "cf822ece43b3066fa346db585fa15793f48e524e361f0b6c721c6df3b1490f1d",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Pointer double-click still unverified because geometry is unavailable.",
+    "32ms accessibility transition and retained-row performance require broader checks.",
+    "Rendered layout, native-video and other OS checks remain open."
+  ]
+}

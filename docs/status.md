@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Observed-face restoration guard verified on 5d865e7: filtered Verdana family,
+face Down→Regular and Return commit are followed by reopening with custom name
+Verdana and accessible Regular focus intact. Earlier first-face overwrite is
+not reproduced in this sequence. Default font was restored, retaining size 55,
+pause and volume 37; diagnostic process exits 0 with empty stderr. Exact binary
+hash and scoped observations: tests/visual/font-rows-selection-restore-evidence.json.
+Formatting, strict lint, unit checks and optimized release build pass. The earlier
+deferred-focus binary verifies first focus and End/Home/Page navigation with no
+panic. Double-click is implemented with native toolkit events but pointer testing
+is still unavailable; no activation or pixel pass is claimed. Retained-row
+performance, focus timing, native-video and other OS runtime remain open.
+All work stays local.
+
 Deferred-focus runtime on ae7f7c5 succeeds: first family Tab, End/Home and
 PageDown/PageUp report the corresponding row after settling, without the earlier
 missing-ID panic. Filter replacement to Verdana and face Tab/Down report Italic

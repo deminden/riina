@@ -833,6 +833,33 @@ keyboard callbacks are tested; rendered geometry, clipping, materials, modified
 Return, native-video/other OS runtime and pixel parity remain unproved.
 Double-click face acceptance remains missing and separately inventoried.
 
+Original font row checks and repairs (Windows 11 x64, shared OpenGL):
+ca9000d verifies filtered family/face draft selection, but accessible focus reports
+the window; double-click injection fails because coordinate geometry is unavailable.
+893e8f5 fixes filtered focus, but End/Home triggers an AccessKit consumer 0.29.0
+missing-focus-ID panic and diagnostic exit -1073740791. Retaining rows alone on
+be545eb still fails first family Tab, exiting 101. These exact-binary failure
+observations are saved in font-rows-initial-windows-evidence.json,
+font-rows-focus-windows-evidence.json and font-rows-retention-failure-evidence.json
+under tests/visual. Failures are preserved rather than relabeled as shutdown passes.
+
+ae7f7c5 delays row focus publication until after model-tree updates. First family
+Tab, End/Home, PageDown/PageUp, filtered model replacement and face Tab/Down now
+report the corresponding rows after settling. Regular Return commits Verdana;
+diagnostic shutdown exits 0 with empty stderr. That binary then reveals a separate
+reopen race which selected first-face Italic before queued Regular restoration.
+tests/visual/font-rows-deferred-focus-evidence.json contains scoped observations.
+5d865e7 suppresses automatic first selection while restoration is pending; the
+same Regular commit/reopen sequence now retains Verdana and Regular focus.
+Blank entry restores sans-serif, preserving size 55, pause and volume 37;
+shutdown exits 0 with empty stderr. Exact hash and scoped observations are in
+tests/visual/font-rows-selection-restore-evidence.json. Formatting, strict lint,
+workspace unit checks, release build and 108-row traceability checks pass.
+Native toolkit double-click wiring is implemented, but injected pointer testing
+remains unavailable. The 32ms accessibility transition, retained-row memory and
+performance, rendered geometry/materials, native-video and other OS runtime
+still need evidence; this is not full accessibility or pixel parity.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red
