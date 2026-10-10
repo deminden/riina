@@ -116,7 +116,7 @@ impl Player {
                 let initialized = (|| -> Result<(), String> {
                     for (key, value) in [("config", "no"), ("load-scripts", "no"), ("idle", "yes"),
                         ("vo", if headless { "null" } else { "libmpv" }),
-                        ("volume-max", "200"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes"),
+                        ("volume-max", "100"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes"),
                         // Loop points belong to the current media, unlike volume
                         // and speed. Reset in mpv too, not just in our UI snapshot.
                         ("reset-on-next-file", "ab-loop-a,ab-loop-b")] {

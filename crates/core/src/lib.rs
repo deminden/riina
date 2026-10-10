@@ -12,8 +12,11 @@ pub enum Command {
     Stop,
     Seek { seconds: f64, absolute: bool },
     Volume(f64),
+    AdjustVolume { delta: f64, boost: bool },
+    SetVolumeBoost(bool),
     ToggleMute,
     Speed(f64),
+    MultiplySpeed(f64),
     FrameStep,
     FrameBackStep,
     PlaylistNext,
@@ -66,6 +69,9 @@ impl Command {
             }
             Self::Speed(value) if value.is_finite() && (0.01..=100.0).contains(value) => {
                 vec!["set".into(), "speed".into(), value.to_string()]
+            }
+            Self::MultiplySpeed(factor) if factor.is_finite() && *factor > 0.0 => {
+                vec!["multiply".into(), "speed".into(), factor.to_string()]
             }
             Self::ToggleMute => vec!["cycle".into(), "mute".into()],
             Self::FrameStep => vec!["frame-step".into()],
@@ -130,6 +136,8 @@ impl Command {
             }
             Self::CycleAbLoop => vec!["ab-loop".into()],
             Self::OpenFiles(_)
+            | Self::AdjustVolume { .. }
+            | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
             | Self::CycleLoop
             | Self::SetAbLoop { .. }
@@ -147,6 +155,13 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::AdjustVolume { delta, boost } => {
+                if !delta.is_finite() {
+                    return Err("The volume adjustment must be finite".into());
+                }
+                volume_adjustment(*delta, *boost)
+            }
+            Self::SetVolumeBoost(boost) => volume_adjustment(0.0, *boost),
             Self::SetAbLoop { a, b } => {
                 let point = |value: Option<f64>| -> Result<String, String> {
                     match value {
@@ -299,6 +314,19 @@ impl Command {
 
 fn valid_path(path: &str) -> bool {
     !path.is_empty() && !path.contains('\0')
+}
+
+fn volume_adjustment(delta: f64, boost: bool) -> Vec<Vec<String>> {
+    // Native add clamps against the active range and uses the engine's current
+    // volume. A zero adjustment also clamps when the user turns boost off.
+    vec![
+        vec![
+            "set".into(),
+            "volume-max".into(),
+            if boost { "200" } else { "100" }.into(),
+        ],
+        vec!["add".into(), "volume".into(), delta.to_string()],
+    ]
 }
 
 fn same_external_path(left: &str, right: &str) -> bool {
@@ -781,6 +809,17 @@ mod tests {
             .is_err()
         );
         assert!(Command::Volume(201.0).mpv_args().is_err());
+        for factor in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(Command::MultiplySpeed(factor).mpv_args().is_err());
+        }
+        assert!(
+            Command::AdjustVolume {
+                delta: f64::NAN,
+                boost: false
+            }
+            .plan(&Playback::default())
+            .is_err()
+        );
         assert!(Command::AdjustAudioDelay(f64::NAN).mpv_args().is_err());
         assert!(
             Command::AdjustAudioDelay(f64::NEG_INFINITY)

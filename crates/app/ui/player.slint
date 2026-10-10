@@ -146,6 +146,7 @@ export component PlayerWindow inherits Window {
     callback seek(float);
     callback seek-relative(float);
     callback set-volume(float);
+    callback adjust-volume(float);
     callback set-volume-boost(bool);
     callback toggle-mute();
     callback speed(float);
@@ -366,8 +367,8 @@ export component PlayerWindow inherits Window {
             if event.modifiers.alt && !event.modifiers.shift {
                 if event.text == Key.RightArrow { root.frame-step(); return accept; }
                 if event.text == Key.LeftArrow { root.frame-back-step(); return accept; }
-                if event.text == Key.UpArrow { root.set-volume(min(root.volume-limit, root.volume + 1)); return accept; }
-                if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 1)); return accept; }
+                if event.text == Key.UpArrow { root.adjust-volume(1); return accept; }
+                if event.text == Key.DownArrow { root.adjust-volume(-1); return accept; }
             }
             if !event.modifiers.control && !event.modifiers.meta {
                 if event.modifiers.shift {
@@ -387,8 +388,8 @@ export component PlayerWindow inherits Window {
             if event.text == " " || event.text == "p" { root.toggle-pause(); return accept; }
             if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
             if event.text == Key.LeftArrow { root.seek-relative(-5); return accept; }
-            if event.text == Key.UpArrow { root.set-volume(min(root.volume-limit, root.volume + 5)); return accept; }
-            if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 5)); return accept; }
+            if event.text == Key.UpArrow { root.adjust-volume(5); return accept; }
+            if event.text == Key.DownArrow { root.adjust-volume(-5); return accept; }
             if event.text == "m" { root.toggle-mute(); return accept; }
             if event.text == "." { root.frame-step(); return accept; }
             if event.text == "," { root.frame-back-step(); return accept; }

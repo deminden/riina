@@ -496,7 +496,7 @@ pub(crate) fn configure_player(
     app.on_set_volume_boost(move |enabled| {
         if let Some(app) = weak.upgrade() {
             let volume = app.get_volume().min(if enabled { 200.0 } else { 100.0 });
-            match boost_player.send(Command::Volume(volume as f64)) {
+            match boost_player.send(Command::SetVolumeBoost(enabled)) {
                 Ok(()) => {
                     app.set_volume_boost(enabled);
                     app.set_volume(volume);
@@ -524,11 +524,22 @@ pub(crate) fn configure_player(
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
         }
-        if let Some(app) = weak.upgrade() {
-            let speed = (app.get_speed_value() as f64 * factor as f64).clamp(0.01, 100.0);
-            if let Err(error) = speed_player.send(Command::Speed(speed)) {
-                app.set_status(error.into());
-            }
+        if let Err(error) = speed_player.send(Command::MultiplySpeed(factor as f64))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
+    let adjustment_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_adjust_volume(move |delta| {
+        let Some(app) = weak.upgrade() else { return };
+        app.invoke_activity();
+        if let Err(error) = adjustment_player.send(Command::AdjustVolume {
+            delta: delta as f64,
+            boost: app.get_volume_boost(),
+        }) {
+            app.set_status(error.into());
         }
     });
     let weak = app.as_weak();
@@ -562,6 +573,9 @@ pub(crate) fn configure_player(
         }
     });
 
+    player
+        .send(Command::SetVolumeBoost(prefs.volume_boost))
+        .map_err(std::io::Error::other)?;
     if native.is_some() {
         app.set_engine_ready(true);
         player

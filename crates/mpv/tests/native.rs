@@ -646,10 +646,66 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
             && state.completed_seeks > paused.completed_seeks
     });
     assert_eq!(paused.generation, seeked.generation);
+    player.send(Command::Volume(50.0)).unwrap();
+    wait_for(&receiver, |state| (state.volume - 50.0).abs() < 0.1);
+    for _ in 0..12 {
+        player
+            .send(Command::AdjustVolume {
+                delta: 5.0,
+                boost: false,
+            })
+            .unwrap();
+    }
+    let capped = wait_for(&receiver, |state| (state.volume - 100.0).abs() < 0.1);
+    assert!(capped.paused);
+    assert_eq!(capped.error, None);
+    for _ in 0..22 {
+        player
+            .send(Command::AdjustVolume {
+                delta: -5.0,
+                boost: false,
+            })
+            .unwrap();
+    }
+    wait_for(&receiver, |state| state.volume.abs() < 0.1);
+    player.send(Command::SetVolumeBoost(true)).unwrap();
     for volume in [150.0, 200.0] {
         player.send(Command::Volume(volume)).unwrap();
         wait_for(&receiver, |state| (state.volume - volume).abs() < 0.1);
     }
+    player.send(Command::Volume(150.0)).unwrap();
+    wait_for(&receiver, |state| (state.volume - 150.0).abs() < 0.1);
+    for _ in 0..12 {
+        player
+            .send(Command::AdjustVolume {
+                delta: 5.0,
+                boost: true,
+            })
+            .unwrap();
+    }
+    wait_for(&receiver, |state| (state.volume - 200.0).abs() < 0.1);
+    player.send(Command::SetVolumeBoost(false)).unwrap();
+    wait_for(&receiver, |state| (state.volume - 100.0).abs() < 0.1);
+    player.send(Command::Speed(1.0)).unwrap();
+    wait_for(&receiver, |state| (state.speed - 1.0).abs() < 0.001);
+    for _ in 0..3 {
+        player.send(Command::MultiplySpeed(2.0)).unwrap();
+    }
+    wait_for(&receiver, |state| (state.speed - 8.0).abs() < 0.001);
+    for _ in 0..3 {
+        player.send(Command::MultiplySpeed(0.5)).unwrap();
+    }
+    wait_for(&receiver, |state| (state.speed - 1.0).abs() < 0.001);
+    for _ in 0..10 {
+        player.send(Command::MultiplySpeed(1.1)).unwrap();
+    }
+    wait_for(&receiver, |state| {
+        (state.speed - 1.1_f64.powi(10)).abs() < 0.001
+    });
+    player.send(Command::Speed(1.0)).unwrap();
+    let normal = wait_for(&receiver, |state| (state.speed - 1.0).abs() < 0.001);
+    assert!(normal.paused);
+    assert_eq!(normal.error, None);
     player.send(Command::Volume(25.0)).unwrap();
     wait_for(&receiver, |state| (state.volume - 25.0).abs() < 0.1);
     player.send(Command::ToggleMute).unwrap();

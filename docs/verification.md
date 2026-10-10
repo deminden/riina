@@ -587,3 +587,23 @@ canonical source hashes and observations are in
 tests/visual/timing-shortcut-windows-evidence.json. No screenshot was obtained:
 CreateForMonitor failed with 0x80070057. This verifies input/state routing, not
 rendered feedback, acoustic synchronization or macOS/Linux runtime behavior.
+
+## Native volume and speed accumulation · 2026-10-10
+
+The shared UI now issues relative volume deltas and native speed multipliers;
+it no longer computes either from the last displayed snapshot. The native
+volume range starts at 100 and changes to 200 only with explicit boost. Disabling
+boost sets the range back to 100 and applies a zero relative adjustment to clamp
+the current engine value. Startup restores this policy before saved volume.
+These operations use the documented [mpv property manipulation commands](https://mpv.io/manual/stable/#property-manipulation).
+
+The Windows playback lifecycle test queues twelve +5 volume commands from 50
+without reading snapshots and observes 100, then queues twenty-two -5 commands
+and observes zero. With boost enabled it observes absolute 150 and 200, then
+queues twelve +5 adjustments from 150 and observes 200. Disabling boost restores
+100. Three queued speed doublings reach 8; three halvings restore 1; ten 1.1
+multipliers reach 1.1^10; reset restores 1. Playback retains pause and reports no
+native error. Eight explicit native tests pass in 9.19 seconds, alongside
+24 unit tests, strict lint, formatting and the Windows release build.
+Current GUI routing, speed/volume feedback appearance and other-OS runtime
+remain unverified. Earlier GUI evidence belongs to its recorded source hashes.

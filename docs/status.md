@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local volume/speed increment: shortcut deltas and speed multipliers now operate
+on native current values rather than a coalesced UI snapshot. Native volume
+starts capped at 100; enabling boost permits 200, and disabling it clamps the
+current value without overwriting queued changes with a stale display value.
+Eight Windows native tests pass (9.19 seconds), including queued coarse volume
+changes, both caps, boost removal, repeated speed multiplication and reset while
+paused. All 24 unit tests, strict lint and the release build pass. Shared Rust
+and Slint paths preserve platform boundaries. This increment has not been GUI
+tested or run on macOS/Linux and remains local.
+
 Local audio timing increment: Shift+( and Shift+) adjust audio delay by
 +/-0.5 seconds; Alt adds fine +/-0.1-second steps, and Shift+_ resets it.
 Decoder-relative commands preserve rapid adjustments. All eight explicit
