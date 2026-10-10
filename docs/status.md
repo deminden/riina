@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Shared preferences now retain the OSD enable flag and timeout, defaulting to true
+and one second for existing settings. Timeout validation rejects values the
+event-loop timer cannot represent. Windows strict lint and 23 unit tests pass;
+matching settings controls and OSD types beyond seeking remain incomplete.
+
+Reference run 38007160214 succeeded operationally but its images are rejected
+for matching-state comparison: early capture shows OSD over black video, while
+the settled capture is white. Both IPC brackets remain paused at two seconds.
+Rendered media content must be verified independently from the engine clock.
+
 Real macOS arm64 libmpv integration now passes all four tests (run 38005017036,
 3.45 seconds) with Homebrew mpv 0.41.0 on macOS 26.6.2. See
 tests/visual/macos-native-evidence.json for the exact runtime hash and commit.

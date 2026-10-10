@@ -472,6 +472,13 @@ copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
 # Seek OSD state verification · 2026-10-10
 
+OSD preference increment: 23 Windows workspace tests and strict lint pass.
+Legacy preference JSON receives enabled/one-second defaults; disabled OSD and
+fractional timeout values round-trip while preserving saved volume. Zero is
+accepted by the pinned reference field's nonnegative range; negative and
+unrepresentable durations are rejected. Settings UI and runtime timeout checks
+remain open.
+
 The shared application reducer tests cover coalesced native completion counters,
 an overlapping seek, delayed/unknown clock values, ordinary ticks, file replacement,
 Stop and errors. Notifications remain pending until seeking ends and the observed

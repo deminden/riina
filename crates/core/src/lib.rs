@@ -530,6 +530,8 @@ pub struct Preferences {
     pub volume_boost: bool,
     pub dark: bool,
     pub compact: bool,
+    pub enable_osd: bool,
+    pub osd_timeout_secs: f64,
 }
 
 impl Default for Preferences {
@@ -541,6 +543,8 @@ impl Default for Preferences {
             volume_boost: false,
             dark: true,
             compact: false,
+            enable_osd: true,
+            osd_timeout_secs: 1.0,
         }
     }
 }
@@ -560,6 +564,13 @@ impl Preferences {
         }
         // Old settings keep their default cap unless boosting was explicitly enabled.
         prefs.volume = prefs.volume.min(prefs.volume_limit());
+        // Persisted values must be representable by the event-loop timer. Do not
+        // silently turn an invalid duration into an immediate or endless OSD.
+        let timeout = std::time::Duration::try_from_secs_f64(prefs.osd_timeout_secs)
+            .map_err(|_| "Invalid on-screen display timeout")?;
+        if timeout.as_millis() > u64::MAX as u128 {
+            return Err("On-screen display timeout exceeds timer capacity".into());
+        }
         Ok(prefs)
     }
 }
@@ -567,6 +578,35 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {
+        let old = Preferences::parse(
+            r#"{"schema_version":1,"volume":37,"volume_boost":false,"dark":true,"compact":false}"#,
+        )
+        .unwrap();
+        assert!(old.enable_osd);
+        assert_eq!(old.osd_timeout_secs, 1.0);
+        let configured = Preferences {
+            enable_osd: false,
+            osd_timeout_secs: 0.125,
+            ..old
+        };
+        let saved = serde_json::to_string(&configured).unwrap();
+        let restored = Preferences::parse(&saved).unwrap();
+        assert!(!restored.enable_osd);
+        assert_eq!(restored.osd_timeout_secs, 0.125);
+        assert_eq!(restored.volume, 37.0);
+        for timeout in ["-1", "1e300"] {
+            assert!(Preferences::parse(&format!("{{\"osd_timeout_secs\":{timeout}}}")).is_err());
+        }
+        assert_eq!(
+            Preferences::parse(r#"{"osd_timeout_secs":0}"#)
+                .unwrap()
+                .osd_timeout_secs,
+            0.0
+        );
+    }
 
     #[cfg(target_os = "windows")]
     #[test]

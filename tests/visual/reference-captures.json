@@ -133,6 +133,132 @@
       "accepted_as_comparison_golden": false,
       "local_raw_directory": "reference/captures/38005949498/attempt-01",
       "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    },
+    {
+      "id": "IINA-1.5.0-QUIET-EARLY-001",
+      "run_id": 38007160214,
+      "artifact_id": 11651289517,
+      "source_commit": "6effe9ffa1025bb79fa53ce2381c798cc0f6aabb",
+      "playback_observation": {
+        "schema_version": 2,
+        "attempts": [
+          {
+            "attempt": 1,
+            "before_capture": {
+              "pause": true,
+              "time-pos": 2.0,
+              "seeking": false,
+              "filename": "catalog.mkv",
+              "mpv-version": "mpv v0.41.0"
+            },
+            "after_capture": {
+              "pause": true,
+              "time-pos": 2.0,
+              "seeking": false,
+              "filename": "catalog.mkv",
+              "mpv-version": "mpv v0.41.0"
+            },
+            "playback_state_verified": true,
+            "capture_exit_code": 0,
+            "capture_directory": "attempt-01"
+          }
+        ],
+        "accepted_attempt": 1,
+        "source": "Observed through official reference mpv JSON IPC; not riina state",
+        "settled_capture": {
+          "capture_directory": "settled",
+          "quiet_interval_seconds": 2.0691254579999736,
+          "capture_duration_seconds": 0.18051300000001902,
+          "before_capture": {
+            "pause": true,
+            "time-pos": 2.0,
+            "seeking": false,
+            "filename": "catalog.mkv",
+            "mpv-version": "mpv v0.41.0"
+          },
+          "after_capture": {
+            "pause": true,
+            "time-pos": 2.0,
+            "seeking": false,
+            "filename": "catalog.mkv",
+            "mpv-version": "mpv v0.41.0"
+          },
+          "playback_state_verified": true,
+          "capture_exit_code": 0,
+          "visual_acceptance": "unreviewed; inspect panel visibility independently",
+          "intervening_activity": "property reads only; no seek or pointer/key input"
+        }
+      },
+      "image_sha256": "fcf13a685e2b58bb456786980cfad4db5825b1cadb0e371c6713ee9cc0b52c75",
+      "metadata_sha256": "fff4dbe7fbbd408aa906848d74d3afcbe95673c25a36b4ab63fd33b104578e7c",
+      "review": "Seek clock 00:02 / 00:05 over black video; original fixture frame not visible; IPC clock 2.0 seconds alone does not establish displayed fixture content",
+      "accepted_as_reference_state": false,
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38007160214/attempt-01",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    },
+    {
+      "id": "IINA-1.5.0-QUIET-SETTLED-001",
+      "run_id": 38007160214,
+      "artifact_id": 11651289517,
+      "source_commit": "6effe9ffa1025bb79fa53ce2381c798cc0f6aabb",
+      "playback_observation": {
+        "schema_version": 2,
+        "attempts": [
+          {
+            "attempt": 1,
+            "before_capture": {
+              "pause": true,
+              "time-pos": 2.0,
+              "seeking": false,
+              "filename": "catalog.mkv",
+              "mpv-version": "mpv v0.41.0"
+            },
+            "after_capture": {
+              "pause": true,
+              "time-pos": 2.0,
+              "seeking": false,
+              "filename": "catalog.mkv",
+              "mpv-version": "mpv v0.41.0"
+            },
+            "playback_state_verified": true,
+            "capture_exit_code": 0,
+            "capture_directory": "attempt-01"
+          }
+        ],
+        "accepted_attempt": 1,
+        "source": "Observed through official reference mpv JSON IPC; not riina state",
+        "settled_capture": {
+          "capture_directory": "settled",
+          "quiet_interval_seconds": 2.0691254579999736,
+          "capture_duration_seconds": 0.18051300000001902,
+          "before_capture": {
+            "pause": true,
+            "time-pos": 2.0,
+            "seeking": false,
+            "filename": "catalog.mkv",
+            "mpv-version": "mpv v0.41.0"
+          },
+          "after_capture": {
+            "pause": true,
+            "time-pos": 2.0,
+            "seeking": false,
+            "filename": "catalog.mkv",
+            "mpv-version": "mpv v0.41.0"
+          },
+          "playback_state_verified": true,
+          "capture_exit_code": 0,
+          "visual_acceptance": "unreviewed; inspect panel visibility independently",
+          "intervening_activity": "property reads only; no seek or pointer/key input"
+        }
+      },
+      "image_sha256": "c52d5ae989164635b71854da94615e556284a7fce8c21075a8473c69f011e95a",
+      "metadata_sha256": "3d047a7bd9fe35ff1e4955da76433723efed1d40134b5158885c724a6e920fe3",
+      "review": "White player content; original fixture frame not visible; IPC clock 2.0 seconds alone does not establish displayed fixture content",
+      "accepted_as_reference_state": false,
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38007160214/settled",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
     }
   ],
   "status": "Official paused two-second reference state verified and reviewed; matched-size OSC/sidebar captures remain pending",

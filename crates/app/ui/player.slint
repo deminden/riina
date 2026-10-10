@@ -115,6 +115,7 @@ export component PlayerWindow inherits Window {
     in property <string> seek-position-label;
     in property <string> seek-duration-label;
     in-out property <bool> seek-osd-visible: false;
+    in property <bool> osd-enabled: true;
     in property <string> status: "Open a file to begin";
     in property <float> position: 0;
     in property <float> duration: 0;
@@ -315,7 +316,7 @@ export component PlayerWindow inherits Window {
             }
         }
         // Geometry is estimated from the reviewed 320×180 reference capture.
-        if seek-osd-visible && loaded : Rectangle {
+        if seek-osd-visible && osd-enabled && loaded : Rectangle {
             x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
             border-radius: 14px; background: #181818dc;
             seek-clock := HorizontalLayout {

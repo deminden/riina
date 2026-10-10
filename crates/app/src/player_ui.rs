@@ -224,6 +224,8 @@ pub(crate) fn configure_player(
         Err(error) => return Err(error.into()),
     };
     app.set_volume_boost(prefs.volume_boost);
+    app.set_osd_enabled(prefs.enable_osd);
+    let osd_timeout = Duration::try_from_secs_f64(prefs.osd_timeout_secs)?;
     let app_weak = app.as_weak();
     // Only one pending state snapshot is retained; a decoder can produce updates
     // faster than the UI consumes them without growing the application event queue.
@@ -271,20 +273,17 @@ pub(crate) fn configure_player(
     let weak = app.as_weak();
     app.on_show_seek_osd(move || {
         if let Some(app) = weak.upgrade() {
+            if !app.get_osd_enabled() {
+                return;
+            }
             app.set_seek_osd_visible(true);
         }
         let weak = weak.clone();
-        seek_timer.start(
-            slint::TimerMode::SingleShot,
-            // IINA 1.5.0's osdAutoHideTimeout defaults to one second;
-            // the independently timed controller auto-hide remains 2.5 seconds.
-            Duration::from_secs(1),
-            move || {
-                if let Some(app) = weak.upgrade() {
-                    app.set_seek_osd_visible(false);
-                }
-            },
-        );
+        seek_timer.start(slint::TimerMode::SingleShot, osd_timeout, move || {
+            if let Some(app) = weak.upgrade() {
+                app.set_seek_osd_visible(false);
+            }
+        });
     });
     let weak = app.as_weak();
     app.on_activity(move || {
