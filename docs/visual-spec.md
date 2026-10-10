@@ -155,7 +155,10 @@ Interface, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced,
 Plugins and Utilities. General shows section headings above rounded bordered
 cards, with 40-point rows and 10-point card corners. These captures are research
 references from the official disk image, not matched Windows screenshots or
-accepted comparison goldens. Riina still uses an 820 x 480 Settings shell, has no
-Search implementation or page symbols, and its pane content has not been reflowed
-to the 400-point right column. See `IINA-1.5.0-SETTINGS-SURFACES-001` in the
-reference-capture manifest before changing those layouts.
+accepted comparison goldens. Riina still uses an 820 x 480 Settings shell; its
+sidebar now has original geometric page symbols and selected-row styling, but no
+Search implementation, and its pane content has not been reflowed to the
+400-point right column. These icon shapes are authored independently and recorded
+in `assets/provenance.json`; their rendered scale and spacing still need matched
+comparison. See `IINA-1.5.0-SETTINGS-SURFACES-001` in the reference-capture
+manifest before changing those layouts.

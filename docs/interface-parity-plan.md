@@ -50,16 +50,15 @@ General Preferences parity.
 
 The existing accepted macOS reference captures establish a small paused player
 and seek OSD, but not matching-state controls or menus. A separate research-only
-capture now records IINA 1.5.0 Settings > General on macOS 26.6.2: a 608 x 500
+capture now records every IINA 1.5.0 Settings page on macOS 26.6.2: a 608 x 500
 outer window at 1x scale, with a 200-point source-list sidebar, Search field,
-24-point icon slots with 18-point symbols, selected-row treatment, and the four
-General section jump labels. It is not an accepted comparison golden: the first
-page was captured, then automation could not address AppKit's source-list table
-through System Events.
-The capture workflow now moves keyboard focus from Search to the selected category
-before advancing. Capture all eleven pages and obtain a matching Windows image
-before using the window as visual verification; source dimensions alone do not
-prove matching pixels.
+24-point icon slots with 18-point symbols, selected-row treatment, General
+section links and scrollable 400-point content. All eleven page screenshots were
+reviewed and indexed in `tests/visual/reference-captures.json`; they are not
+accepted comparison goldens. Riina now has original page symbols and selected-row
+styling, but Search, section jumps, the 600 x 480 client geometry and a matching
+Windows screenshot remain open. Source-derived dimensions alone do not prove
+rendered parity.
 
 | Surface | Current gap and required comparison |
 |---|---|

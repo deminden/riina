@@ -1,11 +1,12 @@
-The Settings sidebar now follows IINA v1.5.0's enabled page order (General, UI,
-Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugin,
-Utilities). The opt-in 200% range now appears in Audio > Volume; default playback
-still caps at 100%. Several page bodies, search, native toolbar, dimensions and
-pixel comparison remain incomplete. Workspace tests, strict clippy, build, source
-navigation check and parity ledger check pass. The pinned macOS capture runner
-still cannot open Settings: run #7 could not resolve its menu item by the expected
-name. The next attempt records the real menu labels before selecting the item.
+The pinned macOS IINA v1.5.0 run now captures all eleven Settings pages at the
+measured 600 x 480 client size. Riina's Settings sidebar now has original
+geometric page icons and selected-row styling, with provenance hashes recorded;
+its Search field, 400-point content reflow, native toolbar and matched pixel
+comparisons remain open. Windows `cargo check` and staged asset provenance checks
+pass. The v0.2.2 GitHub release contains source only because the distribution
+audit remains unapproved. Private Windows package candidate #12 is still building
+the patched native engine and has not produced an artifact. The opt-in 200% range
+remains in Audio > Volume; default playback still caps at 100%.
 
 Windows audit candidate #9 failed during the native dependency configure phase,
 before the mpv engine build. Several independent dependencies (zlib, brotli,

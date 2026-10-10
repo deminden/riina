@@ -28,19 +28,21 @@ component FolderChooser inherits FocusScope {
 
 component PreferenceNavItem inherits Rectangle {
     in property <string> label;
+    in property <image> icon;
     in property <bool> selected: false;
     callback activated();
     height: 36px;
     horizontal-stretch: 1;
     border-radius: 5px;
-    background: selected ? #c9c9cf : touch.has-hover ? #ffffffb8 : transparent;
+    background: selected ? #e7e7eb : touch.has-hover ? #ffffffb8 : transparent;
     accessible-role: button;
     accessible-label: label;
     accessible-checkable: true;
     accessible-checked: selected;
     accessible-action-default => { root.activated(); }
-    Text { x: 30px; width: parent.width - 40px; height: parent.height;
-        text: root.label; font-size: 13px; color: #242428;
+    Image { x: 5px; y: 8px; width: 20px; height: 20px; source: root.icon; }
+    Text { x: 34px; width: parent.width - 42px; height: parent.height;
+        text: root.label; font-size: 13px; font-weight: 600; color: #242428;
         vertical-alignment: center; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
@@ -277,26 +279,37 @@ export component PreferencesWindow inherits Window {
     // page order even while some individual Riina pages are still in progress.
     Rectangle { x: 0; y: 0; width: 200px; height: parent.height; background: #e3e3e7;
         PreferenceNavItem { x: 10px; y: 52px; width: 180px; label: "General";
+            icon: @image-url("../../../assets/icons/settings.svg");
             selected: root.selected-pane == 0; activated => { root.selected-pane = 0; } }
         PreferenceNavItem { x: 10px; y: 88px; width: 180px; label: "Interface";
+            icon: @image-url("../../../assets/icons/interface.svg");
             selected: root.selected-pane == 1; activated => { root.selected-pane = 1; } }
         PreferenceNavItem { x: 10px; y: 124px; width: 180px; label: "Video";
+            icon: @image-url("../../../assets/icons/video-page.svg");
             selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
         PreferenceNavItem { x: 10px; y: 160px; width: 180px; label: "Audio";
+            icon: @image-url("../../../assets/icons/audio-page.svg");
             selected: root.selected-pane == 3; activated => { root.selected-pane = 3; } }
         PreferenceNavItem { x: 10px; y: 196px; width: 180px; label: "Subtitles";
+            icon: @image-url("../../../assets/icons/subtitles-page.svg");
             selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
         PreferenceNavItem { x: 10px; y: 232px; width: 180px; label: "Network";
+            icon: @image-url("../../../assets/icons/network.svg");
             selected: root.selected-pane == 5; activated => { root.selected-pane = 5; } }
         PreferenceNavItem { x: 10px; y: 268px; width: 180px; label: "Control";
+            icon: @image-url("../../../assets/icons/control.svg");
             selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
         PreferenceNavItem { x: 10px; y: 304px; width: 180px; label: "Key Bindings";
+            icon: @image-url("../../../assets/icons/keybindings.svg");
             selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
         PreferenceNavItem { x: 10px; y: 340px; width: 180px; label: "Advanced";
+            icon: @image-url("../../../assets/icons/advanced.svg");
             selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
         PreferenceNavItem { x: 10px; y: 376px; width: 180px; label: "Plugins";
+            icon: @image-url("../../../assets/icons/plugins.svg");
             selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
         PreferenceNavItem { x: 10px; y: 412px; width: 180px; label: "Utilities";
+            icon: @image-url("../../../assets/icons/utilities.svg");
             selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
     }
     if root.selected-pane == 0 : ScrollView {

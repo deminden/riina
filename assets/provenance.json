@@ -8,6 +8,20 @@
       "sha256": "41275b89ade9b0e804e2377e53c2305905ce72dadfad2fdeef21faf8825737ae"
     },
     {
+      "path": "assets/icons/advanced.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "fa4b0ab4f21f62a1c265d3fac025f5134542409b5f3008a914071dc6c0384cda"
+    },
+    {
+      "path": "assets/icons/audio-page.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "31b30230a7f1e52d78a8093dd4256fef33f12b26fdac5783dd8b4f44e72178e7"
+    },
+    {
       "path": "assets/icons/audio.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -36,6 +50,13 @@
       "sha256": "12991e3a2205ccf0856eb181ca33e8d8bef152804bba5a59aa29365973430158"
     },
     {
+      "path": "assets/icons/control.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "c73eddfab88faa0e9a29b8a80340a9e263859f64d396ae9b8d7c02630ecef4a7"
+    },
+    {
       "path": "assets/icons/forward.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -50,11 +71,32 @@
       "sha256": "bcf7571bae2b574d179a524f14ec51e28b21a2ecde94f1902266f8c163644604"
     },
     {
+      "path": "assets/icons/interface.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "4d17db0543c3c33423198747090b7f23567c8d078099bca001671e1e37cc9ddf"
+    },
+    {
+      "path": "assets/icons/keybindings.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "14c6b10941a566dbecbc8683f399ea09b9cc7fedfb3ed652ebbf5cc836e89e61"
+    },
+    {
       "path": "assets/icons/muted.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "c5d06b128748c3dc8f7bcc2661e9ea15d9ae9be02d84d91da95fd7b81aeacad5"
+    },
+    {
+      "path": "assets/icons/network.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "68dec13a0e47b34698b0af4ad6d6f139dbe3762d769307410f96ac344beb64a8"
     },
     {
       "path": "assets/icons/pause.svg",
@@ -78,6 +120,13 @@
       "sha256": "1d5ad5986920147c957a172e246c3d238d753f0a341faa3b376b7475dae0fe36"
     },
     {
+      "path": "assets/icons/plugins.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "e0438abaa0fd7eb8f59d43e811df98d6d4b14e058ec5d1fd42809bf6fb97f673"
+    },
+    {
       "path": "assets/icons/resume-history.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -85,11 +134,39 @@
       "sha256": "1c98985f632be199aa321c6bdd7860e81ca07e10861c6b1e4045e73adb797634"
     },
     {
+      "path": "assets/icons/settings.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "6336372455797843afba03c55186123dbe58ee1aa22965acf403aeeacee25599"
+    },
+    {
       "path": "assets/icons/stop.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "f6c445643509f2df7cf97f892a5a0f733fc202688bc11b890251ea5bb89e957c"
+    },
+    {
+      "path": "assets/icons/subtitles-page.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "06cd606bc917710511c436213b955fd86e3b807e579df60ba42c17b5f271aef5"
+    },
+    {
+      "path": "assets/icons/utilities.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "8cb9676853e01b1aa5683b2ec8fb799ef9cd6cb962f457b1d36d242b3c720ff1"
+    },
+    {
+      "path": "assets/icons/video-page.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "4d1962726596ab8df48ce1ff720dcec53d8b0c99b7ce4d7de3aa28c33693c9e1"
     },
     {
       "path": "assets/icons/video.svg",
