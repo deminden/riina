@@ -15,11 +15,13 @@ from PIL import Image
 
 def check(manifest):
     entries = json.loads(manifest.read_text(encoding="utf-8"))
-    assert len(entries) == 36, "Expected all six steps for three modes and two clips"
+    fixtures = {item["fixture"] for item in entries}
+    original = {"interlaced-tff.mkv", "interlaced-bff.mkv"}
+    encoded = {"interlaced-mpeg2-tff.mkv", "interlaced-mpeg2-bff.mkv"}
+    assert fixtures in (original, original | encoded), "Require paired field orders"
     assert Counter((item["fixture"], item["deinterlace"]) for item in entries) == {
-        ("interlaced-tff.mkv", False): 12, ("interlaced-tff.mkv", True): 6,
-        ("interlaced-bff.mkv", False): 12, ("interlaced-bff.mkv", True): 6,
-    }, "Both field orders and all three control modes must be covered"
+        (name, mode): 6 if mode else 12 for name in fixtures for mode in (False, True)
+    }, "All three control modes must be covered"
     observations = []
     for entry in entries:
         path = Path(entry["path"])
@@ -35,7 +37,7 @@ def check(manifest):
             expected = [8 + field * 2 % 64] * 2
         else:
             pair = [8 + field * 2 % 64, 8 + (field + 1) * 2 % 64]
-            expected = pair if entry["fixture"] == "interlaced-tff.mkv" else pair[::-1]
+            expected = pair if entry["fixture"].endswith("-tff.mkv") else pair[::-1]
         observed = [row[0] if row else None for row in rows]
         observations.append({
             "fixture": entry["fixture"], "deinterlace": entry["deinterlace"],

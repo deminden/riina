@@ -1,3 +1,18 @@
+Interlaced decoding investigation now compares original encoded MPEG-2 fields
+with the v210 container-only fields. Both new fixtures regenerate byte-for-byte
+with pinned development PyAV; all four clips pass the independent 75-to-150-frame
+software oracle. Native default demuxing passes all 36 MPEG-2 captures with correct
+field order and native flags. Across all 72 default captures, only six v210 BFF
+On frames fail. A separate private diagnostic test selects libavformat: the same
+v210 TFF/BFF files retain interlaced/field-order flags and all 36 saved captures
+pass, including cadence and timestamp-aligned bar motion. This isolates a demuxer
+path difference; the lower-level implementation defect and an IINA runtime
+comparison remain unverified. No production default or UI changed. Preserve
+the failing default-path regression while assessing a compatible remedy and
+advanced-option parity. Evidence: tests/visual/interlaced-demuxer-comparison-evidence.json.
+GUI/shared-GL/hardware/monitor and other OS application runtime remain pending.
+Nothing published.
+
 Native screenshot export now has typed video/subtitles/window content and
 generation-scoped successful completion tracking. Failed or merely queued
 requests cannot advertise a saved file. Native PNG tests verify no-frame failure,

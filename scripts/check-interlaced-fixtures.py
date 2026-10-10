@@ -16,19 +16,18 @@ assert av.__version__ == '16.0.1', 'Use pinned development-only PyAV 16.0.1'
 
 
 def luma(frame):
-    assert frame.format.name == 'yuv422p10le'
-    plane = frame.planes[0]
-    return np.ndarray((frame.height, plane.line_size // 2), dtype='<u2',
-                      buffer=memoryview(plane))[:, :frame.width]
+    assert frame.format.name in ('yuv422p10le', 'yuv420p')
+    return frame.to_ndarray(format='gray')
 
 
 def edge(row):
-    bright = np.flatnonzero(row > 500)
+    bright = np.flatnonzero(row > 128)
     assert len(bright) == 12, f'Unexpected moving-bar width: {len(bright)}'
     return int(bright[0])
 
 
-for name, top_first in [('interlaced-tff.mkv', True), ('interlaced-bff.mkv', False)]:
+for name, top_first in [('interlaced-tff.mkv', True), ('interlaced-bff.mkv', False),
+                        ('interlaced-mpeg2-tff.mkv', True), ('interlaced-mpeg2-bff.mkv', False)]:
     with av.open(str(root / 'tests/fixtures' / name)) as container:
         frames = list(container.decode(video=0))
     assert len(frames) == 75

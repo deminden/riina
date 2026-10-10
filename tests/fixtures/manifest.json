@@ -90,5 +90,19 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-interlaced-fixtures.py",
     "description": "96x64 v210 neutral moving bar; bff; 3 seconds at 25 frames/50 fields per second; alternating rows sampled 20 ms apart"
+  },
+  "interlaced-mpeg2-tff.mkv": {
+    "sha256": "a773d3d8a3b7707048d43535bb7e6eab96144e8295034905193791a0a5a986b5",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-encoded-interlaced-fixtures.py",
+    "description": "Original woven tff fields encoded as MPEG-2; 96x64; 75 frames; 25 fps; bitstream field order"
+  },
+  "interlaced-mpeg2-bff.mkv": {
+    "sha256": "9efedce5e211eefb9c6d6dcf14ecb901ff9f10ea9ff44d0a44ef942b6d2f7eb3",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-encoded-interlaced-fixtures.py",
+    "description": "Original woven bff fields encoded as MPEG-2; 96x64; 75 frames; 25 fps; bitstream field order"
   }
 }

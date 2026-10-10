@@ -1,4 +1,6 @@
 //! The event worker owns the player; the GUI owns only its OpenGL render context.
+#[cfg(test)]
+mod demuxer_tests;
 mod ffi;
 mod seek_feedback;
 pub mod video;

@@ -101,7 +101,12 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     ));
     std::fs::create_dir_all(&output).unwrap();
     let mut captures = Vec::new();
-    for name in ["interlaced-tff.mkv", "interlaced-bff.mkv"] {
+    for name in [
+        "interlaced-tff.mkv",
+        "interlaced-bff.mkv",
+        "interlaced-mpeg2-tff.mkv",
+        "interlaced-mpeg2-bff.mkv",
+    ] {
         let (sender, receiver) = mpsc::channel();
         let player = Player::start(&test_library(&root), true, move |state| {
             let _ = sender.send(state);

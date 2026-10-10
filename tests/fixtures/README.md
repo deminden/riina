@@ -66,3 +66,15 @@ to compare actual saved native video pixels with the original field pattern.
 The checker intentionally fails for current bottom-first temporal reversal; do
 not treat cadence or a successfully written PNG as proof of correct field order.
 This requires Pillow and does not capture GUI or monitor output.
+
+`interlaced-mpeg2-tff.mkv` and `interlaced-mpeg2-bff.mkv` encode the original
+woven fields with field order carried in the MPEG-2 bitstream. Generate using
+`python scripts/generate-encoded-interlaced-fixtures.py` and the pinned ignored
+PyAV 16.0.1 environment; bitexact mux/encoder flags and a single encoder thread
+make repeat generations byte-identical. These original bytes are CC0-1.0.
+`check-interlaced-fixtures.py` now validates all four clips. The native cadence
+test saves 72 frames; encoded clips pass, while the six original v210 BFF On
+frames remain a failing default-demuxer regression. The ignored mpv library
+test `lavf_woven_field_captures` privately selects libavformat for comparison
+and writes a separate 36-frame manifest; that pixel check passes. Production
+defaults are unchanged. Both runs capture engine video pixels, not GUI output.
