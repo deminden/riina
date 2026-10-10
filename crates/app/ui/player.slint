@@ -248,6 +248,11 @@ component SubtitleLaneSegment inherits Rectangle {
 
 export component PlayerWindow inherits Window {
     in property <bool> reflection-known: false;
+    in property <bool> deinterlace-known: false;
+    in property <bool> deinterlace-enabled: false;
+    callback toggle-deinterlace();
+    changed deinterlace-known => { root.video-menu-changed(); }
+    changed deinterlace-enabled => { root.video-menu-changed(); }
     in-out property <bool> video-osd-request-feedback: false;
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
@@ -292,6 +297,9 @@ export component PlayerWindow inherits Window {
                 MenuItem { title: "Vertical (Flip)"; checkable: true; checked: root.video-flipped;
                     activated => { root.toggle-video-reflection(false); } }
             }
+            MenuItem { title: "Deinterlace"; checkable: true; checked: root.deinterlace-enabled;
+                enabled: root.loaded && root.deinterlace-known && !root.crop-editing;
+                activated => { root.toggle-deinterlace(); } }
         }
     }
     title: "riina";

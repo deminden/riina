@@ -38,6 +38,8 @@ pub enum Command {
     FrameBackStep,
     VideoAspect(video_controls::AspectRatio),
     VideoRotation(video_controls::Rotation),
+    Deinterlace(bool),
+    ToggleDeinterlace,
     VideoCrop(Option<crop::Preset>),
     VideoCropRectangle(crop::Rectangle),
     ToggleVideoReflection(video_reflection::Axis),
@@ -169,6 +171,19 @@ impl Command {
                 "set".into(),
                 "video-rotate".into(),
                 rotation.degrees().to_string(),
+            ],
+            Self::Deinterlace(enabled) => vec![
+                "set".into(),
+                "deinterlace".into(),
+                if *enabled { "yes" } else { "no" }.into(),
+            ],
+            // Limit the native cycle to the reference's two states; newer mpv
+            // also offers auto, which is not a third state in IINA's checkbox.
+            Self::ToggleDeinterlace => vec![
+                "cycle-values".into(),
+                "deinterlace".into(),
+                "no".into(),
+                "yes".into(),
             ],
             Self::HardwareDecoding(mode) => {
                 vec!["set".into(), "hwdec".into(), mode.native_value().into()]
@@ -761,6 +776,9 @@ pub struct Playback {
     /// Worker-dispatched aspect requests, including repeats and native failures.
     pub aspect_requests: u64,
     pub video_rotation: Option<i64>,
+    pub deinterlace: Option<bool>,
+    /// Native automatic filter activity, distinct from the configured option.
+    pub deinterlace_active: Option<bool>,
     pub video_equalizer: [Option<i64>; 5],
     pub title: String,
     pub error: Option<String>,
@@ -852,6 +870,7 @@ impl Playback {
         self.video = None;
         self.video_target = None;
         self.video_output = None;
+        self.deinterlace_active = None;
     }
 
     pub fn reconcile(&mut self) {

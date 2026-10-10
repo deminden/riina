@@ -4,6 +4,7 @@ use riina_core::{Phase, Playback, speed_controls};
 #[derive(Debug, PartialEq)]
 pub(crate) enum Kind {
     Aspect,
+    Deinterlace,
     Speed,
     Equalizer,
     HardwareDecoding,
@@ -48,6 +49,7 @@ impl VideoOsd {
             video_equalizer: state.video_equalizer,
             video_aspect: state.video_aspect.clone(),
             aspect_requests: state.aspect_requests,
+            deinterlace: state.deinterlace,
             ..Default::default()
         });
         // Consume suppressed changes too: re-enabling feedback must not replay
@@ -74,6 +76,15 @@ pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<M
     }
     if state.error.is_some() {
         return None;
+    }
+    if let Some(enabled) = state.deinterlace
+        && previous.deinterlace.unwrap_or(false) != enabled
+    {
+        return Some(Message {
+            kind: Kind::Deinterlace,
+            text: format!("Deinterlace: {}", if enabled { "On" } else { "Off" }),
+            progress: None,
+        });
     }
     // One native snapshot can coalesce several channels. Display one complete
     // message rather than mixing one channel's label with another's progress.
@@ -239,6 +250,38 @@ mod tests {
         state.generation += 1;
         state.aspect_requests += 1;
         assert_eq!(feedback.observe(&state), None);
+        assert_eq!(feedback.observe(&state), None);
+    }
+
+    #[test]
+    fn deinterlace_feedback_uses_confirmed_changes_not_filter_activity() {
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        state.deinterlace = Some(false);
+        assert_eq!(feedback.observe(&state), None);
+        for (enabled, label) in [(true, "On"), (false, "Off")] {
+            state.deinterlace = Some(enabled);
+            assert_eq!(
+                feedback.observe(&state),
+                Some(Message {
+                    kind: Kind::Deinterlace,
+                    text: format!("Deinterlace: {label}"),
+                    progress: None,
+                })
+            );
+            assert_eq!(feedback.observe(&state), None);
+            state.deinterlace_active = Some(!enabled);
+            assert_eq!(feedback.observe(&state), None);
+        }
+        state.deinterlace = None;
+        assert_eq!(feedback.observe(&state), None);
+        state.deinterlace = Some(true);
+        state.error = Some("Native command failure".into());
+        assert_eq!(feedback.observe(&state), None);
+        state.error = None;
+        assert_eq!(feedback.observe(&state), None);
+        state.generation += 1;
+        state.deinterlace = Some(false);
         assert_eq!(feedback.observe(&state), None);
     }
 }

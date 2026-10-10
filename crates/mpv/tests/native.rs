@@ -8,6 +8,113 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies deinterlace state and automatic filter coexistence"]
+fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
+    use riina_core::{crop::Preset, video_reflection::Axis};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    let fixture = root
+        .join("tests/fixtures/catalog.mkv")
+        .to_string_lossy()
+        .into_owned();
+    player.send(Command::Load(fixture.clone())).unwrap();
+    let initial = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing
+            && state.deinterlace == Some(false)
+            && state.deinterlace_active == Some(false)
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    player.send(Command::Speed(1.5)).unwrap();
+    wait_for(&receiver, |state| state.speed == 1.5);
+    player
+        .send(Command::VideoCrop(Some(Preset::FourThree)))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        riina_core::crop::observed_index(state) == Some(1)
+    });
+    player
+        .send(Command::VideoReflection {
+            axis: Axis::Horizontal,
+            enabled: true,
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        Axis::Horizontal.observed(state.video_filters.as_deref()) == Some(true)
+    });
+    for (index, enabled) in [true, true, false, false, true].into_iter().enumerate() {
+        player.send(Command::Deinterlace(enabled)).unwrap();
+        // The speed barrier distinguishes a repeated no-op from a stale snapshot.
+        let speed = 1.0 + index as f64 * 0.125;
+        player.send(Command::Speed(speed)).unwrap();
+        let changed = wait_for(&receiver, |state| {
+            state.deinterlace == Some(enabled)
+                && state.deinterlace_active == Some(enabled)
+                && state.speed == speed
+        });
+        assert!(changed.paused);
+        assert_eq!(changed.volume, 37.0);
+        assert_eq!(
+            changed.completed_navigation_seeks,
+            initial.completed_navigation_seeks
+        );
+        assert_eq!(changed.error, None);
+        assert_eq!(riina_core::crop::observed_index(&changed), Some(1));
+        assert_eq!(
+            Axis::Horizontal.observed(changed.video_filters.as_deref()),
+            Some(true)
+        );
+        assert_eq!(
+            changed.video.as_ref().map(|video| (video.w, video.h)),
+            Some((320, 180))
+        );
+    }
+    for _ in 0..3 {
+        player.send(Command::ToggleDeinterlace).unwrap();
+    }
+    player.send(Command::Speed(2.0)).unwrap();
+    let toggled = wait_for(&receiver, |state| {
+        state.deinterlace == Some(false)
+            && state.deinterlace_active == Some(false)
+            && state.speed == 2.0
+    });
+    assert!(toggled.paused);
+    assert_eq!(toggled.volume, 37.0);
+    assert_eq!(toggled.error, None);
+    assert_eq!(
+        toggled.completed_navigation_seeks,
+        initial.completed_navigation_seeks
+    );
+    assert_eq!(riina_core::crop::observed_index(&toggled), Some(1));
+    assert_eq!(
+        Axis::Horizontal.observed(toggled.video_filters.as_deref()),
+        Some(true)
+    );
+    player.send(Command::Deinterlace(true)).unwrap();
+    wait_for(&receiver, |state| {
+        state.deinterlace == Some(true) && state.deinterlace_active == Some(true)
+    });
+    player.send(Command::Load(fixture)).unwrap();
+    let replaced = wait_for(&receiver, |state| {
+        state.generation > toggled.generation
+            && state.phase == Phase::Playing
+            && state.deinterlace == Some(true)
+            && state.deinterlace_active == Some(true)
+    });
+    assert_eq!(replaced.volume, 37.0);
+    assert_eq!(replaced.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies viewport option acceptance and playback isolation"]
 fn picture_viewport_preserves_pause_volume_and_source_geometry() {
     use riina_core::{crop_geometry::Projection, video_viewport::Viewport};

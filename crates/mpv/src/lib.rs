@@ -121,6 +121,7 @@ impl Player {
                         // IINA's secondary override defaults to scale, whereas
                         // mpv defaults to stripping the secondary lane's styles.
                         ("secondary-sub-ass-override", "scale"),
+                        ("deinterlace", "no"),
                         ("sub-font-size", "55"),
                         ("sub-font", riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT),
                         ("sub-outline-size", "3"),
@@ -146,6 +147,7 @@ impl Player {
                         ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
                         ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
+                        ("deinterlace", 1), ("deinterlace-active", 3),
                         ("video-out-params", 6),
                         ("brightness", 4), ("contrast", 4), ("saturation", 4), ("gamma", 4), ("hue", 4),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
@@ -199,7 +201,7 @@ impl Player {
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
-                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
+                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Deinterlace(_) | Command::ToggleDeinterlace | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
                                         seek_feedback.clear();
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
@@ -354,6 +356,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"vf" => state.video_filters = None,
             b"video-aspect-override" => state.video_aspect_override = None,
             b"video-rotate" => state.video_rotation = None,
+            b"deinterlace" => state.deinterlace = None,
+            b"deinterlace-active" => state.deinterlace_active = None,
             b"hwdec-current" => state.hardware_decoder = None,
             b"hwdec" => state.hardware_decoding = None,
             b"current-ao" => state.audio_output = None,
@@ -474,6 +478,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"mute" => state.muted = flag,
             b"sub-visibility" => state.subtitle_visible = flag,
             b"secondary-sub-visibility" => state.secondary_subtitle_visible = Some(flag),
+            b"deinterlace-active" => state.deinterlace_active = Some(flag),
             b"eof-reached" => {
                 if flag {
                     state.phase = Phase::Ended;
@@ -494,6 +499,13 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"current-ao" => state.audio_output = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
                 b"hwdec" => state.hardware_decoding = Some(value),
+                b"deinterlace" => {
+                    state.deinterlace = match value.as_str() {
+                        "yes" => Some(true),
+                        "no" => Some(false),
+                        _ => None,
+                    }
+                }
                 b"sub-text" => state.subtitle_text = Some(value),
                 b"sub-font" => {
                     state.subtitle_font =

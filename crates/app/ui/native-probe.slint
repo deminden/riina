@@ -3,6 +3,9 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // A feasibility surface, not the source-matched player UI. Keeping it separate
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
+    in property <bool> deinterlace-menu-enabled: false;
+    in property <bool> deinterlace-enabled: false;
+    callback toggle-deinterlace();
     in property <bool> aspect-menu-enabled: false;
     in property <[string]> aspect-menu-labels;
     in property <int> video-aspect-menu-index: 0;
@@ -51,6 +54,9 @@ export component NativeVideoHost inherits Window {
                 MenuItem { title: "Vertical (Flip)"; checkable: true; checked: root.video-flipped;
                     activated => { root.toggle-video-reflection(false); } }
             }
+            MenuItem { title: "Deinterlace"; checkable: true; checked: root.deinterlace-enabled;
+                enabled: root.deinterlace-menu-enabled;
+                activated => { root.toggle-deinterlace(); } }
         }
     }
     in property <string> display-title: "riina — D3D11 experiment";

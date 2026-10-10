@@ -1,5 +1,15 @@
 # Implementation plan
 
+Video > Deinterlace now has portable On/Off commands, native observed option and
+automatic-filter activity, shared/native menu checks and confirmed-state OSD.
+Native coexistence/repeat/burst/source-replacement tests and Windows native GUI
+On/Off messages pass. Add original interlaced fixtures and verify comb removal,
+cadence, hardware decoding paths, checks/materials and shared GL/macOS/Linux
+application runtime. mpv auto is outside the pinned two-state menu; preserve
+unknown state instead of claiming it is Off. Native GUI feedback for repeated
+Default aspect activation is now captured; custom/rejected input OSD, exact
+timing, coalescing and localization still need runtime verification.
+
 Video > Rotation is wired on both presentation surfaces with observed checks
 and scoped menu dispatch. Native ordered-label/navigation evidence and native
 four-angle geometry tests pass; verify menu output/checks, failure/no-op behavior

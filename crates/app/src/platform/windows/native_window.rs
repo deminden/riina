@@ -129,6 +129,10 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                             && !app.get_crop_editing(),
                     );
                     host.set_video_rotation_index(app.get_video_rotation_index());
+                    host.set_deinterlace_menu_enabled(
+                        app.get_loaded() && app.get_deinterlace_known() && !app.get_crop_editing(),
+                    );
+                    host.set_deinterlace_enabled(app.get_deinterlace_enabled());
                 }
             });
             let menu_app = app.as_weak();
@@ -158,6 +162,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
             let close_session = startup_session.clone();
+            let menu_app = app.as_weak();
+            host.on_toggle_deinterlace(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_deinterlace();
+                }
+            });
             let close_host = host.as_weak();
             let weak_app = app.as_weak();
             app.window().on_close_requested(move || {

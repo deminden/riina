@@ -236,6 +236,8 @@ fn update_ui(
             .map_or(-1, |index| index as i32),
     );
     app.set_video_rotation_known(state.video_rotation.is_some());
+    app.set_deinterlace_known(state.deinterlace.is_some() && state.video.is_some());
+    app.set_deinterlace_enabled(state.deinterlace.unwrap_or(false));
     app.set_video_crop_known(
         state.video_filters.is_some()
             && state
@@ -470,6 +472,23 @@ pub(crate) fn configure_player(
         }
     });
     let seek_timer = slint::Timer::default();
+    let deinterlace_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_toggle_deinterlace(move || {
+        let Some(app) = weak.upgrade() else { return };
+        refresh_video_menu(&app);
+        if !app.get_loaded()
+            || !app.get_deinterlace_known()
+            || app.get_crop_editing()
+            || app.get_dialog_open()
+        {
+            return;
+        }
+        app.invoke_activity();
+        if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
+            app.set_status(error.into());
+        }
+    });
     let disable_seek_osd = prefs.disable_osd_seek;
     let weak = app.as_weak();
     app.on_show_seek_osd(move || {

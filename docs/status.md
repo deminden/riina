@@ -1,5 +1,24 @@
 # Status · 2026-10-09
 
+Video > Deinterlace now follows Flip on both player surfaces, defaults Off and
+uses confirmed native state for its check and On/Off feedback. Native toggles
+explicitly cycle only no/yes; current mpv's auto value remains unknown to this
+two-state reference control. Configured deinterlacing and native automatic-filter
+activity are separate, with source-scoped activity retired on replacement.
+The new native test covers repeated explicit requests, rapid toggles, automatic
+filter activity, crop/mirror coexistence, pause/volume/source geometry and source
+replacement. It passes; all 33 native tests pass (13.37 seconds), as do workspace
+tests, formatting, strict lint and release build (46.14 seconds). The fixture is
+progressive; this proves filter/control behavior rather than comb removal or
+interlaced-frame quality. Native GUI evidence verifies placement and On then Off
+messages with Play/volume 37 preserved. Observing 200 ms after native teardown
+also captures Aspect Ratio: Default after two separate activations, with the
+first message absent before the repeat and unchanged position on the repeat.
+This adds GUI feedback evidence beyond the earlier uncaptured aspect message.
+Checks, exact timeout timing, rendered pixels, interlaced cadence, hardware paths,
+shared GL and macOS/Linux runtime remain unverified. Clean close returns 0 with
+only the expected layout diagnostic. Nothing published.
+
 Video > Aspect Ratio now precedes Crop/Rotation/Flip on both player surfaces,
 with Default and the pinned nine menu ratios. Exact requested text belongs to
 the playback worker and remains distinct from the observed native numeric
