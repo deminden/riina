@@ -820,6 +820,19 @@ unit checks and release build pass. The hidden-scan race, already-visible custom
 font refresh, native-video reuse, multiple-player/Settings reuse and other OS
 runtime remain untested. No glyph identity or pixel parity is proved.
 
+Font chooser layout/Return retest (Windows 11 x64, shared OpenGL, source 10d6623):
+accessibility exposes Choose a font, Typeface, preview and Or enter the font name
+in the corrected order. Return from preview commits custom Verdana; Return from
+filter and the restored Regular face accepts and closes the chooser. Preview
+sample persists on reopening. Blank custom entry restores sans-serif, with size
+55, pause and volume 37 unchanged. Settled close leaves no riina windows.
+Exact executable hash and scoped observations:
+tests/visual/font-picker-return-windows-evidence.json. Formatting, strict lint,
+unit checks, release build and 108-row traceability check pass. Labels/order and
+keyboard callbacks are tested; rendered geometry, clipping, materials, modified
+Return, native-video/other OS runtime and pixel parity remain unproved.
+Double-click face acceptance remains missing and separately inventoried.
+
 ## Subtitle color engine contract · 2026-10-10
 
 Shared UI follow-up: the Windows keyboard opens each well. Changing text red

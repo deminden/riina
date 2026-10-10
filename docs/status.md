@@ -6,8 +6,13 @@ font name labels. Recorded margins are 12pt; table block 268pt including 23pt
 headers; search/custom inputs 24pt; preview 36pt; buttons 80pt with 12pt gap.
 Return now invokes acceptance from the filter, preview or list scope; Escape
 remains Cancel. Formatting, strict lint, unit checks and release build pass.
-Rendered geometry, clipping and keyboard
-runtime retests remain pending. The XIB's contentRect 524pt versus contentView
+Windows shared GL runtime on 10d6623 verifies label/accessibility order and Return
+acceptance from preview, filter and restored Regular face, preserving size 55,
+pause and volume 37. Default font was restored and settled player windows closed.
+Exact binary hash and scoped evidence:
+tests/visual/font-picker-return-windows-evidence.json. Rendered geometry/clipping,
+modified Return, native-video and other OS retests remain pending.
+The XIB's contentRect 524pt versus contentView
 496pt discrepancy is unresolved; 524pt remains and bottom flexible space absorbs
 the difference. Toolkit table materials/rows/fonts are still provisional.
 Face double-click acceptance is separately inventoried and unimplemented; the

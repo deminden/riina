@@ -1,0 +1,73 @@
+{
+  "source_commit": "10d6623",
+  "observations": [
+    {
+      "action": "corrected-label-order",
+      "lines": [
+        "\t\t7 text Choose a font:",
+        "\t\t18 text Typeface",
+        "\t\t20 edit (settable, string) Font preview text Value: Test",
+        "\t\t21 text Preview",
+        "\t\t22 text Or enter the font name:",
+        "\t\t23 edit (settable, string) Custom font name Description: sans-serif"
+      ]
+    },
+    {
+      "action": "focus-preview",
+      "focus": "20 edit (settable, string) Font preview text Value: Return café"
+    },
+    {
+      "action": "preview-Return-commits-Verdana",
+      "lines": [
+        "\t\t\t68 text Verdana",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "filter-Return-accepts",
+      "lines": [
+        "\t\t\t68 text Verdana",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "focus-face-Regular",
+      "focus": "55 list item (selectable) Regular"
+    },
+    {
+      "action": "face-Return-accepts",
+      "lines": [
+        "\t\t\t68 text Verdana",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "restore-default",
+      "lines": [
+        "\t\t\t68 text sans-serif",
+        "\t\t69 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "settled-close",
+      "remaining_riina_windows": 0
+    }
+  ],
+  "binary_sha256": "792f9944289f2294cc4a2a05f36152148a00f25101b828199c22b70e790e4979",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "limitations": [
+    "Accessibility labels/order and keyboard callbacks only; rendered geometry and pixel parity not proved.",
+    "Modified Return behavior not tested.",
+    "Double-click face acceptance remains unimplemented.",
+    "Native-video and other OS runtime of changed layout/Return remain pending."
+  ]
+}
