@@ -1,5 +1,21 @@
 # Status · 2026-10-09
 
+Crop selection now has portable source/display projection for contain-fit
+letterboxing, display aspect and clockwise quarter turns. Pointer selection
+clamps to actual content, handles reverse drags, snaps within four source pixels
+of edges and preserves integer rectangles across resize cycles. The first
+round-trip test exposed a one-pixel floating-point truncation error; only
+machine-error distance from integer pixels is now corrected. Tiny sources retain
+whole-frame selections and empty drags stay invalid. Observed display dimensions
+and rotation feed projection without inventing defaults for unavailable values.
+Native coverage verifies mapping under three aspect choices and four rotations.
+This is selection geometry; Custom... remains disabled until the editor surface,
+handles and controls are connected. Actual rendered/IINA coordinate parity,
+native route layout, other filters and current port runtime remain open.
+All 28 native tests, workspace unit tests, strict lint, formatting and optimized
+Windows build pass (35.23 seconds).
+No public update.
+
 Interactive crop now has a portable editing-session lifecycle tied to source
 generation and dimensions. Entry clears the managed crop and explicitly pauses;
 confirmation applies the validated rectangle and restores prior pause state,

@@ -1,0 +1,480 @@
+//! Reversible source-pixel projection for the interactive crop surface.
+use crate::{crop::Rectangle, video_controls::Rotation};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DisplayRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Projection {
+    source_width: u32,
+    source_height: u32,
+    rotation: Rotation,
+    content: DisplayRect,
+}
+
+impl Projection {
+    pub fn for_video(
+        video: &crate::VideoParameters,
+        viewport: DisplayRect,
+    ) -> Result<Self, String> {
+        let display = video
+            .dw
+            .zip(video.dh)
+            .ok_or("Video display dimensions are unavailable")?;
+        let degrees = video
+            .rotate
+            .ok_or("Video display rotation is unavailable")?
+            .rem_euclid(360);
+        let rotation = Rotation::from_degrees(degrees)
+            .ok_or("This display rotation is not supported by the crop projection")?;
+        Self::contain(
+            (video.w, video.h),
+            (f64::from(display.0), f64::from(display.1)),
+            rotation,
+            viewport,
+        )
+    }
+    /// Display dimensions are unrotated and include pixel/display aspect.
+    /// Viewport and returned rectangles use logical units with a top-left origin.
+    pub fn contain(
+        source: (u32, u32),
+        display: (f64, f64),
+        rotation: Rotation,
+        viewport: DisplayRect,
+    ) -> Result<Self, String> {
+        if source.0 == 0
+            || source.1 == 0
+            || ![
+                display.0,
+                display.1,
+                viewport.x,
+                viewport.y,
+                viewport.width,
+                viewport.height,
+            ]
+            .into_iter()
+            .all(f64::is_finite)
+            || display.0 <= 0.0
+            || display.1 <= 0.0
+            || viewport.width <= 0.0
+            || viewport.height <= 0.0
+        {
+            return Err("Crop projection dimensions are invalid".into());
+        }
+        let (dw, dh) = if matches!(rotation, Rotation::Clockwise90 | Rotation::Clockwise270) {
+            (display.1, display.0)
+        } else {
+            display
+        };
+        let scale = (viewport.width / dw).min(viewport.height / dh);
+        let width = dw * scale;
+        let height = dh * scale;
+        let content = DisplayRect {
+            x: viewport.x + (viewport.width - width) / 2.0,
+            y: viewport.y + (viewport.height - height) / 2.0,
+            width,
+            height,
+        };
+        if ![
+            content.x,
+            content.y,
+            content.width,
+            content.height,
+            content.x + content.width,
+            content.y + content.height,
+        ]
+        .into_iter()
+        .all(f64::is_finite)
+            || width <= 0.0
+            || height <= 0.0
+        {
+            return Err("Crop projection exceeds the numeric range".into());
+        }
+        Ok(Self {
+            source_width: source.0,
+            source_height: source.1,
+            rotation,
+            content,
+        })
+    }
+
+    pub fn content(&self) -> DisplayRect {
+        self.content
+    }
+
+    pub fn project(&self, rectangle: Rectangle) -> Result<DisplayRect, String> {
+        if rectangle.width == 0
+            || rectangle.height == 0
+            || u64::from(rectangle.x) + u64::from(rectangle.width) > u64::from(self.source_width)
+            || u64::from(rectangle.y) + u64::from(rectangle.height) > u64::from(self.source_height)
+        {
+            return Err("Crop rectangle is outside the source".into());
+        }
+        let left = f64::from(rectangle.x) / f64::from(self.source_width);
+        let top = f64::from(rectangle.y) / f64::from(self.source_height);
+        let right = f64::from(rectangle.x + rectangle.width) / f64::from(self.source_width);
+        let bottom = f64::from(rectangle.y + rectangle.height) / f64::from(self.source_height);
+        let rotated = bounds(
+            [
+                Point { x: left, y: top },
+                Point { x: right, y: top },
+                Point { x: left, y: bottom },
+                Point {
+                    x: right,
+                    y: bottom,
+                },
+            ]
+            .map(|point| self.rotate(point, false)),
+        );
+        Ok(DisplayRect {
+            x: self.content.x + rotated.x * self.content.width,
+            y: self.content.y + rotated.y * self.content.height,
+            width: rotated.width * self.content.width,
+            height: rotated.height * self.content.height,
+        })
+    }
+
+    pub fn select(&self, start: Point, end: Point) -> Result<Rectangle, String> {
+        if ![start.x, start.y, end.x, end.y]
+            .into_iter()
+            .all(f64::is_finite)
+        {
+            return Err("Crop pointer position is invalid".into());
+        }
+        let source_point = |point: Point| {
+            self.rotate(
+                Point {
+                    x: ((point.x - self.content.x) / self.content.width).clamp(0.0, 1.0),
+                    y: ((point.y - self.content.y) / self.content.height).clamp(0.0, 1.0),
+                },
+                true,
+            )
+        };
+        let selected = bounds([
+            source_point(start),
+            source_point(end),
+            source_point(Point {
+                x: start.x,
+                y: end.y,
+            }),
+            source_point(Point {
+                x: end.x,
+                y: start.y,
+            }),
+        ]);
+        if selected.width == 0.0 || selected.height == 0.0 {
+            return Err("Crop selection has no area".into());
+        }
+        let snap = |value: f64, size: u32, far: bool| {
+            if far && f64::from(size) - value <= 4.0 {
+                f64::from(size)
+            } else if value <= 4.0 {
+                0.0
+            } else if f64::from(size) - value <= 4.0 {
+                f64::from(size)
+            } else {
+                value
+            }
+        };
+        let left = snap(
+            selected.x * f64::from(self.source_width),
+            self.source_width,
+            false,
+        );
+        let top = snap(
+            selected.y * f64::from(self.source_height),
+            self.source_height,
+            false,
+        );
+        let right = snap(
+            (selected.x + selected.width) * f64::from(self.source_width),
+            self.source_width,
+            true,
+        );
+        let bottom = snap(
+            (selected.y + selected.height) * f64::from(self.source_height),
+            self.source_height,
+            true,
+        );
+        let rectangle = Rectangle {
+            x: truncate(left, self.source_width),
+            y: truncate(top, self.source_height),
+            width: truncate(right - left, self.source_width),
+            height: truncate(bottom - top, self.source_height),
+        };
+        if rectangle.width == 0 || rectangle.height == 0 {
+            return Err("Crop selection has no area".into());
+        }
+        Ok(rectangle)
+    }
+
+    fn rotate(&self, point: Point, inverse: bool) -> Point {
+        let degrees = if inverse {
+            (360 - self.rotation.degrees()) % 360
+        } else {
+            self.rotation.degrees()
+        };
+        let (x, y) = match degrees {
+            90 => (1.0 - point.y, point.x),
+            180 => (1.0 - point.x, 1.0 - point.y),
+            270 => (point.y, 1.0 - point.x),
+            _ => (point.x, point.y),
+        };
+        Point { x, y }
+    }
+}
+
+fn truncate(value: f64, extent: u32) -> u32 {
+    // Round only machine-error distance from an integer. Ordinary fractional
+    // source pixels still truncate, so resize cycles do not lose whole pixels.
+    let nearest = value.round();
+    let stable = if (nearest - value).abs() <= f64::EPSILON * f64::from(extent) * 64.0 {
+        nearest
+    } else {
+        value.floor()
+    };
+    stable as u32
+}
+
+fn bounds(points: [Point; 4]) -> DisplayRect {
+    let left = points
+        .map(|point| point.x)
+        .into_iter()
+        .fold(f64::INFINITY, f64::min);
+    let top = points
+        .map(|point| point.y)
+        .into_iter()
+        .fold(f64::INFINITY, f64::min);
+    let right = points
+        .map(|point| point.x)
+        .into_iter()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let bottom = points
+        .map(|point| point.y)
+        .into_iter()
+        .fold(f64::NEG_INFINITY, f64::max);
+    DisplayRect {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn small_sources_keep_whole_selection_and_empty_drags_stay_empty() {
+        let projection =
+            Projection::contain((3, 2), (3.0, 2.0), Rotation::Zero, viewport()).unwrap();
+        let screen = projection.content();
+        assert_eq!(
+            projection
+                .select(
+                    Point {
+                        x: screen.x,
+                        y: screen.y
+                    },
+                    Point {
+                        x: screen.x + screen.width,
+                        y: screen.y + screen.height
+                    }
+                )
+                .unwrap(),
+            Rectangle {
+                x: 0,
+                y: 0,
+                width: 3,
+                height: 2
+            }
+        );
+        assert!(
+            projection
+                .select(Point { x: 500.0, y: 300.0 }, Point { x: 500.0, y: 300.0 })
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn observed_projection_rejects_missing_or_unsupported_rotation() {
+        let mut video: crate::VideoParameters = serde_json::from_value(
+            serde_json::json!({"w":320,"h":180,"dw":320,"dh":180,"rotate":45}),
+        )
+        .unwrap();
+        assert!(Projection::for_video(&video, viewport()).is_err());
+        video.rotate = None;
+        assert!(Projection::for_video(&video, viewport()).is_err());
+        video.rotate = Some(450);
+        assert!(Projection::for_video(&video, viewport()).is_ok());
+        video.dw = None;
+        assert!(Projection::for_video(&video, viewport()).is_err());
+    }
+    fn viewport() -> DisplayRect {
+        DisplayRect {
+            x: 0.0,
+            y: 0.0,
+            width: 960.0,
+            height: 600.0,
+        }
+    }
+
+    #[test]
+    fn letterbox_selection_uses_source_pixels_and_accepts_reverse_drag() {
+        let projection =
+            Projection::contain((320, 180), (320.0, 180.0), Rotation::Zero, viewport()).unwrap();
+        assert_eq!(
+            projection.content(),
+            DisplayRect {
+                x: 0.0,
+                y: 30.0,
+                width: 960.0,
+                height: 540.0
+            }
+        );
+        let start = Point { x: 30.0, y: 66.0 };
+        let end = Point { x: 930.0, y: 546.0 };
+        assert_eq!(
+            projection.select(start, end).unwrap(),
+            Rectangle {
+                x: 10,
+                y: 12,
+                width: 300,
+                height: 160
+            }
+        );
+        assert_eq!(
+            projection.select(end, start).unwrap(),
+            projection.select(start, end).unwrap()
+        );
+        assert!(
+            projection
+                .select(Point { x: 0.0, y: 0.0 }, Point { x: 960.0, y: 20.0 })
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn rotation_aspect_and_resize_preserve_source_rectangle() {
+        let rectangle = Rectangle {
+            x: 23,
+            y: 17,
+            width: 251,
+            height: 137,
+        };
+        for degrees in [0, 90, 180, 270] {
+            for display in [(320.0, 180.0), (180.0, 180.0), (640.0, 180.0)] {
+                for size in [(960.0, 600.0), (321.5, 777.25)] {
+                    let projection = Projection::contain(
+                        (320, 180),
+                        display,
+                        Rotation::from_degrees(degrees).unwrap(),
+                        DisplayRect {
+                            width: size.0,
+                            height: size.1,
+                            ..viewport()
+                        },
+                    )
+                    .unwrap();
+                    let screen = projection.project(rectangle).unwrap();
+                    assert_eq!(
+                        projection
+                            .select(
+                                Point {
+                                    x: screen.x,
+                                    y: screen.y
+                                },
+                                Point {
+                                    x: screen.x + screen.width,
+                                    y: screen.y + screen.height
+                                }
+                            )
+                            .unwrap(),
+                        rectangle
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn quarter_turn_projects_top_strip_to_right_edge() {
+        let projection = Projection::contain(
+            (320, 180),
+            (320.0, 180.0),
+            Rotation::Clockwise90,
+            viewport(),
+        )
+        .unwrap();
+        assert_eq!(
+            projection.content(),
+            DisplayRect {
+                x: 311.25,
+                y: 0.0,
+                width: 337.5,
+                height: 600.0
+            }
+        );
+        let strip = projection
+            .project(Rectangle {
+                x: 0,
+                y: 0,
+                width: 320,
+                height: 18,
+            })
+            .unwrap();
+        assert!((strip.x - 615.0).abs() < 1e-9);
+        assert!((strip.width - 33.75).abs() < 1e-9);
+        assert_eq!(strip.height, 600.0);
+    }
+
+    #[test]
+    fn edge_snap_clamps_letterbox_and_rejects_invalid_geometry() {
+        let projection =
+            Projection::contain((320, 180), (320.0, 180.0), Rotation::Zero, viewport()).unwrap();
+        assert_eq!(
+            projection
+                .select(Point { x: 9.0, y: 39.0 }, Point { x: 951.0, y: 561.0 })
+                .unwrap(),
+            Rectangle {
+                x: 0,
+                y: 0,
+                width: 320,
+                height: 180
+            }
+        );
+        assert!(
+            projection
+                .select(
+                    Point {
+                        x: f64::NAN,
+                        y: 0.0
+                    },
+                    Point { x: 960.0, y: 600.0 }
+                )
+                .is_err()
+        );
+        assert!(Projection::contain((320, 0), (320.0, 180.0), Rotation::Zero, viewport()).is_err());
+        assert!(
+            Projection::contain(
+                (320, 180),
+                (f64::INFINITY, 180.0),
+                Rotation::Zero,
+                viewport()
+            )
+            .is_err()
+        );
+    }
+}

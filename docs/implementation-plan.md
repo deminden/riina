@@ -7,8 +7,14 @@ Use the generation-bound crop_session::Session lifecycle for entry and exit;
 wait for native pause and cleared crop before presenting the selection surface.
 Retire the editor on replacement/Stop without restoring the old file's pause.
 Entry clears the old crop; Cancel restores pause but does not restore that crop.
-Next geometry work must map source pixels through display aspect/rotation and
-letterboxing, then resize the video area on both presentation routes.
+Next presentation work must resize the video area on both presentation routes
+and use the source/display mapping for the editor overlay.
+The portable crop_geometry projection now maps source rectangles and pointer
+drags through contain-fit content and quarter turns, with observed source display
+parameters covered natively. Wire that geometry to the selection overlay and
+keep source rectangles as the editing model when the viewport changes. Actual
+IINA behavior under aspect/rotation still needs visual comparison; do not treat
+mathematical round-trips as pixel parity or proof of renderer viewport mapping.
 Resolve requested-preset identity where small source dimensions yield identical
 geometry, and verify actual UI highlight and crop output with rendered evidence.
 The portable preset/managed-filter foundation has native Windows coverage; add

@@ -1,5 +1,36 @@
 # Verification record · native Windows · 2026-10-09
 
+## Crop selection projection · 2026-10-10
+
+Original crop_geometry::Projection separates source pixels, unrotated display
+dimensions and a logical viewport. It centers contain-fit content, maps source
+rectangles through quarter-turn rotation, and inverts pointer drags back to
+source pixels. Four-source-pixel edge snap follows the pinned CropBoxView
+requirement. Entirely letterboxed or empty selections are rejected. Missing
+display parameters and non-quarter-turn rotation are reported instead of
+inventing a coordinate system. The mpv property contract describes dw/dh as
+aspect-corrected sizes and rotate as intended clockwise display rotation
+(reference/mpv-upstream/DOCS/man/input.rst video-params properties).
+
+Unit checks exercise known 960×600 letterboxing, a 300×160 source selection at
+(10,12), reverse drag, rotated top-strip placement, three display aspects and
+two viewport shapes at every quarter turn, edge snap, tiny sources, empty drag,
+missing metadata and invalid numeric dimensions. Initial round-trip lost x=23
+to x=22 due floating-point cancellation; quantization now corrects only integer
+proximity bounded by machine epsilon and source extent. Ordinary fractional
+coordinates still truncate.
+
+The new native test uses observed source dw/dh/rotate while paused, with Default,
+1:1 and 4:3 overrides at 0/90/180/270. Source remains 320×180 and projected
+251×137 at (23,17) in a (20,20,920,492) viewport round-trips to the same source
+rectangle. This verifies metadata and mathematical mapping, not rendered video
+placement, IINA's actual coordinate behavior, pointer interaction or the native
+video candidate's viewport. Custom UI, frame synchronization, other filters,
+rendered parity and current macOS/Linux runtime remain unverified.
+All 28 native tests, workspace unit tests, strict workspace/all-target lint and
+formatting pass. Optimized Windows build passes in 35.23 seconds. No GUI or
+current other OS application build was run for this geometry increment.
+
 ## Interactive crop session lifecycle · 2026-10-10
 
 Pinned InteractiveMode.swift enter/exit/cancel establishes explicit pause during

@@ -322,6 +322,103 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
     assert_eq!(rejected.video_filters, replacement.video_filters);
 }
 
+#[test]
+#[ignore = "requires provisioned libmpv; verifies crop mapping uses observed source display parameters"]
+fn crop_projection_preserves_source_selection_under_native_display_overrides() {
+    use riina_core::{
+        crop::Rectangle,
+        crop_geometry::{DisplayRect, Point, Projection},
+        video_controls::{AspectRatio, Rotation},
+    };
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    let rectangle = Rectangle {
+        x: 23,
+        y: 17,
+        width: 251,
+        height: 137,
+    };
+    for (aspect, ratio) in [("Default", -1.0), ("1:1", 1.0), ("4:3", 4.0 / 3.0)] {
+        player
+            .send(Command::VideoAspect(AspectRatio::from_text(aspect)))
+            .unwrap();
+        wait_for(&receiver, |state| {
+            state.video_aspect_override == Some(ratio)
+        });
+        for degrees in [0, 90, 180, 270] {
+            player
+                .send(Command::VideoRotation(
+                    Rotation::from_degrees(degrees).unwrap(),
+                ))
+                .unwrap();
+            let state = wait_for(&receiver, |state| {
+                state
+                    .video
+                    .as_ref()
+                    .is_some_and(|video| video.rotate == Some(degrees))
+                    && state.video_rotation == Some(degrees)
+            });
+            let video = state.video.as_ref().unwrap();
+            assert_eq!((video.w, video.h), (320, 180));
+            let projection = Projection::for_video(
+                video,
+                DisplayRect {
+                    x: 20.0,
+                    y: 20.0,
+                    width: 920.0,
+                    height: 492.0,
+                },
+            )
+            .unwrap();
+            let content = projection.content();
+            let (dw, dh) = (video.dw.unwrap() as f64, video.dh.unwrap() as f64);
+            let expected = if degrees == 90 || degrees == 270 {
+                dh / dw
+            } else {
+                dw / dh
+            };
+            assert!((content.width / content.height - expected).abs() < 1e-9);
+            let screen = projection.project(rectangle).unwrap();
+            assert_eq!(
+                projection
+                    .select(
+                        Point {
+                            x: screen.x,
+                            y: screen.y
+                        },
+                        Point {
+                            x: screen.x + screen.width,
+                            y: screen.y + screen.height
+                        }
+                    )
+                    .unwrap(),
+                rectangle
+            );
+            assert!(state.paused);
+            assert_eq!(state.error, None);
+        }
+    }
+}
+
 fn test_library(root: &std::path::Path) -> PathBuf {
     if let Some(path) = std::env::var_os("RIINA_TEST_MPV_LIBRARY") {
         let path = PathBuf::from(path);
