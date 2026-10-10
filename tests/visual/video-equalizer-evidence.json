@@ -1,0 +1,46 @@
+{
+  "source_commit": "1949507a0a29eabe29c95d2f290f4255eff98e2b",
+  "binary_sha256": "ef58d94d806d7dc2e39a129009bff0f53efc0035861282a88b1b2e9ec142715e",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observed_channels": [
+    "Brightness",
+    "Contrast",
+    "Saturation",
+    "Gamma",
+    "Hue"
+  ],
+  "initial_values": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "after_brightness_edit": [
+    -27,
+    0,
+    0,
+    0,
+    0
+  ],
+  "after_tab_return_reset": [
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "observed_reset_focus": "Reset Brightness",
+  "volume": 37,
+  "position_seconds": 5,
+  "play_button": "Play",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "GUI exercises brightness and reset; all five channel isolation checks are separately native tested.",
+    "Accessibility values only; no rendered geometry, color-output comparison or current other OS runtime.",
+    "Native fractional drag rounding and OSD parity remain unverified."
+  ]
+}

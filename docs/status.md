@@ -5,7 +5,11 @@ hue in reference order, with independent reset, integer range -100–100 and a
 neutral marker. Portable typed commands reject out-of-range values; observed
 unknown channels disable their controls. All 20 native tests pass, including
 independent channel edits and resets that preserve pause, volume 37 and speed
-1.5. GUI checks and final build checks are in progress. Rendered controls, OSD,
+1.5. Optimized build, unit checks, strict lint and formatting pass. Windows GUI
+exposes all five zero-valued channels; brightness -27 returns as observed -27,
+and Tab / Return on its reset returns zero with other channels zero, Play,
+volume 37 and position 5 retained. Close exits 0 with empty stderr. Evidence:
+tests/visual/video-equalizer-evidence.json. Rendered controls, OSD,
 actual color-output comparisons and current macOS/Linux runtime remain open.
 Changes remain local.
 

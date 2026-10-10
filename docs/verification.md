@@ -17,8 +17,17 @@ and out-of-range values. The new native test observes initial zero values,
 edits channels sequentially to -100 / 100 / -27 / 13 / 61, then independently
 resets each while comparing the complete five-channel state. Every step retains
 pause, volume 37 and speed 1.5 without errors. All 20 native tests pass. This
-headless test proves configuration, not actual rendered color changes. GUI,
-final optimized build, equalizer OSD and current other OS runtime remain open.
+headless test proves configuration, not actual rendered color changes. Workspace
+unit checks, formatting, strict lint and optimized Windows build pass.
+
+The optimized shared-OpenGL GUI at 1949507 exposes all five sliders at zero and
+their reset buttons. An accessibility edit of brightness to -27 returns the
+observed -27 while the other four remain zero. Tab reaches Reset Brightness;
+Return restores observed zero. Play, volume 37 and position 5 remain throughout.
+Normal close exits 0 with empty stderr. Source and binary hash are in
+tests/visual/video-equalizer-evidence.json. GUI activation for the other four
+channels, native fractional drag rounding, reset/slider rendered geometry,
+actual color output, equalizer OSD and current other OS runtime remain open.
 
 ## Hardware decoding policy · 2026-10-10
 
