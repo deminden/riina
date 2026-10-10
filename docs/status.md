@@ -1,5 +1,22 @@
 # Status · 2026-10-09
 
+Local font preview/face GUI test on 0a5f367: real keyboard editing changes Test
+to a Unicode sample and retains it during family/face changes. Verdana selection
+shows readable Italic/Regular/Bold Italic/Bold rows; Down selects Regular and OK
+commits Verdana, preserving pause, volume 37 and size 55. Reopening restores the
+face list and draft, but the family viewport still begins at Arial: reveal failed
+after layout settled. Accessibility set-value only focused the preview instead
+of editing it. Exact binary findings are recorded in
+tests/visual/font-face-preview-windows-evidence.json; default font was restored
+and both windows closed. No rendered glyph/pixel proof is claimed.
+
+Repairs now defer reveal until both virtualized lists have measured content,
+cancel stale reveals on search/user face changes, and disable work after chooser
+closure. The preview now implements accessibility set-value explicitly. Strict
+lint and all unit checks pass; repaired-source runtime retest remains pending.
+Native modality, platform face ordering and other OS checks remain open.
+All work stays local.
+
 Local font chooser reveal wiring: restoring a matching face now uses the shared
 list's selection API, which brings the row into view and updates its keyboard
 cursor rather than changing only the highlighted index. A restoration guard

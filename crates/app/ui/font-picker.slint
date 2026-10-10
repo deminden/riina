@@ -7,6 +7,7 @@ export component FontPicker inherits Window {
     in property <[StandardListViewItem]> families;
     in property <[StandardListViewItem]> faces;
     in property <bool> ready: false;
+    in-out property <bool> picker-active: true;
     in-out property <string> custom-name;
     in-out property <int> family-index: -1;
     in-out property <int> face-index: -1;
@@ -20,14 +21,33 @@ export component FontPicker inherits Window {
     callback accept-font(string);
     callback cancel();
     private property <bool> restoring-selection: false;
+    private property <int> reveal-family: -1;
+    private property <int> reveal-face: -1;
+    private property <bool> reveal-pending: false;
     callback restore-selection(int, int);
+    callback cancel-reveal();
+    cancel-reveal => { root.reveal-pending = false; }
     restore-selection(family, face) => {
+        root.reveal-family = family;
+        root.reveal-face = face;
+        root.reveal-pending = true;
+    }
+    Timer {
+        interval: 16ms; running: root.reveal-pending && root.picker-active;
+        triggered => {
+        // The virtualized rows need their first layout before scroll offsets
+        // can be computed. Keep waiting while either populated list is unmeasured.
+        if family-list.viewport-height <= 0 || face-list.viewport-height <= 0 { return; }
         // The list's selection API updates its scroll/focus cursor as well as
         // the highlight. Restoration must not be mistaken for a user choice.
         root.restoring-selection = true;
-        family-list.set-current-item(family);
-        face-list.set-current-item(face);
+        root.family-index = -1;
+        root.face-index = -1;
+        family-list.set-current-item(root.reveal-family);
+        face-list.set-current-item(root.reveal-face);
         root.restoring-selection = false;
+        root.reveal-pending = false;
+        }
     }
     FocusScope {
         width: 100%; height: 100%;
@@ -60,6 +80,7 @@ export component FontPicker inherits Window {
         Rectangle { height: 36px; background: #202024; border-radius: 4px;
             TextInput { text <=> root.preview-text; single-line: true;
                 accessible-label: "Font preview text";
+                accessible-action-set-value(value) => { self.text = value; }
                 font-family: root.preview-font-family;
                 font-weight: root.preview-font-weight; font-italic: root.preview-font-italic;
                 color: #eeeeee; font-size: 24px; horizontal-alignment: center;

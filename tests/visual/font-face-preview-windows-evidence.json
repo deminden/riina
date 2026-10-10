@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-10T02:00:51.899Z",
+  "source_commit": "0a5f367",
+  "binary_sha256": "fe13d3f1c021aaf4edbe1d05a144bfe701eaea056f45e152e51a17224a20fa5b",
+  "method": "Windows accessibility and keyboard using @oai/sky",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "findings": [
+    "Unicode preview keyboard editing works and remains during face changes",
+    "Readable face rows and first-face selection work; regular face commits through OK",
+    "Family reveal still fails after reopening late-listed Verdana",
+    "Preview accessibility set-value focuses field without editing it"
+  ],
+  "limitations": [
+    "No subtitle tracks loaded or rendered screenshot/glyph proof",
+    "Reopen resets preview sample to Test; persistence parity unverified",
+    "Fixed-source runtime retest and other OS checks pending"
+  ],
+  "observations": [
+    {
+      "action": "preview-default",
+      "controls": [
+        "\t\t7 edit (settable, string) Filter font families Description: Type to filter…",
+        "\t\t20 edit (settable, string) Custom font name Description: sans-serif",
+        "\t\t21 edit (settable, string) Font preview text Value: Test"
+      ]
+    },
+    {
+      "action": "accessibility-set-value-did-not-edit-preview",
+      "controls": [
+        "\t\t20 edit (settable, string) Custom font name Description: sans-serif",
+        "\t\t21 edit (settable, string) Font preview text Value: Test",
+        "The focused UI element is 21 edit (settable, string) Font preview text Value: Test."
+      ]
+    },
+    {
+      "action": "keyboard-preview-unicode",
+      "controls": [
+        "\t\t20 edit (settable, string) Custom font name Description: sans-serif",
+        "\t\t21 edit (settable, string) Font preview text Value: Preview café Привет",
+        "The focused UI element is 21 edit (settable, string) Font preview text Value: Preview café Привет."
+      ]
+    },
+    {
+      "action": "family-selects-first-face-readable-labels",
+      "controls": [
+        "\t\t\t26 list item (selectable) Verdana",
+        "\t\t\t27 list item (selectable) Italic",
+        "\t\t\t28 list item (selectable) Regular",
+        "\t\t\t29 list item (selectable) Bold Italic",
+        "\t\t\t30 list item (selectable) Bold",
+        "\t\t20 edit (settable, string) Custom font name Value: Verdana-Italic",
+        "\t\t21 edit (settable, string) Font preview text Value: Preview café Привет",
+        "The focused UI element is 26 list item (selectable) Verdana."
+      ]
+    },
+    {
+      "action": "face-down-selects-regular",
+      "controls": [
+        "\t\t20 edit (settable, string) Custom font name Value: Verdana",
+        "\t\t21 edit (settable, string) Font preview text Value: Preview café Привет",
+        "The focused UI element is 28 list item (selectable) Regular."
+      ]
+    },
+    {
+      "action": "ok-commits-regular-face",
+      "accessibility": {
+        "focused_element": "67 button Choose subtitle font",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t37 text Subtitles\n\t\t38 button Close sidebar\n\t\t\t39 image\n\t\t40 text Primary\n\t\t41 button Toggle subtitle visibility\n\t\t\t42 text ●\n\t\t43 button <None>\n\t\t\t44 text <None>\n\t\t45 text Secondary\n\t\t46 button Toggle secondary subtitle visibility\n\t\t\t47 text ●\n\t\t48 button Secondary subtitle: <None>\n\t\t\t49 text <None>\n\t\t50 button Load subtitle\n\t\t\t51 text Load Subtitle…\n\t\t52 button Edit primary subtitle timing and position\n\t\t\t53 text Primary\n\t\t54 button Edit secondary subtitle timing and position\n\t\t\t55 text Secondary\n\t\t56 text Delay\n\t\t57 edit (settable, float) Subtitle delay in seconds Value: 0\n\t\t58 text s\n\t\t59 slider (settable, float) Subtitle delay Value: 0\n\t\t60 text Position\n\t\t61 slider (settable, float) Subtitle position Value: 100\n\t\t62 text Scale\n\t\t63 slider (settable, float) Subtitle text scale Value: 0\n\t\t64 button Reset subtitle text scale\n\t\t\t65 text ↺\n\t\t66 text Font\n\t\t67 button Choose subtitle font\n\t\t\t68 text Verdana\n\t\t69 combo box (settable, float) Subtitle font size Value: 55\n\t\t70 text Color\n\t\t71 button Subtitle text color\n\t\t72 text Border\n\t\t73 combo box (settable, float) Subtitle outline width Value: 3\n\t\t74 button Subtitle border color\n\t\t75 text Shadow\n\t\t76 button Subtitle shadow color\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:05\n\t\t35 slider (settable, float) Playback position Value: 5\n\t\t36 text 0:05\n\nThe focused UI element is 67 button Choose subtitle font."
+      }
+    },
+    {
+      "action": "reopen-restores-face-but-family-reveal-fails",
+      "controls": [
+        "\t\t\t20 list item (selectable) Regular",
+        "\t\t24 edit (settable, string) Custom font name Value: Verdana",
+        "\t\t25 edit (settable, string) Font preview text Value: Test"
+      ],
+      "finding": "Settled family viewport still starts at Arial; Verdana absent from visible family rows"
+    },
+    {
+      "action": "restored-default",
+      "accessibility": {
+        "focused_element": "67 button Choose subtitle font",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t37 text Subtitles\n\t\t38 button Close sidebar\n\t\t\t39 image\n\t\t40 text Primary\n\t\t41 button Toggle subtitle visibility\n\t\t\t42 text ●\n\t\t43 button <None>\n\t\t\t44 text <None>\n\t\t45 text Secondary\n\t\t46 button Toggle secondary subtitle visibility\n\t\t\t47 text ●\n\t\t48 button Secondary subtitle: <None>\n\t\t\t49 text <None>\n\t\t50 button Load subtitle\n\t\t\t51 text Load Subtitle…\n\t\t52 button Edit primary subtitle timing and position\n\t\t\t53 text Primary\n\t\t54 button Edit secondary subtitle timing and position\n\t\t\t55 text Secondary\n\t\t56 text Delay\n\t\t57 edit (settable, float) Subtitle delay in seconds Value: 0\n\t\t58 text s\n\t\t59 slider (settable, float) Subtitle delay Value: 0\n\t\t60 text Position\n\t\t61 slider (settable, float) Subtitle position Value: 100\n\t\t62 text Scale\n\t\t63 slider (settable, float) Subtitle text scale Value: 0\n\t\t64 button Reset subtitle text scale\n\t\t\t65 text ↺\n\t\t66 text Font\n\t\t67 button Choose subtitle font\n\t\t\t68 text sans-serif\n\t\t69 combo box (settable, float) Subtitle font size Value: 55\n\t\t70 text Color\n\t\t71 button Subtitle text color\n\t\t72 text Border\n\t\t73 combo box (settable, float) Subtitle outline width Value: 3\n\t\t74 button Subtitle border color\n\t\t75 text Shadow\n\t\t76 button Subtitle shadow color\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:05\n\t\t35 slider (settable, float) Playback position Value: 5\n\t\t36 text 0:05\n\nThe focused UI element is 67 button Choose subtitle font."
+      }
+    }
+  ]
+}

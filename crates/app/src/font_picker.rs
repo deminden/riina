@@ -85,6 +85,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
             {
                 Ok(()) => {
                     if let Some(window) = window.upgrade() {
+                        window.set_picker_active(false);
                         let _ = window.hide();
                     }
                     app.set_dialog_open(false);
@@ -97,6 +98,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
         let window = picker.as_weak();
         picker.on_cancel(move || {
             if let Some(window) = window.upgrade() {
+                window.set_picker_active(false);
                 let _ = window.hide();
             }
             if let Some(app) = parent.upgrade() {
@@ -105,7 +107,11 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
             }
         });
         let parent = app.as_weak();
+        let window = picker.as_weak();
         picker.window().on_close_requested(move || {
+            if let Some(window) = window.upgrade() {
+                window.set_picker_active(false);
+            }
             if let Some(app) = parent.upgrade() {
                 app.set_dialog_open(false);
                 app.invoke_activity();
@@ -127,6 +133,9 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
             .spawn(move || {
                 let families = font_catalog::installed_families();
                 let _ = window.upgrade_in_event_loop(move |picker| {
+                    if !picker.get_picker_active() {
+                        return;
+                    }
                     let families = Rc::new(families);
                     let filtered = Rc::new(RefCell::new(Vec::<usize>::new()));
                     let selected = Rc::new(Cell::new(None::<usize>));
@@ -138,6 +147,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                         let Some(picker) = weak.upgrade() else {
                             return;
                         };
+                        picker.invoke_cancel_reveal();
                         let indices: Vec<_> = data
                             .iter()
                             .enumerate()
@@ -207,6 +217,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             return;
                         };
                         if let Some(picker) = weak.upgrade() {
+                            picker.invoke_cancel_reveal();
                             picker.set_custom_name(face.postscript_name.clone().into());
                             preview_face(&picker, family, face);
                         }
