@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local long-seek shortcuts: shared controls now route unmodified-primary
+Shift+Page Up/Down to relative +600/-600 seconds, matching the pinned default
+input configuration. Windows keyboard checks on catalog.mkv move from paused
+end to zero and then to the approximate forward-seek endpoint at 4.5 seconds,
+preserving pause and volume 37. The five-second fixture proves keyboard routing
+and endpoint behavior, not the exact ten-minute displacement; long-media and
+other OS runtime checks remain open. Evidence:
+tests/visual/long-seek-shortcuts-windows-evidence.json. Release build, strict lint,
+formatting and all 28 unit tests pass. Inventory now has 94 atomic rows and
+remains incomplete. Nothing was published.
+
 Local subtitle picker fix verified on Windows: the rebuilt e36015b player now
 steps font size 55 → 60 → 55 and outline width 3 → 4 → 3 using the keyboard.
 The observed cursor follows both native values. Pause, volume 37, delay 0,
