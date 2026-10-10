@@ -38,3 +38,13 @@ First captured corrections: the General folder chooser's toolkit padding hid its
 ellipsis; explicit original geometry keeps the glyph and keyboard activation.
 The folder label needs a gap after Save to. Floating corners now use the recorded
 macOS 26 value. These changes do not close the larger interface acceptance target.
+
+Settings now has independently implemented Video/Audio/Subtitles navigation;
+playlist and chapters share a second tab group. The pinned settings tab order
+also includes Layout, which remains unimplemented. Actual Windows shared-renderer
+captures show all five implemented panes, selected tabs and keyboard focus.
+Tab/Enter/Space navigation and Escape dismissal were exercised with catalog.mkv
+paused at 0:00 in the isolated capture profile; the owned player exited 0.
+The images expose floating controls overlapping the sidebar. Reference-matched
+tab glyphs/materials, Layout, simultaneous sidebars, resizing and control allocation
+remain open. These captures are inspection evidence, not a passed pixel comparison.

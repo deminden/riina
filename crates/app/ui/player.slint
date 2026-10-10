@@ -6,6 +6,30 @@ export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
+component SidebarTab inherits FocusScope {
+    in property <string> label;
+    in property <bool> selected;
+    callback activated();
+    height: 30px;
+    horizontal-stretch: 1;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { activated(); }
+    Rectangle {
+        border-radius: 5px;
+        background: root.selected ? #ffffff20 : touch.has-hover ? #ffffff0c : transparent;
+        border-width: root.has-focus ? 1px : 0px;
+        border-color: #90b7ef;
+        Text { text: root.label; color: root.selected ? #ffffff : #bbbbc2;
+            font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+        touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { activated(); return accept; }
+        return reject;
+    }
+}
 // Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
 // Colors and glyph metrics are estimates until matching macOS captures exist.
 component PlayerSlider inherits Rectangle {
@@ -579,8 +603,24 @@ export component PlayerWindow inherits Window {
             // Insets and material remain provisional until reference captures exist.
             VerticalLayout { padding: 12px; spacing: 8px;
                 HorizontalLayout {
-                    Text { text: sidebar == 1 ? "Audio" : sidebar == 2 ? "Subtitles" : sidebar == 3 ? "Chapters" : sidebar == 6 ? "Video" : "Playlist";
-                        color: #eeeeee; vertical-alignment: center; }
+                    // Tabs switch the visible pane without closing it or changing catalog tokens.
+                    // Layout is still pending; do not expose an empty reference tab.
+                    if sidebar == 1 || sidebar == 2 || sidebar == 6 : HorizontalLayout {
+                        spacing: 4px;
+                        SidebarTab { label: "Video"; selected: root.sidebar == 6;
+                            activated => { root.sidebar = 6; } }
+                        SidebarTab { label: "Audio"; selected: root.sidebar == 1;
+                            activated => { root.sidebar = 1; } }
+                        SidebarTab { label: "Subtitles"; selected: root.sidebar == 2;
+                            activated => { root.sidebar = 2; } }
+                    }
+                    if sidebar == 3 || sidebar == 4 : HorizontalLayout {
+                        spacing: 4px;
+                        SidebarTab { label: "Playlist"; selected: root.sidebar == 4;
+                            activated => { root.sidebar = 4; } }
+                        SidebarTab { label: "Chapters"; selected: root.sidebar == 3;
+                            activated => { root.sidebar = 3; } }
+                    }
                     Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar"; activated => { root.sidebar = 0; } }
                 }
                 if sidebar == 1 : HorizontalLayout {

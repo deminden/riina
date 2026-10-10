@@ -1,4 +1,9 @@
 The user now prioritizes full interface parity before further feature expansion;
+settings now has Video/Audio/Subtitles tabs and Playlist/Chapters navigation.
+All five panes were captured in the running Windows player; keyboard tab switching
+and Escape dismissal worked. Layout, independent simultaneous panels and exact
+reference appearance remain open; captured floating controls overlap sidebars.
+Formatting, strict lint, workspace tests and the optimized Windows build passed.
 see docs/interface-parity-plan.md. Windows screen capture succeeds again. Actual
 shared-renderer and General Preferences images were inspected: the chooser label
 was blank under toolkit padding and the folder path abutted Save to. An original
