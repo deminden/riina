@@ -116,6 +116,96 @@ fn ab_repeat_observes_points_and_wraps_playback() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies file-local A–B loop ownership"]
+fn ab_repeat_resets_on_replacement_and_stop() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    let load = |name: &str| {
+        Command::Load(
+            root.join("tests/fixtures")
+                .join(name)
+                .to_string_lossy()
+                .into_owned(),
+        )
+    };
+    player.send(load("catalog.mkv")).unwrap();
+    let first = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
+    });
+    player
+        .send(Command::SetAbLoop {
+            a: Some(0.1),
+            b: Some(0.7),
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.ab_loop_a.is_some() && state.ab_loop_b.is_some()
+    });
+    player.send(load("moving-square.avi")).unwrap();
+    // Going beyond the old B point proves the decoder reset its loop, rather
+    // than merely making our cached markers disappear during begin_load.
+    let replacement = wait_for(&receiver, |state| {
+        state.generation > first.generation
+            && state.phase == Phase::Playing
+            && state.position.is_some_and(|p| p > 1.0)
+    });
+    assert!(replacement.ab_loop_a.is_none() && replacement.ab_loop_b.is_none());
+    assert_eq!(replacement.error, None);
+    player
+        .send(Command::SetAbLoop {
+            a: Some(0.8),
+            b: Some(1.8),
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.ab_loop_a.is_some() && state.ab_loop_b.is_some()
+    });
+    player.send(Command::Stop).unwrap();
+    let stopped = wait_for(&receiver, |state| state.phase == Phase::Stopped);
+    assert!(stopped.ab_loop_a.is_none() && stopped.ab_loop_b.is_none());
+    player.send(load("catalog.mkv")).unwrap();
+    let reopened = wait_for(&receiver, |state| {
+        state.generation > replacement.generation
+            && state.phase == Phase::Playing
+            && state.position.is_some_and(|p| p > 2.0)
+    });
+    assert!(reopened.ab_loop_a.is_none() && reopened.ab_loop_b.is_none());
+    assert_eq!(reopened.error, None);
+    player
+        .send(Command::SetAbLoop {
+            a: Some(0.8),
+            b: Some(1.8),
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.ab_loop_a.is_some() && state.ab_loop_b.is_some()
+    });
+    player
+        .send(Command::AppendFiles(vec![
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ]))
+        .unwrap();
+    wait_for(&receiver, |state| state.playlist.len() == 2);
+    player.send(Command::PlaylistNext).unwrap();
+    let advanced = wait_for(&receiver, |state| {
+        state.generation > reopened.generation
+            && state.phase == Phase::Playing
+            && state.position.is_some_and(|p| p > 2.0)
+    });
+    assert!(advanced.ab_loop_a.is_none() && advanced.ab_loop_b.is_none());
+    assert_eq!(advanced.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; decodes original PQ/HLG and checks replacement metadata"]
 fn hdr_metadata_replacement_and_stop() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

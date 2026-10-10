@@ -116,7 +116,10 @@ impl Player {
                 let initialized = (|| -> Result<(), String> {
                     for (key, value) in [("config", "no"), ("load-scripts", "no"), ("idle", "yes"),
                         ("vo", if headless { "null" } else { "libmpv" }),
-                        ("volume-max", "200"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes")] {
+                        ("volume-max", "200"), ("terminal", "no"), ("hwdec", "auto-safe"), ("keep-open", "yes"),
+                        // Loop points belong to the current media, unlike volume
+                        // and speed. Reset in mpv too, not just in our UI snapshot.
+                        ("reset-on-next-file", "ab-loop-a,ab-loop-b")] {
                         let key = CString::new(key).unwrap();
                         let value = CString::new(value).unwrap();
                         worker_api.check((worker_api.option)(handle, key.as_ptr(), value.as_ptr()))?;
@@ -189,7 +192,12 @@ impl Player {
                             6 => { seek_pending = false; state.begin_load(); },
                             7 if !event.data.is_null() => {
                                 let end = &*event.data.cast::<EndFile>();
+                                seek_pending = false;
                                 state.phase = match end.reason { 0 => Phase::Ended, 4 => Phase::Failed, _ => Phase::Stopped };
+                                if matches!(state.phase, Phase::Stopped | Phase::Failed) {
+                                    state.ab_loop_a = None;
+                                    state.ab_loop_b = None;
+                                }
                                 if end.error < 0 { state.error = worker_api.check(end.error).err(); }
                                 if end.reason == 4 { resume_on_load = false; }
                             }

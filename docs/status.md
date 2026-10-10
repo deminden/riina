@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+Local A–B lifecycle increment: the backend now resets A/B options on new media,
+matching the pinned reference configuration, rather than only clearing cached
+markers. Native coverage verifies replacement, Stop/reopen and playlist advance
+by playing past the previous B point. Stop/failure clears cached points and
+end-file invalidates pending seek completion. UI parity and other-OS runtime
+validation remain open; this increment has not been pushed publicly.
+
 Local playback increment: typed A–B point setting and native point cycling are
 connected to shared playback, with observed optional numeric points. Command–L
 on macOS and Control–L on Windows/Linux invoke the default action. Five Windows

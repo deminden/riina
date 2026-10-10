@@ -472,6 +472,18 @@ copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
 # Seek OSD state verification · 2026-10-10
 
+A–B lifecycle: the independent backend selects `reset-on-next-file` for just
+`ab-loop-a,ab-loop-b`, matching the option contract recorded in pinned
+MPVController.swift line 575. The native test loads media with an active loop,
+replaces it and requires observed playback past the former B point. It repeats
+that check after Stop/reopen and playlist advance, with both observed points
+cleared. This proves the decoder reset as well as cache invalidation. The
+[mpv reset option](https://mpv.io/manual/stable/#options) documents the per-file
+reset mechanism. These null-video tests do not establish displayed GUI parity
+or persistence behavior across application sessions.
+Final Windows checks pass 24 workspace unit tests, all six explicit native tests
+(8.05 seconds), strict lint and the optimized application build.
+
 Local A–B repeat increment: Windows workspace checks pass 24 unit tests and
 strict lint. All five explicit native tests pass in 2.56 seconds. The added test
 observes A=0.000001 and B=0.6, resumes from 0.25 and requires a completed native
