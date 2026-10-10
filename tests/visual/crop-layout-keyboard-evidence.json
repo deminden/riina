@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "a69ab1ef647a58f4e75872573e830d3468bc4d08",
+  "binary_sha256": "9a01772acea2fd61523bcd2b3afeeb3a75ddec9d9bda717477da57a7529c9d3a",
+  "platform": "Windows",
+  "renderer": "shared GL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "initial_player": {"position": 2, "volume": 37, "play_button": "Play"},
+  "entry": "Video shortcut, focus custom aspect editor without submitting, Tab through crop controls, Space on Custom",
+  "initial_selection": "(0, 0) (320×180)",
+  "presets": ["4:3", "16:9", "16:10", "21:9", "3:2", "5:4"],
+  "selected_4_3": "(40, 0) (240×180)",
+  "cancellation": "Escape from focused 4:3 preset restores player scope and settled Play/position 2/volume 37",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "scope": "Current padded-picture/shadow build: accessible crop entry, preset label, paused cancellation and clean shutdown",
+  "unverified": ["picture pixels", "shadow blur matching", "pointer selection and hit targeting", "Done confirmation on this build", "native window route", "other OS runtime"]
+}

@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Current shared-GL crop layout/shadow build has Windows keyboard evidence on
+source a69ab1e: Custom opens at whole source, 4:3 produces (40, 0) (240×180),
+and Escape restores settled Play/position 2/volume 37 with player scope focus.
+Clean close returns 0 with empty stderr. Binary hash and limits are recorded in
+tests/visual/crop-layout-keyboard-evidence.json. The release build passes in
+33.26 seconds. No picture/blur/pointer proof, current Done verification or native
+window GUI evidence is claimed. Nothing published.
+
 Native crop exit now queues margin reset before the crop-exit command that can
 restore playing state. This removes an ordering gap in which resumed frames
 could briefly retain editor margins. All 29 native tests pass in 12.38 seconds
