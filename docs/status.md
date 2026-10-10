@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local numeric delay refresh Windows verification: the fixed release displays
+observed primary delay one after slider input, then displays zero after clearing
+and submitting the numeric field. Secondary keyboard text -7.375 submits to its
+native delay without resuming playback. Switching to Primary restores zero in
+both field and slider; switching back restores secondary -7.375 in both. Six
+observations with binary/source hashes are recorded in numeric-delay-refresh-
+windows-evidence.json. The release build passes and the player closes cleanly.
+This verifies the edited-field binding fix and secondary numeric routing at
+paused EOF without subtitle tracks, not rendered synchronization or visual parity.
+Locale formatting and focus-return parity remain pending. Changes remain local.
+
 Local numeric delay Windows verification and binding fix: actual keyboard typing
 6.125 leaves native delay zero until Enter, then the observed slider reports
 6.125 while playback remains paused. Clearing and submitting the field resets
