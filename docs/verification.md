@@ -607,3 +607,25 @@ native error. Eight explicit native tests pass in 9.19 seconds, alongside
 24 unit tests, strict lint, formatting and the Windows release build.
 Current GUI routing, speed/volume feedback appearance and other-OS runtime
 remain unverified. Earlier GUI evidence belongs to its recorded source hashes.
+
+## Relative chapter navigation and panel shortcuts · 2026-10-10
+
+The shared shortcut route delegates relative chapter changes to native `add
+chapter`, preserving pause and the engine's [chapter restart threshold](https://mpv.io/manual/stable/#options-chapter-seek-threshold).
+This differs intentionally from the existing sidebar chapter selection action,
+which resumes playback according to the pinned reference. The native catalog
+test verifies previous/next seeks between zero and two seconds while paused,
+then backward navigation from half a second inside the first chapter returns
+to zero without changing media generation or reporting an error. All eight
+explicit native tests pass in 9.40 seconds; 24 workspace unit tests, strict lint,
+formatting and the Windows release build pass.
+
+Actual Windows Control+Shift+period/comma inputs with the timeline focused seek
+from 0.5 to 2 and back to zero; the Play button continues to indicate pause.
+Control+Shift+C and Control+Shift+P each open and close the corresponding panel
+without moving the timeline or resuming playback. Evidence with canonical source
+hashes, binary hash and seven observations is in
+tests/visual/chapter-shortcut-windows-evidence.json. The app closes with no
+remaining window or process. No screenshot/pixel comparison was attempted in
+this check. Last-chapter/playlist transition, backward behavior beyond the
+five-second threshold, other keyboard layouts and other-OS runtime are pending.

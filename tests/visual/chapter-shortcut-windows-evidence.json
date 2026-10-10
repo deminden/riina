@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-10T00:28:51.525Z",
+  "platform": "Windows",
+  "baseline": "IINA v1.5.0",
+  "source_base_commit": "25b814cb9605493ba7f4d8c353fc24ccfd9adefe",
+  "source_state": "base plus chapter navigation and panel shortcuts",
+  "source_hash_format": "UTF-8 with LF line endings matching Git canonical bytes",
+  "source_sha256": {
+    "crates/core/src/lib.rs": "71377ffc2180e523bab77bb17fd3c702cca578118afde9aee1ff99cfa373c9ec",
+    "crates/app/src/player_ui.rs": "d787265afdc21c79b8f0ca50730230ecf26073ce574eca3059909cd33c145ea9",
+    "crates/app/ui/player.slint": "ad0b705c7c081332506dd3b5355ea3c8ebec86620acc3db3df9f17cbd8cc7fa1",
+    "crates/mpv/tests/native.rs": "34d087713ae7e038f1359bcdf1b35bc93f6ad2866a98e10527adf04a116503ef"
+  },
+  "binary_sha256": "883c0543ae2d00d194ac5550c2ec4af5bfcb085e2dd73f4c01485ff49c211640",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "method": "computer-use @oai/sky keyboard input and text accessibility",
+  "observations": [
+    {
+      "action": "seek-to-half-second",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:00\n\t\t35 slider (settable, float) Playback position Value: 0.5\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 0.5."
+    },
+    {
+      "action": "Control+Shift+period next chapter with slider focus",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:02\n\t\t35 slider (settable, float) Playback position Value: 2\n\t\t36 text 0:05\n\t\t39 text 00:02\n\t\t40 text / 00:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 2."
+    },
+    {
+      "action": "Control+Shift+comma previous chapter with slider focus",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:00\n\t\t35 slider (settable, float) Playback position Value: 0\n\t\t36 text 0:05\n\t\t41 text 00:00\n\t\t42 text / 00:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 0."
+    },
+    {
+      "action": "Control+Shift+c chapter panel",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t43 text Chapters\n\t\t44 button Close sidebar\n\t\t\t45 image\n\t\t46 button 0:00 Opening\n\t\t\t47 text 0:00 Opening\n\t\t48 button 0:02 Moving square\n\t\t\t49 text 0:02 Moving square\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:00\n\t\t35 slider (settable, float) Playback position Value: 0\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 0."
+    },
+    {
+      "action": "Control+Shift+c closes chapter panel",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:00\n\t\t35 slider (settable, float) Playback position Value: 0\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 0."
+    },
+    {
+      "action": "Control+Shift+p opens playlist panel",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t50 text Playlist\n\t\t51 button Close sidebar\n\t\t\t52 image\n\t\t53 button catalog.mkv\n\t\t\t54 text catalog.mkv\n\t\t55 button Add files to playlist\n\t\t\t56 image\n\t\t57 button (disabled) Remove selected playlist entry\n\t\t\t58 text −\n\t\t59 button (disabled) Move selected entry up\n\t\t\t60 text ↑\n\t\t61 button (disabled) Move selected entry down\n\t\t\t62 text ↓\n\t\t63 button Clear playlist except current file\n\t\t\t64 text ⌫\n\t\t65 button Cycle repeat: Off\n\t\t\t66 text ↻\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:00\n\t\t35 slider (settable, float) Playback position Value: 0\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 0."
+    },
+    {
+      "action": "Control+Shift+p closes playlist panel",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:00\n\t\t35 slider (settable, float) Playback position Value: 0\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 0."
+    }
+  ],
+  "shutdown_window_count": 0,
+  "limitations": [
+    "No rendered screenshot or pixel comparison",
+    "No macOS/Linux runtime",
+    "Last chapter and playlist transition unverified",
+    "Backward threshold beyond five seconds unverified",
+    "Other keyboard layouts unverified"
+  ]
+}

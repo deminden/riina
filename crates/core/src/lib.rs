@@ -23,6 +23,7 @@ pub enum Command {
     PlaylistPrevious,
     SelectTrack { kind: TrackKind, id: Option<i64> },
     SelectChapter(usize),
+    AdjustChapter(i32),
     SelectPlaylistEntry(usize),
     SelectPlaylistId(i64),
     RemovePlaylistId(i64),
@@ -84,6 +85,11 @@ impl Command {
                 id.map_or_else(|| "no".into(), |id| id.to_string()),
             ],
             Self::SelectChapter(index) => vec!["set".into(), "chapter".into(), index.to_string()],
+            Self::AdjustChapter(delta) => {
+                // Relative navigation keeps native restart-threshold and boundary
+                // semantics; selecting a sidebar chapter intentionally resumes.
+                vec!["add".into(), "chapter".into(), delta.to_string()]
+            }
             Self::SelectPlaylistEntry(index) => {
                 // Setting playlist-pos does not reload an already selected entry.
                 vec!["playlist-play-index".into(), index.to_string()]

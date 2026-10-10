@@ -153,6 +153,7 @@ export component PlayerWindow inherits Window {
     callback frame-step();
     callback frame-back-step();
     callback subtitle-seek(int);
+    callback adjust-chapter(int);
     callback adjust-subtitle-delay(float);
     callback reset-subtitle-delay();
     callback adjust-audio-delay(float);
@@ -347,7 +348,14 @@ export component PlayerWindow inherits Window {
         key-pressed(event) => {
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
-                if event.modifiers.shift { return reject; }
+                if event.modifiers.shift {
+                    if event.modifiers.alt { return reject; }
+                    if event.text == ">" { root.adjust-chapter(1); return accept; }
+                    if event.text == "<" { root.adjust-chapter(-1); return accept; }
+                    if event.text == "C" { root.sidebar = root.sidebar == 3 ? 0 : 3; return accept; }
+                    if event.text == "P" { root.sidebar = root.sidebar == 4 ? 0 : 4; return accept; }
+                    return reject;
+                }
                 if event.modifiers.alt {
                     if event.text == "[" { root.speed(1 / 1.1); return accept; }
                     if event.text == "]" { root.speed(1.1); return accept; }

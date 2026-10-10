@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local chapter increment: Shift+primary+> / < invoke native relative chapter
+navigation; Shift+primary+C / P toggle the chapter and playlist panels. Primary
+is Command on macOS and Control on Windows/Linux. Eight Windows native tests
+pass (9.40 seconds), verifying forward/backward chapter seeks, pause retention
+and backward navigation at the first chapter, alongside 24 unit tests, strict
+lint and the release build. Actual Windows keyboard/accessibility evidence
+verifies navigation with timeline focus and both panel toggles. Last-chapter
+transitions, backward restart threshold, rendered parity and other-OS runtime
+remain open. See tests/visual/chapter-shortcut-windows-evidence.json. Work stays
+local; no public GitHub update was made.
+
 Local volume/speed increment: shortcut deltas and speed multipliers now operate
 on native current values rather than a coalesced UI snapshot. Native volume
 starts capped at 100; enabling boost permits 200, and disabling it clamps the

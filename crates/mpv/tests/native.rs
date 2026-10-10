@@ -864,7 +864,7 @@ fn chapters_external_tracks_and_playlist_editing() {
     assert!(reset.paused);
     assert_eq!(reset.error, None);
     player.send(Command::SelectChapter(1)).unwrap();
-    wait_for(&receiver, |state| {
+    let selected_chapter = wait_for(&receiver, |state| {
         !state.paused
             && state
                 .position
@@ -872,6 +872,50 @@ fn chapters_external_tracks_and_playlist_editing() {
     });
     player.send(Command::TogglePause).unwrap();
     wait_for(&receiver, |state| state.phase == Phase::Paused);
+    player.send(Command::AdjustChapter(-1)).unwrap();
+    let previous_chapter = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > selected_chapter.completed_seeks
+            && state.position.is_some_and(|p| p < 0.1)
+    });
+    assert_eq!(previous_chapter.error, None);
+    player.send(Command::AdjustChapter(1)).unwrap();
+    let next_chapter = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > previous_chapter.completed_seeks
+            && state.position.is_some_and(|p| (p - 2.0).abs() < 0.05)
+    });
+    assert_eq!(next_chapter.error, None);
+    player.send(Command::AdjustChapter(-1)).unwrap();
+    let first_chapter = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > next_chapter.completed_seeks
+            && state.position.is_some_and(|p| p < 0.1)
+    });
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let inside_first = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > first_chapter.completed_seeks
+            && state.position.is_some_and(|p| (p - 0.5).abs() < 0.05)
+    });
+    player.send(Command::AdjustChapter(-1)).unwrap();
+    let boundary = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > inside_first.completed_seeks
+            && state.position.is_some_and(|p| p < 0.1)
+    });
+    assert_eq!(boundary.generation, loaded.generation);
+    assert_eq!(boundary.error, None);
     player
         .send(Command::AppendFiles(vec![
             fixture("moving-square.avi"),

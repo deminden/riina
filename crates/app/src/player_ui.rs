@@ -331,6 +331,18 @@ pub(crate) fn configure_player(
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
     connect!(on_frame_back_step, Command::FrameBackStep);
+    let chapter_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_adjust_chapter(move |direction| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        if let Err(error) = chapter_player.send(Command::AdjustChapter(direction))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
     let subtitle_player = player.command_sender();
     let weak = app.as_weak();
     app.on_subtitle_seek(move |direction| {
