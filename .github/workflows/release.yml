@@ -205,6 +205,8 @@ jobs:
 
           [Download Windows x64]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip) · [Complete source]($repo/releases/download/$tag/riina-$version-source.tar.zst) · [SHA-256 checksums]($repo/releases/download/$tag/SHA256SUMS.txt)
 
+          [![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.18.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
+
           The combined application is distributed under GPLv3 terms. Riina's
           independently written source remains MIT-licensed; third-party terms
           and notices are included in the package and source archive.
@@ -254,6 +256,8 @@ jobs:
           [Download source snapshot]($repo/releases/download/$tag/riina-$version-source.tar.gz) · [SHA-256 checksum]($repo/releases/download/$tag/riina-$version-source.tar.gz.sha256)
 
           The Windows binary is not attached while the native dependency and redistribution audit remains open. The audited release workflow will add the portable Windows package, complete corresponding source and checksums after that gate is closed and all package tests pass.
+
+          [![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.18.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
           EOF
           gh release create "$tag" \
             "release-assets/riina-$version-source.tar.gz" \
