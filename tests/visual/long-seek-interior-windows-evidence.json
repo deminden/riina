@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-10T01:27:33.608Z",
+  "source_commit": "fd2f950",
+  "source_sha256": "376f2a3719bedb15e768d0e9b29e648b212529034cef3f24544db8fa87b5bc9c",
+  "binary_sha256": "e73c5e765d1c0cde31ffdba7d4a2526b8a9c117a0929aa8fb045c561ab697368",
+  "method": "Windows accessibility and keyboard using @oai/sky",
+  "fixture": "tests/fixtures/long-silence.wav",
+  "fixture_sha256": "d561ee9a45f490108d7c76e75c2525bb4e97f2f46deb87dfa3ddaff6386e485c",
+  "scope": "Interior ten-minute forward/backward seeking from focused timeline, preserved pause and volume, rejection of extra Control modifier",
+  "limitations": [
+    "Audio-only PCM fixture does not prove video keyframe seek accuracy",
+    "No screenshot or macOS/Linux runtime check"
+  ],
+  "observations": [
+    {
+      "action": "paused-at100",
+      "accessibility": {
+        "focused_element": "35 slider (settable, float) Playback position Value: 99.99998",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text long-silence.wav\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 1:39\n\t\t35 slider (settable, float) Playback position Value: 99.99998\n\t\t36 text 21:40\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 99.99998."
+      }
+    },
+    {
+      "action": "shift-page-up700",
+      "accessibility": {
+        "focused_element": "35 slider (settable, float) Playback position Value: 700",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text long-silence.wav\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 11:39\n\t\t35 slider (settable, float) Playback position Value: 700\n\t\t36 text 21:40\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 700."
+      }
+    },
+    {
+      "action": "shift-page-down100",
+      "accessibility": {
+        "focused_element": "35 slider (settable, float) Playback position Value: 99.99996",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text long-silence.wav\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 1:39\n\t\t35 slider (settable, float) Playback position Value: 99.99996\n\t\t36 text 21:40\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 99.99996."
+      }
+    },
+    {
+      "action": "control-shift-page-up-rejected",
+      "accessibility": {
+        "focused_element": "35 slider (settable, float) Playback position Value: 99.99996",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text long-silence.wav\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 1:39\n\t\t35 slider (settable, float) Playback position Value: 99.99996\n\t\t36 text 21:40\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 99.99996."
+      }
+    }
+  ]
+}

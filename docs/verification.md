@@ -755,6 +755,19 @@ tests pass in 10.19 seconds; 24 unit tests, strict lint and formatting pass.
 This proves independent property handling, not rendered placement. Shared UI
 position controls, actual visual geometry and macOS/Linux runtime remain open.
 
+## Ten-minute relative seeks · 2026-10-10
+
+`long_relative_seeks_preserve_pause_and_volume` uses the original 1300-second
+silent PCM fixture. Paused native relative +600/-600 seeks from 100 seconds
+observe 700 then 100 within 0.1 seconds, with volume 37 and no native error.
+All 13 native tests pass in 9.98 seconds; 28 unit tests and strict lint pass.
+The Windows keyboard check independently exercises Shift+Page Up/Down from
+the focused timeline and observes 100 → 700 → 99.99996, preserving pause and
+volume. Adding Control does not seek. Binary, source and fixture hashes accompany
+the accessibility observations in tests/visual/long-seek-interior-windows-evidence.json.
+This closes the earlier short-fixture displacement gap. Audio PCM does not prove
+video keyframe seek accuracy; other OS runtime and rendered OSD remain open.
+
 ## Shared secondary selector controls · 2026-10-10
 
 The subtitle pane adds a Secondary catalog after Primary with separate visibility

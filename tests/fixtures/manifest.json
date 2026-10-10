@@ -62,5 +62,12 @@
     "origin": "original synthetic generation",
     "command": "python scripts/generate-ass-fixture.py",
     "description": "Original ASS subtitle style and two timed cues; no bundled font"
+  },
+  "long-silence.wav": {
+    "sha256": "d561ee9a45f490108d7c76e75c2525bb4e97f2f46deb87dfa3ddaff6386e485c",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-long-seek-fixture.py",
+    "description": "1300 s silent mono unsigned 8-bit PCM at 1000 Hz for long relative seeks"
   }
 }

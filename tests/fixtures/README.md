@@ -34,3 +34,9 @@ Container mappings: [Matroska](https://www.matroska.org/technical/codec_specs.ht
 Packing: [FFmpeg v210 decoder](https://www.ffmpeg.org/doxygen/8.0/libavcodec_2v210dec_8c_source.html).
 All original fixture bytes and patch metadata are hashed in manifest.json.
 Compressed HDR, malformed containers and network fixtures remain pending.
+
+`long-silence.wav` is 1300 seconds of original silent mono PCM. Its compact
+1000 Hz unsigned 8-bit samples allow ten-minute seek tests without audible
+output or a large video fixture. Regenerate with
+`python scripts/generate-long-seek-fixture.py`; it is CC0-1.0 with its hash in
+manifest.json. It proves timeline behavior, not video seek accuracy.

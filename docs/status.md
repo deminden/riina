@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local ten-minute seek verification now uses original CC0 long-silence.wav
+(1300 seconds). Native paused seeks verify 100 → 700 → 100 seconds within 0.1 s,
+preserving volume 37 with no error. Windows Shift+Page Up/Down from the focused
+timeline likewise observe 100 → 700 → 99.99996, retaining pause and volume;
+an additional Control modifier is rejected. Scoped evidence and hashes:
+tests/visual/long-seek-interior-windows-evidence.json. All 13 native tests and
+28 unit tests pass, strict lint passes, and all ten fixture hashes validate.
+Video keyframe accuracy and macOS/Linux runtime verification remain open.
+No public update was made.
+
 Local long-seek shortcuts: shared controls now route unmodified-primary
 Shift+Page Up/Down to relative +600/-600 seconds, matching the pinned default
 input configuration. Windows keyboard checks on catalog.mkv move from paused

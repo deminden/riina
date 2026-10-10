@@ -123,6 +123,65 @@ fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies ten-minute relative seeks away from endpoints"]
+fn long_relative_seeks_preserve_pause_and_volume() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/long-silence.wav")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing
+            && state
+                .duration
+                .is_some_and(|value| (value - 1300.0).abs() < 0.01)
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| (state.volume - 37.0).abs() < 0.01);
+    player
+        .send(Command::Seek {
+            seconds: 100.0,
+            absolute: true,
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .position
+            .is_some_and(|value| (value - 100.0).abs() < 0.1)
+    });
+    // Stay away from boundaries: clamping could hide an incorrect seek amount.
+    for (seconds, expected) in [(600.0, 700.0), (-600.0, 100.0)] {
+        player
+            .send(Command::Seek {
+                seconds,
+                absolute: false,
+            })
+            .unwrap();
+        let sought = wait_for(&receiver, |state| {
+            state
+                .position
+                .is_some_and(|value| (value - expected).abs() < 0.1)
+        });
+        assert!(sought.paused);
+        assert!((sought.volume - 37.0).abs() < 0.01);
+        assert_eq!(sought.error, None);
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies selected ASS warning across subtitle lanes"]
 fn subtitle_style_warning_follows_selected_ass_lanes() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
