@@ -1,4 +1,4 @@
-use crate::{NativeVideoHost, PlayerWindow, media_open, ui_dialogs::Purpose};
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, media_open, ui_dialogs::Purpose};
 use riina_mpv::CommandSender;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 
@@ -7,6 +7,7 @@ pub fn open(
     _host: Option<slint::Weak<NativeVideoHost>>,
     purpose: Purpose,
     sender: CommandSender,
+    welcome: Option<slint::Weak<WelcomeWindow>>,
 ) {
     if app.get_dialog_open() {
         return;
@@ -47,6 +48,13 @@ pub fn open(
         .await;
         app.set_dialog_open(false);
         app.invoke_activity();
+        if result.as_ref().is_ok_and(Vec::is_empty)
+            && let Some(welcome) = welcome.as_ref().and_then(slint::Weak::upgrade)
+        {
+            let _ = app.hide();
+            let _ = welcome.show();
+            return;
+        }
         let result = result.and_then(|paths| {
             if matches!(purpose, Purpose::Media | Purpose::Playlist) {
                 media_open::selection(&app, paths, matches!(purpose, Purpose::Playlist), sender);

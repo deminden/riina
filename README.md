@@ -1,7 +1,15 @@
 # riina
 
 Rust IINA reimplementation, targeting
-official **IINA v1.5.0**. This is an early development build, not a parity release.
+official **IINA v1.5.0**. Riina 0.2.0 is an early development build, not a parity release.
+
+[![Latest release](https://img.shields.io/github/v/release/deminden/riina?label=Download%20Windows%20x64)](https://github.com/deminden/riina/releases/latest)
+
+## Downloads
+
+The [latest GitHub Release](https://github.com/deminden/riina/releases/latest) lists
+the Windows x64 portable ZIP first, with its complete corresponding source archive
+and SHA-256 checksums alongside it.
 
 Windows 11 is the current supported platform; macOS and Linux ports are near-term work.
 Their shared GL application backends and build matrix are now under validation;
@@ -17,7 +25,10 @@ On Windows 11 x64, install Rust 1.99.0 and MSVC C++ build tools with Windows SDK
 Run `./scripts/fetch-reference.ps1`, then `./scripts/fetch-mpv.ps1` (requires 7-Zip).
 Build with `cargo build --workspace --locked`; run with
 `cargo run -p riina --locked -- "C:\media\movie.mkv"`.
-The executable uses the pinned development DLL or a DLL beside the executable.
+The local development executable uses the pinned development DLL; a portable
+release ZIP includes its matching media runtime beside the executable. Verified
+release downloads include the Windows x64 package, complete corresponding source
+archive and SHA-256 checksums on the repository's GitHub Releases page.
 `./scripts/dev.ps1` also supports the workspace-local tools prepared during development.
 
 Implemented slice: local-file dialog with batch selection, file filtering and
@@ -36,14 +47,14 @@ in progress. Public updates group substantial milestones.
 
 See [product specification](docs/product-spec.md), [source audit](docs/upstream-audit.md),
 [visual specification](docs/visual-spec.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
-Native binary redistribution is not ready; this checkout is a development workspace.
-Original riina source is [MIT licensed](LICENSE). Third-party dependencies and
-references retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md)
-and the [independent implementation policy](docs/licensing.md). The MIT grant does
-not relicense IINA or the development libmpv DLL. Binary distribution remains gated
-on the dependency and corresponding-source audit.
+Riina's independently written source remains [MIT licensed](LICENSE). The combined
+application package is distributed under GPLv3 terms; see the included
+[GPLv3 text](LICENSE-GPL-3.0.txt) and [distribution policy](docs/licensing.md).
+Third-party components retain their own licenses and notices. Each release asset
+must be rebuilt and pass its dependency, source and native playback checks before
+publication.
 
-[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.13.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
+[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.18.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
 The repository contains source and original test fixtures. Downloaded tools, native
 binaries and raw desktop captures stay local. Evidence summaries describe their
 tested binary and known limitations; screenshot paths refer to local observations.

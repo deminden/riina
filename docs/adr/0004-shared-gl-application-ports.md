@@ -11,7 +11,7 @@ is retained through the request. The shared dialog-open gate prevents duplicate
 requests and parent close while a picker is pending. Acceptance uses the same
 background discovery and typed commands as Windows.
 
-Preferences use dirs 6.0.0 configuration-directory discovery: macOS Application
+Preferences use dirs 7.0.0 configuration-directory discovery: macOS Application
 Support and Linux XDG configuration locations. POSIX rename replaces a fully
 written, synchronized temporary file; Linux also synchronizes its parent directory.
 Replacement files are created exclusively with a process/sequence name so
@@ -46,7 +46,7 @@ Playback, dialogs, fullscreen, GL surface lifecycle, accessibility, DPI, gracefu
 shutdown, HDR and reference visual comparison still require real runtime evidence.
 
 API references: [rfd async dialog](https://docs.rs/rfd/0.17.2/rfd/struct.AsyncFileDialog.html),
-[dirs configuration directory](https://docs.rs/dirs/6.0.0/dirs/fn.config_dir.html),
+[dirs configuration directory](https://docs.rs/dirs/7.0.0/dirs/fn.config_dir.html),
 [XDG base directories](https://specifications.freedesktop.org/basedir/0.8/).
 Filename sorting: [Foundation localizedStandardCompare](https://developer.apple.com/documentation/foundation/nsstring/localizedstandardcompare(_:)),
 [objc2 NSString](https://docs.rs/objc2-foundation/0.3.2/objc2_foundation/struct.NSString.html).

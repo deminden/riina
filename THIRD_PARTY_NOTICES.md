@@ -1,10 +1,12 @@
-# Third-party notices · development audit
+# Third-party notices
 
 Original riina Rust, Slint definitions, scripts and documentation are MIT; see
-LICENSE. The riina-mpv ABI declarations retain the ISC grant below. This grants
-rights to riina's original contributions, not to third-party code or assets.
-Dependency licenses and the combined binary's distribution obligations are
-separate from the MIT license on original source. See docs/licensing.md.
+LICENSE. The combined application package is distributed under GPLv3 terms; see
+LICENSE-GPL-3.0.txt. The riina-mpv ABI declarations retain the ISC grant below.
+Third-party components retain their own licenses and notices. The Windows release
+package includes the licenses collected from the exact native source checkouts in
+THIRD_PARTY_LICENSES/; the corresponding source archive includes those checkouts,
+the locked Rust crate sources and the build recipes.
 
 IINA v1.5.0, https://github.com/iina/iina, commit fbcff4df7183b335880396af0655f6bb89d46442:
 GPL version 3 text. Inspected headers attribute PlayerCore/MPVController to lhc (2016),
@@ -31,16 +33,18 @@ follow PlayerCore.openURLs (lhc, 2016), DraggingDetect.getPlayableFiles (Yuze Ji
 Explorer natural comparison replaces Foundation's localized comparison; directory
 expansion and alias resolution remain incomplete.
 
-Slint 1.13.1/slint-build 1.13.1: select LicenseRef-Slint-Royalty-free-2.0 from
+Slint 1.18.1/slint-build 1.18.1: select LicenseRef-Slint-Royalty-free-2.0 from
 the crate's offered licenses. This Windows desktop application uses its section
 2(b) attribution option: the official Slint badge is displayed in the public
 repository README. Slint itself is not relicensed as MIT. The badge is linked
-from the pinned v1.13.1 upstream resource rather than copied into riina assets.
+from the pinned v1.18.1 upstream resource rather than copied into riina assets.
 OpenGL example source by SixtyFPS GmbH is MIT; inspected as interop guidance. Our
 renderer implementation is independently written with mpv ABI declarations.
-glow 0.16.0: MIT/Apache-2.0/Zlib; libloading 0.8.9: ISC;
-serde/serde_json: MIT/Apache-2.0; windows 0.61.3: MIT/Apache-2.0.
-Resolved transitive dependency licenses must be inventoried before distribution.
+glow 0.18.0: MIT/Apache-2.0/Zlib; libloading 0.9.0: ISC;
+serde/serde_json: MIT/Apache-2.0; windows 0.62.2: MIT/Apache-2.0.
+Cargo.lock pins the complete dependency graph. The source archive vendors the
+locked crates with their original license files, alongside this notice and the
+Unicode notice under third-party-licenses/.
 
 regex 1.13.1 (https://github.com/rust-lang/regex): selected MIT option from
 MIT OR Apache-2.0, Rust Project Developers. Already present in the dependency
@@ -50,7 +54,7 @@ ratio syntax/intent logic remains independently implemented; third-party
 license files are retained in the pinned development cache.
 
 ICU4X icu_experimental 0.6.0 / icu_experimental_data 0.6.0 and icu_locale
-2.3.0 / icu_locale_data 2.3.0: Unicode-3.0, Unicode, Inc. The complete notice is
+2.3.1 / icu_locale_data 2.3.0: Unicode-3.0, Unicode, Inc. The complete notice is
 retained in third-party-licenses/Unicode-3.0.txt. Compiled display-name data uses
 CLDR 48.2.1 and ICU release-78.1rc (the pinned data crate's README). The lockfile
 records additional ICU4X formatting/provider/data crates. These are Unicode
@@ -62,7 +66,7 @@ from MIT OR Apache-2.0. Already resolved through Slint, now used directly for
 Linux display-locale discovery. Windows uses GetUserDefaultLocaleName and macOS
 uses Foundation's localized locale-identifier API.
 
-fontdb 0.23.0 (https://github.com/RazrFalcon/fontdb): MIT, copyright 2020
+fontdb 0.24.0 (https://github.com/RazrFalcon/fontdb): MIT, copyright 2020
 Yevhenii Reizner. Promoted from the existing rendering dependency graph to a
 direct dependency for installed-font metadata discovery. The pinned registry
 license is retained in the development dependency cache; no system font files
@@ -79,22 +83,26 @@ rfd 0.17.2 (https://github.com/PolyMeilex/rfd): MIT, copyright 2022
 Bartłomiej Maryńczak. Its portal window-identifier module retains the MIT notice
 of Bilal Elmoussaoui (2020). Used only by macOS/Linux application backends;
 macOS uses native panels and Linux uses XDG Desktop Portal with Wayland support.
-dirs 6.0.0 and dirs-sys 0.5.0: MIT OR Apache-2.0, used for those platforms'
+dirs 7.0.0 and dirs-sys 0.5.0: MIT OR Apache-2.0, used for those platforms'
 configuration directories. Exact resolved packages and checksums are in Cargo.lock.
-Their complete license texts remain in the dependency sources and must accompany
-any applicable binary distribution; no native release package is produced here.
+Their complete license texts remain with the locked Rust sources in the source
+archive. The Windows package carries the applicable native license files and
+this consolidated notice.
 
 objc2 0.6.5 and objc2-foundation 0.3.2: MIT. Direct macOS-only dependencies
 for Foundation's native filename ordering. Calls use their safe retained-string
 and autorelease-pool APIs; no Foundation implementation source is copied.
 
 mpv public ABI headers: Copyright (C) 2018 the mpv developers (render_gl.h), ISC
-permission and warranty disclaimer retained in excluded reference source. The
-development DLL is from shinchiro/mpv-winbuild-cmake, tag 20261009, mpv git 36abaa32d0.
-Archive SHA-256 is pinned against the GitHub release API digest, which is not an
-independently signed attestation. Full FFmpeg/codec/native dependency configuration,
-license texts, source revisions and reproducible corresponding-source instructions
-remain pending. Do not redistribute this DLL as a release package yet.
+permission and warranty disclaimer retained below. The Windows release rebuilds
+mpv and FFmpeg from the pinned builder recipe at
+`b2856ee6deed6957380b32465f359e67f67fafd8`. FFmpeg's `--enable-version3` remains
+enabled; its optional x264 encoder dependency and flag are removed by the included
+patch because x264 is GPLv2-only. FFmpeg's built-in H.264 decoder remains enabled.
+The package carries the exact native source checkouts and their license files;
+`SOURCE-MANIFEST.tsv` records each source revision and source-file hash.
+`RUNTIME-MANIFEST.tsv` records the packaged engine files and hashes. The engine
+build and native playback tests must succeed before the workflow publishes assets.
 
 Permission notice for ABI definitions adapted from mpv headers:
 

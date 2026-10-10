@@ -30,6 +30,11 @@ impl VideoOsd {
             ..Default::default()
         }
     }
+
+    pub(crate) fn set_disable_speed(&mut self, disabled: bool) {
+        self.disable_speed = disabled;
+    }
+
     pub(crate) fn observe(&mut self, state: &Playback) -> Option<Message> {
         // Ignore the suppressed category before choosing a message. Filtering
         // only afterwards would swallow a hardware change coalesced with speed.
@@ -178,9 +183,10 @@ mod tests {
 
     #[test]
     fn speed_suppression_consumes_speed_but_keeps_other_feedback() {
-        let mut feedback = VideoOsd::new(true);
+        let mut feedback = VideoOsd::default();
         let mut state = loaded();
         assert_eq!(feedback.observe(&state), None);
+        feedback.set_disable_speed(true);
         state.speed = 2.0;
         assert_eq!(feedback.observe(&state), None);
         state.video_equalizer[0] = Some(-27);
@@ -191,7 +197,7 @@ mod tests {
             feedback.observe(&state).unwrap().text,
             "Hardware Decoding: Off"
         );
-        feedback.disable_speed = false;
+        feedback.set_disable_speed(false);
         assert_eq!(feedback.observe(&state), None);
         state.speed = 1.0;
         assert_eq!(feedback.observe(&state).unwrap().kind, Kind::Speed);

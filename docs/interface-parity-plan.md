@@ -11,6 +11,43 @@ Native renderer captures expose chrome but show a black video region; that alone
 does not establish that the visible native playback surface is black. The prior
 monitor-capture failure is no longer a blanket blocker.
 
+The earlier empty-player capture was a separate 962 x 649 window state: Riina's
+name and subtitle sat in the center, while Open File remained at the left edge.
+The pinned reference supplies a 560 x 440 welcome surface with Open File/Open URL,
+resume-last-file and recent documents. A live Windows capture confirms a 558 x 391
+client request produces the 560 x 440 outer window, and Open URL opens a focused
+input. An isolated seeded-preferences capture confirms Resume and recent rows
+render. The current code now lays out Open File/Open URL side by side, keeps the
+resume item out of the recent-document table, and maps Up/Down/Return to the
+reference selection model. A regression test verifies that split. File selection
+and validated HTTP/HTTPS/RTSP/RTSPS input are wired, and a native start option
+opens the selected item at its saved position. The latest layout and navigation
+changes still need a live capture. The Resume row now preserves the reference's
+separate history icon, action label, filename and right-aligned position. A
+dedicated welcome window replaces window reuse in the source; its show/hide and
+cancel-recovery lifecycle still needs live verification. An ignored native test
+now verifies engine watch-later save/reopen when enabled and no save or restore
+when disabled. App-level saved-settings restart, live Windows preference
+interaction and matching pixels remain unverified; material is incomplete, and
+no pixel comparison against a matching reference has passed.
+
+A fresh screenshot of the release build showed a 560 x 328 outer welcome window,
+so the earlier preferred-height request was not reaching the actual window. The
+welcome component now sets concrete 558 x 391 bounds instead of only preferred
+dimensions. The capture helper displayed the window image but returned a null
+state object on both attempts; recapture the rebuilt app before accepting these
+bounds or comparing welcome pixels.
+
+General > History now exposes the source's default-enabled Resume last position
+setting. The persisted policy configures libmpv's save-on-quit and resume options
+at startup and on live changes, and it controls whether the welcome window shows
+the separate Resume row or treats the newest item as an ordinary recent document.
+Unit tests cover defaults, persistence, both engine options and the row mapping.
+An explicit native test also verifies actual position save and restore against
+the provisioned DLL. App-level saved-settings restart, live Windows interaction
+and matched pixels remain open; this is functional coverage, not completion of
+General Preferences parity.
+
 The existing accepted macOS reference captures establish a small paused player
 and seek OSD. They do not establish visible floating controls, sidebars, menus or
 Preferences. Obtain and inspect those reference states before declaring a visual
@@ -18,14 +55,14 @@ comparison passed; source dimensions are useful inputs, not matching pixels.
 
 | Surface | Current gap and required comparison |
 |---|---|
-| Main window | Native title/menu strip, in-player title/buttons, rounded window shape, aspect fit, startup and empty state |
+| Main window | Native title/menu strip, in-player title/buttons, rounded window shape, aspect fit, startup, separate welcome window and empty state |
 | Floating controls | 12pt macOS 26 corners, complete button groups, glyph weight, sliders, spacing, video-sampled material, compact/spacious layouts, hide animation |
 | Other control layouts | Top/bottom layouts and their exact allocation, visibility and resize behavior |
 | Video settings | Tab organization, aspect/crop/rotation controls, equalizer and hardware-decode controls |
 | Audio/subtitles | Shared reference tab organization, row styles, selections, editable fields, warnings and secondary subtitle controls |
 | Playlist/chapters | Width, resize, row metrics, tabs, text treatment, selections, footer actions and drag/drop |
 | Menus | Complete structure, text, checks, enabled state, shortcut display and window ownership |
-| Preferences | Full toolbar/tab navigation and every pane; custom small controls; labels, alignment, enabled state, scrolling and sizing |
+| Preferences | Full source-list navigation and all nine categories; complete General/UI/Subtitle/Network/Control/Keybindings/Video-Audio/Advanced/Utilities panes; matched labels, alignment, enabled state, scrolling and sizing |
 | Auxiliary surfaces | Crop editor, font chooser, screenshot preview, transient OSD, dialogs and their focus/lifecycle |
 | Window modes | Fullscreen, music mode, PiP, ontop, multiple windows, theme and DPI behavior |
 
@@ -39,16 +76,22 @@ ellipsis; explicit original geometry keeps the glyph and keyboard activation.
 The folder label needs a gap after Save to. Floating corners now use the recorded
 macOS 26 value. These changes do not close the larger interface acceptance target.
 
-Settings now has independently implemented Video/Audio/Subtitles navigation;
-playlist and chapters share a second tab group. The pinned settings tab order
-also includes Layout, which remains unimplemented. Actual Windows shared-renderer
-captures show all five implemented panes, selected tabs and keyboard focus.
+Player settings has independently implemented Layout/Video/Audio/Subtitles
+navigation; playlist and chapters share a second tab group. Actual Windows
+shared-renderer captures show all six implemented panes, selected tabs and keyboard focus.
 Tab/Enter/Space navigation and Escape dismissal were exercised with catalog.mkv
 paused at 0:00 in the isolated capture profile; the owned player exited 0.
 The images show floating controls overlapping the sidebar. The reference default
 edgeToEdgeVideo=true keeps the video container across the window, so this is not
 alone evidence of a placement defect. Reference-matched tab glyphs/materials,
-Layout, resizing and non-edge-to-edge control allocation
+resizing and non-edge-to-edge control allocation remain open. The separate
+Preferences window now has a source-sized 820 x 480 shell, selectable General
+and UI navigation, the existing General controls, and a functional partial UI
+pane for OSC position, compact mode, docked controls and OSD visibility/speed/seek
+suppression. OSD settings update live overlay filters and persist through the
+shared settings path. Subtitle, Network,
+Control, Keybindings, Video/Audio, Advanced and Utilities navigation/panes remain
+unimplemented, and the source-list geometry, full pane content and live capture
 remain open. These captures are inspection evidence, not a passed pixel comparison.
 
 Both sides now retain their own selected pane. Captured Windows playback shows

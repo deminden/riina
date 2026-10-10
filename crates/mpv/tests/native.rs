@@ -65,6 +65,131 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies native watch-later save and restore policy"]
+fn resume_last_position_saves_and_restores_only_when_enabled() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let media = root
+        .join("tests/fixtures/catalog.mkv")
+        .to_string_lossy()
+        .into_owned();
+    let scratch = std::env::temp_dir().join(format!(
+        "riina-resume-native-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let enabled_watch_later = scratch.join("enabled");
+    let disabled_watch_later = scratch.join("disabled");
+    std::fs::create_dir_all(&enabled_watch_later).unwrap();
+    std::fs::create_dir_all(&disabled_watch_later).unwrap();
+
+    let options = |directory: &std::path::Path, enabled: bool| {
+        let value = if enabled { "yes" } else { "no" }.to_owned();
+        vec![
+            (
+                "watch-later-directory".to_owned(),
+                directory.to_string_lossy().into_owned(),
+            ),
+            ("save-position-on-quit".to_owned(), value.clone()),
+            ("resume-playback".to_owned(), value),
+        ]
+    };
+
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start_with_options(
+        &test_library(&root),
+        true,
+        options(&enabled_watch_later, true),
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    player.send(Command::Load(media.clone())).unwrap();
+    let saved = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 2.0)
+    });
+    drop(player);
+    let saved_entries: Vec<_> = std::fs::read_dir(&enabled_watch_later)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    assert!(
+        !saved_entries.is_empty(),
+        "mpv must write a watch-later file"
+    );
+
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start_with_options(
+        &test_library(&root),
+        true,
+        options(&enabled_watch_later, true),
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    player.send(Command::Load(media.clone())).unwrap();
+    let restored = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing
+            && state
+                .position
+                .is_some_and(|position| position >= saved.position.unwrap() - 0.5)
+    });
+    assert!(restored.position.unwrap() >= saved.position.unwrap() - 0.5);
+    drop(player);
+
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start_with_options(
+        &test_library(&root),
+        true,
+        options(&disabled_watch_later, false),
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    player.send(Command::Load(media.clone())).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 1.0)
+    });
+    drop(player);
+    assert!(
+        std::fs::read_dir(&disabled_watch_later)
+            .unwrap()
+            .next()
+            .is_none(),
+        "disabled resume must not create a watch-later file"
+    );
+
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start_with_options(
+        &test_library(&root),
+        true,
+        options(&disabled_watch_later, false),
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    player.send(Command::Load(media)).unwrap();
+    let from_start = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some()
+    });
+    assert!(
+        from_start.position.unwrap() < 0.75,
+        "disabled resume must start from the beginning: {from_start:?}"
+    );
+    drop(player);
+    std::fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies active subtitle composition in saved frames"]
 fn screenshot_content_respects_active_subtitle_visibility() {
     use riina_core::screenshot::Content;

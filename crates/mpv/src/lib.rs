@@ -67,7 +67,16 @@ impl Player {
         headless: bool,
         notify: impl Fn(Playback) + Send + 'static,
     ) -> Result<Self, String> {
-        Self::start_options(path, headless, Vec::new(), notify)
+        Self::start_with_options(path, headless, Vec::new(), notify)
+    }
+
+    pub fn start_with_options(
+        path: &Path,
+        headless: bool,
+        options: Vec<(String, String)>,
+        notify: impl Fn(Playback) + Send + 'static,
+    ) -> Result<Self, String> {
+        Self::start_options(path, headless, options, notify)
     }
 
     /// Experimental native VO. The caller must retain the HWND until Player drops.
@@ -77,26 +86,23 @@ impl Player {
         path: &Path,
         window: u32,
         log: &Path,
+        mut options: Vec<(String, String)>,
         notify: impl Fn(Playback) + Send + 'static,
     ) -> Result<Self, String> {
         if window == 0 || !log.is_absolute() {
             return Err("Native output requires a live HWND and absolute log path".into());
         }
-        Self::start_options(
-            path,
-            false,
-            vec![
-                ("vo".into(), "gpu-next".into()),
-                ("wid".into(), window.to_string()),
-                ("gpu-api".into(), "d3d11".into()),
-                ("gpu-context".into(), "d3d11".into()),
-                ("d3d11-output-format".into(), "rgba16f".into()),
-                ("target-colorspace-hint".into(), "auto".into()),
-                ("log-file".into(), log.to_string_lossy().into_owned()),
-                ("msg-level".into(), "all=v".into()),
-            ],
-            notify,
-        )
+        options.extend([
+            ("vo".into(), "gpu-next".into()),
+            ("wid".into(), window.to_string()),
+            ("gpu-api".into(), "d3d11".into()),
+            ("gpu-context".into(), "d3d11".into()),
+            ("d3d11-output-format".into(), "rgba16f".into()),
+            ("target-colorspace-hint".into(), "auto".into()),
+            ("log-file".into(), log.to_string_lossy().into_owned()),
+            ("msg-level".into(), "all=v".into()),
+        ]);
+        Self::start_options(path, false, options, notify)
     }
 
     fn start_options(
@@ -207,7 +213,7 @@ impl Player {
                                     state.aspect_requests = state.aspect_requests.wrapping_add(1);
                                 }
                                 if matches!(command, Command::TogglePause) { seek_feedback.playback_transition(); }
-                                if matches!(command, Command::Load(_) | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
+                                if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;
                                 // Validate the whole intent before submitting any part. Multi-file
                                 // additions consume one queue slot and cannot be partially dropped.
@@ -215,7 +221,7 @@ impl Player {
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
-                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Deinterlace(_) | Command::ToggleDeinterlace | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
+                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Deinterlace(_) | Command::ToggleDeinterlace | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::Stop) {
                                         seek_feedback.clear();
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {

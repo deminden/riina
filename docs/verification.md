@@ -1531,3 +1531,15 @@ Existing native two-lane tests verify the target command semantics, but the new
 UI wiring has not been exercised through GUI input. Row/switch geometry, complete
 reference ordering, keyboard selection, secondary timing/position controls and
 other-OS runtime remain pending. No rendered or pixel-perfect pass is claimed.
+
+## Resume last position · 2026-10-10
+
+An explicit ignored native test against the hash-pinned Windows libmpv DLL opens
+the original catalog fixture, waits for playback to pass two seconds, shuts down,
+and confirms a watch-later file is written. A second engine restores from that
+file. Separate runs with resume disabled create no watch-later file and reopen
+the media near zero. `cargo test -p riina-mpv --test native --locked
+resume_last_position_saves_and_restores_only_when_enabled -- --ignored --nocapture`
+passes. Workspace tests, strict all-target Clippy, formatting and the optimized
+workspace build also pass. This tests engine policy, not the app's full settings
+restart flow or the Preferences control's rendered pixels; both remain open.

@@ -122,6 +122,7 @@ mod windows_probe {
                     &root.join("tools/mpv/libmpv-2.dll"),
                     wid,
                     &log,
+                    Vec::new(),
                     move |state| {
                         let metadata = (
                             state.generation,

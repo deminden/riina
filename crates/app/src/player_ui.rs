@@ -1,6 +1,6 @@
 use crate::seek_osd::{self, Change, SeekOsd};
 use crate::{
-    CatalogRow, PlayerWindow, media_open, platform,
+    CatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
@@ -37,6 +37,81 @@ fn refresh_video_menu(app: &PlayerWindow) {
             .map(slint::SharedString::from)
             .to_vec(),
     )));
+}
+
+fn recent_media_rows(media: &[riina_core::RecentMedia]) -> Vec<RecentMediaRow> {
+    media
+        .iter()
+        .map(|item| {
+            let title = if item.title.trim().is_empty() {
+                PathBuf::from(&item.path).file_name().map_or_else(
+                    || item.path.clone(),
+                    |name| name.to_string_lossy().into_owned(),
+                )
+            } else {
+                item.title.clone()
+            };
+            RecentMediaRow {
+                title: title.into(),
+                position_label: time_label(Some(item.position)).into(),
+            }
+        })
+        .collect()
+}
+
+fn resume_media_rows(
+    media: &[riina_core::RecentMedia],
+    resume_last_position: bool,
+) -> Vec<RecentMediaRow> {
+    if resume_last_position {
+        recent_media_rows(media.get(..1).unwrap_or_default())
+    } else {
+        Vec::new()
+    }
+}
+
+fn recent_document_rows(
+    media: &[riina_core::RecentMedia],
+    resume_last_position: bool,
+) -> Vec<RecentMediaRow> {
+    // IINA removes the last-played item from the document table only while its
+    // separate Resume action is enabled.
+    let offset = if resume_last_position { 1 } else { 0 };
+    recent_media_rows(media.get(offset..).unwrap_or_default())
+}
+
+fn refresh_welcome_history(
+    welcome: &WelcomeWindow,
+    media: &[riina_core::RecentMedia],
+    resume_last_position: bool,
+) {
+    welcome.set_recent_media(slint::ModelRc::new(slint::VecModel::from(
+        resume_media_rows(media, resume_last_position),
+    )));
+    welcome.set_recent_documents(slint::ModelRc::new(slint::VecModel::from(
+        recent_document_rows(media, resume_last_position),
+    )));
+    welcome.set_recent_document_offset(if resume_last_position { 1 } else { 0 });
+    welcome.set_selection_index(if resume_last_position || media.is_empty() {
+        -1
+    } else {
+        0
+    });
+}
+
+fn resume_engine_options(
+    watch_later_directory: &std::path::Path,
+    resume_last_position: bool,
+) -> Vec<(String, String)> {
+    let enabled = if resume_last_position { "yes" } else { "no" }.to_owned();
+    vec![
+        (
+            "watch-later-directory".into(),
+            watch_later_directory.to_string_lossy().into_owned(),
+        ),
+        ("save-position-on-quit".into(), enabled.clone()),
+        ("resume-playback".into(), enabled),
+    ]
 }
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
@@ -191,11 +266,12 @@ fn update_ui(
     {
         app.set_video_osd_visible(false);
     }
-    match last_seek.observe(&state) {
+    match last_seek.observe_with_suppression(&state, app.get_disable_osd_seek()) {
         Change::Hide => app.set_seek_osd_visible(false),
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
     }
+    last_video.set_disable_speed(app.get_disable_osd_speed());
     if let Some(message) = last_video.observe(&state) {
         app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
         app.set_video_osd_text(message.text.into());
@@ -259,7 +335,11 @@ fn update_ui(
         update_catalog(app, &state);
         *displayed = Some(state.clone());
     }
-    let first_loaded = !app.get_loaded() && state.phase == Phase::Playing;
+    let first_loaded = !app.get_loaded()
+        && matches!(
+            state.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
+        );
     app.set_loaded(!matches!(
         state.phase,
         Phase::Stopped | Phase::Failed | Phase::Loading
@@ -270,7 +350,17 @@ fn update_ui(
         app.set_controls_visible(true);
     }
     if first_loaded {
+        // The reference's compact welcome surface gives way to the normal player
+        // canvas only after a media item has actually opened.
+        if !app.get_native_video() {
+            let scale = app.window().scale_factor();
+            app.window().set_size(slint::PhysicalSize::new(
+                (960.0 * scale).round() as u32,
+                (600.0 * scale).round() as u32,
+            ));
+        }
         app.invoke_activity();
+        app.invoke_media_opened();
     }
     app.set_seekable(state.seekable && state.duration.is_some());
     app.set_position(state.position.unwrap_or(0.0) as f32);
@@ -400,11 +490,30 @@ pub(crate) struct UiSession {
     _presentation: Option<platform::NativePresentation>,
     prefs_path: PathBuf,
     prefs: Preferences,
+    latest_playback: Arc<std::sync::Mutex<Playback>>,
+}
+
+enum PendingWelcomeOpen {
+    Url(String),
+    Recent(riina_core::RecentMedia, bool),
+}
+
+fn dispatch_welcome_open(
+    app: &PlayerWindow,
+    request: PendingWelcomeOpen,
+    sender: &riina_mpv::CommandSender,
+) {
+    match request {
+        PendingWelcomeOpen::Url(value) => media_open::url(app, &value, sender.clone()),
+        PendingWelcomeOpen::Recent(media, resume) => {
+            media_open::open_recent(app, media, resume, sender.clone());
+        }
+    }
 }
 
 impl UiSession {
     pub(crate) fn save(&self, app: &PlayerWindow) -> Result<(), Box<dyn std::error::Error>> {
-        let prefs = Preferences {
+        let mut prefs = Preferences {
             volume: (app.get_volume() as f64).min(if app.get_volume_boost() {
                 200.0
             } else {
@@ -413,6 +522,10 @@ impl UiSession {
             volume_boost: app.get_volume_boost(),
             pause_when_open: app.get_pause_when_open(),
             fullscreen_when_open: app.get_fullscreen_when_open(),
+            resume_last_position: app.get_resume_last_position(),
+            enable_osd: app.get_osd_enabled(),
+            disable_osd_speed: app.get_disable_osd_speed(),
+            disable_osd_seek: app.get_disable_osd_seek(),
             leading_sidebar_width: app.get_leading_sidebar_width() as u32,
             trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
             settings_at_leading: app.get_settings_at_leading(),
@@ -425,6 +538,43 @@ impl UiSession {
                 .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
         };
+        if let Ok(state) = self.latest_playback.lock()
+            && let Some(position) = state
+                .position
+                .filter(|value| value.is_finite() && *value >= 0.0)
+            && !matches!(state.phase, Phase::Loading | Phase::Failed)
+            && let Some(entry) = state.playlist.iter().find(|entry| entry.current)
+        {
+            let title = entry
+                .title
+                .as_ref()
+                .filter(|title| !title.trim().is_empty())
+                .cloned()
+                .unwrap_or_else(|| {
+                    if state.title.trim().is_empty() {
+                        PathBuf::from(&entry.filename).file_name().map_or_else(
+                            || entry.filename.clone(),
+                            |name| name.to_string_lossy().into_owned(),
+                        )
+                    } else {
+                        state.title.clone()
+                    }
+                });
+            let position = if app.get_resume_last_position() {
+                position
+            } else {
+                prefs
+                    .recent_media
+                    .iter()
+                    .find(|item| item.path == entry.filename)
+                    .map_or(0.0, |item| item.position)
+            };
+            prefs.remember_media(riina_core::RecentMedia {
+                path: entry.filename.clone(),
+                title,
+                position,
+            });
+        }
         platform::save_preferences(&self.prefs_path, &serde_json::to_string_pretty(&prefs)?)?;
         Ok(())
     }
@@ -443,6 +593,7 @@ pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
     media: Option<std::ffi::OsString>,
+    welcome: Option<&WelcomeWindow>,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     let prefs_path = platform::preferences_path()?;
     let prefs = match std::fs::read_to_string(&prefs_path) {
@@ -450,16 +601,26 @@ pub(crate) fn configure_player(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
         Err(error) => return Err(error.into()),
     };
+    let watch_later_directory = prefs_path.with_file_name("watch-later");
+    std::fs::create_dir_all(&watch_later_directory)?;
+    let engine_options = resume_engine_options(&watch_later_directory, prefs.resume_last_position);
     app.set_volume_boost(prefs.volume_boost);
+    if let Some(welcome) = welcome {
+        welcome.set_app_version(env!("CARGO_PKG_VERSION").into());
+        refresh_welcome_history(welcome, &prefs.recent_media, prefs.resume_last_position);
+    }
     app.set_video_aspect_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::video_controls::ASPECT_PRESETS
             .map(slint::SharedString::from)
             .to_vec(),
     )));
     app.set_osd_enabled(prefs.enable_osd);
+    app.set_disable_osd_speed(prefs.disable_osd_speed);
+    app.set_disable_osd_seek(prefs.disable_osd_seek);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_fullscreen_when_open(prefs.fullscreen_when_open);
+    app.set_resume_last_position(prefs.resume_last_position);
     app.set_leading_sidebar_width(prefs.leading_sidebar_width as f32);
     app.set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
     app.set_settings_at_leading(prefs.settings_at_leading);
@@ -488,6 +649,8 @@ pub(crate) fn configure_player(
         None,
         crate::screenshot_output::Completions::default(),
     )));
+    let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
+    let observed_playback = latest_playback.clone();
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
     let crop_editor = crate::crop_editor::Editor::default();
@@ -507,6 +670,9 @@ pub(crate) fn configure_player(
     let notify = move |state: Playback| {
         // This closure remains owned by the engine until native destruction.
         let _retain_until_native_teardown = &worker_scratch;
+        if let Ok(mut latest_playback) = observed_playback.lock() {
+            *latest_playback = state.clone();
+        }
         if let Ok(mut latest) = latest.lock() {
             latest.1.observe(&state);
             latest.0 = Some(state);
@@ -562,9 +728,9 @@ pub(crate) fn configure_player(
         });
     };
     let player = if let Some(presentation) = &native {
-        presentation.start_engine(notify)
+        presentation.start_engine(engine_options, notify)
     } else {
-        Player::start(&platform::playback_library(), false, notify)
+        Player::start_with_options(&platform::playback_library(), false, engine_options, notify)
     };
     let player = match player {
         Ok(player) => player,
@@ -576,6 +742,20 @@ pub(crate) fn configure_player(
     let idle_timer = Rc::new(slint::Timer::default());
     let opening_player = player.command_sender();
     let opening_app = app.as_weak();
+    let resume_player = player.command_sender();
+    let resume_app = app.as_weak();
+    let resume_welcome = welcome.map(WelcomeWindow::as_weak);
+    let recent_media = prefs.recent_media.clone();
+    app.on_resume_last_position_changed(move |enabled| {
+        if let Err(error) = resume_player.send(Command::SetResumeLastPosition(enabled))
+            && let Some(app) = resume_app.upgrade()
+        {
+            app.set_status(error.into());
+        }
+        if let Some(welcome) = resume_welcome.as_ref().and_then(slint::Weak::upgrade) {
+            refresh_welcome_history(&welcome, &recent_media, enabled);
+        }
+    });
     app.on_pause_when_open_changed(move |pause| {
         if let Err(error) = opening_player.send(Command::SetPauseWhenOpen(pause))
             && let Some(app) = opening_app.upgrade()
@@ -1274,7 +1454,13 @@ pub(crate) fn configure_player(
             _ => return,
         };
         if let Some(app) = weak.upgrade() {
-            ui_dialogs::open(&app, browse_host.clone(), purpose, browse_player.clone());
+            ui_dialogs::open(
+                &app,
+                browse_host.clone(),
+                purpose,
+                browse_player.clone(),
+                None,
+            );
         }
     });
     for absolute in [true, false] {
@@ -1366,11 +1552,126 @@ pub(crate) fn configure_player(
     let open_player = player.command_sender();
     let weak = app.as_weak();
     let open_host = native.as_ref().map(platform::NativePresentation::host);
-    app.on_open_file(move || {
-        if let Some(app) = weak.upgrade() {
-            ui_dialogs::open(&app, open_host.clone(), Purpose::Media, open_player.clone());
+    let welcome_window = welcome.map(|welcome| welcome.as_weak());
+    let pending_welcome_open = Rc::new(RefCell::new(None));
+    let ready_pending = pending_welcome_open.clone();
+    let ready_app = app.as_weak();
+    let ready_player = player.command_sender();
+    app.on_renderer_ready(move || {
+        if let Some(request) = ready_pending.borrow_mut().take()
+            && let Some(app) = ready_app.upgrade()
+        {
+            dispatch_welcome_open(&app, request, &ready_player);
         }
     });
+    let file_welcome = welcome_window.clone();
+    app.on_open_file(move || {
+        if let Some(app) = weak.upgrade() {
+            let welcome_is_visible = file_welcome
+                .as_ref()
+                .and_then(slint::Weak::upgrade)
+                .is_some_and(|welcome| welcome.window().is_visible());
+            if welcome_is_visible {
+                if let Err(error) = app.show() {
+                    app.set_status(error.to_string().into());
+                    return;
+                }
+                if let Some(welcome) = file_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                    let _ = welcome.hide();
+                }
+            }
+            ui_dialogs::open(
+                &app,
+                open_host.clone(),
+                Purpose::Media,
+                open_player.clone(),
+                welcome_is_visible.then(|| file_welcome.clone()).flatten(),
+            );
+        }
+    });
+    let open_url = player.command_sender();
+    let weak = app.as_weak();
+    let url_welcome = welcome_window.clone();
+    let url_pending = pending_welcome_open.clone();
+    app.on_open_url(move |value| {
+        if let Some(app) = weak.upgrade() {
+            let from_welcome = url_welcome
+                .as_ref()
+                .and_then(slint::Weak::upgrade)
+                .is_some_and(|welcome| welcome.window().is_visible());
+            if from_welcome {
+                if let Err(error) = media_open::validate_url(value.as_str()) {
+                    if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                        welcome.set_url_error(error.into());
+                    }
+                    return;
+                }
+                if let Err(error) = app.show() {
+                    app.set_status(error.to_string().into());
+                    return;
+                }
+                if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                    welcome.set_url_error("".into());
+                    let _ = welcome.hide();
+                }
+                let request = PendingWelcomeOpen::Url(value.to_string());
+                if app.get_engine_ready() {
+                    dispatch_welcome_open(&app, request, &open_url);
+                } else {
+                    *url_pending.borrow_mut() = Some(request);
+                }
+            } else {
+                media_open::url(&app, value.as_str(), open_url.clone());
+            }
+        }
+    });
+    let recent_player = player.command_sender();
+    let recent_media = prefs.recent_media.clone();
+    let weak = app.as_weak();
+    let recent_welcome = welcome_window.clone();
+    let recent_pending = pending_welcome_open.clone();
+    app.on_open_recent(move |index| {
+        let Ok(index) = usize::try_from(index) else {
+            return;
+        };
+        if let (Some(app), Some(media)) = (weak.upgrade(), recent_media.get(index)) {
+            let from_welcome = recent_welcome
+                .as_ref()
+                .and_then(slint::Weak::upgrade)
+                .is_some_and(|welcome| welcome.window().is_visible());
+            if from_welcome {
+                if let Err(error) = app.show() {
+                    app.set_status(error.to_string().into());
+                    return;
+                }
+                if let Some(welcome) = recent_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                    let _ = welcome.hide();
+                }
+                let request =
+                    PendingWelcomeOpen::Recent(media.clone(), app.get_resume_last_position());
+                if app.get_engine_ready() {
+                    dispatch_welcome_open(&app, request, &recent_player);
+                } else {
+                    *recent_pending.borrow_mut() = Some(request);
+                }
+            } else {
+                media_open::open_recent(
+                    &app,
+                    media.clone(),
+                    app.get_resume_last_position(),
+                    recent_player.clone(),
+                );
+            }
+        }
+    });
+    if let Some(welcome) = welcome_window {
+        let welcome = welcome.clone();
+        app.on_media_opened(move || {
+            if let Some(welcome) = welcome.upgrade() {
+                let _ = welcome.hide();
+            }
+        });
+    }
     let weak = app.as_weak();
     app.window().on_close_requested(move || {
         if weak.upgrade().is_some_and(|app| app.get_dialog_open()) {
@@ -1387,6 +1688,27 @@ pub(crate) fn configure_player(
             slint::CloseRequestResponse::HideWindow
         }
     });
+
+    if let Some(welcome) = welcome {
+        let weak = app.as_weak();
+        welcome.on_open_file(move || {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_open_file();
+            }
+        });
+        let weak = app.as_weak();
+        welcome.on_open_url(move |value| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_open_url(value);
+            }
+        });
+        let weak = app.as_weak();
+        welcome.on_open_recent(move |index| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_open_recent(index);
+            }
+        });
+    }
 
     player
         .send(Command::SetVolumeBoost(prefs.volume_boost))
@@ -1410,6 +1732,7 @@ pub(crate) fn configure_player(
             _presentation: native,
             prefs_path,
             prefs,
+            latest_playback,
         });
     }
     let pending_media = Rc::new(RefCell::new(media));
@@ -1523,5 +1846,58 @@ pub(crate) fn configure_player(
         _presentation: None,
         prefs_path,
         prefs,
+        latest_playback,
     })
+}
+
+#[cfg(test)]
+mod welcome_tests {
+    use super::{
+        recent_document_rows, recent_media_rows, resume_engine_options, resume_media_rows,
+    };
+    use riina_core::RecentMedia;
+
+    #[test]
+    fn resume_item_is_not_repeated_in_recent_documents() {
+        let history = [
+            RecentMedia {
+                path: "resume.mkv".into(),
+                title: "Resume item".into(),
+                position: 12.0,
+            },
+            RecentMedia {
+                path: "older.mkv".into(),
+                title: "Older item".into(),
+                position: 3.0,
+            },
+        ];
+
+        let resume = recent_media_rows(&history);
+        let resume_action = resume_media_rows(&history, true);
+        let documents = recent_document_rows(&history, true);
+
+        assert_eq!(resume[0].title.as_str(), "Resume item");
+        assert_eq!(resume_action[0].title.as_str(), "Resume item");
+        assert_eq!(documents.len(), 1);
+        assert_eq!(documents[0].title.as_str(), "Older item");
+
+        assert!(resume_media_rows(&history, false).is_empty());
+        let all_documents = recent_document_rows(&history, false);
+        assert_eq!(all_documents.len(), 2);
+        assert_eq!(all_documents[0].title.as_str(), "Resume item");
+    }
+
+    #[test]
+    fn resume_preference_configures_both_native_watch_later_directions() {
+        let directory = std::path::Path::new("profile/watch-later");
+        let enabled = resume_engine_options(directory, true);
+        assert_eq!(enabled[0].0, "watch-later-directory");
+        assert_eq!(enabled[0].1, directory.to_string_lossy());
+        assert_eq!(enabled[1], ("save-position-on-quit".into(), "yes".into()));
+        assert_eq!(enabled[2], ("resume-playback".into(), "yes".into()));
+
+        let disabled = resume_engine_options(directory, false);
+        assert_eq!(disabled[1].1, "no");
+        assert_eq!(disabled[2].1, "no");
+    }
 }

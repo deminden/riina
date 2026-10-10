@@ -1,4 +1,4 @@
-import { CheckBox, ComboBox } from "std-widgets.slint";
+import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 
 // Native toolkit button padding can consume a 24px chooser's entire label.
 // Keep this small reference control explicit, including keyboard activation.
@@ -25,13 +25,49 @@ component FolderChooser inherits FocusScope {
     }
 }
 
+component PreferenceNavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback activated();
+    height: 36px;
+    horizontal-stretch: 1;
+    border-radius: 5px;
+    background: selected ? #c9c9cf : touch.has-hover ? #ffffffb8 : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { root.activated(); }
+    Text { x: 30px; width: parent.width - 40px; height: parent.height;
+        text: root.label; font-size: 13px; color: #242428;
+        vertical-alignment: center; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
+
 // Original controls follow the reference General screenshot section's 120px
 // label column. Toolkit metrics remain provisional until rendered comparison.
 export component PreferencesWindow inherits Window {
-    title: "Preferences";
-    preferred-width: 520px;
-    preferred-height: 340px;
+    title: "Settings";
+    preferred-width: 600px;
+    preferred-height: 480px;
+    min-width: 600px;
+    min-height: 320px;
     background: #ededed;
+    in-out property <int> selected-pane: 0;
+    in-out property <int> osc-position: 0;
+    in-out property <bool> compact-ui: false;
+    in-out property <bool> docked-controls: false;
+    in-out property <bool> edge-to-edge-video: true;
+    in-out property <bool> osd-enabled: true;
+    in-out property <bool> disable-osd-speed: false;
+    in-out property <bool> disable-osd-seek: false;
     in-out property <int> format-index: 0;
     in-out property <bool> include-subtitles: true;
     in-out property <bool> show-preview: true;
@@ -39,13 +75,45 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> copy-to-clipboard: false;
     in-out property <bool> pause-when-open: false;
     in-out property <bool> fullscreen-when-open: false;
+    in-out property <bool> resume-last-position: true;
     callback settings-changed();
     callback choose-folder();
     in-out property <string> directory;
     in-out property <bool> custom-directory: false;
     in-out property <bool> folder-dialog-open: false;
-    Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
-    Rectangle { x: 20px; y: 52px; width: 480px; height: 64px; background: transparent;
+    Rectangle { x: 0; y: 0; width: 200px; height: parent.height; background: #e3e3e7;
+        PreferenceNavItem { x: 10px; y: 52px; width: 180px; label: "General";
+            selected: root.selected-pane == 0; activated => { root.selected-pane = 0; } }
+        PreferenceNavItem { x: 10px; y: 88px; width: 180px; label: "UI";
+            selected: root.selected-pane == 1; activated => { root.selected-pane = 1; } }
+        PreferenceNavItem { x: 10px; y: 124px; width: 180px; label: "Video";
+            selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
+        PreferenceNavItem { x: 10px; y: 160px; width: 180px; label: "Audio";
+            selected: root.selected-pane == 3; activated => { root.selected-pane = 3; } }
+        PreferenceNavItem { x: 10px; y: 196px; width: 180px; label: "Subtitles";
+            selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
+        PreferenceNavItem { x: 10px; y: 232px; width: 180px; label: "Network";
+            selected: root.selected-pane == 5; activated => { root.selected-pane = 5; } }
+        PreferenceNavItem { x: 10px; y: 268px; width: 180px; label: "Control";
+            selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
+        PreferenceNavItem { x: 10px; y: 304px; width: 180px; label: "Key Bindings";
+            selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
+        PreferenceNavItem { x: 10px; y: 340px; width: 180px; label: "Advanced";
+            selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
+        PreferenceNavItem { x: 10px; y: 376px; width: 180px; label: "Plugins";
+            selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
+        PreferenceNavItem { x: 10px; y: 412px; width: 180px; label: "Utilities";
+            selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
+    }
+    if root.selected-pane == 0 : ScrollView {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        content-height: 386px;
+        content-width: self.visible-width;
+        horizontal-scrollbar-policy: always-off;
+        Rectangle {
+        width: parent.width; height: 386px; background: #ededed;
+        Text { x: 22px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: 480px; height: 64px; background: transparent;
         Text { x: 0px; y: 8px; text: "Behavior:"; font-weight: 600; font-size: 13px; color: #222222; }
         Text { x: 118px; y: 8px; text: "When media is opened:"; font-size: 13px; color: #222222; }
         CheckBox { x: 120px; y: 28px; height: 24px; text: "Pause";
@@ -56,8 +124,8 @@ export component PreferencesWindow inherits Window {
             checked <=> root.fullscreen-when-open;
             toggled => { root.settings-changed(); }
         }
-    }
-    Rectangle { x: 20px; y: 132px; width: 480px; height: 184px; background: transparent;
+        }
+        Rectangle { x: 20px; y: 132px; width: 480px; height: 184px; background: transparent;
         Text { x: 0px; y: 8px; text: "Screenshots:"; font-weight: 600; font-size: 13px; color: #222222; }
         Text { x: 118px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
         Text { x: 118px; y: 112px; text: "Options:"; font-size: 13px; color: #222222; }
@@ -89,6 +157,69 @@ export component PreferencesWindow inherits Window {
         CheckBox { x: 120px; y: 160px; height: 24px; text: "Show previews after taking screenshots";
             checked <=> root.show-preview;
             toggled => { root.settings-changed(); }
+        }
+        }
+        Rectangle { x: 20px; y: 326px; width: 480px; height: 48px; background: transparent;
+            Text { x: 0px; y: 8px; text: "History:"; font-weight: 600; font-size: 13px; color: #222222; }
+            CheckBox { x: 120px; y: 4px; height: 24px; text: "Resume last position";
+                checked <=> root.resume-last-position;
+                toggled => { root.settings-changed(); }
+            }
+        }
+        }
+    }
+    if root.selected-pane == 1 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text { x: 22px; y: 16px; text: "UI"; font-size: 15px; font-weight: 600; color: #222222; }
+        Rectangle { x: 20px; y: 52px; width: 576px; height: 138px; background: transparent;
+            Text { x: 0; y: 8px; text: "On-Screen Controller:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            ComboBox { x: 160px; y: 4px; width: 150px; height: 24px;
+                model: ["Floating", "Top", "Bottom"];
+                current-index <=> root.osc-position;
+                selected => { root.settings-changed(); }
+            }
+            CheckBox { x: 160px; y: 42px; height: 24px; text: "Compact interface";
+                checked <=> root.compact-ui;
+                toggled => { root.settings-changed(); }
+            }
+            CheckBox { x: 160px; y: 72px; height: 24px; text: "Dock control bar and titlebar";
+                checked <=> root.docked-controls;
+                enabled: !root.edge-to-edge-video;
+                toggled => { root.settings-changed(); }
+            }
+        }
+        Rectangle { x: 20px; y: 204px; width: 350px; height: 92px; background: transparent;
+            Text { x: 0; y: 8px; text: "On-Screen Display:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            CheckBox { x: 160px; y: 4px; height: 24px; text: "Show OSD messages";
+                checked <=> root.osd-enabled;
+                toggled => { root.settings-changed(); }
+            }
+            CheckBox { x: 160px; y: 32px; height: 24px; text: "Suppress speed messages";
+                checked <=> root.disable-osd-speed;
+                toggled => { root.settings-changed(); }
+            }
+            CheckBox { x: 160px; y: 60px; height: 24px; text: "Suppress seek messages";
+                checked <=> root.disable-osd-seek;
+                toggled => { root.settings-changed(); }
+            }
+        }
+    }
+    if root.selected-pane >= 2 : Rectangle {
+        x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
+        background: #ededed;
+        Text {
+            x: 22px; y: 16px; font-size: 15px; font-weight: 600; color: #222222;
+            text: root.selected-pane == 2 ? "Video" :
+                root.selected-pane == 3 ? "Audio" :
+                root.selected-pane == 4 ? "Subtitles" :
+                root.selected-pane == 5 ? "Network" :
+                root.selected-pane == 6 ? "Control" :
+                root.selected-pane == 7 ? "Key Bindings" :
+                root.selected-pane == 8 ? "Advanced" :
+                root.selected-pane == 9 ? "Plugins" : "Utilities";
         }
     }
 }

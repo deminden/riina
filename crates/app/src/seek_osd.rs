@@ -13,7 +13,16 @@ pub(crate) enum Change {
 }
 
 impl SeekOsd {
+    #[cfg(test)]
     pub(crate) fn observe(&mut self, state: &Playback) -> Change {
+        self.observe_with_suppression(state, false)
+    }
+
+    pub(crate) fn observe_with_suppression(
+        &mut self,
+        state: &Playback,
+        suppress_message: bool,
+    ) -> Change {
         let key = (state.generation, state.completed_navigation_seeks);
         if self.consumed.is_none_or(|old| old.0 != key.0)
             || matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed)
@@ -35,7 +44,11 @@ impl SeekOsd {
                 .is_some_and(|value| value.is_finite() && value > 0.0)
         {
             self.consumed = Some(key);
-            Change::Show
+            if suppress_message {
+                Change::Hide
+            } else {
+                Change::Show
+            }
         } else {
             Change::Keep
         }
@@ -80,6 +93,23 @@ mod tests {
         assert_eq!(osd.observe(&state), Change::Show);
         state.position = Some(2.1);
         assert_eq!(osd.observe(&state), Change::Keep);
+    }
+
+    #[test]
+    fn suppressed_seek_feedback_is_consumed_only_after_completion() {
+        let mut osd = SeekOsd::default();
+        let mut state = loaded();
+        assert_eq!(osd.observe_with_suppression(&state, false), Change::Hide);
+
+        state.completed_navigation_seeks = 1;
+        state.seeking = true;
+        assert_eq!(osd.observe_with_suppression(&state, true), Change::Keep);
+        state.seeking = false;
+        assert_eq!(osd.observe_with_suppression(&state, true), Change::Hide);
+        assert_eq!(osd.observe_with_suppression(&state, false), Change::Keep);
+
+        state.completed_navigation_seeks = 2;
+        assert_eq!(osd.observe_with_suppression(&state, false), Change::Show);
     }
 
     #[test]

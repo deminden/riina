@@ -1,7 +1,16 @@
 //! Dialog intent is shared; each backend owns native presentation and modality.
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow};
 use riina_core::Command;
 
-pub(crate) use crate::platform::open_dialog as open;
+pub(crate) fn open(
+    app: &PlayerWindow,
+    host: Option<slint::Weak<NativeVideoHost>>,
+    purpose: Purpose,
+    sender: riina_mpv::CommandSender,
+    welcome: Option<slint::Weak<WelcomeWindow>>,
+) {
+    crate::platform::open_dialog(app, host, purpose, sender, welcome);
+}
 
 #[derive(Clone, Copy)]
 pub enum Purpose {

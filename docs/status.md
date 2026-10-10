@@ -1958,3 +1958,135 @@ sidebars outside the picture and exposes the docked-control option. The native
 viewport regression passes. Live geometry capture, window-aspect lock, fit-to-
 video, theme/material, plugin placement and matched macOS pixel comparison
 remain open.
+
+Current screen capture succeeds again on Windows. The empty-player state at
+962 x 649 confirms a centered product name and subtitle but leaves Open File
+against the left edge. More importantly, this is not IINA's separate 560 x 440
+welcome window: Open URL, resume-last-file and recent documents are all missing.
+The new atomic startup requirement is recorded as STARTUP-WELCOME-001 in
+docs/parity.csv; implement that surface before treating startup parity as closed.
+
+Rust 1.99.0 is still the latest stable toolchain as of 2026-10-10. The latest
+stable direct crates were refreshed, including Slint/slint-build 1.18.1, and
+Cargo.lock advanced 128 compatible packages. The Windows error constructor and
+Slint ScrollView content-coordinate API were migrated. Formatting, workspace
+tests, strict all-target Clippy and the optimized Windows workspace build pass
+against the refreshed lockfile. The default app was captured under Slint 1.18.1;
+the captured empty-state parity gap remains open.
+
+2026-10-10 interface parity increment: replaced the old centered empty-player
+placeholder with an original, source-measured 560×440 welcome surface; added a
+keyboard-accessible Open URL entry for HTTP/HTTPS/RTSP/RTSPS streams and resize to
+the normal player canvas after playback starts. URL scheme/host validation has a
+unit test. Recent-document history, last-position resume, a separate welcome
+window, and live pixel comparison are still open. Rust 1.99.0 was installed into
+an isolated per-user toolchain directory after the default shell was found to
+lack Rust. Formatting passes, but the workspace check cannot link build scripts
+because Visual C++ `link.exe` is absent; the changes remain unbuilt and unrun
+here. Do not infer verification from the prior build. The project toolchain
+remains pinned to Rust 1.99.0.
+
+2026-10-10 startup-history increment: the welcome surface now reads persisted
+recent media, offers Resume and selectable entries, and the core sends saved
+positions through mpv's documented `loadfile` start option. Normal shutdown saves
+the active playlist path, title and confirmed playback position, with history
+bounded to ten entries and deduplicated by path. Core tests cover option shape,
+invalid positions, JSON validation, ordering and bounds. These tests and the Slint
+build remain unrun: Rust 1.99.0 is installed, while this machine lacks MSVC
+`link.exe`; formatting, manifest metadata, parity traceability and CSV checks pass.
+The implementation is partial until the native round-trip and welcome pixels are
+verified; the window is still shared with the player.
+
+The 560×440 target came from the previous 962×649 player capture. The 558×391
+Slint client request plus the observed Windows frame now produces a live
+560×440 outer welcome window. The URL action opens a keyboard-focused input with
+an Open action; the empty welcome layout and measured bounds were visually
+checked on Windows. Pixel-by-pixel reference comparison and recent-history
+restart/resume verification remain open.
+
+2026-10-10 Windows toolchain and UI verification: installed Microsoft Visual
+Studio Build Tools 2026 (18.10.2), MSVC 14.51 and Windows SDK 10.0.26100 after
+the user approved the system install. Rust 1.99.0 remains the pinned latest
+stable toolchain, and the lockfile uses the refreshed stable direct dependencies.
+Workspace check, release build, strict all-target Clippy and formatting pass;
+workspace tests pass 98 with 41 ignored (including native libmpv/clipboard
+fixtures that were not enabled). A live Windows capture confirms the 560×440
+welcome surface and its Open URL field. Recent-media persistence has unit
+coverage but still needs an end-to-end restart/resume check; exact IINA pixel
+comparison, keyboard/table-navigation parity and the separate welcome-window
+lifecycle remain open.
+
+2026-10-10 release-milestone update: advanced the workspace and app display
+version to 0.2.0 after the accumulated playback, settings and welcome-surface
+milestones. Future noticeable milestones advance the patch digit; major
+milestones advance the minor digit. This is a local development version bump,
+not a public release. Interface and behavioral parity work continues.
+
+2026-10-10 welcome parity correction: compared the visible opening surface with
+the pinned `InitialWindowController.swift`. Open actions now use the reference's
+horizontal grouping; the most recent item is represented by Resume and omitted
+from the recent-document table; Up/Down/Return follow the reference selection
+model, and an empty history leaves the lower surface blank. A regression test
+checks that the Resume entry is not duplicated. The new layout and key behavior
+still need a live Windows capture and matched reference comparison. The distinct
+welcome/player window lifecycle remains unimplemented. Windows workspace tests
+pass (97 passed, 41 opt-in tests ignored), strict all-target Clippy and formatting
+pass, and the optimized workspace build succeeds on Rust 1.99.0/MSVC.
+
+2026-10-10 separate welcome-window lifecycle increment: empty launches now create
+and show a dedicated WelcomeWindow while media launches show PlayerWindow
+directly. Welcome URL and Resume requests wait for the player renderer before
+dispatch; successful media opening hides the welcome window, and cancelling the
+file chooser restores it. Rust 1.99.0/MSVC validation passes: 99 workspace tests,
+41 opt-in tests ignored, strict all-target Clippy, and optimized workspace build.
+Formatting check passes using the toolchain's cargo-fmt executable. Live Windows interaction cannot be
+captured in this session, so window visibility, cancellation recovery, saved
+history restart/resume and pixel comparison remain unverified here. The startup
+parity row remains partial, and the full interface-parity goal remains open.
+
+2026-10-10 General History parity increment: added the default-enabled Resume last
+position preference, persisted source-compatible behavior, startup/live libmpv
+save-and-restore options, and welcome Resume/recent row mapping. Workspace tests
+and an explicit native DLL test pass; the latter confirms watch-later position is
+saved/restored only when enabled. App-level saved-settings restart, live Windows
+setting interaction and matched reference pixels remain unverified. This closes
+no broad Preferences or pixel-parity gate.
+
+Release readiness: the only public release is 0.1.0-preview.1, published
+2026-10-10. The local 0.2.0 milestone remains unreleased. A binary release is
+blocked by docs/native-distribution-audit.json: the selected combined-package
+terms are GPLv3, but the pinned native build has not passed a compatibility and
+corresponding-source audit. Its FFmpeg recipe enables GPL and version 3 while
+also enabling OpenSSL 3 and x264. The pinned FFmpeg configure script says
+version 3 upgrades its GPL build and OpenSSL 3 requires that mode; x264's
+licensing page says GPLv2-only, and the builder does not pin its exact source
+revision. GPLv2 was evaluated, but changing the package label alone cannot
+resolve those native settings. The recommended GPLv3 candidate removes optional
+x264 encoding while retaining and testing FFmpeg's built-in H.264 decoder. The
+archive has no native sources or notices; dependency inventory and reproducible
+package evidence remain open.
+The Windows Actions workflow compiles the app but does not package or upload
+release assets; an audited zip/package still needs an explicit release step.
+Do not attach native binaries until that audit is closed; full interface parity
+is also incomplete.
+
+2026-10-10 welcome Resume-row parity increment: split the Resume action into the
+reference's 32-point row with a separate history glyph, Resume label, elided media
+title and trailing playback position. Added an independently drawn vector icon;
+the recent-document table and keyboard selection stay shared and portable. Rust
+1.99.0/MSVC workspace tests pass (99 passed, 41 opt-in ignored), strict all-target
+Clippy, formatting check and optimized build pass. This is source-guided structure,
+not a visual-parity claim: live capture and pixel comparison remain pending because
+no Windows capture surface is available in this session.
+
+2026-10-10 Preferences parity increment: expanded the Preferences window to the
+source's 820 x 480 starting size and added a keyboard-accessible General/UI
+navigation shell. General settings remain connected; UI now controls persisted
+OSC position, compact interface, docked controller and OSD controls for global
+visibility plus speed/seek message suppression, respecting the edge-to-edge
+dependency. Suppression takes effect in the live feedback path; a completed
+suppressed seek is consumed so re-enabling it does not replay stale feedback.
+This is a partial UI pane: seven other source categories and the remaining UI
+sections are unimplemented. No live capture or pixel comparison is available in
+this session. Formatting, strict all-target Clippy, workspace tests, optimized
+workspace build, parity inventory and asset provenance checks pass.

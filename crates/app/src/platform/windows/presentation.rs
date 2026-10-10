@@ -50,6 +50,7 @@ impl NativePresentation {
 
     pub(crate) fn start_engine(
         &self,
+        options: Vec<(String, String)>,
         notify: impl Fn(Playback) + Send + 'static,
     ) -> Result<Player, String> {
         // Runtime diagnostics belong to the user's application directory, not to
@@ -57,6 +58,12 @@ impl NativePresentation {
         let log = services::preferences_path()
             .map_err(|error| error.to_string())?
             .with_file_name("native-player.log");
-        Player::start_native_window(&services::playback_library(), self.wid, &log, notify)
+        Player::start_native_window(
+            &services::playback_library(),
+            self.wid,
+            &log,
+            options,
+            notify,
+        )
     }
 }

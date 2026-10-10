@@ -1,0 +1,191 @@
+name: Windows release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  native-engine:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/shinchiro/archlinux:latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Build pinned native engine and corresponding source
+        shell: bash
+        run: bash tools/mpv/build-windows.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
+        with:
+          name: windows-native-engine
+          path: native-runtime/
+          if-no-files-found: error
+          retention-days: 2
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
+        with:
+          name: windows-native-source
+          path: |
+            riina-native-source.tar.zst
+            riina-native-source.tar.zst.sha256
+          if-no-files-found: error
+          retention-days: 2
+
+  windows-package:
+    runs-on: windows-latest
+    needs: native-engine
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        with:
+          name: windows-native-engine
+          path: native-runtime
+      - name: Pinned Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+          rustup target add x86_64-pc-windows-msvc --toolchain 1.99.0
+      - name: Verify source and test fixtures
+        shell: pwsh
+        run: |
+          python scripts/check-parity.py
+          python scripts/check-fixtures.py
+          python scripts/check-assets.py
+          cargo fmt --all -- --check
+      - name: Lint and unit tests
+        shell: pwsh
+        run: |
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo test --workspace --locked
+      - name: Native playback and lifecycle tests
+        shell: pwsh
+        run: |
+          $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path native-runtime/libmpv-2.dll).Path
+          $runtimePath = (Resolve-Path native-runtime).Path
+          $env:PATH = "$runtimePath;$env:PATH"
+          cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1
+      - name: Build and assemble portable package
+        shell: pwsh
+        run: |
+          cargo build -p riina --release --locked --target x86_64-pc-windows-msvc
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
+          $dist = Join-Path $PWD "dist/riina-$version-windows-x86_64"
+          New-Item -ItemType Directory -Force $dist | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/release/riina.exe $dist
+          Copy-Item native-runtime/* $dist -Recurse -Force
+          Copy-Item LICENSE, LICENSE-GPL-3.0.txt, THIRD_PARTY_NOTICES.md, README.md $dist
+          Copy-Item docs/licensing.md $dist/LICENSING.md
+          @"
+          Riina $version for Windows x86_64
+
+          This portable package contains the Windows application and its complete
+          mpv runtime. The corresponding application and native dependency sources,
+          build recipe, patches, and source manifest are provided in the release's
+          riina-$version-source.tar.zst asset.
+
+          Extract this folder and run riina.exe. No installer is required.
+          "@ | Set-Content -Encoding utf8 (Join-Path $dist 'README.txt')
+          Compress-Archive -Path "$dist/*" -DestinationPath "dist/riina-$version-windows-x86_64.zip" -CompressionLevel Optimal
+          Get-FileHash "dist/riina-$version-windows-x86_64.zip" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  riina-$version-windows-x86_64.zip" } | Set-Content -Encoding ascii dist/SHA256SUMS.txt
+          Expand-Archive "dist/riina-$version-windows-x86_64.zip" -DestinationPath package-smoke
+          $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path package-smoke/libmpv-2.dll).Path
+          $packagePath = (Resolve-Path package-smoke).Path
+          $env:PATH = "$packagePath;$env:PATH"
+          cargo test -p riina-mpv --test native --locked playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
+        with:
+          name: windows-package
+          path: |
+            dist/riina-*-windows-x86_64.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 2
+
+  source-package:
+    runs-on: ubuntu-latest
+    needs: native-engine
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        with:
+          name: windows-native-source
+          path: native-source-artifact
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal
+      - name: Vendor locked Rust sources
+        run: cargo vendor --locked --versioned-dirs cargo-vendor > "$RUNNER_TEMP/cargo-vendor-config.toml"
+      - name: Assemble complete source and build bundle
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)"
+          source_dir="$RUNNER_TEMP/riina-source-$version"
+          mkdir -p "$source_dir/.cargo" "$source_dir/native-build"
+          git archive "$GITHUB_SHA" | tar -xf - -C "$source_dir"
+          cp -a cargo-vendor "$source_dir/cargo-vendor"
+          cp "$RUNNER_TEMP/cargo-vendor-config.toml" "$source_dir/.cargo/config.toml"
+          tar --zstd -xf native-source-artifact/riina-native-source.tar.zst -C "$source_dir/native-build"
+          cp native-source-artifact/riina-native-source.tar.zst.sha256 "$source_dir/native-build/"
+          printf '\nThe complete corresponding source for the release executable and native runtime is in native-build/native-source and cargo-vendor/. The exact native source states and patch hash are in native-build/native-source/SOURCE-MANIFEST.tsv. The app uses Cargo.lock and Rust 1.99.0; .cargo/config.toml enables offline builds from cargo-vendor/. To rebuild the engine from the captured sources, run in the same Arch Linux build image with RIINA_NATIVE_SOURCE_ROOT set to native-build/native-source/native-sources, then run bash tools/mpv/build-windows.sh. The script validates every recorded source revision and file hash before compiling.\n' >> "$source_dir/README.md"
+          mkdir -p source
+          mv "$source_dir" "source/riina-$version"
+          tar --zstd -cf "riina-$version-source.tar.zst" -C source "riina-$version"
+          sha256sum "riina-$version-source.tar.zst" > "riina-$version-source.tar.zst.sha256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
+        with:
+          name: complete-source
+          path: |
+            riina-*-source.tar.zst
+            riina-*-source.tar.zst.sha256
+          if-no-files-found: error
+          retention-days: 2
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [windows-package, source-package]
+    steps:
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        with:
+          name: windows-package
+          path: release-assets
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        with:
+          name: complete-source
+          path: release-assets
+      - name: Confirm tag and package versions match
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          test -f "release-assets/riina-$version-windows-x86_64.zip"
+          test -f "release-assets/riina-$version-source.tar.zst"
+          cat "release-assets/riina-$version-source.tar.zst.sha256" >> release-assets/SHA256SUMS.txt
+      - name: Publish release with visible binary and source assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          repo="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          tag="$GITHUB_REF_NAME"
+          cat > release-notes.md <<EOF
+          Riina $version for Windows x86_64.
+
+          The portable ZIP contains the application and full media runtime. The
+          complete corresponding source, vendored Rust dependencies, native source
+          checkouts, build scripts and patch are available in the source archive.
+          SHA-256 checksums are included. Extract the ZIP and run riina.exe.
+
+          [Download Windows x64]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip) · [Complete source]($repo/releases/download/$tag/riina-$version-source.tar.zst) · [SHA-256 checksums]($repo/releases/download/$tag/SHA256SUMS.txt)
+
+          The combined application is distributed under GPLv3 terms. Riina's
+          independently written source remains MIT-licensed; third-party terms
+          and notices are included in the package and source archive.
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            "release-assets/riina-$version-windows-x86_64.zip" \
+            "release-assets/SHA256SUMS.txt" \
+            "release-assets/riina-$version-source.tar.zst" \
+            "release-assets/riina-$version-source.tar.zst.sha256" \
+            --title "Riina $version" --notes-file release-notes.md

@@ -1,7 +1,15 @@
 {
   "distribution_approved": false,
+  "distribution_license": "GPL-3.0-only",
   "workflow_run": "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/37862467302",
   "build_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
+  "workflow_verification": {
+    "event": "workflow_dispatch",
+    "conclusion": "success",
+    "head_sha": "b2856ee6deed6957380b32465f359e67f67fafd8",
+    "run_attempt": 1,
+    "created_at": "2026-10-09T00:00:03Z"
+  },
   "runtime": {
     "dll_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
     "runtime_properties": {
@@ -18,10 +26,13 @@
     ]
   },
   "remaining": [
-    "Select distribution license and compatible engine configuration without silently dropping parity requirements",
-    "Resolve exact revisions and notices of all native dependencies and patches",
+    "Verify GPLv3 compatibility and redistribution rights for every native dependency without silently dropping parity requirements",
+    "Resolve exact revisions and notices of all native dependencies and patches; the pinned builder recipe does not pin many dependency revisions",
+    "Resolve the GPLv3 compatibility of the enabled x264 component against its exact source revision and license grant",
+    "Rebuild FFmpeg without the optional x264 encoder, then verify H.264 playback and the full media fixture set",
+    "Audit all 344 Windows-targeted Rust dependencies for selected license alternatives and ship the required notices",
     "Provide corresponding source and reproducible build information for the chosen artifact",
-    "Audit full Rust executable dependency notices and Slint attribution",
+    "Verify the selected Slint Royalty-free 2.0 terms and attribution for the combined GPLv3 package",
     "Build and test the complete package outside the development workspace"
   ],
   "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
@@ -45,7 +56,13 @@
   ],
   "findings": [
     "Pinned mpv configuration explicitly enables dvdnav and prefers static dependencies",
-    "Pinned FFmpeg recipe enables --enable-gpl, --enable-libx264 and --enable-libx265",
-    "No embedded FFmpeg GPL configuration string was found; absence is not license evidence"
+    "Pinned FFmpeg recipe enables --enable-gpl, --enable-version3, --enable-openssl, --enable-libx264 and --enable-libx265",
+    "Pinned FFmpeg configure source states --enable-version3 upgrades GPL builds to GPLv3-or-later; it also says OpenSSL 3 requires this option in GPL mode",
+    "Pinned FFmpeg configure source describes --enable-libx264 as H.264 encoding; the recipe does not disable the built-in H.264 decoder, so rebuild and fixture tests can verify playback parity without x264",
+    "x264's official licensing page says GPLv2-only; the build recipe fetches x264 without a source revision pin, so the exact built source grant remains unverified",
+    "A GPLv2-only package cannot be made by relabeling this build: FFmpeg's version-3 upgrade and OpenSSL 3 must be addressed in a separate native build and compatibility audit",
+    "The development archive contains the DLL and import library but not the native dependency sources, notices or reproducible source bundle",
+    "No embedded FFmpeg GPL configuration string was found; absence is not license evidence",
+    "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields, but selected alternatives and notices still need package-level review"
   ]
 }

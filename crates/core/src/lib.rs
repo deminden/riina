@@ -19,8 +19,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     Load(String),
+    LoadAtPosition {
+        path: String,
+        position: f64,
+    },
     OpenFiles(Vec<String>),
     SetPauseWhenOpen(bool),
+    SetResumeLastPosition(bool),
     TogglePause,
     Stop,
     Seek {
@@ -131,6 +136,20 @@ impl Command {
                 vec!["loadfile".into(), path.clone(), "replace".into()]
             }
             Self::Load(_) => return Err("The media path is empty or contains a NUL byte".into()),
+            Self::LoadAtPosition { path, position }
+                if valid_path(path) && position.is_finite() && *position >= 0.0 =>
+            {
+                vec![
+                    "loadfile".into(),
+                    path.clone(),
+                    "replace".into(),
+                    "-1".into(),
+                    format!("start={position}"),
+                ]
+            }
+            Self::LoadAtPosition { .. } => {
+                return Err("The resume file or position is invalid".into());
+            }
             Self::TogglePause => vec!["cycle".into(), "pause".into()],
             Self::Stop => vec!["stop".into()],
             Self::Seek { seconds, absolute } if seconds.is_finite() => vec![
@@ -330,6 +349,7 @@ impl Command {
             }
             Self::OpenFiles(_)
             | Self::SetPauseWhenOpen(_)
+            | Self::SetResumeLastPosition(_)
             | Self::Screenshot { .. }
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
@@ -465,6 +485,13 @@ impl Command {
             }
             Self::SetVolumeBoost(boost) => volume_adjustment(0.0, *boost),
             Self::SetPauseWhenOpen(_) => Vec::new(),
+            Self::SetResumeLastPosition(enabled) => {
+                let value = if *enabled { "yes" } else { "no" };
+                vec![
+                    vec!["set".into(), "save-position-on-quit".into(), value.into()],
+                    vec!["set".into(), "resume-playback".into(), value.into()],
+                ]
+            }
             Self::SetAbLoop { a, b } => {
                 let point = |value: Option<f64>| -> Result<String, String> {
                     match value {
@@ -539,7 +566,7 @@ impl Command {
                 }
                 commands
             }
-            Self::Load(_) => vec![
+            Self::Load(_) | Self::LoadAtPosition { .. } => vec![
                 vec![
                     "set".into(),
                     "pause".into(),
@@ -1041,6 +1068,7 @@ pub struct Preferences {
     pub osc_position: u8,
     pub pause_when_open: bool,
     pub fullscreen_when_open: bool,
+    pub resume_last_position: bool,
     pub schema_version: u32,
     pub volume: f64,
     pub volume_boost: bool,
@@ -1052,6 +1080,15 @@ pub struct Preferences {
     pub disable_osd_seek: bool,
     pub osd_timeout_secs: f64,
     pub screenshot: screenshot::Settings,
+    pub recent_media: Vec<RecentMedia>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecentMedia {
+    pub path: String,
+    pub title: String,
+    pub position: f64,
 }
 
 impl Default for Preferences {
@@ -1068,6 +1105,7 @@ impl Default for Preferences {
             osc_position: 0,
             pause_when_open: false,
             fullscreen_when_open: false,
+            resume_last_position: true,
             schema_version: 1,
             volume: 100.0,
             volume_boost: false,
@@ -1079,6 +1117,7 @@ impl Default for Preferences {
             disable_osd_seek: false,
             osd_timeout_secs: 1.0,
             screenshot: screenshot::Settings::default(),
+            recent_media: Vec::new(),
         }
     }
 }
@@ -1086,6 +1125,14 @@ impl Default for Preferences {
 impl Preferences {
     pub fn volume_limit(&self) -> f64 {
         if self.volume_boost { 200.0 } else { 100.0 }
+    }
+
+    pub fn remember_media(&mut self, media: RecentMedia) {
+        // Keep one durable resume point per path and cap history like the compact
+        // welcome list; paths are user data and are never canonicalized here.
+        self.recent_media.retain(|item| item.path != media.path);
+        self.recent_media.insert(0, media);
+        self.recent_media.truncate(10);
     }
 
     pub fn parse(text: &str) -> Result<Self, String> {
@@ -1104,6 +1151,16 @@ impl Preferences {
             return Err("Unsupported on-screen controller position".into());
         }
         prefs.screenshot.validate()?;
+        if prefs.recent_media.len() > 10
+            || prefs.recent_media.iter().any(|item| {
+                !valid_path(&item.path)
+                    || item.title.contains('\0')
+                    || !item.position.is_finite()
+                    || item.position < 0.0
+            })
+        {
+            return Err("Recent media history is invalid".into());
+        }
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
         let timeout = std::time::Duration::try_from_secs_f64(prefs.osd_timeout_secs)
@@ -1186,11 +1243,39 @@ mod tests {
     fn pause_when_open_keeps_legacy_defaults_and_round_trips_enabled_policy() {
         assert!(!Preferences::parse("{}").unwrap().pause_when_open);
         assert!(!Preferences::parse("{}").unwrap().fullscreen_when_open);
-        let enabled =
-            Preferences::parse(r#"{"pause_when_open":true,"fullscreen_when_open":true}"#).unwrap();
+        assert!(Preferences::parse("{}").unwrap().resume_last_position);
+        let enabled = Preferences::parse(
+            r#"{"pause_when_open":true,"fullscreen_when_open":true,"resume_last_position":false}"#,
+        )
+        .unwrap();
         let saved = serde_json::to_string(&enabled).unwrap();
         assert!(Preferences::parse(&saved).unwrap().pause_when_open);
         assert!(Preferences::parse(&saved).unwrap().fullscreen_when_open);
+        assert!(!Preferences::parse(&saved).unwrap().resume_last_position);
+    }
+
+    #[test]
+    fn resume_policy_updates_native_save_and_restore_together() {
+        assert_eq!(
+            Command::SetResumeLastPosition(false)
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            [
+                vec!["set", "save-position-on-quit", "no"],
+                vec!["set", "resume-playback", "no"],
+            ]
+        );
+        assert_eq!(
+            Command::SetResumeLastPosition(true)
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            [
+                vec!["set", "save-position-on-quit", "yes"],
+                vec!["set", "resume-playback", "yes"],
+            ]
+        );
     }
 
     #[test]
@@ -1336,6 +1421,45 @@ mod tests {
         let path = r"C:\Фильмы\a b.mkv";
         assert_eq!(Command::Load(path.into()).mpv_args().unwrap()[1], path);
         assert!(Command::Load("a\0b".into()).mpv_args().is_err());
+    }
+
+    #[test]
+    fn resume_load_uses_native_start_option_and_rejects_invalid_positions() {
+        let command = Command::LoadAtPosition {
+            path: r"C:\Фильмы\a b.mkv".into(),
+            position: 42.5,
+        };
+        assert_eq!(
+            command.mpv_args().unwrap(),
+            [
+                "loadfile",
+                r"C:\Фильмы\a b.mkv",
+                "replace",
+                "-1",
+                "start=42.5"
+            ]
+        );
+        let plan = command.plan(&Playback::default()).unwrap();
+        assert_eq!(plan.commands[0], ["set", "pause", "no"]);
+        assert_eq!(plan.commands[1][4], "start=42.5");
+        for position in [-1.0, f64::NAN, f64::INFINITY] {
+            assert!(
+                Command::LoadAtPosition {
+                    path: "movie.mkv".into(),
+                    position
+                }
+                .mpv_args()
+                .is_err()
+            );
+        }
+        assert!(
+            Command::LoadAtPosition {
+                path: "bad\0path".into(),
+                position: 2.0
+            }
+            .plan(&Playback::default())
+            .is_err()
+        );
     }
 
     #[test]
@@ -1497,6 +1621,66 @@ mod tests {
     fn preferences_reject_future_schema() {
         assert!(Preferences::parse(r#"{"schema_version":2}"#).is_err());
         assert_eq!(Preferences::parse("{}").unwrap().volume, 100.0);
+        assert!(Preferences::parse("{}").unwrap().recent_media.is_empty());
+    }
+
+    #[test]
+    fn recent_media_round_trips_and_rejects_invalid_history() {
+        let item = RecentMedia {
+            path: r"C:\Фильмы\a.mkv".into(),
+            title: "A film".into(),
+            position: 87.25,
+        };
+        let prefs = Preferences {
+            recent_media: vec![item.clone()],
+            ..Preferences::default()
+        };
+        let encoded = serde_json::to_string(&prefs).unwrap();
+        assert_eq!(Preferences::parse(&encoded).unwrap().recent_media, [item]);
+        assert!(
+            Preferences::parse(r#"{"recent_media":[{"path":"x","title":"x","position":-1.0}]}"#)
+                .is_err()
+        );
+        assert!(
+            Preferences::parse(
+                r#"{"recent_media":[{"path":"x","title":"x","position":1.0,"secret":true}]}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn remembered_media_moves_to_front_and_bounds_history() {
+        let mut prefs = Preferences::default();
+        for index in 0..12 {
+            prefs.remember_media(RecentMedia {
+                path: format!("film-{index}.mkv"),
+                title: format!("Film {index}"),
+                position: index as f64,
+            });
+        }
+        prefs.remember_media(RecentMedia {
+            path: "film-4.mkv".into(),
+            title: "Film Four".into(),
+            position: 44.0,
+        });
+        assert_eq!(prefs.recent_media.len(), 10);
+        assert_eq!(prefs.recent_media[0].path, "film-4.mkv");
+        assert_eq!(prefs.recent_media[0].position, 44.0);
+        assert_eq!(
+            prefs
+                .recent_media
+                .iter()
+                .filter(|item| item.path == "film-4.mkv")
+                .count(),
+            1
+        );
+        assert!(
+            !prefs
+                .recent_media
+                .iter()
+                .any(|item| item.path == "film-0.mkv")
+        );
     }
 
     #[test]

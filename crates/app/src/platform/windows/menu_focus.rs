@@ -90,7 +90,7 @@ pub(super) fn request(handle: isize) -> windows::core::Result<()> {
     // SAFETY: repeated registration of the same static name returns the same ID.
     let message = unsafe { RegisterWindowMessageW(w!("riina.native-menu.enter")) };
     if message == 0 {
-        return Err(windows::core::Error::from_win32());
+        return Err(windows::core::Error::from_thread());
     }
     // SAFETY: the caller retains the owner on this UI thread. Queue entry after
     // the current key-up instead of nesting the menu loop in a Slint callback.

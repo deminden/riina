@@ -145,7 +145,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     app.invoke_toggle_video_reflection(horizontal);
                 }
             });
-            let configured = configure_player(&app, Some(presentation), media)?;
+            let configured = configure_player(&app, Some(presentation), media, None)?;
             let menu_app = app.as_weak();
             host.on_set_menu_video_crop(move |index| {
                 if let Some(app) = menu_app.upgrade() {

@@ -1,5 +1,5 @@
 //! One owned picker per player; native HWNDs outlive its dedicated COM apartment.
-use crate::{NativeVideoHost, PlayerWindow, file_dialog, media_open};
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, file_dialog, media_open};
 use riina_mpv::CommandSender;
 use slint::{
     ComponentHandle,
@@ -12,12 +12,13 @@ use crate::ui_dialogs::Purpose;
 
 struct ModalWindows {
     app: slint::Weak<PlayerWindow>,
+    welcome: Option<slint::Weak<WelcomeWindow>>,
     // The first HWND is the dialog owner (chrome); the optional second is its VO host.
     windows: Vec<Arc<Window>>,
 }
 
 impl ModalWindows {
-    fn restore(&mut self) {
+    fn restore(&mut self, return_to_welcome: bool) {
         if let Some(app) = self.app.upgrade() {
             app.set_dialog_open(false);
             app.invoke_activity();
@@ -25,7 +26,13 @@ impl ModalWindows {
         for window in &self.windows {
             window.set_enable(true);
         }
-        if let Some(owner) = self.windows.first() {
+        if return_to_welcome && let Some(welcome) = self.welcome.as_ref().and_then(|w| w.upgrade())
+        {
+            if let Some(app) = self.app.upgrade() {
+                let _ = app.hide();
+            }
+            let _ = welcome.show();
+        } else if let Some(owner) = self.windows.first() {
             owner.focus_window();
         }
         self.windows.clear();
@@ -63,6 +70,7 @@ pub fn open(
     host: Option<slint::Weak<NativeVideoHost>>,
     purpose: Purpose,
     sender: CommandSender,
+    welcome: Option<slint::Weak<WelcomeWindow>>,
 ) {
     // The gate closes before the async HWND lookup: queued shortcuts cannot open
     // a second picker while the first is still being constructed.
@@ -93,6 +101,7 @@ pub fn open(
             }
             let mut modality = ModalWindows {
                 app: weak.clone(),
+                welcome,
                 windows,
             };
             // The Shell dialog runs on a separate STA. Explicitly disable every
@@ -111,7 +120,7 @@ pub fn open(
                         purpose.title(),
                     );
                     let _ = slint::invoke_from_event_loop(move || {
-                        modality.restore();
+                        modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
                         if let Some(app) = weak.upgrade() {
                             let result = result.and_then(|paths| {
                                 if matches!(purpose, Purpose::Media | Purpose::Playlist) {

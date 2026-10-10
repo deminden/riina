@@ -40,13 +40,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .renderer_name("femtovg".into())
         .select()?;
     let app = PlayerWindow::new()?;
-    let session = match configure_player(&app, None, media) {
-        Ok(session) => session,
-        Err(error) => {
-            app.set_status(error.to_string().into());
-            return app.run().map_err(Into::into);
-        }
+    let welcome = if media.is_none() {
+        Some(WelcomeWindow::new()?)
+    } else {
+        None
     };
-    app.run()?;
+    let session = configure_player(&app, None, media, welcome.as_ref())?;
+    if let Some(welcome) = &welcome {
+        welcome.show()?;
+    } else {
+        app.show()?;
+    }
+    slint::run_event_loop()?;
     session.save(&app)
 }

@@ -14,12 +14,12 @@ workspace = true
 slint.workspace = true
 glow.workspace = true
 serde_json.workspace = true
-fontdb = "=0.23.0"
+fontdb = "=0.24.0"
 ttf-parser = "=0.25.1"
 icu_experimental = "=0.6.0"
-icu_locale = "=2.3.0"
+icu_locale = "=2.3.1"
 sys-locale = "=0.3.2"
-dirs = "=6.0.0"
+dirs = "=7.0.0"
 arboard = { version = "=3.6.1", default-features = false, features = ["image-data", "wayland-data-control"] }
 riina-core = { path = "../core" }
 riina-mpv = { path = "../mpv" }

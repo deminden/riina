@@ -40,6 +40,15 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                 };
                 let previous_pause = app.get_pause_when_open();
                 let previous_fullscreen = app.get_fullscreen_when_open();
+                let previous_resume = app.get_resume_last_position();
+                let previous_osd_enabled = app.get_osd_enabled();
+                let previous_osd_suppression =
+                    (app.get_disable_osd_speed(), app.get_disable_osd_seek());
+                let previous_layout = (
+                    app.get_osc_position(),
+                    app.get_compact_ui(),
+                    app.get_docked_controls(),
+                );
                 let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
                 // AVIF can be configured externally but has no item in the pinned
                 // General pane. Editing another control must preserve that choice.
@@ -56,6 +65,15 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                 app.set_screenshot_directory(window.get_directory());
                 app.set_pause_when_open(window.get_pause_when_open());
                 app.set_fullscreen_when_open(window.get_fullscreen_when_open());
+                app.set_resume_last_position(window.get_resume_last_position());
+                app.set_osd_enabled(window.get_osd_enabled());
+                app.set_disable_osd_speed(window.get_disable_osd_speed());
+                app.set_disable_osd_seek(window.get_disable_osd_seek());
+                app.set_osc_position(window.get_osc_position().clamp(0, 2));
+                app.set_compact_ui(window.get_compact_ui());
+                if !app.get_edge_to_edge_video() {
+                    app.set_docked_controls(window.get_docked_controls());
+                }
                 let result =
                     self::current(&app).and_then(|screenshot| {
                         let preferences =
@@ -66,6 +84,10 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                                 volume_boost: app.get_volume_boost(),
                                 pause_when_open: app.get_pause_when_open(),
                                 fullscreen_when_open: app.get_fullscreen_when_open(),
+                                resume_last_position: app.get_resume_last_position(),
+                                enable_osd: app.get_osd_enabled(),
+                                disable_osd_speed: app.get_disable_osd_speed(),
+                                disable_osd_seek: app.get_disable_osd_seek(),
                                 leading_sidebar_width: app.get_leading_sidebar_width() as u32,
                                 trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                                 settings_at_leading: app.get_settings_at_leading(),
@@ -81,14 +103,29 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                         crate::platform::save_preferences(&path, &text)
                             .map_err(|error| error.to_string())
                     });
-                if let Err(error) = result {
-                    app.set_pause_when_open(previous_pause);
-                    app.set_fullscreen_when_open(previous_fullscreen);
-                    install(&app, &previous);
-                    refresh(&window, &app);
-                    app.set_status(error.into());
-                } else if app.get_pause_when_open() != previous_pause {
-                    app.invoke_pause_when_open_changed(app.get_pause_when_open());
+                match result {
+                    Ok(()) => {
+                        if app.get_pause_when_open() != previous_pause {
+                            app.invoke_pause_when_open_changed(app.get_pause_when_open());
+                        }
+                        if app.get_resume_last_position() != previous_resume {
+                            app.invoke_resume_last_position_changed(app.get_resume_last_position());
+                        }
+                    }
+                    Err(error) => {
+                        app.set_pause_when_open(previous_pause);
+                        app.set_fullscreen_when_open(previous_fullscreen);
+                        app.set_resume_last_position(previous_resume);
+                        app.set_osd_enabled(previous_osd_enabled);
+                        app.set_disable_osd_speed(previous_osd_suppression.0);
+                        app.set_disable_osd_seek(previous_osd_suppression.1);
+                        app.set_osc_position(previous_layout.0);
+                        app.set_compact_ui(previous_layout.1);
+                        app.set_docked_controls(previous_layout.2);
+                        install(&app, &previous);
+                        refresh(&window, &app);
+                        app.set_status(error.into());
+                    }
                 }
             });
             let parent = app.as_weak();
@@ -185,6 +222,14 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_pause_when_open(app.get_pause_when_open());
     window.set_fullscreen_when_open(app.get_fullscreen_when_open());
+    window.set_resume_last_position(app.get_resume_last_position());
+    window.set_osd_enabled(app.get_osd_enabled());
+    window.set_disable_osd_speed(app.get_disable_osd_speed());
+    window.set_disable_osd_seek(app.get_disable_osd_seek());
+    window.set_osc_position(app.get_osc_position());
+    window.set_compact_ui(app.get_compact_ui());
+    window.set_docked_controls(app.get_docked_controls());
+    window.set_edge_to_edge_video(app.get_edge_to_edge_video());
     let index = ["png", "jpg", "jpeg", "webp", "jxl"]
         .iter()
         .position(|format| *format == app.get_screenshot_format().as_str())

@@ -1,0 +1,17 @@
+diff --git a/packages/ffmpeg.cmake b/packages/ffmpeg.cmake
+index e3c963a..b2c9e71 100644
+--- a/packages/ffmpeg.cmake
++++ b/packages/ffmpeg.cmake
+@@ -25,5 +25,4 @@ ExternalProject_Add(ffmpeg
+         speex
+         vorbis
+-        x264
+         ${ffmpeg_x265}
+         libxml2
+@@ -80,6 +79,5 @@ ExternalProject_Add(ffmpeg
+         --enable-librubberband
+         --enable-libvpx
+         --enable-libwebp
+-        --enable-libx264
+         --enable-libx265
+         --enable-libaom

@@ -17,10 +17,10 @@ export component FontList inherits Rectangle {
     accessible-item-count: root.model.length;
     in property <bool> enabled: true;
     in property <bool> select-on-focus: true;
-    out property <length> viewport-height <=> rows.viewport-height;
+    out property <length> viewport-height <=> rows.content-height;
     private property <length> visible-height <=> rows.visible-height;
     private property <length> visible-width <=> rows.visible-width;
-    private property <length> viewport-y <=> rows.viewport-y;
+    private property <length> viewport-y <=> rows.content-y;
     background: #202024;
     changed model => {
         root.accessible-cursor = -1;
@@ -74,8 +74,8 @@ export component FontList inherits Rectangle {
     width: parent.width; height: parent.height;
     enabled: root.enabled;
     accessible-role: none;
-    viewport-height: root.model.length * root.row-pitch;
-    viewport-width: self.visible-width;
+    content-height: root.model.length * root.row-pitch;
+    content-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
     VerticalLayout { spacing: 0px;
     for item[index] in root.model: Rectangle {
