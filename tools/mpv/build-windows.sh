@@ -10,6 +10,23 @@ readonly WORK_ROOT="${RUNNER_TEMP:-$PWD}/riina-native-build"
 readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
 readonly SOURCE_ARCHIVE_ROOT="$PWD/native-source"
 
+# CMake stores ExternalProject configure output in sidecar files instead of
+# streaming the underlying compiler errors to the Actions log. Surface those
+# files when a pinned dependency fails so CI failures stay diagnosable.
+report_configure_logs() {
+  local status=$?
+  if (( status != 0 )) && [[ -d "$BUILDER/build_x86_64/packages" ]]; then
+    printf '\nNative engine build failed (exit %s); recent configure logs follow.\n' "$status"
+    while IFS= read -r -d '' log_file; do
+      printf '\n--- %s ---\n' "$log_file"
+      tail -n 100 "$log_file" || true
+    done < <(find "$BUILDER/build_x86_64/packages" -type f \
+      \( -name '*-configure-out.log' -o -name '*-configure-err.log' \) -print0 | sort -z)
+  fi
+  return "$status"
+}
+trap report_configure_logs EXIT
+
 rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
 mkdir -p "$WORK_ROOT"
 git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git "$BUILDER"
