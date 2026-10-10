@@ -722,3 +722,16 @@ pending. The original fixture has a reproducible generator and manifest hash.
 All eleven explicit Windows native tests pass in 9.43 seconds after the default
 override change. The 24 unit tests, strict lint, formatting, Windows release
 build and all fixture hashes pass. Public GitHub was not updated.
+
+## Secondary subtitle delay · 2026-10-10
+
+Typed secondary delay sets the independent native property and observes an
+optional finite value. Unavailable/nonfinite values clear the observation.
+The two-lane SRT test applies a one-second secondary offset and seeks to 2.3
+seconds: primary text contains Chapter two while secondary text still contains
+bonjour from the first cue. Primary delay and primary selection remain unchanged,
+pause is retained and no native error occurs. Reset to zero and seek to 0.5
+seconds restore the aligned first cues before the visibility tests continue.
+All eleven explicit Windows native tests pass in 10.20 seconds; all 24 unit
+tests, strict lint and formatting pass. Secondary timing UI, visual rendering
+and macOS/Linux runtime remain unverified. No public update was made.

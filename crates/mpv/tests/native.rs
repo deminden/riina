@@ -194,6 +194,47 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     assert_eq!(selected_track(&both, TrackKind::Sub), Some(primary_id));
     assert!(both.subtitle_visible);
     assert_eq!(both.secondary_subtitle_visible, Some(true));
+    player.send(Command::SecondarySubtitleDelay(1.0)).unwrap();
+    wait_for(&receiver, |state| {
+        state.secondary_subtitle_delay == Some(1.0)
+    });
+    player
+        .send(Command::Seek {
+            seconds: 2.3,
+            absolute: true,
+        })
+        .unwrap();
+    let shifted = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.position.is_some_and(|p| (p - 2.3).abs() < 0.05)
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|s| s.contains("Chapter two"))
+            && state
+                .secondary_subtitle_text
+                .as_deref()
+                .is_some_and(|s| s.contains("bonjour"))
+    });
+    assert_eq!(shifted.subtitle_delay, both.subtitle_delay);
+    assert_eq!(selected_track(&shifted, TrackKind::Sub), Some(primary_id));
+    assert_eq!(shifted.error, None);
+    player.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.secondary_subtitle_delay == Some(0.0)
+            && state
+                .secondary_subtitle_text
+                .as_deref()
+                .is_some_and(|s| s.contains("bonjour"))
+            && state.position.is_some_and(|p| (p - 0.5).abs() < 0.05)
+    });
     player
         .send(Command::ToggleSecondarySubtitleVisibility)
         .unwrap();

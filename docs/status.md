@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Local secondary timing increment: typed absolute secondary delay and optional
+native observation are implemented. A real two-lane SRT test applies one second
+of secondary delay and observes the primary second cue alongside the secondary
+first cue at 2.3 seconds, preserving primary delay and selection. Reset restores
+zero delay and aligned first cues. All eleven native tests pass (10.20 seconds),
+with 24 unit tests and strict lint. Secondary timing controls, rendered output
+and other-OS runtime remain pending. Work remains local.
+
 Local secondary-subtitle increment: typed selection, independent visibility and
 secondary text observation are implemented, with Alt+v connected in shared UI.
 Track catalogs retain native lane metadata so secondary-only decoding cannot

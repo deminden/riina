@@ -141,6 +141,7 @@ impl Player {
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
                         ("sub-scale", 5), ("sub-pos", 5),
                         ("secondary-sub-visibility", 3), ("secondary-sub-text", 1),
+                        ("secondary-sub-delay", 5),
                         ("sub-text", 1), ("loop-file", 1), ("loop-playlist", 1),
                         ("ab-loop-a", 6), ("ab-loop-b", 6)] {
                         let name = CString::new(name).unwrap();
@@ -297,6 +298,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"sub-text" => state.subtitle_text = None,
             b"secondary-sub-text" => state.secondary_subtitle_text = None,
             b"secondary-sub-visibility" => state.secondary_subtitle_visible = None,
+            b"secondary-sub-delay" => state.secondary_subtitle_delay = None,
             b"sub-scale" => state.subtitle_scale = None,
             b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
@@ -364,6 +366,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             match name {
                 b"sub-scale" => state.subtitle_scale = None,
                 b"sub-pos" => state.subtitle_position = None,
+                b"secondary-sub-delay" => state.secondary_subtitle_delay = None,
                 _ => {}
             }
             return;
@@ -375,6 +378,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"speed" => state.speed = value,
             b"audio-delay" => state.audio_delay = value,
             b"sub-delay" => state.subtitle_delay = value,
+            b"secondary-sub-delay" => state.secondary_subtitle_delay = Some(value),
             b"sub-scale" => state.subtitle_scale = (0.0..=100.0).contains(&value).then_some(value),
             b"sub-pos" => state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value),
             _ => {}
