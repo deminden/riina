@@ -1,5 +1,31 @@
 # Verification record · native Windows · 2026-10-09
 
+## Shared crop preset controls · 2026-10-10
+
+Crop row labels/order and 24px segment height follow the pinned CropView
+requirements. Native catalog observations map managed filter dimensions to the
+five presets, no managed filter to None and explicit coordinates to Custom.
+Unknown catalog/source is distinct from None; named/positional parameters have
+unit coverage. The expanded native crop regression checks observed preset
+indexes and explicit rectangle Custom selection. Small-source preset dimension
+collisions are not resolved by this inference; exact requested identity remains
+a parity gap. Custom... is visibly disabled until interactive mode exists.
+
+Initial application compile failed on passing owned Playback instead of a
+borrow and using a nonexistent status setter; corrected wiring passes workspace
+unit tests, strict all-target lint, formatting and focused native crop test.
+Optimized Windows build passes in 33.86 seconds.
+
+GUI at source 5174f0e (binary hash recorded in crop-sidebar-evidence.json) exposes
+Aspect/Crop/Rotation order, all six enabled preset/reset buttons and disabled
+Custom. Tab enters crop from custom aspect, continues through preset order and
+skips disabled Custom to rotation. Right/Left from None and Space from 4:3 leave
+Play, position 2 and volume 37. Close exits 0 with empty stderr. The reader does
+not expose selected segment state; this does not prove actual GUI crop effect
+or visual highlight. Native effect/mapping proof is separate. Rendered geometry,
+materials, pointer input, native video candidate and current port runtime remain
+unverified for this increment. Interactive custom crop and crop OSD remain open.
+
 ## Crop rectangles and display overrides · 2026-10-10
 
 The expanded crop regression applies every preset under an aspect override of

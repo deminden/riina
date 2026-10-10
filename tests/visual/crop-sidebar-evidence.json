@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "5174f0e3ec246793e98173f22057e2421afeaa4e",
+  "binary_sha256": "704421ccc114c9d1c8a79bd5ac52b2535da4d74a07b0c8c943530e0a93461556",
+  "platform": "Windows",
+  "renderer": "shared GL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observed_controls": ["Aspect Ratio", "Crop", "Rotation"],
+  "crop_focus_order": ["None", "4:3", "16:9", "16:10", "21:9", "5:4", "Video rotation 0°"],
+  "custom_crop_enabled": false,
+  "actions": ["Tab from custom aspect editor to Crop None", "Right then Left at Crop None", "Tab to Crop 4:3 then Space", "Tab through remaining crop presets into Rotation"],
+  "after_actions": {"play_button": "Play", "position": 2, "volume": 37},
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "verification_scope": "Accessibility order and keyboard input without playback shortcut leakage; native filter geometry and selection mapping verified separately by the crop regression",
+  "not_verified": ["GUI selected segment state was not exposed by the accessibility reader", "GUI native crop effect", "Rendered crop pixels", "Interactive custom crop", "Native video candidate route", "Current macOS and Linux runtime"]
+}

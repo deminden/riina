@@ -1,7 +1,10 @@
 # Implementation plan
 
-Crop next: connect preset and explicit rectangle commands to the shared video sidebar and
-implement the full custom crop interaction (selection, confirmation and cancel).
+Crop next: implement the full custom crop interaction (selection, confirmation
+and cancel) and enable Custom... in the shared sidebar. Preset commands and
+observed filter selection are now connected; current custom control is disabled.
+Resolve requested-preset identity where small source dimensions yield identical
+geometry, and verify actual UI highlight and crop output with rendered evidence.
 The portable preset/managed-filter foundation has native Windows coverage; add
 mixed foreign-filter, replacement and hardware-decoding conflict
 coverage before claiming the full crop feature. Keep original source pixels as

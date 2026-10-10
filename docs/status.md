@@ -1,5 +1,21 @@
 # Status · 2026-10-09
 
+The shared video sidebar now includes the crop row between aspect and rotation,
+with None and five working preset commands. Selection maps observed native
+filter parameters to presets; unknown state stays unknown and explicit
+coordinates display Custom. Custom... is disabled pending its interactive
+editor. Initial build exposed borrowed-state and status-setter wiring errors;
+both are corrected. Unit checks, strict lint, formatting, the expanded focused
+native crop test and optimized Windows build (33.86 seconds) pass.
+Windows accessibility verifies row/focus order, Tab from custom aspect into crop,
+arrow/Space input without changing pause/position 2/volume 37, and skipping the
+disabled Custom control into rotation. Close exits 0 with empty stderr.
+Evidence: tests/visual/crop-sidebar-evidence.json. Selected segment was not
+exposed by the reader; actual GUI crop pixels/effect are not verified by it.
+Native selection mapping is tested separately. Custom interaction, crop OSD,
+small-source ambiguous preset geometry, mixed foreign filters, decoding conflict
+policy, rendered parity and current macOS/Linux runtime remain open. No public update.
+
 Crop now also accepts explicit source-pixel rectangles with dispatch-time bounds
 validation. Confirming the whole source clears only its managed crop. Native
 coverage exercises all five presets under a 1:1 aspect override at every quarter
