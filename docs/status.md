@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local relocated subtitle picker verification: reverse Tab traversal from the
+delay slider reaches secondary segment, primary segment and Load Subtitle.
+Enter opens the native picker; Escape cancels and restores Load Subtitle focus.
+An attempted fixture import remains unverified: the helper's refreshed tree
+exposes filename edit element 127, but two set-value attempts report that element
+unavailable in cached app state; Alt+n leaves focus in the search field. No file
+was imported. Scoped evidence is saved in subtitle-load-picker-windows-evidence.json.
+The player closes cleanly. This is a picker automation limitation, not evidence
+of a product import failure; native external-subtitle tests remain separate.
+No public update was made.
+
 Local subtitle lane editor Windows verification: keyboard Enter and Space switch
 the shared editor without resuming playback. Primary delay one second survives
 secondary delay minus one second and position 25; primary position 60 then leaves
