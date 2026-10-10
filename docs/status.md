@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local subtitle lane editor Windows verification: keyboard Enter and Space switch
+the shared editor without resuming playback. Primary delay one second survives
+secondary delay minus one second and position 25; primary position 60 then leaves
+both secondary settings intact on switching back. Native observations displayed
+by the sliders prove callback routing independently of editor selection. Section
+order is present in the accessibility tree. Source/binary hashes and nine scoped
+observations are stored in subtitle-lane-editor-windows-evidence.json. Playback
+was paused at EOF and no subtitle tracks were loaded, so actual subtitle rendering,
+track selection, scrolling and accessible checked-state exposure remain pending.
+The test player closed cleanly. Nothing was published.
+
 Local subtitle lane selector refinement: the editor's generic large text buttons
 are replaced by a compact equal-width segmented control with 12px labels and
 explicit accessible checked state. Choosing a segment is idempotent; keyboard
