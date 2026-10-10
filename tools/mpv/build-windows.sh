@@ -16,8 +16,10 @@ print_build_failure() {
   echo "Native engine build failed with exit code $status. Recent dependency build logs:" >&2
   if [[ -d "$BUILDER/build_x86_64/packages" ]]; then
     find "$BUILDER/build_x86_64/packages" -type f \
-      \( -name '*-build-err.log' -o -name '*-build-out.log' \) -size +0c -print0 \
-      | sort -z | tail -z -n 12 \
+      \( -name '*-configure-err.log' -o -name '*-configure-out.log' \
+         -o -name '*-build-err.log' -o -name '*-build-out.log' \) -size +0c \
+      -printf '%T@ %p\0' \
+      | sort -z -nr | head -z -n 16 | cut -z -d' ' -f2- \
       | while IFS= read -r -d '' log; do
           echo "--- $log ---" >&2
           tail -n 100 "$log" >&2
