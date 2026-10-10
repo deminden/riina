@@ -1,0 +1,37 @@
+{
+  "source_commit": "cea3e62200d3f389ba68f35347088039b437027a",
+  "windows_release_sha256": "e0aa41f0df6e8e2be16160968e483ed6e0ac60f6ad76a2649e81a21c7327ca4b",
+  "scope": "Actual Windows captures inspected for initial interface corrections; no matched macOS golden comparison",
+  "isolated_profile": "tools/interface-capture-3rd-party-path-in-local-record",
+  "profile_record": "tools/interface-capture-profile.txt",
+  "observations": [
+    "Native and shared windows now capture successfully via the computer-use tool",
+    "Native capture shows chrome with a black video region; shared GL capture shows original catalog frame 000",
+    "Before Preferences capture visibly has a blank small folder chooser and folder text touching Save to",
+    "After Preferences capture visibly renders ellipsis and separates the folder path from Save to",
+    "After shared player capture visibly has rounded floating corners using 12pt source geometry",
+    "Tab focuses Pause, Enter fullscreen, Save to, then Choose screenshot save path",
+    "Return opens the owned native folder dialog; Escape cancels and restores chooser focus",
+    "All three owned GUI processes exit 0"
+  ],
+  "private_capture_hashes": {
+    "tests/visual/interface-before-preferences-0.jpg": "74fd6ce5252f5a795b711430884a2d698e053c8129d27def70e1cd91d6e06a4d",
+    "tests/visual/interface-after-preferences-0.jpg": "f44fb57e0bebb746883badbce895ea4178a589eb9d0bf78d7e6564dc188e5fe3",
+    "tests/visual/interface-after-shared-0.jpg": "fa81642f124d0d8eeca2f8a4829c7eb5a938b1613fa48cefe7dfeff8bc227b3e"
+  },
+  "checks": {
+    "workspace_tests": "passed; app 28 ordinary tests and 2 ignored native clipboard tests",
+    "strict_lint": "passed",
+    "format": "passed",
+    "optimized_windows_build": "passed, 57.31 seconds",
+    "native_engine_suite": "not rerun for this UI correction; engine worker unchanged from preceding 37-test run"
+  },
+  "limits": [
+    "Shared capture bounds 962x600 are not a matched-size reference golden",
+    "Only Preferences before image was retained; shared before image was inspected inline",
+    "Black native capture does not prove visible native presentation failure",
+    "Complete window chrome, typography, sampled materials, sidebars, menus and preferences remain open",
+    "Fullscreen-on-open policy has unit coverage but auto-fullscreen runtime remains unverified",
+    "Mini-player exclusion input is tested but actual mini-player mode remains unimplemented"
+  ]
+}
