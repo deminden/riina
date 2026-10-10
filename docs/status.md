@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+A portable interactive-picture projection now encodes the reference's 20-point
+top/horizontal inset and 108-point height reservation, with top anchoring after
+contain-fit. Regression coverage checks numeric landscape/rotated layouts,
+fractional source round-trips and invalid viewports. This is a layout foundation,
+not a visible UI change: both presentation routes still require coordinated
+viewport wiring, shadow and rendered verification. Workspace unit tests, strict
+lint and formatting pass. No GUI or native-suite rerun; no publication.
+
 Tiny crop selections now retain standardized vertical resize hit strips when
 their height is below four logical points. Previously those strips collapsed
 to zero, unlike the pinned reference's rectangle normalization. Shared Slint

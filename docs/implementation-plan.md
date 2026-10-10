@@ -18,6 +18,8 @@ Retire the editor on replacement/Stop without restoring the old file's pause.
 Entry clears the old crop; Cancel restores pause but does not restore that crop.
 Next presentation work must resize the video area on both presentation routes
 and use the source/display mapping for the editor overlay.
+Use Projection::interactive for the reserved, top-anchored picture geometry;
+it is regression-tested but not yet connected to either presentation route.
 The portable crop_geometry projection now maps source rectangles and pointer
 drags through contain-fit content and quarter turns, with observed source display
 parameters covered natively. Geometry is now wired to the selection overlay;

@@ -73,6 +73,22 @@ pub struct Projection {
 }
 
 impl Projection {
+    /// Interactive mode reserves space for the bottom controls and anchors the
+    /// contained picture at the top inset, rather than centering it vertically.
+    pub fn interactive(video: &crate::VideoParameters, size: (f64, f64)) -> Result<Self, String> {
+        let mut projection = Self::for_video(
+            video,
+            DisplayRect {
+                x: 20.0,
+                y: 20.0,
+                width: size.0 - 40.0,
+                height: size.1 - 108.0,
+            },
+        )?;
+        projection.content.y = 20.0;
+        Ok(projection)
+    }
+
     pub fn for_video(
         video: &crate::VideoParameters,
         viewport: DisplayRect,
@@ -332,6 +348,49 @@ fn bounds(points: [Point; 4]) -> DisplayRect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interactive_picture_is_top_anchored_and_reserves_controls() {
+        let mut video: crate::VideoParameters =
+            serde_json::from_str(r#"{"w":320,"h":180,"dw":320,"dh":180,"rotate":0}"#).unwrap();
+        let projection = Projection::interactive(&video, (960.0, 600.0)).unwrap();
+        let content = projection.content();
+        assert!((content.width - 874.6666666666666).abs() < 1e-9);
+        assert!((content.x - 42.6666666666667).abs() < 1e-9);
+        assert_eq!(content.y, 20.0);
+        assert_eq!(content.height, 492.0);
+        let draft = SourceRect {
+            x: 10.25,
+            y: 12.5,
+            width: 100.5,
+            height: 60.25,
+        };
+        let box_rect = projection.project_continuous(draft).unwrap();
+        let selected = projection
+            .select_continuous(
+                Point {
+                    x: box_rect.x,
+                    y: box_rect.y,
+                },
+                Point {
+                    x: box_rect.x + box_rect.width,
+                    y: box_rect.y + box_rect.height,
+                },
+            )
+            .unwrap();
+        assert!((selected.x - draft.x).abs() < 1e-9);
+        assert!((selected.height - draft.height).abs() < 1e-9);
+        video.rotate = Some(90);
+        let rotated = Projection::interactive(&video, (960.0, 600.0))
+            .unwrap()
+            .content();
+        assert_eq!(rotated.y, 20.0);
+        assert_eq!(rotated.height, 492.0);
+        assert!((rotated.width - 276.75).abs() < 1e-9);
+        assert!(Projection::interactive(&video, (40.0, 600.0)).is_err());
+        assert!(Projection::interactive(&video, (960.0, 108.0)).is_err());
+        assert!(Projection::interactive(&video, (f64::NAN, 600.0)).is_err());
+    }
 
     #[test]
     fn fractional_pointer_motion_moves_overlay_without_changing_integer_label() {
