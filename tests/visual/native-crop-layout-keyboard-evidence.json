@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "a69ab1ef647a58f4e75872573e830d3468bc4d08",
+  "repository_head_at_test": "9bf6e67e1a0aaa1eb9efc1ab5ffb2a9c108a9cf0",
+  "binary_sha256": "9a01772acea2fd61523bcd2b3afeeb3a75ddec9d9bda717477da57a7529c9d3a",
+  "platform": "Windows",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "initial_player": {"position": 5, "volume": 37, "play_button": "Play", "at_eof": true},
+  "entry": "Video shortcut followed by observed Tab focus through shared controls and Space on Custom",
+  "initial_selection": "(0, 0) (320×180)",
+  "selected_4_3": "(40, 0) (240×180)",
+  "cancellation": "Escape from 4:3 restores shared player scope, Play, position 5 and volume 37",
+  "exit_code": 0,
+  "stderr_lines": ["Native chrome: scale=3, client=2880x1800 physical, layout=960x600 logical"],
+  "scope": "Native-window keyboard entry, preset label, EOF cancellation and clean shutdown",
+  "unverified": ["picture placement pixels", "margin transition pixels", "shadow", "pointer operation", "Done", "playing-source restoration", "resize", "source retirement", "other OS runtime"]
+}

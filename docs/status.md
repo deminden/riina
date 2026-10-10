@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+The current native-window crop build now has Windows keyboard/lifecycle evidence:
+Custom opens at whole source, 4:3 labels (40, 0) (240×180), Escape restores player
+scope with Play/position 5/volume 37, and close returns 0. This run was at EOF;
+it does not prove playing-source restoration. Stderr contains only the expected
+scale/client/layout diagnostic. Binary/source identity and verification limits
+are saved in tests/visual/native-crop-layout-keyboard-evidence.json. Native
+picture pixels, shadow, pointer behavior, Done, resize and retirement remain
+unverified. No public update.
+
 Current shared-GL crop layout/shadow build has Windows keyboard evidence on
 source a69ab1e: Custom opens at whole source, 4:3 produces (40, 0) (240×180),
 and Escape restores settled Play/position 2/volume 37 with player scope focus.
