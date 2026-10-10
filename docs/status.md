@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Retained rows alone did not fix the accessibility panic: be545eb exits 101 on
+first family Tab, with another missing focused-ID panic. Scoped diagnostics:
+tests/visual/font-rows-retention-failure-evidence.json. Focus delegation now
+falls back to the stable list during model/navigation changes, then publishes
+the row after a 32ms toolkit tree-update interval. This is an independently
+implemented synchronization repair, not a completed accessibility claim.
+Strict lint passes; first-focus, boundary, model replacement and pointer runtime
+retests remain pending. Retained-row memory/performance and exact focus timing
+also remain open. All changes stay local.
+
 Font row boundary regression reproduced on 893e8f5: filtered family/face focus
 reports Verdana/Italic/Regular correctly, but full-catalog focus reports the
 container. End changes the draft to the last family; Home then terminates the

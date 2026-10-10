@@ -1,0 +1,17 @@
+{
+  "source_commit": "be545eb",
+  "observations": [
+    {
+      "action": "first-family-Tab-unexpected-termination",
+      "exit_code": 101,
+      "panic": "Focused ID #317827579904 is not in the node list"
+    }
+  ],
+  "binary_sha256": "c9c0521beaf23702d2ef65db352970dfba55edf1627073e739a679ce4b9cebb3",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "limitations": [
+    "Retained rows alone did not prevent first-focus accessibility panic.",
+    "Deferred focus publication repair not part of this evidence."
+  ]
+}

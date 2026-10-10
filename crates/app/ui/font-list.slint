@@ -6,12 +6,14 @@ export component FontList inherits Rectangle {
     in property <[StandardListViewItem]> model;
     in-out property <int> current-item: -1;
     private property <int> cursor: 0;
+    private property <int> accessible-cursor: -1;
+    private property <bool> focus-pending: false;
     private property <length> row-pitch: 19px;
     callback current-item-changed(int);
     callback activated(int);
     forward-focus: keys;
     accessible-role: list;
-    accessible-delegate-focus: root.cursor >= 0 && root.cursor < root.model.length ? root.cursor : -1;
+    accessible-delegate-focus: root.accessible-cursor;
     accessible-item-count: root.model.length;
     in property <bool> enabled: true;
     out property <length> viewport-height <=> rows.viewport-height;
@@ -19,6 +21,19 @@ export component FontList inherits Rectangle {
     private property <length> visible-width <=> rows.visible-width;
     private property <length> viewport-y <=> rows.viewport-y;
     background: #202024;
+    changed model => {
+        root.accessible-cursor = -1;
+        root.focus-pending = keys.has-focus && root.model.length > 0;
+    }
+    // AccessKit rebuilds changed row trees asynchronously. Keep focus on the
+    // stable list until those IDs exist, instead of publishing a future row ID.
+    Timer {
+        interval: 32ms; running: root.focus-pending && keys.has-focus;
+        triggered => {
+            root.accessible-cursor = root.cursor >= 0 && root.cursor < root.model.length ? root.cursor : -1;
+            root.focus-pending = false;
+        }
+    }
 
     function reveal(index: int) {
         let top = index * root.row-pitch;
@@ -33,19 +48,23 @@ export component FontList inherits Rectangle {
 
     public function set-current-item(index: int) {
         if index < 0 || index >= root.model.length { return; }
+        root.accessible-cursor = -1;
         root.cursor = index;
         root.reveal(index);
         if root.current-item != index {
             root.current-item = index;
             root.current-item-changed(index);
         }
+        root.focus-pending = true;
     }
 
     function navigate(index: int, select: bool) {
+        root.accessible-cursor = -1;
         if root.model.length == 0 { return; }
         root.cursor = clamp(index, 0, root.model.length - 1);
         root.reveal(root.cursor);
         if select { root.set-current-item(root.cursor); }
+        root.focus-pending = true;
     }
 
     // Keep accessible row IDs alive while scrolling. Recycling a focused row
@@ -90,6 +109,8 @@ export component FontList inherits Rectangle {
         width: 0px;
         enabled: root.enabled;
         focus-changed-event => {
+            root.accessible-cursor = -1;
+            root.focus-pending = false;
             rows.has-focus = self.has-focus;
             if self.has-focus {
                 root.navigate(root.current-item >= 0 ? root.current-item : 0,
