@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Crop now also accepts explicit source-pixel rectangles with dispatch-time bounds
+validation. Confirming the whole source clears only its managed crop. Native
+coverage exercises all five presets under a 1:1 aspect override at every quarter
+turn, retaining source dimensions and pause/volume/rotation/aspect, plus an
+offset custom rectangle and whole-frame reset. The shared selection/confirmation
+UI is still missing; native mixed foreign-filter chains, decoding conflicts,
+presentation parity and current macOS/Linux runtime remain open. Nothing published.
+The expanded focused native test, workspace unit checks, strict lint and
+formatting pass; the full 26-test native suite also passed before the final
+whole-frame confirmation refinement.
+The final optimized Windows build passes in 32.60 seconds.
+
 Portable crop foundations now provide typed presets, source-pixel geometry,
 managed-label replacement/removal and observed native video-filter catalogs.
 The native regression verifies all five presets, one managed crop after each

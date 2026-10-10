@@ -2,6 +2,35 @@
 
 pub const FILTER_LABEL: &str = "riina-crop";
 
+/// Source pixels with a top-left origin, as used by the native crop filter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rectangle {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Rectangle {
+    pub fn filter(self, source_width: u32, source_height: u32) -> Result<String, String> {
+        // Validate against the source at dispatch, not the UI's possibly stale
+        // frame. Subtraction after checking the origin avoids coordinate overflow.
+        if self.width == 0
+            || self.height == 0
+            || self.x > source_width
+            || self.y > source_height
+            || self.width > source_width - self.x
+            || self.height > source_height - self.y
+        {
+            return Err("The crop rectangle is outside the source video".into());
+        }
+        Ok(format!(
+            "@{FILTER_LABEL}:crop={}:{}:{}:{}",
+            self.width, self.height, self.x, self.y
+        ))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
     FourThree,
@@ -69,6 +98,93 @@ pub struct VideoFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn custom_rectangles_validate_source_edges_without_overflow() {
+        let rectangle = Rectangle {
+            x: 20,
+            y: 10,
+            width: 300,
+            height: 170,
+        };
+        assert_eq!(
+            rectangle.filter(320, 180).unwrap(),
+            "@riina-crop:crop=300:170:20:10"
+        );
+        assert!(rectangle.filter(319, 180).is_err());
+        for invalid in [
+            Rectangle {
+                width: 0,
+                ..rectangle
+            },
+            Rectangle {
+                height: 0,
+                ..rectangle
+            },
+            Rectangle {
+                x: u32::MAX,
+                ..rectangle
+            },
+            Rectangle {
+                width: u32::MAX,
+                ..rectangle
+            },
+            Rectangle {
+                y: u32::MAX,
+                ..rectangle
+            },
+        ] {
+            assert!(invalid.filter(320, 180).is_err());
+        }
+        assert!(
+            Rectangle {
+                x: 0,
+                y: 0,
+                width: u32::MAX,
+                height: u32::MAX
+            }
+            .filter(u32::MAX, u32::MAX)
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn confirming_whole_source_clears_only_the_managed_crop() {
+        let state = crate::Playback {
+            video: Some(serde_json::from_value(serde_json::json!({"w":320,"h":180})).unwrap()),
+            video_filters: Some(vec![VideoFilter {
+                name: "crop".into(),
+                label: Some(FILTER_LABEL.into()),
+                enabled: Some(true),
+                params: Default::default(),
+            }]),
+            ..Default::default()
+        };
+        let whole = Rectangle {
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 180,
+        };
+        assert_eq!(
+            crate::Command::VideoCropRectangle(whole)
+                .plan(&state)
+                .unwrap()
+                .commands,
+            crate::Command::VideoCrop(None)
+                .plan(&state)
+                .unwrap()
+                .commands
+        );
+        assert!(
+            crate::Command::VideoCropRectangle(Rectangle {
+                width: 321,
+                ..whole
+            })
+            .plan(&state)
+            .is_err()
+        );
+    }
 
     #[test]
     fn reset_preserves_foreign_filters_and_rejects_unknown_catalogs() {

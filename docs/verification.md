@@ -1,5 +1,27 @@
 # Verification record · native Windows · 2026-10-09
 
+## Crop rectangles and display overrides · 2026-10-10
+
+The expanded crop regression applies every preset under an aspect override of
+1:1 at rotation 90 / 180 / 270 / 0. Requested dimensions still derive from source
+320×180; clearing retains rotation and aspect. It then applies 300×160 at source
+pixel x=10 and y=12, checks observed parameters and actual output, pause/volume
+and retained aspect. Confirming the whole 320×180 source clears the managed
+filter, matching the pinned InteractiveMode.swift crop confirmation requirement.
+Rectangle coordinates use the native top-left origin; a future UI must convert
+its coordinate system explicitly. The reference's bottom-left selection origin
+is converted before native dispatch. No protected implementation was translated.
+Unit coverage rejects zero extents, out-of-source and overflow coordinates and
+tests whole-source dispatch as removal. Source is revalidated when queued intent
+is planned. UI interaction, foreign-filter native chains, decoder conflict policy,
+pixel parity and current other OS runtime remain unverified.
+All 26 native tests passed with the initial rectangle implementation. After
+adding whole-frame confirmation and rejecting empty whole-frame sources, the
+expanded focused native crop test passes again, as do workspace unit tests,
+strict workspace/all-target lint and formatting. No GUI or current port build
+was run for this change.
+The final optimized Windows build passes in 32.60 seconds.
+
 ## Managed preset crop foundation · 2026-10-10
 
 Original portable crop code inscribes 4:3 / 16:9 / 16:10 / 21:9 / 5:4 inside

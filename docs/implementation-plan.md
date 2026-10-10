@@ -1,12 +1,16 @@
 # Implementation plan
 
-Crop next: connect the observed managed filter to the shared video sidebar and
+Crop next: connect preset and explicit rectangle commands to the shared video sidebar and
 implement the full custom crop interaction (selection, confirmation and cancel).
 The portable preset/managed-filter foundation has native Windows coverage; add
-mixed foreign-filter, rotation/aspect, replacement and hardware-decoding conflict
+mixed foreign-filter, replacement and hardware-decoding conflict
 coverage before claiming the full crop feature. Keep original source pixels as
 the calculation input and distinguish requested dimensions from chroma-aligned
 native output. Verify the same behavior on current macOS/Linux app builds.
+Presets under a 1:1 aspect override and all quarter turns now have native coverage,
+as do an offset rectangle and whole-source confirmation clearing the managed crop.
+UI coordinate conversion, mouse selection, confirmation/cancel and pixel proof
+are still required; a backend rectangle command does not satisfy interactive mode.
 
 macOS and Linux ports are immediate development priorities alongside Windows
 interface parity. Do not postpone them until Windows reaches full IINA parity.

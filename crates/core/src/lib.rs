@@ -34,6 +34,7 @@ pub enum Command {
     VideoAspect(video_controls::AspectRatio),
     VideoRotation(video_controls::Rotation),
     VideoCrop(Option<crop::Preset>),
+    VideoCropRectangle(crop::Rectangle),
     HardwareDecoding(video_controls::HardwareDecoder),
     VideoEqualizer {
         option: video_controls::Equalizer,
@@ -279,6 +280,7 @@ impl Command {
             }
             Self::OpenFiles(_)
             | Self::VideoCrop(_)
+            | Self::VideoCropRectangle(_)
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
@@ -298,6 +300,26 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::VideoCropRectangle(rectangle) => {
+                let source = state
+                    .video
+                    .as_ref()
+                    .ok_or("Source video dimensions are unavailable")?;
+                if rectangle.x == 0
+                    && rectangle.y == 0
+                    && rectangle.width != 0
+                    && rectangle.height != 0
+                    && rectangle.width == source.w
+                    && rectangle.height == source.h
+                {
+                    return Self::VideoCrop(None).plan(state);
+                }
+                vec![vec![
+                    "vf".into(),
+                    "add".into(),
+                    rectangle.filter(source.w, source.h)?,
+                ]]
+            }
             Self::VideoCrop(preset) => match preset {
                 Some(preset) => {
                     let source = state

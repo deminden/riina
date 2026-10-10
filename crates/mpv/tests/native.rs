@@ -89,6 +89,98 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     assert!(reset.paused);
     assert_eq!(reset.volume, 37.0);
     assert_eq!(reset.error, None);
+    // Display overrides must not become the coordinate system for later crop
+    // requests: every quarter turn still crops the original 320×180 pixels.
+    player
+        .send(Command::VideoAspect(
+            riina_core::video_controls::AspectRatio::from_text("1:1"),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.video_aspect_override == Some(1.0));
+    for rotation in [90, 180, 270, 0] {
+        player
+            .send(Command::VideoRotation(
+                riina_core::video_controls::Rotation::from_degrees(rotation).unwrap(),
+            ))
+            .unwrap();
+        wait_for(&receiver, |state| state.video_rotation == Some(rotation));
+        for preset in Preset::ALL {
+            let (width, height) = preset.dimensions(320, 180).unwrap();
+            player.send(Command::VideoCrop(Some(preset))).unwrap();
+            let changed = wait_for(&receiver, |state| {
+                state.video_filters.as_ref().is_some_and(|filters| {
+                    filters.iter().any(|filter| {
+                        filter.label.as_deref() == Some(FILTER_LABEL)
+                            && filter.params.get("@0") == Some(&width.to_string())
+                            && filter.params.get("@1") == Some(&height.to_string())
+                    })
+                })
+            });
+            assert_eq!(
+                changed.video.as_ref().map(|video| (video.w, video.h)),
+                Some((320, 180))
+            );
+            assert_eq!(changed.video_aspect_override, Some(1.0));
+            assert_eq!(changed.video_rotation, Some(rotation));
+            assert!(changed.paused);
+            assert_eq!(changed.volume, 37.0);
+            assert_eq!(changed.error, None);
+        }
+        player.send(Command::VideoCrop(None)).unwrap();
+        let cleared = wait_for(&receiver, |state| {
+            state.video_filters.as_ref().is_some_and(|filters| {
+                !filters
+                    .iter()
+                    .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+            })
+        });
+        assert_eq!(cleared.video_aspect_override, Some(1.0));
+        assert_eq!(cleared.video_rotation, Some(rotation));
+        assert_eq!(cleared.error, None);
+    }
+    let rectangle = riina_core::crop::Rectangle {
+        x: 10,
+        y: 12,
+        width: 300,
+        height: 160,
+    };
+    player.send(Command::VideoCropRectangle(rectangle)).unwrap();
+    let custom = wait_for(&receiver, |state| {
+        state
+            .video_output
+            .as_ref()
+            .is_some_and(|video| video.w == 300 && video.h == 160)
+            && state.video_filters.as_ref().is_some_and(|filters| {
+                filters.iter().any(|filter| {
+                    filter.label.as_deref() == Some(FILTER_LABEL)
+                        && filter.params.get("@2").is_some_and(|x| x == "10")
+                        && filter.params.get("@3").is_some_and(|y| y == "12")
+                })
+            })
+    });
+    assert!(custom.paused);
+    assert_eq!(custom.volume, 37.0);
+    assert_eq!(custom.video_aspect_override, Some(1.0));
+    assert_eq!(custom.error, None);
+    player
+        .send(Command::VideoCropRectangle(riina_core::crop::Rectangle {
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 180,
+        }))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .video_output
+            .as_ref()
+            .is_some_and(|video| video.w == 320 && video.h == 180)
+            && state.video_filters.as_ref().is_some_and(|filters| {
+                !filters
+                    .iter()
+                    .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+            })
+    });
     player.send(Command::VideoCrop(None)).unwrap();
     player.send(Command::Volume(38.0)).unwrap();
     assert_eq!(
