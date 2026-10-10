@@ -143,3 +143,19 @@ helper text, and search-path field. Defaults are IINA matching, no priority term
 and `./*`. Riina keeps those controls at the corresponding source order and uses
 the same principal allocations; advanced field typography and expanded-state pixels,
 live behavior, and matching macOS captures remain open.
+
+## Captured IINA Settings reference
+
+The pinned IINA v1.5.0 Settings window has eleven captured pages at 1x in Light
+appearance on macOS 26.6.2. Its outer frame is 608 x 500 points; source-derived
+client geometry is 600 x 480, with a 200-point navigation split. The sidebar
+shows a rounded Search field, page symbols, selected-row backgrounds, indented
+section links and a vertical scroll indicator. Page labels are General,
+Interface, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced,
+Plugins and Utilities. General shows section headings above rounded bordered
+cards, with 40-point rows and 10-point card corners. These captures are research
+references from the official disk image, not matched Windows screenshots or
+accepted comparison goldens. Riina still uses an 820 x 480 Settings shell, has no
+Search implementation or page symbols, and its pane content has not been reflowed
+to the 400-point right column. See `IINA-1.5.0-SETTINGS-SURFACES-001` in the
+reference-capture manifest before changing those layouts.

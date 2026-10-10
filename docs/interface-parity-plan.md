@@ -92,11 +92,12 @@ paused at 0:00 in the isolated capture profile; the owned player exited 0.
 The images show floating controls overlapping the sidebar. The reference default
 edgeToEdgeVideo=true keeps the video container across the window, so this is not
 alone evidence of a placement defect. Reference-matched tab glyphs/materials,
-resizing and non-edge-to-edge control allocation remain open. The separate
-Preferences window now has navigation in the pinned eleven-page order (General,
-UI, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugin,
-Utilities). The pinned Settings window is 600 x 480; Riina's 820 x 480 shell
-still needs reflow and rendered comparison. It has the existing General
+resizing and non-edge-to-edge control allocation remain open. All eleven pinned
+Preferences pages are now captured from IINA v1.5.0: General, Interface, Video,
+Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugins and Utilities.
+The observed window is 608 x 500 including chrome; the source-derived content area
+is 600 x 480 with a 200-point sidebar. Riina's 820 x 480 shell still needs reflow,
+sidebar search and icons, matching cards, and rendered comparison. It has the existing General
 controls, and a functional partial Interface pane for OSC position, compact mode,
 docked controls and OSD visibility/speed/seek suppression. OSD settings update
 live overlay filters and persist through the shared settings path. Video & Audio

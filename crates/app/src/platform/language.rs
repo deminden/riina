@@ -21,8 +21,11 @@ pub(crate) fn current_locale_identifier() -> Option<String> {
 pub(crate) fn language_name(identifier: &str) -> Option<String> {
     use objc2_foundation::{NSLocale, NSString};
     objc2::rc::autoreleasepool(|_| {
-        NSLocale::currentLocale()
+        let name = NSLocale::currentLocale()
             .localizedStringForLocaleIdentifier(&NSString::from_str(identifier))
-            .map(|name| name.to_string())
+            .to_string();
+        // Foundation returns a non-null retained string; keep empty output as
+        // the caller's signal to fall back to its portable locale formatter.
+        (!name.is_empty()).then_some(name)
     })
 }

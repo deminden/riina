@@ -298,8 +298,54 @@
       "accepted_as_comparison_golden": false,
       "local_raw_directory": "reference/captures/38090458605/unpacked/settings",
       "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
+    },
+    {
+      "id": "IINA-1.5.0-SETTINGS-SURFACES-001",
+      "run_id": 38091676441,
+      "artifact_id": 11684019028,
+      "url": "https://github.com/deminden/riina/actions/runs/38091676441",
+      "source_commit": "8ca4946e93ddc0c968941d33dc27b8dcfe36d61b",
+      "captured_at_utc": "2026-10-10T22:31:41Z",
+      "reference_version": "1.5.0",
+      "reference_release_sha256": "8fad50479b10e09645053457cec46bd53d054ced2242cfe68f74586735a20dc7",
+      "macos_version": "26.6.2",
+      "macos_build": "25G83",
+      "theme": "Light",
+      "scale": 1,
+      "screen_pixels": [
+        1024,
+        768
+      ],
+      "window_bounds_points": {
+        "Height": 500,
+        "Width": 608,
+        "X": 0,
+        "Y": 208
+      },
+      "client_area_points_source_derived": [
+        600,
+        480
+      ],
+      "metadata_sha256": "536846dcf6e7aa602baa4e3a6936e3cae6d7f1314f35d457f775161300847c65",
+      "screenshots": [
+        { "page": "General", "image": "iina-settings-01.png", "image_sha256": "2586b45a841da6d7b4b1ad8b0ba27c634502558e410aeab78e2c14641e02c4ba" },
+        { "page": "Interface", "image": "iina-settings-02.png", "image_sha256": "55ce2144de2d09b14b2a0e7b63ae7302380ee9f90f836c0fbeaad2764a115cac" },
+        { "page": "Video", "image": "iina-settings-03.png", "image_sha256": "b68d0fc2291d548393f262491b20ef3f73a4e4d4fcf63a83ac6b8ecedff29dc1" },
+        { "page": "Audio", "image": "iina-settings-04.png", "image_sha256": "a94b47cc82d4e344119da901fe09aa2b6b8377ec5c4a660c93cb07847255bc43" },
+        { "page": "Subtitles", "image": "iina-settings-05.png", "image_sha256": "0eb9bf2b4fae24516867b221de01007943cfa837cfb00ef6886cc92911dfbc9b" },
+        { "page": "Network", "image": "iina-settings-06.png", "image_sha256": "7f4a06648bb06019e47b61e7a0c653b1cee953ed3590d41423106ee3864c2ef7" },
+        { "page": "Control", "image": "iina-settings-07.png", "image_sha256": "3f8409faa6aff70306936c393124ccb093ee1a9c1bc06faf627ed619014cee8f" },
+        { "page": "Key Bindings", "image": "iina-settings-08.png", "image_sha256": "c8dfe512f4517d2721553728168388153f2e5354b5e82ab174530d0570e98df3" },
+        { "page": "Advanced", "image": "iina-settings-09.png", "image_sha256": "f7d557560da6ad47fa61b891be5eccb6ed09291dd9826833659c3bf3fdd6b03b" },
+        { "page": "Plugins", "image": "iina-settings-10.png", "image_sha256": "84eaada8962da90a0da9dfbbb842c596f64caf11ee5c2f1f44c4d189a6040c0b" },
+        { "page": "Utilities", "image": "iina-settings-11.png", "image_sha256": "8fb5c5e97d7a469da84bf2fb6f7087832683bb17fd23e1f1d3b7406811ae0ac5" }
+      ],
+      "review": "All eleven screenshots were visually checked; each title and selected sidebar item matches its captured page. These show the pinned live settings surfaces and are not matched Riina comparisons or accepted goldens.",
+      "accepted_as_comparison_golden": false,
+      "local_raw_directory": "reference/captures/38091676441/unpacked/settings",
+      "license_scope": "Reference research only; excluded from original riina product asset MIT grant"
     }
   ],
-  "status": "Official paused two-second reference state verified and reviewed; matched-size OSC/sidebar captures remain pending",
+  "status": "Official paused two-second reference state and all eleven Settings page references captured and reviewed; matched-size Riina comparison captures remain pending",
   "measurement_basis": "source-derived geometry; estimated colors and typography"
 }

@@ -2218,13 +2218,21 @@ ignored without the pinned runtime DLL, and no GUI interaction or pixel parity
 is claimed. Release v0.2.2 is available as a source archive and SHA-256 file;
 binary packaging remains behind the dependency audit gate.
 
-2026-10-10 IINA Settings reference capture: a research-only General pane image from
-the pinned v1.5.0 disk image records macOS 26.6.2, Light appearance, 1x scale,
-608 x 500 outer bounds, and the 200-point source-list sidebar. It visibly contains
-Search, the symbol-and-label page rows, General's selected-row treatment, and the
-Behavior/History/Playlist/Screenshots section indicator. The exact reference image
-and metadata hashes are recorded as `IINA-1.5.0-SETTINGS-GENERAL-001` in
-`tests/visual/reference-captures.json`; the 11-page capture failed after this image
-because System Events does not expose this source-list as `table 1`. This is useful
-reference evidence, not a matched Windows comparison or accepted golden. The next
-capture uses keyboard focus from Search and source-list arrow navigation.
+2026-10-10 IINA Settings reference capture: all eleven pages from the pinned v1.5.0
+disk image were captured and visually checked on macOS 26.6.2 in Light appearance
+at 1x. Each screenshot is 608 x 500 points; the content area is source-derived at
+600 x 480, with a 200-point source-list/sidebar split. The captures include Search,
+page icons and selected-row treatment, section indicators, and the General,
+Interface, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced,
+Plugins and Utilities surfaces. Image and metadata hashes are recorded under
+`IINA-1.5.0-SETTINGS-SURFACES-001` in `tests/visual/reference-captures.json`.
+These are actual upstream references, not matched Windows comparisons or accepted
+goldens. Riina's Settings shell remains 820 x 480 and its page layouts are not yet
+reflowed to the measured content width; correcting two page names alone does not
+close the interface gap.
+
+The 2026-10-10 macOS/Linux application matrix caught a Foundation wrapper return-
+type mismatch in macOS locale naming. The adapter now consumes Foundation's
+non-optional retained string and leaves empty results for the portable fallback.
+Windows cargo check and rustfmt pass; rerun the macOS application build to verify
+this target-only fix before treating the port build gate as closed.
