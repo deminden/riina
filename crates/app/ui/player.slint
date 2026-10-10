@@ -4,6 +4,7 @@ import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
+export { PreferencesWindow } from "preferences.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
 // Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
 // Colors and glyph metrics are estimates until matching macOS captures exist.
@@ -264,12 +265,17 @@ export component PlayerWindow inherits Window {
     callback toggle-video-reflection(bool);
     callback video-menu-changed();
     callback open-application-menu();
+    callback open-preferences();
     changed reflection-known => { root.video-menu-changed(); }
     changed video-mirrored => { root.video-menu-changed(); }
     changed video-flipped => { root.video-menu-changed(); }
     callback crop-window-controls-changed();
     changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); }
     if !native-video : MenuBar {
+        Menu { title: "riina";
+            MenuItem { title: "Preferences…"; enabled: !root.crop-editing;
+                activated => { root.open-preferences(); } }
+        }
         Menu { title: "Playback";
             MenuItem { title: "Take a Screenshot"; enabled: root.screenshot-available && !root.crop-editing;
                 activated => { root.take-screenshot(); } }
@@ -985,6 +991,9 @@ export component PlayerWindow inherits Window {
             if native-video && event.text == Key.F10 { return accept; }
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
+                if event.text == "," && !event.modifiers.shift && !event.modifiers.alt {
+                    root.open-preferences(); return accept;
+                }
                 if event.modifiers.shift {
                     if event.modifiers.alt || (primary-shortcut-is-meta && event.modifiers.control) { return reject; }
                     if event.text == "L" { root.toggle-file-loop(); return accept; }

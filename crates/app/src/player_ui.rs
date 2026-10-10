@@ -444,6 +444,7 @@ pub(crate) fn configure_player(
     )));
     app.set_osd_enabled(prefs.enable_osd);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
+    crate::screenshot_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::LABELS

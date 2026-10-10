@@ -184,6 +184,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     app.invoke_open_screenshot_folder();
                 }
             });
+            let preferences_app = app.as_weak();
+            host.on_open_preferences(move || {
+                if let Some(app) = preferences_app.upgrade() {
+                    app.invoke_open_preferences();
+                }
+            });
             let close_host = host.as_weak();
             let weak_app = app.as_weak();
             app.window().on_close_requested(move || {

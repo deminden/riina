@@ -1,3 +1,9 @@
+Complete the partial General Preferences window: implement save/clipboard
+destinations and folder chooser, then remaining General controls and tabbed
+preferences. Verify persistence failure rollback, repeated opening/close lifecycle
+and cross-platform runtime. Windows keyboard changes persist; rendered capture
+still fails, so exact appearance needs a working reference/comparison environment.
+
 # Implementation plan
 
 Live screenshot preferences now use one validated shared UI snapshot for capture,

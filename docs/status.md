@@ -1,3 +1,22 @@
+A shared Preferences window now opens from riina > Preferences… on both menu
+surfaces and the primary comma shortcut. Its initial General screenshot section
+provides the pinned five visible formats, Include subtitles and Show previews.
+Selections persist immediately through the platform atomic-save service; save
+failure rolls live settings back and refreshes controls. The externally supported
+AVIF choice remains untouched when editing other controls; it has no item in the
+pinned XIB. Template/folder values remain preserved. This is a partial General
+pane: save-to-file/clipboard/folder chooser and other sections are unfinished.
+
+Windows release runtime: Ctrl+comma opens the Preferences window; Tab navigation
+and Space toggle subtitle inclusion and preview, with saved JSON confirming false
+and restored true. Down selects JPEG (.jpg), immediately saved as jpg; Up restores
+PNG. Defaults were restored, preferences closed, player exited 0. Accessibility
+shows General/Screenshots/Format and both checkboxes. Rendered capture failed
+with CreateForMonitor 0x80070057; no pixel/material/font/checkbox-layout parity
+claim. Shared GL/macOS/Linux and menu activation remain untested. Workspace tests,
+strict lint and formatting pass; Windows release build passes in 46.96 seconds.
+Native tests were not rerun because engine code is unchanged. Kept local.
+
 Screenshot capture and folder opening now read live shared UI settings instead
 of startup clones. Session saving reads the same validated typed settings, keeping
 format/template/folder/subtitle/preview changes consistent across all three

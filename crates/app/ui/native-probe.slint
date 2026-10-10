@@ -3,6 +3,7 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // A feasibility surface, not the source-matched player UI. Keeping it separate
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
+    callback open-preferences();
     in property <bool> screenshot-available: false;
     in property <bool> screenshot-folder-enabled: true;
     callback take-screenshot();
@@ -26,6 +27,9 @@ export component NativeVideoHost inherits Window {
     in property <int> video-rotation-index: -1;
     callback set-menu-video-rotation(int);
     MenuBar {
+        Menu { title: "riina";
+            MenuItem { title: "Preferences…"; activated => { root.open-preferences(); } }
+        }
         Menu { title: "Playback";
             MenuItem { title: "Take a Screenshot"; enabled: root.screenshot-available;
                 activated => { root.take-screenshot(); } }
