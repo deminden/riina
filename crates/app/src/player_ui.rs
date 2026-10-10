@@ -461,6 +461,31 @@ pub(crate) fn configure_player(
         }
     });
     let delay_player = player.command_sender();
+    let text_delay_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_delay_text(move |category, text| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            let text = text.trim();
+            // Text entry is not limited to the slider range and must preserve
+            // native double precision; a blank field resets the selected lane.
+            let value = if text.is_empty() {
+                Ok(0.0)
+            } else {
+                text.parse::<f64>()
+            };
+            let command = value
+                .map_err(|_| "Enter a numeric delay in seconds".to_string())
+                .and_then(|value| match category {
+                    2 => Ok(Command::SubtitleDelay(value)),
+                    5 => Ok(Command::SecondarySubtitleDelay(value)),
+                    _ => Err("Unknown subtitle delay lane".into()),
+                });
+            if let Err(error) = command.and_then(|command| text_delay_player.send(command)) {
+                app.set_status(error.into());
+            }
+        }
+    });
     let secondary_position_player = player.command_sender();
     let weak = app.as_weak();
     app.on_set_subtitle_position(move |secondary, value| {

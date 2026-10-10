@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local numeric subtitle delay entry: the shared lane editor now has a custom
+keyboard-editable seconds field alongside its slider. Enter submits native
+double-precision text rather than constraining values to ±5 seconds; blank input
+resets the chosen lane to zero, and invalid text reports a validation error.
+Observed delay remains authoritative. Real two-lane playback accepts primary
+6.125 seconds and secondary -7.375 seconds together while preserving selection
+and pause, then restores primary timing. All 26 unit tests pass. GUI text editing,
+blank/reset routing, locale formatting, focus return and rendered field geometry
+remain unverified; the reference formatter's significant-digit presentation is
+still pending. This increment remains local.
+
 Local ASS style eligibility native verification: an original CC0 ASS fixture
 with two cues is reproducibly generated and hashed without bundling a font.
 Real playback decodes its first cue and observes the ASS warning state. Selecting

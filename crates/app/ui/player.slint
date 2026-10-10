@@ -94,6 +94,26 @@ component Tool inherits Rectangle {
     }
 }
 
+component DelayInput inherits Rectangle {
+    in property <float> value;
+    in property <bool> enabled: true;
+    in property <string> hint;
+    callback committed(string);
+    width: 72px; height: 24px;
+    border-radius: 4px; background: #ffffff10;
+    border-width: 1px; border-color: input.has-focus ? #90b7ef : #ffffff20;
+    input := TextInput {
+        x: 6px; width: parent.width - 12px; height: parent.height;
+        text: "" + root.value;
+        enabled: root.enabled;
+        font-size: 12px; color: root.enabled ? #eeeeee : #777777;
+        vertical-alignment: center;
+        single-line: true;
+        accessible-label: root.hint;
+        accepted => { root.committed(self.text); }
+    }
+}
+
 component SubtitleLaneSegment inherits Rectangle {
     in property <string> label;
     in property <string> hint;
@@ -220,6 +240,7 @@ export component PlayerWindow inherits Window {
     callback select-item(int, string);
     callback browse-files(int);
     callback set-delay(int, float);
+    callback set-delay-text(int, string);
     callback toggle-subtitle-visibility();
     callback playlist-action(int, string);
 
@@ -423,8 +444,14 @@ export component PlayerWindow inherits Window {
                                         activated => { root.edit-secondary-subtitle = true; } }
                                 }
                             }
-                            Text { text: root.edit-secondary-subtitle && !root.secondary-subtitle-delay-known ? "Delay: —" : "Delay: " + (root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay) + " s";
-                                color: #bbbbbb; font-size: 11px; }
+                            HorizontalLayout { height: 24px;
+                                Text { text: "Delay"; color: #bbbbbb; font-size: 11px; vertical-alignment: center; }
+                                DelayInput { value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
+                                    enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
+                                    hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
+                                    committed(text) => { root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text); } }
+                                Text { text: "s"; color: #bbbbbb; font-size: 11px; vertical-alignment: center; }
+                            }
                             PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
                                 enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                 hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";

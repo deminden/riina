@@ -338,6 +338,28 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         }));
         assert_eq!(positioned.error, None);
     }
+    // Numeric entry can exceed the visual slider's range in either lane.
+    player.send(Command::SubtitleDelay(6.125)).unwrap();
+    wait_for(&receiver, |state| state.subtitle_delay == 6.125);
+    player
+        .send(Command::SecondarySubtitleDelay(-7.375))
+        .unwrap();
+    let wide_delays = wait_for(&receiver, |state| {
+        state.secondary_subtitle_delay == Some(-7.375)
+    });
+    assert_eq!(wide_delays.subtitle_delay, 6.125);
+    assert!(wide_delays.paused);
+    assert_eq!(
+        selected_track(&wide_delays, TrackKind::Sub),
+        Some(primary_id)
+    );
+    assert_eq!(wide_delays.error, None);
+    player
+        .send(Command::SubtitleDelay(both.subtitle_delay))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.subtitle_delay == both.subtitle_delay
+    });
     player.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
     player
         .send(Command::Seek {
