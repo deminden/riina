@@ -8,15 +8,25 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
     let saved = Rc::new(Cell::new((
         baseline.compact_ui,
         i32::from(baseline.osc_position),
+        baseline.settings_at_leading,
+        baseline.playlist_at_leading,
     )));
     let weak = app.as_weak();
     app.on_layout_settings_changed(move || {
         let Some(app) = weak.upgrade() else { return };
-        let selected = (app.get_compact_ui(), app.get_osc_position().clamp(0, 2));
+        let selected = (
+            app.get_compact_ui(),
+            app.get_osc_position().clamp(0, 2),
+            app.get_settings_at_leading(),
+            app.get_playlist_at_leading(),
+        );
+        let previous = saved.get();
         let result = screenshot_preferences::current(&app).and_then(|screenshot| {
             let preferences = Preferences {
                 compact_ui: selected.0,
                 osc_position: selected.1 as u8,
+                settings_at_leading: selected.2,
+                playlist_at_leading: selected.3,
                 leading_sidebar_width: app.get_leading_sidebar_width() as u32,
                 trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                 volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
@@ -35,11 +45,45 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             platform::save_preferences(&path, &text).map_err(|error| error.to_string())
         });
         if let Err(error) = result {
-            let previous = saved.get();
             app.set_compact_ui(previous.0);
             app.set_osc_position(previous.1);
+            app.set_settings_at_leading(previous.2);
+            app.set_playlist_at_leading(previous.3);
             app.set_status(error.into());
         } else {
+            // IINA relocates a changed pane and dismisses other open sidebars.
+            // Store one pane per physical side, so a same-side collision replaces it.
+            if selected.2 != previous.2 {
+                let kind = if previous.2 {
+                    app.get_leading_sidebar()
+                } else {
+                    app.get_sidebar()
+                };
+                if (1..=2).contains(&kind) || kind == 5 || kind == 6 {
+                    app.set_leading_sidebar(0);
+                    app.set_sidebar(0);
+                    if selected.2 {
+                        app.set_leading_sidebar(kind);
+                    } else {
+                        app.set_sidebar(kind);
+                    }
+                }
+            } else if selected.3 != previous.3 {
+                let kind = if previous.3 {
+                    app.get_leading_sidebar()
+                } else {
+                    app.get_sidebar()
+                };
+                if kind == 3 || kind == 4 {
+                    app.set_leading_sidebar(0);
+                    app.set_sidebar(0);
+                    if selected.3 {
+                        app.set_leading_sidebar(kind);
+                    } else {
+                        app.set_sidebar(kind);
+                    }
+                }
+            }
             saved.set(selected);
         }
     });

@@ -1033,6 +1033,8 @@ pub fn time_label(seconds: Option<f64>) -> String {
 pub struct Preferences {
     pub leading_sidebar_width: u32,
     pub trailing_sidebar_width: u32,
+    pub settings_at_leading: bool,
+    pub playlist_at_leading: bool,
     pub compact_ui: bool,
     pub osc_position: u8,
     pub pause_when_open: bool,
@@ -1056,6 +1058,8 @@ impl Default for Preferences {
         Self {
             leading_sidebar_width: 360,
             trailing_sidebar_width: 360,
+            settings_at_leading: false,
+            playlist_at_leading: true,
             compact_ui: false,
             osc_position: 0,
             pause_when_open: false,
@@ -1147,11 +1151,25 @@ mod tests {
         let legacy = Preferences::parse("{}").unwrap();
         assert!(!legacy.compact_ui);
         assert_eq!(legacy.osc_position, 0);
+        assert!(!legacy.settings_at_leading);
+        assert!(legacy.playlist_at_leading);
         let selected = Preferences::parse(r#"{"compact_ui":true,"osc_position":2}"#).unwrap();
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert!(restored.compact_ui);
         assert_eq!(restored.osc_position, 2);
         assert!(Preferences::parse(r#"{"osc_position":3}"#).is_err());
+    }
+
+    #[test]
+    fn sidebar_positions_round_trip_without_changing_existing_layout_defaults() {
+        let selected =
+            Preferences::parse(r#"{"settings_at_leading":true,"playlist_at_leading":false}"#)
+                .unwrap();
+        let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
+        assert!(restored.settings_at_leading);
+        assert!(!restored.playlist_at_leading);
+        assert!(!Preferences::parse("{}").unwrap().settings_at_leading);
+        assert!(Preferences::parse("{}").unwrap().playlist_at_leading);
     }
 
     #[test]

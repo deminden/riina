@@ -1948,7 +1948,9 @@ UiSession retains its target until the player shuts down. Native PQ, seeking,
 fullscreen/Escape and close plus GL startup/seeking/close passed at 300% DPI.
 Native logs use %LOCALAPPDATA%/riina/native-player.log. See ADR 0003 and
 presentation-boundary-evidence.json. Other OS presentations remain open.
-The Layout pane now has persisted Compact and Floating/Top/Bottom controller
-choices. Top/Bottom reserve matching space around each sidebar. Captures show
-even full-width cards; a restart restored Bottom plus Compact. Other Layout
-options and matched macOS pixel comparisons remain open.
+The Layout pane now persists Compact, Floating/Top/Bottom controller placement,
+and Settings/Playlist leading-or-trailing assignment. Position changes move the
+active pane; a side holds one pane at a time and a same-side selection replaces
+its content. Windows capture confirmed the Settings move and Playlist replacing
+Settings when both use the leading edge. Theme/material, window fit/sizing, dock
+behavior, plugin placement and matched macOS pixel comparisons remain open.

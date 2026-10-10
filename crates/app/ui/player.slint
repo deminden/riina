@@ -71,6 +71,35 @@ component LayoutChoice inherits FocusScope {
         return reject;
     }
 }
+component SidebarPositionToggle inherits FocusScope {
+    in property <string> label;
+    in property <bool> leading;
+    callback changed(bool);
+    height: 30px;
+    accessible-role: checkbox;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: leading;
+    accessible-action-default => { changed(!leading); }
+    HorizontalLayout {
+        Text { text: root.label; color: #dddddd; font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+        Rectangle {
+            width: 38px; height: 22px; border-radius: 11px;
+            background: root.leading ? #3787ef : #55555e;
+            Rectangle {
+                x: root.leading ? parent.width - self.width - 2px : 2px;
+                y: 2px; width: 18px; height: 18px; border-radius: 9px;
+                background: #f5f5f7;
+            }
+        }
+    }
+    TouchArea { clicked => { root.changed(!root.leading); } }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { changed(!leading); return accept; }
+        return reject;
+    }
+}
 // Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
 // Colors and glyph metrics are estimates until matching macOS captures exist.
 component PlayerSlider inherits Rectangle {
@@ -492,11 +521,19 @@ export component PlayerWindow inherits Window {
     in property <[CatalogRow]> playlist;
     in-out property <int> sidebar: 0;
     in-out property <int> leading-sidebar: 0;
+    in-out property <int> remembered-settings-pane: 6;
+    in-out property <int> remembered-playlist-pane: 4;
+    in-out property <bool> settings-at-leading: false;
+    in-out property <bool> playlist-at-leading: true;
     in-out property <float> leading-sidebar-width: 360;
     in-out property <float> trailing-sidebar-width: 360;
     in-out property <bool> compact-ui: false;
     in-out property <int> osc-position: 0;
     callback layout-settings-changed();
+    callback toggle-settings-pane(int);
+    callback toggle-playlist-pane(int);
+    callback select-settings-pane(int);
+    callback select-playlist-pane(int);
     callback sidebar-resize-finished();
     in-out property <string> selected-playlist-token: "";
     in property <float> audio-delay: 0;
@@ -638,11 +675,11 @@ export component PlayerWindow inherits Window {
                 Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
                 Text { text: media-title; color: #dddddd; font-size: 12px;
                     horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
-                Tool { icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.sidebar = root.sidebar == 6 ? 0 : 6; } }
-                Tool { icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.sidebar = root.sidebar == 1 ? 0 : 1; } }
-                Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.sidebar = root.sidebar == 2 ? 0 : 2; } }
-                Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.leading-sidebar = root.leading-sidebar == 3 ? 0 : 3; } }
-                Tool { icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.leading-sidebar = root.leading-sidebar == 4 ? 0 : 4; } }
+                Tool { icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
+                Tool { icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
+                Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
+                Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
+                Tool { icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
                 Tool { icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
             }
         }
@@ -650,7 +687,7 @@ export component PlayerWindow inherits Window {
             // Each side owns its selected pane; catalog callbacks retain their original kind.
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
             visible: pane-kind != 0 && !root.crop-editing;
-            x: pane-kind == 3 || pane-kind == 4 ? 0px : parent.width - self.width;
+            x: side == 0 ? 0px : parent.width - self.width;
             y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? 67px : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - (root.compact-ui ? 60px : 68px) -
@@ -668,20 +705,20 @@ export component PlayerWindow inherits Window {
                     if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : HorizontalLayout {
                         spacing: 4px;
                         SidebarTab { label: "Layout"; selected: pane-kind == 5;
-                            activated => { root.sidebar = 5; } }
+                            activated => { root.select-settings-pane(5); } }
                         SidebarTab { label: "Video"; selected: pane-kind == 6;
-                            activated => { root.sidebar = 6; } }
+                            activated => { root.select-settings-pane(6); } }
                         SidebarTab { label: "Audio"; selected: pane-kind == 1;
-                            activated => { root.sidebar = 1; } }
+                            activated => { root.select-settings-pane(1); } }
                         SidebarTab { label: "Subtitles"; selected: pane-kind == 2;
-                            activated => { root.sidebar = 2; } }
+                            activated => { root.select-settings-pane(2); } }
                     }
                     if pane-kind == 3 || pane-kind == 4 : HorizontalLayout {
                         spacing: 4px;
                         SidebarTab { label: "Playlist"; selected: pane-kind == 4;
-                            activated => { root.leading-sidebar = 4; } }
+                            activated => { root.select-playlist-pane(4); } }
                         SidebarTab { label: "Chapters"; selected: pane-kind == 3;
-                            activated => { root.leading-sidebar = 3; } }
+                            activated => { root.select-playlist-pane(3); } }
                     }
                     Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar";
                         activated => {
@@ -695,7 +732,7 @@ export component PlayerWindow inherits Window {
                     Text { text: "On-Screen Controller"; color: #bdbdc5;
                         font-size: 11px; font-weight: 700; }
                     HorizontalLayout {
-                        width: min(root.trailing-sidebar-width * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
+                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
                         spacing: 6px;
                         LayoutChoice { label: "Floating"; position: 0; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 0;
                             activated => { root.osc-position = 0; root.layout-settings-changed(); } }
@@ -717,6 +754,10 @@ export component PlayerWindow inherits Window {
                                 horizontal-alignment: center; vertical-alignment: center; font-size: 12px; } }
                         TouchArea { clicked => { root.compact-ui = !root.compact-ui; root.layout-settings-changed(); } }
                     }
+                    SidebarPositionToggle { label: "Settings on leading side"; leading: root.settings-at-leading;
+                        changed(value) => { root.settings-at-leading = value; root.layout-settings-changed(); } }
+                    SidebarPositionToggle { label: "Playlist on leading side"; leading: root.playlist-at-leading;
+                        changed(value) => { root.playlist-at-leading = value; root.layout-settings-changed(); } }
                 }
                 if pane-kind == 1 : HorizontalLayout {
                     Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
@@ -1169,11 +1210,11 @@ export component PlayerWindow inherits Window {
                     if event.text == "L" { root.toggle-file-loop(); return accept; }
                     if event.text == ">" { root.adjust-chapter(1); return accept; }
                     if event.text == "<" { root.adjust-chapter(-1); return accept; }
-                    if event.text == "C" { root.leading-sidebar = root.leading-sidebar == 3 ? 0 : 3; return accept; }
-                    if event.text == "P" { root.leading-sidebar = root.leading-sidebar == 4 ? 0 : 4; return accept; }
-                    if event.text == "A" { root.sidebar = root.sidebar == 1 ? 0 : 1; return accept; }
+                    if event.text == "C" { root.toggle-playlist-pane(3); return accept; }
+                    if event.text == "P" { root.toggle-playlist-pane(4); return accept; }
+                    if event.text == "A" { root.toggle-settings-pane(1); return accept; }
                     if event.text == "S" { root.take-screenshot(); return accept; }
-                    if event.text == "V" { root.sidebar = root.sidebar == 6 ? 0 : 6; return accept; }
+                    if event.text == "V" { root.toggle-settings-pane(6); return accept; }
                     return reject;
                 }
                 // Windows/Linux map the extra macOS Control modifier to Alt;

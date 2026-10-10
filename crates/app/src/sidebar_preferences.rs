@@ -10,6 +10,70 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         baseline.trailing_sidebar_width,
     )));
     let weak = app.as_weak();
+    let weak_settings = app.as_weak();
+    app.on_toggle_settings_pane(move |kind| {
+        let Some(app) = weak_settings.upgrade() else {
+            return;
+        };
+        app.set_remembered_settings_pane(kind);
+        let destination_leading = app.get_settings_at_leading();
+        let current = if destination_leading {
+            app.get_leading_sidebar()
+        } else {
+            app.get_sidebar()
+        };
+        let next = if current == kind { 0 } else { kind };
+        if destination_leading {
+            app.set_leading_sidebar(next);
+        } else {
+            app.set_sidebar(next);
+        }
+    });
+    let weak_settings = app.as_weak();
+    app.on_select_settings_pane(move |kind| {
+        let Some(app) = weak_settings.upgrade() else {
+            return;
+        };
+        if app.get_settings_at_leading() {
+            app.set_remembered_settings_pane(kind);
+            app.set_leading_sidebar(kind);
+        } else {
+            app.set_remembered_settings_pane(kind);
+            app.set_sidebar(kind);
+        }
+    });
+    let weak_playlist = app.as_weak();
+    app.on_toggle_playlist_pane(move |kind| {
+        let Some(app) = weak_playlist.upgrade() else {
+            return;
+        };
+        app.set_remembered_playlist_pane(kind);
+        let destination_leading = app.get_playlist_at_leading();
+        let current = if destination_leading {
+            app.get_leading_sidebar()
+        } else {
+            app.get_sidebar()
+        };
+        let next = if current == kind { 0 } else { kind };
+        if destination_leading {
+            app.set_leading_sidebar(next);
+        } else {
+            app.set_sidebar(next);
+        }
+    });
+    let weak_playlist = app.as_weak();
+    app.on_select_playlist_pane(move |kind| {
+        let Some(app) = weak_playlist.upgrade() else {
+            return;
+        };
+        if app.get_playlist_at_leading() {
+            app.set_remembered_playlist_pane(kind);
+            app.set_leading_sidebar(kind);
+        } else {
+            app.set_remembered_playlist_pane(kind);
+            app.set_sidebar(kind);
+        }
+    });
     app.on_sidebar_resize_finished(move || {
         let Some(app) = weak.upgrade() else { return };
         let widths = (
@@ -21,6 +85,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             let preferences = Preferences {
                 leading_sidebar_width: widths.0,
                 trailing_sidebar_width: widths.1,
+                settings_at_leading: app.get_settings_at_leading(),
+                playlist_at_leading: app.get_playlist_at_leading(),
                 compact_ui: app.get_compact_ui(),
                 osc_position: app.get_osc_position() as u8,
                 screenshot,

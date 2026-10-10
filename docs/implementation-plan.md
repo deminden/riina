@@ -258,7 +258,8 @@ running for these targets (ADR 0004); obtain actual outcomes before declaring th
 build gate closed. Next port work is runtime playback/dialog/lifecycle validation,
 native localized filename ordering and target-specific presentation/HDR integration.
 
-Full interface parity remains the priority. The first Layout-pane choices now
-persist and restore controller position and Compact. Complete remaining Layout
-controls, then compare matched captures for menus, Preferences, window modes,
-DPI, materials and sidebar resize/animation.
+Full interface parity remains the priority. Layout now persists controller
+placement and Compact plus the leading/trailing assignment for Settings and
+Playlist/Chapters. Continue through remaining Layout controls, then matched
+capture comparisons for menus, Preferences, window modes, DPI, materials and
+sidebar resize/animation.

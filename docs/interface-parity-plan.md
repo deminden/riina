@@ -66,9 +66,12 @@ passed in an isolated profile. Narrow-window cap, native renderer interaction,
 RTL and other-platform runtime remain unverified. Exact reference pixels remain
 open; the retained restored-width capture is private regression evidence.
 
-The Layout tab now exposes persisted Floating, Top and Bottom controller modes
-plus Compact interface. Top/Bottom reserve their own space alongside an open
-sidebar. Windows captures show three evenly sized cards; restart restored Bottom
-and Compact. Full Layout content remains open: theme/material, edge-to-edge/window
-sizing, dock behavior, sidebar side assignment and video fit are not implemented.
-Captures have not been compared against matched macOS pixels.
+The Layout tab now exposes persisted Floating, Top and Bottom controller modes,
+Compact interface, and the leading/trailing assignments for Settings and
+Playlist/Chapters. Top/Bottom reserve their own space alongside an open sidebar.
+The position switches move the selected pane, preserve one pane per physical
+side, and replace content when both categories share an edge. Windows capture
+confirmed the Settings move and same-side replacement; defaults remain Settings
+trailing and Playlist leading. Theme/material, edge-to-edge/window sizing, dock
+behavior, video fit, plugin placement and matched macOS pixel comparisons remain
+open.
