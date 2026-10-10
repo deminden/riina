@@ -76,12 +76,14 @@ export component FontPicker inherits Window {
             VerticalLayout { spacing: 0px;
                 Text { text: "Family"; height: 23px; color: #dddddd; font-size: 12px; }
                 family-list := FontList { model: root.families; enabled: root.ready;
+                    select-on-focus: !root.reveal-pending;
                     current-item <=> root.family-index;
                     current-item-changed(index) => { if !root.restoring-selection { root.family-selected(index); } } }
             }
             VerticalLayout { spacing: 0px;
                 Text { text: "Typeface"; height: 23px; color: #dddddd; font-size: 12px; }
                 face-list := FontList { model: root.faces; enabled: root.ready;
+                    select-on-focus: !root.reveal-pending;
                     current-item <=> root.face-index;
                     activated(index) => {
                         root.face-selected(index);

@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Deferred-focus runtime on ae7f7c5 succeeds: first family Tab, End/Home and
+PageDown/PageUp report the corresponding row after settling, without the earlier
+missing-ID panic. Filter replacement to Verdana and face Tab/Down report Italic
+then Regular; Return commits Verdana with size 55, pause and volume 37 preserved.
+Reopening then exposed a new race: focus selected first-face Italic before the
+queued Regular restoration. Automatic focus selection is now suppressed while
+reveal/restoration is pending; its runtime retest remains pending. Default font
+was restored and the diagnostic process exited 0 with empty stderr. Exact
+binary findings: tests/visual/font-rows-deferred-focus-evidence.json. Pointer
+double-click, rendered layout, performance and other OS checks remain open.
+All work stays local.
+
 Retained rows alone did not fix the accessibility panic: be545eb exits 101 on
 first family Tab, with another missing focused-ID panic. Scoped diagnostics:
 tests/visual/font-rows-retention-failure-evidence.json. Focus delegation now

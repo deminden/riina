@@ -1,0 +1,77 @@
+{
+  "source_commit": "ae7f7c5",
+  "observations": [
+    {
+      "action": "settled-first-family-Tab",
+      "focus": "33 list item (selectable) Arial",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Arial-ItalicMT"
+    },
+    {
+      "action": "settled-family-End",
+      "focus": "63 list item (selectable) Yu Gothic UI",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: YuGothicUI-Light"
+    },
+    {
+      "action": "settled-family-Home",
+      "focus": "64 list item (selectable) Arial",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Arial-ItalicMT"
+    },
+    {
+      "action": "settled-family-PageDown",
+      "focus": "76 list item (selectable) Franklin Gothic Medium",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: FranklinGothic-MediumItalic"
+    },
+    {
+      "action": "settled-family-PageUp",
+      "focus": "64 list item (selectable) Arial"
+    },
+    {
+      "action": "settled-filtered-family-Tab",
+      "focus": "89 list item (selectable) Verdana",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Verdana-Italic"
+    },
+    {
+      "action": "settled-face-Tab",
+      "focus": "90 list item (selectable) Italic"
+    },
+    {
+      "action": "settled-face-Down-Regular",
+      "focus": "91 list item (selectable) Regular",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Verdana"
+    },
+    {
+      "action": "face-Return-commits",
+      "lines": [
+        "\t\t\t102 text Verdana",
+        "\t\t103 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t57 button Play",
+        "\t\t63 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "reopen-selection-regression",
+      "custom": "\t\t29 edit (settable, string) Custom font name Value: Verdana-Italic",
+      "expected": "Verdana after observed Regular commit"
+    },
+    {
+      "action": "restore-default",
+      "lines": [
+        "\t\t\t102 text sans-serif",
+        "\t\t103 combo box (settable, float) Subtitle font size Value: 55",
+        "\t\t57 button Play",
+        "\t\t63 slider (settable, float) Volume Value: 37"
+      ]
+    }
+  ],
+  "binary_sha256": "f3357e801e01910e6dbe4dfba0c32d77a99893ba2781352407cef6788d212f49",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Reopening accepted Regular incorrectly changed the draft to Italic; subsequent restoration guard is outside this binary evidence.",
+    "Double-click injection unavailable because pointer geometry missing.",
+    "32ms accessibility transition is a synchronization workaround; timing and performance need broader checks.",
+    "Pixel parity and other OS runtime remain unverified."
+  ]
+}

@@ -16,6 +16,7 @@ export component FontList inherits Rectangle {
     accessible-delegate-focus: root.accessible-cursor;
     accessible-item-count: root.model.length;
     in property <bool> enabled: true;
+    in property <bool> select-on-focus: true;
     out property <length> viewport-height <=> rows.viewport-height;
     private property <length> visible-height <=> rows.visible-height;
     private property <length> visible-width <=> rows.visible-width;
@@ -114,7 +115,7 @@ export component FontList inherits Rectangle {
             rows.has-focus = self.has-focus;
             if self.has-focus {
                 root.navigate(root.current-item >= 0 ? root.current-item : 0,
-                    root.current-item < 0);
+                    root.current-item < 0 && root.select-on-focus);
             }
         }
         key-pressed(event) => {
