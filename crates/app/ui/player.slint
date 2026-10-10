@@ -1,5 +1,5 @@
 import { ScrollView, ComboBox } from "std-widgets.slint";
-import { VideoControls } from "video-controls.slint";
+import { VideoControls, HardwareDecodingControls } from "video-controls.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
@@ -288,6 +288,8 @@ export component PlayerWindow inherits Window {
     in property <bool> hardware-decoding-known: false;
     in property <bool> hardware-decoding-enabled: false;
     in property <[int]> video-equalizer-values;
+    in property <float> speed-slider-position: 8;
+    in property <string> speed-edit-value: "1";
     in property <[bool]> video-equalizer-known;
     in property <[CatalogRow]> subtitle-tracks;
     in property <[CatalogRow]> secondary-subtitle-tracks;
@@ -343,6 +345,8 @@ export component PlayerWindow inherits Window {
     callback set-video-rotation(int);
     callback set-hardware-decoding(bool);
     callback set-video-equalizer(int, float);
+    callback set-speed-slider(float);
+    callback set-speed-text(string) -> bool;
     callback subtitle-seek(int);
     callback adjust-chapter(int);
     callback adjust-subtitle-delay(float);
@@ -525,6 +529,45 @@ export component PlayerWindow inherits Window {
                             rotation-enabled: root.loaded && root.video-rotation-known;
                             aspect-changed(value) => { root.set-video-aspect(value); }
                             rotation-changed(value) => { root.set-video-rotation(value); }
+                        }
+                        if sidebar == 6 : VerticalLayout { spacing: 8px;
+                            Text { text: "Speed"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+                            HorizontalLayout { spacing: 8px; height: 24px;
+                                PlayerSlider { minimum: 0; maximum: 24; step: 1;
+                                    value: root.speed-slider-position; hint: "Playback speed";
+                                    enabled: root.loaded;
+                                    changed(value) => { root.set-speed-slider(value); }
+                                }
+                                Rectangle { width: 76px; height: 24px; background: #ffffff10;
+                                    border-radius: 4px; forward-focus: speed-input;
+                                    property <string> observed-speed: root.speed-edit-value;
+                                    changed observed-speed => { speed-input.text = self.observed-speed; }
+                                    FocusScope { width: parent.width; height: parent.height; forward-focus: speed-input;
+                                        key-pressed(event) => {
+                                            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.text == Key.Tab || event.text == Key.Escape { return reject; }
+                                            return accept;
+                                        }
+                                        speed-input := TextInput { x: 4px; width: parent.width - 8px; height: 24px;
+                                            text: root.speed-edit-value; single-line: true;
+                                            color: #eeeeee; font-size: 12px; vertical-alignment: center;
+                                            enabled: root.loaded; accessible-label: "Custom playback speed";
+                                            accessible-action-set-value(value) => { self.text = value; }
+                                            accepted => { if root.set-speed-text(self.text) {
+                                                self.text = root.speed-edit-value; keys.focus();
+                                            } }
+                                        }
+                                    }
+                                }
+                                if root.speed-value != 1 : Tool { width: 20px; height: 24px;
+                                    label: "↺"; hint: "Reset playback speed"; activated => { root.reset-speed(); } }
+                            }
+                            HorizontalLayout { height: 14px;
+                                for label in ["0.25x", "1x", "4x", "16x"] : Text {
+                                    text: label; font-size: 10px; color: #bbbbbb; horizontal-stretch: 1;
+                                }
+                            }
+                        }
+                        if sidebar == 6 : HardwareDecodingControls {
                             hardware-enabled: root.hardware-decoding-enabled;
                             hardware-known: root.hardware-decoding-known;
                             hardware-changed(value) => { root.set-hardware-decoding(value); }

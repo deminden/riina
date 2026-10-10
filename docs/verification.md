@@ -1,5 +1,22 @@
 # Verification record · native Windows · 2026-10-09
 
+## Video speed controls · 2026-10-10
+
+Pinned SidebarVideoPane.SpeedView defines 25 logarithmic ticks from 0.25x to
+16x, octave labels at 0.25 / 1 / 4 / 16 and two-decimal slider results. Custom
+entry has six-decimal positive half-down rounding and minimum 0.01; blank means
+1. The reset is hidden at 1x. This original implementation parses text into f64
+and restores editor display from backend observations; slider movement snaps to
+an integer tick. Speed precedes the hardware switch in the shared video panel.
+
+Unit checks cover octave anchors, intermediate tick 9 → 1.19, custom
+1.2345674 / 1.2345675 / 1.2345676 rounding, below-slider input 0.01, above-slider
+input 32, blank reset and invalid/nonfinite input. Native and final GUI/build
+checks pending. Locale grouping/decimal separators and exhaustive decimal ties
+are unverified; the existing Command::Speed ceiling of 100 remains a gap for
+unbounded reference custom entry. Native tick drag, neutral indicator, reset
+artwork, measured layout, OSD and current other OS runtime remain open.
+
 ## Video equalizer · 2026-10-10
 
 Requirements: pinned SidebarVideoPane.EqualizerView orders brightness, contrast,

@@ -28,6 +28,52 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies speed slider ticks and precise custom entries"]
+fn speed_controls_preserve_pause_volume_and_custom_precision() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    for (command, expected) in [
+        (riina_core::speed_controls::from_slider(0.0).unwrap(), 0.25),
+        (riina_core::speed_controls::from_slider(9.0).unwrap(), 1.19),
+        (riina_core::speed_controls::from_slider(24.0).unwrap(), 16.0),
+        (
+            riina_core::speed_controls::from_text("1.2345675").unwrap(),
+            1.234567,
+        ),
+        (riina_core::speed_controls::from_text("0.01").unwrap(), 0.01),
+        (riina_core::speed_controls::from_text("32").unwrap(), 32.0),
+        (riina_core::speed_controls::from_text("").unwrap(), 1.0),
+    ] {
+        player.send(command).unwrap();
+        let state = wait_for(&receiver, |state| {
+            (state.speed - expected).abs() < 0.0000001
+        });
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert!(state.error.is_none(), "{:?}", state.error);
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies independent video equalizer channels and resets"]
 fn video_equalizer_preserves_other_channels_and_playback_options() {
     use riina_core::video_controls::Equalizer;

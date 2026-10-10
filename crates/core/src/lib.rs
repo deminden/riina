@@ -1,6 +1,7 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
 pub mod file_selection;
+pub mod speed_controls;
 pub mod subtitle_color;
 pub mod subtitle_controls;
 mod track_labels;

@@ -173,6 +173,8 @@ fn update_ui(
     app.set_volume(state.volume as f32);
     app.set_muted(state.muted);
     app.set_speed_value(state.speed as f32);
+    app.set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
+    app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
     app.set_video_aspect_known(state.video_aspect_override.is_some());
     app.set_video_rotation_known(state.video_rotation.is_some());
     app.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
@@ -444,6 +446,34 @@ pub(crate) fn configure_player(
     connect!(on_playlist_next, Command::PlaylistNext);
     connect!(on_playlist_previous, Command::PlaylistPrevious);
     connect!(on_reset_speed, Command::Speed(1.0));
+    let speed_slider_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_speed_slider(move |position| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            let result = riina_core::speed_controls::from_slider(position.into())
+                .map_err(str::to_owned)
+                .and_then(|command| speed_slider_player.send(command));
+            if let Err(error) = result {
+                app.set_status(error.into());
+            }
+        }
+    });
+    let speed_text_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_speed_text(move |text| {
+        let result = riina_core::speed_controls::from_text(text.as_str())
+            .map_err(str::to_owned)
+            .and_then(|command| speed_text_player.send(command));
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = result {
+                app.set_status(error.into());
+                return false;
+            }
+        }
+        true
+    });
     let aspect_player = player.command_sender();
     let weak = app.as_weak();
     app.on_set_video_aspect(move |text| {

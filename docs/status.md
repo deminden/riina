@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+The video panel now includes a logarithmic speed slider, precise custom entry
+and reset hidden at 1x, ordered before hardware decoding and equalizer controls.
+Shared Rust conversion spans 25 ticks from 0.25x to 16x, rounding slider rates
+to two decimals; custom entry keeps six decimals without passing through f32.
+Blank input resets 1x. Unit checks pass. Native and final GUI/build checks are
+in progress. Locale formatting, fractional rounding equivalence, above-100
+requests, OSD, measured control rendering and current port runtime remain open.
+No public update.
+
 Video equalizer controls now expose brightness, contrast, saturation, gamma and
 hue in reference order, with independent reset, integer range -100–100 and a
 neutral marker. Portable typed commands reject out-of-range values; observed
