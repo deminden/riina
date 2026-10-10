@@ -71,3 +71,19 @@ one-second timeout follows the pinned Preference.swift osdAutoHideTimeout defaul
 layout now explicitly reserves the panel's 16-point left/right padding.
 Typeface, material, exact metrics, animation and event-relative timing remain open
 comparison gates. No reference pixels or protected assets are shipped in the UI.
+
+Font chooser geometry is source-derived from the pinned
+Base.lproj/FontPickerWindowController.xib: 458pt width, 12pt outer margins,
+24pt filter, a 268pt two-table block with 23pt headers, 36pt editable preview
+before the custom font field, 24pt custom input, 80pt buttons separated by 12pt.
+Labels are Choose a font:, Family, Typeface, Preview and Or enter the font name:.
+The tables meet at a shared seam upstream; riina now removes its previous 12pt
+gap but has not reproduced the native border overlap. The preview caption sits
+inside the field near its upper-left edge. Search/table and table/preview gaps
+are 8pt; preview/custom label gap is 12pt; custom/button minimum gap is 16pt.
+The XIB records contentRect height 524 but contentView height 496; matching live
+reference execution must resolve the actual client height. Riina retains 524
+and flexible space before buttons, rather than claiming that discrepancy closed.
+These are compiled source allocations, not measured rendered equivalence.
+System colors, row height, selection material, table headers, font metrics,
+focus rings, theme behavior and screenshots remain open visual gates.

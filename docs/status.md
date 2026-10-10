@@ -1,5 +1,20 @@
 # Status · 2026-10-09
 
+Font chooser source-layout correction: preview now precedes custom entry,
+matching the pinned XIB, with Choose a font, Typeface, Preview and Or enter the
+font name labels. Recorded margins are 12pt; table block 268pt including 23pt
+headers; search/custom inputs 24pt; preview 36pt; buttons 80pt with 12pt gap.
+Return now invokes acceptance from the filter, preview or list scope; Escape
+remains Cancel. Formatting, strict lint, unit checks and release build pass.
+Rendered geometry, clipping and keyboard
+runtime retests remain pending. The XIB's contentRect 524pt versus contentView
+496pt discrepancy is unresolved; 524pt remains and bottom flexible space absorbs
+the difference. Toolkit table materials/rows/fonts are still provisional.
+Face double-click acceptance is separately inventoried and unimplemented; the
+toolkit list exposes pointer events without click count, so a timing guess was
+not introduced. Native-route retained-state and other OS runtime remain open.
+All changes stay local.
+
 Reusable font chooser state is now retained after OK, Cancel and native close.
 Preview text and filter persist in the same component/catalog; each invocation
 refreshes custom entry and matching face from observed playback, including when

@@ -54,45 +54,61 @@ export component FontPicker inherits Window {
         width: 100%; height: 100%;
         key-pressed(event) => {
             if event.text == Key.Escape { root.cancel(); return accept; }
+            if event.text == Key.Return && !event.modifiers.control && !event.modifiers.alt
+                && !event.modifiers.meta && !event.modifiers.shift {
+                root.accept-font(root.custom-name); return accept;
+            }
             return reject;
         }
-    VerticalLayout { padding: 20px; spacing: 12px;
-        LineEdit { placeholder-text: "Type to filter…";
+    // Pinned XIB records 12pt margins, a 268pt table block and preview before
+    // custom entry. Native table materials and exact glyph metrics remain open.
+    VerticalLayout { padding: 12px; spacing: 0px;
+        Text { text: "Choose a font:"; height: 16px; color: #dddddd; font-size: 13px; }
+        Rectangle { height: 8px; }
+        LineEdit { placeholder-text: "Type to filter..."; height: 24px;
             text <=> root.filter-text;
             accessible-label: "Filter font families";
+            accepted => { root.accept-font(root.custom-name); }
             edited => { root.search(self.text); } }
-        HorizontalLayout { spacing: 12px;
-            VerticalLayout { spacing: 6px;
-                Text { text: "Family"; color: #dddddd; font-size: 12px; }
+        Rectangle { height: 8px; }
+        HorizontalLayout { spacing: 0px; height: 268px;
+            VerticalLayout { spacing: 0px;
+                Text { text: "Family"; height: 23px; color: #dddddd; font-size: 12px; }
                 family-list := StandardListView { model: root.families; enabled: root.ready;
                     current-item <=> root.family-index;
                     current-item-changed(index) => { if !root.restoring-selection { root.family-selected(index); } } }
             }
-            VerticalLayout { spacing: 6px;
-                Text { text: "Face"; color: #dddddd; font-size: 12px; }
+            VerticalLayout { spacing: 0px;
+                Text { text: "Typeface"; height: 23px; color: #dddddd; font-size: 12px; }
                 face-list := StandardListView { model: root.faces; enabled: root.ready;
                     current-item <=> root.face-index;
                     current-item-changed(index) => { if !root.restoring-selection { root.face-selected(index); } } }
             }
         }
-        Text { text: "Font name"; color: #dddddd; font-size: 12px; }
-        LineEdit { text <=> root.custom-name; placeholder-text: "sans-serif";
-            accessible-label: "Custom font name";
-            accepted => { root.accept-font(root.custom-name); } }
+        Rectangle { height: 8px; }
         Rectangle { height: 36px; background: #202024; border-radius: 4px;
             TextInput { text <=> root.preview-text; single-line: true;
                 accessible-label: "Font preview text";
                 accessible-action-set-value(value) => { self.text = value; }
+                accepted => { root.accept-font(root.custom-name); }
                 font-family: root.preview-font-family;
                 font-weight: root.preview-font-weight; font-italic: root.preview-font-italic;
                 color: #eeeeee; font-size: 24px; horizontal-alignment: center;
                 vertical-alignment: center;
                 x: 10px; width: parent.width - 20px; height: parent.height; }
+            Text { text: "Preview"; x: 8px; y: 4px; color: #bbbbbb; font-size: 11px; }
         }
-        HorizontalLayout { spacing: 8px;
+        Rectangle { height: 12px; }
+        Text { text: "Or enter the font name:"; height: 16px; color: #dddddd; font-size: 13px; }
+        Rectangle { height: 8px; }
+        LineEdit { text <=> root.custom-name; placeholder-text: "sans-serif"; height: 24px;
+            accessible-label: "Custom font name";
+            accepted => { root.accept-font(root.custom-name); } }
+        Rectangle { min-height: 16px; vertical-stretch: 1; }
+        HorizontalLayout { spacing: 12px; height: 24px;
             Text { text: root.ready ? "" : "Loading fonts…"; color: #bbbbbb; font-size: 11px; }
-            Button { text: "Cancel"; clicked => { root.cancel(); } }
-            Button { text: "OK"; primary: true; clicked => { root.accept-font(root.custom-name); } }
+            Button { text: "Cancel"; width: 80px; clicked => { root.cancel(); } }
+            Button { text: "OK"; width: 80px; primary: true; clicked => { root.accept-font(root.custom-name); } }
         }
     }
     }
