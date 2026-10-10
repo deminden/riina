@@ -56,26 +56,21 @@ The selected GPLv3 package route is intended to permit a full-featured native
 engine build, subject to verifying that every included component can be
 redistributed together under those terms. The pinned development libmpv build has
 not passed that audit. Its producing recipe enables FFmpeg's GPL mode,
-`--enable-version3`, OpenSSL, x264,
-x265 and dvdnav. At the pinned FFmpeg revision, `--enable-version3` upgrades the
-resulting GPL libraries to GPLv3-or-later, and the configure script says OpenSSL
-3 also requires that option in a GPL build. x264's licensing page says the
-encoder is GPLv2-only; GNU compatibility guidance says GPLv2-only code cannot be
-combined with GPLv3. The builder recipe fetches x264 without pinning a commit, so
-we cannot resolve the exact grant for the source used in this DLL. The present
-native build is therefore not cleared for the proposed GPLv3 package.
+`--enable-version3`, OpenSSL, x264, x265 and dvdnav. FFmpeg's pinned configure
+upgrades the GPL libraries to GPLv3-or-later and accepts OpenSSL only when it
+detects OpenSSL 3 and GPLv3 mode. OpenSSL 3 is Apache-2.0 licensed, which the FSF
+identifies as compatible with GPLv3. The general FFmpeg legal page still gives a
+broad OpenSSL incompatibility warning; the release build relies on the exact
+pinned configure check and OpenSSL 3 license rather than applying older OpenSSL
+terms to this build.
 
-The GPLv2 option was checked as well. It is not a relabeling fix: the current
-FFmpeg build is configured for GPLv3, and its OpenSSL 3 dependency requires the
-version-3 mode. A GPLv2 build would need a different TLS dependency/configuration
-and its own full compatibility audit. The lower-impact GPLv3 candidate is to
-remove FFmpeg's optional x264 encoder. FFmpeg's pinned configure help identifies
-`--enable-libx264` as H.264 encoding; the recipe does not disable FFmpeg's
-built-in H.264 decoder. Rebuild and verify H.264 playback, seek, subtitle,
-audio-track and HDR fixtures before treating that as parity-preserving. Pin all
-native sources and patches, provide the corresponding source/build recipe and
-notices, then test the complete clean package. The current development DLL is
-not approved for release.
+x264's current licensing page offers GPLv2-only or a commercial license. GPLv2
+only cannot be combined with GPLv3, even though FFmpeg's general codec page
+describes x264 as GPLv2-or-later. The release build therefore removes the
+optional x264 encoder and its source dependency, while retaining FFmpeg's built-in
+H.264 decoder. Riina's current player does not expose encoding. The candidate
+engine must pass the native playback suite and final package smoke test before
+the bundle is published. The current development DLL is not approved for release.
 
 The first reproducible native inspection is recorded in
 [native-distribution-audit.json](native-distribution-audit.json). Run
@@ -97,9 +92,10 @@ test remain outstanding.
 
 The release workflow does not use that development DLL. It rebuilds the engine from
 the pinned builder revision, removes the optional x264 encoder dependency and
-configuration flag, retains FFmpeg's built-in H.264 decoder, and packages the full
-mpv runtime. The native build preserves each fetched source checkout and its
-license files; the source archive also vendors every crate pinned by Cargo.lock.
+configuration flag, retains FFmpeg's built-in H.264 decoder, and verifies the
+OpenSSL 3 source revision and Apache-2.0 license used by the GPLv3 build. The native
+build preserves each fetched source checkout and its license files; the source
+archive also vendors every crate pinned by Cargo.lock.
 The release job runs the complete native test suite and a playback test against the
 engine extracted from the final portable ZIP. GitHub only publishes the assets when
 those checks and source packaging succeed. These tests do not certify GUI, HDR
@@ -112,5 +108,7 @@ Primary references:
 - [x264 licensing terms](https://x264.org/licensing/)
 - [FFmpeg license and legal considerations](https://www.ffmpeg.org/legal.html)
 - [Pinned FFmpeg configure script](https://github.com/FFmpeg/FFmpeg/blob/538d10d1878fb546c3a2645efa56119848f9ccfc/configure)
+- [OpenSSL license](https://openssl-library.org/source/license/index.html)
+- [GNU license compatibility](https://www.gnu.org/licenses/license-compatibility.en.html)
 - [Slint Royalty-free 2.0](https://slint.dev/agreements/slint-royalty-free-license.pdf)
 - Pinned mpv Copyright, commit 36abaa32d00a7229ee206aae12dc0e97e7962dca

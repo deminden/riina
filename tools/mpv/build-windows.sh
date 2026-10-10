@@ -4,6 +4,7 @@ set -euo pipefail
 # Build from a fixed recipe revision, then preserve every fetched source checkout
 # used by the binary so the release source archive matches the native engine.
 readonly BUILDER_REVISION='b2856ee6deed6957380b32465f359e67f67fafd8'
+readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
 readonly REPO_ROOT="$PWD"
 readonly WORK_ROOT="${RUNNER_TEMP:-$PWD}/riina-native-build"
 readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
@@ -28,6 +29,12 @@ cmake \
   -G Ninja --fresh -B build_x86_64 -S .
 ninja -C build_x86_64 download
 ninja -C build_x86_64 update
+
+# The GPLv3 package depends on OpenSSL 3's Apache-2.0 terms. Verify both the
+# source revision pinned by the builder recipe and the license shipped with it.
+openssl_source="$BUILDER/src_packages/openssl"
+test "$(git -C "$openssl_source" rev-parse HEAD)" = "$OPENSSL_REVISION"
+grep -q 'Apache License' "$openssl_source/LICENSE.txt"
 
 # x264 is not part of the release engine or its corresponding source set.
 rm -rf "$BUILDER/src_packages/x264"

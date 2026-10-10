@@ -189,3 +189,10 @@ jobs:
             "release-assets/riina-$version-source.tar.zst" \
             "release-assets/riina-$version-source.tar.zst.sha256" \
             --title "Riina $version" --notes-file release-notes.md
+          release_url="$repo/releases/tag/$tag"
+          {
+            echo "## Riina $version release"
+            echo "[Download Windows x64]($release_url)"
+            echo ""
+            echo "The release page is also surfaced in the repository's Releases panel."
+          } >> "$GITHUB_STEP_SUMMARY"
