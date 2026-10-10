@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+Actual Windows accessibility labels at 7622217 verify audio and both subtitle
+language lists, but closing exits 101: a teardown property update re-enters
+Slint's mutable window borrow. Original diagnostic evidence is retained in
+language-badges-initial-evidence.json. The lifecycle repair clears the frame
+before normal hide and defers context-loss UI changes with a setup-generation
+guard. Runtime shutdown retest is pending. No pixel pass or public update.
+
 Readable audio/primary/secondary subtitle language badges now use locale names,
 including ISO three-letter aliases and script/region identifiers. macOS uses
 Foundation directly; Windows/Linux use pinned Unicode data behind a portable

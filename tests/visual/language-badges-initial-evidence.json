@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "source_commit": "7622217",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "observations": [
+    {
+      "action": "subtitle-panel",
+      "lines": [
+        "\t\t17 button Playlist",
+        "\t\t45 button English captions (subrip)",
+        "\t\t\t46 text English captions (subrip)",
+        "\t\t\t47 text English",
+        "\t\t48 button German captions (subrip)",
+        "\t\t\t49 text German captions (subrip)",
+        "\t\t\t50 text German",
+        "\t\t51 button French captions (subrip)",
+        "\t\t\t52 text French captions (subrip)",
+        "\t\t\t53 text French",
+        "\t\t54 button Traditional Chinese captions (subrip)",
+        "\t\t\t55 text Traditional Chinese captions (subrip)",
+        "\t\t\t56 text Chinese (Traditional)",
+        "\t\t57 button Brazilian Portuguese captions (subrip)",
+        "\t\t\t58 text Brazilian Portuguese captions (subrip)",
+        "\t\t\t59 text Portuguese (Brazil)",
+        "\t\t60 button Unspecified captions (subrip)",
+        "\t\t\t61 text Unspecified captions (subrip)",
+        "\t\t62 button Unknown captions (subrip)",
+        "\t\t\t63 text Unknown captions (subrip)",
+        "\t\t\t64 text qzz",
+        "\t\t70 button Secondary subtitle: English captions (subrip)",
+        "\t\t\t71 text English captions (subrip)",
+        "\t\t\t72 text English",
+        "\t\t73 button Secondary subtitle: German captions (subrip)",
+        "\t\t\t74 text German captions (subrip)",
+        "\t\t\t75 text German",
+        "\t\t76 button Secondary subtitle: French captions (subrip)",
+        "\t\t\t77 text French captions (subrip)",
+        "\t\t\t78 text French",
+        "\t\t79 button Secondary subtitle: Traditional Chinese captions (subrip)",
+        "\t\t\t80 text Traditional Chinese captions (subrip)",
+        "\t\t\t81 text Chinese (Traditional)",
+        "\t\t82 button Secondary subtitle: Brazilian Portuguese captions (subrip)",
+        "\t\t\t83 text Brazilian Portuguese captions (subrip)",
+        "\t\t\t84 text Portuguese (Brazil)",
+        "\t\t85 button Secondary subtitle: Unspecified captions (subrip)",
+        "\t\t\t86 text Unspecified captions (subrip)",
+        "\t\t87 button Secondary subtitle: Unknown captions (subrip)",
+        "\t\t\t88 text Unknown captions (subrip)",
+        "\t\t\t89 text qzz",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "audio-panel",
+      "lines": [
+        "\t\t17 button Playlist",
+        "\t\t98 button Original tone (pcm_s16le, 2ch, 48kHz, Default)",
+        "\t\t\t99 text Original tone (pcm_s16le, 2ch, 48kHz, Default)",
+        "\t\t\t100 text English",
+        "\t\t23 button Play",
+        "\t\t29 slider (settable, float) Volume Value: 37"
+      ]
+    }
+  ],
+  "exit_code": 101,
+  "stderr_sha256": "3975e118e34c40976d4d910798e1d462ea6778708871a7d13548fd9cb5a677a0",
+  "failure": "Slint winitwindowadapter.rs:625 RefCell already mutably borrowed; RenderingTeardown video-frame setter scheduled redraw during suspend.",
+  "limitations": [
+    "Accessibility labels only; no rendered or macOS name comparison.",
+    "Pointer click failed because coordinate geometry is unavailable.",
+    "This run failed clean shutdown."
+  ]
+}

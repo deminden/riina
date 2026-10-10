@@ -7,7 +7,7 @@ use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, tim
 use riina_mpv::{Player, video::VideoSurface};
 use slint::ComponentHandle;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
     sync::{
@@ -776,6 +776,11 @@ pub(crate) fn configure_player(
         } else {
             if let Some(app) = weak.upgrade() {
                 app.invoke_dismiss_font_picker();
+                // Remove the borrowed texture before hide suspends its context.
+                // Teardown runs inside the backend's window borrow and cannot
+                // safely dirty a property that schedules another redraw.
+                app.set_video_frame(slint::Image::default());
+                app.set_engine_ready(false);
             }
             slint::CloseRequestResponse::HideWindow
         }
@@ -803,6 +808,7 @@ pub(crate) fn configure_player(
     let render_weak = app.as_weak();
     let render_player = player.clone();
     let mut surface: Option<VideoSurface> = None;
+    let render_generation = Rc::new(Cell::new(0_u64));
     let mut started = false;
     let repaint_pending = Arc::new(AtomicBool::new(false));
     let volume = prefs.volume;
@@ -810,6 +816,7 @@ pub(crate) fn configure_player(
         .set_rendering_notifier(move |state, graphics_api| {
             match state {
                 slint::RenderingState::RenderingSetup => {
+                    render_generation.set(render_generation.get().wrapping_add(1));
                     if let slint::GraphicsAPI::NativeOpenGL { get_proc_address } = graphics_api {
                         let weak = render_weak.clone();
                         let pending = repaint_pending.clone();
@@ -884,11 +891,21 @@ pub(crate) fn configure_player(
                     }
                 }
                 slint::RenderingState::RenderingTeardown => {
-                    if let Some(app) = render_weak.upgrade() {
-                        app.set_video_frame(slint::Image::default());
-                        app.set_engine_ready(false);
-                    }
                     drop(surface.take());
+                    // Context loss also needs UI invalidation, but only after
+                    // the backend releases its mutable window borrow. A later
+                    // setup must not have its new frame cleared by stale work.
+                    let retired_generation = render_generation.get();
+                    let generation = render_generation.clone();
+                    let weak = render_weak.clone();
+                    slint::Timer::single_shot(Duration::ZERO, move || {
+                        if generation.get() == retired_generation
+                            && let Some(app) = weak.upgrade()
+                        {
+                            app.set_video_frame(slint::Image::default());
+                            app.set_engine_ready(false);
+                        }
+                    });
                 }
                 _ => {}
             }

@@ -2,6 +2,18 @@
 
 ## Localized track badges · 2026-10-10
 
+Initial default-OpenGL GUI run at 7622217 exposes English/German/French,
+Chinese (Traditional), Portuguese (Brazil) and unknown qzz badges in both
+subtitle lists, plus English for the audio track; unspecified language has no
+badge. Playback controls retain Play and volume 37. Pointer geometry is
+unavailable, so keyboard shortcuts open the panels. Closing exposes a renderer
+teardown crash (exit 101): clearing the image property during backend suspend
+re-enters its mutable window borrow. Scoped observations and stderr digest are
+in tests/visual/language-badges-initial-evidence.json. This is a failed shutdown
+run, not an overall GUI pass. The repair clears the borrowed frame before
+ordinary hide and queues context-loss UI invalidation until the borrow ends,
+guarded against a subsequent context setup. Runtime retest remains pending.
+
 Original shared presentation now resolves language codes independently of the
 raw mpv track metadata. Windows reads the user's locale name; Linux uses system
 locale discovery; the macOS route calls Foundation directly. Three unit checks
