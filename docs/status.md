@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Crop preset selection now remains retained control state after pointer edits
+and editor re-entry, matching the pinned reference's persistent segmented
+control. Riina previously cleared it in both paths. Whole-source initialization
+on entry remains separate from that retained selection. This is source/UI
+wiring evidence; actual selected highlight and pointer/re-entry runtime remain
+unverified. The empty-selection path also differs: the reference submits its
+integer crop without a zero-size guard, whereas riina rejects zero-area drafts
+or native confirmation. Resolve native zero-dimension semantics and rendered
+reference behavior before claiming that edge case. No GUI/native rerun here;
+no public update.
+Workspace unit tests, strict lint and formatting pass.
+
 The current native-window crop build now has Windows keyboard/lifecycle evidence:
 Custom opens at whole source, 4:3 labels (40, 0) (240×180), Escape restores player
 scope with Play/position 5/volume 37, and close returns 0. This run was at EOF;

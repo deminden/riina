@@ -1,5 +1,9 @@
 # Implementation plan
 
+Empty/zero-area selection and confirmation remain a fidelity gap: riina rejects
+them, while the pinned reference forwards integer crop values. Verify native
+zero-dimension semantics and reference behavior, then reproduce that path.
+
 Crop next: verify free selection and edge resizing, then reproduce the reference
 video-area padding/shadow on both presentation routes. Custom... now opens the
 shared editor; presets, Done/Cancel and source selection labels have Windows
