@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local subtitle section ordering increment: Primary and Secondary track lists now
+precede Load Subtitle and the shared timing/position editor, matching the pinned
+SidebarSubtitlesPane section sequence. All subtitle sections share the scrolling
+surface so growing track catalogs do not reserve fixed space outside it. Audio
+loading and delay retain their existing placement. Keyboard handlers remain on
+the relocated controls. Strict lint, formatting and all 25 unit tests pass;
+runtime scrolling/focus traversal after relocation and rendered geometry remain
+pending. Style sections, warnings and exact container spacing are still missing.
+This is structural parity progress, not a pixel-perfect claim. Work stays local.
+
 Local primary position native verification: the two-lane subtitle integration
 test now applies primary positions 40, zero, 150 and 100 after secondary edits.
 Observed primary position changes preserve secondary position 100, both delays,

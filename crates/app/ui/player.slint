@@ -236,7 +236,7 @@ export component PlayerWindow inherits Window {
                         color: #eeeeee; vertical-alignment: center; }
                     Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar"; activated => { root.sidebar = 0; } }
                 }
-                if sidebar == 1 || sidebar == 2 : HorizontalLayout {
+                if sidebar == 1 : HorizontalLayout {
                     Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
                         accessible-role: button; accessible-label: root.sidebar == 1 ? "Load external audio" : "Load subtitle";
                         accessible-enabled: root.loaded;
@@ -261,30 +261,6 @@ export component PlayerWindow inherits Window {
                     PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.sidebar == 1 ? root.audio-delay : root.subtitle-delay;
                         enabled: root.loaded; hint: root.sidebar == 1 ? "Audio delay" : "Subtitle delay";
                         changed(value) => { root.set-delay(root.sidebar, value); } }
-                }
-                if sidebar == 2 : VerticalLayout {
-                    height: 124px; vertical-stretch: 0;
-                    HorizontalLayout { height: 28px; spacing: 0;
-                        Tool { width: 100px; label: "Primary"; hint: "Edit primary subtitle timing and position";
-                            background: !root.edit-secondary-subtitle ? #ffffff20 : transparent;
-                            activated => { root.edit-secondary-subtitle = false; } }
-                        Tool { width: 100px; label: "Secondary"; hint: "Edit secondary subtitle timing and position";
-                            background: root.edit-secondary-subtitle ? #ffffff20 : transparent;
-                            activated => { root.edit-secondary-subtitle = true; } }
-                    }
-                    Text { text: root.edit-secondary-subtitle && !root.secondary-subtitle-delay-known ? "Delay: —" : "Delay: " + (root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay) + " s";
-                        color: #bbbbbb; font-size: 11px; }
-                    PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
-                        enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
-                        hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
-                        changed(value) => { root.set-delay(root.edit-secondary-subtitle ? 5 : 2, value); } }
-                    Text { text: "Position";
-                        color: #bbbbbb; font-size: 11px; }
-                    // The reference slider ends at 100 even though the engine accepts 150.
-                    PlayerSlider { minimum: 0; maximum: 100; step: 1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-position : root.subtitle-position;
-                        enabled: root.loaded && (root.edit-secondary-subtitle ? root.secondary-subtitle-position-known : root.subtitle-position-known);
-                        hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
-                        changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                 }
                 if sidebar == 1 : Rectangle {
                     height: 28px; background: transparent;
@@ -381,6 +357,49 @@ export component PlayerWindow inherits Window {
                                     return reject;
                                 }
                             }
+                        }
+                        if sidebar == 2 : HorizontalLayout {
+                            Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
+                                accessible-role: button; accessible-label: root.sidebar == 1 ? "Load external audio" : "Load subtitle";
+                                accessible-enabled: root.loaded;
+                                accessible-action-default => { if root.loaded { root.browse-files(root.sidebar); } }
+                                Text { text: root.sidebar == 1 ? "Load External Audio…" : "Load Subtitle…";
+                                    color: root.loaded ? #eeeeee : #777777; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                                if subtitle-load-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 4px; background: transparent; }
+                                TouchArea { enabled: root.loaded; clicked => { subtitle-load-focus.focus(); root.browse-files(root.sidebar); } }
+                                subtitle-load-focus := FocusScope {
+                                    enabled: root.loaded;
+                                    key-pressed(event) => {
+                                        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                                        if event.text == Key.Return || event.text == " " { root.browse-files(root.sidebar); return accept; }
+                                        return reject;
+                                    }
+                                }
+                            }
+                        }
+                        if sidebar == 2 : VerticalLayout {
+                            height: 124px; vertical-stretch: 0;
+                            HorizontalLayout { height: 28px; spacing: 0;
+                                Tool { width: 100px; label: "Primary"; hint: "Edit primary subtitle timing and position";
+                                    background: !root.edit-secondary-subtitle ? #ffffff20 : transparent;
+                                    activated => { root.edit-secondary-subtitle = false; } }
+                                Tool { width: 100px; label: "Secondary"; hint: "Edit secondary subtitle timing and position";
+                                    background: root.edit-secondary-subtitle ? #ffffff20 : transparent;
+                                    activated => { root.edit-secondary-subtitle = true; } }
+                            }
+                            Text { text: root.edit-secondary-subtitle && !root.secondary-subtitle-delay-known ? "Delay: —" : "Delay: " + (root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay) + " s";
+                                color: #bbbbbb; font-size: 11px; }
+                            PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
+                                enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
+                                hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
+                                changed(value) => { root.set-delay(root.edit-secondary-subtitle ? 5 : 2, value); } }
+                            Text { text: "Position";
+                                color: #bbbbbb; font-size: 11px; }
+                            // The reference slider ends at 100 even though the engine accepts 150.
+                            PlayerSlider { minimum: 0; maximum: 100; step: 1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-position : root.subtitle-position;
+                                enabled: root.loaded && (root.edit-secondary-subtitle ? root.secondary-subtitle-position-known : root.subtitle-position-known);
+                                hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
+                                changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                         }
                     }
                 }
