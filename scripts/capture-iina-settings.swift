@@ -52,7 +52,22 @@ func referenceWindows() -> [[String: Any]] {
 }
 
 func settingsWindows() -> [[String: Any]] {
-    referenceWindows().filter { ($0[kCGWindowName as String] as? String) == "Settings" }
+    let pageNames = Set(pages)
+    return referenceWindows().filter { window in
+        // AppKit titles this window after its selected page (for example,
+        // "General"), not with the static "Settings" label.
+        guard let name = window[kCGWindowName as String] as? String,
+              pageNames.contains(name),
+              let bounds = window[kCGWindowBounds as String] as? [String: Any],
+              let width = bounds["Width"] as? NSNumber,
+              let height = bounds["Height"] as? NSNumber else {
+            return false
+        }
+        // The pinned source's 600x480 content window was observed as 608x500
+        // including its titlebar; player and playlist windows are smaller or
+        // use unrelated page names.
+        return width.doubleValue >= 600 && height.doubleValue >= 480
+    }
 }
 
 do {
@@ -96,7 +111,9 @@ do {
         // The source list inserts a non-page subsection indicator after the
         // selected page, so later rows shift as navigation advances.
         let sidebarRow = index + 1 + (index > selectedPage ? 1 : 0)
-        _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to select row \(sidebarRow) of table 1 of window \"Settings\"")
+        // The selected page changes the window title on each navigation, so
+        // address the frontmost Settings window instead of a fixed title.
+        _ = try runAppleScript("tell application \"System Events\" to tell process \"IINA\" to select row \(sidebarRow) of table 1 of window 1")
         Thread.sleep(forTimeInterval: 0.35)
 
         let imageName = String(format: "iina-settings-%02d.png", index + 1)
