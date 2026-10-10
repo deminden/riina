@@ -1,0 +1,127 @@
+{
+  "scope": "Saved image signatures and native decoded PNG pixels; not GUI/HDR",
+  "observations": [
+    {
+      "format": "png",
+      "position": 0.04,
+      "edges": [
+        12,
+        14
+      ],
+      "bar_widths": [
+        12,
+        12
+      ],
+      "encoded_sha256": "9efc338b2f27b2279343da0104fbc895c02ed3235158d0e8202200710cbe5d37",
+      "decoded_png_sha256": "9efc338b2f27b2279343da0104fbc895c02ed3235158d0e8202200710cbe5d37"
+    },
+    {
+      "format": "jpg",
+      "position": 0.04,
+      "edges": [
+        12,
+        14
+      ],
+      "bar_widths": [
+        12,
+        12
+      ],
+      "encoded_sha256": "e649e96bd20c1b750d8955405599a64d13ca2434fc728909ac1a4c6555b45a5d",
+      "decoded_png_sha256": "3acac6e008ca3f105380c494f4cbe01dc129d3d03d4da62683435666540d3ccf"
+    },
+    {
+      "format": "jpeg",
+      "position": 0.04,
+      "edges": [
+        12,
+        14
+      ],
+      "bar_widths": [
+        12,
+        12
+      ],
+      "encoded_sha256": "e649e96bd20c1b750d8955405599a64d13ca2434fc728909ac1a4c6555b45a5d",
+      "decoded_png_sha256": "3acac6e008ca3f105380c494f4cbe01dc129d3d03d4da62683435666540d3ccf"
+    },
+    {
+      "format": "webp",
+      "position": 0.04,
+      "edges": [
+        12,
+        14
+      ],
+      "bar_widths": [
+        12,
+        12
+      ],
+      "encoded_sha256": "7b4b5f11cfec4defc38f933550150561e34371324162901c0c6be86b818ccfbc",
+      "decoded_png_sha256": "86488f433f6842c480fc9ba90522376ad99c9d86a2a0d9319cca4257a493e89f"
+    },
+    {
+      "format": "jxl",
+      "position": 0.04,
+      "edges": [
+        12,
+        14
+      ],
+      "bar_widths": [
+        12,
+        12
+      ],
+      "encoded_sha256": "ce4e1634f5bdffb16e558ba3f0cb04ce44c1401ddd20d04f3f338e8e5ed0b653",
+      "decoded_png_sha256": "fd8ec70b627c2cf8159a8b8a29a82af7c893187203cac83c0772e1b7b3912d43"
+    },
+    {
+      "format": "avif",
+      "position": 0.04,
+      "edges": [
+        12,
+        14
+      ],
+      "bar_widths": [
+        12,
+        12
+      ],
+      "encoded_sha256": "39f6b3be5669b9e4b491ebc075b0f9bbc7d0151c97b5e1b754162658e9011f92",
+      "decoded_png_sha256": "e7c5efe1c020bae4727731e17cb9a6d4085a72c5ca6c212565db99a9db82403e"
+    }
+  ],
+  "passed": true,
+  "saved_settings": [
+    "format",
+    "template",
+    "folder",
+    "include_subtitles",
+    "show_preview"
+  ],
+  "verification": {
+    "workspace_tests": "passed",
+    "strict_lint": "passed",
+    "format": "passed",
+    "native_tests": 35,
+    "native_seconds": 21.19,
+    "windows_release_seconds": 46.3,
+    "private_avif_template_test": "passed",
+    "fixture_hashes": 16
+  },
+  "encoder_policy": {
+    "avif": "libsvtav1; svtav1-params=avif=1",
+    "jxl": "screenshot-sw=yes",
+    "other_formats": "screenshot-sw=no"
+  },
+  "avif_422_rejection": "confirmed failure; completion count and successful path unchanged",
+  "pyav_jxl_attempt": "PyAV16 process exited 1 while decoding JXL; cause unproven; not counted as passed",
+  "native_manifest": "tools/screenshot-test/12700-1791618786869088200/formats.json",
+  "remaining": [
+    "preferences interface",
+    "GUI activation and setting changes",
+    "clipboard/save destinations",
+    "active subtitle composition",
+    "non-PNG preview fallback",
+    "HDR/colorimetry",
+    "ports runtime"
+  ],
+  "published": false,
+  "source_commit": "bce65f368fb57f8d701a28bf01a08a48102c13b0",
+  "windows_release_sha256": "3045425244c1645b93f3c882375e13cb183b887ccad6a2e3f9b2476d1940f061"
+}
