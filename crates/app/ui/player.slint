@@ -251,6 +251,11 @@ export component PlayerWindow inherits Window {
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
     callback toggle-video-reflection(bool);
+    callback reflection-menu-changed();
+    changed reflection-known => { root.reflection-menu-changed(); }
+    changed video-mirrored => { root.reflection-menu-changed(); }
+    changed video-flipped => { root.reflection-menu-changed(); }
+    changed crop-editing => { root.reflection-menu-changed(); }
     if !native-video : MenuBar {
         Menu { title: "Video";
             Menu { title: "Flip"; enabled: root.loaded && root.reflection-known && !root.crop-editing;
@@ -976,7 +981,7 @@ export component PlayerWindow inherits Window {
         }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
-    changed loaded => { if !root.loaded { keys.focus(); } }
+    changed loaded => { root.reflection-menu-changed(); if !root.loaded { keys.focus(); } }
     changed controls-visible => { if !root.controls-visible { keys.focus(); } }
     init => { keys.focus(); }
 }

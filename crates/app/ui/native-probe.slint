@@ -3,6 +3,20 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // A feasibility surface, not the source-matched player UI. Keeping it separate
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
+    in property <bool> reflection-menu-enabled: false;
+    in property <bool> video-mirrored: false;
+    in property <bool> video-flipped: false;
+    callback toggle-video-reflection(bool);
+    MenuBar {
+        Menu { title: "Video";
+            Menu { title: "Flip"; enabled: root.reflection-menu-enabled;
+                MenuItem { title: "Horizontal (Mirror)"; checkable: true; checked: root.video-mirrored;
+                    activated => { root.toggle-video-reflection(true); } }
+                MenuItem { title: "Vertical (Flip)"; checkable: true; checked: root.video-flipped;
+                    activated => { root.toggle-video-reflection(false); } }
+            }
+        }
+    }
     in property <string> display-title: "riina — D3D11 experiment";
     title: display-title;
     preferred-width: 960px;

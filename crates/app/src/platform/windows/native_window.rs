@@ -78,6 +78,26 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
+            // The framed owner hosts the native menu; its transparent popup
+            // retains controller state. Bridge observations without a second
+            // playback model or sending window handles across threads.
+            let menu_host = host.as_weak();
+            let menu_app = app.as_weak();
+            app.on_reflection_menu_changed(move || {
+                if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
+                    host.set_reflection_menu_enabled(
+                        app.get_loaded() && app.get_reflection_known() && !app.get_crop_editing(),
+                    );
+                    host.set_video_mirrored(app.get_video_mirrored());
+                    host.set_video_flipped(app.get_video_flipped());
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_video_reflection(move |horizontal| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_video_reflection(horizontal);
+                }
+            });
             let configured = configure_player(&app, Some(presentation), media)?;
             *startup_session.borrow_mut() = Some(configured);
             let close_session = startup_session.clone();

@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+The experimental native video route now attaches Video > Flip to its framed
+owner window. Shared controller observations synchronize menu availability and
+axis checks, and owner menu actions invoke the existing shared toggle callback.
+This keeps one playback model while separating framed native menus from the
+transparent controls popup. A duplicate Slint loaded-change callback found at
+compilation was merged with the existing focus callback. Compilation and strict
+lint pass; native menu input/checks, client geometry/focus, lifecycle and pixels
+still require runtime verification. No GUI/full-native-suite rerun/publication.
+Workspace unit tests and formatting pass.
+
 Windows native application-menu evidence now covers Video > Flip, both exact
 labels, F10/Return/Right navigation and Mirror activation returning to player
 scope. Play and volume 37 remain observed; EOF position shifts slightly to
