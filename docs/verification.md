@@ -9,7 +9,10 @@ regression or exact missing-text value is established. Inspection finds its
 cue predicate can accept the previous clock/text before the new seek completes.
 The test now waits for completed_seeks to advance and seeking to finish before
 checking the refreshed cue and hiding it; the text-retention assertion remains.
-Three full-suite confirmation runs and the optimized build are in progress.
+Three consecutive full-suite confirmation runs pass all 18 native tests after
+the wait repair. The optimized Windows build, formatting and strict lint pass.
+This improves the test's synchronization; it does not establish the precise
+cause of the original intermittent failure or exhaustive timing stability.
 
 Video track labels now deserialize demux-w/h/fps, display paired dimensions with
 the multiplication sign, and round rates to three decimals without trailing zeroes.
@@ -33,8 +36,13 @@ range; supplementary-digit acceptance requires an actual macOS check.
 The new explicit native test passes: after a valid 4:3 override, original Arabic
 ratio ١٦:٩ is rejected by libmpv and reports an error while the 4:3 override,
 pause and volume 37 remain. This proves no silent transliteration/default reset,
-not equivalent IINA error presentation or recovery. Actual GUI labels and other
-OS runtime remain pending. All work remains local.
+not equivalent IINA error presentation or recovery. The optimized shared-OpenGL
+GUI at dcc09d4 exposes the complete video label
+`No Title (mjpeg, 320×180, 24fps, Default)` and English language badge, at paused
+EOF with volume 37. Normal close exits 0 with empty stderr. Evidence is in
+tests/visual/track-label-evidence.json. This verifies accessibility text, not
+rendered pixels; fractional-rate GUI fixtures and current other OS runtime
+remain pending. All work remains local.
 
 ## Video aspect and rotation · 2026-10-10
 

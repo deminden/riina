@@ -1,0 +1,15 @@
+{
+  "source_commit": "dcc09d408473c4536baedb89f3ba2f952345a41b",
+  "binary_sha256": "3070ecb40fb053598479606b9bc8f373596eb24a725285cda9011e39594b7f96",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observed_video_label": "No Title (mjpeg, 320×180, 24fps, Default)",
+  "observed_language": "English",
+  "observed_volume": 37,
+  "observed_play_button": "Play",
+  "observed_position_seconds": 5,
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "evidence_scope": "Accessibility text and normal shutdown; no rendered pixel comparison or other OS runtime verification."
+}

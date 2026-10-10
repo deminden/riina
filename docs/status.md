@@ -3,17 +3,20 @@
 The full native run exposes an intermittent pre-existing secondary-text
 assertion failure; five isolated repeats pass. Its same-position seek wait can
 accept stale cue text, so the test now waits for an observed seek completion
-before hiding the lane, retaining its original assertion. Full-suite rechecks
-and optimized build are in progress. New labels/Unicode cases pass; no broad
-stability or full-parity conclusion is claimed.
+before hiding the lane, retaining its original assertion. Three consecutive
+full native suites now pass all 18 tests. Optimized build, formatting and strict
+lint pass. No broad stability or full-parity conclusion is claimed.
 
 Video labels now include source dimensions and rounded frame rate; tests verify
 the native catalog label 320×180, 24fps stays unchanged under aspect/rotation.
 Custom ratios preserve Unicode decimal digits; a native test verifies original
 Arabic-digit text fails in libmpv without changing the previous ratio, pause or
 volume. Supplementary-digit acceptance is source-inferred and requires macOS
-verification. GUI label checks and current other OS runtime remain pending.
-Changes remain local.
+verification. The optimized Windows shared-OpenGL GUI verifies the complete
+320×180, 24fps track label and closes with exit 0 and empty stderr; evidence is
+in tests/visual/track-label-evidence.json. Pixel comparison, fractional-rate GUI
+fixtures and current other OS runtime remain pending. Changes remain local;
+public updates are reserved for substantial verified milestones.
 
 Video custom-entry Tab repair is verified on f3cfed8: Tab reaches rotation;
 Right/Left do not seek a paused 2-second timeline or change volume 37. Normal
