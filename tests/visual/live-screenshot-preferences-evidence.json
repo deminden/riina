@@ -1,0 +1,21 @@
+{
+  "source_commit": "bcd6c64b95c5e0824a76c2ed8f28eb4fa6291fd0",
+  "scope": "Shared live preference plumbing; build and existing unit checks only",
+  "verification": {
+    "workspace_tests": "passed; app 20 tests; 36 native tests ignored",
+    "strict_lint": "passed",
+    "format": "passed",
+    "traceability": "138 requirements; incomplete inventory",
+    "windows_release": "passed; 60 seconds"
+  },
+  "windows_release_sha256": "ed98042791c08524fe233252a25a97cf609a9f018510b6aa65de8fe6ac521255",
+  "native_tests": "not rerun; engine unchanged",
+  "remaining": [
+    "preferences window",
+    "immediate settings persistence",
+    "GUI live edits and capture/folder/session consistency",
+    "macOS/Linux runtime",
+    "HDR and full parity"
+  ],
+  "published": false
+}
