@@ -1,5 +1,6 @@
 import { ScrollView, ComboBox } from "std-widgets.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
+export { FontPicker } from "font-picker.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
 // Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
 // Colors and glyph metrics are estimates until matching macOS captures exist.
@@ -294,6 +295,8 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-scale-known: false;
     in property <float> subtitle-font-size: 0;
     in property <bool> subtitle-font-size-known: false;
+    in property <string> subtitle-font;
+    in property <bool> subtitle-font-known: false;
     in property <float> subtitle-outline-size: 0;
     in property <bool> subtitle-outline-size-known: false;
     in property <color> subtitle-text-color;
@@ -329,6 +332,7 @@ export component PlayerWindow inherits Window {
     callback adjust-subtitle-scale(float);
     callback set-subtitle-scale-slider(float);
     callback set-subtitle-font-size(float);
+    callback choose-subtitle-font();
     callback set-subtitle-outline-size(float);
     callback set-subtitle-color(int, color);
     callback adjust-subtitle-position(float);
@@ -591,6 +595,9 @@ export component PlayerWindow inherits Window {
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Font"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                                 Rectangle { horizontal-stretch: 1; background: transparent; }
+                                Tool { width: 140px; label: root.subtitle-font; hint: "Choose subtitle font";
+                                    enabled: root.loaded && root.subtitle-font-known;
+                                    activated => { root.choose-subtitle-font(); } }
                                 ObservedSizePicker { width: 60px; height: 24px;
                                     model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
                                     observed-index: root.subtitle-font-size >= 25 && root.subtitle-font-size <= 75 && mod(root.subtitle-font-size - 25, 5) == 0 ? round((root.subtitle-font-size - 25) / 5) : -1;

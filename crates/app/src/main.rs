@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod file_selection;
+mod font_catalog;
+mod font_picker;
 mod media_open;
 mod platform;
 mod player_ui;

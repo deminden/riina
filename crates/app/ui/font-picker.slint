@@ -1,0 +1,48 @@
+import { LineEdit, StandardListView, Button } from "std-widgets.slint";
+
+export component FontPicker inherits Window {
+    title: "Choose Subtitle Font";
+    width: 458px; height: 524px;
+    background: #29292e;
+    in property <[StandardListViewItem]> families;
+    in property <[StandardListViewItem]> faces;
+    in property <bool> ready: false;
+    in-out property <string> custom-name;
+    callback search(string);
+    callback family-selected(int);
+    callback face-selected(int);
+    callback accept-font(string);
+    callback cancel();
+    VerticalLayout { padding: 20px; spacing: 12px;
+        LineEdit { placeholder-text: "Type to filter…";
+            accessible-label: "Filter font families";
+            edited => { root.search(self.text); } }
+        HorizontalLayout { spacing: 12px;
+            VerticalLayout { spacing: 6px;
+                Text { text: "Family"; color: #dddddd; font-size: 12px; }
+                StandardListView { model: root.families; enabled: root.ready;
+                    current-item-changed(index) => { root.family-selected(index); } }
+            }
+            VerticalLayout { spacing: 6px;
+                Text { text: "Face"; color: #dddddd; font-size: 12px; }
+                StandardListView { model: root.faces; enabled: root.ready;
+                    current-item-changed(index) => { root.face-selected(index); } }
+            }
+        }
+        Text { text: "Font name"; color: #dddddd; font-size: 12px; }
+        LineEdit { text <=> root.custom-name; placeholder-text: "sans-serif";
+            accessible-label: "Custom font name";
+            accepted => { root.accept-font(root.custom-name); } }
+        Rectangle { height: 76px; background: #202024; border-radius: 4px;
+            Text { text: "The quick brown fox jumps over the lazy dog.";
+                font-family: root.custom-name == "" ? "sans-serif" : root.custom-name;
+                color: #eeeeee; font-size: 20px; wrap: word-wrap;
+                x: 10px; y: 10px; width: parent.width - 20px; height: parent.height - 20px; }
+        }
+        HorizontalLayout { spacing: 8px;
+            Text { text: root.ready ? "" : "Loading fonts…"; color: #bbbbbb; font-size: 11px; }
+            Button { text: "Cancel"; clicked => { root.cancel(); } }
+            Button { text: "OK"; primary: true; clicked => { root.accept-font(root.custom-name); } }
+        }
+    }
+}

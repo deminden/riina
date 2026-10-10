@@ -190,6 +190,8 @@ fn update_ui(
     app.set_subtitle_delay(state.subtitle_delay as f32);
     app.set_subtitle_scale_known(state.subtitle_scale.is_some());
     app.set_subtitle_font_size_known(state.subtitle_font_size.is_some());
+    app.set_subtitle_font_known(state.subtitle_font.is_some());
+    app.set_subtitle_font(state.subtitle_font.clone().unwrap_or_default().into());
     app.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
     app.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
     app.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);
@@ -430,6 +432,7 @@ pub(crate) fn configure_player(
     let scale_player = player.command_sender();
     let absolute_scale_player = player.command_sender();
     let font_size_player = player.command_sender();
+    crate::font_picker::connect(app, player.command_sender());
     let outline_size_player = player.command_sender();
     let color_player = player.command_sender();
     let weak = app.as_weak();

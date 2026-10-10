@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-10T01:46:14.220Z",
+  "source_base_commit": "e353924",
+  "source_sha256": {
+    "crates/app/ui/player.slint": "44bc32ddde614de045dd9cc4514988d851ee037a45870ab075affd147d3b28fc",
+    "crates/app/ui/font-picker.slint": "bf80a41c300cf7a9e86434d9b9386794823af159a6de05b353214e631e05aec3",
+    "crates/app/src/font_picker.rs": "1acb52eb41f6db659619710d54efba31f1ac918e65b80913c3812d7c2b24a09a",
+    "crates/app/src/player_ui.rs": "4b3f6e7ec0fd273155183af433f090ef687b6099126dbfd288380686629c4109",
+    "crates/app/src/main.rs": "0d6ae2f1710e072df551601c292608de01deec4d60721d26ddd7a26ba92ce46a"
+  },
+  "binary_sha256": "b784573303ecdb443796153593c75bd5e995875265ce650db00bdab18c5b66be",
+  "method": "Windows accessibility and keyboard using @oai/sky",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "scope": "Font picker keyboard opening, discovered family list, uncommitted custom entry and Cancel retaining observed default/pause/volume",
+  "limitations": [
+    "Installed family names and paths omitted from evidence",
+    "No subtitle tracks loaded or rendered screenshot",
+    "Family search, face selection, preview glyphs and OK commit remain unverified through GUI",
+    "Native ownership/modality, Escape cancellation, localized sorting and other OS runtime remain open"
+  ],
+  "observations": [
+    {
+      "action": "font-default-before-picker",
+      "accessibility": {
+        "focused_element": "0 window riina Secondary Actions: Raise",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t37 text Subtitles\n\t\t38 button Close sidebar\n\t\t\t39 image\n\t\t40 text Primary\n\t\t41 button Toggle subtitle visibility\n\t\t\t42 text ●\n\t\t43 button <None>\n\t\t\t44 text <None>\n\t\t45 text Secondary\n\t\t46 button Toggle secondary subtitle visibility\n\t\t\t47 text ●\n\t\t48 button Secondary subtitle: <None>\n\t\t\t49 text <None>\n\t\t50 button Load subtitle\n\t\t\t51 text Load Subtitle…\n\t\t52 button Edit primary subtitle timing and position\n\t\t\t53 text Primary\n\t\t54 button Edit secondary subtitle timing and position\n\t\t\t55 text Secondary\n\t\t56 text Delay\n\t\t57 edit (settable, float) Subtitle delay in seconds Value: 0\n\t\t58 text s\n\t\t59 slider (settable, float) Subtitle delay Value: 0\n\t\t60 text Position\n\t\t61 slider (settable, float) Subtitle position Value: 100\n\t\t62 text Scale\n\t\t63 slider (settable, float) Subtitle text scale Value: 0\n\t\t64 button Reset subtitle text scale\n\t\t\t65 text ↺\n\t\t66 text Font\n\t\t67 button Choose subtitle font\n\t\t\t68 text sans-serif\n\t\t69 combo box (settable, float) Subtitle font size Value: 55\n\t\t70 text Color\n\t\t71 button Subtitle text color\n\t\t72 text Border\n\t\t73 combo box (settable, float) Subtitle outline width Value: 3\n\t\t74 button Subtitle border color\n\t\t75 text Shadow\n\t\t76 button Subtitle shadow color\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:05\n\t\t35 slider (settable, float) Playback position Value: 5\n\t\t36 text 0:05\n\nThe focused UI element is 0 window riina Secondary Actions: Raise."
+      }
+    },
+    {
+      "action": "picker-open",
+      "focused_element": "0 window Choose Subtitle Font Secondary Actions: Raise",
+      "controls": [
+        "\t\t\t4 button Minimise",
+        "\t\t\t5 button (disabled) Maximise",
+        "\t\t\t6 button Close",
+        "\t\t7 edit (settable, string) Filter font families Description: Type to filter…",
+        "\t\t8 text Family",
+        "\t\t16 text Face",
+        "\t\t18 text Font name",
+        "\t\t19 edit (settable, string) Custom font name Description: sans-serif",
+        "\t\t20 text The quick brown fox jumps over the lazy dog.",
+        "\t\t22 button Cancel",
+        "\t\t23 button OK"
+      ]
+    },
+    {
+      "action": "cancel-retains-font-and-pause",
+      "accessibility": {
+        "focused_element": "67 button Choose subtitle font",
+        "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t37 text Subtitles\n\t\t38 button Close sidebar\n\t\t\t39 image\n\t\t40 text Primary\n\t\t41 button Toggle subtitle visibility\n\t\t\t42 text ●\n\t\t43 button <None>\n\t\t\t44 text <None>\n\t\t45 text Secondary\n\t\t46 button Toggle secondary subtitle visibility\n\t\t\t47 text ●\n\t\t48 button Secondary subtitle: <None>\n\t\t\t49 text <None>\n\t\t50 button Load subtitle\n\t\t\t51 text Load Subtitle…\n\t\t52 button Edit primary subtitle timing and position\n\t\t\t53 text Primary\n\t\t54 button Edit secondary subtitle timing and position\n\t\t\t55 text Secondary\n\t\t56 text Delay\n\t\t57 edit (settable, float) Subtitle delay in seconds Value: 0\n\t\t58 text s\n\t\t59 slider (settable, float) Subtitle delay Value: 0\n\t\t60 text Position\n\t\t61 slider (settable, float) Subtitle position Value: 100\n\t\t62 text Scale\n\t\t63 slider (settable, float) Subtitle text scale Value: 0\n\t\t64 button Reset subtitle text scale\n\t\t\t65 text ↺\n\t\t66 text Font\n\t\t67 button Choose subtitle font\n\t\t\t68 text sans-serif\n\t\t69 combo box (settable, float) Subtitle font size Value: 55\n\t\t70 text Color\n\t\t71 button Subtitle text color\n\t\t72 text Border\n\t\t73 combo box (settable, float) Subtitle outline width Value: 3\n\t\t74 button Subtitle border color\n\t\t75 text Shadow\n\t\t76 button Subtitle shadow color\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:05\n\t\t35 slider (settable, float) Playback position Value: 5\n\t\t36 text 0:05\n\nThe focused UI element is 67 button Choose subtitle font."
+      }
+    }
+  ]
+}

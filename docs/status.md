@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Local shared font chooser: the subtitle Font row now opens a 458×524 window
+with family search, family/face lists, custom entry, preview and OK/Cancel.
+Installed metadata loads on a worker and returns through a weak UI handle.
+Choosing a family/face edits the draft; only OK or custom-entry Enter sends font
+intent. Windows keyboard checks open the chooser, edit an uncommitted custom
+name and activate Cancel; the window closes with sans-serif, size 55, pause and
+volume 37 unchanged. Scoped evidence: tests/visual/font-picker-cancel-windows-evidence.json.
+Release build, strict lint and unit checks pass (the catalog test runs in both
+the app and probe targets). This is provisional UI, not pixel parity. Search,
+face selection, OK commit and glyph preview still need GUI checks. Native owner/
+modality, Escape cancellation, localized ordering and other OS runtime remain
+open. All changes remain local.
+
 Local installed-font discovery: an owned metadata catalog now groups families,
 localized aliases and faces through pinned fontdb 0.23.0. Duplicate source
 entries collapse; internal/empty names are filtered and search covers Unicode
