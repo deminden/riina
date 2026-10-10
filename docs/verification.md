@@ -13,7 +13,7 @@ completion unchanged. All 24 native tests pass.
 
 The existing selected-caption test additionally checks forward and backward
 cue navigation increment the navigation counter; its focused run passes.
-Workspace unit checks and strict lint pass. Optimized build is in progress.
+Workspace unit checks, strict lint, formatting and optimized build pass.
 This establishes the no-selected-subtitle case, not all possible no-next-cue
 cases. Selected-track final/first cue boundaries and rapid selection followed by
 navigation remain open, along with GUI and current other OS runtime checks.
