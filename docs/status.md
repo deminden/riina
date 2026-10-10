@@ -4,9 +4,14 @@ Custom speed entry now submits finite above-100 requests to libmpv instead of
 inventing an upper UI boundary absent from IINA's formatter. A native check
 confirms 101 reports an error and preserves speed 1.25, pause and volume 37.
 Very large finite input remains finite through six-decimal normalization.
-Full native confirmation, final build and reset keyboard visibility checks are
-in progress; equivalent native error presentation and pixel visibility remain
-open. Changes stay local.
+All 22 native tests, updated core unit checks, formatting, strict lint and
+optimized build pass. Windows reset retest shows reset reachable at 2x, absent
+from AX at 1x and skipped by Tab, which reaches Hardware Decoding. Keyboard
+clear / Return also restores blank entry to 1x. Pause, volume 37 and position 5
+remain; close exits 0 with empty stderr. Evidence:
+tests/visual/speed-reset-focus-evidence.json. Equivalent native error
+presentation, rendered pixels and current port runtime remain open. Changes
+stay local.
 
 The video panel now includes a logarithmic speed slider, precise custom entry
 and reset hidden at 1x, ordered before hardware decoding and equalizer controls.

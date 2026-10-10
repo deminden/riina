@@ -10,8 +10,19 @@ excessive_custom_speed_reports_native_error_without_changing_playback passes:
 101 reports a native error while speed 1.25, pause and volume 37 remain. Core
 coverage retains 101 and 1e308 as finite requests; normalization avoids overflow
 while scaling very large finite input to decimal precision. This does not prove
-IINA's error presentation or recovery. Full suite/build checks and keyboard
-visibility investigation are pending. No public update.
+IINA's error presentation or recovery. All 22 native tests pass, along with
+updated core unit checks, formatting, strict lint and optimized Windows build.
+
+At source 8e85752 the shared-OpenGL GUI retest submits 2, then Tab reaches Reset
+playback speed. Return resets the observed input to 1 and slider to 8. The reset
+node is absent from AX now; after focusing the input, Tab directly reaches
+Hardware Decoding. This establishes the conditional control's keyboard and AX
+behavior, not rendered pixels or the exact cause of the earlier lingering
+snapshot. Control-A / BackSpace clears the input through ordinary keyboard
+editing; Return restores 1 even when the native speed was already 1. Play,
+volume 37 and position 5 remain. Normal close exits 0 with empty stderr.
+Source and binary hash: tests/visual/speed-reset-focus-evidence.json. Current
+macOS/Linux runtime and native error presentation remain open. No public update.
 
 ## Video speed controls · 2026-10-10
 

@@ -1,0 +1,34 @@
+{
+  "source_commit": "8e857529f0c835d87397dce34171c420c16390a0",
+  "binary_sha256": "9b9870b2ba9d4d782018b6e3d6d0dad1c0be76155cd66c867947c376cbd30f7f",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "reset_at_2": {
+    "tab_focus": "Reset playback speed",
+    "slider": 12,
+    "numeric": 2
+  },
+  "reset_at_1": {
+    "tab_focus": "Hardware Decoding",
+    "slider": 8,
+    "reset_in_accessibility_tree": false,
+    "numeric": 1
+  },
+  "blank_entry_keys": [
+    "Control_L+a",
+    "BackSpace",
+    "Return"
+  ],
+  "blank_result": 1,
+  "volume": 37,
+  "position_seconds": 5,
+  "play_button": "Play",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Accessibility and focus proof, no rendered pixel comparison.",
+    "Prior reset snapshot retained a node; exact timing cause remains unestablished.",
+    "Native above-limit speed error presentation and current macOS/Linux runtime remain unverified."
+  ]
+}
