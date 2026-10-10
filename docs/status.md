@@ -1,5 +1,11 @@
 # Status · 2026-10-09
 
+Initial video GUI at 9a9d1ad confirms the controls/labels and custom edit, with
+clean shutdown, but Tab is trapped in the custom field. Repair passes Tab
+through, exposes selectable segment state and routes Left/Right to video choices
+instead of timeline seeks. Runtime retest is pending. Reference/native segmented
+focus semantics and rendered geometry remain open; no public update.
+
 Video aspect/rotation and video track selection are implemented in the portable
 intent/backend and shared trailing panel. Native tests verify six aspect presets,
 custom ratios, invalid-input Default reset and quarter-turn properties without

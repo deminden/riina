@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "source_commit": "9a9d1ad",
+  "binary_sha256": "da9b4cce85fe57d350eb8d779748983dcb2b19c858a857625e95c54da7225c18",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "observations": [
+    {
+      "action": "video-panel-open",
+      "lines": [
+        "\t\t19 button Playlist",
+        "\t\t39 text Video",
+        "\t\t44 button No Title (mjpeg, Default)",
+        "\t\t\t45 text No Title (mjpeg, Default)",
+        "\t\t48 button Aspect ratio Default",
+        "\t\t50 button Aspect ratio 4:3",
+        "\t\t52 button Aspect ratio 16:9",
+        "\t\t54 button Aspect ratio 16:10",
+        "\t\t56 button Aspect ratio 21:9",
+        "\t\t58 button Aspect ratio 5:4",
+        "\t\t60 edit (settable, string) Custom aspect ratio",
+        "\t\t62 button Video rotation 0°",
+        "\t\t64 button Video rotation 90°",
+        "\t\t66 button Video rotation 180°",
+        "\t\t68 button Video rotation 270°",
+        "\t\t25 button Play",
+        "\t\t31 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "custom-ratio-return",
+      "lines": [
+        "\t\t19 button Playlist",
+        "\t\t60 edit (settable, string) Custom aspect ratio Value: 2.39:1",
+        "\t\t25 button Play",
+        "\t\t31 slider (settable, float) Volume Value: 37",
+        "The focused UI element is 60 edit (settable, string) Custom aspect ratio Value: 2.39:1."
+      ],
+      "limitation": "This accessibility snapshot does not expose native ratio or segment selection state."
+    }
+  ],
+  "failure": "Tab remains focused on Custom aspect ratio because the containing edit scope consumes it.",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "No rotated or aspect-scaled pixel comparison.",
+    "The initial accessibility tree does not expose segment selection state.",
+    "Custom Return retains entry but the snapshot alone does not prove the native override."
+  ]
+}

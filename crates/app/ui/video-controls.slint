@@ -8,6 +8,7 @@ component VideoSegment inherits Rectangle {
     in property <bool> selected;
     in property <bool> enabled: true;
     callback chosen();
+    callback navigate(int);
     height: 24px;
     border-radius: 3px;
     background: selected ? #ffffff28 : touch.has-hover && enabled ? #ffffff14 : #ffffff08;
@@ -16,6 +17,8 @@ component VideoSegment inherits Rectangle {
     accessible-enabled: enabled;
     accessible-checkable: true;
     accessible-checked: selected;
+    accessible-item-selectable: true;
+    accessible-item-selected: selected;
     accessible-action-default => { if enabled { chosen(); } }
     Text { text: label; font-size: 12px; color: root.enabled ? #eeeeee : #777777;
         horizontal-alignment: center; vertical-alignment: center; }
@@ -26,6 +29,8 @@ component VideoSegment inherits Rectangle {
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return || event.text == " " { root.chosen(); return accept; }
+            if event.text == Key.LeftArrow { root.navigate(-1); return accept; }
+            if event.text == Key.RightArrow { root.navigate(1); return accept; }
             return reject;
         }
     }
@@ -55,6 +60,11 @@ export component VideoControls inherits Rectangle {
                             enabled: root.aspect-enabled;
                             selected: root.aspect-index == index;
                             chosen => { root.aspect-changed(label); }
+                            navigate(direction) => {
+                                root.aspect-changed(root.aspect-presets[clamp(
+                                    (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
+                                    0, root.aspect-presets.length - 1)]);
+                            }
                         }
                     }
                     Rectangle { width: 40px; height: 24px; background: #ffffff10;
@@ -69,6 +79,7 @@ export component VideoControls inherits Rectangle {
                             key-pressed(event) => {
                                 if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
                                 if event.text == Key.Escape { return reject; }
+                                if event.text == Key.Tab { return reject; }
                                 return accept;
                             }
                             custom := TextInput { x: 3px; width: parent.width - 6px; height: parent.height;
@@ -90,6 +101,8 @@ export component VideoControls inherits Rectangle {
                 enabled: root.rotation-enabled;
                 selected: root.rotation-index == index;
                 chosen => { root.rotation-changed(index * 90); }
+                navigate(direction) => { root.rotation-changed(clamp(
+                    (root.rotation-index >= 0 ? root.rotation-index : index) + direction, 0, 3) * 90); }
             }
         }
     }

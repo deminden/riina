@@ -2,6 +2,15 @@
 
 ## Video aspect and rotation · 2026-10-10
 
+Initial GUI at 9a9d1ad exposes the Video shortcut/panel, video catalog, all six
+aspect choices, editable custom ratio and four rotation choices. Setting 2.39:1
+and Return retains Play and volume 37 without an error, but the AX snapshot
+does not prove native ratio or selection. Tab then remains trapped in the
+custom field. Scoped initial evidence is video-settings-initial-evidence.json;
+normal close exits 0 with empty stderr. The repair passes Tab through the edit
+scope, exposes selectable segment state and consumes unmodified Left/Right as
+choice navigation rather than playback seeks. Its GUI retest remains pending.
+
 Original portable video intent and a shared trailing Video panel now include the
 reference's six aspect presets in order, 40x24 custom ratio field, four rotation
 choices and video track catalog. Shift+primary+V opens the panel (Control on
