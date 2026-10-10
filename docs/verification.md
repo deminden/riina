@@ -1,5 +1,26 @@
 # Verification record · native Windows · 2026-10-09
 
+## Video setting feedback · 2026-10-10
+
+Pinned OSDMessage.speed / hwdec / brightness / contrast / saturation / gamma /
+hue define speed text with up to six decimals, On/Off for configured hardware
+decoding and signed equalizer labels with progress mapping -100 → 0, 0 → 0.5,
+100 → 1. MPVController sends feedback on confirmed property changes, including
+auto → auto-copy even though both display On. Original video_osd.rs derives
+matching English messages from known previous/current observations in the same
+media generation. Initial/unknown values, replacement and native errors do not
+produce success messages. The existing global timeout and enable setting apply.
+
+Unit checks cover unchanged/initial snapshots, confirmed six-decimal speed,
+generation/error suppression, signed progress, active-decoder fallback versus
+configured policy and auto-copy mode changes. One coalesced snapshot displays
+one coherent message with deterministic channel priority; exact reference event
+ordering remains open. Final updated build and GUI checks pending. Existing
+22 native backend tests passed on the unchanged backend in the previous turn;
+they do not establish this new presentation behavior. Per-speed suppression,
+locale messages, materials/geometry, progress rendering, timeout lifecycle and
+current other OS runtime remain open. No public update.
+
 ## Custom speed engine boundary · 2026-10-10
 
 The reference formatter has a minimum but no maximum and PlayerCore.setSpeed

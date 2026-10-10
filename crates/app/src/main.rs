@@ -9,6 +9,7 @@ mod platform;
 mod player_ui;
 mod seek_osd;
 mod ui_dialogs;
+mod video_osd;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 use player_ui::configure_player;

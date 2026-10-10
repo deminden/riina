@@ -136,10 +136,23 @@ fn update_ui(
     displayed: &mut Option<Playback>,
     last_seek: &mut SeekOsd,
 ) {
+    if displayed
+        .as_ref()
+        .is_none_or(|old| old.generation != state.generation)
+        || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
+        || state.error.is_some()
+    {
+        app.set_video_osd_visible(false);
+    }
     match last_seek.observe(&state) {
         Change::Hide => app.set_seek_osd_visible(false),
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
+    }
+    if let Some(message) = crate::video_osd::changed(displayed.as_ref(), &state) {
+        app.set_video_osd_text(message.text.into());
+        app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+        app.invoke_show_video_osd();
     }
     app.set_seek_position_label(seek_osd::clock(state.position).into());
     app.set_seek_duration_label(seek_osd::clock(state.duration).into());
@@ -366,11 +379,29 @@ pub(crate) fn configure_player(
                 return;
             }
             app.set_seek_osd_visible(true);
+            app.set_video_osd_visible(false);
         }
         let weak = weak.clone();
         seek_timer.start(slint::TimerMode::SingleShot, osd_timeout, move || {
             if let Some(app) = weak.upgrade() {
                 app.set_seek_osd_visible(false);
+            }
+        });
+    });
+    let video_timer = slint::Timer::default();
+    let weak = app.as_weak();
+    app.on_show_video_osd(move || {
+        if let Some(app) = weak.upgrade() {
+            if !app.get_osd_enabled() {
+                return;
+            }
+            app.set_seek_osd_visible(false);
+            app.set_video_osd_visible(true);
+        }
+        let weak = weak.clone();
+        video_timer.start(slint::TimerMode::SingleShot, osd_timeout, move || {
+            if let Some(app) = weak.upgrade() {
+                app.set_video_osd_visible(false);
             }
         });
     });

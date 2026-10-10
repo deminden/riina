@@ -268,6 +268,9 @@ export component PlayerWindow inherits Window {
     in property <string> seek-position-label;
     in property <string> seek-duration-label;
     in-out property <bool> seek-osd-visible: false;
+    in-out property <bool> video-osd-visible: false;
+    in property <string> video-osd-text;
+    in property <float> video-osd-progress: -1;
     in property <bool> osd-enabled: true;
     in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
@@ -368,6 +371,7 @@ export component PlayerWindow inherits Window {
     callback toggle-fullscreen();
     callback activity();
     callback show-seek-osd();
+    callback show-video-osd();
     callback cycle-ab-loop();
     callback toggle-file-loop();
     callback toggle-secondary-subtitle-visibility();
@@ -798,6 +802,16 @@ export component PlayerWindow inherits Window {
         }
         if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
             text: status; color: #bbbbbb; font-size: 11px; overflow: elide; }
+        if video-osd-visible && osd-enabled && loaded : Rectangle {
+            x: 8px; y: 49px; width: video-message.preferred-width + 32px;
+            height: video-osd-progress >= 0 ? 50px : 41px;
+            border-radius: 14px; background: #181818dc;
+            video-message := Text { x: 16px; y: 8px; text: root.video-osd-text;
+                color: white; font-size: 20px; font-weight: 600; }
+            if root.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;
+                width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
+                height: 2px; background: #168bff; border-radius: 1px; }
+        }
         key-pressed(event) => {
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {

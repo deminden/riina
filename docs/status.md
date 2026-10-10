@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Video-setting OSD now derives messages from confirmed native speed, configured
+hardware decoding and five equalizer channels, with signed equalizer progress.
+Initial/unknown values and generation changes do not create feedback; replacement,
+stop and errors hide it. Existing global OSD enable/timeout controls apply, and
+video and seek messages exclude each other. Unit checks pass; final updated
+build and GUI verification are in progress. Locale messages, speed-specific
+disable preference, exact coalesced ordering and rendered OSD materials/geometry
+and current other OS runtime remain open. Nothing published.
+
 Custom speed entry now submits finite above-100 requests to libmpv instead of
 inventing an upper UI boundary absent from IINA's formatter. A native check
 confirms 101 reports an error and preserves speed 1.25, pause and volume 37.
