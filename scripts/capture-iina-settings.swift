@@ -36,13 +36,16 @@ func runAppleScript(_ source: String) throws {
     }
 }
 
-func settingsWindows() -> [[String: Any]] {
+func referenceWindows() -> [[String: Any]] {
     let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
     return windows.filter {
         ($0[kCGWindowOwnerName as String] as? String) == "IINA"
-            && ($0[kCGWindowName as String] as? String) == "Settings"
             && ($0[kCGWindowLayer as String] as? Int) == 0
     }
+}
+
+func settingsWindows() -> [[String: Any]] {
+    referenceWindows().filter { ($0[kCGWindowName as String] as? String) == "Settings" }
 }
 
 do {
@@ -52,8 +55,15 @@ do {
         exit(2)
     }
 
-    // Command-comma is IINA's Preferences shortcut; use its ordinary menu path.
-    try runAppleScript("tell application id \"com.colliderli.iina\" to activate\ntell application \"System Events\" to tell process \"IINA\" to keystroke \",\" using {command down}")
+    // Use the app's visible Preferences menu item so CI follows the same action
+    // and accessibility path as a person selecting it.
+    do {
+        try runAppleScript("tell application id \"com.colliderli.iina\" to activate\ntell application \"System Events\" to tell process \"IINA\"\nset frontmost to true\nclick menu item \"Preferences…\" of menu 1 of menu bar item \"IINA\" of menu bar 1\nend tell")
+    } catch {
+        record["menu_automation_failure"] = error.localizedDescription
+        // Command-comma is the same action's documented shortcut.
+        try runAppleScript("tell application id \"com.colliderli.iina\" to activate\ntell application \"System Events\" to tell process \"IINA\" to keystroke \",\" using {command down}")
+    }
 
     let windowDeadline = Date().addingTimeInterval(12)
     var windows = settingsWindows()
@@ -61,6 +71,7 @@ do {
         Thread.sleep(forTimeInterval: 0.1)
         windows = settingsWindows()
     }
+    record["observed_windows_after_open"] = referenceWindows()
     guard windows.count == 1, let window = windows.first,
           let number = window[kCGWindowNumber as String] as? UInt32 else {
         throw NSError(domain: "RiinaReferenceCapture", code: 3,
