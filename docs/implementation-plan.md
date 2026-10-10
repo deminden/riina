@@ -1,3 +1,7 @@
+Clipboard-only scratch ownership now lasts through engine teardown with an
+unreported-output filesystem regression. Verify actual rapid captures and close
+on native/GL backends, including settings changes while a capture is pending.
+
 Screenshot destination plumbing and Windows PNG clipboard/file modes now have
 native pixel and cleanup evidence, including OSD-disabled capture. Add the image
 decoder fallback for supported formats, verify clipboard failure handling and

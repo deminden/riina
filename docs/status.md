@@ -1,3 +1,10 @@
+Clipboard-only captures now use an exclusively created session temporary folder,
+retained by the engine notification closure until native teardown. This also
+cleans output whose completion never reaches a closing UI. A filesystem regression
+verifies delayed worker output survives UI owner removal, is removed when the
+last owner drops, and leaves another session untouched. Actual rapid-capture
+shutdown GUI coverage remains open; abrupt process termination is not covered.
+
 Screenshot destinations now persist save-to-file (default true) and clipboard
 (default false) independently. Both disabled ignores capture requests. The General
 pane exposes both checkboxes and disables folder/format controls when saving is

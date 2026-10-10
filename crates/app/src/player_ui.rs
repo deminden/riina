@@ -477,7 +477,11 @@ pub(crate) fn configure_player(
     let last_screenshot = Arc::new(std::sync::Mutex::new(
         crate::screenshot_osd::ScreenshotOsd::default(),
     ));
+    let screenshot_scratch = Arc::new(crate::screenshot_output::Scratch::default());
+    let worker_scratch = screenshot_scratch.clone();
     let notify = move |state: Playback| {
+        // This closure remains owned by the engine until native destruction.
+        let _retain_until_native_teardown = &worker_scratch;
         if let Ok(mut latest) = latest.lock() {
             latest.1.observe(&state);
             latest.0 = Some(state);
@@ -570,15 +574,19 @@ pub(crate) fn configure_player(
             if !screenshot_settings.destinations.enabled() {
                 return Ok(());
             }
-            platform::screenshot_directory(screenshot_settings.directory.as_deref())
-                .map_err(|error| error.to_string())
-                .and_then(|directory| {
-                    screenshot_player.send(Command::Screenshot {
-                        directory: directory.to_string_lossy().into_owned(),
-                        content: screenshot_settings.content(),
-                        encoding: screenshot_settings.encoding.clone(),
-                    })
+            (if screenshot_settings.destinations.save_to_file {
+                platform::screenshot_directory(screenshot_settings.directory.as_deref())
+            } else {
+                screenshot_scratch.directory()
+            })
+            .map_err(|error| error.to_string())
+            .and_then(|directory| {
+                screenshot_player.send(Command::Screenshot {
+                    directory: directory.to_string_lossy().into_owned(),
+                    content: screenshot_settings.content(),
+                    encoding: screenshot_settings.encoding.clone(),
                 })
+            })
         });
         if let Err(error) = result {
             app.set_status(error.into());

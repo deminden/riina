@@ -1,5 +1,53 @@
 //! Capture side effects cannot be coalesced with disposable playback snapshots.
 use riina_core::Playback;
+/// The worker retains this owner through native teardown, including captures
+/// whose completion never reaches a closing UI event loop.
+#[derive(Default)]
+pub(crate) struct Scratch {
+    directory: std::sync::Mutex<Option<std::path::PathBuf>>,
+}
+impl Scratch {
+    pub(crate) fn directory(&self) -> std::io::Result<std::path::PathBuf> {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let mut owned = self
+            .directory
+            .lock()
+            .map_err(|_| std::io::Error::other("Screenshot temporary directory lock failed"))?;
+        if let Some(path) = &*owned {
+            return Ok(path.clone());
+        }
+        let root = std::env::temp_dir();
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(std::io::Error::other)?
+            .as_nanos();
+        loop {
+            let path = root.join(format!(
+                "riina-captures-{}-{stamp}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            match std::fs::create_dir(&path) {
+                Ok(()) => {
+                    *owned = Some(path.clone());
+                    return Ok(path);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error),
+            }
+        }
+    }
+}
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        if let Ok(Some(path)) = self.directory.get_mut() {
+            // Only the exclusively created directory is owned. Never recurse
+            // through a configured save folder or a directory found by scanning.
+            let _ = std::fs::remove_dir_all(path);
+        }
+    }
+}
 #[derive(Default)]
 pub(crate) struct Completions {
     count: u64,
@@ -58,6 +106,29 @@ fn cleanup_paths(destinations: riina_core::screenshot::Destinations, paths: &[St
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn scratch_outlives_ui_and_removes_unreported_worker_output() {
+        let ui = std::sync::Arc::new(Scratch::default());
+        let worker = ui.clone();
+        let other_session = Scratch::default();
+        let path = ui.directory().unwrap();
+        let other = other_session.directory().unwrap();
+        assert_ne!(path, other);
+        assert_eq!(worker.directory().unwrap(), path);
+        drop(ui);
+        assert!(path.is_dir());
+        // Simulate native output after UI teardown without a delivered reply.
+        std::fs::write(path.join("undelivered.png"), b"frame").unwrap();
+        std::fs::write(other.join("retained.png"), b"other session").unwrap();
+        drop(worker);
+        assert!(!path.exists());
+        assert_eq!(
+            std::fs::read(other.join("retained.png")).unwrap(),
+            b"other session"
+        );
+        drop(other_session);
+        assert!(!other.exists());
+    }
     #[test]
     fn clipboard_only_cleanup_removes_confirmed_files_and_preserves_unrelated_files() {
         use riina_core::screenshot::Destinations;

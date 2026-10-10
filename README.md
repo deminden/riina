@@ -27,6 +27,13 @@ support selection, playlist editing, external tracks and timing offsets. Verific
 and outstanding gaps are recorded in [status](docs/status.md). Open controls are
 enabled only after the renderer is ready. Preferences live in `%LOCALAPPDATA%/riina`.
 
+Recent milestones add video aspect, rotation, reflection and crop controls;
+subtitle font and style controls; screenshot formats, preview and live General
+preferences; and independent file/clipboard screenshot destinations. Windows
+native tests cover playback state and screenshot output, including clipboard
+pixel comparisons. Full visual parity and macOS/Linux runtime validation remain
+in progress. Public updates group substantial milestones.
+
 See [product specification](docs/product-spec.md), [source audit](docs/upstream-audit.md),
 [visual specification](docs/visual-spec.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
 Native binary redistribution is not ready; this checkout is a development workspace.
