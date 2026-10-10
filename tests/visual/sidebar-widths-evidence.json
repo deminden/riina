@@ -1,0 +1,23 @@
+{
+  "implementation_commit": "74719723fa2bc3b1f8c8854fe531799654a9582e",
+  "reference_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "release_sha256": "5050421d5869ab85752101edd5f29ac395e9fbd2a6ecac66d477e13788adb496",
+  "private_capture": {
+    "path": "tests/visual/sidebar-widths-restored.jpg",
+    "sha256": "7677bffa800818a34964a144d5d44af127e24c0ea9f5359d1ff904b119f4e0da",
+    "window_capture_size": "962x649"
+  },
+  "profile_locator": "tools/interface-capture-profile.txt (isolated local profile)",
+  "runtime": {
+    "fixture": "tests/fixtures/catalog.mkv",
+    "leading_drag": "360 to 439; release immediately saved 439",
+    "trailing_drag": "360 to 440; leading remained 439",
+    "bounds": "leading clamped to 300, trailing clamped to 500",
+    "save_failure": "Read-only isolated preference file retained last saved 300/500 and exposed Access is denied",
+    "restart": "Restored 300/500 side-specific widths",
+    "click_outside": "Clicking exposed video dismissed both visible panels",
+    "other_saved_values": "pause_when_open=true, volume=100, volume_boost=false preserved",
+    "owned_processes": "Both test player runs exited 0"
+  },
+  "scope": "Actual Windows shared-renderer interaction and preference evidence; macOS visual equivalence and native renderer were not compared."
+}

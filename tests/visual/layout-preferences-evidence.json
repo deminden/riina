@@ -1,0 +1,34 @@
+{
+  "implementation_commit": "3204e82447870207229719de9e29f83daa0be0c6",
+  "reference_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "release_sha256": "c11af76887fa0d964a12ec12f89718f04526a517198c6435774cab0bff417a3d",
+  "profile_locator": "tools/interface-capture-profile.txt (isolated local profile)",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "playback_state": "Paused at 0:00; volume 100; boost disabled",
+  "private_capture": {
+    "path": "tests/visual/sidebar-layout-compact-bottom.jpg",
+    "sha256": "d3c71f3c8aa1c5a358b5e5b82bf63f7fb067124258d4d4a0b90ec90176b24fc6",
+    "window_capture_size": "962x624",
+    "matched_macos_reference": false
+  },
+  "observed": [
+    "Layout pane presents evenly sized Floating, Top and Bottom controls across the panel.",
+    "Top controller uses a full-width upper strip and moves the sidebar below it.",
+    "Bottom controller uses a full-width lower strip and shortens the sidebar above it.",
+    "Compact updates toolbar, sidebar and controller spacing and reduces controller height.",
+    "Preference changes persisted immediately; restart restored Bottom and Compact.",
+    "Legacy settings default to Floating/spacious; invalid controller enum values are rejected.",
+    "Owned Windows players exited 0."
+  ],
+  "verification": {
+    "format": "passed",
+    "strict_workspace_lint": "passed",
+    "workspace_tests": "passed; native engine and clipboard opt-in tests were not run",
+    "optimized_windows_build": "passed"
+  },
+  "remaining": [
+    "Other reference Layout controls and settings-side position selection.",
+    "Matched macOS captures, native renderer geometry/material and controller animation.",
+    "Window-resize behavior in Top/Bottom, RTL and macOS/Linux runtime."
+  ]
+}
