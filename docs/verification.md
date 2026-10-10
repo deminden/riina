@@ -1,5 +1,31 @@
 # Verification record · native Windows · 2026-10-09
 
+## Managed preset crop foundation · 2026-10-10
+
+Original portable crop code inscribes 4:3 / 16:9 / 16:10 / 21:9 / 5:4 inside
+source pixel dimensions, truncates the reduced dimension and leaves centering to
+the crop filter. Source requirement: pinned SidebarVideoPane.swift CropView and
+PlayerCore.swift setCrop; engine contract: local pinned mpv DOCS/man/input.rst
+vf command (same-label add replaces; label removal targets one filter).
+No application source was translated or assets copied.
+
+The new native test uses catalog.mkv (320×180 YUV420), pauses and sets volume 37.
+It checks every preset's requested vf parameters, actual chroma-aligned output,
+exactly one riina-crop label, source dimensions staying 320×180, pause/volume and
+absence of navigation feedback. Clearing restores 320×180 and repeated clearing
+is harmless. Initial test failed at 21:9 because requested height 137 is aligned
+to 136 by the engine; the corrected test distinguishes those facts. Five-four
+likewise requests width 225 and outputs 224. Unit checks cover portrait, odd,
+zero, tiny and maximum dimensions plus reset isolation from a foreign label
+and rejection when the native catalog or source dimensions are unavailable.
+
+GUI controls and custom interaction are not implemented by this increment.
+Mixed foreign-filter native behavior, decoder policy conflicts, aspect/rotation
+combinations, actual IINA crop presentation and current port runtime remain open.
+Workspace unit tests, strict workspace/all-target lint, formatting and all 26
+ignored native tests run explicitly pass. Optimized Windows build passes in
+34.34 seconds. No GUI or current macOS/Linux build was run for this increment.
+
 ## Selected subtitle boundary and resumed loops · 2026-10-10
 
 The new native test selects manual-captions.srt, pauses at position 3 in its

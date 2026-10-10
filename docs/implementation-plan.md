@@ -1,5 +1,13 @@
 # Implementation plan
 
+Crop next: connect the observed managed filter to the shared video sidebar and
+implement the full custom crop interaction (selection, confirmation and cancel).
+The portable preset/managed-filter foundation has native Windows coverage; add
+mixed foreign-filter, rotation/aspect, replacement and hardware-decoding conflict
+coverage before claiming the full crop feature. Keep original source pixels as
+the calculation input and distinguish requested dimensions from chroma-aligned
+native output. Verify the same behavior on current macOS/Linux app builds.
+
 macOS and Linux ports are immediate development priorities alongside Windows
 interface parity. Do not postpone them until Windows reaches full IINA parity.
 The next portability milestone is a full application build on both systems,

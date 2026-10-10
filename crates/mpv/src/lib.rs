@@ -144,7 +144,7 @@ impl Player {
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
-                        ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
+                        ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("video-out-params", 6),
                         ("brightness", 4), ("contrast", 4), ("saturation", 4), ("gamma", 4), ("hue", 4),
@@ -192,7 +192,7 @@ impl Player {
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
-                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
+                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::VideoCrop(_) | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
                                         seek_feedback.clear();
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
@@ -344,6 +344,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"video-params" => state.video = None,
             b"video-target-params" => state.video_target = None,
             b"video-out-params" => state.video_output = None,
+            b"vf" => state.video_filters = None,
             b"video-aspect-override" => state.video_aspect_override = None,
             b"video-rotate" => state.video_rotation = None,
             b"hwdec-current" => state.hardware_decoder = None,
@@ -375,6 +376,10 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 }
                 b"track-list" => {
                     state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?
+                }
+                b"vf" => {
+                    state.video_filters =
+                        Some(serde_json::from_value(value).map_err(|e| e.to_string())?);
                 }
                 b"chapter-list" => {
                     state.chapters = serde_json::from_value(value).map_err(|e| e.to_string())?

@@ -1,5 +1,6 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
+pub mod crop;
 pub mod file_selection;
 pub mod speed_controls;
 pub mod subtitle_color;
@@ -32,6 +33,7 @@ pub enum Command {
     FrameBackStep,
     VideoAspect(video_controls::AspectRatio),
     VideoRotation(video_controls::Rotation),
+    VideoCrop(Option<crop::Preset>),
     HardwareDecoding(video_controls::HardwareDecoder),
     VideoEqualizer {
         option: video_controls::Equalizer,
@@ -276,6 +278,7 @@ impl Command {
                 ]
             }
             Self::OpenFiles(_)
+            | Self::VideoCrop(_)
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
@@ -295,6 +298,37 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::VideoCrop(preset) => match preset {
+                Some(preset) => {
+                    let source = state
+                        .video
+                        .as_ref()
+                        .ok_or("Source video dimensions are unavailable")?;
+                    vec![vec![
+                        "vf".into(),
+                        "add".into(),
+                        preset.filter(source.w, source.h)?,
+                    ]]
+                }
+                None => {
+                    let filters = state
+                        .video_filters
+                        .as_ref()
+                        .ok_or("Video filters are unavailable")?;
+                    if filters
+                        .iter()
+                        .any(|filter| filter.label.as_deref() == Some(crop::FILTER_LABEL))
+                    {
+                        vec![vec![
+                            "vf".into(),
+                            "remove".into(),
+                            format!("@{}", crop::FILTER_LABEL),
+                        ]]
+                    } else {
+                        Vec::new()
+                    }
+                }
+            },
             Self::AdjustVolume { delta, boost } => {
                 if !delta.is_finite() {
                     return Err("The volume adjustment must be finite".into());
@@ -670,6 +704,7 @@ pub struct Playback {
     pub video: Option<VideoParameters>,
     pub video_target: Option<VideoParameters>,
     pub video_output: Option<VideoParameters>,
+    pub video_filters: Option<Vec<crop::VideoFilter>>,
     pub video_aspect_override: Option<f64>,
     pub video_rotation: Option<i64>,
     pub video_equalizer: [Option<i64>; 5],

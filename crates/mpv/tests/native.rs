@@ -7,6 +7,96 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[test]
+#[ignore = "requires provisioned libmpv; verifies managed crop replacement and source geometry"]
+fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
+    use riina_core::crop::{FILTER_LABEL, Preset};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing
+            && state.video_filters.is_some()
+            && state.video_output.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    for preset in Preset::ALL {
+        let (width, height) = preset.dimensions(320, 180).unwrap();
+        // This fixture decodes to YUV420: libavfilter aligns odd dimensions
+        // down to chroma boundaries, while vf retains the requested dimensions.
+        let output_width = width & !1;
+        let output_height = height & !1;
+        player.send(Command::VideoCrop(Some(preset))).unwrap();
+        let changed = wait_for(&receiver, |state| {
+            state
+                .video_output
+                .as_ref()
+                .is_some_and(|video| video.w == output_width && video.h == output_height)
+                && state.video_filters.as_ref().is_some_and(|filters| {
+                    filters
+                        .iter()
+                        .filter(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+                        .count()
+                        == 1
+                })
+        });
+        assert!(changed.paused);
+        assert_eq!(changed.volume, 37.0);
+        assert_eq!(changed.error, None);
+        let crop = changed
+            .video_filters
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+            .unwrap();
+        assert_eq!(crop.params.get("@0"), Some(&width.to_string()));
+        assert_eq!(crop.params.get("@1"), Some(&height.to_string()));
+        assert_eq!(
+            changed.video.as_ref().map(|video| (video.w, video.h)),
+            Some((320, 180))
+        );
+        assert_eq!(changed.completed_navigation_seeks, 0);
+    }
+    player.send(Command::VideoCrop(None)).unwrap();
+    let reset = wait_for(&receiver, |state| {
+        state
+            .video_output
+            .as_ref()
+            .is_some_and(|video| video.w == 320 && video.h == 180)
+            && state.video_filters.as_ref().is_some_and(|filters| {
+                !filters
+                    .iter()
+                    .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+            })
+    });
+    assert!(reset.paused);
+    assert_eq!(reset.volume, 37.0);
+    assert_eq!(reset.error, None);
+    player.send(Command::VideoCrop(None)).unwrap();
+    player.send(Command::Volume(38.0)).unwrap();
+    assert_eq!(
+        wait_for(&receiver, |state| state.volume == 38.0).error,
+        None
+    );
+}
+
 fn test_library(root: &std::path::Path) -> PathBuf {
     if let Some(path) = std::env::var_os("RIINA_TEST_MPV_LIBRARY") {
         let path = PathBuf::from(path);

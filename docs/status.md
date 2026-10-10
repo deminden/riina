@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Portable crop foundations now provide typed presets, source-pixel geometry,
+managed-label replacement/removal and observed native video-filter catalogs.
+The native regression verifies all five presets, one managed crop after each
+replacement, unchanged source dimensions, pause/volume preservation and reset.
+Its first run exposed YUV420 alignment: requested 320×137 produces 320×136;
+the test now checks both requested parameters and actual aligned output.
+Foreign-filter reset isolation has command-plan coverage, not native mixed-filter
+coverage. Controls, interactive custom cropping, hardware-filter conflict policy,
+crop feedback, source parity and current other OS runtime remain open.
+All 26 native tests, workspace unit tests, strict lint, formatting and optimized
+Windows build pass (34.34 seconds).
+No public update.
+
 The selected-track last-cue case also reproduces stale feedback: requesting the
 next cue at position 3 makes a later resumed A–B loop count as navigation.
 Explicit pause/resume now retires unstarted feedback while retaining a seek
