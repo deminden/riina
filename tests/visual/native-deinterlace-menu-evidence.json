@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "b4cae1c18215bd9c0d6aa934b8b763546779a29b",
+  "binary_sha256": "2a8da7f7e361ee5cf28332e546174ec52e378bf7b77a6967288b0907389b7c72",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "fixture_limit": "Progressive original video; filter activation and control checks do not prove interlaced-frame quality",
+  "native_api_sources": [
+    "https://mpv.io/manual/master/#options-deinterlace",
+    "https://mpv.io/manual/master/#command-interface-cycle-values",
+    "https://mpv.io/manual/master/#property-list-deinterlace-active"
+  ],
+  "observations": [
+    "F10/Return exposes Aspect Ratio, Crop, Rotation, Flip, Deinterlace in order in the partial Video menu",
+    "Up wraps from Aspect Ratio to Deinterlace",
+    "First Deinterlace activation, followed by 200 ms settlement and fresh inventory, exposes Deinterlace: On with Play, volume 37 and position 4.999979",
+    "The On message is absent in a later observation before the second activation",
+    "Second activation exposes Deinterlace: Off with Play, volume 37 and position 4.9999585",
+    "Aspect Ratio > Default exposes Aspect Ratio: Default with position 4.9999375",
+    "That message is absent before a repeated Default activation; the repeat exposes a fresh Aspect Ratio: Default at unchanged position 4.9999375",
+    "Alt+F4 closes the player with exit 0"
+  ],
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "checks": {
+    "format": "passed",
+    "strict_workspace_lint": "passed",
+    "workspace_tests": "passed",
+    "native_suite": "33 passed in 13.37 seconds",
+    "deinterlace_preserves_filters_playback_and_two_state_toggles": "default Off; native automatic filter activity follows repeated explicit no/yes commands; crop and mirror survive; paused volume 37 and original source geometry persist; rapid toggles resolve correctly; navigation feedback count unchanged; replacement retains configured On and active filter",
+    "deinterlace_feedback_uses_confirmed_changes_not_filter_activity": "On/Off text; no repeat feedback for unchanged option or filter-only changes; unknown/error/generation changes consumed without replay",
+    "windows_release_build": "passed in 46.14 seconds"
+  },
+  "unverified": [
+    "Native checkmarks and rendered parity pixels are not exposed by these observations",
+    "Exact one-second OSD duration; visibility and later disappearance were observed without a precise timing measurement",
+    "Interlaced comb removal and cadence and hardware decoding paths",
+    "Native failure and rapid GUI toggling and external auto configuration",
+    "Shared GL menu and current macOS/Linux application runtime",
+    "Custom/rejected aspect GUI feedback and localization"
+  ]
+}

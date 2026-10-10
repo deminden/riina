@@ -17,7 +17,8 @@ first message absent before the repeat and unchanged position on the repeat.
 This adds GUI feedback evidence beyond the earlier uncaptured aspect message.
 Checks, exact timeout timing, rendered pixels, interlaced cadence, hardware paths,
 shared GL and macOS/Linux runtime remain unverified. Clean close returns 0 with
-only the expected layout diagnostic. Nothing published.
+only the expected layout diagnostic. Source/binary identity and observations:
+tests/visual/native-deinterlace-menu-evidence.json. Nothing published.
 
 Video > Aspect Ratio now precedes Crop/Rotation/Flip on both player surfaces,
 with Default and the pinned nine menu ratios. Exact requested text belongs to
