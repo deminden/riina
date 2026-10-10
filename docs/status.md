@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Additional native coverage verifies zero-width, zero-height and both-zero custom
+crops at offset (10,12). Each retains the exact requested filter parameters,
+settles after a raw decoder restart with full 320×180 output, preserves pause
+and volume 37, and does not add navigation feedback. All three are accepted;
+they do not crop just the nonzero dimension. The initial expected partial output
+failed and was corrected from observed native state. The focused regression now
+passes, as do strict lint and formatting. No product code changed in this step.
+Actual empty-selection pointer/rendered reference comparison remains open;
+no GUI test, whole native-suite rerun or publication for this evidence increment.
+
 Interactive crop drafts now retain zero extents through projection, integer
 conversion and explicit confirmation. The native rectangle command forwards
 zero dimensions, while strict nonempty filter validation remains available for

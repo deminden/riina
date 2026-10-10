@@ -68,6 +68,84 @@ fn picture_viewport_preserves_pause_volume_and_source_geometry() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies zero-size crop behavior with explicit offsets"]
+fn zero_size_crop_offsets_preserve_requested_parameters() {
+    use riina_core::crop::{FILTER_LABEL, Rectangle};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video_output.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    let baseline = wait_for(&receiver, |state| state.volume == 37.0);
+    let mut completed = baseline.completed_seeks;
+    for (width, height) in [(0, 160), (300, 0), (0, 0)] {
+        player
+            .send(Command::VideoCropRectangle(Rectangle {
+                x: 10,
+                y: 12,
+                width,
+                height,
+            }))
+            .unwrap();
+        let state = wait_for(&receiver, |state| {
+            state.completed_seeks > completed
+                && !state.seeking
+                && state.video_output.as_ref().map(|video| (video.w, video.h)) == Some((320, 180))
+                && state.video_filters.as_ref().is_some_and(|filters| {
+                    filters.iter().any(|filter| {
+                        filter.label.as_deref() == Some(FILTER_LABEL)
+                            && filter.params.get("@0") == Some(&width.to_string())
+                            && filter.params.get("@1") == Some(&height.to_string())
+                    })
+                })
+        });
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert_eq!(state.error, None);
+        completed = state.completed_seeks;
+        assert_eq!(
+            state.completed_navigation_seeks,
+            baseline.completed_navigation_seeks
+        );
+        let crop = state
+            .video_filters
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
+            .unwrap();
+        assert_eq!(crop.params.get("@2").map(String::as_str), Some("10"));
+        assert_eq!(crop.params.get("@3").map(String::as_str), Some("12"));
+        assert_eq!(
+            state.video.as_ref().map(|video| (video.w, video.h)),
+            Some((320, 180))
+        );
+    }
+    player.send(Command::VideoCrop(None)).unwrap();
+    let reset = wait_for(&receiver, |state| {
+        riina_core::crop::observed_index(state) == Some(0)
+    });
+    assert_eq!(reset.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies explicit zero-size crop native semantics"]
 fn zero_size_crop_uses_native_full_source_dimensions() {
     use riina_core::crop::{FILTER_LABEL, Rectangle};

@@ -1,9 +1,10 @@
 # Implementation plan
 
 Empty/zero-area drafts and native confirmation are now supported. The native
-zero-at-origin test keeps full-source output and reports Custom. Verify offset
-zero-dimension outcomes, pointer/overlay behavior and reference GUI comparison;
-that one native case does not prove the whole empty-selection interaction.
+zero-at-origin test keeps full-source output and reports Custom. Offset (10,12)
+tests now verify zero width/height/both settle at full output while retaining
+requested parameters. Verify pointer/overlay behavior and reference GUI comparison;
+these native cases do not prove the whole empty-selection interaction.
 
 Crop next: verify free selection and edge resizing, then reproduce the reference
 video-area padding/shadow on both presentation routes. Custom... now opens the
