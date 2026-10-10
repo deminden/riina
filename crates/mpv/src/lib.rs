@@ -136,6 +136,7 @@ impl Player {
                         ("current-ao", 1), ("hwdec-current", 1),
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
+                        ("sub-scale", 5), ("sub-pos", 5),
                         ("sub-text", 1), ("loop-file", 1), ("loop-playlist", 1),
                         ("ab-loop-a", 6), ("ab-loop-b", 6)] {
                         let name = CString::new(name).unwrap();
@@ -290,6 +291,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
             b"sub-text" => state.subtitle_text = None,
+            b"sub-scale" => state.subtitle_scale = None,
+            b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
             b"video-target-params" => state.video_target = None,
             b"hwdec-current" => state.hardware_decoder = None,
@@ -352,6 +355,11 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
     } else if property.format == 5 {
         let value = unsafe { *property.data.cast::<f64>() };
         if !value.is_finite() {
+            match name {
+                b"sub-scale" => state.subtitle_scale = None,
+                b"sub-pos" => state.subtitle_position = None,
+                _ => {}
+            }
             return;
         }
         match name {
@@ -361,6 +369,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"speed" => state.speed = value,
             b"audio-delay" => state.audio_delay = value,
             b"sub-delay" => state.subtitle_delay = value,
+            b"sub-scale" => state.subtitle_scale = (0.0..=100.0).contains(&value).then_some(value),
+            b"sub-pos" => state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value),
             _ => {}
         }
     } else if property.format == 3 {

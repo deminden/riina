@@ -673,3 +673,29 @@ visibility. The video panel remains missing. Current GUI input routing,
 rendered feedback, AltGr/alternate layouts, multiple embedded subtitle/video
 tracks and other-OS runtime are unverified; native track-property observation
 does not prove actual audible or visible output.
+
+## Subtitle scale and vertical position · 2026-10-10
+
+Shared G/F and r/R/t shortcuts issue typed native relative commands for
+subtitle scale and position. The backend observes both properties as optional
+numbers; unavailable, invalid or nonfinite values stay unknown rather than
+inventing a default. Session option observations survive media replacement;
+track catalogs and subtitle text still have file ownership.
+
+The explicit Windows SRT test queues ten +0.1 scale changes without consuming
+snapshots, observes 1 → 2, then queues ten -0.1 changes to restore 1. Fifteen
+-1 position changes move 100 → 85 and fifteen +1 changes restore 100. Large
+relative adjustments verify native scale clamping at 0 and 100, and position
+clamping at 0 and 150, then restore scale 1 and position 100. These ranges match
+the [mpv subtitle options](https://mpv.io/manual/stable/#options-sub-scale).
+The final states retain pause, zero delay, selected external subtitles and no
+native error. All ten native integration tests pass in 9.46 seconds.
+
+The expanded Slint shortcut expression tree initially exhausted the Windows
+build script's default stack (STATUS_STACK_OVERFLOW). Interface compilation
+now runs on a joined standard Rust thread with a bounded eight-MiB stack on
+every host. This fixes the observed compiler failure without adding platform
+linker assumptions. Windows strict lint, all 24 unit tests, formatting and the
+release build pass after the fix. Current GUI
+shortcut routing, settings controls, actual rendered subtitle geometry/font
+parity and macOS/Linux build/runtime verification remain open.

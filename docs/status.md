@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local subtitle layout increment: G/F adjust native scale by +/-0.1, r raises
+subtitle position by one point, and R/t lower it by one point, matching the
+pinned default input config. Optional observed scale/position retain unknown
+values as unknown. Ten Windows native tests pass (9.46 seconds), including
+queued scale 1 → 2 → 1 and position 100 → 85 → 100, native range clamping and
+retained pause/track/delay. The larger shortcut tree exposed a build-script
+stack overflow; Slint compilation now uses a joined portable worker with an
+explicit eight-MiB stack. GUI routing, actual rendered layout and other-OS
+runtime remain pending. All 24 unit tests, strict lint, formatting and the
+Windows release build pass after the compiler fix. Work remains local.
+
 Local track-shortcut increment: native cycling now covers video, audio and
 primary subtitles, retaining the engine's disabled sentinel and external-track
 ordering. Shared routing adds macOS Command+Control+A/S/V and Windows/Linux

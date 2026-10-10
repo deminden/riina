@@ -156,6 +156,8 @@ export component PlayerWindow inherits Window {
     callback adjust-chapter(int);
     callback adjust-subtitle-delay(float);
     callback reset-subtitle-delay();
+    callback adjust-subtitle-scale(float);
+    callback adjust-subtitle-position(float);
     callback adjust-audio-delay(float);
     callback reset-audio-delay();
     callback playlist-next();
@@ -408,6 +410,11 @@ export component PlayerWindow inherits Window {
                 if event.text == Key.RightArrow { root.subtitle-seek(1); return accept; }
                 if event.text == Key.LeftArrow { root.subtitle-seek(-1); return accept; }
             }
+            if !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
+                if event.text == "G" { root.adjust-subtitle-scale(0.1); return accept; }
+                if event.text == "F" { root.adjust-subtitle-scale(-0.1); return accept; }
+                if event.text == "R" { root.adjust-subtitle-position(1); return accept; }
+            }
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == " " || event.text == "p" { root.toggle-pause(); return accept; }
             if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
@@ -416,6 +423,8 @@ export component PlayerWindow inherits Window {
             if event.text == Key.DownArrow { root.adjust-volume(-5); return accept; }
             if event.text == "m" { root.toggle-mute(); return accept; }
             if event.text == "v" { root.toggle-subtitle-visibility(); return accept; }
+            if event.text == "r" { root.adjust-subtitle-position(-1); return accept; }
+            if event.text == "t" { root.adjust-subtitle-position(1); return accept; }
             if event.text == "." { root.frame-step(); return accept; }
             if event.text == "," { root.frame-back-step(); return accept; }
             if event.text == "f" { root.toggle-fullscreen(); return accept; }

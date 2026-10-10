@@ -449,6 +449,59 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     let reset = wait_for(&receiver, |state| state.subtitle_delay.abs() < 0.001);
     assert!(reset.paused);
     assert_eq!(reset.error, None);
+    wait_for(&receiver, |state| {
+        state
+            .subtitle_scale
+            .is_some_and(|s| (s - 1.0).abs() < 0.001)
+            && state.subtitle_position == Some(100.0)
+    });
+    // Drain neither observations nor UI updates during the bursts: native
+    // relative commands must accumulate against the actual option values.
+    for _ in 0..10 {
+        player.send(Command::AdjustSubtitleScale(0.1)).unwrap();
+    }
+    wait_for(&receiver, |state| {
+        state
+            .subtitle_scale
+            .is_some_and(|s| (s - 2.0).abs() < 0.001)
+    });
+    for _ in 0..10 {
+        player.send(Command::AdjustSubtitleScale(-0.1)).unwrap();
+    }
+    wait_for(&receiver, |state| {
+        state
+            .subtitle_scale
+            .is_some_and(|s| (s - 1.0).abs() < 0.001)
+    });
+    for _ in 0..15 {
+        player.send(Command::AdjustSubtitlePosition(-1.0)).unwrap();
+    }
+    wait_for(&receiver, |state| state.subtitle_position == Some(85.0));
+    for _ in 0..15 {
+        player.send(Command::AdjustSubtitlePosition(1.0)).unwrap();
+    }
+    wait_for(&receiver, |state| state.subtitle_position == Some(100.0));
+    for (delta, expected) in [(-100.0, 0.0), (200.0, 100.0), (-99.0, 1.0)] {
+        player.send(Command::AdjustSubtitleScale(delta)).unwrap();
+        wait_for(&receiver, |state| {
+            state
+                .subtitle_scale
+                .is_some_and(|s| (s - expected).abs() < 0.001)
+        });
+    }
+    for (delta, expected) in [(-1000.0, 0.0), (1000.0, 150.0), (-50.0, 100.0)] {
+        player.send(Command::AdjustSubtitlePosition(delta)).unwrap();
+        let adjusted = wait_for(&receiver, |state| state.subtitle_position == Some(expected));
+        assert!(adjusted.paused);
+        assert_eq!(adjusted.error, None);
+        assert!((adjusted.subtitle_delay).abs() < 0.001);
+        assert!(
+            adjusted
+                .tracks
+                .iter()
+                .any(|t| t.kind == TrackKind::Sub && t.external && t.selected)
+        );
+    }
 }
 
 #[test]

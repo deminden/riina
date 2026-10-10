@@ -39,6 +39,8 @@ pub enum Command {
     AdjustAudioDelay(f64),
     SubtitleDelay(f64),
     AdjustSubtitleDelay(f64),
+    AdjustSubtitleScale(f64),
+    AdjustSubtitlePosition(f64),
     SubtitleSeek(i32),
     ToggleSubtitleVisibility,
     CycleLoop,
@@ -126,17 +128,22 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
-            Self::AdjustAudioDelay(delta) | Self::AdjustSubtitleDelay(delta)
+            Self::AdjustAudioDelay(delta)
+            | Self::AdjustSubtitleDelay(delta)
+            | Self::AdjustSubtitleScale(delta)
+            | Self::AdjustSubtitlePosition(delta)
                 if delta.is_finite() =>
             {
                 // Apply on the decoder worker's current value; rapid key presses
-                // must not reuse a stale delay from a coalesced UI snapshot.
+                // must not reuse a stale value from a coalesced UI snapshot.
                 vec![
                     "add".into(),
-                    if matches!(self, Self::AdjustAudioDelay(_)) {
-                        "audio-delay"
-                    } else {
-                        "sub-delay"
+                    match self {
+                        Self::AdjustAudioDelay(_) => "audio-delay",
+                        Self::AdjustSubtitleDelay(_) => "sub-delay",
+                        Self::AdjustSubtitleScale(_) => "sub-scale",
+                        Self::AdjustSubtitlePosition(_) => "sub-pos",
+                        _ => unreachable!(),
                     }
                     .into(),
                     delta.to_string(),
@@ -524,6 +531,8 @@ pub struct Playback {
     pub playlist: Vec<PlaylistEntry>,
     pub audio_delay: f64,
     pub subtitle_delay: f64,
+    pub subtitle_scale: Option<f64>,
+    pub subtitle_position: Option<f64>,
     pub subtitle_visible: bool,
     pub subtitle_text: Option<String>,
     pub loop_file: Option<String>,
@@ -850,6 +859,12 @@ mod tests {
                 .is_err()
         );
         assert!(Command::AdjustSubtitleDelay(f64::NAN).mpv_args().is_err());
+        assert!(Command::AdjustSubtitleScale(f64::NAN).mpv_args().is_err());
+        assert!(
+            Command::AdjustSubtitlePosition(f64::INFINITY)
+                .mpv_args()
+                .is_err()
+        );
         assert!(
             Command::AdjustSubtitleDelay(f64::INFINITY)
                 .mpv_args()
