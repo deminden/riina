@@ -14,7 +14,8 @@ then fresh inventory recovers the responsive player at Play/volume 37/position
 by this accessibility view. Clean close returns 0 with only the expected layout
 diagnostic. Exact GUI output, no-op/failure checks, shared GL and ports remain
 unverified. Aspect Ratio menu remains pending exact requested-text provenance
-and its reference OSD. Nothing published.
+and its reference OSD. Source/binary evidence:
+tests/visual/native-rotation-menu-evidence.json. Nothing published.
 
 Crop and Flip menu activations now renew menu model identity before dispatch or
 input-scope rejection. The pinned muda backend automatically toggles native

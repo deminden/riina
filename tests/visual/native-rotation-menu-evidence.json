@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "2365517314ce087f1bc155b5c5536ef3093917d9",
+  "binary_sha256": "fc41fabdb3f3dd25b537a7cb77983c053a9d3709a32804a74beb3b7b6cabb9ed",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "F10/Return exposes Crop, Rotation, Flip in that order in the partial Video menu",
+    "Down focuses Rotation; Right exposes 0°, 90°, 180°, 270° in that order with 0° focused",
+    "Down focuses 90°; Return loses the input tool window reference",
+    "Fresh inventory recovers the live player with menus closed, Play, volume 37 and position 4.999979",
+    "Control+Shift+V opens the Video sidebar, including all four rotation labels",
+    "Alt+F4 closes the application with exit 0"
+  ],
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "checks": {
+    "format": "passed",
+    "strict_workspace_lint": "passed",
+    "workspace_tests": "passed",
+    "video_geometry_controls_preserve_pause_and_unrelated_options": "passed in 0.17 seconds; confirms native rotation values 90/180/270/0 and preserved pause/volume/aspect/track identity",
+    "windows_release_build": "passed in 42.95 seconds"
+  },
+  "unverified": [
+    "Native menu and sidebar selected-angle state are not exposed by this accessibility tree",
+    "The exact GUI rotation result and rendered pixels are not proven by these observations",
+    "No-op or rejected menu activation checks and repeated actions",
+    "Shared GL menu runtime and current macOS/Linux application runtime"
+  ]
+}
