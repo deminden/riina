@@ -2090,3 +2090,19 @@ This is a partial UI pane: seven other source categories and the remaining UI
 sections are unimplemented. No live capture or pixel comparison is available in
 this session. Formatting, strict all-target Clippy, workspace tests, optimized
 workspace build, parity inventory and asset provenance checks pass.
+
+2026-10-10 Preferences navigation parity increment: matched the pinned Settings
+category names and order (General, Interface, Video & Audio, Subtitle, Network,
+Control, Key Bindings, Advanced, Utilities). The other seven categories remain
+title-only placeholders; no capture or pixel comparison is claimed. Local
+formatting, strict Clippy, workspace tests and the workspace build pass.
+
+2026-10-10 release re-audit: verified the pinned OpenSSL source commit and its
+Apache-2.0 `LICENSE.txt`; the FFmpeg configure source explicitly permits OpenSSL
+3 with GPLv3 mode, and the FSF identifies Apache-2.0 as GPLv3-compatible. The
+optional x264 encoder remains excluded because its published grant is GPLv2-only;
+the built-in H.264 decoder remains enabled. The corrected check and audit are on
+public `main` at `ca9d309`. Tag `v0.2.0` is pushed and its release workflow is
+building; GitHub publishes the Windows ZIP, matching source archive and checksums
+only after all package tests pass. The previous release-readiness note above was
+superseded by this re-audit.

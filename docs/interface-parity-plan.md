@@ -85,14 +85,16 @@ The images show floating controls overlapping the sidebar. The reference default
 edgeToEdgeVideo=true keeps the video container across the window, so this is not
 alone evidence of a placement defect. Reference-matched tab glyphs/materials,
 resizing and non-edge-to-edge control allocation remain open. The separate
-Preferences window now has a source-sized 820 x 480 shell, selectable General
-and UI navigation, the existing General controls, and a functional partial UI
-pane for OSC position, compact mode, docked controls and OSD visibility/speed/seek
-suppression. OSD settings update live overlay filters and persist through the
-shared settings path. Subtitle, Network,
-Control, Keybindings, Video/Audio, Advanced and Utilities navigation/panes remain
-unimplemented, and the source-list geometry, full pane content and live capture
-remain open. These captures are inspection evidence, not a passed pixel comparison.
+Preferences window now has a source-sized 820 x 480 shell, selectable navigation
+in the pinned nine-category order (General, Interface, Video & Audio, Subtitle,
+Network, Control, Key Bindings, Advanced and Utilities), the existing General
+controls, and a functional partial Interface pane for OSC position, compact mode,
+docked controls and OSD visibility/speed/seek suppression. OSD settings update
+live overlay filters and persist through the shared settings path. The other
+seven categories currently show their title only. Plugin settings are conditional
+upstream and omitted until the plugin system exists. Source-list geometry, full
+pane content and a fresh live capture remain open. These changes follow the
+source's category names/order; they do not establish pixel parity.
 
 Both sides now retain their own selected pane. Captured Windows playback shows
 Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and

@@ -84,26 +84,22 @@ export component PreferencesWindow inherits Window {
     Rectangle { x: 0; y: 0; width: 200px; height: parent.height; background: #e3e3e7;
         PreferenceNavItem { x: 10px; y: 52px; width: 180px; label: "General";
             selected: root.selected-pane == 0; activated => { root.selected-pane = 0; } }
-        PreferenceNavItem { x: 10px; y: 88px; width: 180px; label: "UI";
+        PreferenceNavItem { x: 10px; y: 88px; width: 180px; label: "Interface";
             selected: root.selected-pane == 1; activated => { root.selected-pane = 1; } }
-        PreferenceNavItem { x: 10px; y: 124px; width: 180px; label: "Video";
+        PreferenceNavItem { x: 10px; y: 124px; width: 180px; label: "Video & Audio";
             selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
-        PreferenceNavItem { x: 10px; y: 160px; width: 180px; label: "Audio";
+        PreferenceNavItem { x: 10px; y: 160px; width: 180px; label: "Subtitle";
             selected: root.selected-pane == 3; activated => { root.selected-pane = 3; } }
-        PreferenceNavItem { x: 10px; y: 196px; width: 180px; label: "Subtitles";
+        PreferenceNavItem { x: 10px; y: 196px; width: 180px; label: "Network";
             selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
-        PreferenceNavItem { x: 10px; y: 232px; width: 180px; label: "Network";
+        PreferenceNavItem { x: 10px; y: 232px; width: 180px; label: "Control";
             selected: root.selected-pane == 5; activated => { root.selected-pane = 5; } }
-        PreferenceNavItem { x: 10px; y: 268px; width: 180px; label: "Control";
+        PreferenceNavItem { x: 10px; y: 268px; width: 180px; label: "Key Bindings";
             selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
-        PreferenceNavItem { x: 10px; y: 304px; width: 180px; label: "Key Bindings";
+        PreferenceNavItem { x: 10px; y: 304px; width: 180px; label: "Advanced";
             selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
-        PreferenceNavItem { x: 10px; y: 340px; width: 180px; label: "Advanced";
+        PreferenceNavItem { x: 10px; y: 340px; width: 180px; label: "Utilities";
             selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
-        PreferenceNavItem { x: 10px; y: 376px; width: 180px; label: "Plugins";
-            selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
-        PreferenceNavItem { x: 10px; y: 412px; width: 180px; label: "Utilities";
-            selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
     }
     if root.selected-pane == 0 : ScrollView {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
@@ -171,7 +167,7 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 1 : Rectangle {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
         background: #ededed;
-        Text { x: 22px; y: 16px; text: "UI"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 22px; y: 16px; text: "Interface"; font-size: 15px; font-weight: 600; color: #222222; }
         Rectangle { x: 20px; y: 52px; width: 576px; height: 138px; background: transparent;
             Text { x: 0; y: 8px; text: "On-Screen Controller:";
                 font-weight: 600; font-size: 13px; color: #222222; }
@@ -212,14 +208,12 @@ export component PreferencesWindow inherits Window {
         background: #ededed;
         Text {
             x: 22px; y: 16px; font-size: 15px; font-weight: 600; color: #222222;
-            text: root.selected-pane == 2 ? "Video" :
-                root.selected-pane == 3 ? "Audio" :
-                root.selected-pane == 4 ? "Subtitles" :
-                root.selected-pane == 5 ? "Network" :
-                root.selected-pane == 6 ? "Control" :
-                root.selected-pane == 7 ? "Key Bindings" :
-                root.selected-pane == 8 ? "Advanced" :
-                root.selected-pane == 9 ? "Plugins" : "Utilities";
+            text: root.selected-pane == 2 ? "Video & Audio" :
+                root.selected-pane == 3 ? "Subtitle" :
+                root.selected-pane == 4 ? "Network" :
+                root.selected-pane == 5 ? "Control" :
+                root.selected-pane == 6 ? "Key Bindings" :
+                root.selected-pane == 7 ? "Advanced" : "Utilities";
         }
     }
 }
