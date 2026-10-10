@@ -10,7 +10,8 @@ feedback token. Worker tests verify that transition retires an acknowledged
 no-op, while an already-started seek still completes normally. Native command
 dispatch and raw native completion counting remain unchanged.
 
-Full native/unit/lint/build checks are in progress. This tests a paused final
+All 25 native tests, workspace unit tests, strict lint, formatting and optimized
+Windows build pass. This tests a paused final
 cue followed by explicit resume, not no-op navigation during an already-running
 loop. First-cue boundaries, event interleaving, GUI and actual IINA presentation
 comparison and current other OS runtime remain open.

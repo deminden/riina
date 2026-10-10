@@ -4,7 +4,8 @@ The selected-track last-cue case also reproduces stale feedback: requesting the
 next cue at position 3 makes a later resumed A–B loop count as navigation.
 Explicit pause/resume now retires unstarted feedback while retaining a seek
 that has already started. New native and worker regressions cover that boundary.
-Full checks are in progress. No-op requests during already-running loops, first
+All 25 native tests, workspace unit tests, strict lint, formatting and optimized
+build pass. No-op requests during already-running loops, first
 cue boundaries, rapid mixed-command timing, GUI/reference presentation and
 current other OS runtime remain open. No public update.
 
