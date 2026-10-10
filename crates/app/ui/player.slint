@@ -94,6 +94,17 @@ component Tool inherits Rectangle {
     }
 }
 
+component ObservedSizePicker inherits ComboBox {
+    in property <int> observed-index: -1;
+    in property <string> observed-value;
+    current-index: observed-index;
+    current-value: observed-value;
+    // Popup selection mutates its own properties. Native observations must
+    // restore both display text and keyboard cursor after those bindings break.
+    changed observed-value => { self.current-value = self.observed-value; self.current-index = self.observed-index; }
+    changed observed-index => { self.current-index = self.observed-index; }
+}
+
 component DelayInput inherits Rectangle {
     in property <float> value;
     in property <bool> secondary: false;
@@ -492,9 +503,10 @@ export component PlayerWindow inherits Window {
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Font"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                                ComboBox { width: 60px; height: 24px;
+                                ObservedSizePicker { width: 60px; height: 24px;
                                     model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
-                                    current-value: root.subtitle-font-size-known ? "" + root.subtitle-font-size : "—";
+                                    observed-index: root.subtitle-font-size >= 25 && root.subtitle-font-size <= 75 && mod(root.subtitle-font-size - 25, 5) == 0 ? round((root.subtitle-font-size - 25) / 5) : -1;
+                                    observed-value: root.subtitle-font-size-known ? "" + root.subtitle-font-size : "—";
                                     enabled: root.loaded && root.subtitle-font-size-known;
                                     accessible-label: "Subtitle font size";
                                     selected(value) => { if value.is-float() { root.set-subtitle-font-size(value.to-float()); } }
@@ -503,9 +515,10 @@ export component PlayerWindow inherits Window {
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Border"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                                ComboBox { width: 60px; height: 24px;
+                                ObservedSizePicker { width: 60px; height: 24px;
                                 model: ["0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "4", "5"];
-                                current-value: root.subtitle-outline-size-known ? "" + root.subtitle-outline-size : "—";
+                                observed-index: root.subtitle-outline-size == 0 ? 0 : root.subtitle-outline-size == 0.25 ? 1 : root.subtitle-outline-size == 0.5 ? 2 : root.subtitle-outline-size == 1 ? 3 : root.subtitle-outline-size == 1.5 ? 4 : root.subtitle-outline-size == 2 ? 5 : root.subtitle-outline-size == 2.5 ? 6 : root.subtitle-outline-size == 3 ? 7 : root.subtitle-outline-size == 4 ? 8 : root.subtitle-outline-size == 5 ? 9 : -1;
+                                observed-value: root.subtitle-outline-size-known ? "" + root.subtitle-outline-size : "—";
                                 enabled: root.loaded && root.subtitle-outline-size-known;
                                 accessible-label: "Subtitle outline width";
                                 selected(value) => { if value.is-float() { root.set-subtitle-outline-size(value.to-float()); } }

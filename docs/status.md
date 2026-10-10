@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Local subtitle style Windows test and picker fix: accessibility confirms Scale,
+Font and Border order and the observed defaults. Scale reduction and keyboard
+reset route correctly while paused. Font keyboard Down exposed a real bug: the
+picker displayed 55 but its cursor started at the first list item, selecting 30.
+A shared ObservedSizePicker now synchronizes both current index and display text
+from native observations for font and outline size, including external changes.
+The old binary's evidence is saved in subtitle-style-controls-windows-evidence.json;
+the fix requires runtime retesting. Strict lint and all 28 unit tests pass.
+Visual capture still fails twice with CreateForMonitor error 0x80070057 after
+fresh target selection; rendered layout and outline picker routing remain pending.
+Nothing was published.
+
 Local subtitle style row layout and traceability: implemented style controls now
 follow Scale, Font and Border order with inline labels, a 30px scale row and
 60px size pickers derived from the pinned SubStyleView. Shared geometry remains
