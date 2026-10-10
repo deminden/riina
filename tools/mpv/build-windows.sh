@@ -96,8 +96,14 @@ cp -a "$REPO_ROOT/tools/mpv/remove-x264.patch" "$SOURCE_ARCHIVE_ROOT/"
 } > "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv"
 cp -a "$BUILDER/src_packages/." "$SOURCE_ARCHIVE_ROOT/native-sources/"
 
-# Build mpv first; its separate packaging target only adds the Windows runtime
-# files to a package directory and does not depend on or compile the engine.
+# A clean runner has no cached Clang sysroot. Build the pinned cross-toolchain
+# in upstream's documented order before any Windows dependency tries to use it.
+ninja -C build_x86_64 llvm
+ninja -C build_x86_64 rustup
+ninja -C build_x86_64 llvm-clang
+
+# The packaging target only adds the Windows runtime files to a package
+# directory; it does not depend on or compile the engine itself.
 ninja -C build_x86_64 mpv
 ninja -C build_x86_64 mpv-packaging
 runtime_dir="$(find "$BUILDER/build_x86_64" -mindepth 1 -maxdepth 1 -type d -name 'mpv-x86_64-*' ! -name '*debug*' -print -quit)"
