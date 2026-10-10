@@ -837,6 +837,8 @@ pub struct Preferences {
     pub dark: bool,
     pub compact: bool,
     pub enable_osd: bool,
+    pub disable_osd_speed: bool,
+    pub disable_osd_seek: bool,
     pub osd_timeout_secs: f64,
 }
 
@@ -851,6 +853,8 @@ impl Default for Preferences {
             dark: true,
             compact: false,
             enable_osd: true,
+            disable_osd_speed: false,
+            disable_osd_seek: false,
             osd_timeout_secs: 1.0,
         }
     }
@@ -944,15 +948,21 @@ mod tests {
         )
         .unwrap();
         assert!(old.enable_osd);
+        assert!(!old.disable_osd_speed);
+        assert!(!old.disable_osd_seek);
         assert_eq!(old.osd_timeout_secs, 1.0);
         let configured = Preferences {
             enable_osd: false,
+            disable_osd_speed: true,
+            disable_osd_seek: true,
             osd_timeout_secs: 0.125,
             ..old
         };
         let saved = serde_json::to_string(&configured).unwrap();
         let restored = Preferences::parse(&saved).unwrap();
         assert!(!restored.enable_osd);
+        assert!(restored.disable_osd_speed);
+        assert!(restored.disable_osd_seek);
         assert_eq!(restored.osd_timeout_secs, 0.125);
         assert_eq!(restored.volume, 37.0);
         for timeout in ["-1", "1e300"] {

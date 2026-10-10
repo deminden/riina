@@ -2,7 +2,15 @@
 use riina_core::{Phase, Playback, speed_controls};
 
 #[derive(Debug, PartialEq)]
+pub(crate) enum Kind {
+    Speed,
+    Equalizer,
+    HardwareDecoding,
+}
+
+#[derive(Debug, PartialEq)]
 pub(crate) struct Message {
+    pub kind: Kind,
     pub text: String,
     pub progress: Option<f32>,
 }
@@ -10,9 +18,16 @@ pub(crate) struct Message {
 #[derive(Default)]
 pub(crate) struct VideoOsd {
     previous: Option<Playback>,
+    disable_speed: bool,
 }
 
 impl VideoOsd {
+    pub(crate) fn new(disable_speed: bool) -> Self {
+        Self {
+            disable_speed,
+            ..Default::default()
+        }
+    }
     pub(crate) fn observe(&mut self, state: &Playback) -> Option<Message> {
         let message = changed(self.previous.as_ref(), state);
         // Catalog caches intentionally ignore clock/settings-only snapshots.
@@ -25,7 +40,9 @@ impl VideoOsd {
             video_equalizer: state.video_equalizer,
             ..Default::default()
         });
-        message
+        // Consume suppressed changes too: re-enabling feedback must not replay
+        // an old edit, and speed suppression must not hide unrelated channels.
+        message.filter(|message| !(self.disable_speed && message.kind == Kind::Speed))
     }
 }
 
@@ -50,6 +67,7 @@ pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<M
         ) && old != value
         {
             return Some(Message {
+                kind: Kind::Equalizer,
                 text: format!("{label}: {value}"),
                 progress: Some((value as f32 + 100.0) / 200.0),
             });
@@ -57,6 +75,7 @@ pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<M
     }
     if state.speed != previous.speed {
         return Some(Message {
+            kind: Kind::Speed,
             text: format!("Speed: {}x", speed_controls::text(state.speed)),
             progress: None,
         });
@@ -65,6 +84,7 @@ pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<M
         && old != mode
     {
         return Some(Message {
+            kind: Kind::HardwareDecoding,
             text: format!(
                 "Hardware Decoding: {}",
                 if mode == "no" { "Off" } else { "On" }
@@ -98,6 +118,7 @@ mod tests {
         assert_eq!(
             changed(Some(&old), &state),
             Some(Message {
+                kind: Kind::Speed,
                 text: "Speed: 1.234567x".into(),
                 progress: None
             })
@@ -122,6 +143,26 @@ mod tests {
         state.position = Some(4.0);
         assert_eq!(feedback.observe(&state), None);
     }
+
+    #[test]
+    fn speed_suppression_consumes_speed_but_keeps_other_feedback() {
+        let mut feedback = VideoOsd::new(true);
+        let mut state = loaded();
+        assert_eq!(feedback.observe(&state), None);
+        state.speed = 2.0;
+        assert_eq!(feedback.observe(&state), None);
+        state.video_equalizer[0] = Some(-27);
+        assert_eq!(feedback.observe(&state).unwrap().kind, Kind::Equalizer);
+        state.hardware_decoding = Some("no".into());
+        assert_eq!(
+            feedback.observe(&state).unwrap().text,
+            "Hardware Decoding: Off"
+        );
+        feedback.disable_speed = false;
+        assert_eq!(feedback.observe(&state), None);
+        state.speed = 1.0;
+        assert_eq!(feedback.observe(&state).unwrap().kind, Kind::Speed);
+    }
     #[test]
     fn equalizer_progress_and_hardware_policy_keep_distinct_semantics() {
         let old = loaded();
@@ -133,6 +174,7 @@ mod tests {
             assert_eq!(
                 changed(Some(&previous), &state),
                 Some(Message {
+                    kind: Kind::Equalizer,
                     text: format!("Brightness: {value}"),
                     progress: Some(progress)
                 })

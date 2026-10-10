@@ -336,7 +336,9 @@ pub(crate) fn configure_player(
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
     let last_seek = Arc::new(std::sync::Mutex::new(SeekOsd::default()));
-    let last_video = Arc::new(std::sync::Mutex::new(crate::video_osd::VideoOsd::default()));
+    let last_video = Arc::new(std::sync::Mutex::new(crate::video_osd::VideoOsd::new(
+        prefs.disable_osd_speed,
+    )));
     let notify = move |state| {
         if let Ok(mut latest) = latest.lock() {
             *latest = Some(state);
@@ -376,10 +378,11 @@ pub(crate) fn configure_player(
     };
     let idle_timer = Rc::new(slint::Timer::default());
     let seek_timer = slint::Timer::default();
+    let disable_seek_osd = prefs.disable_osd_seek;
     let weak = app.as_weak();
     app.on_show_seek_osd(move || {
         if let Some(app) = weak.upgrade() {
-            if !app.get_osd_enabled() {
+            if !app.get_osd_enabled() || disable_seek_osd {
                 return;
             }
             app.set_seek_osd_visible(true);

@@ -1,5 +1,21 @@
 # Verification record · native Windows · 2026-10-09
 
+## Per-message OSD suppression · 2026-10-10
+
+Pinned Preference.disableOSDSpeedMsg and disableOSDSeekMsg default false;
+OSDMessage.isDisabled maps speed and seek independently. Portable preferences
+now persist disable_osd_speed and disable_osd_seek, with serde legacy defaults
+false. Global enable and timeout remain separate. Feedback has typed message
+identity, and speed suppression consumes observations rather than postponing
+an old message. Seek suppression is applied after navigation observation, so
+raw completions are consumed without presentation.
+
+Unit checks cover legacy defaults, persistence, suppressed speed followed by
+equalizer/hardware feedback, no stale replay after enabling, and a later new
+speed message. Workspace unit checks pass. Final build and GUI checks pending;
+Settings-page switches, exact simultaneous-message ordering, locale formatting,
+rendered OSD materials and current other OS runtime remain open.
+
 ## Navigation versus decoder refresh feedback · 2026-10-10
 
 The prior hardware toggle GUI exposed a seek-clock overlay after decoder

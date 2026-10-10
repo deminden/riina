@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+OSD preferences now separately suppress speed and seek messages, both false by
+default. Legacy preferences retain visible feedback; JSON round-trip preserves
+each flag. Speed suppression consumes confirmed changes without replaying them
+and retains sequential equalizer/hardware messages. Unit checks pass; final
+build and isolated-preference GUI verification are in progress. Settings-page
+switches, locale text, simultaneous coalesced-message ordering and current
+other OS runtime remain open. No public update.
+
 Seek feedback now uses a distinct completed-navigation counter associated with
 submitted seek/cue/chapter/frame commands, while the raw completed native seek
 counter retains decoder refreshes. Worker feedback clears on replacement,
