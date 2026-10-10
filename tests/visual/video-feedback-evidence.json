@@ -1,0 +1,25 @@
+{
+  "source_commit": "0b1387a30b1ad222349458dfc644cafe53143d59",
+  "binary_sha256": "9fdc5cf546030abe40365b53abedb0f7a7c54c80da9a90116ce2e19b75f7e6b0",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "initial_source": "201fb77",
+  "initial_failure": "Brightness message observed but later speed messages absent; catalog-only cache incorrectly reused for settings history.",
+  "observed_messages": [
+    "Brightness: -27",
+    "Speed: 1.234567x"
+  ],
+  "observed_expiry": true,
+  "exact_timeout_latency_measured": false,
+  "hardware_decoding_check": "Space on Hardware Decoding exposes seek clock 00:04 instead of persistent decoding message; remains failing.",
+  "volume": 37,
+  "play_button": "Play",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "No pixel comparison or progress rendering measurement.",
+    "Hardware decoding message is overwritten by decoder-refresh seek feedback.",
+    "Locale messages, per-speed suppression, exact event ordering and current other OS runtime remain open."
+  ]
+}

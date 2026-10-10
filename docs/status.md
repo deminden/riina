@@ -5,11 +5,16 @@ hardware decoding and five equalizer channels, with signed equalizer progress.
 Initial GUI showed brightness feedback but missed speed messages. The catalog
 cache did not consume settings-only updates; repair gives feedback independent
 observation history, with a regression test for sequential brightness/speed
-changes and clock-only suppression. Repaired GUI retest is pending.
+changes and clock-only suppression. Repaired Windows GUI confirms Brightness:
+-27 then Speed: 1.234567x and eventual expiry while retaining Play and volume
+37. Close exits 0 with empty stderr. The hardware toggle still exposes the seek
+clock instead of retaining its decoding message; decoder-refresh seek feedback
+must be distinguished from deliberate navigation. Evidence:
+tests/visual/video-feedback-evidence.json. Workspace unit tests, strict lint,
+formatting and optimized build pass.
 Initial/unknown values and generation changes do not create feedback; replacement,
 stop and errors hide it. Existing global OSD enable/timeout controls apply, and
-video and seek messages exclude each other. Unit checks pass; final updated
-build and GUI verification are in progress. Locale messages, speed-specific
+video and seek messages exclude each other. Locale messages, speed-specific
 disable preference, exact coalesced ordering and rendered OSD materials/geometry
 and current other OS runtime remain open. Nothing published.
 

@@ -9,7 +9,17 @@ catalogs leave old brightness values in that cache. Repair adds an independent
 VideoOsd history that consumes every snapshot while retaining only feedback
 fields. A regression check verifies brightness once, no repeat on unchanged
 observations, then speed once and no repeat on clock-only updates. Initial GUI
-close exits 0 with empty stderr. Repaired GUI checks remain pending.
+close exits 0 with empty stderr.
+
+Repaired GUI at 0b1387a confirms Brightness: -27 followed by Speed: 1.234567x;
+both disappear in later snapshots. Exact timeout latency is not measured. Play
+and volume 37 remain; normal close exits 0 with empty stderr. Hardware toggle
+Space instead exposes the seek clock (00:04), replacing its configured-mode
+feedback. That interaction remains failing and requires separating deliberate
+navigation from decoder-refresh native seek notifications. Evidence with source
+and binary hash: tests/visual/video-feedback-evidence.json. Workspace unit tests,
+strict lint, formatting and optimized build pass. No rendered pixel comparison,
+progress-bar measurement or current other OS runtime is established.
 
 Pinned OSDMessage.speed / hwdec / brightness / contrast / saturation / gamma /
 hue define speed text with up to six decimals, On/Off for configured hardware
