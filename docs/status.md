@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Repaired Windows source 3b81c9d verifies readable audio and both subtitle language
+labels on shared OpenGL and experimental native-video routes. Both close with
+exit 0; GL stderr is empty and native has only its existing chrome diagnostic.
+Exact binary hashes and scoped observations are in language-badges-repair-evidence.json
+and language-badges-native-evidence.json. Formatting, strict lint, unit checks,
+all 16 explicitly enabled native tests, release build, fixture hashes and
+traceability pass. Pixel/name equivalence, context-loss/resume, lifecycle stress
+and current macOS/Linux runtime remain open. Nothing was published.
+
 Actual Windows accessibility labels at 7622217 verify audio and both subtitle
 language lists, but closing exits 101: a teardown property update re-enters
 Slint's mutable window borrow. Original diagnostic evidence is retained in

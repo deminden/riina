@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "source_commit": "3b81c9d8fbdf49a0adbcb910ed6bdd14eac151eb",
+  "binary_sha256": "8a67de177c3983ddc44cff7b76563e178d7c430a896f7298290b570d935a7d94",
+  "platform": "Windows 11 x64",
+  "renderer": "experimental gpu-next D3D11 native video",
+  "observations": [
+    {
+      "action": "subtitle-panel",
+      "lines": [
+        "\t\t\t12 button Playlist",
+        "\t\t\t47 button English captions (subrip)",
+        "\t\t\t\t48 text English captions (subrip)",
+        "\t\t\t\t49 text English",
+        "\t\t\t50 button German captions (subrip)",
+        "\t\t\t\t51 text German captions (subrip)",
+        "\t\t\t\t52 text German",
+        "\t\t\t53 button French captions (subrip)",
+        "\t\t\t\t54 text French captions (subrip)",
+        "\t\t\t\t55 text French",
+        "\t\t\t56 button Traditional Chinese captions (subrip)",
+        "\t\t\t\t57 text Traditional Chinese captions (subrip)",
+        "\t\t\t\t58 text Chinese (Traditional)",
+        "\t\t\t59 button Brazilian Portuguese captions (subrip)",
+        "\t\t\t\t60 text Brazilian Portuguese captions (subrip)",
+        "\t\t\t\t61 text Portuguese (Brazil)",
+        "\t\t\t62 button Unspecified captions (subrip)",
+        "\t\t\t\t63 text Unspecified captions (subrip)",
+        "\t\t\t64 button Unknown captions (subrip)",
+        "\t\t\t\t65 text Unknown captions (subrip)",
+        "\t\t\t\t66 text qzz",
+        "\t\t\t72 button Secondary subtitle: English captions (subrip)",
+        "\t\t\t\t73 text English captions (subrip)",
+        "\t\t\t\t74 text English",
+        "\t\t\t75 button Secondary subtitle: German captions (subrip)",
+        "\t\t\t\t76 text German captions (subrip)",
+        "\t\t\t\t77 text German",
+        "\t\t\t78 button Secondary subtitle: French captions (subrip)",
+        "\t\t\t\t79 text French captions (subrip)",
+        "\t\t\t\t80 text French",
+        "\t\t\t81 button Secondary subtitle: Traditional Chinese captions (subrip)",
+        "\t\t\t\t82 text Traditional Chinese captions (subrip)",
+        "\t\t\t\t83 text Chinese (Traditional)",
+        "\t\t\t84 button Secondary subtitle: Brazilian Portuguese captions (subrip)",
+        "\t\t\t\t85 text Brazilian Portuguese captions (subrip)",
+        "\t\t\t\t86 text Portuguese (Brazil)",
+        "\t\t\t87 button Secondary subtitle: Unspecified captions (subrip)",
+        "\t\t\t\t88 text Unspecified captions (subrip)",
+        "\t\t\t89 button Secondary subtitle: Unknown captions (subrip)",
+        "\t\t\t\t90 text Unknown captions (subrip)",
+        "\t\t\t\t91 text qzz",
+        "\t\t\t18 button Play",
+        "\t\t\t24 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "audio-panel",
+      "lines": [
+        "\t\t\t12 button Playlist",
+        "\t\t\t100 button Original tone (pcm_s16le, 2ch, 48kHz, Default)",
+        "\t\t\t\t101 text Original tone (pcm_s16le, 2ch, 48kHz, Default)",
+        "\t\t\t\t102 text English",
+        "\t\t\t18 button Play",
+        "\t\t\t24 slider (settable, float) Volume Value: 37"
+      ]
+    }
+  ],
+  "exit_code": 0,
+  "stderr_bytes": 74,
+  "stderr_diagnostic": "Native chrome: scale=3, client=2880x1800 physical, layout=960x600 logical",
+  "limitations": [
+    "Accessibility labels and ordinary close only; no pixel or macOS name comparison.",
+    "No native pointer selection or displayed subtitle verification in this sequence.",
+    "Native video is experimental; this does not verify HDR output or other OS support."
+  ]
+}

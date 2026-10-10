@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "source_commit": "3b81c9d8fbdf49a0adbcb910ed6bdd14eac151eb",
+  "binary_sha256": "8a67de177c3983ddc44cff7b76563e178d7c430a896f7298290b570d935a7d94",
+  "platform": "Windows 11 x64",
+  "renderer": "shared OpenGL",
+  "observations": [
+    {
+      "action": "subtitle-panel",
+      "lines": [
+        "\t\t46 button Playlist",
+        "\t\t74 button English captions (subrip)",
+        "\t\t\t75 text English captions (subrip)",
+        "\t\t\t76 text English",
+        "\t\t77 button German captions (subrip)",
+        "\t\t\t78 text German captions (subrip)",
+        "\t\t\t79 text German",
+        "\t\t80 button French captions (subrip)",
+        "\t\t\t81 text French captions (subrip)",
+        "\t\t\t82 text French",
+        "\t\t83 button Traditional Chinese captions (subrip)",
+        "\t\t\t84 text Traditional Chinese captions (subrip)",
+        "\t\t\t85 text Chinese (Traditional)",
+        "\t\t86 button Brazilian Portuguese captions (subrip)",
+        "\t\t\t87 text Brazilian Portuguese captions (subrip)",
+        "\t\t\t88 text Portuguese (Brazil)",
+        "\t\t89 button Unspecified captions (subrip)",
+        "\t\t\t90 text Unspecified captions (subrip)",
+        "\t\t91 button Unknown captions (subrip)",
+        "\t\t\t92 text Unknown captions (subrip)",
+        "\t\t\t93 text qzz",
+        "\t\t99 button Secondary subtitle: English captions (subrip)",
+        "\t\t\t100 text English captions (subrip)",
+        "\t\t\t101 text English",
+        "\t\t102 button Secondary subtitle: German captions (subrip)",
+        "\t\t\t103 text German captions (subrip)",
+        "\t\t\t104 text German",
+        "\t\t105 button Secondary subtitle: French captions (subrip)",
+        "\t\t\t106 text French captions (subrip)",
+        "\t\t\t107 text French",
+        "\t\t108 button Secondary subtitle: Traditional Chinese captions (subrip)",
+        "\t\t\t109 text Traditional Chinese captions (subrip)",
+        "\t\t\t110 text Chinese (Traditional)",
+        "\t\t111 button Secondary subtitle: Brazilian Portuguese captions (subrip)",
+        "\t\t\t112 text Brazilian Portuguese captions (subrip)",
+        "\t\t\t113 text Portuguese (Brazil)",
+        "\t\t114 button Secondary subtitle: Unspecified captions (subrip)",
+        "\t\t\t115 text Unspecified captions (subrip)",
+        "\t\t116 button Secondary subtitle: Unknown captions (subrip)",
+        "\t\t\t117 text Unknown captions (subrip)",
+        "\t\t\t118 text qzz",
+        "\t\t52 button Play",
+        "\t\t58 slider (settable, float) Volume Value: 37"
+      ]
+    },
+    {
+      "action": "audio-panel",
+      "lines": [
+        "\t\t46 button Playlist",
+        "\t\t127 button Original tone (pcm_s16le, 2ch, 48kHz, Default)",
+        "\t\t\t128 text Original tone (pcm_s16le, 2ch, 48kHz, Default)",
+        "\t\t\t129 text English",
+        "\t\t52 button Play",
+        "\t\t58 slider (settable, float) Volume Value: 37"
+      ]
+    }
+  ],
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Accessibility labels and normal close only; no pixel or macOS name comparison.",
+    "Context loss/resume and repeated lifecycle stress remain unverified.",
+    "Pointer geometry was unavailable in the preceding test."
+  ]
+}

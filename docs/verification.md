@@ -2,6 +2,19 @@
 
 ## Localized track badges · 2026-10-10
 
+Repaired source 3b81c9d is verified in both Windows application routes: shared
+OpenGL and experimental native gpu-next/D3D11 expose the same readable audio,
+primary and secondary subtitle language labels. Both retain Play and volume 37
+and close normally with exit 0; shared GL stderr is empty and native stderr has
+only its existing chrome-size diagnostic. Exact binary hashes and scoped AX
+observations are in language-badges-repair-evidence.json and
+language-badges-native-evidence.json under tests/visual. Formatting, strict lint,
+all workspace unit checks, all 16 explicitly enabled native tests, optimized
+Windows build, 11 fixture hashes and traceability checks pass. This proves the
+tested normal-close repair, not context-loss/resume or repeated shutdown stress.
+Rendered geometry, punctuation/extension equivalence and macOS/Linux application
+runtime remain open. Work is committed locally; nothing was published.
+
 Initial default-OpenGL GUI run at 7622217 exposes English/German/French,
 Chinese (Traditional), Portuguese (Brazil) and unknown qzz badges in both
 subtitle lists, plus English for the audio track; unspecified language has no
@@ -29,7 +42,8 @@ is absent in the observed catalog. German primary and Traditional Chinese
 secondary selections coexist while paused, with all title/language metadata
 unchanged and no playback error. This does not prove displayed subtitle text,
 badge geometry, other OS runtime or a pixel comparison. GUI verification remains
-pending until recorded separately. No public update was made.
+limited to the label and ordinary-close observations recorded above. No public
+update was made.
 
 Normal-playback diagnostic removal: formatting, strict workspace Clippy and the
 optimized Windows application build pass. Actual default-GL accessibility state
