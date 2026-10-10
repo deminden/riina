@@ -8,6 +8,66 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies viewport option acceptance and playback isolation"]
+fn picture_viewport_preserves_pause_volume_and_source_geometry() {
+    use riina_core::{crop_geometry::Projection, video_viewport::Viewport};
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.video.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    let paused = wait_for(&receiver, |state| state.paused);
+    player.send(Command::Volume(37.0)).unwrap();
+    wait_for(&receiver, |state| state.volume == 37.0);
+    for (index, size) in [(960.0, 600.0), (520.0, 300.0)].into_iter().enumerate() {
+        let picture = Projection::interactive(paused.video.as_ref().unwrap(), size)
+            .unwrap()
+            .content();
+        player
+            .send(Command::VideoViewport(Some(
+                Viewport::new(size, picture).unwrap(),
+            )))
+            .unwrap();
+        let speed = 1.25 + index as f64 * 0.25;
+        // A distinct observed property follows all four queued margin setters.
+        player.send(Command::Speed(speed)).unwrap();
+        let state = wait_for(&receiver, |state| state.speed == speed);
+        assert!(state.paused);
+        assert_eq!(state.volume, 37.0);
+        assert_eq!(
+            state.video.as_ref().map(|video| (video.w, video.h)),
+            Some((320, 180))
+        );
+        assert_eq!(
+            state.completed_navigation_seeks,
+            paused.completed_navigation_seeks
+        );
+        assert_eq!(state.error, None);
+    }
+    player.send(Command::VideoViewport(None)).unwrap();
+    player.send(Command::Speed(1.0)).unwrap();
+    let reset = wait_for(&receiver, |state| state.speed == 1.0);
+    assert!(reset.paused);
+    assert_eq!(reset.volume, 37.0);
+    assert_eq!(reset.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies managed crop replacement and source geometry"]
 fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     use riina_core::crop::{FILTER_LABEL, Preset};

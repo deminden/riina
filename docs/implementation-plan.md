@@ -20,9 +20,10 @@ Next presentation work must resize the video area on both presentation routes
 and use the source/display mapping for the editor overlay.
 Use Projection::interactive for the reserved, top-anchored picture geometry;
 it is regression-tested and connected to the shared OpenGL picture/overlay.
-Wire the native window route to the same bounds, then verify both routes and
-verify shadow pixels. The shared OpenGL route has the reference shadow's numeric
-parameters; current native geometry remains full-area without that shadow.
+Both routes now use the same bounds through shared render dimensions or native
+video margins. Verify actual native placement, resize, exit and source retirement;
+headless margin acceptance does not prove window pixels. The shared OpenGL route
+has the reference shadow's numeric parameters; native shadow remains unwired.
 The portable crop_geometry projection now maps source rectangles and pointer
 drags through contain-fit content and quarter turns, with observed source display
 parameters covered natively. Geometry is now wired to the selection overlay;

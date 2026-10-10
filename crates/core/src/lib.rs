@@ -10,6 +10,7 @@ pub mod subtitle_color;
 pub mod subtitle_controls;
 mod track_labels;
 pub mod video_controls;
+pub mod video_viewport;
 
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +39,7 @@ pub enum Command {
     VideoRotation(video_controls::Rotation),
     VideoCrop(Option<crop::Preset>),
     VideoCropRectangle(crop::Rectangle),
+    VideoViewport(Option<video_viewport::Viewport>),
     EnterCrop(crop_session::Session),
     ExitCrop {
         session: crop_session::Session,
@@ -289,6 +291,7 @@ impl Command {
             Self::OpenFiles(_)
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
+            | Self::VideoViewport(_)
             | Self::EnterCrop(_)
             | Self::ExitCrop { .. }
             | Self::AdjustVolume { .. }
@@ -310,6 +313,7 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::VideoViewport(viewport) => video_viewport::Viewport::commands(*viewport),
             Self::EnterCrop(session) => session.enter_commands(state)?,
             Self::ExitCrop { session, rectangle } => session.exit_commands(state, *rectangle)?,
             Self::VideoCropRectangle(rectangle) => {

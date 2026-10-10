@@ -3,8 +3,9 @@ use crate::PlayerWindow;
 use riina_core::{
     Command, Playback,
     crop_drag::{Drag, Edge},
-    crop_geometry::{DisplayRect, Point, Projection, SourceRect},
+    crop_geometry::{Point, Projection, SourceRect},
     crop_session::Session,
+    video_viewport::Viewport,
 };
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
@@ -19,6 +20,8 @@ struct Data {
     session: Option<Session>,
     rectangle: Option<SourceRect>,
     drag: Option<Drag>,
+    sender: Option<CommandSender>,
+    viewport: Option<Option<Viewport>>,
 }
 
 #[derive(Clone, Default)]
@@ -48,23 +51,12 @@ impl Editor {
             .as_ref()
             .and_then(|state| state.video.as_ref())
             .ok_or("Source video is unavailable")?;
-        if !app.get_native_video() {
-            return Projection::interactive(
-                video,
-                (
-                    f64::from(app.get_video_width()),
-                    f64::from(app.get_video_height()),
-                ),
-            );
-        }
-        Projection::for_video(
+        Projection::interactive(
             video,
-            DisplayRect {
-                x: 0.0,
-                y: 0.0,
-                width: f64::from(app.get_video_width()),
-                height: f64::from(app.get_video_height()),
-            },
+            (
+                f64::from(app.get_video_width()),
+                f64::from(app.get_video_height()),
+            ),
         )
     }
 
@@ -103,6 +95,34 @@ impl Editor {
         }
         app.set_crop_editing(editing);
         app.set_crop_ready(ready && screen.is_some());
+        if app.get_native_video() {
+            let viewport = if editing {
+                content.and_then(|content| {
+                    Viewport::new(
+                        (
+                            f64::from(app.get_video_width()),
+                            f64::from(app.get_video_height()),
+                        ),
+                        content,
+                    )
+                    .ok()
+                })
+            } else {
+                None
+            };
+            let mut data = self.0.lock().expect("Crop editor state is available");
+            if data.viewport != Some(viewport)
+                && let Some(sender) = data.sender.as_ref()
+            {
+                match sender.send(Command::VideoViewport(viewport)) {
+                    Ok(()) => data.viewport = Some(viewport),
+                    Err(error) => {
+                        drop(data);
+                        app.set_status(error.into());
+                    }
+                }
+            }
+        }
         if exiting {
             app.invoke_focus_player();
         }
@@ -194,6 +214,10 @@ impl Editor {
     }
 
     pub fn install(&self, app: &PlayerWindow, sender: CommandSender) {
+        self.0
+            .lock()
+            .expect("Crop editor state is available")
+            .sender = Some(sender.clone());
         let editor = self.clone();
         let weak = app.as_weak();
         let begin_sender = sender.clone();

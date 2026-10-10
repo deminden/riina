@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Native crop editing now queues four normalized video margins from the same
+interactive picture projection used by the shared renderer/selection overlay.
+Viewport changes update margins; ending or retiring the editor queues zero
+margins. Portable validation rejects invalid/out-of-window rectangles and keeps
+DPI out of the ratios. A new native test passes for margin application, resize
+and reset command acceptance, preserving pause, volume, raw source dimensions
+and navigation counters. This is headless option acceptance, not native-window
+pixel or lifecycle proof. Workspace unit tests, strict lint and formatting pass.
+Native shadow, actual alignment/input and current other OS runtime remain open;
+no GUI test and no public update.
+Optimized Windows build passes in 36.62 seconds.
+
 Shared OpenGL crop mode now draws a shadow behind the padded picture, with
 10-point blur, black at approximately 50% alpha and zero offset, matching the
 pinned reference's explicit parameters and NSShadow initialization defaults
