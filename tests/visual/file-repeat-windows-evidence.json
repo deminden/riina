@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-10T00:31:14.548Z",
+  "platform": "Windows",
+  "baseline": "IINA v1.5.0",
+  "source_base_commit": "4fa30ffb5e1540193965b65b577d9c4c6d613624",
+  "source_state": "base plus native file repeat shortcut and integration test",
+  "source_hash_format": "UTF-8 LF matching Git canonical bytes",
+  "source_sha256": {
+    "crates/core/src/lib.rs": "0cf3e0ae6c3df878158071fd251aaaf732f89838657ef250788cd02280b1ec45",
+    "crates/app/src/player_ui.rs": "c29f8ba10a39ce7f9233671be16b7b764e397d92c719baaf19e01dc9d70aaf9b",
+    "crates/app/ui/player.slint": "a0e2badc1fa7df72d3ca654ca5cf7ed22cfe10e339a9aca948cb3e7755a048d9",
+    "crates/mpv/tests/native.rs": "fcdbb526077e65d75498e0d3693ee324e182db2567911a162d91445c3bbc071a"
+  },
+  "binary_sha256": "e8d680b5e3ec9933d7a9749ba7efd7fc61c6db07cd2d0e6594f4b5d2f98ba51a",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "method": "computer-use @oai/sky keyboard and text accessibility",
+  "observations": [
+    {
+      "action": "open-playlist-observe-repeat-off",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t39 text Playlist\n\t\t40 button Close sidebar\n\t\t\t41 image\n\t\t42 button catalog.mkv\n\t\t\t43 text catalog.mkv\n\t\t44 button Add files to playlist\n\t\t\t45 image\n\t\t46 button (disabled) Remove selected playlist entry\n\t\t\t47 text −\n\t\t48 button (disabled) Move selected entry up\n\t\t\t49 text ↑\n\t\t50 button (disabled) Move selected entry down\n\t\t\t51 text ↓\n\t\t52 button Clear playlist except current file\n\t\t\t53 text ⌫\n\t\t54 button Cycle repeat: Off\n\t\t\t55 text ↻\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:02\n\t\t35 slider (settable, float) Playback position Value: 2\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 2."
+    },
+    {
+      "action": "Control+Shift+l enables file repeat with timeline focus",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t39 text Playlist\n\t\t40 button Close sidebar\n\t\t\t41 image\n\t\t42 button catalog.mkv\n\t\t\t43 text catalog.mkv\n\t\t44 button Add files to playlist\n\t\t\t45 image\n\t\t46 button (disabled) Remove selected playlist entry\n\t\t\t47 text −\n\t\t48 button (disabled) Move selected entry up\n\t\t\t49 text ↑\n\t\t50 button (disabled) Move selected entry down\n\t\t\t51 text ↓\n\t\t52 button Clear playlist except current file\n\t\t\t53 text ⌫\n\t\t54 button Cycle repeat: File\n\t\t\t55 text ↻₁\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:02\n\t\t35 slider (settable, float) Playback position Value: 2\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 2."
+    },
+    {
+      "action": "Control+Shift+l disables file repeat with timeline focus",
+      "tree": "Window: \"riina\", App: riina.exe.\n\t0 window riina Secondary Actions: Raise\n\t\t1 title bar (settable, string) Value: riina\n\t\t\t2 menu bar System ID: MenuBar\n\t\t\t\t3 menu item System\n\t\t\t4 button Minimise\n\t\t\t5 button Maximise\n\t\t\t6 button Close\n\t\t7 image\n\t\t8 button Open file\n\t\t\t9 image\n\t\t10 text catalog.mkv\n\t\t11 button Audio tracks\n\t\t\t12 image\n\t\t13 button Subtitle tracks\n\t\t\t14 text CC\n\t\t15 button Chapters\n\t\t\t16 image\n\t\t17 button Playlist\n\t\t\t18 image\n\t\t19 button Fullscreen\n\t\t\t20 image\n\t\t39 text Playlist\n\t\t40 button Close sidebar\n\t\t\t41 image\n\t\t42 button catalog.mkv\n\t\t\t43 text catalog.mkv\n\t\t44 button Add files to playlist\n\t\t\t45 image\n\t\t46 button (disabled) Remove selected playlist entry\n\t\t\t47 text −\n\t\t48 button (disabled) Move selected entry up\n\t\t\t49 text ↑\n\t\t50 button (disabled) Move selected entry down\n\t\t\t51 text ↓\n\t\t52 button Clear playlist except current file\n\t\t\t53 text ⌫\n\t\t54 button Cycle repeat: Off\n\t\t\t55 text ↻\n\t\t21 button Half playback speed\n\t\t\t22 image\n\t\t23 button Play\n\t\t\t24 image\n\t\t25 button Double playback speed\n\t\t\t26 image\n\t\t27 button Mute\n\t\t\t28 image\n\t\t29 slider (settable, float) Volume Value: 37\n\t\t30 button Stop\n\t\t\t31 image\n\t\t32 button Fullscreen\n\t\t\t33 image\n\t\t34 text 0:02\n\t\t35 slider (settable, float) Playback position Value: 2\n\t\t36 text 0:05\n\nThe focused UI element is 35 slider (settable, float) Playback position Value: 2."
+    }
+  ],
+  "shutdown_window_count": 0,
+  "limitations": [
+    "No rendered screenshot or pixel comparison",
+    "Actual playback wrap verified separately by native integration test",
+    "No macOS/Linux runtime",
+    "No visual repeat OSD verification",
+    "Other keyboard layouts unverified"
+  ]
+}

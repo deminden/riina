@@ -41,6 +41,7 @@ pub enum Command {
     SubtitleSeek(i32),
     ToggleSubtitleVisibility,
     CycleLoop,
+    ToggleFileLoop,
     CycleAbLoop,
     SetAbLoop { a: Option<f64>, b: Option<f64> },
     Shutdown,
@@ -141,6 +142,16 @@ impl Command {
                 vec!["sub-seek".into(), skip.to_string()]
             }
             Self::CycleAbLoop => vec!["ab-loop".into()],
+            Self::ToggleFileLoop => {
+                // This shortcut changes only file repeat; a playlist repeat
+                // setting survives while file repeat temporarily takes priority.
+                vec![
+                    "cycle-values".into(),
+                    "loop-file".into(),
+                    "inf".into(),
+                    "no".into(),
+                ]
+            }
             Self::OpenFiles(_)
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)

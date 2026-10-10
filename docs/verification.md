@@ -629,3 +629,27 @@ tests/visual/chapter-shortcut-windows-evidence.json. The app closes with no
 remaining window or process. No screenshot/pixel comparison was attempted in
 this check. Last-chapter/playlist transition, backward behavior beyond the
 five-second threshold, other keyboard layouts and other-OS runtime are pending.
+
+## File repeat shortcut and actual playback wrapping · 2026-10-10
+
+The pinned default Shift+Meta+L command cycles file repeat between infinite
+and off, leaving playlist repeat alone. The shared typed intent uses native
+`cycle-values loop-file inf no`; macOS uses Command and Windows/Linux use
+Control for the primary modifier. Plain primary+L remains the A–B loop action.
+
+The explicit Windows native test enables playlist repeat, toggles file repeat
+on, seeks to 4.8 seconds in the five-second fixture and resumes. It observes
+playback wrap below half a second without changing media generation, with both
+repeat properties still infinite and no error. After pausing, toggling file
+repeat off leaves playlist repeat infinite and restores its effective mode.
+It then clears playlist repeat and tests file-only on/off transitions while
+paused. All nine native tests pass in 9.28 seconds, with 24 workspace unit tests,
+strict lint, formatting and the release build.
+
+Actual Windows Control+Shift+L inputs with the timeline focused change the
+accessible repeat control Off → File → Off. Position remains two seconds and
+the Play button retains its paused indication. The three observations and exact
+binary/canonical source hashes are recorded in
+tests/visual/file-repeat-windows-evidence.json. The app closes with no remaining
+window or process. This check has no screenshot or pixel comparison; repeat
+OSD, rendering, alternate layouts and macOS/Linux runtime remain unverified.

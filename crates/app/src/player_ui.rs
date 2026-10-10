@@ -385,6 +385,7 @@ pub(crate) fn configure_player(
         }
     });
     connect!(on_cycle_ab_loop, Command::CycleAbLoop);
+    connect!(on_toggle_file_loop, Command::ToggleFileLoop);
     connect!(
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility

@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local file-repeat increment: Shift+Command+L (macOS) / Shift+Control+L
+(Windows/Linux) toggles only current-file repeat. Native integration verifies
+actual EOF-to-start playback wrapping, file-repeat priority when both modes
+are enabled, retention of playlist repeat when file repeat is removed, and
+file-only on/off toggling without resuming pause. All nine Windows native tests
+pass (9.28 seconds), with 24 unit tests, strict lint and the release build.
+Windows keyboard/accessibility observations verify Off → File → Off with
+timeline focus and unchanged paused position. Rendered feedback, repeat OSD,
+other keyboard layouts and other-OS runtime remain pending. Evidence is in
+tests/visual/file-repeat-windows-evidence.json. No public update was made.
+
 Local chapter increment: Shift+primary+> / < invoke native relative chapter
 navigation; Shift+primary+C / P toggle the chapter and playlist panels. Primary
 is Command on macOS and Control on Windows/Linux. Eight Windows native tests

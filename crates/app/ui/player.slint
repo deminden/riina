@@ -165,6 +165,7 @@ export component PlayerWindow inherits Window {
     callback activity();
     callback show-seek-osd();
     callback cycle-ab-loop();
+    callback toggle-file-loop();
     callback select-item(int, string);
     callback browse-files(int);
     callback set-delay(int, float);
@@ -350,6 +351,7 @@ export component PlayerWindow inherits Window {
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
                 if event.modifiers.shift {
                     if event.modifiers.alt { return reject; }
+                    if event.text == "L" { root.toggle-file-loop(); return accept; }
                     if event.text == ">" { root.adjust-chapter(1); return accept; }
                     if event.text == "<" { root.adjust-chapter(-1); return accept; }
                     if event.text == "C" { root.sidebar = root.sidebar == 3 ? 0 : 3; return accept; }

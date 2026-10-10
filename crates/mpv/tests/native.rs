@@ -28,6 +28,91 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies file repeat playback and independent playlist repeat"]
+fn file_repeat_wraps_and_preserves_playlist_repeat() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
+    });
+    player.send(Command::TogglePause).unwrap();
+    let paused = wait_for(&receiver, |state| state.paused);
+    player.send(Command::CycleLoop).unwrap();
+    wait_for(&receiver, |state| state.loop_file.as_deref() == Some("inf"));
+    player.send(Command::CycleLoop).unwrap();
+    let playlist_repeat = wait_for(&receiver, |state| {
+        state.loop_file.as_deref() == Some("no") && state.loop_playlist.as_deref() == Some("inf")
+    });
+    assert!(playlist_repeat.paused);
+    player.send(Command::ToggleFileLoop).unwrap();
+    let both = wait_for(&receiver, |state| {
+        state.loop_file.as_deref() == Some("inf") && state.loop_playlist.as_deref() == Some("inf")
+    });
+    assert!(both.paused);
+    assert_eq!(both.loop_mode(), riina_core::LoopMode::File);
+    player
+        .send(Command::Seek {
+            seconds: 4.8,
+            absolute: true,
+        })
+        .unwrap();
+    let near_end = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > paused.completed_seeks
+            && state.position.is_some_and(|p| (4.75..4.95).contains(&p))
+    });
+    player.send(Command::TogglePause).unwrap();
+    let wrapped = wait_for(&receiver, |state| {
+        !state.paused
+            && state.phase == Phase::Playing
+            && state.position.is_some_and(|p| p < 0.5)
+            && state.generation == near_end.generation
+    });
+    assert_eq!(wrapped.error, None);
+    assert_eq!(wrapped.loop_file.as_deref(), Some("inf"));
+    assert_eq!(wrapped.loop_playlist.as_deref(), Some("inf"));
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player.send(Command::ToggleFileLoop).unwrap();
+    let file_off = wait_for(&receiver, |state| {
+        state.loop_file.as_deref() == Some("no") && state.loop_playlist.as_deref() == Some("inf")
+    });
+    assert!(file_off.paused);
+    assert_eq!(file_off.loop_mode(), riina_core::LoopMode::Playlist);
+    assert_eq!(file_off.error, None);
+    player.send(Command::CycleLoop).unwrap();
+    wait_for(&receiver, |state| {
+        state.loop_mode() == riina_core::LoopMode::Off
+    });
+    player.send(Command::ToggleFileLoop).unwrap();
+    let file_only = wait_for(&receiver, |state| {
+        state.loop_file.as_deref() == Some("inf") && state.loop_playlist.as_deref() == Some("no")
+    });
+    assert!(file_only.paused);
+    player.send(Command::ToggleFileLoop).unwrap();
+    let all_off = wait_for(&receiver, |state| {
+        state.loop_file.as_deref() == Some("no") && state.loop_playlist.as_deref() == Some("no")
+    });
+    assert!(all_off.paused);
+    assert_eq!(all_off.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies A–B point cycling and actual loop playback"]
 fn ab_repeat_observes_points_and_wraps_playback() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
