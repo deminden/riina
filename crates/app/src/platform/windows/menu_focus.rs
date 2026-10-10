@@ -27,6 +27,7 @@ struct MenuContext {
     app: slint::Weak<PlayerWindow>,
     active: Rc<Cell<bool>>,
     generation: Cell<usize>,
+    enter_message: u32,
     restore_message: u32,
 }
 
@@ -45,13 +46,16 @@ impl MenuFocus {
         // SAFETY: registration reads a static, null-terminated string.
         let restore_message =
             unsafe { RegisterWindowMessageW(w!("riina.native-menu.restore-focus")) };
-        if restore_message == 0 {
+        // SAFETY: registration reads a static, null-terminated string.
+        let enter_message = unsafe { RegisterWindowMessageW(w!("riina.native-menu.enter")) };
+        if restore_message == 0 || enter_message == 0 {
             return Err("Native menu focus message could not be registered".into());
         }
         let context = Box::new(MenuContext {
             app,
             active,
             generation: Cell::new(0),
+            enter_message,
             restore_message,
         });
         let pointer = (&*context as *const MenuContext) as usize;
@@ -82,16 +86,14 @@ impl Drop for MenuFocus {
 }
 
 pub(super) fn request(handle: isize) -> windows::core::Result<()> {
+    // SAFETY: repeated registration of the same static name returns the same ID.
+    let message = unsafe { RegisterWindowMessageW(w!("riina.native-menu.enter")) };
+    if message == 0 {
+        return Err(windows::core::Error::from_win32());
+    }
     // SAFETY: the caller retains the owner on this UI thread. Queue entry after
     // the current key-up instead of nesting the menu loop in a Slint callback.
-    unsafe {
-        PostMessageW(
-            Some(HWND(handle as *mut _)),
-            WM_SYSCOMMAND,
-            WPARAM(SC_KEYMENU as usize),
-            LPARAM(0),
-        )
-    }
+    unsafe { PostMessageW(Some(HWND(handle as *mut _)), message, WPARAM(0), LPARAM(0)) }
 }
 
 pub(super) fn focus_chrome(window: &slint::Window) {
@@ -128,14 +130,38 @@ unsafe extern "system" fn menu_proc(
             return LRESULT(0);
         }
     }
-    if message == WM_SYSCOMMAND && wparam.0 & 0xfff0 == SC_KEYMENU as usize {
+    if message == context.enter_message {
         context.active.set(true);
+        context
+            .generation
+            .set(context.generation.get().wrapping_add(1));
         // Keyboard focus alone can leave the owned popup active. Windows needs
         // the framed menu owner active before processing its system command.
         // SAFETY: this owner belongs to the current thread and subclass chain.
         let _ = unsafe { SetActiveWindow(hwnd) };
         // SAFETY: activation retains the same live owner.
         let _ = unsafe { SetFocus(Some(hwnd)) };
+        // Queue the system command after owner activation has fully unwound.
+        // SAFETY: the subclass retains this owner on the UI thread.
+        if unsafe {
+            PostMessageW(
+                Some(hwnd),
+                WM_SYSCOMMAND,
+                WPARAM(SC_KEYMENU as usize),
+                LPARAM(0),
+            )
+        }
+        .is_err()
+        {
+            context.active.set(false);
+            if let Some(app) = context.app.upgrade() {
+                focus_chrome(app.window());
+            }
+        }
+        return LRESULT(0);
+    }
+    if message == WM_SYSCOMMAND && wparam.0 & 0xfff0 == SC_KEYMENU as usize {
+        context.active.set(true);
     }
     if message == WM_ENTERMENULOOP {
         context.active.set(true);

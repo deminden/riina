@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Owner activation inside SC_KEYMENU still left first F10 on the owner
+(source 9c04399, binary
+61f0489a7e180e0cd19336e6378fce0e1276f2687e044090e9537d0d92efac16).
+Return did not open Video; close returned 0. Activation and menu entry are now
+separate queued Windows messages, allowing activation to finish before the
+system command. The entry generation invalidates older queued recoveries.
+Strict lint passes; revised entry/recovery verification is pending. Nothing
+published.
+
 Direct owner F10 routing still required another press in the runtime check
 (source e9c576e, binary
 211d844f8b39ef5ed21d53b1a3d6eca5861ab971ffabafa8ec2d0e6cf9c8b506).
