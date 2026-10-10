@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local font chooser runtime retest on 8f86c69: Windows filtering to Arial leaves
+one family; keyboard family focus fills five face rows and updates the draft.
+A no-match filter clears both lists. Escape closes the chooser, restores button
+focus and leaves sans-serif unchanged. Custom-entry Enter commits monospace;
+reopening shows that observed name, and clearing/Enter restores sans-serif.
+Size 55, pause and volume 37 remain unchanged. Scoped evidence and exact binary
+hash: tests/visual/font-picker-edit-windows-evidence.json. Release build passes.
+This tests control routing, not loaded subtitle rendering or preview glyphs.
+Individual face choice, OK button, native ownership/modality, localized sorting,
+pixel parity and other OS runtime remain open. Nothing was published.
+
 Local font chooser keyboard/selection follow-up: Escape now invokes Cancel
 through the chooser focus scope. Family and face current indices are explicitly
 cleared before a filtered model replacement, so an old numeric row cannot stay
