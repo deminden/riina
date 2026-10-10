@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Local secondary positioning increment: typed native secondary position accepts
+finite values from zero to 150 and observes an optional validated position.
+The two-lane SRT test verifies positions 25, zero, 150 and 100 while retaining
+primary position, primary delay/selection, secondary delay and pause without
+native errors. All eleven native tests pass (10.19 seconds), with 24 unit tests
+and strict lint. Positioning UI, rendered geometry and other-OS runtime remain
+pending; work remains local.
+
 Local secondary timing increment: typed absolute secondary delay and optional
 native observation are implemented. A real two-lane SRT test applies one second
 of secondary delay and observes the primary second cue alongside the secondary

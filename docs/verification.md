@@ -735,3 +735,15 @@ seconds restore the aligned first cues before the visibility tests continue.
 All eleven explicit Windows native tests pass in 10.20 seconds; all 24 unit
 tests, strict lint and formatting pass. Secondary timing UI, visual rendering
 and macOS/Linux runtime remain unverified. No public update was made.
+
+## Independent secondary position · 2026-10-10
+
+A typed secondary position setter validates finite values in the native zero
+to 150 range before submission. Optional native observations clear unavailable,
+nonfinite or out-of-range values. The two-lane subtitle test changes secondary
+position to 25, zero, 150 and 100 while its delay remains one second. Each
+observed transition retains primary position, primary delay and selection,
+secondary delay and pause with no native error. All eleven explicit native
+tests pass in 10.19 seconds; 24 unit tests, strict lint and formatting pass.
+This proves independent property handling, not rendered placement. Shared UI
+position controls, actual visual geometry and macOS/Linux runtime remain open.

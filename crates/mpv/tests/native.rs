@@ -220,6 +220,23 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     assert_eq!(shifted.subtitle_delay, both.subtitle_delay);
     assert_eq!(selected_track(&shifted, TrackKind::Sub), Some(primary_id));
     assert_eq!(shifted.error, None);
+    for position in [25.0, 0.0, 150.0, 100.0] {
+        player
+            .send(Command::SecondarySubtitlePosition(position))
+            .unwrap();
+        let positioned = wait_for(&receiver, |state| {
+            state.secondary_subtitle_position == Some(position)
+        });
+        assert!(positioned.paused);
+        assert_eq!(positioned.subtitle_position, both.subtitle_position);
+        assert_eq!(positioned.subtitle_delay, both.subtitle_delay);
+        assert_eq!(positioned.secondary_subtitle_delay, Some(1.0));
+        assert_eq!(
+            selected_track(&positioned, TrackKind::Sub),
+            Some(primary_id)
+        );
+        assert_eq!(positioned.error, None);
+    }
     player.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
     player
         .send(Command::Seek {
