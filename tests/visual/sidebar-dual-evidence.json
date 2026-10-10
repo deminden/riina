@@ -1,0 +1,36 @@
+{
+  "implementation_commit": "3cefe0e0768a3558475da71470a660de50f28595",
+  "upstream_commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+  "release_sha256": "5050421d5869ab85752101edd5f29ac395e9fbd2a6ecac66d477e13788adb496",
+  "backend": "shared GL on Windows",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "state": "paused at 0:00; default volume 100; boost disabled",
+  "profile_locator": "tools/interface-capture-profile.txt (private local record)",
+  "private_capture": {
+    "path": "tests/visual/sidebar-dual-final.jpg",
+    "sha256": "2c08bee1c2b4bfe69cdce9951fc4221494fedaa297e7baedb64c6aa5d6f34bf5",
+    "bounded_capture_width": 962,
+    "bounded_capture_height": 649,
+    "matched_macos_reference": false
+  },
+  "observations": [
+    "Final release capture shows Playlist leading and Video settings trailing simultaneously.",
+    "Earlier build capture shows Playlist plus Audio; switching leading to Chapters preserves Audio; closing Audio preserves Chapters.",
+    "Final release: focus Audio close, Enter, then Ctrl+Shift+V successfully opens Video after returning focus to player.",
+    "Final release: Ctrl+Shift+P opens Playlist while Video remains visible; Escape removes both panels from the accessibility tree.",
+    "Both owned Windows test processes exited with code 0."
+  ],
+  "checks": {
+    "format": "passed",
+    "strict_workspace_lint": "passed",
+    "workspace_tests": "passed; native and clipboard opt-in tests were not run",
+    "optimized_windows_build": "passed"
+  },
+  "remaining": [
+    "Complete Layout pane and exact tab artwork/material/metrics.",
+    "Reference-matched captures, sidebar resize, configured sides, RTL and animations.",
+    "Non-edge-to-edge video/control allocation and complete interface inventory.",
+    "Actual crop-entry closure of both panels and macOS/Linux application runtime."
+  ],
+  "interpretation": "Floating controls remain centered over the full video container in the reference default edgeToEdgeVideo=true mode. Overlap alone is not proof of a defect; no pixel parity claim is made."
+}
