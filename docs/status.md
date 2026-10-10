@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Crop edge dragging now preserves the pointer's grab offset inside each resize
+strip. Source inspection exposed an absolute-pointer mismatch that could jump
+an edge; the portable drag model now applies deltas from the initial grab.
+Regressions cover all four edges with off-center grabs, unchanged initial
+selection and fixed opposite edges. Free reverse dragging and invalid pointers
+are also covered. The shared UI now uses four-point edge hit strips with
+top/bottom corner priority, directional resize cursors and a two-point outline.
+Workspace unit tests, strict lint and formatting pass. This is model/UI wiring
+verification; actual pointer operation, tiny/crossed edge behavior, rendered
+parity and current other OS runtime remain open. No GUI or native-suite rerun
+was performed for this change. No public update.
+Optimized Windows build passes in 37.48 seconds.
+
 The crop editor now retains continuous source coordinates for pointer selection,
 edge resizing, presets and viewport reprojection. Integer conversion is confined
 to label/confirmation boundaries, preserving truncation and source validation.

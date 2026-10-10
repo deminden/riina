@@ -48,7 +48,7 @@ export component CropEditor inherits Rectangle {
             width:parent.width; height:max(0px,parent.height - self.y); background:#00000080; }
         if root.ready : Rectangle { x:root.box-x * 1px; y:root.box-y * 1px;
             width:root.box-width * 1px; height:root.box-height * 1px;
-            border-width:1px; border-color:#168bff; background:#ffffff0a; }
+            border-width:2px; border-color:#168bff; background:#ffffff0a; }
         free := TouchArea { enabled: root.ready; mouse-cursor:crosshair;
             pointer-event(event) => {
                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { root.begin-drag(0,self.mouse-x / 1px,self.mouse-y / 1px); }
@@ -57,11 +57,11 @@ export component CropEditor inherits Rectangle {
             moved => { if self.pressed { root.preset-index = -1; root.move-drag(self.mouse-x / 1px,self.mouse-y / 1px); } }
         }
         for edge[index] in [1,2,3,4] : TouchArea {
-            enabled: root.ready; mouse-cursor:crosshair;
-            x: (edge == 1 ? root.box-x - 3 : edge == 2 ? root.box-x + root.box-width - 3 : root.box-x) * 1px;
-            y: (edge == 3 ? root.box-y - 3 : edge == 4 ? root.box-y + root.box-height - 3 : root.box-y) * 1px;
-            width: (edge <= 2 ? 6 : root.box-width) * 1px;
-            height: (edge <= 2 ? root.box-height : 6) * 1px;
+            enabled: root.ready; mouse-cursor: edge <= 2 ? ew-resize : ns-resize;
+            x: (edge == 1 ? root.box-x - 2 : edge == 2 ? root.box-x + root.box-width - 2 : root.box-x) * 1px;
+            y: (edge == 3 ? root.box-y - 2 : edge == 4 ? root.box-y + root.box-height - 2 : root.box-y + 2) * 1px;
+            width: (edge <= 2 ? 4 : root.box-width) * 1px;
+            height: (edge <= 2 ? max(0,root.box-height - 4) : 4) * 1px;
             pointer-event(event) => {
                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { root.begin-drag(edge,(self.x+self.mouse-x) / 1px,(self.y+self.mouse-y) / 1px); }
                 if event.kind == PointerEventKind.up { root.end-drag(); }

@@ -4,6 +4,9 @@ Crop next: verify free selection and edge resizing, then reproduce the reference
 video-area padding/shadow on both presentation routes. Custom... now opens the
 shared editor; presets, Done/Cancel and source selection labels have Windows
 keyboard evidence. Drag handlers exist but need actual pointer verification.
+The edge-drag model now preserves grab offset; hit strips/cursors/outline follow
+the pinned source requirements. Verify actual hit targeting, corner priority,
+edge crossing and small selections, then pointer movement on both render routes.
 Continuous source coordinates are now retained separately from the integer
 native crop/label; verify their actual overlay motion and edge dragging with
 pointer input and rendered evidence.

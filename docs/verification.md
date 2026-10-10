@@ -1,5 +1,31 @@
 # Verification record · native Windows · 2026-10-09
 
+## Crop edge pointer anchoring · 2026-10-10
+
+Pinned CropBoxView changes resize boundaries by mouse-position delta. Source
+inspection found riina instead assigned the current pointer coordinate to the
+boundary, losing the grab offset within the hit strip. Original crop_drag::Drag
+now retains the initial pointer and rectangle, computes movement deltas and
+preserves the opposite edge. The app uses this portable typed model for all
+edges and free selection. Invalid pointer values are rejected.
+
+Unit regressions start 1.5 logical units inside each strip: unchanged pointer
+keeps (30,60)-(330,220), and ten-unit movement changes only the grabbed boundary.
+Orthogonal one-unit movement leaves the other axis unchanged. Free reverse
+dragging keeps its origin and a NaN pointer fails. This reproduces the required
+geometry numerically; no runtime pointer jump was observed or claimed.
+
+The UI uses four-point hit strips centered on boundaries, with vertical strips
+excluding the two-point top/bottom corners, horizontal/vertical resize cursors,
+and a two-point outline. Requirements are from CropBoxView draw/resetCursorRects/
+updateCursorRects; Slint enum availability was checked in the pinned runtime.
+No protected source was translated or assets copied. Actual pointer hit testing,
+very small/crossed rectangles, stroke placement, native candidate and rendered
+IINA comparison remain unverified. Workspace unit tests, strict all-target lint
+and formatting pass. No GUI or explicit native-suite rerun was performed; native
+command planning and crop dispatch are unchanged.
+Optimized Windows build passes in 37.48 seconds.
+
 ## Continuous crop draft coordinates · 2026-10-10
 
 The pinned CropBoxView keeps its selection geometry continuous and the crop

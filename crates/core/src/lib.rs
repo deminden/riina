@@ -1,6 +1,7 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
 pub mod crop;
+pub mod crop_drag;
 pub mod crop_geometry;
 pub mod crop_session;
 pub mod file_selection;

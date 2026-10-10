@@ -2,6 +2,7 @@
 use crate::PlayerWindow;
 use riina_core::{
     Command, Playback,
+    crop_drag::{Drag, Edge},
     crop_geometry::{DisplayRect, Point, Projection, SourceRect},
     crop_session::Session,
 };
@@ -17,7 +18,7 @@ struct Data {
     latest: Option<Playback>,
     session: Option<Session>,
     rectangle: Option<SourceRect>,
-    drag: Option<(i32, Point, DisplayRect)>,
+    drag: Option<Drag>,
 }
 
 #[derive(Clone, Default)]
@@ -263,7 +264,15 @@ impl Editor {
                             && point.y >= content.y
                             && point.y <= content.y + content.height)
                     {
-                        data.drag = Some((kind, point, screen));
+                        let edge = match kind {
+                            0 => None,
+                            1 => Some(Edge::Left),
+                            2 => Some(Edge::Right),
+                            3 => Some(Edge::Top),
+                            4 => Some(Edge::Bottom),
+                            _ => return,
+                        };
+                        data.drag = Drag::begin(edge, point, screen).ok();
                     }
                 }
             }
@@ -274,55 +283,16 @@ impl Editor {
             if let Some(app) = weak.upgrade() {
                 {
                     let mut data = editor.0.lock().expect("Crop editor state is available");
-                    if let Some((kind, start, screen)) = data.drag
+                    if let Some(drag) = data.drag
                         && let Ok(projection) = Self::projection(&data, &app)
                     {
                         let point = Point {
                             x: f64::from(x),
                             y: f64::from(y),
                         };
-                        let left = screen.x;
-                        let top = screen.y;
-                        let right = left + screen.width;
-                        let bottom = top + screen.height;
-                        let (start, end) = match kind {
-                            1 => (
-                                Point {
-                                    x: point.x.min(right),
-                                    y: top,
-                                },
-                                Point {
-                                    x: right,
-                                    y: bottom,
-                                },
-                            ),
-                            2 => (
-                                Point { x: left, y: top },
-                                Point {
-                                    x: point.x.max(left),
-                                    y: bottom,
-                                },
-                            ),
-                            3 => (
-                                Point {
-                                    x: left,
-                                    y: point.y.min(bottom),
-                                },
-                                Point {
-                                    x: right,
-                                    y: bottom,
-                                },
-                            ),
-                            4 => (
-                                Point { x: left, y: top },
-                                Point {
-                                    x: right,
-                                    y: point.y.max(top),
-                                },
-                            ),
-                            _ => (start, point),
-                        };
-                        if let Ok(rectangle) = projection.select_continuous(start, end) {
+                        if let Ok((start, end)) = drag.points(point)
+                            && let Ok(rectangle) = projection.select_continuous(start, end)
+                        {
                             data.rectangle = Some(rectangle);
                         }
                     }
