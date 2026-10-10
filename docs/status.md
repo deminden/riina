@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Native crop window-control evidence on source d9bc274 shows Close disabled and
+Minimise/Maximise absent from the accessible title bar during editing. Return
+confirms the whole-source selection and restores all three controls enabled,
+with Play/volume 37/EOF position 5 preserved. Alt+F4 then closes with exit 0 and
+only the expected layout diagnostic. Source/binary identity and limits are in
+tests/visual/native-crop-window-controls-evidence.json. This establishes Windows
+availability/restoration, not IINA's visual disabled-button appearance. Cancel,
+source retirement, shared GL/macOS runtime, document-icon and Linux equivalents
+remain unverified. Workspace tests, strict lint, formatting and release build
+pass (43.92 seconds). Nothing published.
+
 Crop editing now disables standard close/minimize/maximize buttons on the shared
 player and, when present, its native video owner. Exiting restores each window's
 previous button mask. The independent shared coordinator uses winit's portable

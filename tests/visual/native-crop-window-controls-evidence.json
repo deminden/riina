@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "d9bc274d6361a6077a54fd990467aa833b55335c",
+  "binary_sha256": "8bb5369dae9d5619022a58461188ec0d0f22e9e90ca0b0a1527dee90b3088b7a",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "Before crop editing, native title bar exposes enabled Minimise, Maximise and Close",
+    "Video shortcut, observed Tab navigation and Space on Custom... enter whole-source editor (0, 0) (320×180)",
+    "Settled editor title bar reports Close disabled; Minimise/Maximise are absent from the accessible title bar",
+    "Return confirms the whole-source selection; Done disappears and Minimise, Maximise and Close return enabled",
+    "Play, volume 37 and EOF position 5 remain observed after confirmation",
+    "Alt+F4 closes the player after restoration"
+  ],
+  "exit_code": 0,
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "unverified": [
+    "Visual disabled-button appearance compared with IINA",
+    "Restoration after Cancel or source retirement on this revision",
+    "Shared GL window runtime, macOS runtime and Linux window-manager equivalent",
+    "Document-icon control, pointer/DPI/client geometry and resize lifecycle"
+  ]
+}
