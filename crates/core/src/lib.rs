@@ -32,6 +32,7 @@ pub enum Command {
     AddAudio(String),
     AudioDelay(f64),
     SubtitleDelay(f64),
+    AdjustSubtitleDelay(f64),
     SubtitleSeek(i32),
     ToggleSubtitleVisibility,
     CycleLoop,
@@ -105,6 +106,11 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::AdjustSubtitleDelay(delta) if delta.is_finite() => {
+                // Apply on the decoder worker's current value; rapid key presses
+                // must not reuse a stale delay from a coalesced UI snapshot.
+                vec!["add".into(), "sub-delay".into(), delta.to_string()]
+            }
             Self::SubtitleSeek(skip) => {
                 // Let the engine resolve selected-track cues and subtitle delay;
                 // a UI timestamp search would bypass both timing semantics.
@@ -763,6 +769,12 @@ mod tests {
             .is_err()
         );
         assert!(Command::Volume(201.0).mpv_args().is_err());
+        assert!(Command::AdjustSubtitleDelay(f64::NAN).mpv_args().is_err());
+        assert!(
+            Command::AdjustSubtitleDelay(f64::INFINITY)
+                .mpv_args()
+                .is_err()
+        );
     }
 
     #[test]

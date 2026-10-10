@@ -247,6 +247,28 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     });
     assert!((restarted.subtitle_delay - 0.25).abs() < 0.001);
     assert_eq!(restarted.error, None);
+
+    // Queue the burst without reading snapshots: each adjustment must use the
+    // decoder's current delay rather than the UI's last observed value.
+    for _ in 0..20 {
+        player.send(Command::AdjustSubtitleDelay(0.1)).unwrap();
+    }
+    let increased = wait_for(&receiver, |state| {
+        (state.subtitle_delay - 2.25).abs() < 0.001
+    });
+    assert!(increased.paused);
+    assert_eq!(increased.error, None);
+    for _ in 0..4 {
+        player.send(Command::AdjustSubtitleDelay(-0.5)).unwrap();
+    }
+    let restored = wait_for(&receiver, |state| {
+        (state.subtitle_delay - 0.25).abs() < 0.001
+    });
+    assert!(restored.paused);
+    player.send(Command::SubtitleDelay(0.0)).unwrap();
+    let reset = wait_for(&receiver, |state| state.subtitle_delay.abs() < 0.001);
+    assert!(reset.paused);
+    assert_eq!(reset.error, None);
 }
 
 #[test]

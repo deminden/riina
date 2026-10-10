@@ -557,3 +557,12 @@ its rendered visibility remains unproven. Both screenshot attempts failed with
 the computer-use helper's CreateForMonitor error 0x80070057. Exact scope and
 diagnostic binary hash are in tests/visual/seek-gui-observation.json. Temporary
 tracing was removed; no capture or pixel comparison is claimed.
+# Local subtitle timing verification · 2026-10-10
+
+The Windows native subtitle navigation test now queues twenty +0.1-second
+adjustments without consuming playback snapshots and observes the delay rise
+from 0.25 to 2.25 seconds. Four -0.5-second adjustments restore 0.25, then an
+absolute reset restores zero. Pause is retained and no native error is reported.
+All eight explicit native tests pass in 8.85 seconds; 24 workspace unit tests and
+strict lint pass. Shared uppercase Z/X/C and Alt+Z/X bindings are implemented,
+but keyboard routing, rendered feedback and macOS/Linux runtime are unverified.

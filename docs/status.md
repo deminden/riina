@@ -1,5 +1,12 @@
 # Status · 2026-10-09
 
+Local subtitle timing increment: uppercase Z/X adjust delay by -/+0.5 seconds,
+Alt+Z/X use -/+0.1 seconds, and C resets it. Relative commands accumulate on
+the decoder rather than reusing a stale UI snapshot. Eight Windows native
+tests pass (8.85 seconds), including queued fine/coarse bursts and reset while
+paused; all 24 unit tests and strict lint pass. Keyboard routing and other-OS
+runtime verification remain pending. This work stays local.
+
 Local subtitle increment: shared Shift+Right/Left shortcuts invoke native cue
 navigation. Observed-clock/text tests verify next/previous cues with retained
 pause and unchanged delay, then repeat with a 0.25-second delay and restart the
