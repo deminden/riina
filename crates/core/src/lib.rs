@@ -1031,6 +1031,8 @@ pub fn time_label(seconds: Option<f64>) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
+    pub leading_sidebar_width: u32,
+    pub trailing_sidebar_width: u32,
     pub pause_when_open: bool,
     pub fullscreen_when_open: bool,
     pub schema_version: u32,
@@ -1050,6 +1052,8 @@ impl Default for Preferences {
     fn default() -> Self {
         // IINA Preference.defaultPreference: softVolume=100, themeMaterial=dark.
         Self {
+            leading_sidebar_width: 360,
+            trailing_sidebar_width: 360,
             pause_when_open: false,
             fullscreen_when_open: false,
             schema_version: 1,
@@ -1082,6 +1086,8 @@ impl Preferences {
         }
         // Old settings keep their default cap unless boosting was explicitly enabled.
         prefs.volume = prefs.volume.min(prefs.volume_limit());
+        prefs.leading_sidebar_width = prefs.leading_sidebar_width.clamp(300, 500);
+        prefs.trailing_sidebar_width = prefs.trailing_sidebar_width.clamp(300, 500);
         prefs.screenshot.validate()?;
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
@@ -1097,6 +1103,37 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sidebar_widths_keep_legacy_defaults_and_bound_persisted_sizes() {
+        let defaults = Preferences::parse("{}").unwrap();
+        assert_eq!(
+            (
+                defaults.leading_sidebar_width,
+                defaults.trailing_sidebar_width
+            ),
+            (360, 360)
+        );
+        let bounded =
+            Preferences::parse(r#"{"leading_sidebar_width":1,"trailing_sidebar_width":900}"#)
+                .unwrap();
+        assert_eq!(
+            (
+                bounded.leading_sidebar_width,
+                bounded.trailing_sidebar_width
+            ),
+            (300, 500)
+        );
+        let restored = Preferences::parse(&serde_json::to_string(&bounded).unwrap()).unwrap();
+        assert_eq!(
+            (
+                restored.leading_sidebar_width,
+                restored.trailing_sidebar_width
+            ),
+            (300, 500)
+        );
+        assert!(Preferences::parse(r#"{"leading_sidebar_width":-1}"#).is_err());
+    }
 
     #[test]
     fn pause_when_open_keeps_legacy_defaults_and_round_trips_enabled_policy() {

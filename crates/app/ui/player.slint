@@ -451,6 +451,9 @@ export component PlayerWindow inherits Window {
     in property <[CatalogRow]> playlist;
     in-out property <int> sidebar: 0;
     in-out property <int> leading-sidebar: 0;
+    in-out property <float> leading-sidebar-width: 360;
+    in-out property <float> trailing-sidebar-width: 360;
+    callback sidebar-resize-finished();
     in-out property <string> selected-playlist-token: "";
     in property <float> audio-delay: 0;
     in property <float> subtitle-delay: 0;
@@ -567,6 +570,11 @@ export component PlayerWindow inherits Window {
             width: root.render-width; height: root.render-height; image-fit: contain;
         }
         TouchArea { moved => { root.controls-visible = true; root.activity(); }
+            clicked => {
+                if root.sidebar != 0 || root.leading-sidebar != 0 {
+                    keys.focus(); root.sidebar = 0; root.leading-sidebar = 0;
+                }
+            }
             double-clicked => { root.toggle-fullscreen(); } }
         if !loaded : VerticalLayout {
             alignment: center; spacing: 20px;
@@ -599,10 +607,11 @@ export component PlayerWindow inherits Window {
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
             visible: pane-kind != 0 && !root.crop-editing;
             x: pane-kind == 3 || pane-kind == 4 ? 0px : parent.width - self.width;
-            y: 34px; width: min(360px, parent.width * 0.8);
+            y: 34px;
+            width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - 68px; background: #202025f5;
             // Track row height and None entry follow SidebarTrackSelector.swift.
-            // Default width 360 and the 80% limit follow Preference/SidebarController.
+            // Saved widths are independent; opening clamps to 80% without overwriting intent.
             // Playlist/chapters default leading; settings default trailing.
             // Insets and material remain provisional until reference captures exist.
             VerticalLayout { padding: 12px; spacing: 8px;
@@ -956,6 +965,29 @@ export component PlayerWindow inherits Window {
                         activated => { root.playlist-action(3, root.selected-playlist-token); } }
                     Tool { label: "⌫"; hint: "Clear playlist except current file"; activated => { root.playlist-action(4, ""); root.selected-playlist-token = ""; } }
                     Tool { label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label; activated => { root.playlist-action(5, ""); } }
+                }
+            }
+        }
+        for side in [0, 1] : TouchArea {
+            visible: !root.crop-editing && (side == 0 ? root.leading-sidebar != 0 : root.sidebar != 0);
+            private property <length> panel-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
+            x: side == 0 ? panel-width : root.width - panel-width - 4px;
+            y: 34px; width: 4px; height: root.height - 68px;
+            mouse-cursor: ew-resize;
+            moved => {
+                if self.pressed {
+                    // Recover window-space pointer position from the moving handle.
+                    let root-width = root.width;
+                    let pointer-x = self.x + self.mouse-x;
+                    let requested = (side == 0 ? pointer-x : root-width - pointer-x) / 1px - 2;
+                    let bounded = clamp(requested, 300, max(300, min(500, root-width / 1px * 0.8)));
+                    if side == 0 { root.leading-sidebar-width = bounded; }
+                    else { root.trailing-sidebar-width = bounded; }
+                }
+            }
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                    root.sidebar-resize-finished();
                 }
             }
         }

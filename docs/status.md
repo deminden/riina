@@ -1,4 +1,10 @@
 The user now prioritizes full interface parity before further feature expansion;
+sidebar edges now resize independently and persist on release. Actual Windows
+dragging verified saved widths 439/440, minimum 300 and maximum 500; restart
+restored 300/500. A read-only isolated preferences file caused save failure,
+restored the last saved width and reported Access is denied. Clicking exposed
+video dismissed both panels. Both owned players exited 0; user settings were
+not used. Formatting, strict lint, workspace tests and optimized build passed.
 leading Playlist/Chapters and trailing settings now keep independent selection.
 Actual Windows capture shows both sides together and independent switching/close.
 settings now has Video/Audio/Subtitles tabs and Playlist/Chapters navigation.

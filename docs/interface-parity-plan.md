@@ -55,4 +55,13 @@ Both sides now retain their own selected pane. Captured Windows playback shows
 Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and
 closing Audio preserves Chapters. Crop entry closes both panes. Side-specific
 close actions restore player focus before hiding the focused control. This does
-not yet cover resizing, RTL placement, side preferences or animation fidelity.
+not yet cover RTL placement, side preferences or animation fidelity.
+
+Independent four-point resize handles now retain side-specific widths, with
+300–500-point drag bounds and the reference window-width cap. Opening clamps the
+visible panel without rewriting the saved width. A completed resize persists the
+live preferences; a failed write restores both last-saved widths and reports the
+error. Actual Windows drag/restart/save-failure and click-outside-dismissal checks
+passed in an isolated profile. Narrow-window cap, native renderer interaction,
+RTL and other-platform runtime remain unverified. Exact reference pixels remain
+open; the retained restored-width capture is private regression evidence.

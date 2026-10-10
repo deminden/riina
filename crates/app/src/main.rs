@@ -13,6 +13,7 @@ mod screenshot_osd;
 mod screenshot_output;
 mod screenshot_preferences;
 mod seek_osd;
+mod sidebar_preferences;
 mod ui_dialogs;
 mod video_osd;
 mod window_controls;

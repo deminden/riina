@@ -66,6 +66,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                                 volume_boost: app.get_volume_boost(),
                                 pause_when_open: app.get_pause_when_open(),
                                 fullscreen_when_open: app.get_fullscreen_when_open(),
+                                leading_sidebar_width: app.get_leading_sidebar_width() as u32,
+                                trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                                 ..baseline.clone()
                             };
                         let text = serde_json::to_string_pretty(&preferences)
