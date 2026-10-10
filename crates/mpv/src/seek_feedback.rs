@@ -30,10 +30,18 @@ impl SeekFeedback {
     }
 }
 
-pub(crate) fn navigation(args: &[String]) -> bool {
+pub(crate) fn navigation(args: &[String], state: &riina_core::Playback) -> bool {
+    if args.first().is_some_and(|command| command == "sub-seek") {
+        // Without a primary subtitle selection the native command is a no-op.
+        // Do not leave a token that an automatic loop could later consume.
+        return state
+            .tracks
+            .iter()
+            .any(|track| track.kind == riina_core::TrackKind::Sub && track.is_primary_selected());
+    }
     matches!(
         args.first().map(String::as_str),
-        Some("seek" | "sub-seek" | "frame-step" | "frame-back-step")
+        Some("seek" | "frame-step" | "frame-back-step")
     ) || (matches!(args.first().map(String::as_str), Some("add" | "set"))
         && args.get(1).is_some_and(|property| property == "chapter"))
 }

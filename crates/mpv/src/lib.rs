@@ -199,7 +199,7 @@ impl Player {
                                         resume_on_load = false;
                                         break;
                                     }
-                                    if seek_feedback::navigation(&args) { seek_feedback.submitted(next_id); }
+                                    if seek_feedback::navigation(&args, &state) { seek_feedback.submitted(next_id); }
                                 }
                             }
                             Err(error) => state.error = Some(error),

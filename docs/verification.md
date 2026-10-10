@@ -1,5 +1,23 @@
 # Verification record · native Windows · 2026-10-09
 
+## Subtitle no-op navigation and automatic loops · 2026-10-10
+
+The new native regression loads the catalog with no subtitle selection, pauses,
+seeks to 0.3, sets A–B points 0.2 / 0.6, issues sub-seek, waits for volume 37 as
+a command-stream observation and resumes. Before repair the first automatic
+loop increments navigation completion from 1 to 2, incorrectly labeling it as
+application navigation. The worker now requires an observed primary subtitle
+selection before arming feedback for sub-seek; native dispatch remains unchanged.
+The regression then passes with raw loop completion advancing and navigation
+completion unchanged. All 24 native tests pass.
+
+The existing selected-caption test additionally checks forward and backward
+cue navigation increment the navigation counter; its focused run passes.
+Workspace unit checks and strict lint pass. Optimized build is in progress.
+This establishes the no-selected-subtitle case, not all possible no-next-cue
+cases. Selected-track final/first cue boundaries and rapid selection followed by
+navigation remain open, along with GUI and current other OS runtime checks.
+
 ## Per-message OSD suppression · 2026-10-10
 
 Pinned Preference.disableOSDSpeedMsg and disableOSDSeekMsg default false;

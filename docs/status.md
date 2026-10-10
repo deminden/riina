@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Native testing reproduces stale navigation feedback: sub-seek with no selected
+subtitle arms a token that an automatic A–B loop consumes. The worker now only
+arms subtitle-navigation feedback when a primary subtitle selection is observed;
+the native command is still submitted. All 24 native tests pass after repair.
+Forward/backward navigation with selected captions also increments navigation
+completions. Workspace unit checks and strict lint pass; optimized build is in
+progress. Selected-track cue boundaries, selection/command races, GUI retest
+and current other OS runtime remain open. Nothing published.
+
 OSD preferences now separately suppress speed and seek messages, both false by
 default. Legacy preferences retain visible feedback; JSON round-trip preserves
 each flag. Speed suppression consumes confirmed changes without replaying them

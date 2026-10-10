@@ -28,6 +28,61 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies no-cue navigation does not label an automatic loop"]
+fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::Seek {
+            seconds: 0.3,
+            absolute: true,
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.completed_navigation_seeks > 0 && !state.seeking
+    });
+    player
+        .send(Command::SetAbLoop {
+            a: Some(0.2),
+            b: Some(0.6),
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.ab_loop_a == Some(0.2) && state.ab_loop_b == Some(0.6)
+    });
+    player.send(Command::SubtitleSeek(1)).unwrap();
+    player.send(Command::Volume(37.0)).unwrap();
+    let baseline = wait_for(&receiver, |state| state.volume == 37.0);
+    player.send(Command::TogglePause).unwrap();
+    let looped = wait_for(&receiver, |state| {
+        state.completed_seeks > baseline.completed_seeks && !state.seeking
+    });
+    assert_eq!(
+        looped.completed_navigation_seeks,
+        baseline.completed_navigation_seeks
+    );
+    assert_eq!(looped.volume, 37.0);
+    assert!(looped.error.is_none(), "{:?}", looped.error);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies navigation feedback provenance"]
 fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1388,6 +1443,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .is_some_and(|text| text.contains("Chapter two"))
     });
     assert_eq!(second.subtitle_delay, first.subtitle_delay);
+    assert!(second.completed_navigation_seeks > first.completed_navigation_seeks);
     assert_eq!(second.error, None);
     player.send(Command::SubtitleSeek(-1)).unwrap();
     let returned = wait_for(&receiver, |state| {
@@ -1401,6 +1457,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .is_some_and(|text| text.contains("Привет"))
     });
     assert_eq!(returned.subtitle_delay, first.subtitle_delay);
+    assert!(returned.completed_navigation_seeks > second.completed_navigation_seeks);
     assert_eq!(returned.error, None);
     player.send(Command::SubtitleDelay(0.25)).unwrap();
     wait_for(&receiver, |state| {
