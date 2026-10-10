@@ -252,6 +252,7 @@ export component PlayerWindow inherits Window {
     in property <bool> video-flipped: false;
     callback toggle-video-reflection(bool);
     callback reflection-menu-changed();
+    callback open-application-menu();
     changed reflection-known => { root.reflection-menu-changed(); }
     changed video-mirrored => { root.reflection-menu-changed(); }
     changed video-flipped => { root.reflection-menu-changed(); }
@@ -894,6 +895,7 @@ export component PlayerWindow inherits Window {
         }
         key-pressed(event) => {
             if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
+            if native-video && event.text == Key.F10 { root.open-application-menu(); return accept; }
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
                 if event.modifiers.shift {

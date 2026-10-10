@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Native menu runtime exposed a real focus gap on source 42552b5: the owner has
+Video in its native menu bar, but F10 remains in the transparent shared chrome.
+The tested build closes cleanly; its identity/failure limits are recorded in
+tests/visual/native-video-menu-entry-evidence.json. F10 now requests the owner's
+Windows menu loop, suppressing one automatic chrome refocus, and selected menu
+actions restore chrome focus. Workspace unit tests, strict lint and formatting
+pass after the fix. Fixed entry/action behavior and Escape/cancel focus recovery
+still need runtime checks; no passing fixed GUI result is claimed. No publication.
+
 The experimental native video route now attaches Video > Flip to its framed
 owner window. Shared controller observations synchronize menu availability and
 axis checks, and owner menu actions invoke the existing shared toggle callback.

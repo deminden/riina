@@ -8,7 +8,7 @@ use slint::{
     winit_030::{EventResult, WinitWindowAccessor, winit},
 };
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     ffi::OsString,
     rc::Rc,
     sync::{
@@ -63,6 +63,8 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let weak_host = host.as_weak();
     let startup_chrome = chrome.clone();
     let startup_session = session.clone();
+    let menu_focus = Rc::new(Cell::new(false));
+    let startup_menu_focus = menu_focus.clone();
     host.show()?;
     slint::spawn_local(async move {
         let Some(host) = weak_host.upgrade() else {
@@ -78,6 +80,38 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
+            let menu_handle = presentation.owner_handle();
+            let keyboard_host = host.as_weak();
+            let keyboard_app = app.as_weak();
+            let keyboard_menu_focus = startup_menu_focus.clone();
+            app.on_open_application_menu(move || {
+                use windows::Win32::{
+                    Foundation::{HWND, LPARAM, WPARAM},
+                    UI::WindowsAndMessaging::{PostMessageW, SC_KEYMENU, WM_SYSCOMMAND},
+                };
+                if let Some(host) = keyboard_host.upgrade() {
+                    // Menu focus belongs to the framed owner. Suppress one
+                    // automatic chrome refocus, then let Windows own its menu loop.
+                    keyboard_menu_focus.set(true);
+                    host.window()
+                        .with_winit_window(|window| window.focus_window());
+                    // SAFETY: the retained host owns this HWND on the UI thread.
+                    let result = unsafe {
+                        PostMessageW(
+                            Some(HWND(menu_handle as *mut _)),
+                            WM_SYSCOMMAND,
+                            WPARAM(SC_KEYMENU as usize),
+                            LPARAM(0),
+                        )
+                    };
+                    if let Err(error) = result {
+                        keyboard_menu_focus.set(false);
+                        if let Some(app) = keyboard_app.upgrade() {
+                            app.set_status(error.to_string().into());
+                        }
+                    }
+                }
+            });
             // The framed owner hosts the native menu; its transparent popup
             // retains controller state. Bridge observations without a second
             // playback model or sending window handles across threads.
@@ -96,6 +130,8 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             host.on_toggle_video_reflection(move |horizontal| {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_toggle_video_reflection(horizontal);
+                    app.window()
+                        .with_winit_window(|window| window.focus_window());
                 }
             });
             let configured = configure_player(&app, Some(presentation), media)?;
@@ -140,6 +176,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let event_chrome = chrome.clone();
     host.window().on_winit_window_event(move |host, event| {
         if matches!(event, winit::event::WindowEvent::Focused(true))
+            && !menu_focus.replace(false)
             && let Some(app) = event_chrome.borrow().as_ref()
             && !app.get_dialog_open()
         {

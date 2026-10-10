@@ -4,6 +4,9 @@ Video > Flip backend now has independent Horizontal (Mirror)/Vertical managed
 axis commands, atomic toggles and native coexistence coverage with crop. The
 shared player and experimental native owner have the reference menu hierarchy.
 Verify actual menu checks/input and native client geometry/focus, and wire configurable commands.
+Native F10 previously stayed in chrome; owner menu routing now exists. Verify
+the fix, action focus restoration and Escape/cancel keyboard recovery before
+claiming native menu accessibility.
 Prove reflected pixels on both rendering routes;
 do not add arbitrary sidebar controls or claim backend commands finish parity.
 The reference gives these items no default shortcut or dedicated OSD message.

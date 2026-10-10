@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "42552b5f843161ffafb9e01b402fffc0a08d7537",
+  "binary_sha256": "eb5bf36cebe3d53426f502370363c39907860da584940a6b710d5e4546275eb7",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observed": "Owner exposes native Application > Video menu alongside owned shared chrome",
+  "failure": "F10 leaves focus in shared chrome instead of opening the owner menu",
+  "tool_limit": "Click on observed owner menu item rejected as unavailable in cached app state; no pointer result claimed",
+  "exit_code": 0,
+  "followup": "Native F10 routing implemented after this test; not retested in this evidence",
+  "unverified": ["fixed F10 entry", "menu actions", "Escape/cancel focus restoration", "check marks", "client alignment pixels"]
+}
