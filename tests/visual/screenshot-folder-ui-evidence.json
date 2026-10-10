@@ -1,0 +1,29 @@
+{
+  "source_commit": "6756682f68ed7ffb274eb4515d5ad71b33968896",
+  "windows_release_sha256": "9b497b751b2193856a7d7c836cd19d7d4cbc65c006cf8a9b25302b02c961651a",
+  "scope": "Windows native-release accessibility/keyboard folder activation and cancellation; platform source integration",
+  "observations": [
+    "Preferences displays platform Pictures/Screenshots folder",
+    "Tab focuses chooser and Return opens native Choose screenshot save path",
+    "Native dialog exposes Folder edit Select Folder Cancel",
+    "Chooser disabled while dialog active",
+    "Escape cancels and returns focus to enabled chooser",
+    "Saved folder remains null; PNG template subtitles preview defaults unchanged",
+    "Preferences closes; player process exits0"
+  ],
+  "verification": {
+    "workspace_tests": "passed; app20; native36 ignored",
+    "strict_lint": "passed",
+    "format": "passed",
+    "final_windows_release_seconds": 42.23,
+    "traceability": 140
+  },
+  "not_verified": [
+    "selected folder acceptance and capture",
+    "persistence rollback failure",
+    "rendered pixels",
+    "macOS/Linux builds and runtime",
+    "full destination save/clipboard semantics"
+  ],
+  "published": false
+}
