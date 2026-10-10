@@ -17,7 +17,8 @@ replacement checks and OSD unit checks pass. GUI evidence verifies menu order
 and labels; 5:4 and Default activations recover a live player after transient
 tool reference loss, preserving Play/volume 37. The one-second OSD was not
 captured; exact GUI ratios/checks/pixels, timed OSD and ports remain unverified.
-Clean close returns 0 with only the expected layout diagnostic. Nothing pushed.
+Clean close returns 0 with only the expected layout diagnostic. Source/binary
+identity and observations: tests/visual/native-aspect-menu-evidence.json. Nothing pushed.
 
 Video > Rotation now exposes the pinned four degree labels between Crop and
 Flip on shared and native player menus. Selection derives from observed native
