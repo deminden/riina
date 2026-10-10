@@ -472,6 +472,19 @@ copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
 # Seek OSD state verification · 2026-10-10
 
+Local frame navigation: 24 Windows unit tests, strict lint and seven explicit
+native tests pass (8.43 seconds). Starting at the observed paused two-second
+frame, two forward and two backward commands each move by 1/24 second within
+0.002 seconds and return to two seconds, retaining pause and no native error.
+The shared UI maps Alt+Right/Left and period/comma to these actions. Modifier
+priority separates playlist navigation, Stop, speed and fine volume controls
+from plain arrows, including a focused slider. Enter requests fullscreen only
+when it is not already active. These routes compile but were not exercised
+through the GUI in this increment. Variable-rate media, frame boundaries and
+displayed frame capture remain unverified. See pinned
+iina/config/iina-default-input.conf and the documented
+[mpv frame commands](https://mpv.io/manual/stable/#command-interface-frame-step).
+
 A–B lifecycle: the independent backend selects `reset-on-next-file` for just
 `ab-loop-a,ab-loop-b`, matching the option contract recorded in pinned
 MPVController.swift line 575. The native test loads media with an active loop,

@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Local shortcut increment: backward frame stepping now accompanies forward
+stepping. Alt+arrows and comma/period invoke the frame actions; primary-modifier
+arrows navigate the playlist, and primary-period stops. Modified arrows bubble
+out of sliders. Default pause/mute/speed shortcuts and fine volume increments
+are connected; Enter enters fullscreen without toggling it off. Seven native
+tests pass, including observed one-frame forward/backward movement on the
+24-fps fixture while paused. GUI input routing, boundary/VFR behavior and
+other-OS runtime verification remain open. No public update was made.
+
 Local A–B lifecycle increment: the backend now resets A/B options on new media,
 matching the pinned reference configuration, rather than only clearing cached
 markers. Native coverage verifies replacement, Stop/reopen and playlist advance

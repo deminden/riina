@@ -116,6 +116,66 @@ fn ab_repeat_observes_points_and_wraps_playback() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies observed forward/backward frame navigation"]
+fn frame_navigation_moves_one_frame_and_retains_pause() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
+    });
+    player.send(Command::TogglePause).unwrap();
+    let paused = wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::Seek {
+            seconds: 2.0,
+            absolute: true,
+        })
+        .unwrap();
+    let mut previous = wait_for(&receiver, |state| {
+        state.paused
+            && !state.seeking
+            && state.completed_seeks > paused.completed_seeks
+            && state.position.is_some_and(|p| (p - 2.0).abs() < 0.01)
+    });
+    // The original catalog fixture is constant-rate 24 fps. Check observed frame
+    // movement rather than treating command acceptance as a decoded frame.
+    for (command, direction) in [
+        (Command::FrameStep, 1.0),
+        (Command::FrameStep, 1.0),
+        (Command::FrameBackStep, -1.0),
+        (Command::FrameBackStep, -1.0),
+    ] {
+        let from = previous.position.unwrap();
+        player.send(command).unwrap();
+        let next = wait_for(&receiver, |state| {
+            state.paused
+                && !state.seeking
+                && state
+                    .position
+                    .is_some_and(|p| (p - from) * direction > 0.02)
+        });
+        assert!(((next.position.unwrap() - from) * direction - 1.0 / 24.0).abs() < 0.002);
+        assert_eq!(next.error, None);
+        previous = next;
+    }
+    assert!((previous.position.unwrap() - 2.0).abs() < 0.002);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies file-local A–B loop ownership"]
 fn ab_repeat_resets_on_replacement_and_stop() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

@@ -49,6 +49,8 @@ component PlayerSlider inherits Rectangle {
     focus := FocusScope {
         enabled: root.enabled;
         key-pressed(event) => {
+            // Modified arrows belong to player shortcuts, not slider increments.
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.RightArrow { root.changed(min(root.maximum, root.value + root.step)); return accept; }
             if event.text == Key.LeftArrow { root.changed(max(root.minimum, root.value - root.step)); return accept; }
             return reject;
@@ -148,6 +150,10 @@ export component PlayerWindow inherits Window {
     callback toggle-mute();
     callback speed(float);
     callback frame-step();
+    callback frame-back-step();
+    callback playlist-next();
+    callback playlist-previous();
+    callback reset-speed();
     callback toggle-fullscreen();
     callback activity();
     callback show-seek-osd();
@@ -334,21 +340,43 @@ export component PlayerWindow inherits Window {
             text: status; color: #bbbbbb; font-size: 11px; overflow: elide; }
         key-pressed(event) => {
             root.controls-visible = true; root.activity();
-            if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control)
-                && !event.modifiers.shift && event.text == "l" {
-                root.cycle-ab-loop(); return accept;
+            if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
+                if event.modifiers.shift { return reject; }
+                if event.modifiers.alt {
+                    if event.text == "[" { root.speed(1 / 1.1); return accept; }
+                    if event.text == "]" { root.speed(1.1); return accept; }
+                    return reject;
+                }
+                if event.text == "l" { root.cycle-ab-loop(); return accept; }
+                if event.text == "." { root.stop(); return accept; }
+                if event.text == Key.RightArrow { root.playlist-next(); return accept; }
+                if event.text == Key.LeftArrow { root.playlist-previous(); return accept; }
+                if event.text == "o" { root.open-file(); return accept; }
+                if event.text == "/" { root.toggle-mute(); return accept; }
+                if event.text == "[" { root.speed(0.5); return accept; }
+                if event.text == "]" { root.speed(2); return accept; }
+                if event.text == "\\" { root.reset-speed(); return accept; }
+                return reject;
             }
-            if event.text == " " { root.toggle-pause(); return accept; }
+            if event.modifiers.alt && !event.modifiers.shift {
+                if event.text == Key.RightArrow { root.frame-step(); return accept; }
+                if event.text == Key.LeftArrow { root.frame-back-step(); return accept; }
+                if event.text == Key.UpArrow { root.set-volume(min(root.volume-limit, root.volume + 1)); return accept; }
+                if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 1)); return accept; }
+            }
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == " " || event.text == "p" { root.toggle-pause(); return accept; }
             if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
             if event.text == Key.LeftArrow { root.seek-relative(-5); return accept; }
             if event.text == Key.UpArrow { root.set-volume(min(root.volume-limit, root.volume + 5)); return accept; }
             if event.text == Key.DownArrow { root.set-volume(max(0, root.volume - 5)); return accept; }
             if event.text == "m" { root.toggle-mute(); return accept; }
             if event.text == "." { root.frame-step(); return accept; }
-            if event.text == "f" || event.text == Key.Return { root.toggle-fullscreen(); return accept; }
+            if event.text == "," { root.frame-back-step(); return accept; }
+            if event.text == "f" { root.toggle-fullscreen(); return accept; }
+            if event.text == Key.Return { if !root.fullscreen { root.toggle-fullscreen(); } return accept; }
             if event.text == Key.Escape && root.fullscreen { root.toggle-fullscreen(); return accept; }
             if event.text == Key.Escape && root.sidebar != 0 { root.sidebar = 0; return accept; }
-            if event.modifiers.control && event.text == "o" { root.open-file(); return accept; }
             return reject;
         }
     }

@@ -330,6 +330,10 @@ pub(crate) fn configure_player(
     connect!(on_toggle_mute, Command::ToggleMute);
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
+    connect!(on_frame_back_step, Command::FrameBackStep);
+    connect!(on_playlist_next, Command::PlaylistNext);
+    connect!(on_playlist_previous, Command::PlaylistPrevious);
+    connect!(on_reset_speed, Command::Speed(1.0));
     connect!(on_cycle_ab_loop, Command::CycleAbLoop);
     connect!(
         on_toggle_subtitle_visibility,

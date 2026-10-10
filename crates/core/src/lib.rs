@@ -15,6 +15,7 @@ pub enum Command {
     ToggleMute,
     Speed(f64),
     FrameStep,
+    FrameBackStep,
     PlaylistNext,
     PlaylistPrevious,
     SelectTrack { kind: TrackKind, id: Option<i64> },
@@ -65,6 +66,7 @@ impl Command {
             }
             Self::ToggleMute => vec!["cycle".into(), "mute".into()],
             Self::FrameStep => vec!["frame-step".into()],
+            Self::FrameBackStep => vec!["frame-back-step".into()],
             Self::PlaylistNext => vec!["playlist-next".into(), "weak".into()],
             Self::PlaylistPrevious => vec!["playlist-prev".into(), "weak".into()],
             Self::SelectTrack { kind, id } if id.is_none_or(|id| id > 0) => vec![
