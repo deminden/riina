@@ -142,7 +142,7 @@ fn screenshot_template_returns_saved_path() {
     .unwrap();
     player
         .send(Command::Load(
-            root.join("tests/fixtures/interlaced-tff.mkv")
+            root.join("tests/fixtures/interlaced-mpeg2-tff.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
@@ -156,6 +156,10 @@ fn screenshot_template_returns_saved_path() {
         .send(Command::Screenshot {
             directory: output.to_string_lossy().into_owned(),
             content: riina_core::screenshot::Content::default(),
+            encoding: riina_core::screenshot::Encoding {
+                format: riina_core::screenshot::Format::Avif,
+                ..Default::default()
+            },
         })
         .unwrap();
     let saved = wait(&receiver, |state| state.completed_screenshots == 1);

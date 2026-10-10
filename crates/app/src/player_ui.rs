@@ -209,24 +209,31 @@ fn update_ui(
         crate::screenshot_osd::Change::Show(path)
             if app.get_osd_enabled() && !app.get_crop_editing() =>
         {
-            match slint::Image::load_from_path(std::path::Path::new(&path)) {
-                Ok(image) => {
-                    let size = image.size();
-                    let (width, height) =
-                        crate::screenshot_osd::preview_size(size.width, size.height);
-                    app.set_screenshot_preview_image(image);
-                    app.set_screenshot_preview_width(width);
-                    app.set_screenshot_preview_height(height);
-                    app.set_screenshot_preview_path(path.into());
-                    app.invoke_show_screenshot_preview();
-                }
-                Err(_) => {
-                    // Saving succeeded even if the preview decoder cannot open
-                    // this format; preserve reference normal-message fallback.
-                    app.set_video_osd_request_feedback(false);
-                    app.set_video_osd_text("Screenshot Captured".into());
-                    app.set_video_osd_progress(-1.0);
-                    app.invoke_show_video_osd();
+            if !app.get_screenshot_show_preview() {
+                app.set_video_osd_request_feedback(false);
+                app.set_video_osd_text("Screenshot Captured".into());
+                app.set_video_osd_progress(-1.0);
+                app.invoke_show_video_osd();
+            } else {
+                match slint::Image::load_from_path(std::path::Path::new(&path)) {
+                    Ok(image) => {
+                        let size = image.size();
+                        let (width, height) =
+                            crate::screenshot_osd::preview_size(size.width, size.height);
+                        app.set_screenshot_preview_image(image);
+                        app.set_screenshot_preview_width(width);
+                        app.set_screenshot_preview_height(height);
+                        app.set_screenshot_preview_path(path.into());
+                        app.invoke_show_screenshot_preview();
+                    }
+                    Err(_) => {
+                        // Saving succeeded even if the preview decoder cannot open
+                        // this format; preserve reference normal-message fallback.
+                        app.set_video_osd_request_feedback(false);
+                        app.set_video_osd_text("Screenshot Captured".into());
+                        app.set_video_osd_progress(-1.0);
+                        app.invoke_show_video_osd();
+                    }
                 }
             }
         }
@@ -434,6 +441,7 @@ pub(crate) fn configure_player(
             .to_vec(),
     )));
     app.set_osd_enabled(prefs.enable_osd);
+    app.set_screenshot_show_preview(prefs.screenshot.show_preview);
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::LABELS
@@ -532,6 +540,7 @@ pub(crate) fn configure_player(
     });
     let seek_timer = slint::Timer::default();
     let screenshot_player = player.command_sender();
+    let screenshot_settings = prefs.screenshot.clone();
     let weak = app.as_weak();
     app.on_take_screenshot(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -539,12 +548,13 @@ pub(crate) fn configure_player(
             return;
         }
         app.invoke_activity();
-        let result = platform::screenshot_directory()
+        let result = platform::screenshot_directory(screenshot_settings.directory.as_deref())
             .map_err(|error| error.to_string())
             .and_then(|directory| {
                 screenshot_player.send(Command::Screenshot {
                     directory: directory.to_string_lossy().into_owned(),
-                    content: riina_core::screenshot::Content::default(),
+                    content: screenshot_settings.content(),
+                    encoding: screenshot_settings.encoding.clone(),
                 })
             });
         if let Err(error) = result {
@@ -552,12 +562,13 @@ pub(crate) fn configure_player(
         }
     });
     let weak = app.as_weak();
+    let screenshot_directory = prefs.screenshot.directory.clone();
     app.on_open_screenshot_folder(move || {
         let Some(app) = weak.upgrade() else { return };
         if app.get_crop_editing() || app.get_dialog_open() {
             return;
         }
-        if let Err(error) = platform::screenshot_directory()
+        if let Err(error) = platform::screenshot_directory(screenshot_directory.as_deref())
             .and_then(|directory| platform::open_directory(&directory))
         {
             app.set_status(error.to_string().into());

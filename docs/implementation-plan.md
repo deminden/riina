@@ -1,5 +1,12 @@
 # Implementation plan
 
+Saved screenshot format/template/folder/subtitle/preview settings now reach the
+app and native engine; all six choices have native decoded-frame evidence. Build
+reference preferences controls and save/clipboard destination semantics, verify
+GUI setting changes and cue composition, and add non-PNG image-preview decoder
+fallback. Keep explicit 4:2:2 SVT AVIF failures and accurate completion tracking;
+reference runtime/HDR comparisons remain needed.
+
 Screenshot preview/default accessory now exists, with confirmed completion,
 coalescing/source retirement, five-second timer and actual deep-RGB PNG decode
 tests. Verify rendered geometry/material/font and wall-clock timing, callback

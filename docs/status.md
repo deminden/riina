@@ -1,3 +1,35 @@
+Screenshot settings now persist format (png/jpg/jpeg/webp/jxl/avif), naming
+template, custom folder, subtitle inclusion and preview visibility. Old settings
+retain PNG/%F-%n/platform Pictures/subtitles/preview defaults. The session save
+retains these settings while updating volume. Core validates the whole capture
+intent before native submission, with typed format choices and NUL rejection.
+The app resolves a configured home-relative folder and uses it for capture and
+folder opening. Preview-disabled captures use normal feedback without decoding
+an accessory image. These are saved settings; a preferences interface is pending.
+
+Native tests save all six format choices from original 4:2:0 media, reopen every
+image in a separate native player and export decoded PNG frames. The pixel checker
+confirms file signatures, 96x64 dimensions and expected two woven bar edges/widths
+for all six. JPEG's alias correctly returns a .jpg filename. Reference SVT AVIF
+encoder/still-picture settings are retained; original 4:2:2 AVIF input fails and
+does not increment completion or replace the successful filename. No encoder
+fallback or silent format conversion was added. JXL uses software screenshot
+conversion; other formats restore native default policy.
+
+An initial capture of reopened AVIF was requested before its clock/frame became
+ready; the corrected test waits for playable phase and position as well as video
+metadata. Native round trips then pass. A separate development PyAV16 JXL decode
+exits 1 without an exception; its cause is unproven, so no independent JXL decoder
+pass is claimed. Actual libmpv decoded-frame PNG checks pass. Unicode manifest
+reading explicitly uses UTF-8.
+
+Old-preference/default/custom round trips and invalid input checks pass, all 35
+native tests pass (21.19 seconds), workspace tests, formatting and strict lint
+pass; Windows release builds (46.30 seconds). Private AVIF template/reply check
+also passes. GUI preferences/activation, active-subtitle composition, clipboard,
+non-PNG preview fallback decoding, HDR/colorimetry and other OS runtime remain
+unverified. Evidence: tests/visual/screenshot-formats-evidence.json. Nothing published.
+
 Screenshot completion now drives a shared image preview with Screenshot Captured
 feedback, five-second replacement timer, 300x200 aspect-preserving image bounds
 and DELETE/EDIT/REVEAL accessory actions. The accessory uses the reference's

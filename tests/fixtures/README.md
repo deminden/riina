@@ -84,3 +84,11 @@ defaults are unchanged. Both runs capture engine video pixels, not GUI output.
 is CC0-1.0, generator MIT; its manifest hash is verified. An app test loads it
 through Slint's actual preview decoder and checks dimensions, eight colors and
 opaque alpha. It validates decoding, not rendered UI, colorimetry or HDR output.
+
+The ignored `screenshots_complete_only_after_native_success` test writes a
+`formats.json` under its unique ignored screenshot-test directory, with native
+encoded files and decoded PNG round trips. Run
+`python scripts/check-screenshot-format-roundtrips.py <formats.json> --report <report.json>`
+(Pillow) to verify signatures, geometry and timestamp-aligned woven bar edges.
+The six-format pass uses original 4:2:0 media; native SVT AVIF rejection of 4:2:2
+input is separately checked. This does not validate GUI preview or HDR output.

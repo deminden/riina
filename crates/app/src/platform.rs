@@ -1,10 +1,24 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
 pub(crate) mod language;
 
-pub fn screenshot_directory() -> std::io::Result<std::path::PathBuf> {
-    let directory = dirs::picture_dir()
-        .ok_or_else(|| std::io::Error::other("The Pictures directory is unavailable"))?
-        .join("Screenshots");
+pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::path::PathBuf> {
+    let directory = if let Some(path) = configured {
+        if path == "~" || path.starts_with("~/") || path.starts_with("~\\") {
+            let home = dirs::home_dir()
+                .ok_or_else(|| std::io::Error::other("The home directory is unavailable"))?;
+            if path == "~" {
+                home
+            } else {
+                home.join(&path[2..])
+            }
+        } else {
+            std::path::PathBuf::from(path)
+        }
+    } else {
+        dirs::picture_dir()
+            .ok_or_else(|| std::io::Error::other("The Pictures directory is unavailable"))?
+            .join("Screenshots")
+    };
     std::fs::create_dir_all(&directory)?;
     Ok(directory)
 }

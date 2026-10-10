@@ -126,6 +126,10 @@ impl Player {
                         ("deinterlace", "no"),
                         ("screenshot-format", "png"),
                         ("screenshot-template", "%F-%n"),
+                        // Reference still-image encoding uses SVT's AVIF mode;
+                        // the engine's default encoder/options can differ.
+                        ("screenshot-avif-encoder", "libsvtav1"),
+                        ("screenshot-avif-opts", "svtav1-params=avif=1"),
                         ("sub-font-size", "55"),
                         ("sub-font", riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT),
                         ("sub-outline-size", "3"),

@@ -40,6 +40,7 @@ pub enum Command {
     Screenshot {
         directory: String,
         content: screenshot::Content,
+        encoding: screenshot::Encoding,
     },
     ScreenshotToFile {
         path: String,
@@ -353,11 +354,39 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
-            Self::Screenshot { directory, content } => {
-                if !valid_path(directory) {
-                    return Err("The screenshot directory is empty or contains a NUL byte".into());
+            Self::Screenshot {
+                directory,
+                content,
+                encoding,
+            } => {
+                if !valid_path(directory) || encoding.template.contains('\0') {
+                    return Err(
+                        "Screenshot directory is empty or settings contain a NUL byte".into(),
+                    );
                 }
                 vec![
+                    vec![
+                        "set".into(),
+                        "screenshot-format".into(),
+                        encoding.format.native_value().into(),
+                    ],
+                    vec![
+                        "set".into(),
+                        "screenshot-template".into(),
+                        encoding.template.clone(),
+                    ],
+                    // Match the reference's JXL software path without changing
+                    // screenshot conversion policy for the other formats.
+                    vec![
+                        "set".into(),
+                        "screenshot-sw".into(),
+                        if encoding.format == screenshot::Format::Jxl {
+                            "yes"
+                        } else {
+                            "no"
+                        }
+                        .into(),
+                    ],
                     // Keep the native trailing separator: mixed '/' in a
                     // verbatim Windows path is rejected by screenshot writing.
                     vec![
@@ -996,6 +1025,7 @@ pub struct Preferences {
     pub disable_osd_speed: bool,
     pub disable_osd_seek: bool,
     pub osd_timeout_secs: f64,
+    pub screenshot: screenshot::Settings,
 }
 
 impl Default for Preferences {
@@ -1012,6 +1042,7 @@ impl Default for Preferences {
             disable_osd_speed: false,
             disable_osd_seek: false,
             osd_timeout_secs: 1.0,
+            screenshot: screenshot::Settings::default(),
         }
     }
 }
@@ -1031,6 +1062,7 @@ impl Preferences {
         }
         // Old settings keep their default cap unless boosting was explicitly enabled.
         prefs.volume = prefs.volume.min(prefs.volume_limit());
+        prefs.screenshot.validate()?;
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
         let timeout = std::time::Duration::try_from_secs_f64(prefs.osd_timeout_secs)
