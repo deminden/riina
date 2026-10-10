@@ -16,7 +16,20 @@ An initial test incorrectly expected the explicit no sentinel and another
 incorrectly expected replacement to retain pause; both assumptions were corrected
 to the actual property availability and existing replacement-resumes contract.
 All 19 native tests then pass. These checks do not prove hardware acceleration,
-HDR or equivalent rendered native switch geometry. GUI and build checks pending.
+HDR or equivalent rendered native switch geometry. Workspace unit checks, strict
+lint, formatting and the optimized Windows build pass.
+
+The optimized shared-OpenGL GUI at 25478f9 exposes Hardware Decoding, and Tab
+from custom aspect traverses 0° / 90° / 180° / 270° then focuses the switch.
+Space and Return each retain the Play button and volume 37. The accessibility
+helper represents the switch as a button and omits checked state; this check
+does not independently prove GUI mode values. At EOF the first decoder refresh
+changes the clock from 5 to 4.958 and exposes the existing seek clock OSD; native
+IINA equivalence for that transition remains unverified. Close exits 0 with
+empty stderr. Source and binary hash are recorded in
+tests/visual/hardware-switch-evidence.json. Pixel comparison, hardware codec
+acceleration, Settings mode selection, hardware-decoding OSD and current port
+runtime remain open. Nothing published.
 
 ## Track metadata and Unicode ratio validation · 2026-10-10
 

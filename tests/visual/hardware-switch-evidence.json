@@ -1,0 +1,31 @@
+{
+  "source_commit": "25478f92493d6480cfca83aa41ec4f6ff39a2039",
+  "binary_sha256": "bf5a7a976c198d1c087f8c081313032af2b8cb848dcb13a68dbb5c3f5c34fa80",
+  "platform": "Windows x64",
+  "renderer": "shared OpenGL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observed_control": "Hardware Decoding",
+  "tab_focus_order": [
+    "Custom aspect ratio",
+    "Video rotation 0°",
+    "Video rotation 90°",
+    "Video rotation 180°",
+    "Video rotation 270°",
+    "Hardware Decoding"
+  ],
+  "exercised_keys": [
+    "space",
+    "Return"
+  ],
+  "play_button_after_each": "Play",
+  "volume_after_each": 37,
+  "initial_position_seconds": 5,
+  "position_after_each": 4.958,
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "limitations": [
+    "Accessibility helper reports switch as button and omits checked state; native policy test separately verifies actual modes.",
+    "Decoder refresh at EOF changes clock to last frame and exposes seek clock OSD; equivalence to IINA is unverified.",
+    "No rendered pixel comparison, accelerated codec proof or current macOS/Linux runtime."
+  ]
+}

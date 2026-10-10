@@ -6,7 +6,11 @@ hwdec-current remains a distinct active-decoder diagnostic. Preference default
 is Auto and the legacy settings format retains that default. Toggle off/on
 restores the preferred mode without overwriting it. All 19 native tests pass,
 including policy changes while paused at volume 37 and preservation across file
-replacement. GUI verification and final build checks are in progress. Native
+replacement. Optimized Windows build, unit checks, formatting and strict lint
+pass. GUI Tab reaches the switch after the four rotation choices; Space and
+Return retain the Play button and volume 37, with clean exit 0 and empty stderr.
+AX omits checked state, so actual mode changes are established by the separate
+native test. Evidence: tests/visual/hardware-switch-evidence.json. Native
 switch rendering, Settings mode picker, OSD, accelerated codec coverage and
 current macOS/Linux runtime remain open. No public update.
 
