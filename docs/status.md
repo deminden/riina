@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Native Crop menu evidence on source e6b97ed verifies the complete ordered ratio
+labels and direct Custom… editor entry. Up wraps from None to Custom…; End did
+not move focus in this test. Cancel restores all standard window controls and
+Play/volume 37/EOF position 5. A 4:3 attempt loses the input tool's window
+reference; fresh inventory recovers closed menus and player input, but does not
+prove its filter result. Close returns 0 with only the expected diagnostic.
+Evidence/source/binary identity is in tests/visual/native-crop-menu-evidence.json.
+The separator and checks are not exposed by AX. No-op native check-item
+resynchronization and named intent for dimension collisions need further work.
+Release build passes (39.25 seconds). Workspace tests, formatting and strict
+lint pass; all 32 native tests pass (12.89 seconds), including all ten crop ratios.
+Nothing published.
+
 Video > Crop now exists on the shared player and native owner, with the pinned
 menu's distinct nine ratios, None, separator and Custom… entry. It routes through
 the existing typed crop command/editor and shares observed catalog state; panel

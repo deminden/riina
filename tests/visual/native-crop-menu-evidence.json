@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "e6b97edf4d626d094bfaf6396374af7704c7ed82",
+  "binary_sha256": "e7e532487f060543440239f93933287cb980eec95b81f9f73e8b1c8bd1c63305",
+  "renderer": "native video experiment",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observations": [
+    "F10/Return exposes Crop before Flip in the partial Video menu",
+    "Right exposes None, 4:3, 5:4, 16:9, 16:10, 1:1, 3:2, 2.21:1, 2.35:1, 2.39:1 and Custom… in that order",
+    "End leaves None focused; Up wraps to Custom…",
+    "Return on Custom… opens whole-source editor (0, 0) (320×180), with Cancel and Done",
+    "Settled editor disables Close and removes Minimise/Maximise from the accessible title bar",
+    "Escape cancels editing, restores all three window controls, and preserves Play, volume 37, EOF position 5",
+    "A later 4:3 activation loses the tool window reference; fresh inventory recovers the live player with menus closed, chrome focused, Play, volume 37 and position 4.999979"
+  ],
+  "exit_code": 0,
+  "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",
+  "unverified": [
+    "Checked native menu state and separator appearance are not exposed by this AX tree",
+    "The attempted GUI preset filter result is not proven by these observations; separate native tests cover all menu ratios",
+    "Rendered crop pixels, pointer/DPI geometry, shared GL menu runtime and other-platform runtime",
+    "No-op native check-item resynchronization and named intent for dimension collisions"
+  ]
+}

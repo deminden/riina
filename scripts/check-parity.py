@@ -17,10 +17,12 @@ assert len({row['id'] for row in rows}) == len(rows), 'Duplicate requirement ID'
 baseline = 'fbcff4df7183b335880396af0655f6bb89d46442'
 for row in rows:
     assert row['upstream_commit'] == baseline, f"Baseline changed: {row['id']}"
-    source = root / 'reference/iina-upstream' / row['upstream_file']
-    assert source.is_file(), f"Missing source: {row['id']} {source}"
+    for source_name in row['upstream_file'].split(';'):
+        source = root / 'reference/iina-upstream' / source_name.strip()
+        assert source.is_file(), f"Missing source: {row['id']} {source}"
     if row['implementation_status'] in ('implemented', 'partial'):
-        assert (root / row['implementation_location']).is_file(), f"Missing implementation: {row['id']}"
+        for location in row['implementation_location'].split(';'):
+            assert (root / location.strip()).is_file(), f"Missing implementation: {row['id']} {location}"
     if row['verification_status'] != 'pending':
         assert row['test_ids'] and row['evidence'], f"Missing evidence: {row['id']}"
     if row['implementation_status'] == 'exact':
