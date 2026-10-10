@@ -42,6 +42,7 @@ pub enum Command {
     SecondarySubtitleDelay(f64),
     SecondarySubtitlePosition(f64),
     SubtitlePosition(f64),
+    SubtitleScale(f64),
     AdjustSubtitleDelay(f64),
     AdjustSubtitleScale(f64),
     AdjustSubtitlePosition(f64),
@@ -138,6 +139,9 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::SubtitleScale(value) if value.is_finite() && (0.0..=100.0).contains(value) => {
+                vec!["set".into(), "sub-scale".into(), value.to_string()]
+            }
             Self::SecondarySubtitleDelay(value) if value.is_finite() => vec![
                 "set".into(),
                 "secondary-sub-delay".into(),

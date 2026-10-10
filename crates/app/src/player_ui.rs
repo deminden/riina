@@ -188,6 +188,15 @@ fn update_ui(
     app.set_speed_value(state.speed as f32);
     app.set_audio_delay(state.audio_delay as f32);
     app.set_subtitle_delay(state.subtitle_delay as f32);
+    app.set_subtitle_scale_known(state.subtitle_scale.is_some());
+    let scale = state.subtitle_scale.unwrap_or(1.0).clamp(0.1, 10.0);
+    app.set_subtitle_scale_slider(
+        (if scale >= 1.0 {
+            scale - 1.0
+        } else {
+            1.0 - scale.recip()
+        }) as f32,
+    );
     app.set_subtitle_position_known(state.subtitle_position.is_some());
     app.set_subtitle_position(state.subtitle_position.unwrap_or(0.0) as f32);
     app.set_secondary_subtitle_delay_known(state.secondary_subtitle_delay.is_some());
@@ -395,6 +404,23 @@ pub(crate) fn configure_player(
     connect!(on_reset_speed, Command::Speed(1.0));
     connect!(on_reset_subtitle_delay, Command::SubtitleDelay(0.0));
     let scale_player = player.command_sender();
+    let absolute_scale_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_subtitle_scale_slider(move |value| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            // Each side advances in 0.05 scale units; the negative side is reciprocal.
+            let magnitude = ((1.0 + f64::from(value).abs()) * 20.0).round() / 20.0;
+            let scale = if value < 0.0 {
+                magnitude.recip()
+            } else {
+                magnitude
+            };
+            if let Err(error) = absolute_scale_player.send(Command::SubtitleScale(scale)) {
+                app.set_status(error.into());
+            }
+        }
+    });
     let weak = app.as_weak();
     app.on_adjust_subtitle_scale(move |delta| {
         if let Some(app) = weak.upgrade() {

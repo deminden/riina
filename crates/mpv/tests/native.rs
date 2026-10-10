@@ -705,6 +705,24 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .is_some_and(|s| (s - expected).abs() < 0.001)
         });
     }
+    for scale in [1.0 / 6.0, 6.0, 1.0] {
+        player.send(Command::SubtitleScale(scale)).unwrap();
+        let scaled = wait_for(&receiver, |state| {
+            state
+                .subtitle_scale
+                .is_some_and(|s| (s - scale).abs() < 0.001)
+        });
+        assert!(scaled.paused);
+        assert_eq!(scaled.subtitle_position, Some(100.0));
+        assert!(scaled.subtitle_delay.abs() < 0.001);
+        assert!(
+            scaled
+                .tracks
+                .iter()
+                .any(|t| t.kind == TrackKind::Sub && t.external && t.selected)
+        );
+        assert_eq!(scaled.error, None);
+    }
     for (delta, expected) in [(-1000.0, 0.0), (1000.0, 150.0), (-50.0, 100.0)] {
         player.send(Command::AdjustSubtitlePosition(delta)).unwrap();
         let adjusted = wait_for(&receiver, |state| state.subtitle_position == Some(expected));

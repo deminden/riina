@@ -173,6 +173,8 @@ export component PlayerWindow inherits Window {
     in property <bool> secondary-subtitle-position-known: false;
     in property <float> subtitle-position: 0;
     in property <bool> subtitle-position-known: false;
+    in property <float> subtitle-scale-slider: 0;
+    in property <bool> subtitle-scale-known: false;
     in-out property <bool> edit-secondary-subtitle: false;
     in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
@@ -196,6 +198,7 @@ export component PlayerWindow inherits Window {
     callback adjust-subtitle-delay(float);
     callback reset-subtitle-delay();
     callback adjust-subtitle-scale(float);
+    callback set-subtitle-scale-slider(float);
     callback adjust-subtitle-position(float);
     callback set-subtitle-position(bool, float);
     callback adjust-audio-delay(float);
@@ -431,6 +434,18 @@ export component PlayerWindow inherits Window {
                                 enabled: root.loaded && (root.edit-secondary-subtitle ? root.secondary-subtitle-position-known : root.subtitle-position-known);
                                 hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
+                        }
+                        if sidebar == 2 : VerticalLayout {
+                            height: 54px; vertical-stretch: 0;
+                            Text { text: "Text size"; color: #dddddd; font-size: 12px; font-weight: 700; }
+                            HorizontalLayout {
+                                PlayerSlider { minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
+                                    enabled: root.loaded && root.subtitle-scale-known; hint: "Subtitle text scale";
+                                    changed(value) => { root.set-subtitle-scale-slider(value); } }
+                                Tool { label: "↺"; hint: "Reset subtitle text scale";
+                                    enabled: root.loaded && root.subtitle-scale-known;
+                                    activated => { root.set-subtitle-scale-slider(0); } }
+                            }
                         }
                     }
                 }

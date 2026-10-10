@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+Local subtitle text scale increment: the shared subtitle pane now includes a
+text-size slider and reset action. The reference -5 to +5 slider uses rounded
+0.05 magnitude increments with a reciprocal reduction below its neutral point;
+reset maps to native scale one. Values display observed native scale and editing
+is disabled until scale is known. An absolute typed scale command accepts finite
+native values 0–100. Real SRT playback verifies absolute scales 1/6, six and one
+while retaining pause, position, delay and the selected external subtitle without
+native errors. All eleven native tests pass (9.76 seconds), with 25 unit tests,
+strict lint and formatting passing. GUI mapping/reset, rendered text size,
+bitmap/ASS style eligibility warnings, light theme and other-OS runtime remain
+pending. Work remains local.
+
 Local relocated subtitle picker verification: reverse Tab traversal from the
 delay slider reaches secondary segment, primary segment and Load Subtitle.
 Enter opens the native picker; Escape cancels and restores Load Subtitle focus.
