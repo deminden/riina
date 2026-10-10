@@ -21,6 +21,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             let preferences = Preferences {
                 leading_sidebar_width: widths.0,
                 trailing_sidebar_width: widths.1,
+                compact_ui: app.get_compact_ui(),
+                osc_position: app.get_osc_position() as u8,
                 screenshot,
                 volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
                     200.0

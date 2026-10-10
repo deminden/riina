@@ -257,3 +257,8 @@ and owned asynchronous picker backends. Full application lint/test/build CI is
 running for these targets (ADR 0004); obtain actual outcomes before declaring the
 build gate closed. Next port work is runtime playback/dialog/lifecycle validation,
 native localized filename ordering and target-specific presentation/HDR integration.
+
+Full interface parity remains the priority. The first Layout-pane choices now
+persist and restore controller position and Compact. Complete remaining Layout
+controls, then compare matched captures for menus, Preferences, window modes,
+DPI, materials and sidebar resize/animation.

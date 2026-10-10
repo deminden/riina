@@ -1948,3 +1948,7 @@ UiSession retains its target until the player shuts down. Native PQ, seeking,
 fullscreen/Escape and close plus GL startup/seeking/close passed at 300% DPI.
 Native logs use %LOCALAPPDATA%/riina/native-player.log. See ADR 0003 and
 presentation-boundary-evidence.json. Other OS presentations remain open.
+The Layout pane now has persisted Compact and Floating/Top/Bottom controller
+choices. Top/Bottom reserve matching space around each sidebar. Captures show
+even full-width cards; a restart restored Bottom plus Compact. Other Layout
+options and matched macOS pixel comparisons remain open.

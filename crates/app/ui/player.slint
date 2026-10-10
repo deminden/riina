@@ -30,6 +30,47 @@ component SidebarTab inherits FocusScope {
         return reject;
     }
 }
+component LayoutChoice inherits FocusScope {
+    in property <string> label;
+    in property <int> position;
+    in property <bool> selected;
+    in property <length> card-width;
+    callback activated();
+    height: 62px;
+    width: card-width;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checked: selected;
+    accessible-action-default => { activated(); }
+    Rectangle {
+        border-radius: 7px;
+        border-width: selected ? 2px : root.has-focus ? 1px : 0px;
+        border-color: selected || root.has-focus ? #168bff : transparent;
+        background: selected ? #168bff18 : touch.has-hover ? #ffffff10 : #ffffff08;
+        VerticalLayout {
+            alignment: center; spacing: 5px;
+            Rectangle {
+                width: 38px; height: 26px; border-radius: 4px;
+                border-width: 1px; border-color: #ffffff55; background: #151519;
+                Rectangle {
+                    x: position == 0 ? parent.width / 2 - 8px : 1px;
+                    y: position == 1 ? 1px : position == 0 ? parent.height - 6px : parent.height - 6px;
+                    width: position == 0 ? 16px : parent.width - 2px;
+                    height: 5px; border-radius: position == 0 ? 3px : 1px;
+                    background: selected ? #90b7ef : #aaaab4;
+                }
+            }
+            Text { text: root.label; color: selected ? #ffffff : #bbbbc2;
+                font-size: 11px; horizontal-alignment: center; }
+        }
+        touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { activated(); return accept; }
+        return reject;
+    }
+}
 // Source geometry: OSCFloatingView.swift (460 width, 67 height, bottom ratio 0.1).
 // Colors and glyph metrics are estimates until matching macOS captures exist.
 component PlayerSlider inherits Rectangle {
@@ -453,6 +494,9 @@ export component PlayerWindow inherits Window {
     in-out property <int> leading-sidebar: 0;
     in-out property <float> leading-sidebar-width: 360;
     in-out property <float> trailing-sidebar-width: 360;
+    in-out property <bool> compact-ui: false;
+    in-out property <int> osc-position: 0;
+    callback layout-settings-changed();
     callback sidebar-resize-finished();
     in-out property <string> selected-playlist-token: "";
     in property <float> audio-delay: 0;
@@ -589,7 +633,7 @@ export component PlayerWindow inherits Window {
             }
         }
         if controls-visible && !crop-editing : Rectangle {
-            x: 0; y: 0; width: parent.width; height: 34px; background: #151515b0;
+            x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px; background: #151515b0;
             HorizontalLayout { padding-left: 12px; padding-right: 12px;
                 Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
                 Text { text: media-title; color: #dddddd; font-size: 12px;
@@ -607,19 +651,24 @@ export component PlayerWindow inherits Window {
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
             visible: pane-kind != 0 && !root.crop-editing;
             x: pane-kind == 3 || pane-kind == 4 ? 0px : parent.width - self.width;
-            y: 34px;
+            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? 67px : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
-            height: parent.height - 68px; background: #202025f5;
+            height: parent.height - (root.compact-ui ? 60px : 68px) -
+                (root.osc-position == 1 ? 67px : root.osc-position == 2 ? 33px : 0px);
             // Track row height and None entry follow SidebarTrackSelector.swift.
             // Saved widths are independent; opening clamps to 80% without overwriting intent.
             // Playlist/chapters default leading; settings default trailing.
             // Insets and material remain provisional until reference captures exist.
-            VerticalLayout { padding: 12px; spacing: 8px;
+            VerticalLayout { padding: root.compact-ui ? 9px : 12px;
+                width: parent.width;
+                spacing: root.compact-ui ? 6px : 8px;
                 HorizontalLayout {
                     // Tabs switch the visible pane without closing it or changing catalog tokens.
                     // Layout is still pending; do not expose an empty reference tab.
-                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 6 : HorizontalLayout {
+                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : HorizontalLayout {
                         spacing: 4px;
+                        SidebarTab { label: "Layout"; selected: pane-kind == 5;
+                            activated => { root.sidebar = 5; } }
                         SidebarTab { label: "Video"; selected: pane-kind == 6;
                             activated => { root.sidebar = 6; } }
                         SidebarTab { label: "Audio"; selected: pane-kind == 1;
@@ -640,6 +689,34 @@ export component PlayerWindow inherits Window {
                             keys.focus();
                             if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
                         } }
+                }
+                if pane-kind == 5 : VerticalLayout {
+                    spacing: 10px;
+                    Text { text: "On-Screen Controller"; color: #bdbdc5;
+                        font-size: 11px; font-weight: 700; }
+                    HorizontalLayout {
+                        width: min(root.trailing-sidebar-width * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
+                        spacing: 6px;
+                        LayoutChoice { label: "Floating"; position: 0; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 0;
+                            activated => { root.osc-position = 0; root.layout-settings-changed(); } }
+                        LayoutChoice { label: "Top"; position: 1; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 1;
+                            activated => { root.osc-position = 1; root.layout-settings-changed(); } }
+                        LayoutChoice { label: "Bottom"; position: 2; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 2;
+                            activated => { root.osc-position = 2; root.layout-settings-changed(); } }
+                    }
+                    Rectangle { width: parent.width; height: 30px; accessible-role: checkbox;
+                        accessible-label: "Compact interface"; accessible-checkable: true;
+                        accessible-checked: root.compact-ui;
+                        accessible-action-default => { root.compact-ui = !root.compact-ui; root.layout-settings-changed(); }
+                        Text { x: 26px; text: "Compact interface"; color: #dddddd;
+                            font-size: 12px; vertical-alignment: center; }
+                        Rectangle { x: 2px; y: 7px; width: 16px; height: 16px; border-radius: 3px;
+                            border-width: 1px; border-color: #888892;
+                            background: root.compact-ui ? #90b7ef : #ffffff10;
+                            if root.compact-ui : Text { text: "✓"; color: #17202e;
+                                horizontal-alignment: center; vertical-alignment: center; font-size: 12px; } }
+                        TouchArea { clicked => { root.compact-ui = !root.compact-ui; root.layout-settings-changed(); } }
+                    }
                 }
                 if pane-kind == 1 : HorizontalLayout {
                     Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
@@ -695,7 +772,7 @@ export component PlayerWindow inherits Window {
                         }
                     }
                 }
-                ScrollView {
+                if pane-kind != 5 : ScrollView {
                     VerticalLayout { alignment: start; spacing: 1px;
                         if pane-kind == 2 : HorizontalLayout {
                             height: 28px;
@@ -972,7 +1049,9 @@ export component PlayerWindow inherits Window {
             visible: !root.crop-editing && (side == 0 ? root.leading-sidebar != 0 : root.sidebar != 0);
             private property <length> panel-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
             x: side == 0 ? panel-width : root.width - panel-width - 4px;
-            y: 34px; width: 4px; height: root.height - 68px;
+            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? 67px : 0px); width: 4px;
+            height: root.height - (root.compact-ui ? 60px : 68px) -
+                (root.osc-position == 1 ? 67px : root.osc-position == 2 ? 33px : 0px);
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
@@ -992,16 +1071,20 @@ export component PlayerWindow inherits Window {
             }
         }
         if controls-visible && loaded && !crop-editing : Rectangle {
-            width: min(460px, parent.width - 24px); height: 67px;
-            x: (parent.width - self.width) / 2;
-            y: parent.height * 0.9 - self.height;
-            border-radius: 12px; background: #202025e8;
+            width: root.osc-position == 0 ? min(460px, parent.width - 24px) : parent.width;
+            height: root.compact-ui ? 59px : 67px;
+            x: root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
+            y: root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
+                root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
+            border-radius: root.osc-position == 0 ? 12px : 4px; background: #202025e8;
             border-width: 1px; border-color: #ffffff25;
             // This is a tinted SDR spike, not a claim of matching AppKit video blur.
             // Keep the outer baseline separate from glyph/material estimates. A
             // 17-point button row and 20-point timeline fit the recorded 67-point
             // panel with spacious 14/8 insets and an 8-point row separation.
-            VerticalLayout { padding-top: 14px; padding-bottom: 8px; spacing: 8px;
+            VerticalLayout { padding-top: root.compact-ui ? 10px : 14px;
+                padding-bottom: root.compact-ui ? 6px : 8px;
+                spacing: root.compact-ui ? 6px : 8px;
                 HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
                     Tool { height: 17px; icon: @image-url("../../../assets/icons/backward.svg"); hint: "Half playback speed"; activated => { root.speed(0.5); } }
                     Tool { height: 17px; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";

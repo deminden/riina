@@ -415,6 +415,8 @@ impl UiSession {
             fullscreen_when_open: app.get_fullscreen_when_open(),
             leading_sidebar_width: app.get_leading_sidebar_width() as u32,
             trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
+            compact_ui: app.get_compact_ui(),
+            osc_position: app.get_osc_position() as u8,
             screenshot: crate::screenshot_preferences::current(app)
                 .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
@@ -456,7 +458,10 @@ pub(crate) fn configure_player(
     app.set_fullscreen_when_open(prefs.fullscreen_when_open);
     app.set_leading_sidebar_width(prefs.leading_sidebar_width as f32);
     app.set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
+    app.set_compact_ui(prefs.compact_ui);
+    app.set_osc_position(i32::from(prefs.osc_position));
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
+    crate::layout_preferences::connect(app, prefs_path.clone(), prefs.clone());
     crate::screenshot_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(

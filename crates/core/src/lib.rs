@@ -1033,6 +1033,8 @@ pub fn time_label(seconds: Option<f64>) -> String {
 pub struct Preferences {
     pub leading_sidebar_width: u32,
     pub trailing_sidebar_width: u32,
+    pub compact_ui: bool,
+    pub osc_position: u8,
     pub pause_when_open: bool,
     pub fullscreen_when_open: bool,
     pub schema_version: u32,
@@ -1054,6 +1056,8 @@ impl Default for Preferences {
         Self {
             leading_sidebar_width: 360,
             trailing_sidebar_width: 360,
+            compact_ui: false,
+            osc_position: 0,
             pause_when_open: false,
             fullscreen_when_open: false,
             schema_version: 1,
@@ -1088,6 +1092,9 @@ impl Preferences {
         prefs.volume = prefs.volume.min(prefs.volume_limit());
         prefs.leading_sidebar_width = prefs.leading_sidebar_width.clamp(300, 500);
         prefs.trailing_sidebar_width = prefs.trailing_sidebar_width.clamp(300, 500);
+        if prefs.osc_position > 2 {
+            return Err("Unsupported on-screen controller position".into());
+        }
         prefs.screenshot.validate()?;
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
@@ -1133,6 +1140,18 @@ mod tests {
             (300, 500)
         );
         assert!(Preferences::parse(r#"{"leading_sidebar_width":-1}"#).is_err());
+    }
+
+    #[test]
+    fn layout_preferences_keep_reference_defaults_and_reject_unknown_controller_positions() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert!(!legacy.compact_ui);
+        assert_eq!(legacy.osc_position, 0);
+        let selected = Preferences::parse(r#"{"compact_ui":true,"osc_position":2}"#).unwrap();
+        let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
+        assert!(restored.compact_ui);
+        assert_eq!(restored.osc_position, 2);
+        assert!(Preferences::parse(r#"{"osc_position":3}"#).is_err());
     }
 
     #[test]

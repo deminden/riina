@@ -65,3 +65,10 @@ error. Actual Windows drag/restart/save-failure and click-outside-dismissal chec
 passed in an isolated profile. Narrow-window cap, native renderer interaction,
 RTL and other-platform runtime remain unverified. Exact reference pixels remain
 open; the retained restored-width capture is private regression evidence.
+
+The Layout tab now exposes persisted Floating, Top and Bottom controller modes
+plus Compact interface. Top/Bottom reserve their own space alongside an open
+sidebar. Windows captures show three evenly sized cards; restart restored Bottom
+and Compact. Full Layout content remains open: theme/material, edge-to-edge/window
+sizing, dock behavior, sidebar side assignment and video fit are not implemented.
+Captures have not been compared against matched macOS pixels.

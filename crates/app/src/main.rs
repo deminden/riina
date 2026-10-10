@@ -5,6 +5,7 @@ mod file_selection;
 mod font_catalog;
 mod font_picker;
 mod language_names;
+mod layout_preferences;
 mod media_open;
 mod opening_fullscreen;
 mod platform;
