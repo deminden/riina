@@ -17,6 +17,17 @@ use std::{
     time::Duration,
 };
 
+fn refresh_video_menu(app: &PlayerWindow) {
+    // Native check items toggle before dispatch. A no-op or rejected command
+    // cannot dirty the observed selection, so renew the model identity to make
+    // Slint rebuild the menu from confirmed state rather than that local toggle.
+    app.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::crop::MENU_LABELS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
+}
+
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
     let languages = crate::language_names::LanguageNames::current();
     for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
@@ -356,11 +367,7 @@ pub(crate) fn configure_player(
             .to_vec(),
     )));
     app.set_osd_enabled(prefs.enable_osd);
-    app.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
-        riina_core::crop::MENU_LABELS
-            .map(slint::SharedString::from)
-            .to_vec(),
-    )));
+    refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::LABELS
             .map(slint::SharedString::from)
@@ -426,6 +433,14 @@ pub(crate) fn configure_player(
     let weak = app.as_weak();
     app.on_toggle_video_reflection(move |horizontal| {
         if let Some(app) = weak.upgrade() {
+            refresh_video_menu(&app);
+            if !app.get_loaded()
+                || !app.get_reflection_known()
+                || app.get_crop_editing()
+                || app.get_dialog_open()
+            {
+                return;
+            }
             let axis = if horizontal {
                 riina_core::video_reflection::Axis::Horizontal
             } else {
@@ -621,6 +636,7 @@ pub(crate) fn configure_player(
     let weak = app.as_weak();
     app.on_set_menu_video_crop(move |index| {
         let Some(app) = weak.upgrade() else { return };
+        refresh_video_menu(&app);
         if !app.get_loaded()
             || !app.get_video_crop_known()
             || app.get_crop_editing()

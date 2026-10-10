@@ -5,6 +5,12 @@ with a separator before Custom…. Native GUI navigation, Custom… entry and Ca
 restoration have evidence. Verify GUI preset output, checked state and rendered output. Preserve named
 preset identity when multiple ratios round to identical native dimensions.
 
+Crop/Flip activation now renews the shared menu model so native automatic
+check-item toggles cannot remain authoritative after no-op or rejected commands.
+Native menu recreation and Custom…/Cancel lifecycle have runtime observations;
+visually verify checks after no-op, backend failure and rapid repeated actions,
+including the shared GL menu and current macOS/Linux application ports.
+
 Crop standard window controls now have a shared temporary disable/restore
 coordinator. Windows native Close-disabled and Minimise/Maximise-absent AX state
 and restoration after whole-source Done have runtime evidence. Verify visual

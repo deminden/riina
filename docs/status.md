@@ -1,5 +1,19 @@
 # Status · 2026-10-09
 
+Crop and Flip menu activations now renew menu model identity before dispatch or
+input-scope rejection. The pinned muda backend automatically toggles native
+check items before delivering actions; the Slint backend rebuilds them only when
+tracked properties change. Renewing the model reasserts confirmed playback
+selection even when a command makes no state change. Reflection callbacks now
+also reject unknown/unloaded state and active crop/dialog scopes. Workspace
+tests, formatting, strict lint and Windows release build pass (37.14 seconds).
+Native GUI testing observed menu recreation after None activation, successful
+Custom… entry and Cancel restoration with Play/volume 37/position 5 preserved.
+Native checks are still not exposed by the accessibility view; checked pixels,
+failure/burst behavior, shared GL and other-platform runtime remain unverified.
+The player closes with exit 0 and only the expected native layout diagnostic.
+Nothing published.
+
 Native Crop menu evidence on source e6b97ed verifies the complete ordered ratio
 labels and direct Custom… editor entry. Up wraps from None to Custom…; End did
 not move focus in this test. Cancel restores all standard window controls and
