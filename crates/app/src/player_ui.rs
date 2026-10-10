@@ -551,6 +551,12 @@ impl UiSession {
                 app.get_secondary_subtitle_ass_override_index(),
             )
             .ok_or_else(|| std::io::Error::other("Invalid secondary ASS override selection"))?,
+            subtitle_position: crate::subtitle_position_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
+            subtitle_other: crate::subtitle_other_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
+            subtitle_auto_load: crate::subtitle_auto_load_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
             subtitle_font: app.get_subtitle_font().to_string(),
             subtitle_font_size: crate::subtitle_preferences::current_font_size(app),
             subtitle_text_style: crate::subtitle_preferences::current_style(app)
@@ -633,6 +639,9 @@ pub(crate) fn configure_player(
     app.set_secondary_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.secondary_subtitle_ass_override,
     ));
+    crate::subtitle_position_preferences::install_player(app, prefs.subtitle_position);
+    crate::subtitle_other_preferences::install_player(app, &prefs.subtitle_other);
+    crate::subtitle_auto_load_preferences::install_player(app, &prefs.subtitle_auto_load);
     app.set_subtitle_font(prefs.subtitle_font.clone().into());
     app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
@@ -1788,6 +1797,12 @@ pub(crate) fn configure_player(
         .send(Command::SubtitleFontSize(prefs.subtitle_font_size))
         .map_err(std::io::Error::other)?;
     for command in crate::subtitle_preferences::commands(prefs.subtitle_text_style) {
+        player.send(command).map_err(std::io::Error::other)?;
+    }
+    for command in prefs.subtitle_position.commands() {
+        player.send(command).map_err(std::io::Error::other)?;
+    }
+    for command in prefs.subtitle_other.commands() {
         player.send(command).map_err(std::io::Error::other)?;
     }
     if native.is_some() {

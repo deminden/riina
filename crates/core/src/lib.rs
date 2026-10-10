@@ -74,6 +74,14 @@ pub enum Command {
         lane: subtitle_controls::SubtitleLane,
         level: subtitle_controls::AssOverrideLevel,
     },
+    SubtitleAlignX(subtitle_controls::HorizontalAlignment),
+    SubtitleAlignY(subtitle_controls::VerticalAlignment),
+    SubtitleLetterboxMargins(bool),
+    SubtitleScaleWithWindow(bool),
+    SubtitleMarginX(f64),
+    SubtitleMarginY(f64),
+    SubtitlePreferredLanguages(String),
+    SubtitleEncoding(String),
     VideoEqualizer {
         option: video_controls::Equalizer,
         value: i64,
@@ -287,6 +295,11 @@ impl Command {
             Self::SubtitleFont(font) if subtitle_controls::valid_font_name(font) => {
                 vec!["set".into(), "sub-font".into(), font.clone()]
             }
+            Self::SubtitlePreferredLanguages(languages)
+                if languages.len() <= 256 && !languages.chars().any(char::is_control) =>
+            {
+                vec!["set".into(), "slang".into(), languages.clone()]
+            }
             Self::SubtitleBold(value) => vec![
                 "set".into(),
                 "sub-bold".into(),
@@ -339,6 +352,35 @@ impl Command {
                         "sub-pos"
                     } else {
                         "secondary-sub-pos"
+                    }
+                    .into(),
+                    value.to_string(),
+                ]
+            }
+            Self::SubtitleAlignX(alignment) => vec![
+                "set".into(),
+                "sub-align-x".into(),
+                alignment.mpv_value().into(),
+            ],
+            Self::SubtitleAlignY(alignment) => vec![
+                "set".into(),
+                "sub-align-y".into(),
+                alignment.mpv_value().into(),
+            ],
+            Self::SubtitleScaleWithWindow(enabled) => vec![
+                "set".into(),
+                "sub-scale-by-window".into(),
+                if *enabled { "yes" } else { "no" }.into(),
+            ],
+            Self::SubtitleMarginX(value) | Self::SubtitleMarginY(value)
+                if value.is_finite() && (0.0..=2_000_000_000.0).contains(value) =>
+            {
+                vec![
+                    "set".into(),
+                    if matches!(self, Self::SubtitleMarginX(_)) {
+                        "sub-margin-x"
+                    } else {
+                        "sub-margin-y"
                     }
                     .into(),
                     value.to_string(),
@@ -397,6 +439,8 @@ impl Command {
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
+            | Self::SubtitleLetterboxMargins(_)
+            | Self::SubtitleEncoding(_)
             | Self::CycleLoop
             | Self::SetAbLoop { .. }
             | Self::SelectPlaylistId(_)
@@ -413,6 +457,31 @@ impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         let commands = match self {
+            Self::SubtitleLetterboxMargins(enabled) => {
+                let value = if *enabled { "yes" } else { "no" };
+                vec![
+                    vec!["set".into(), "sub-use-margins".into(), value.into()],
+                    vec!["set".into(), "sub-ass-force-margins".into(), value.into()],
+                ]
+            }
+            Self::SubtitleEncoding(encoding) => {
+                if !subtitle_controls::SUBTITLE_ENCODING_CHOICES
+                    .iter()
+                    .any(|(_, code)| *code == encoding)
+                {
+                    return Err("Unsupported subtitle encoding".into());
+                }
+                let mut commands =
+                    vec![vec!["set".into(), "sub-codepage".into(), encoding.clone()]];
+                commands.extend(
+                    state
+                        .tracks
+                        .iter()
+                        .filter(|track| track.kind == TrackKind::Sub)
+                        .map(|track| vec!["sub-reload".into(), track.id.to_string()]),
+                );
+                commands
+            }
             Self::Screenshot {
                 directory,
                 content,
@@ -1117,6 +1186,9 @@ pub struct Preferences {
     pub hardware_decoder: video_controls::HardwareDecoder,
     pub subtitle_ass_override: subtitle_controls::AssOverrideLevel,
     pub secondary_subtitle_ass_override: subtitle_controls::AssOverrideLevel,
+    pub subtitle_position: subtitle_controls::PositionPreferences,
+    pub subtitle_other: subtitle_controls::OtherPreferences,
+    pub subtitle_auto_load: subtitle_controls::AutoLoadPreferences,
     pub subtitle_font: String,
     pub subtitle_font_size: f64,
     pub subtitle_text_style: subtitle_controls::TextStylePreferences,
@@ -1159,6 +1231,9 @@ impl Default for Preferences {
             hardware_decoder: video_controls::HardwareDecoder::Auto,
             subtitle_ass_override: subtitle_controls::AssOverrideLevel::Scale,
             secondary_subtitle_ass_override: subtitle_controls::AssOverrideLevel::Scale,
+            subtitle_position: subtitle_controls::PositionPreferences::default(),
+            subtitle_other: subtitle_controls::OtherPreferences::default(),
+            subtitle_auto_load: subtitle_controls::AutoLoadPreferences::default(),
             subtitle_font: subtitle_controls::DEFAULT_SUBTITLE_FONT.into(),
             subtitle_font_size: 55.0,
             subtitle_text_style: subtitle_controls::TextStylePreferences::default(),
@@ -1201,6 +1276,9 @@ impl Preferences {
             .subtitle_text_style
             .validate()
             .map_err(str::to_owned)?;
+        prefs.subtitle_position.validate().map_err(str::to_owned)?;
+        prefs.subtitle_other.validate().map_err(str::to_owned)?;
+        prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
         prefs.volume = prefs.volume.min(prefs.volume_limit());
         prefs.leading_sidebar_width = prefs.leading_sidebar_width.clamp(300, 500);
@@ -1442,6 +1520,170 @@ mod tests {
         assert_eq!(
             restored.secondary_subtitle_ass_override,
             AssOverrideLevel::No
+        );
+    }
+
+    #[test]
+    fn subtitle_position_preferences_keep_source_defaults_and_round_trip() {
+        use subtitle_controls::{HorizontalAlignment, PositionPreferences, VerticalAlignment};
+
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(legacy.subtitle_position, PositionPreferences::default());
+
+        let configured = Preferences {
+            subtitle_position: PositionPreferences {
+                horizontal: HorizontalAlignment::Right,
+                vertical: VerticalAlignment::Top,
+                position: 84.25,
+                display_in_letterbox: false,
+                scale_with_window: false,
+                margin_x: 31.5,
+                margin_y: 18.0,
+            },
+            ..legacy
+        };
+        let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(restored.subtitle_position, configured.subtitle_position);
+
+        for invalid in [
+            r#"{"subtitle_position":{"position":100.1}}"#,
+            r#"{"subtitle_position":{"margin_x":-0.1}}"#,
+            r#"{"subtitle_position":{"margin_y":1e300}}"#,
+            r#"{"subtitle_position":{"horizontal":"leading"}}"#,
+        ] {
+            assert!(Preferences::parse(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn subtitle_other_preferences_preserve_the_reference_encoding_menu() {
+        use subtitle_controls::{OtherPreferences, SUBTITLE_ENCODING_CHOICES};
+
+        assert_eq!(SUBTITLE_ENCODING_CHOICES.len(), 44);
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(legacy.subtitle_other, OtherPreferences::default());
+        assert_eq!(legacy.subtitle_other.encoding_index(), Some(0));
+
+        let configured = Preferences {
+            subtitle_other: OtherPreferences {
+                preferred_languages: "eng,jpn,zh-Hant".into(),
+                default_encoding: "SHIFT-JIS".into(),
+            },
+            ..legacy
+        };
+        let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(restored.subtitle_other, configured.subtitle_other);
+        assert!(
+            restored
+                .subtitle_other
+                .commands()
+                .contains(&Command::SubtitlePreferredLanguages(
+                    "eng,jpn,zh-Hant".into()
+                ))
+        );
+        assert!(
+            restored
+                .subtitle_other
+                .commands()
+                .contains(&Command::SubtitleEncoding("SHIFT-JIS".into()))
+        );
+
+        assert!(
+            Preferences::parse(r#"{"subtitle_other":{"default_encoding":"invented-codepage"}}"#)
+                .is_err()
+        );
+        assert!(
+            Preferences::parse(r#"{"subtitle_other":{"preferred_languages":"eng\nfre"}}"#).is_err()
+        );
+    }
+
+    #[test]
+    fn subtitle_auto_load_preferences_keep_reference_choices_and_defaults() {
+        use subtitle_controls::{AutoLoadMode, AutoLoadPreferences};
+
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(legacy.subtitle_auto_load, AutoLoadPreferences::default());
+        assert_eq!(legacy.subtitle_auto_load.mode, AutoLoadMode::Intelligent);
+        assert_eq!(legacy.subtitle_auto_load.search_paths, "./*");
+        assert_eq!(AutoLoadMode::Disabled.index(), 0);
+        assert_eq!(AutoLoadMode::Filename.index(), 1);
+        assert_eq!(AutoLoadMode::Intelligent.index(), 2);
+        assert_eq!(AutoLoadMode::from_index(3), None);
+
+        let configured = Preferences {
+            subtitle_auto_load: AutoLoadPreferences {
+                mode: AutoLoadMode::Filename,
+                priority_keywords: "forced, SDH".into(),
+                search_paths: "./subs:../captions".into(),
+            },
+            ..legacy
+        };
+        let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
+        assert_eq!(restored.subtitle_auto_load, configured.subtitle_auto_load);
+        for invalid in [
+            r#"{"subtitle_auto_load":{"priority_keywords":"eng\nforced"}}"#,
+            r#"{"subtitle_auto_load":{"search_paths":"subs\u0000"}}"#,
+            r#"{"subtitle_auto_load":{"mode":"unknown"}}"#,
+        ] {
+            assert!(Preferences::parse(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn subtitle_encoding_change_updates_option_then_reloads_each_subtitle_track() {
+        fn track(id: i64, kind: TrackKind) -> Track {
+            Track {
+                id,
+                kind,
+                title: None,
+                lang: None,
+                codec: None,
+                selected: false,
+                main_selection: None,
+                external: false,
+                external_filename: None,
+                is_default: false,
+                channels: None,
+                sample_rate: None,
+                width: None,
+                height: None,
+                frame_rate: None,
+            }
+        }
+        let state = Playback {
+            tracks: vec![
+                Track {
+                    external: true,
+                    ..track(7, TrackKind::Sub)
+                },
+                track(9, TrackKind::Audio),
+                track(11, TrackKind::Sub),
+            ],
+            ..Playback::default()
+        };
+
+        assert_eq!(
+            Command::SubtitleEncoding("UTF-8".into())
+                .plan(&state)
+                .unwrap()
+                .commands,
+            vec![
+                vec!["set", "sub-codepage", "UTF-8"],
+                vec!["sub-reload", "7"],
+                vec!["sub-reload", "11"],
+            ]
+        );
+        assert_eq!(
+            Command::SubtitleEncoding("auto".into())
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            [["set", "sub-codepage", "auto"]]
+        );
+        assert!(
+            Command::SubtitleEncoding("invalid".into())
+                .plan(&state)
+                .is_err()
         );
     }
 

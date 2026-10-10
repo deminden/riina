@@ -571,6 +571,18 @@ export component PlayerWindow inherits Window {
     in-out property <int> hardware-decoder-index: 1;
     in-out property <int> subtitle-ass-override-index: 2;
     in-out property <int> secondary-subtitle-ass-override-index: 2;
+    in-out property <int> subtitle-align-x-index: 1;
+    in-out property <int> subtitle-align-y-index: 2;
+    in-out property <string> subtitle-position-text: "100";
+    in-out property <string> subtitle-preferred-languages: "";
+    in-out property <string> subtitle-default-encoding: "auto";
+    in-out property <int> subtitle-auto-load-mode-index: 2;
+    in-out property <string> subtitle-auto-load-priority;
+    in-out property <string> subtitle-search-paths: "./*";
+    in-out property <bool> subtitle-display-in-letterbox: true;
+    in-out property <bool> subtitle-scale-with-window: true;
+    in-out property <string> subtitle-margin-x-text: "25";
+    in-out property <string> subtitle-margin-y-text: "22";
     private property <float> volume-limit: volume-boost ? 200 : 100;
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;

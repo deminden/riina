@@ -105,6 +105,25 @@ component PreferenceActionButton inherits Rectangle {
     }
 }
 
+// AppKit draws number formatters as bounded editable cells; give shared values
+// the same visible affordance even when the Windows widget theme omits a bezel.
+component PreferenceNumericInput inherits Rectangle {
+    in-out property <string> text: "";
+    in property <length> font-size: 11px;
+    callback accepted();
+    border-radius: 2px;
+    border-width: 1px;
+    border-color: #b8b8bc;
+    background: #ffffff;
+    TextInput {
+        x: 3px; y: 1px; width: parent.width - 6px; height: parent.height - 2px;
+        text <=> root.text;
+        font-size: root.font-size;
+        color: #222222;
+        accepted => { root.accepted(); }
+    }
+}
+
 component PreferenceDisclosure inherits FocusScope {
     in property <string> label;
     in property <bool> expanded: false;
@@ -205,6 +224,21 @@ export component PreferencesWindow inherits Window {
     in-out property <int> subtitle-ass-override-lane: 0;
     in-out property <int> subtitle-ass-override-primary-index: 2;
     in-out property <int> subtitle-ass-override-secondary-index: 2;
+    in-out property <int> subtitle-align-x-index: 1;
+    in-out property <int> subtitle-align-y-index: 2;
+    in-out property <string> subtitle-position-text: "100";
+    in-out property <bool> subtitle-display-in-letterbox: true;
+    in-out property <bool> subtitle-scale-with-window: true;
+    in-out property <string> subtitle-margin-x-text: "25";
+    in-out property <string> subtitle-margin-y-text: "22";
+    in-out property <string> subtitle-preferred-languages-text: "";
+    in-out property <int> subtitle-encoding-index: 0;
+    in property <[string]> subtitle-encoding-options;
+    in-out property <int> subtitle-auto-load-mode-index: 2;
+    in property <[string]> subtitle-auto-load-mode-options;
+    in-out property <string> subtitle-auto-load-priority-text;
+    in-out property <string> subtitle-search-paths-text: "./*";
+    in-out property <bool> subtitle-auto-load-advanced-expanded: false;
     in-out property <string> subtitle-font: "sans-serif";
     in-out property <string> subtitle-font-size-text: "55";
     in-out property <color> subtitle-text-color: #ffffff;
@@ -382,14 +416,54 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 3 : ScrollView {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
-        content-height: root.subtitle-text-advanced-expanded ? 532px : 380px;
+        content-height: 850px;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle { width: parent.width;
-        height: root.subtitle-text-advanced-expanded ? 532px : 380px;
+        height: 1050px;
         background: #ededed;
         Text { x: 22px; y: 16px; text: "Subtitle"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle { x: 20px; y: 52px; width: 480px; height: 99px; background: transparent;
+        Rectangle { x: 20px; y: 52px; width: 480px; height: 193px; background: transparent;
+            Text { x: 0; y: 8px; text: "Auto Load:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            ComboBox { x: 98px; y: 4px; width: 255px; height: 25px;
+                model: root.subtitle-auto-load-mode-options;
+                current-index <=> root.subtitle-auto-load-mode-index;
+                selected => { root.settings-changed(); }
+            }
+            PreferenceDisclosure { x: 98px; y: 38px;
+                label: "Advanced"; expanded: root.subtitle-auto-load-advanced-expanded;
+                toggled => { root.subtitle-auto-load-advanced-expanded = !root.subtitle-auto-load-advanced-expanded; }
+            }
+            if root.subtitle-auto-load-advanced-expanded : Rectangle {
+                x: 98px; y: 58px; width: 366px; height: 132px; background: transparent;
+                Text { x: -2px; y: 13px; text: "Subtitles have priority when filename containing:";
+                    font-size: 10px; color: #222222; }
+                Rectangle { x: 0; y: 22px; width: 360px; height: 19px;
+                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
+                    background: #ffffff;
+                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
+                        text <=> root.subtitle-auto-load-priority-text;
+                        font-size: 11px; color: #222222;
+                        accepted => { root.settings-changed(); }
+                    }
+                }
+                Text { x: -2px; y: 43px; text: "Please enter a comma-separated list of strings.";
+                    font-size: 10px; color: #77777d; }
+                Text { x: -2px; y: 65px; text: "Also search subtitles in following directories:";
+                    font-size: 10px; color: #222222; }
+                Rectangle { x: 0; y: 83px; width: 360px; height: 19px;
+                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
+                    background: #ffffff;
+                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
+                        text <=> root.subtitle-search-paths-text;
+                        font-size: 11px; color: #222222;
+                        accepted => { root.settings-changed(); }
+                    }
+                }
+            }
+        }
+        Rectangle { x: 20px; y: 245px; width: 480px; height: 99px; background: transparent;
             Text { x: 0; y: 8px; text: "ASS Subtitles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Rectangle { x: 98px; y: 6px; width: 366px; height: 89px;
@@ -438,7 +512,7 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        Rectangle { x: 20px; y: 166px; width: 480px; height: 115px; background: transparent;
+        Rectangle { x: 20px; y: 359px; width: 480px; height: 115px; background: transparent;
             Text { x: 0; y: 8px; text: "Text Subtitles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Rectangle { x: 98px; y: 4px; width: 366px; height: 105px;
@@ -457,9 +531,8 @@ export component PreferencesWindow inherits Window {
                 }
                 Text { x: 16px; y: 60px; text: "Size:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
-                TextInput { x: 60px; y: 55px; width: 38px; height: 24px;
+                PreferenceNumericInput { x: 60px; y: 55px; width: 38px; height: 24px;
                     text <=> root.subtitle-font-size-text;
-                    font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
                 CheckBox { x: 104px; y: 55px; width: 54px; height: 24px;
@@ -488,7 +561,7 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        Rectangle { x: 20px; y: 291px; width: 480px; height: 58px; background: transparent;
+        Rectangle { x: 20px; y: 484px; width: 480px; height: 58px; background: transparent;
             Text { x: 0; y: 8px; text: "Border:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
@@ -496,9 +569,8 @@ export component PreferencesWindow inherits Window {
                 background: #f1f1f3;
                 Text { x: 12px; y: 21px; text: "Size:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
-                TextInput { x: 52px; y: 15px; width: 38px; height: 24px;
+                PreferenceNumericInput { x: 52px; y: 15px; width: 38px; height: 24px;
                     text <=> root.subtitle-outline-size-text;
-                    font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 112px; y: 21px; text: "Color:";
@@ -509,11 +581,11 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        PreferenceDisclosure { x: 20px; y: 357px;
+        PreferenceDisclosure { x: 20px; y: 550px;
             label: "Advanced"; expanded: root.subtitle-text-advanced-expanded;
             toggled => { root.subtitle-text-advanced-expanded = !root.subtitle-text-advanced-expanded; }
         }
-        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 385px; width: 480px; height: 58px; background: transparent;
+        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 578px; width: 480px; height: 58px; background: transparent;
             Text { x: 0; y: 8px; text: "Shadow:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
@@ -521,9 +593,8 @@ export component PreferencesWindow inherits Window {
                 background: #f1f1f3;
                 Text { x: 12px; y: 21px; text: "Offset:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
-                TextInput { x: 56px; y: 15px; width: 38px; height: 24px;
+                PreferenceNumericInput { x: 56px; y: 15px; width: 38px; height: 24px;
                     text <=> root.subtitle-shadow-offset-text;
-                    font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 119px; y: 21px; text: "Color:";
@@ -538,7 +609,7 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 447px; width: 480px; height: 58px; background: transparent;
+        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 640px; width: 480px; height: 58px; background: transparent;
             Text { x: 0; y: 8px; text: "Other Styles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Rectangle { x: 98px; y: 0; width: 366px; height: 56px;
@@ -546,18 +617,96 @@ export component PreferencesWindow inherits Window {
                 background: #f1f1f3;
                 Text { x: 12px; y: 21px; text: "Blur:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
-                TextInput { x: 48px; y: 15px; width: 38px; height: 24px;
+                PreferenceNumericInput { x: 48px; y: 15px; width: 38px; height: 24px;
                     text <=> root.subtitle-blur-text;
-                    font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 109px; y: 21px; text: "Font spacing:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
-                TextInput { x: 190px; y: 15px; width: 38px; height: 24px;
+                PreferenceNumericInput { x: 190px; y: 15px; width: 38px; height: 24px;
                     text <=> root.subtitle-spacing-text;
+                    accepted => { root.settings-changed(); }
+                }
+            }
+        }
+        Rectangle { x: 20px; y: 714px; width: 480px; height: 208px; background: transparent;
+            Text { x: 0; y: 8px; text: "Position:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Rectangle { x: 98px; y: 6px; width: 366px; height: 56px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                Text { x: 12px; y: 20px; text: "X:"; font-size: 11px; color: #222222; }
+                ComboBox { x: 28px; y: 15px; width: 88px; height: 24px;
+                    model: ["Left", "Center", "Right"];
+                    current-index <=> root.subtitle-align-x-index;
+                    selected => { root.settings-changed(); }
+                }
+                Text { x: 126px; y: 20px; text: "Y:"; font-size: 11px; color: #222222; }
+                ComboBox { x: 143px; y: 15px; width: 88px; height: 24px;
+                    model: ["Top", "Center", "Bottom"];
+                    current-index <=> root.subtitle-align-y-index;
+                    selected => { root.settings-changed(); }
+                }
+            }
+            Rectangle { x: 98px; y: 68px; width: 366px; height: 56px;
+                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
+                background: #f1f1f3;
+                Text { x: 12px; y: 5px; text: "Margin";
+                    font-size: 11px; font-weight: 600; color: #55555d; }
+                Text { x: 16px; y: 28px; text: "X:"; font-size: 11px; color: #222222; }
+                PreferenceNumericInput { x: 34px; y: 21px; width: 80px; height: 24px;
+                    text <=> root.subtitle-margin-x-text;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 125px; y: 28px; text: "Y:"; font-size: 11px; color: #222222; }
+                PreferenceNumericInput { x: 143px; y: 21px; width: 80px; height: 24px;
+                    text <=> root.subtitle-margin-y-text;
+                    accepted => { root.settings-changed(); }
+                }
+            }
+            Text { x: 98px; y: 132px; text: "Vertical position:";
+                font-size: 12px; color: #222222; vertical-alignment: center; }
+            PreferenceNumericInput { x: 210px; y: 128px; width: 80px; height: 24px;
+                text <=> root.subtitle-position-text;
+                accepted => { root.settings-changed(); }
+            }
+            Text { x: 291px; y: 132px; text: "%";
+                font-size: 12px; color: #222222; vertical-alignment: center; }
+            CheckBox { x: 98px; y: 158px; width: 360px; height: 22px;
+                text: "Display subtitles in letterboxes while in full screen";
+                checked <=> root.subtitle-display-in-letterbox;
+                toggled => { root.settings-changed(); }
+            }
+            CheckBox { x: 98px; y: 182px; width: 280px; height: 22px;
+                text: "Scale subtitles with window size";
+                checked <=> root.subtitle-scale-with-window;
+                toggled => { root.settings-changed(); }
+            }
+        }
+        Rectangle { x: 20px; y: 938px; width: 480px; height: 90px; background: transparent;
+            Text { x: 0; y: 8px; text: "Other:";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            Text { x: 98px; y: 8px; text: "Preferred language:";
+                font-size: 13px; color: #222222; vertical-alignment: center; }
+            Rectangle { x: 228px; y: 4px; width: 232px; height: 23px;
+                border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
+                background: #ffffff;
+                TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
+                    text <=> root.subtitle-preferred-languages-text;
                     font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
+            }
+            Text { x: 98px; y: 30px; width: 364px; height: 28px;
+                text: "Use comma-separated ISO 639-2 language codes. These preferences also guide subtitle track selection.";
+                font-size: 10px; color: #77777d; wrap: word-wrap;
+            }
+            Text { x: 98px; y: 66px; text: "Default encoding:";
+                font-size: 13px; color: #222222; vertical-alignment: center; }
+            ComboBox { x: 213px; y: 62px; width: 147px; height: 25px;
+                model: root.subtitle-encoding-options;
+                current-index <=> root.subtitle-encoding-index;
+                selected => { root.settings-changed(); }
             }
         }
         }

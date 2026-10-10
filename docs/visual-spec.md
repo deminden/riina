@@ -123,3 +123,23 @@ keeps the 366-point box width inside a 480-point section and scrolls the expande
 content. The font-size, border-size, shadow-offset, blur and spacing fields use
 the source's three-fractional-digit number format. Current Windows rendering and
 matched macOS pixels remain unverified.
+
+Subtitle Preferences / Position (source-derived from the pinned
+`PrefSubViewController.xib`): the section is 480 × 208 points. Its Align box is
+366 × 56 at (117, 144) in the XIB's bottom-origin coordinates. The saved defaults
+come from `Preference.swift`: centered X alignment, bottom Y alignment, vertical
+position 100, margins X 25 and Y 22, with letterbox display and window scaling
+enabled. A Windows capture shows the complete controls with bordered numeric
+fields and these defaults. The capture verifies the current rendering only;
+matched IINA metrics, system control materials, numeric formatter edge cases and
+matching Windows/macOS pixels remain unverified.
+
+Subtitle Preferences / Auto Load (source-derived from the pinned
+`PrefSubViewController.xib`): the section is 480 × 193 points. The mode popup is
+255 × 25 at (117, 161) in bottom-origin coordinates; its options are Disabled,
+Subtitles containing media filename, and Detect intelligently by IINA. The
+Advanced disclosure sits above a 360 × 132 stack with the priority-keyword field,
+helper text, and search-path field. Defaults are IINA matching, no priority terms,
+and `./*`. Riina keeps those controls at the corresponding source order and uses
+the same principal allocations; advanced field typography and expanded-state pixels,
+live behavior, and matching macOS captures remain open.

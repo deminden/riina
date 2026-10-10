@@ -1,15 +1,17 @@
 # riina
 
 Rust IINA reimplementation, targeting
-official **IINA v1.5.0**. Riina 0.2.1 is an early development build, not a parity release.
+official **IINA v1.5.0**. Riina 0.2.2 is a source-only development release;
+full parity remains in progress.
 
-[![Latest release](https://img.shields.io/github/v/release/deminden/riina?label=Download%20Windows%20x64)](https://github.com/deminden/riina/releases/latest)
+[![Latest source release](https://img.shields.io/github/v/release/deminden/riina?label=Latest%20source%20release)](https://github.com/deminden/riina/releases/latest)
 
 ## Downloads
 
-The [latest GitHub Release](https://github.com/deminden/riina/releases/latest) lists
-the Windows x64 portable ZIP first, with its complete corresponding source archive
-and SHA-256 checksums alongside it.
+The [latest GitHub Release](https://github.com/deminden/riina/releases/latest) currently
+provides a versioned source snapshot and SHA-256 checksum. The Windows x64 package
+will be attached after the native dependency distribution audit and corresponding-
+source checks are complete.
 
 Windows 11 is the current supported platform; macOS and Linux ports are near-term work.
 Their shared GL application backends and build matrix are now under validation;

@@ -98,6 +98,60 @@ pub(crate) fn connect(
                     app.get_subtitle_ass_override_index(),
                     app.get_secondary_subtitle_ass_override_index(),
                 );
+                let previous_position =
+                    match crate::subtitle_position_preferences::current_player(&app) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let selected_position =
+                    match crate::subtitle_position_preferences::current_window(&window) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let previous_subtitle_other =
+                    match crate::subtitle_other_preferences::current_player(&app) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let selected_subtitle_other =
+                    match crate::subtitle_other_preferences::current_window(&window) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let previous_auto_load =
+                    match crate::subtitle_auto_load_preferences::current_player(&app) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let selected_auto_load =
+                    match crate::subtitle_auto_load_preferences::current_window(&window) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
                 let decoder_index = window.get_hardware_decoder_index();
                 let Some(decoder) = crate::codec_preferences::hardware_decoder(decoder_index)
                 else {
@@ -308,41 +362,69 @@ pub(crate) fn connect(
                 if !app.get_edge_to_edge_video() {
                     app.set_docked_controls(window.get_docked_controls());
                 }
-                let result =
-                    self::current(&app).and_then(|screenshot| {
-                        let preferences =
-                            riina_core::Preferences {
-                                screenshot,
-                                volume: f64::from(app.get_volume())
-                                    .min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
-                                volume_boost: app.get_volume_boost(),
-                                pause_when_open: app.get_pause_when_open(),
-                                fullscreen_when_open: app.get_fullscreen_when_open(),
-                                resume_last_position: app.get_resume_last_position(),
-                                enable_osd: app.get_osd_enabled(),
-                                disable_osd_speed: app.get_disable_osd_speed(),
-                                disable_osd_seek: app.get_disable_osd_seek(),
-                                leading_sidebar_width: app.get_leading_sidebar_width() as u32,
-                                trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
-                                settings_at_leading: app.get_settings_at_leading(),
-                                playlist_at_leading: app.get_playlist_at_leading(),
-                                edge_to_edge_video: app.get_edge_to_edge_video(),
-                                docked_controls: app.get_docked_controls(),
-                                compact_ui: app.get_compact_ui(),
-                                osc_position: app.get_osc_position() as u8,
-                                hardware_decoder: decoder,
-                                subtitle_ass_override: ass_primary,
-                                secondary_subtitle_ass_override: ass_secondary,
-                                subtitle_font: subtitle_font.clone(),
-                                subtitle_font_size,
-                                subtitle_text_style: desired_text_style,
-                                ..baseline.clone()
-                            };
-                        let text = serde_json::to_string_pretty(&preferences)
-                            .map_err(|error| error.to_string())?;
-                        crate::platform::save_preferences(&path, &text)
-                            .map_err(|error| error.to_string())
-                    });
+                let result = crate::subtitle_position_preferences::apply(
+                    &decoder_player,
+                    previous_position,
+                    selected_position,
+                )
+                .and_then(|()| {
+                    crate::subtitle_other_preferences::apply(
+                        &decoder_player,
+                        &previous_subtitle_other,
+                        &selected_subtitle_other,
+                    )
+                })
+                .and_then(|()| {
+                    crate::subtitle_position_preferences::install_player(&app, selected_position);
+                    crate::subtitle_other_preferences::install_player(
+                        &app,
+                        &selected_subtitle_other,
+                    );
+                    crate::subtitle_auto_load_preferences::install_player(
+                        &app,
+                        &selected_auto_load,
+                    );
+                    self::current(&app)
+                })
+                .and_then(|screenshot| {
+                    let preferences = riina_core::Preferences {
+                        screenshot,
+                        volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
+                            200.0
+                        } else {
+                            100.0
+                        }),
+                        volume_boost: app.get_volume_boost(),
+                        pause_when_open: app.get_pause_when_open(),
+                        fullscreen_when_open: app.get_fullscreen_when_open(),
+                        resume_last_position: app.get_resume_last_position(),
+                        enable_osd: app.get_osd_enabled(),
+                        disable_osd_speed: app.get_disable_osd_speed(),
+                        disable_osd_seek: app.get_disable_osd_seek(),
+                        leading_sidebar_width: app.get_leading_sidebar_width() as u32,
+                        trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
+                        settings_at_leading: app.get_settings_at_leading(),
+                        playlist_at_leading: app.get_playlist_at_leading(),
+                        edge_to_edge_video: app.get_edge_to_edge_video(),
+                        docked_controls: app.get_docked_controls(),
+                        compact_ui: app.get_compact_ui(),
+                        osc_position: app.get_osc_position() as u8,
+                        hardware_decoder: decoder,
+                        subtitle_ass_override: ass_primary,
+                        secondary_subtitle_ass_override: ass_secondary,
+                        subtitle_position: selected_position,
+                        subtitle_other: selected_subtitle_other.clone(),
+                        subtitle_auto_load: selected_auto_load.clone(),
+                        subtitle_font: subtitle_font.clone(),
+                        subtitle_font_size,
+                        subtitle_text_style: desired_text_style,
+                        ..baseline.clone()
+                    };
+                    let text = serde_json::to_string_pretty(&preferences)
+                        .map_err(|error| error.to_string())?;
+                    crate::platform::save_preferences(&path, &text)
+                        .map_err(|error| error.to_string())
+                });
                 match result {
                     Ok(()) => {
                         if app.get_pause_when_open() != previous_pause {
@@ -353,6 +435,28 @@ pub(crate) fn connect(
                         }
                     }
                     Err(error) => {
+                        let _ = crate::subtitle_other_preferences::apply(
+                            &decoder_player,
+                            &selected_subtitle_other,
+                            &previous_subtitle_other,
+                        );
+                        crate::subtitle_other_preferences::install_player(
+                            &app,
+                            &previous_subtitle_other,
+                        );
+                        crate::subtitle_auto_load_preferences::install_player(
+                            &app,
+                            &previous_auto_load,
+                        );
+                        let _ = crate::subtitle_position_preferences::apply(
+                            &decoder_player,
+                            selected_position,
+                            previous_position,
+                        );
+                        crate::subtitle_position_preferences::install_player(
+                            &app,
+                            previous_position,
+                        );
                         restore_text_style(
                             &app,
                             &decoder_player,
@@ -484,6 +588,9 @@ pub(crate) fn connect(
 }
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
+    window.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
+    window
+        .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());
     window.set_subtitle_font(app.get_subtitle_font());
     window.set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
         app.get_subtitle_font_size_preference(),
@@ -502,6 +609,15 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
     window
         .set_subtitle_ass_override_secondary_index(app.get_secondary_subtitle_ass_override_index());
+    if let Ok(position) = crate::subtitle_position_preferences::current_player(app) {
+        crate::subtitle_position_preferences::install_window(window, position);
+    }
+    if let Ok(other) = crate::subtitle_other_preferences::current_player(app) {
+        let _ = crate::subtitle_other_preferences::install_window(window, &other);
+    }
+    if let Ok(auto_load) = crate::subtitle_auto_load_preferences::current_player(app) {
+        crate::subtitle_auto_load_preferences::install_window(window, &auto_load);
+    }
     window.set_volume_boost(app.get_volume_boost());
     window.set_compact_ui(app.get_compact_ui());
     window.set_docked_controls(app.get_docked_controls());

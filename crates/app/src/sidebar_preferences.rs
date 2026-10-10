@@ -113,6 +113,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                 subtitle_font: app.get_subtitle_font().to_string(),
                 subtitle_font_size: crate::subtitle_preferences::current_font_size(&app),
                 subtitle_text_style: crate::subtitle_preferences::current_style(&app)?,
+                subtitle_other: crate::subtitle_other_preferences::current_player(&app)?,
+                subtitle_auto_load: crate::subtitle_auto_load_preferences::current_player(&app)?,
                 pause_when_open: app.get_pause_when_open(),
                 fullscreen_when_open: app.get_fullscreen_when_open(),
                 ..baseline.clone()

@@ -102,7 +102,11 @@ text/background colors, border size/color, shadow offset/color, blur and spacing
 fields. Changes map to shared typed libmpv commands and persist through
 preferences, layout changes, sidebar changes and shutdown. Its source-sized
 section stack scrolls within the pane; the Advanced disclosure starts folded and
-reveals Shadow and Other Styles. The other four Subtitle sections remain open.
+reveals Shadow and Other Styles. Subtitle > Other now contains a preferred-language
+field and the pinned 44-entry encoding menu; changing encoding updates `sub-codepage`
+and reloads each current subtitle track. The plain-text language editor, exact group
+geometry, live save/restart and matched rendering remain open. Auto Load and Online
+Subtitles are not implemented yet.
 Network, Control, Key Bindings and Utilities currently show their title only.
 Plugin settings are conditional
 upstream and omitted until the plugin system exists. Source-list geometry, full
@@ -136,3 +140,24 @@ outside the video viewport, and enables the reference Dock control bar and
 titlebar choice. The native viewport regression passes. Live GUI geometry and
 matched macOS pixels remain unverified. Window aspect locking, fit-to-video,
 theme/material, plugin placement and port runtime remain open.
+
+Subtitle Position now has source-default X/Y alignment, editable X/Y margins,
+vertical position, letterbox display and window-scaling controls. The values use
+validated shared preferences and typed mpv commands, including the source's
+two-billion maximum margin and finite-number checks. The controls are implemented
+and covered by unit tests. A live Windows capture shows the complete group and all
+source defaults in the scroll view, including bordered numeric inputs. Editing,
+save/restart behavior and a matching Windows/macOS visual comparison remain open.
+Subtitle Other now persists the preferred-language string and selected encoding,
+applies both options at startup, and reloads existing subtitle tracks after an
+encoding change. Its 44-choice menu follows the pinned source order and passes a
+menu round-trip test. The language field is not yet the source token-field control;
+runtime save/restart and matched pixels remain open.
+Subtitle Auto Load now precedes ASS in the section stack. It exposes the three
+source-ordered modes and the Advanced priority-keyword and search-path fields with
+the pinned defaults. Settings persist, but file discovery, matching and playlist
+behavior are still open; live comparison against the source and macOS pixels is
+also still required.
+Network, Control,
+Key Bindings and Utilities are still title-only; the remaining Subtitle sections
+and full surface comparison are part of the complete parity goal.

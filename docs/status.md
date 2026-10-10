@@ -2151,3 +2151,41 @@ Tag `v0.2.1` is published at
 https://github.com/deminden/riina/releases/tag/v0.2.1 with a direct source-download
 link and SHA-256 file. Its Actions run completed successfully; native and Windows
 package jobs were skipped by the explicit audit gate. No binary release is claimed.
+
+2026-10-10 Subtitle Position interface increment: added X/Y subtitle alignment,
+X/Y margins, vertical position, letterbox display and window-scaling settings.
+Source defaults are centered/bottom, position 100, margins 25/22, with both
+letterbox and scaling enabled. Settings persist through the shared Preferences
+model and map to typed mpv commands. Numeric entry rejects non-finite values;
+legacy defaults, custom-value round-trip, invalid values and option semantics have
+unit coverage. A fresh app build and live Windows capture show the complete Position
+group with bordered numeric inputs and source defaults. Rust 1.99.0 formatting, the
+152-row parity inventory, asset checks, workspace tests and strict all-target
+Clippy pass. Editing, restart persistence, native option observation and matched
+Windows/macOS pixels remain open. Subtitle Auto Load and Online Subtitles, Network,
+Control, Key Bindings and Utilities remain unfinished. Subtitle Other is now
+implemented as a comma-separated preferred-language field and source-order encoding
+menu; encoding updates set `sub-codepage` then reload current subtitle tracks. The
+menu and preference/command behavior are unit-tested, but app runtime, save/restart,
+native option observation and matching surface captures remain open. This local
+interface increment was not published.
+
+2026-10-10 Subtitle Other preferences increment: added the preferred-language
+setting and all 44 pinned IINA v1.5.0 encoding menu entries, including Auto detect.
+Preferences persist with the shared settings model; startup applies `slang` and
+`sub-codepage`, while live encoding changes reload every current subtitle track.
+The upstream menu was checked against the pinned CharEncoding.swift source. Tests
+cover exact menu order and mapping, persistence, validation, and the option-plus-
+reload command plan. Live GUI interaction, save/restart, native playback behavior,
+and matched Windows/macOS rendering remain unverified. Local development only;
+no publication was made.
+
+2026-10-10 Subtitle Auto Load interface increment: added Disabled, filename match,
+and IINA intelligent match in pinned menu order, plus the Advanced priority-keyword
+and search-path fields. Defaults match v1.5.0 (`intelligent`, empty priority list,
+`./*`). The controls use validated shared preferences and persist through the common
+save path. Unit tests verify mode mapping, menu order, defaults, round-trip and
+invalid input. The live test did not exercise these controls; file discovery,
+subtitle matching, playlist effects, and live save/restart remain unimplemented.
+Source capture matching and full Windows/macOS visual comparison remain open.
+This local progress was not published.
