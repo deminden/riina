@@ -1,5 +1,14 @@
 # Status · 2026-10-09
 
+Local catalog keyboard increment: audio, primary subtitle, secondary subtitle,
+chapter and playlist rows now expose keyboard focus and an Enter activation path.
+Mouse selection retains the existing single/double-click behavior. Modified keys
+and Space bubble to the player shortcuts rather than changing a focused track.
+Secondary rows remain disabled without loaded media. Strict lint, formatting and
+all 24 workspace unit tests pass; Slint compilation validates the focus handlers.
+Runtime focus traversal, activation and rendered focus geometry remain unverified.
+No public GitHub update was made.
+
 Local secondary selector UI increment: the shared subtitle pane now exposes
 Primary and Secondary track lists and independent visibility controls, following
 the pinned pane's two-lane structure. Secondary rows retain native lane metadata

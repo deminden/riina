@@ -286,6 +286,7 @@ export component PlayerWindow inherits Window {
                             background: (root.sidebar == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
                             accessible-role: button; accessible-label: row.label;
                             accessible-action-default => { root.select-item(root.sidebar, row.token); }
+                            if row-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
                             if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
                             Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label; color: #dddddd;
                                 font-size: 12px; vertical-alignment: center; overflow: elide; }
@@ -293,9 +294,21 @@ export component PlayerWindow inherits Window {
                                 y: (parent.height - self.height) / 2; border-radius: 3px; background: #ffffff20;
                                 Text { text: row.language; color: #dddddd; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
                             TouchArea {
-                                clicked => { if root.sidebar < 3 { root.select-item(root.sidebar, row.token); }
+                                clicked => { row-focus.focus(); if root.sidebar < 3 { root.select-item(root.sidebar, row.token); }
                                     if root.sidebar == 4 { root.selected-playlist-token = row.token; } }
                                 double-clicked => { if root.sidebar >= 3 { root.select-item(root.sidebar, row.token); root.selected-playlist-token = ""; } }
+                            }
+                            row-focus := FocusScope {
+                                key-pressed(event) => {
+                                    // Preserve global playback shortcuts while a catalog row has focus.
+                                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                                    if event.text == Key.Return {
+                                        root.select-item(root.sidebar, row.token);
+                                        root.selected-playlist-token = "";
+                                        return accept;
+                                    }
+                                    return reject;
+                                }
                             }
                         }
                         if root.sidebar == 2 : HorizontalLayout {
@@ -311,13 +324,22 @@ export component PlayerWindow inherits Window {
                             accessible-role: button; accessible-label: "Secondary subtitle: " + row.label;
                             accessible-enabled: root.loaded;
                             accessible-action-default => { if root.loaded { root.select-item(5, row.token); } }
+                            if secondary-row-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
                             if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
                             Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label; color: #dddddd;
                                 font-size: 12px; vertical-alignment: center; overflow: elide; }
                             if row.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
                                 y: (parent.height - self.height) / 2; border-radius: 3px; background: #ffffff20;
                                 Text { text: row.language; color: #dddddd; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
-                            TouchArea { enabled: root.loaded; clicked => { root.select-item(5, row.token); } }
+                            TouchArea { enabled: root.loaded; clicked => { secondary-row-focus.focus(); root.select-item(5, row.token); } }
+                            secondary-row-focus := FocusScope {
+                                enabled: root.loaded;
+                                key-pressed(event) => {
+                                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                                    if event.text == Key.Return { root.select-item(5, row.token); return accept; }
+                                    return reject;
+                                }
+                            }
                         }
                     }
                 }
