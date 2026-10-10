@@ -75,8 +75,12 @@ impl Editor {
         // Property changes may call back into layout. Never hold the coordinator
         // mutex while publishing UI properties or moving keyboard focus.
         let entering = !app.get_crop_editing() && editing;
+        let exiting = app.get_crop_editing() && !editing;
         app.set_crop_editing(editing);
         app.set_crop_ready(ready && screen.is_some());
+        if exiting {
+            app.invoke_focus_player();
+        }
         if entering {
             app.set_sidebar(0);
             app.set_crop_preset_index(-1);
@@ -115,6 +119,7 @@ impl Editor {
                 return Ok(());
             }
             let state = data.latest.as_ref().ok_or("Source video is unavailable")?;
+            Self::projection(&data, app)?;
             let session = Session::begin(state)?;
             sender.send(Command::EnterCrop(session.clone()))?;
             data.rectangle = Some(session.whole_source());
@@ -151,7 +156,6 @@ impl Editor {
             data.drag = None;
         }
         self.refresh(app);
-        app.invoke_focus_player();
         Ok(())
     }
 

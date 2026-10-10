@@ -1,8 +1,11 @@
 # Implementation plan
 
-Crop next: implement the full custom crop interaction (selection, confirmation
-and cancel) and enable Custom... in the shared sidebar. Preset commands and
-observed filter selection are now connected; current custom control is disabled.
+Crop next: verify free selection and edge resizing, then reproduce the reference
+video-area padding/shadow on both presentation routes. Custom... now opens the
+shared editor; presets, Done/Cancel and source selection labels have Windows
+keyboard evidence. Drag handlers exist but need actual pointer verification.
+Preserve continuous selection coordinates separately from the integer native
+crop/label to match the reference's subpixel overlay movement.
 Use the generation-bound crop_session::Session lifecycle for entry and exit;
 wait for native pause and cleared crop before presenting the selection surface.
 Retire the editor on replacement/Stop without restoring the old file's pause.
@@ -11,7 +14,7 @@ Next presentation work must resize the video area on both presentation routes
 and use the source/display mapping for the editor overlay.
 The portable crop_geometry projection now maps source rectangles and pointer
 drags through contain-fit content and quarter turns, with observed source display
-parameters covered natively. Wire that geometry to the selection overlay and
+parameters covered natively. Geometry is now wired to the selection overlay;
 keep source rectangles as the editing model when the viewport changes. Actual
 IINA behavior under aspect/rotation still needs visual comparison; do not treat
 mathematical round-trips as pixel parity or proof of renderer viewport mapping.

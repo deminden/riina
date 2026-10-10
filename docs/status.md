@@ -1,5 +1,22 @@
 # Status · 2026-10-09
 
+Custom crop is now connected to a shared editor with whole-source selection,
+six presets including 3:2, source-coordinate label, Done/Cancel and free/edge drag
+handlers. Entry waits for native pause/filter reset; stale source observations
+retire the draft. Resize reprojects source pixels. Editor keys suppress playback
+shortcuts and retain Tab navigation. Windows shared-GL GUI at 4e1724e verifies
+Custom entry, whole 320×180 selection, 4:3 label (40,0)/(240×180), Return
+confirmation and Escape cancellation with Play/position 2/volume 37 retained.
+Reset readiness temporarily disables presets/Done and then enables them.
+Close exits 0 with empty stderr. Evidence: tests/visual/crop-editor-evidence.json.
+Source-retirement focus restoration and entry projection validation were added
+after that GUI run. Pointer handlers, cropped pixels, continuous subpixel draft,
+IINA video-area padding/shadow, native-video-candidate layout, playing GUI pause
+restoration, decoder conflicts and current port runtime remain unverified.
+Final workspace unit checks, strict lint, formatting and optimized Windows build
+pass (34.09 seconds). The later focus/entry correction was not GUI-retested.
+No public update.
+
 Crop selection now has portable source/display projection for contain-fit
 letterboxing, display aspect and clockwise quarter turns. Pointer selection
 clamps to actual content, handles reverse drags, snaps within four source pixels

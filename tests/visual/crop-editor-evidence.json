@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "4e1724e3c64a264b631344b4876d0c861b5cd35c",
+  "binary_sha256": "c3953af1d34db1f4b9473ef91e7ef8a958383591aa18fdc741d53391a0663999",
+  "platform": "Windows",
+  "renderer": "shared GL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "initial_player": {"position": 2, "volume": 37, "play_button": "Play"},
+  "custom_enabled": true,
+  "initial_selection": "(0, 0) (320×180)",
+  "presets": ["4:3", "16:9", "16:10", "21:9", "3:2", "5:4"],
+  "selected_4_3": "(40, 0) (240×180)",
+  "confirmation": "Return from the editor scope exits and restores Play/position 2/volume 37",
+  "reentry": "Custom reopens at whole-source selection; Done and presets become enabled after native reset readiness",
+  "cancellation": "Right in the editor then Escape exits with Play/position 2/volume 37",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "scope": "Accessible controls, selection label, paused confirmation/cancellation and keyboard isolation",
+  "not_verified": ["Pointer free selection and four edge handles", "Rendered video crop and selected highlight", "Reference video padding and shadows", "Continuous subpixel selection", "Native video candidate", "Playing-state GUI pause restoration", "Source replacement focus retirement", "Current macOS and Linux runtime"],
+  "later_change": "Source-retirement focus restoration and projection validation on entry were added after this GUI run; final checks are recorded separately in verification.md"
+}

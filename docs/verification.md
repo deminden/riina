@@ -1,5 +1,44 @@
 # Verification record · native Windows · 2026-10-09
 
+## Connected interactive crop editor · 2026-10-10
+
+The original shared editor coordinates source sessions and rectangle projection.
+Its observed state runs on the UI event loop; no UI handle crosses the native
+worker boundary. Mutex ownership ends before property publication or focus
+changes. Source replacement retires the editor without restoring stale pause.
+Entry waits for native pause and managed-filter removal, with seeking excluded;
+Done is disabled while waiting. There is no rendered-frame completion gate yet.
+Source rectangles reproject on viewport changes. The control bar supplies the
+reference's six interactive presets (including 3:2), label and Done/Cancel.
+Free/edge pointer handlers are connected but have no pointer runtime evidence.
+
+Initial UI compile failures were callback declaration syntax and subtraction
+spacing, then strict lint found an unnecessary app borrow. These were corrected.
+Workspace unit tests, formatting and strict all-target lint pass. The initial
+optimized build passes in 35.48 seconds.
+
+GUI source 4e1724e and binary hash are recorded in crop-editor-evidence.json.
+Starting paused at position 2/volume 37, Custom opens with (0,0)/(320×180) and
+the six presets plus Done/Cancel. Tab and Space on 4:3 changes the label to
+(40,0)/(240×180). Reverse Tab returns to editor scope; Return confirms and
+restores Play/position 2/volume 37. Reopening Custom returns to whole source;
+initially disabled presets/Done become enabled after native reset readiness.
+An editor Right key followed by Escape leaves position 2 and volume 37. Close
+exits 0 with empty stderr. This does not prove rendered crop pixels, pointer
+handles or full keyboard/reference parity. Existing core/native crop tests are
+unchanged from the previous 28-test native pass; this UI increment did not rerun
+that native suite.
+
+Later correction centralizes focus restoration for all editor exits, including
+source invalidation, and validates projection before entering. Its source
+replacement GUI path remains untested. Continuous source selection, video-area
+padding/shadow and native candidate layout, frame synchronization, crop OSD,
+playing-state GUI restoration and current macOS/Linux runtime remain open.
+Final workspace unit tests, strict all-target lint, formatting and optimized
+Windows build pass (34.09 seconds). The later correction was not GUI-retested.
+Standard titlebar button disabling and the exact segmented-control keyboard
+behavior remain reference parity gaps as well.
+
 ## Crop selection projection · 2026-10-10
 
 Original crop_geometry::Projection separates source pixels, unrotated display
