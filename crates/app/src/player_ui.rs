@@ -412,6 +412,7 @@ impl UiSession {
             }),
             volume_boost: app.get_volume_boost(),
             pause_when_open: app.get_pause_when_open(),
+            fullscreen_when_open: app.get_fullscreen_when_open(),
             screenshot: crate::screenshot_preferences::current(app)
                 .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
@@ -450,6 +451,7 @@ pub(crate) fn configure_player(
     app.set_osd_enabled(prefs.enable_osd);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
     app.set_pause_when_open(prefs.pause_when_open);
+    app.set_fullscreen_when_open(prefs.fullscreen_when_open);
     crate::screenshot_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
@@ -480,6 +482,9 @@ pub(crate) fn configure_player(
         crate::screenshot_osd::ScreenshotOsd::default(),
     ));
     let screenshot_scratch = Arc::new(crate::screenshot_output::Scratch::default());
+    let opening_fullscreen = Arc::new(std::sync::Mutex::new(
+        crate::opening_fullscreen::OpeningFullscreen::default(),
+    ));
     let worker_scratch = screenshot_scratch.clone();
     let notify = move |state: Playback| {
         // This closure remains owned by the engine until native destruction.
@@ -499,6 +504,7 @@ pub(crate) fn configure_player(
         let last_video = last_video.clone();
         let last_screenshot = last_screenshot.clone();
         let crop_editor = observed_crop_editor.clone();
+        let opening_fullscreen = opening_fullscreen.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
@@ -509,6 +515,14 @@ pub(crate) fn configure_player(
                 && let Ok(mut last_screenshot) = last_screenshot.lock()
             {
                 let captures = latest.1.take();
+                let enter_fullscreen = opening_fullscreen.lock().is_ok_and(|mut opening| {
+                    opening.observe(
+                        &state,
+                        app.get_fullscreen_when_open(),
+                        app.get_fullscreen(),
+                        false,
+                    )
+                });
                 let clipboard_error = crate::screenshot_output::copy(&app, &captures);
                 crop_editor.observe(&app, &state);
                 update_ui(
@@ -520,6 +534,9 @@ pub(crate) fn configure_player(
                     &mut last_screenshot,
                 );
                 crate::screenshot_output::cleanup(&app, &captures);
+                if enter_fullscreen {
+                    app.invoke_toggle_fullscreen();
+                }
                 if let Some(error) = clipboard_error {
                     app.set_status(format!("Could not copy screenshot: {error}").into());
                 }

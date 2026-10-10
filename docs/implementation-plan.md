@@ -1,3 +1,9 @@
+Current priority is full interface parity before further feature expansion.
+Windows capture succeeds again. Follow docs/interface-parity-plan.md: obtain
+visible-control/sidebar/menu/preferences reference states and compare complete
+surfaces. General chooser rendering and path spacing plus macOS 26 floating
+corners are the first captured corrections; they do not close the visual scope.
+
 Pause-on-open preference now persists and reaches single/batch load policy, with
 native and isolated Windows GUI restart evidence. Complete remaining General
 Behavior controls and preferences navigation; verify save failure rollback,

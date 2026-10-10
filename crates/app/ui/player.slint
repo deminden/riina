@@ -374,6 +374,7 @@ export component PlayerWindow inherits Window {
     in-out property <bool> screenshot-show-preview: true;
     in-out property <bool> screenshot-save-to-file: true;
     in-out property <bool> pause-when-open: false;
+    in-out property <bool> fullscreen-when-open: false;
     callback pause-when-open-changed(bool);
     in-out property <bool> screenshot-copy-to-clipboard: false;
     in-out property <string> screenshot-format: "png";
@@ -913,7 +914,7 @@ export component PlayerWindow inherits Window {
             width: min(460px, parent.width - 24px); height: 67px;
             x: (parent.width - self.width) / 2;
             y: parent.height * 0.9 - self.height;
-            border-radius: 6px; background: #202025e8;
+            border-radius: 12px; background: #202025e8;
             border-width: 1px; border-color: #ffffff25;
             // This is a tinted SDR spike, not a claim of matching AppKit video blur.
             // Keep the outer baseline separate from glyph/material estimates. A

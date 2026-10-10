@@ -6,6 +6,7 @@ mod font_catalog;
 mod font_picker;
 mod language_names;
 mod media_open;
+mod opening_fullscreen;
 mod platform;
 mod player_ui;
 mod screenshot_osd;

@@ -1,3 +1,23 @@
+The user now prioritizes full interface parity before further feature expansion;
+see docs/interface-parity-plan.md. Windows screen capture succeeds again. Actual
+shared-renderer and General Preferences images were inspected: the chooser label
+was blank under toolkit padding and the folder path abutted Save to. An original
+small chooser now visibly renders its ellipsis, supports keyboard focus/Enter,
+opens the owned native folder dialog and restores focus after Escape cancellation.
+The folder label now has an eight-point extra gap; floating-panel corners use
+the source-recorded 12pt macOS 26 value. Before/after Preferences and after player
+captures stay private under tests/visual. Native capture shows black video while
+shared GL shows the fixture; this is a capture observation, not proof of native
+presentation failure. The three owned test players exited 0.
+
+The preceding fullscreen-on-open increment is retained: default false, immediate
+preference persistence and a generation-scoped one-shot policy using the existing
+shared/native fullscreen callback. Unit coverage includes coalesced loads,
+manual exit, disabled preferences, already-fullscreen and mini-player exclusion.
+The actual mini-player is not implemented and actual auto-fullscreen runtime is
+not yet verified. Workspace tests, strict lint, formatting and optimized Windows
+build passed after the captured UI corrections. Full visual parity remains open.
+
 General Preferences now exposes the reference "When media is opened: Pause"
 control, default false. Its saved policy is retained across source replacement;
 single-file and batch opening honor it, appending does not change playback, and

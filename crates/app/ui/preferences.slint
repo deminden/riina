@@ -1,4 +1,29 @@
-import { CheckBox, ComboBox, Button } from "std-widgets.slint";
+import { CheckBox, ComboBox } from "std-widgets.slint";
+
+// Native toolkit button padding can consume a 24px chooser's entire label.
+// Keep this small reference control explicit, including keyboard activation.
+component FolderChooser inherits FocusScope {
+    callback activated();
+    accessible-role: button;
+    accessible-label: "Choose screenshot save path";
+    accessible-action-default => { if root.enabled { root.activated(); } }
+    key-pressed(event) => {
+        if root.enabled && (event.text == Key.Return || event.text == " ") {
+            root.activated(); return accept;
+        }
+        return reject;
+    }
+    Rectangle { width: parent.width; height: parent.height;
+        border-radius: 4px;
+        background: root.enabled ? (touch.pressed ? #dddddd : #fafafa) : #eeeeee;
+        border-width: root.has-focus ? 2px : 1px;
+        border-color: root.has-focus ? #168bff : #b8b8b8;
+        Text { text: "…"; font-size: 13px; color: root.enabled ? #222222 : #999999;
+            horizontal-alignment: center; vertical-alignment: center; }
+        touch := TouchArea { enabled: root.enabled;
+            clicked => { root.focus(); root.activated(); } }
+    }
+}
 
 // Original controls follow the reference General screenshot section's 120px
 // label column. Toolkit metrics remain provisional until rendered comparison.
@@ -13,6 +38,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> save-to-file: true;
     in-out property <bool> copy-to-clipboard: false;
     in-out property <bool> pause-when-open: false;
+    in-out property <bool> fullscreen-when-open: false;
     callback settings-changed();
     callback choose-folder();
     in-out property <string> directory;
@@ -26,6 +52,10 @@ export component PreferencesWindow inherits Window {
             checked <=> root.pause-when-open;
             toggled => { root.settings-changed(); }
         }
+        CheckBox { x: 187px; y: 28px; height: 24px; text: "Enter fullscreen";
+            checked <=> root.fullscreen-when-open;
+            toggled => { root.settings-changed(); }
+        }
     }
     Rectangle { x: 20px; y: 132px; width: 480px; height: 184px; background: transparent;
         Text { x: 0px; y: 8px; text: "Screenshots:"; font-weight: 600; font-size: 13px; color: #222222; }
@@ -35,11 +65,11 @@ export component PreferencesWindow inherits Window {
             checked <=> root.save-to-file;
             toggled => { root.settings-changed(); }
         }
-        Text { x: 190px; y: 32px; width: 162px; text: root.directory;
+        Text { x: 198px; y: 32px; width: 154px; text: root.directory;
             overflow: elide; font-size: 13px; color: #666666; }
-        Button { x: 357px; y: 29px; width: 24px; height: 22px; text: "…";
+        FolderChooser { x: 357px; y: 29px; width: 24px; height: 22px;
             enabled: root.save-to-file && !root.folder-dialog-open;
-            clicked => { root.choose-folder(); } }
+            activated => { root.choose-folder(); } }
         Text { x: 137px; y: 56px; text: "Format:"; font-size: 13px; color: #222222; }
         ComboBox {
             x: 194px; y: 52px; width: 132px; height: 24px;

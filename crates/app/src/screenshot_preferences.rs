@@ -39,6 +39,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                     }
                 };
                 let previous_pause = app.get_pause_when_open();
+                let previous_fullscreen = app.get_fullscreen_when_open();
                 let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
                 // AVIF can be configured externally but has no item in the pinned
                 // General pane. Editing another control must preserve that choice.
@@ -54,6 +55,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                 app.set_screenshot_custom_directory(window.get_custom_directory());
                 app.set_screenshot_directory(window.get_directory());
                 app.set_pause_when_open(window.get_pause_when_open());
+                app.set_fullscreen_when_open(window.get_fullscreen_when_open());
                 let result =
                     self::current(&app).and_then(|screenshot| {
                         let preferences =
@@ -63,6 +65,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                                     .min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
                                 volume_boost: app.get_volume_boost(),
                                 pause_when_open: app.get_pause_when_open(),
+                                fullscreen_when_open: app.get_fullscreen_when_open(),
                                 ..baseline.clone()
                             };
                         let text = serde_json::to_string_pretty(&preferences)
@@ -72,6 +75,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                     });
                 if let Err(error) = result {
                     app.set_pause_when_open(previous_pause);
+                    app.set_fullscreen_when_open(previous_fullscreen);
                     install(&app, &previous);
                     refresh(&window, &app);
                     app.set_status(error.into());
@@ -172,6 +176,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_pause_when_open(app.get_pause_when_open());
+    window.set_fullscreen_when_open(app.get_fullscreen_when_open());
     let index = ["png", "jpg", "jpeg", "webp", "jxl"]
         .iter()
         .position(|format| *format == app.get_screenshot_format().as_str())

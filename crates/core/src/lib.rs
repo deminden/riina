@@ -1032,6 +1032,7 @@ pub fn time_label(seconds: Option<f64>) -> String {
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub pause_when_open: bool,
+    pub fullscreen_when_open: bool,
     pub schema_version: u32,
     pub volume: f64,
     pub volume_boost: bool,
@@ -1050,6 +1051,7 @@ impl Default for Preferences {
         // IINA Preference.defaultPreference: softVolume=100, themeMaterial=dark.
         Self {
             pause_when_open: false,
+            fullscreen_when_open: false,
             schema_version: 1,
             volume: 100.0,
             volume_boost: false,
@@ -1099,9 +1101,12 @@ mod tests {
     #[test]
     fn pause_when_open_keeps_legacy_defaults_and_round_trips_enabled_policy() {
         assert!(!Preferences::parse("{}").unwrap().pause_when_open);
-        let enabled = Preferences::parse(r#"{"pause_when_open":true}"#).unwrap();
+        assert!(!Preferences::parse("{}").unwrap().fullscreen_when_open);
+        let enabled =
+            Preferences::parse(r#"{"pause_when_open":true,"fullscreen_when_open":true}"#).unwrap();
         let saved = serde_json::to_string(&enabled).unwrap();
         assert!(Preferences::parse(&saved).unwrap().pause_when_open);
+        assert!(Preferences::parse(&saved).unwrap().fullscreen_when_open);
     }
 
     #[test]

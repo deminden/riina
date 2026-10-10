@@ -1,5 +1,13 @@
 # Source-derived visual specification
 
+The user prioritizes full interface parity first. Windows captures now work again;
+an actual General Preferences before/after review exposed a blank 24px folder
+button and touching Save to/path text. The original chooser now draws its own
+ellipsis/focus ring and keeps keyboard activation; the path has additional spacing.
+The floating panel now uses the recorded 12pt macOS 26 corners. These captures
+verify those riina corrections, not complete macOS pixel equivalence. Follow the
+complete surface inventory in docs/interface-parity-plan.md.
+
 Verified reference state IINA-1.5.0-PAUSED-SEEK-001 is now available from run
 38005949498: 320 x 180 pixels, scale 1, macOS 26.6.2, Light theme. Actual engine
 observations bracket the image at paused 2.0 seconds; frame 048 agrees. A transient
