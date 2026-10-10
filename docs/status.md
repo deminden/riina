@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Local subtitle picker fix verified on Windows: the rebuilt e36015b player now
+steps font size 55 → 60 → 55 and outline width 3 → 4 → 3 using the keyboard.
+The observed cursor follows both native values. Pause, volume 37, delay 0,
+position 100 and neutral scale remain unchanged; the player closes cleanly.
+Scoped accessibility evidence and binary hash are saved in
+tests/visual/subtitle-picker-index-windows-evidence.json. No subtitle tracks were
+loaded, so this verifies control routing rather than rendered subtitle styling.
+Mouse popup selection, screenshots and other OS runtime checks remain open.
+All work remains local under the milestone publication policy.
+
 Local subtitle style Windows test and picker fix: accessibility confirms Scale,
 Font and Border order and the observed defaults. Scale reduction and keyboard
 reset route correctly while paused. Font keyboard Down exposed a real bug: the
@@ -7,9 +17,9 @@ picker displayed 55 but its cursor started at the first list item, selecting 30.
 A shared ObservedSizePicker now synchronizes both current index and display text
 from native observations for font and outline size, including external changes.
 The old binary's evidence is saved in subtitle-style-controls-windows-evidence.json;
-the fix requires runtime retesting. Strict lint and all 28 unit tests pass.
+the subsequent runtime retest is recorded above. Strict lint and all 28 unit tests pass.
 Visual capture still fails twice with CreateForMonitor error 0x80070057 after
-fresh target selection; rendered layout and outline picker routing remain pending.
+fresh target selection; rendered layout and mouse popup routing remain pending.
 Nothing was published.
 
 Local subtitle style row layout and traceability: implemented style controls now
