@@ -65,11 +65,15 @@ if CommandLine.arguments.dropFirst(3).contains("--wait-window") {
     exit(0)
 }
 let destination = output.appendingPathComponent("iina-1.5.0-paused.png")
+// Window readiness may take seconds. Record the actual capture interval instead
+// of labelling the earlier metadata initialization time as the image time.
+record["capture_started_at_utc"] = ISO8601DateFormatter().string(from: Date())
 let capture = Process()
 capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
 capture.arguments = ["-x", "-o", "-l", String(number), destination.path]
 try capture.run()
 capture.waitUntilExit()
+record["capture_completed_at_utc"] = ISO8601DateFormatter().string(from: Date())
 record["capture_exit_code"] = capture.terminationStatus
 record["image"] = destination.lastPathComponent
 try saveRecord()

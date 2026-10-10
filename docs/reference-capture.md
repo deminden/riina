@@ -31,6 +31,14 @@ permission/update/welcome overlays. No window resizing or layout customization
 is performed, so the initial capture is not automatically a matching-size golden.
 Additional states and measured comparison remain required for visual parity.
 
+The harness now also captures the same paused two-second state after at least
+two seconds without another seek or pointer/key input. Both observations bracket
+this settled image; the manifest records the measured quiet interval and capture
+duration. Review early and settled images separately before concluding that a
+transient panel disappeared. This pair does not measure its exact expiry or fade
+curve. Capture metadata records the actual capture start/end after window
+readiness, separately from the earlier metadata initialization timestamp.
+
 Sources: [official release](https://github.com/iina/iina/releases/tag/v1.5.0),
 [Quartz window metadata](https://developer.apple.com/documentation/coregraphics/cgwindowlistcopywindowinfo(_:_:)),
 and the CLI help in the pinned reference checkout. Capture tooling is independently

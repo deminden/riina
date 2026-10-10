@@ -111,3 +111,32 @@ with connection, connection.makefile("rwb") as stream:
             break
     else:
         raise RuntimeError("Reference playback changed during all three bounded captures")
+
+    # A single image cannot establish the lifetime of a transient panel. Capture
+    # the same paused media again without sending another seek or UI activity.
+    # The image still needs review; elapsed time alone is not proof of OSD hiding.
+    quiet_started = time.monotonic()
+    time.sleep(2.0)
+    settled_before = snapshot()
+    settled_output = output / "settled"
+    capture_started = time.monotonic()
+    settled_result = subprocess.run([capture_program, str(settled_output), fixture])
+    settled_after = snapshot()
+    record["schema_version"] = 2
+    record["settled_capture"] = {
+        "capture_directory": settled_output.name,
+        "quiet_interval_seconds": capture_started - quiet_started,
+        "capture_duration_seconds": time.monotonic() - capture_started,
+        "before_capture": settled_before,
+        "after_capture": settled_after,
+        "playback_state_verified": (matches_requested_state(settled_before)
+                                    and matches_requested_state(settled_after)),
+        "capture_exit_code": settled_result.returncode,
+        "visual_acceptance": "unreviewed; inspect panel visibility independently",
+        "intervening_activity": "property reads only; no seek or pointer/key input",
+    }
+    (output / "playback-observation.json").write_bytes((json.dumps(record, indent=2) + "\n").encode())
+    if settled_result.returncode != 0:
+        raise RuntimeError("Settled reference window capture failed; see metadata")
+    if not record["settled_capture"]["playback_state_verified"]:
+        raise RuntimeError("Reference playback changed during the settled capture")
