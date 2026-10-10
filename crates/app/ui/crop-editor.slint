@@ -1,0 +1,85 @@
+component CropButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <bool> selected: false;
+    callback chosen();
+    height: 24px; border-radius: 4px;
+    background: selected ? #478adc : touch.has-hover ? #ffffff28 : #ffffff18;
+    accessible-role: button; accessible-label: label; accessible-enabled: enabled;
+    accessible-action-default => { if enabled { chosen(); } }
+    Text { text: label; font-size: 12px; color: root.enabled ? #eeeeee : #777777;
+        horizontal-alignment: center; vertical-alignment: center; }
+    if focus.has-focus : Rectangle { background: transparent; border-radius: 4px; border-width: 1px; border-color: #90b7ef; }
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.chosen(); } }
+    focus := FocusScope { enabled: root.enabled;
+        key-pressed(event) => { if event.text == Key.Return || event.text == " " { root.chosen(); return accept; } return reject; }
+    }
+}
+
+export component CropEditor inherits Rectangle {
+    in property <bool> editing;
+    in property <bool> ready;
+    in property <string> description;
+    in property <float> box-x;
+    in property <float> box-y;
+    in property <float> box-width;
+    in property <float> box-height;
+    in-out property <int> preset-index: -1;
+    callback preset(int);
+    callback finish(bool);
+    callback begin-drag(int,float,float);
+    callback move-drag(float,float);
+    callback end-drag();
+    callback focus-editor();
+    focus-editor => { keys.focus(); }
+    visible: editing; background: transparent;
+    keys := FocusScope { enabled: root.editing; width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.finish(false); return accept; }
+            if event.text == Key.Return && root.ready { root.finish(true); return accept; }
+            if event.text == Key.Tab { return reject; }
+            return accept;
+        }
+        Rectangle { x:0px; y:0px; width:parent.width; height:root.box-y * 1px; background:#00000080; }
+        Rectangle { x:0px; y:root.box-y * 1px; width:root.box-x * 1px; height:root.box-height * 1px; background:#00000080; }
+        Rectangle { x:(root.box-x + root.box-width) * 1px; y:root.box-y * 1px;
+            width:max(0px,parent.width - self.x); height:root.box-height * 1px; background:#00000080; }
+        Rectangle { x:0px; y:(root.box-y + root.box-height) * 1px;
+            width:parent.width; height:max(0px,parent.height - self.y); background:#00000080; }
+        if root.ready : Rectangle { x:root.box-x * 1px; y:root.box-y * 1px;
+            width:root.box-width * 1px; height:root.box-height * 1px;
+            border-width:1px; border-color:#168bff; background:#ffffff0a; }
+        free := TouchArea { enabled: root.ready; mouse-cursor:crosshair;
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { root.begin-drag(0,self.mouse-x / 1px,self.mouse-y / 1px); }
+                if event.kind == PointerEventKind.up { root.end-drag(); }
+            }
+            moved => { if self.pressed { root.preset-index = -1; root.move-drag(self.mouse-x / 1px,self.mouse-y / 1px); } }
+        }
+        for edge[index] in [1,2,3,4] : TouchArea {
+            enabled: root.ready; mouse-cursor:crosshair;
+            x: (edge == 1 ? root.box-x - 3 : edge == 2 ? root.box-x + root.box-width - 3 : root.box-x) * 1px;
+            y: (edge == 3 ? root.box-y - 3 : edge == 4 ? root.box-y + root.box-height - 3 : root.box-y) * 1px;
+            width: (edge <= 2 ? 6 : root.box-width) * 1px;
+            height: (edge <= 2 ? root.box-height : 6) * 1px;
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { root.begin-drag(edge,(self.x+self.mouse-x) / 1px,(self.y+self.mouse-y) / 1px); }
+                if event.kind == PointerEventKind.up { root.end-drag(); }
+            }
+            moved => { if self.pressed { root.preset-index = -1; root.move-drag((self.x+self.mouse-x) / 1px,(self.y+self.mouse-y) / 1px); } }
+        }
+        VerticalLayout { x:max(8px,(parent.width - self.width)/2); y:parent.height - self.height - 20px;
+            width:min(560px,parent.width - 16px); height:46px; spacing:8px;
+            Text { text:root.description; font-size:11px; color:#cccccc; horizontal-alignment:center; }
+            HorizontalLayout { spacing:4px; height:24px;
+                for label[index] in ["4:3","16:9","16:10","21:9","3:2","5:4"] : CropButton {
+                    label:label; selected:root.preset-index == index; enabled:root.ready;
+                    chosen => { root.preset-index = index; root.preset(index); }
+                }
+                Rectangle { width:8px; background:transparent; }
+                CropButton { label:"Cancel"; width:72px; chosen => { root.finish(false); } }
+                CropButton { label:"Done"; width:72px; enabled:root.ready; chosen => { root.finish(true); } }
+            }
+        }
+    }
+}

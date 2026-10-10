@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod crop_editor;
 mod file_selection;
 mod font_catalog;
 mod font_picker;

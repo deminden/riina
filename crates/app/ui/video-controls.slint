@@ -107,13 +107,11 @@ export component VideoControls inherits Rectangle {
                     for label[index] in root.crop-presets : VideoSegment {
                         width: index == 6 ? 76px : 43px;
                         label: label; hint: "Crop " + label;
-                        // Custom selection is displayed from native state; its
-                        // interactive editor is the remaining part of this feature.
-                        enabled: root.crop-enabled && index < 6;
+                        enabled: root.crop-enabled;
                         selected: root.crop-index == index;
                         chosen => { root.crop-changed(index); }
                         navigate(direction) => { root.crop-changed(clamp(
-                            (root.crop-index >= 0 && root.crop-index < 6 ? root.crop-index : index) + direction, 0, 5)); }
+                            (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
                     }
                 }
             }

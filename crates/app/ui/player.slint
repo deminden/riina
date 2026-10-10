@@ -1,5 +1,6 @@
 import { ScrollView, ComboBox } from "std-widgets.slint";
 import { VideoControls, HardwareDecodingControls } from "video-controls.slint";
+import { CropEditor } from "crop-editor.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
 export struct CatalogRow { token: string, label: string, language: string, selected: bool }
@@ -257,6 +258,25 @@ export component PlayerWindow inherits Window {
     background: native-video ? transparent : #111111;
     in property <image> video-frame;
     in property <bool> loaded: false;
+    in property <bool> crop-editing: false;
+    in property <bool> crop-ready: false;
+    in property <string> crop-description;
+    in property <float> crop-box-x;
+    in property <float> crop-box-y;
+    in property <float> crop-box-width;
+    in property <float> crop-box-height;
+    in-out property <int> crop-preset-index: -1;
+    callback begin-custom-crop();
+    callback finish-custom-crop(bool);
+    callback crop-preset(int);
+    callback begin-crop-drag(int,float,float);
+    callback move-crop-drag(float,float);
+    callback end-crop-drag();
+    callback crop-viewport-changed();
+    callback focus-crop-editor();
+    focus-crop-editor => { crop-editor.focus-editor(); }
+    callback focus-player();
+    focus-player => { keys.focus(); }
     in property <bool> paused: true;
     in property <bool> playing: false;
     in property <bool> seekable: false;
@@ -335,6 +355,8 @@ export component PlayerWindow inherits Window {
     in-out property <bool> controls-visible: true;
     out property <length> video-width: root.width;
     out property <length> video-height: root.height;
+    changed video-width => { root.crop-viewport-changed(); }
+    changed video-height => { root.crop-viewport-changed(); }
     callback open-file();
     callback toggle-pause();
     callback stop();
@@ -409,7 +431,7 @@ export component PlayerWindow inherits Window {
                 TouchArea { enabled: root.engine-ready; clicked => { root.open-file(); } }
             }
         }
-        if controls-visible : Rectangle {
+        if controls-visible && !crop-editing : Rectangle {
             x: 0; y: 0; width: parent.width; height: 34px; background: #151515b0;
             HorizontalLayout { padding-left: 12px; padding-right: 12px;
                 Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
@@ -423,7 +445,7 @@ export component PlayerWindow inherits Window {
                 Tool { icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
             }
         }
-        if sidebar != 0 : Rectangle {
+        if sidebar != 0 && !crop-editing : Rectangle {
             x: root.sidebar == 3 || root.sidebar == 4 ? 0px : parent.width - self.width;
             y: 34px; width: min(360px, parent.width * 0.8);
             height: parent.height - 68px; background: #202025f5;
@@ -764,7 +786,7 @@ export component PlayerWindow inherits Window {
                 }
             }
         }
-        if controls-visible && loaded : Rectangle {
+        if controls-visible && loaded && !crop-editing : Rectangle {
             width: min(460px, parent.width - 24px); height: 67px;
             x: (parent.width - self.width) / 2;
             y: parent.height * 0.9 - self.height;
@@ -796,7 +818,7 @@ export component PlayerWindow inherits Window {
             }
         }
         // Geometry is estimated from the reviewed 320×180 reference capture.
-        if seek-osd-visible && osd-enabled && loaded : Rectangle {
+        if seek-osd-visible && osd-enabled && loaded && !crop-editing : Rectangle {
             x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
             border-radius: 14px; background: #181818dc;
             seek-clock := HorizontalLayout {
@@ -820,7 +842,20 @@ export component PlayerWindow inherits Window {
                 width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
                 height: 2px; background: #168bff; border-radius: 1px; }
         }
+        crop-editor := CropEditor {
+            width:parent.width; height:parent.height;
+            editing:root.crop-editing; ready:root.crop-ready; description:root.crop-description;
+            box-x:root.crop-box-x; box-y:root.crop-box-y;
+            box-width:root.crop-box-width; box-height:root.crop-box-height;
+            preset-index <=> root.crop-preset-index;
+            preset(index) => { root.crop-preset(index); }
+            finish(confirm) => { root.finish-custom-crop(confirm); }
+            begin-drag(kind,x,y) => { root.begin-crop-drag(kind,x,y); }
+            move-drag(x,y) => { root.move-crop-drag(x,y); }
+            end-drag => { root.end-crop-drag(); }
+        }
         key-pressed(event) => {
+            if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
                 if event.modifiers.shift {

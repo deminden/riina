@@ -350,6 +350,8 @@ pub(crate) fn configure_player(
     let latest = Arc::new(std::sync::Mutex::new(None));
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
+    let crop_editor = crate::crop_editor::Editor::default();
+    let observed_crop_editor = crop_editor.clone();
     let last_seek = Arc::new(std::sync::Mutex::new(SeekOsd::default()));
     let last_video = Arc::new(std::sync::Mutex::new(crate::video_osd::VideoOsd::new(
         prefs.disable_osd_speed,
@@ -367,6 +369,7 @@ pub(crate) fn configure_player(
         let displayed = displayed.clone();
         let last_seek = last_seek.clone();
         let last_video = last_video.clone();
+        let crop_editor = observed_crop_editor.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
@@ -375,6 +378,7 @@ pub(crate) fn configure_player(
                 && let Ok(mut last_seek) = last_seek.lock()
                 && let Ok(mut last_video) = last_video.lock()
             {
+                crop_editor.observe(&app, &state);
                 update_ui(&app, state, &mut displayed, &mut last_seek, &mut last_video);
             }
         });
@@ -392,6 +396,7 @@ pub(crate) fn configure_player(
         }
     };
     let idle_timer = Rc::new(slint::Timer::default());
+    crop_editor.install(app, player.command_sender());
     let seek_timer = slint::Timer::default();
     let disable_seek_osd = prefs.disable_osd_seek;
     let weak = app.as_weak();
@@ -549,6 +554,12 @@ pub(crate) fn configure_player(
     let crop_player = player.command_sender();
     let crop_ui = app.as_weak();
     app.on_set_video_crop(move |index| {
+        if index == 6 {
+            if let Some(app) = crop_ui.upgrade() {
+                app.invoke_begin_custom_crop();
+            }
+            return;
+        }
         let preset = if index == 0 {
             None
         } else if let Some(preset) = usize::try_from(index - 1)
