@@ -117,12 +117,15 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             .filter(|(_, family)| family.matches(&text))
                             .map(|(index, _)| index)
                             .collect();
-                        picker.set_families(items(
-                            indices.iter().map(|index| data[*index].name.clone()),
-                        ));
-                        *map.borrow_mut() = indices;
+                        // Clear row identity before replacing the filtered model;
+                        // the same numeric row may now refer to another family.
+                        picker.set_family_index(-1);
+                        picker.set_face_index(-1);
                         selection.set(None);
+                        let rows = items(indices.iter().map(|index| data[*index].name.clone()));
+                        *map.borrow_mut() = indices;
                         picker.set_faces(items(std::iter::empty()));
+                        picker.set_families(rows);
                     });
                     let data = families.clone();
                     let map = filtered.clone();
@@ -139,6 +142,7 @@ pub fn connect(app: &PlayerWindow, sender: CommandSender) {
                             return;
                         };
                         selection.set(Some(index));
+                        picker.set_face_index(-1);
                         picker.set_faces(items(
                             data[index]
                                 .faces

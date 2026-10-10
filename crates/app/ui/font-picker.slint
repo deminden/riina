@@ -8,11 +8,19 @@ export component FontPicker inherits Window {
     in property <[StandardListViewItem]> faces;
     in property <bool> ready: false;
     in-out property <string> custom-name;
+    in-out property <int> family-index: -1;
+    in-out property <int> face-index: -1;
     callback search(string);
     callback family-selected(int);
     callback face-selected(int);
     callback accept-font(string);
     callback cancel();
+    FocusScope {
+        width: 100%; height: 100%;
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.cancel(); return accept; }
+            return reject;
+        }
     VerticalLayout { padding: 20px; spacing: 12px;
         LineEdit { placeholder-text: "Type to filter…";
             accessible-label: "Filter font families";
@@ -21,11 +29,13 @@ export component FontPicker inherits Window {
             VerticalLayout { spacing: 6px;
                 Text { text: "Family"; color: #dddddd; font-size: 12px; }
                 StandardListView { model: root.families; enabled: root.ready;
+                    current-item <=> root.family-index;
                     current-item-changed(index) => { root.family-selected(index); } }
             }
             VerticalLayout { spacing: 6px;
                 Text { text: "Face"; color: #dddddd; font-size: 12px; }
                 StandardListView { model: root.faces; enabled: root.ready;
+                    current-item <=> root.face-index;
                     current-item-changed(index) => { root.face-selected(index); } }
             }
         }
@@ -44,5 +54,6 @@ export component FontPicker inherits Window {
             Button { text: "Cancel"; clicked => { root.cancel(); } }
             Button { text: "OK"; primary: true; clicked => { root.accept-font(root.custom-name); } }
         }
+    }
     }
 }

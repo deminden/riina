@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Local font chooser keyboard/selection follow-up: Escape now invokes Cancel
+through the chooser focus scope. Family and face current indices are explicitly
+cleared before a filtered model replacement, so an old numeric row cannot stay
+highlighted as a different family. Choosing a new family also clears the old
+face highlight. Strict lint, formatting and all unit checks pass. GUI retesting
+of Escape and filtered selection remains pending; the older cancellation
+evidence proves only Cancel-button behavior. No public update was made.
+
 Local shared font chooser: the subtitle Font row now opens a 458×524 window
 with family search, family/face lists, custom entry, preview and OK/Cancel.
 Installed metadata loads on a worker and returns through a weak UI handle.
