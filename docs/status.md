@@ -1,3 +1,19 @@
+General Preferences now exposes the reference "When media is opened: Pause"
+control, default false. Its saved policy is retained across source replacement;
+single-file and batch opening honor it, appending does not change playback, and
+toggling the preference leaves current playback alone. Legacy settings default
+false. Save failure rolls the UI draft back before sending the engine policy.
+The screenshot Destination: and Options: labels have also been restored.
+
+All 37 native engine tests, workspace tests, strict lint, formatting and the
+optimized Windows build passed. An isolated Windows native-release GUI test
+enabled the checkbox and verified immediate saved JSON, restarted at 0:00 with
+a Play button, then disabled it and verified playback remained paused at 0:00.
+Both owned player processes exited 0. Actual user preferences were not used.
+The capture helper still reports CreateForMonitor 0x80070057; accessible labels
+and runtime behavior do not establish rendered pixel parity. Other Behavior
+controls and tabbed preferences remain incomplete.
+
 Native distribution audit now has hash-checked runtime inspection and the exact
 producing workflow/recipe revision. The development DLL enables dvdnav and the
 FFmpeg recipe enables GPL/x264/x265. No native binaries are approved for publishing;

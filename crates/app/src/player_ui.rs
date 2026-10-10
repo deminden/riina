@@ -411,6 +411,7 @@ impl UiSession {
                 100.0
             }),
             volume_boost: app.get_volume_boost(),
+            pause_when_open: app.get_pause_when_open(),
             screenshot: crate::screenshot_preferences::current(app)
                 .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
@@ -448,6 +449,7 @@ pub(crate) fn configure_player(
     )));
     app.set_osd_enabled(prefs.enable_osd);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
+    app.set_pause_when_open(prefs.pause_when_open);
     crate::screenshot_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
@@ -537,6 +539,15 @@ pub(crate) fn configure_player(
         }
     };
     let idle_timer = Rc::new(slint::Timer::default());
+    let opening_player = player.command_sender();
+    let opening_app = app.as_weak();
+    app.on_pause_when_open_changed(move |pause| {
+        if let Err(error) = opening_player.send(Command::SetPauseWhenOpen(pause))
+            && let Some(app) = opening_app.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
     crate::window_controls::install(app, native.as_ref().map(platform::NativePresentation::host));
     crop_editor.install(app, player.command_sender());
     let reflection_player = player.command_sender();
@@ -1344,6 +1355,9 @@ pub(crate) fn configure_player(
 
     player
         .send(Command::SetVolumeBoost(prefs.volume_boost))
+        .map_err(std::io::Error::other)?;
+    player
+        .send(Command::SetPauseWhenOpen(prefs.pause_when_open))
         .map_err(std::io::Error::other)?;
     player
         .send(Command::HardwareDecoding(prefs.hardware_decoder))

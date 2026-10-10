@@ -5,21 +5,32 @@ import { CheckBox, ComboBox, Button } from "std-widgets.slint";
 export component PreferencesWindow inherits Window {
     title: "Preferences";
     preferred-width: 520px;
-    preferred-height: 260px;
+    preferred-height: 340px;
     background: #ededed;
     in-out property <int> format-index: 0;
     in-out property <bool> include-subtitles: true;
     in-out property <bool> show-preview: true;
     in-out property <bool> save-to-file: true;
     in-out property <bool> copy-to-clipboard: false;
+    in-out property <bool> pause-when-open: false;
     callback settings-changed();
     callback choose-folder();
     in-out property <string> directory;
     in-out property <bool> custom-directory: false;
     in-out property <bool> folder-dialog-open: false;
     Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
-    Rectangle { x: 20px; y: 52px; width: 480px; height: 184px; background: transparent;
+    Rectangle { x: 20px; y: 52px; width: 480px; height: 64px; background: transparent;
+        Text { x: 0px; y: 8px; text: "Behavior:"; font-weight: 600; font-size: 13px; color: #222222; }
+        Text { x: 118px; y: 8px; text: "When media is opened:"; font-size: 13px; color: #222222; }
+        CheckBox { x: 120px; y: 28px; height: 24px; text: "Pause";
+            checked <=> root.pause-when-open;
+            toggled => { root.settings-changed(); }
+        }
+    }
+    Rectangle { x: 20px; y: 132px; width: 480px; height: 184px; background: transparent;
         Text { x: 0px; y: 8px; text: "Screenshots:"; font-weight: 600; font-size: 13px; color: #222222; }
+        Text { x: 118px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
+        Text { x: 118px; y: 112px; text: "Options:"; font-size: 13px; color: #222222; }
         CheckBox { x: 120px; y: 28px; height: 24px; text: "Save to";
             checked <=> root.save-to-file;
             toggled => { root.settings-changed(); }

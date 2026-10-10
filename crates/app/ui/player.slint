@@ -373,6 +373,8 @@ export component PlayerWindow inherits Window {
     in property <bool> osd-enabled: true;
     in-out property <bool> screenshot-show-preview: true;
     in-out property <bool> screenshot-save-to-file: true;
+    in-out property <bool> pause-when-open: false;
+    callback pause-when-open-changed(bool);
     in-out property <bool> screenshot-copy-to-clipboard: false;
     in-out property <string> screenshot-format: "png";
     in-out property <string> screenshot-template: "%F-%n";

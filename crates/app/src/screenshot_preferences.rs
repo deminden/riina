@@ -38,6 +38,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                         return;
                     }
                 };
+                let previous_pause = app.get_pause_when_open();
                 let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
                 // AVIF can be configured externally but has no item in the pinned
                 // General pane. Editing another control must preserve that choice.
@@ -52,6 +53,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                 app.set_screenshot_copy_to_clipboard(window.get_copy_to_clipboard());
                 app.set_screenshot_custom_directory(window.get_custom_directory());
                 app.set_screenshot_directory(window.get_directory());
+                app.set_pause_when_open(window.get_pause_when_open());
                 let result =
                     self::current(&app).and_then(|screenshot| {
                         let preferences =
@@ -60,6 +62,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                                 volume: f64::from(app.get_volume())
                                     .min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
                                 volume_boost: app.get_volume_boost(),
+                                pause_when_open: app.get_pause_when_open(),
                                 ..baseline.clone()
                             };
                         let text = serde_json::to_string_pretty(&preferences)
@@ -68,9 +71,12 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                             .map_err(|error| error.to_string())
                     });
                 if let Err(error) = result {
+                    app.set_pause_when_open(previous_pause);
                     install(&app, &previous);
                     refresh(&window, &app);
                     app.set_status(error.into());
+                } else if app.get_pause_when_open() != previous_pause {
+                    app.invoke_pause_when_open_changed(app.get_pause_when_open());
                 }
             });
             let parent = app.as_weak();
@@ -165,6 +171,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
 }
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
+    window.set_pause_when_open(app.get_pause_when_open());
     let index = ["png", "jpg", "jpeg", "webp", "jxl"]
         .iter()
         .position(|format| *format == app.get_screenshot_format().as_str())

@@ -1,3 +1,9 @@
+Pause-on-open preference now persists and reaches single/batch load policy, with
+native and isolated Windows GUI restart evidence. Complete remaining General
+Behavior controls and preferences navigation; verify save failure rollback,
+reference layout/materials and macOS/Linux runtime. Maintain native pause state
+as observed playback, separate from the policy for future file opening.
+
 Resolve native distribution using the inspected producing recipe and dependency
 revisions in docs/native-distribution-audit.json. Preserve parity requirements
 while choosing compatible dependencies; do not silently remove DVD or other

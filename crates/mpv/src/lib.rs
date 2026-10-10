@@ -195,6 +195,10 @@ impl Player {
                         if command == Command::Shutdown { break; }
                         match command.plan(&state) {
                             Ok(plan) => {
+                                if let Command::SetPauseWhenOpen(pause) = &command {
+                                    // Changing the policy must not pause current playback.
+                                    state.pause_when_open = *pause;
+                                }
                                 // Requested text is player intent, not proof of the native ratio.
                                 // Keep it even on native failure and across source replacement:
                                 // aspect is a player option, unlike generation-bound crop geometry.

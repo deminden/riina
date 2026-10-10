@@ -8,6 +8,63 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies live pause-on-open policy without pausing current media"]
+fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_playback() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let media = root
+        .join("tests/fixtures/catalog.mkv")
+        .to_string_lossy()
+        .into_owned();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player.send(Command::Load(media.clone())).unwrap();
+    let playing = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some()
+    });
+    assert!(!playing.paused);
+    assert!(!playing.pause_when_open);
+    player.send(Command::SetPauseWhenOpen(true)).unwrap();
+    wait_for(&receiver, |state| state.pause_when_open && !state.paused);
+    player.send(Command::Load(media.clone())).unwrap();
+    let replacement = wait_for(&receiver, |state| {
+        state.generation > playing.generation
+            && state.phase == Phase::Paused
+            && state.paused
+            && state.position.is_some()
+    });
+    player
+        .send(Command::OpenFiles(vec![media.clone(), media.clone()]))
+        .unwrap();
+    let batch = wait_for(&receiver, |state| {
+        state.generation > replacement.generation
+            && state.phase == Phase::Paused
+            && state.paused
+            && state.playlist.len() == 2
+    });
+    player
+        .send(Command::AppendFiles(vec![media.clone()]))
+        .unwrap();
+    let appended = wait_for(&receiver, |state| state.playlist.len() == 3);
+    assert_eq!(appended.generation, batch.generation);
+    assert!(appended.paused);
+    player.send(Command::SetPauseWhenOpen(false)).unwrap();
+    wait_for(&receiver, |state| !state.pause_when_open && state.paused);
+    player.send(Command::Load(media)).unwrap();
+    wait_for(&receiver, |state| {
+        state.generation > batch.generation
+            && state.phase == Phase::Playing
+            && !state.paused
+            && state.position.is_some()
+    });
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies active subtitle composition in saved frames"]
 fn screenshot_content_respects_active_subtitle_visibility() {
     use riina_core::screenshot::Content;

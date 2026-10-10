@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 pub enum Command {
     Load(String),
     OpenFiles(Vec<String>),
+    SetPauseWhenOpen(bool),
     TogglePause,
     Stop,
     Seek {
@@ -328,6 +329,7 @@ impl Command {
                 ]
             }
             Self::OpenFiles(_)
+            | Self::SetPauseWhenOpen(_)
             | Self::Screenshot { .. }
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
@@ -462,6 +464,7 @@ impl Command {
                 volume_adjustment(*delta, *boost)
             }
             Self::SetVolumeBoost(boost) => volume_adjustment(0.0, *boost),
+            Self::SetPauseWhenOpen(_) => Vec::new(),
             Self::SetAbLoop { a, b } => {
                 let point = |value: Option<f64>| -> Result<String, String> {
                     match value {
@@ -525,12 +528,23 @@ impl Command {
                     // PlayerCore.openURLs opens the first playable item, then appends
                     // the remainder. Validate everything before replacing old media.
                     commands[0][2] = "replace".into();
-                    commands.insert(0, vec!["set".into(), "pause".into(), "no".into()]);
+                    commands.insert(
+                        0,
+                        vec![
+                            "set".into(),
+                            "pause".into(),
+                            if state.pause_when_open { "yes" } else { "no" }.into(),
+                        ],
+                    );
                 }
                 commands
             }
             Self::Load(_) => vec![
-                vec!["set".into(), "pause".into(), "no".into()],
+                vec![
+                    "set".into(),
+                    "pause".into(),
+                    if state.pause_when_open { "yes" } else { "no" }.into(),
+                ],
                 self.mpv_args()?,
             ],
             Self::SelectChapter(index) => {
@@ -806,6 +820,8 @@ pub enum Phase {
 
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
+    /// File-opening policy is intent; `paused` remains native observed state.
+    pub pause_when_open: bool,
     pub generation: u64,
     pub phase: Phase,
     pub position: Option<f64>,
@@ -1015,6 +1031,7 @@ pub fn time_label(seconds: Option<f64>) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
+    pub pause_when_open: bool,
     pub schema_version: u32,
     pub volume: f64,
     pub volume_boost: bool,
@@ -1032,6 +1049,7 @@ impl Default for Preferences {
     fn default() -> Self {
         // IINA Preference.defaultPreference: softVolume=100, themeMaterial=dark.
         Self {
+            pause_when_open: false,
             schema_version: 1,
             volume: 100.0,
             volume_boost: false,
@@ -1077,6 +1095,14 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pause_when_open_keeps_legacy_defaults_and_round_trips_enabled_policy() {
+        assert!(!Preferences::parse("{}").unwrap().pause_when_open);
+        let enabled = Preferences::parse(r#"{"pause_when_open":true}"#).unwrap();
+        let saved = serde_json::to_string(&enabled).unwrap();
+        assert!(Preferences::parse(&saved).unwrap().pause_when_open);
+    }
 
     #[test]
     fn ab_loop_points_preserve_zero_and_validate_the_whole_intent() {
