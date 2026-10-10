@@ -755,6 +755,23 @@ tests pass in 10.19 seconds; 24 unit tests, strict lint and formatting pass.
 This proves independent property handling, not rendered placement. Shared UI
 position controls, actual visual geometry and macOS/Linux runtime remain open.
 
+## Subtitle color engine contract · 2026-10-10
+
+`subtitle_colors_preserve_alpha_and_other_style_options` observes white/black/
+clear startup defaults, then loads the original catalog and external SRT. Text,
+border and shadow changes preserve their independently chosen alpha and RGB
+channels. Restoring defaults retains the selected subtitle, delay zero, font
+size 55, border width 3 and pause with no native error. All 14 native tests pass
+in 9.93 seconds. Two portable color tests cover alpha-first hex, floating-channel
+precision, omitted alpha, malformed/nonfinite/out-of-range input. The 30 unit
+tests and strict lint pass. No color picker UI, rendered color or other OS pass
+is claimed.
+
+Color wire contract: [mpv manual](https://mpv.io/manual/master/#options-sub-color)
+documents RGB and alpha-first ARGB hex, or normalized slash-separated channels.
+riina keeps validated RGBA doubles without routing through toolkit precision;
+mpv may quantize its effective colors, which native observations report.
+
 ## Ten-minute relative seeks · 2026-10-10
 
 `long_relative_seeks_preserve_pause_and_volume` uses the original 1300-second

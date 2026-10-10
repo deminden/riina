@@ -122,6 +122,9 @@ impl Player {
                         ("secondary-sub-ass-override", "scale"),
                         ("sub-font-size", "55"),
                         ("sub-outline-size", "3"),
+                        ("sub-color", "1/1/1/1"),
+                        ("sub-outline-color", "0/0/0/1"),
+                        ("sub-back-color", "0/0/0/0"),
                         // Loop points belong to the current media, unlike volume
                         // and speed. Reset in mpv too, not just in our UI snapshot.
                         ("reset-on-next-file", "ab-loop-a,ab-loop-b")] {
@@ -142,6 +145,7 @@ impl Player {
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
                         ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5), ("sub-outline-size", 5),
+                        ("sub-color", 1), ("sub-outline-color", 1), ("sub-back-color", 1),
                         ("secondary-sub-visibility", 3), ("secondary-sub-text", 1),
                         ("secondary-sub-delay", 5),
                         ("secondary-sub-pos", 5),
@@ -306,6 +310,9 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"sub-scale" => state.subtitle_scale = None,
             b"sub-font-size" => state.subtitle_font_size = None,
             b"sub-outline-size" => state.subtitle_outline_size = None,
+            b"sub-color" => state.subtitle_text_color = None,
+            b"sub-outline-color" => state.subtitle_border_color = None,
+            b"sub-back-color" => state.subtitle_shadow_color = None,
             b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
             b"video-target-params" => state.video_target = None,
@@ -427,6 +434,18 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"current-ao" => state.audio_output = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
                 b"sub-text" => state.subtitle_text = Some(value),
+                b"sub-color" => {
+                    state.subtitle_text_color =
+                        riina_core::subtitle_color::SubtitleColor::from_mpv(&value)
+                }
+                b"sub-outline-color" => {
+                    state.subtitle_border_color =
+                        riina_core::subtitle_color::SubtitleColor::from_mpv(&value)
+                }
+                b"sub-back-color" => {
+                    state.subtitle_shadow_color =
+                        riina_core::subtitle_color::SubtitleColor::from_mpv(&value)
+                }
                 b"secondary-sub-text" => state.secondary_subtitle_text = Some(value),
                 b"loop-file" => state.loop_file = Some(value),
                 b"loop-playlist" => state.loop_playlist = Some(value),

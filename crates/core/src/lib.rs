@@ -1,6 +1,7 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
 pub mod file_selection;
+pub mod subtitle_color;
 pub mod subtitle_controls;
 
 use serde::{Deserialize, Serialize};
@@ -46,6 +47,9 @@ pub enum Command {
     SubtitleScale(f64),
     SubtitleFontSize(f64),
     SubtitleOutlineSize(f64),
+    SubtitleTextColor(subtitle_color::SubtitleColor),
+    SubtitleBorderColor(subtitle_color::SubtitleColor),
+    SubtitleShadowColor(subtitle_color::SubtitleColor),
     AdjustSubtitleDelay(f64),
     AdjustSubtitleScale(f64),
     AdjustSubtitlePosition(f64),
@@ -142,6 +146,16 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::SubtitleTextColor(color)
+            | Self::SubtitleBorderColor(color)
+            | Self::SubtitleShadowColor(color) => {
+                let option = match self {
+                    Self::SubtitleTextColor(_) => "sub-color",
+                    Self::SubtitleBorderColor(_) => "sub-outline-color",
+                    _ => "sub-back-color",
+                };
+                vec!["set".into(), option.into(), color.mpv_value()]
+            }
             Self::SubtitleOutlineSize(value) if value.is_finite() && *value >= 0.0 => {
                 vec!["set".into(), "sub-outline-size".into(), value.to_string()]
             }
@@ -587,6 +601,9 @@ pub struct Playback {
     pub subtitle_scale: Option<f64>,
     pub subtitle_font_size: Option<f64>,
     pub subtitle_outline_size: Option<f64>,
+    pub subtitle_text_color: Option<subtitle_color::SubtitleColor>,
+    pub subtitle_border_color: Option<subtitle_color::SubtitleColor>,
+    pub subtitle_shadow_color: Option<subtitle_color::SubtitleColor>,
     pub subtitle_position: Option<f64>,
     pub subtitle_visible: bool,
     pub secondary_subtitle_visible: Option<bool>,

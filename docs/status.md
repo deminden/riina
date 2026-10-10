@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local subtitle color backend: portable typed RGBA commands now control text,
+border and shadow colors independently. Native observations parse RGB/ARGB hex
+and three/four-channel values; invalid or unavailable values remain unknown.
+Startup explicitly sets IINA's opaque white text, opaque black border and clear
+shadow defaults. Tests with an external SRT selected verify alpha-preserving
+updates and restoration while retaining font size 55, border width 3, subtitle
+timing and selection, and pause. All 14 native tests pass in 9.93 seconds;
+30 unit tests and strict lint pass. Inventory now contains 97 atomic rows and
+remains incomplete. Color picker UI, preference persistence, rendered styling
+and other OS runtime remain open. All changes stay local.
+
 Local ten-minute seek verification now uses original CC0 long-silence.wav
 (1300 seconds). Native paused seeks verify 100 → 700 → 100 seconds within 0.1 s,
 preserving volume 37 with no error. Windows Shift+Page Up/Down from the focused

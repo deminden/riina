@@ -123,6 +123,102 @@ fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies independent subtitle color channels and defaults"]
+fn subtitle_colors_preserve_alpha_and_other_style_options() {
+    use riina_core::subtitle_color::SubtitleColor;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    let defaults = wait_for(&receiver, |state| {
+        state.subtitle_text_color == Some(SubtitleColor::WHITE)
+            && state.subtitle_border_color == Some(SubtitleColor::BLACK)
+            && state.subtitle_shadow_color == Some(SubtitleColor::CLEAR)
+            && state.subtitle_font_size == Some(55.0)
+            && state.subtitle_outline_size == Some(3.0)
+    });
+    assert_eq!(defaults.error, None);
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(
+            root.join("tests/fixtures/manual-captions.srt")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let selected = wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_some()
+    });
+    let subtitle_id = selected_track(&selected, TrackKind::Sub);
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .subtitle_text
+            .as_deref()
+            .is_some_and(|text| text.contains("café"))
+    });
+    let text = SubtitleColor::from_mpv("#80402010").unwrap();
+    let border = SubtitleColor::from_mpv("#C0102040").unwrap();
+    let shadow = SubtitleColor::from_mpv("#40000000").unwrap();
+    player.send(Command::SubtitleTextColor(text)).unwrap();
+    let colored = wait_for(&receiver, |state| state.subtitle_text_color == Some(text));
+    assert_eq!(colored.subtitle_border_color, Some(SubtitleColor::BLACK));
+    assert_eq!(colored.subtitle_shadow_color, Some(SubtitleColor::CLEAR));
+    player.send(Command::SubtitleBorderColor(border)).unwrap();
+    let outlined = wait_for(&receiver, |state| {
+        state.subtitle_border_color == Some(border)
+    });
+    assert_eq!(outlined.subtitle_text_color, Some(text));
+    assert_eq!(outlined.subtitle_shadow_color, Some(SubtitleColor::CLEAR));
+    player.send(Command::SubtitleShadowColor(shadow)).unwrap();
+    let shaded = wait_for(&receiver, |state| {
+        state.subtitle_shadow_color == Some(shadow)
+    });
+    assert_eq!(shaded.subtitle_text_color, Some(text));
+    assert_eq!(shaded.subtitle_border_color, Some(border));
+    assert_eq!(shaded.subtitle_font_size, Some(55.0));
+    assert_eq!(shaded.subtitle_outline_size, Some(3.0));
+    assert!(shaded.paused);
+    assert_eq!(selected_track(&shaded, TrackKind::Sub), subtitle_id);
+    assert_eq!(shaded.subtitle_delay, 0.0);
+    assert_eq!(shaded.error, None);
+    for command in [
+        Command::SubtitleTextColor(SubtitleColor::WHITE),
+        Command::SubtitleBorderColor(SubtitleColor::BLACK),
+        Command::SubtitleShadowColor(SubtitleColor::CLEAR),
+    ] {
+        player.send(command).unwrap();
+    }
+    let restored = wait_for(&receiver, |state| {
+        state.subtitle_text_color == Some(SubtitleColor::WHITE)
+            && state.subtitle_border_color == Some(SubtitleColor::BLACK)
+            && state.subtitle_shadow_color == Some(SubtitleColor::CLEAR)
+    });
+    assert!(restored.paused);
+    assert_eq!(selected_track(&restored, TrackKind::Sub), subtitle_id);
+    assert_eq!(restored.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies ten-minute relative seeks away from endpoints"]
 fn long_relative_seeks_preserve_pause_and_volume() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
