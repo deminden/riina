@@ -1,0 +1,66 @@
+{
+  "scope": "Shared implementation plus feedback model and real PNG decoder; no GUI/action/runtime timing proof",
+  "preview": {
+    "bounds": [
+      300,
+      200
+    ],
+    "seconds": 5,
+    "image_border_points": 1,
+    "image_radius_points": 4,
+    "accessory_top_points": 8,
+    "accessory_bottom_points": 36,
+    "button_height_points": 16,
+    "button_gap_points": 12,
+    "actions": [
+      "DELETE",
+      "EDIT",
+      "REVEAL"
+    ]
+  },
+  "verification": {
+    "app_unit_tests": 20,
+    "workspace_tests": "passed",
+    "strict_lint": "passed",
+    "format": "passed",
+    "windows_release_seconds": 41.76,
+    "native_suite": "not rerun; engine unchanged",
+    "fixture_hashes": 16
+  },
+  "fixture": {
+    "sha256": "64a9750058de16df509c5a61e0e5bac3016fdb9d424efcc54a7ca39a5dc45b81",
+    "license": "CC0-1.0",
+    "origin": "original synthetic generation",
+    "command": "python scripts/generate-preview-fixture.py",
+    "description": "96x64 original eight-patch RGB PNG; 16 bits/channel; no HDR/colorimetry claim"
+  },
+  "retirement": [
+    "source generation",
+    "stop/failure phase",
+    "crop entry",
+    "later video/seek OSD",
+    "timer/action"
+  ],
+  "platform_services": {
+    "Windows": "Shell PIDL selection with balanced COM; compiled only",
+    "macOS": "open -R; runtime unverified",
+    "Linux": "parent-folder opening; exact FileManager1 selection pending"
+  },
+  "remaining": [
+    "GUI activation and action outcomes",
+    "five-second wall-clock timing",
+    "calibrated material/header/font/pixels",
+    "preferences and clipboard",
+    "shared GL and ports runtime"
+  ],
+  "published": false,
+  "source_commit": "bd2f0ffc270b7af490dfaa77053bc048e81956d9",
+  "release_sha256": "73f5634ffc286ebe85b30773deea5771ddb28895c4f05444a10c9547178dee75",
+  "reference_files": [
+    "iina/PlayerCore.swift",
+    "iina/ScreenshootOSDView.swift",
+    "iina/Base.lproj/ScreenshootOSDView.xib",
+    "iina/OSDMessage.swift"
+  ],
+  "shell_api_reference": "https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shopenfolderandselectitems"
+}
