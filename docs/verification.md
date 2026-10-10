@@ -472,6 +472,17 @@ copy pass. check-assets.py --staged is the publication gate for future asset
 changes. This corrects provenance bytes; SVG geometry is unchanged.
 # Seek OSD state verification · 2026-10-10
 
+Windows GUI shortcut verification at edeb05c: with the playback slider focused,
+Alt+Right moves the observed position from 2.000 to 2.042 seconds and Alt+Left
+returns to 2.000. Comma moves to 1.958; period returns to 2.000. The pause button
+remains Play. Alt+Up/Down changes volume 37→38→37 without moving playback.
+Control+period shows the stopped/open-file state and returns focus to the root.
+The seek OSD clock appears in the accessibility tree after seeking/backward
+stepping, then is absent later; exact timeout and fade were not measured.
+Screenshot capture fails with CreateForMonitor 0x80070057; no rendered-frame or
+pixel-parity conclusion is made. Clean shutdown leaves no player process.
+Binary hash and scope: tests/visual/frame-shortcut-windows-evidence.json.
+
 Local frame navigation: 24 Windows unit tests, strict lint and seven explicit
 native tests pass (8.43 seconds). Starting at the observed paused two-second
 frame, two forward and two backward commands each move by 1/24 second within

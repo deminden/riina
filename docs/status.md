@@ -1,5 +1,11 @@
 # Status · 2026-10-09
 
+Local Windows GUI evidence now verifies focused-slider Alt+Right/Left and
+period/comma frame navigation, fine volume increments and Control+period Stop.
+The seek clock also appears in accessibility observations. Capture still fails
+with the monitor helper's 0x80070057, so rendered appearance and exact OSD timing
+remain unverified. See tests/visual/frame-shortcut-windows-evidence.json.
+
 Local shortcut increment: backward frame stepping now accompanies forward
 stepping. Alt+arrows and comma/period invoke the frame actions; primary-modifier
 arrows navigate the playlist, and primary-period stops. Modified arrows bubble

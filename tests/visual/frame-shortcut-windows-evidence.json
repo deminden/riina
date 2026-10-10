@@ -1,0 +1,24 @@
+{
+  "source_commit": "edeb05c42b02b1655de45df08f56c0b22ba11886",
+  "binary_sha256": "8b0458c8f5a28c3611e869b37cb3589d19bac48694dde866547018f3d9317383",
+  "recorded_at_utc": "2026-10-10 00:13:43 UTC",
+  "platform": "Windows 11 x64",
+  "presentation": "shared OpenGL application",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "observation_method": "Computer-use returned window and accessibility tree; one input followed by fresh observation",
+  "initial_setup": "Seek from EOF to 2.0 seconds using the accessible playback slider; slider retains focus",
+  "observations": [
+    { "input": "Alt+Right", "position_before": 2.0, "position_after": 2.042, "pause_button_label": "Play", "focus": "Playback position slider" },
+    { "input": "Alt+Left", "position_before": 2.042, "position_after": 2.0, "pause_button_label": "Play", "focus": "Playback position slider" },
+    { "input": "comma", "position_before": 2.0, "position_after": 1.958, "pause_button_label": "Play", "focus": "Playback position slider" },
+    { "input": "period", "position_before": 1.958, "position_after": 2.0, "pause_button_label": "Play", "focus": "Playback position slider" },
+    { "input": "Alt+Up", "volume_before": 37, "volume_after": 38, "position_after": 2.0 },
+    { "input": "Alt+Down", "volume_before": 38, "volume_after": 37, "position_after": 2.0 },
+    { "input": "Control+period", "focus_before": "Playback position slider", "result": "Welcome/open-file controls appear; playback OSC disappears; focus returns to root" }
+  ],
+  "seek_osd": "Accessibility tree exposed 00:02 and / 00:05 after seeking and backward stepping; absent in later observations",
+  "capture_attempts": 1,
+  "capture_error": "IGraphicsCaptureItemInterop.CreateForMonitor failed: Could not capture the given monitor. (0x80070057)",
+  "shutdown": "Alt+F4 removed the player window; subsequent process inventory found no riina process",
+  "does_not_prove": ["rendered frame appearance", "pixel parity", "exact OSD expiry/fade", "macOS/Linux GUI behavior", "playlist/speed/fullscreen shortcut execution", "variable-frame-rate or boundary stepping"]
+}
