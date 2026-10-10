@@ -105,6 +105,77 @@ component ObservedSizePicker inherits ComboBox {
     changed observed-index => { self.current-index = self.observed-index; }
 }
 
+component SubtitleColorWell inherits Rectangle {
+    in property <color> observed-color;
+    in property <bool> enabled: true;
+    in property <string> hint;
+    property <float> red-channel;
+    property <float> green-channel;
+    property <float> blue-channel;
+    property <float> alpha-channel;
+    callback edited(color);
+    function open-editor() {
+        self.red-channel = self.observed-color.red;
+        self.green-channel = self.observed-color.green;
+        self.blue-channel = self.observed-color.blue;
+        self.alpha-channel = self.observed-color.alpha;
+        editor.show();
+    }
+    function submit() {
+        self.edited(rgba(round(self.red-channel), round(self.green-channel),
+            round(self.blue-channel), self.alpha-channel / 255));
+    }
+    width: 32px; height: 24px;
+    border-radius: 4px; border-width: 1px;
+    border-color: focus.has-focus ? #90b7ef : #888892;
+    background: #dddddd;
+    accessible-role: button; accessible-label: hint; accessible-enabled: enabled;
+    accessible-action-default => { if enabled { root.open-editor(); } }
+    // The checkerboard distinguishes transparent black from opaque black.
+    Rectangle { x: 4px; y: 4px; width: 12px; height: 8px; background: #777777; }
+    Rectangle { x: 16px; y: 12px; width: 12px; height: 8px; background: #777777; }
+    Rectangle { x: 4px; y: 4px; width: 24px; height: 16px;
+        background: root.observed-color; opacity: root.enabled ? 1 : 0.4; }
+    TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.open-editor(); } }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == Key.Return || event.text == " " { root.open-editor(); return accept; }
+            return reject;
+        }
+    }
+    editor := PopupWindow {
+        x: root.width - self.width; y: root.height;
+        width: 240px; height: 176px;
+        close-policy: close-on-click-outside;
+        Rectangle { background: #29292e; border-width: 1px; border-color: #ffffff30; border-radius: 6px; }
+        VerticalLayout { padding: 12px; spacing: 8px;
+            Text { text: root.hint; color: #eeeeee; font-size: 12px; }
+            HorizontalLayout { spacing: 8px;
+                Text { text: "Red"; width: 48px; color: #dddddd; font-size: 11px; vertical-alignment: center; }
+                PlayerSlider { minimum: 0; maximum: 255; step: 1; value: root.red-channel; hint: root.hint + " red";
+                    changed(value) => { root.red-channel = round(value); root.submit(); } }
+            }
+            HorizontalLayout { spacing: 8px;
+                Text { text: "Green"; width: 48px; color: #dddddd; font-size: 11px; vertical-alignment: center; }
+                PlayerSlider { minimum: 0; maximum: 255; step: 1; value: root.green-channel; hint: root.hint + " green";
+                    changed(value) => { root.green-channel = round(value); root.submit(); } }
+            }
+            HorizontalLayout { spacing: 8px;
+                Text { text: "Blue"; width: 48px; color: #dddddd; font-size: 11px; vertical-alignment: center; }
+                PlayerSlider { minimum: 0; maximum: 255; step: 1; value: root.blue-channel; hint: root.hint + " blue";
+                    changed(value) => { root.blue-channel = round(value); root.submit(); } }
+            }
+            HorizontalLayout { spacing: 8px;
+                Text { text: "Opacity"; width: 48px; color: #dddddd; font-size: 11px; vertical-alignment: center; }
+                PlayerSlider { minimum: 0; maximum: 255; step: 1; value: root.alpha-channel; hint: root.hint + " opacity";
+                    changed(value) => { root.alpha-channel = round(value); root.submit(); } }
+            }
+        }
+    }
+}
+
 component DelayInput inherits Rectangle {
     in property <float> value;
     in property <bool> secondary: false;
@@ -215,6 +286,12 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-font-size-known: false;
     in property <float> subtitle-outline-size: 0;
     in property <bool> subtitle-outline-size-known: false;
+    in property <color> subtitle-text-color;
+    in property <color> subtitle-border-color;
+    in property <color> subtitle-shadow-color;
+    in property <bool> subtitle-text-color-known: false;
+    in property <bool> subtitle-border-color-known: false;
+    in property <bool> subtitle-shadow-color-known: false;
     in property <bool> subtitle-text-style-available: true;
     in property <bool> subtitle-ass-style-warning: false;
     in-out property <bool> edit-secondary-subtitle: false;
@@ -243,6 +320,7 @@ export component PlayerWindow inherits Window {
     callback set-subtitle-scale-slider(float);
     callback set-subtitle-font-size(float);
     callback set-subtitle-outline-size(float);
+    callback set-subtitle-color(int, color);
     callback adjust-subtitle-position(float);
     callback set-subtitle-position(bool, float);
     callback adjust-audio-delay(float);
@@ -490,7 +568,7 @@ export component PlayerWindow inherits Window {
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                         }
                         if sidebar == 2 && root.subtitle-text-style-available : VerticalLayout {
-                            height: 106px; vertical-stretch: 0; spacing: 8px;
+                            height: 182px; vertical-stretch: 0; spacing: 8px;
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Scale"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                                 PlayerSlider { minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
@@ -513,6 +591,13 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                             HorizontalLayout { height: 30px; spacing: 8px;
+                                Text { text: "Color"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; background: transparent; }
+                                SubtitleColorWell { observed-color: root.subtitle-text-color; hint: "Subtitle text color";
+                                    enabled: root.loaded && root.subtitle-text-color-known;
+                                    edited(value) => { root.set-subtitle-color(1, value); } }
+                            }
+                            HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Border"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                                 Rectangle { horizontal-stretch: 1; background: transparent; }
                                 ObservedSizePicker { width: 60px; height: 24px;
@@ -523,6 +608,16 @@ export component PlayerWindow inherits Window {
                                 accessible-label: "Subtitle outline width";
                                 selected(value) => { if value.is-float() { root.set-subtitle-outline-size(value.to-float()); } }
                                 }
+                                SubtitleColorWell { observed-color: root.subtitle-border-color; hint: "Subtitle border color";
+                                    enabled: root.loaded && root.subtitle-border-color-known;
+                                    edited(value) => { root.set-subtitle-color(3, value); } }
+                            }
+                            HorizontalLayout { height: 30px; spacing: 8px;
+                                Text { text: "Shadow"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; background: transparent; }
+                                SubtitleColorWell { observed-color: root.subtitle-shadow-color; hint: "Subtitle shadow color";
+                                    enabled: root.loaded && root.subtitle-shadow-color-known;
+                                    edited(value) => { root.set-subtitle-color(2, value); } }
                             }
                         }
                         if sidebar == 2 && !root.subtitle-text-style-available : Text {

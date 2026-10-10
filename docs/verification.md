@@ -757,6 +757,16 @@ position controls, actual visual geometry and macOS/Linux runtime remain open.
 
 ## Subtitle color engine contract · 2026-10-10
 
+Shared UI follow-up: the Windows keyboard opens each well. Changing text red
+to 64 and opacity to 128, closing with Escape and reopening reports those
+observed native values; Escape restores focus to the well. Text is restored to
+opaque white. Border and shadow editors report independent black/clear defaults.
+Pause and volume 37 remain unchanged. See subtitle-color-wells-windows-evidence.json
+for exact binary/source hashes and accessibility observations. No tracks were
+loaded, screenshots captured or GUI border/shadow changes tested. The original
+shared RGBA popup is provisional; full native color panel and pixel parity remain
+open. Release build, strict lint and all 30 unit tests pass for the shared wiring.
+
 `subtitle_colors_preserve_alpha_and_other_style_options` observes white/black/
 clear startup defaults, then loads the original catalog and external SRT. Text,
 border and shadow changes preserve their independently chosen alpha and RGB

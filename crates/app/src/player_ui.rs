@@ -193,6 +193,23 @@ fn update_ui(
     app.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
     app.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
     app.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);
+    let ui_color = |color: Option<riina_core::subtitle_color::SubtitleColor>| {
+        let [r, g, b, a] = color
+            .unwrap_or(riina_core::subtitle_color::SubtitleColor::CLEAR)
+            .rgba();
+        slint::Color::from_argb_u8(
+            (a * 255.0).round() as u8,
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+        )
+    };
+    app.set_subtitle_text_color_known(state.subtitle_text_color.is_some());
+    app.set_subtitle_border_color_known(state.subtitle_border_color.is_some());
+    app.set_subtitle_shadow_color_known(state.subtitle_shadow_color.is_some());
+    app.set_subtitle_text_color(ui_color(state.subtitle_text_color));
+    app.set_subtitle_border_color(ui_color(state.subtitle_border_color));
+    app.set_subtitle_shadow_color(ui_color(state.subtitle_shadow_color));
     let subtitle_style = state.subtitle_style_availability();
     app.set_subtitle_text_style_available(subtitle_style.text_controls);
     app.set_subtitle_ass_style_warning(subtitle_style.ass_warning);
@@ -414,6 +431,27 @@ pub(crate) fn configure_player(
     let absolute_scale_player = player.command_sender();
     let font_size_player = player.command_sender();
     let outline_size_player = player.command_sender();
+    let color_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_subtitle_color(move |target, value| {
+        if let Some(app) = weak.upgrade() {
+            let rgba = [value.red(), value.green(), value.blue(), value.alpha()]
+                .map(|channel| f64::from(channel) / 255.0);
+            let Ok(color) = riina_core::subtitle_color::SubtitleColor::from_rgba(rgba) else {
+                return;
+            };
+            let command = match target {
+                1 => Command::SubtitleTextColor(color),
+                2 => Command::SubtitleShadowColor(color),
+                3 => Command::SubtitleBorderColor(color),
+                _ => return,
+            };
+            app.invoke_activity();
+            if let Err(error) = color_player.send(command) {
+                app.set_status(error.into());
+            }
+        }
+    });
     let weak = app.as_weak();
     app.on_set_subtitle_outline_size(move |value| {
         if let Some(app) = weak.upgrade() {

@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Local subtitle color UI: shared Scale/Font/Color/Border/Shadow rows now include
+observed color wells and continuous RGB/opacity editing. Unknown observations
+disable their well. Windows keyboard checks open the text editor, change red
+255 → 64 and opacity 255 → 128, then reopen to observe those native values;
+Escape restores well focus. Text is restored to opaque white. Border remains
+opaque black and shadow remains clear; pause and volume 37 are preserved.
+Scoped evidence: tests/visual/subtitle-color-wells-windows-evidence.json.
+Release build, strict lint and all 30 unit tests pass. No tracks were loaded in
+this UI check, so it does not verify rendered colors. The shared RGBA popup is
+an interim control, not full IINA color panel parity. Native panel appearance,
+icons/metrics, mouse routing, border/shadow GUI edits, preference persistence
+and other OS runtime remain open. All changes stay local.
+
 Local subtitle color backend: portable typed RGBA commands now control text,
 border and shadow colors independently. Native observations parse RGB/ARGB hex
 and three/four-channel values; invalid or unavailable values remain unknown.
