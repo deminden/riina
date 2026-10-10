@@ -1,5 +1,11 @@
 # Implementation plan
 
+Crop standard window controls now have a shared temporary disable/restore
+coordinator. Verify Windows close/minimize/maximize availability during editing,
+restoration on Cancel/Done/source retirement, and macOS runtime. The winit API
+does not implement Linux window-manager button control; provide an equivalent
+as part of the Linux port rather than claiming this surface is complete.
+
 Video > Flip backend now has independent Horizontal (Mirror)/Vertical managed
 axis commands, atomic toggles and native coexistence coverage with crop. The
 shared player and experimental native owner have the reference menu hierarchy.

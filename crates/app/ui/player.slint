@@ -256,7 +256,8 @@ export component PlayerWindow inherits Window {
     changed reflection-known => { root.reflection-menu-changed(); }
     changed video-mirrored => { root.reflection-menu-changed(); }
     changed video-flipped => { root.reflection-menu-changed(); }
-    changed crop-editing => { root.reflection-menu-changed(); }
+    callback crop-window-controls-changed();
+    changed crop-editing => { root.reflection-menu-changed(); root.crop-window-controls-changed(); }
     if !native-video : MenuBar {
         Menu { title: "Video";
             Menu { title: "Flip"; enabled: root.loaded && root.reflection-known && !root.crop-editing;

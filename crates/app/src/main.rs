@@ -11,6 +11,7 @@ mod player_ui;
 mod seek_osd;
 mod ui_dialogs;
 mod video_osd;
+mod window_controls;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 use player_ui::configure_player;

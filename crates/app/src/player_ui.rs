@@ -412,6 +412,7 @@ pub(crate) fn configure_player(
         }
     };
     let idle_timer = Rc::new(slint::Timer::default());
+    crate::window_controls::install(app, native.as_ref().map(platform::NativePresentation::host));
     crop_editor.install(app, player.command_sender());
     let reflection_player = player.command_sender();
     let weak = app.as_weak();

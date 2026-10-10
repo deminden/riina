@@ -1,5 +1,13 @@
 # Status · 2026-10-09
 
+Crop editing now disables standard close/minimize/maximize buttons on the shared
+player and, when present, its native video owner. Exiting restores each window's
+previous button mask. The independent shared coordinator uses winit's portable
+window API, with no Windows handles in crop state. This follows the pinned
+InteractiveMode.swift entry/exit button behavior; document-icon handling and
+Linux window-manager equivalents remain open. Strict lint passes; runtime
+disabled/restored control and lifecycle verification is pending. Nothing published.
+
 Native source 2c60229 retains ordinary single-F10 menu entry and shortcut
 recovery. In Custom Crop, F10 leaves the editor active; subsequent keyboard
 selection of 4:3 and Escape work, preserving Play/volume 37/EOF position 5.
