@@ -223,7 +223,11 @@ fn update_ui(
                         app.set_screenshot_preview_image(image);
                         app.set_screenshot_preview_width(width);
                         app.set_screenshot_preview_height(height);
-                        app.set_screenshot_preview_path(path.into());
+                        app.set_screenshot_preview_path(if app.get_screenshot_save_to_file() {
+                            path.into()
+                        } else {
+                            "".into()
+                        });
                         app.invoke_show_screenshot_preview();
                     }
                     Err(_) => {
@@ -456,7 +460,12 @@ pub(crate) fn configure_player(
     let app_weak = app.as_weak();
     // Only one pending state snapshot is retained; a decoder can produce updates
     // faster than the UI consumes them without growing the application event queue.
-    let latest = Arc::new(std::sync::Mutex::new(None));
+    // State and capture completions share one handoff. A newer completion must
+    // never be cleaned up while an older snapshot is still being rendered.
+    let latest = Arc::new(std::sync::Mutex::new((
+        None,
+        crate::screenshot_output::Completions::default(),
+    )));
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
     let crop_editor = crate::crop_editor::Editor::default();
@@ -468,9 +477,10 @@ pub(crate) fn configure_player(
     let last_screenshot = Arc::new(std::sync::Mutex::new(
         crate::screenshot_osd::ScreenshotOsd::default(),
     ));
-    let notify = move |state| {
+    let notify = move |state: Playback| {
         if let Ok(mut latest) = latest.lock() {
-            *latest = Some(state);
+            latest.1.observe(&state);
+            latest.0 = Some(state);
         }
         if queued.swap(true, Ordering::AcqRel) {
             return;
@@ -486,12 +496,14 @@ pub(crate) fn configure_player(
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
-                && let Some(state) = latest.take()
+                && let Some(state) = latest.0.take()
                 && let Ok(mut displayed) = displayed.lock()
                 && let Ok(mut last_seek) = last_seek.lock()
                 && let Ok(mut last_video) = last_video.lock()
                 && let Ok(mut last_screenshot) = last_screenshot.lock()
             {
+                let captures = latest.1.take();
+                let clipboard_error = crate::screenshot_output::copy(&app, &captures);
                 crop_editor.observe(&app, &state);
                 update_ui(
                     &app,
@@ -501,6 +513,10 @@ pub(crate) fn configure_player(
                     &mut last_video,
                     &mut last_screenshot,
                 );
+                crate::screenshot_output::cleanup(&app, &captures);
+                if let Some(error) = clipboard_error {
+                    app.set_status(format!("Could not copy screenshot: {error}").into());
+                }
             }
         });
     };
@@ -551,6 +567,9 @@ pub(crate) fn configure_player(
         }
         app.invoke_activity();
         let result = crate::screenshot_preferences::current(&app).and_then(|screenshot_settings| {
+            if !screenshot_settings.destinations.enabled() {
+                return Ok(());
+            }
             platform::screenshot_directory(screenshot_settings.directory.as_deref())
                 .map_err(|error| error.to_string())
                 .and_then(|directory| {

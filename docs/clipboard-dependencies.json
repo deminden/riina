@@ -1,0 +1,97 @@
+[
+  {
+    "name": "arboard",
+    "version": "3.6.1",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/arboard-3.6.1-MIT.txt",
+    "notice_sha256": "f35468024534e0f4f16bb94cd0e88c87fbd1314f919c2645a07d350fb77b40c0",
+    "resolved_features": [
+      "core-graphics",
+      "image",
+      "image-data",
+      "wayland-data-control",
+      "windows-sys",
+      "wl-clipboard-rs"
+    ]
+  },
+  {
+    "name": "fixedbitset",
+    "version": "0.5.7",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/fixedbitset-0.5.7-MIT.txt",
+    "notice_sha256": "ce592787ff2321feab698a4c612237f4378cc658ebb1d472913e5802cc47afb4",
+    "resolved_features": []
+  },
+  {
+    "name": "lock_api",
+    "version": "0.4.14",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/lock_api-0.4.14-MIT.txt",
+    "notice_sha256": "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5",
+    "resolved_features": [
+      "atomic_usize",
+      "default"
+    ]
+  },
+  {
+    "name": "os_pipe",
+    "version": "1.2.3",
+    "declared_license": "MIT",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/os_pipe-1.2.3-MIT.txt",
+    "notice_sha256": "8f71659370c5268d9a1dc962a46232540e8fca63462586d8efaa95aab492a208",
+    "resolved_features": [
+      "io_safety"
+    ]
+  },
+  {
+    "name": "parking_lot",
+    "version": "0.12.5",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/parking_lot-0.12.5-MIT.txt",
+    "notice_sha256": "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5",
+    "resolved_features": [
+      "default"
+    ]
+  },
+  {
+    "name": "parking_lot_core",
+    "version": "0.9.12",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/parking_lot_core-0.9.12-MIT.txt",
+    "notice_sha256": "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5",
+    "resolved_features": []
+  },
+  {
+    "name": "petgraph",
+    "version": "0.8.3",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/petgraph-0.8.3-MIT.txt",
+    "notice_sha256": "7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545",
+    "resolved_features": []
+  },
+  {
+    "name": "tree_magic_mini",
+    "version": "3.2.2",
+    "declared_license": "MIT",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/tree_magic_mini-3.2.2-MIT.txt",
+    "notice_sha256": "a7cea8a5a56ba02950d098a7c56eed312fc745ceecd437e4aad2f7f8d38661b8",
+    "resolved_features": []
+  },
+  {
+    "name": "wl-clipboard-rs",
+    "version": "0.9.4",
+    "declared_license": "MIT OR Apache-2.0",
+    "selected_license": "MIT",
+    "retained_notice": "licenses/wl-clipboard-rs-0.9.4-MIT.txt",
+    "notice_sha256": "d0235d2a1f657b6fd18fd4ce98988348969a9284d94281b6d117830aa259a07a",
+    "resolved_features": []
+  }
+]

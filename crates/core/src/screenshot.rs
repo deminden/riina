@@ -45,6 +45,7 @@ impl Default for Encoding {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
+    pub destinations: Destinations,
     pub encoding: Encoding,
     pub directory: Option<String>,
     pub include_subtitles: bool,
@@ -54,11 +55,34 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            destinations: Destinations::default(),
             encoding: Encoding::default(),
             directory: None,
             include_subtitles: true,
             show_preview: true,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Destinations {
+    pub save_to_file: bool,
+    pub copy_to_clipboard: bool,
+}
+
+impl Default for Destinations {
+    fn default() -> Self {
+        Self {
+            save_to_file: true,
+            copy_to_clipboard: false,
+        }
+    }
+}
+
+impl Destinations {
+    pub const fn enabled(self) -> bool {
+        self.save_to_file || self.copy_to_clipboard
     }
 }
 
@@ -113,6 +137,21 @@ mod tests {
             Preferences::parse("{}").unwrap().screenshot,
             Settings::default()
         );
+        for save_to_file in [false, true] {
+            for copy_to_clipboard in [false, true] {
+                let mut preferences = Preferences::default();
+                preferences.screenshot.destinations = Destinations {
+                    save_to_file,
+                    copy_to_clipboard,
+                };
+                let restored =
+                    Preferences::parse(&serde_json::to_string(&preferences).unwrap()).unwrap();
+                assert_eq!(
+                    restored.screenshot.destinations,
+                    preferences.screenshot.destinations
+                );
+            }
+        }
         for format in [
             Format::Png,
             Format::Jpg,
@@ -123,6 +162,7 @@ mod tests {
         ] {
             let prefs = Preferences {
                 screenshot: Settings {
+                    destinations: Destinations::default(),
                     encoding: Encoding {
                         format,
                         template: "Снимок-%F-%n".into(),

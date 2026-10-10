@@ -9,6 +9,7 @@ mod media_open;
 mod platform;
 mod player_ui;
 mod screenshot_osd;
+mod screenshot_output;
 mod screenshot_preferences;
 mod seek_osd;
 mod ui_dialogs;

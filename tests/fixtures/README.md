@@ -99,3 +99,12 @@ catalog.mkv at a confirmed paused 0.5 seconds. Run the ignored native test
 `python scripts/check-screenshot-subtitles.py <output-directory> --report <report.json>`.
 The checker requires actual lower-frame cue pixels and exact hidden/video RGB
 equality; it does not claim reference font or GUI parity.
+
+Native clipboard checks are ignored by default. The explicit
+`native_clipboard_fixture_round_trip` test writes preview-rgb16.png to the desktop
+clipboard and reads back exact 96x64 RGBA pixels. For a screenshot from catalog.mkv,
+set RIINA_SCREENSHOT_REFERENCE to its saved PNG and run the ignored
+`native_clipboard_pixels_match_saved_reference` test to compare actual clipboard
+pixels. Use an isolated test configuration and seed the distinct 96x64 fixture
+before checking clipboard-only capture, so an old value cannot mask a missing
+copy. These checks do not prove external paste or HDR behavior.

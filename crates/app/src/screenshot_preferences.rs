@@ -48,6 +48,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: riina_core::P
                 }
                 app.set_screenshot_include_subtitles(window.get_include_subtitles());
                 app.set_screenshot_show_preview(window.get_show_preview());
+                app.set_screenshot_save_to_file(window.get_save_to_file());
+                app.set_screenshot_copy_to_clipboard(window.get_copy_to_clipboard());
                 app.set_screenshot_custom_directory(window.get_custom_directory());
                 app.set_screenshot_directory(window.get_directory());
                 let result =
@@ -170,6 +172,8 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_format_index(index);
     window.set_include_subtitles(app.get_screenshot_include_subtitles());
     window.set_show_preview(app.get_screenshot_show_preview());
+    window.set_save_to_file(app.get_screenshot_save_to_file());
+    window.set_copy_to_clipboard(app.get_screenshot_copy_to_clipboard());
     window.set_custom_directory(app.get_screenshot_custom_directory());
     window.set_directory(if app.get_screenshot_custom_directory() {
         app.get_screenshot_directory()
@@ -182,6 +186,8 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
 }
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {
+    app.set_screenshot_save_to_file(settings.destinations.save_to_file);
+    app.set_screenshot_copy_to_clipboard(settings.destinations.copy_to_clipboard);
     app.set_screenshot_format(settings.encoding.format.native_value().into());
     app.set_screenshot_template(settings.encoding.template.clone().into());
     app.set_screenshot_custom_directory(settings.directory.is_some());
@@ -201,6 +207,10 @@ pub(crate) fn current(app: &PlayerWindow) -> Result<Settings, String> {
         _ => return Err("Unknown screenshot format".into()),
     };
     let settings = Settings {
+        destinations: riina_core::screenshot::Destinations {
+            save_to_file: app.get_screenshot_save_to_file(),
+            copy_to_clipboard: app.get_screenshot_copy_to_clipboard(),
+        },
         encoding: riina_core::screenshot::Encoding {
             format,
             template: app.get_screenshot_template().to_string(),

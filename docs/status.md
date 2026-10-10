@@ -1,3 +1,34 @@
+Screenshot destinations now persist save-to-file (default true) and clipboard
+(default false) independently. Both disabled ignores capture requests. The General
+pane exposes both checkboxes and disables folder/format controls when saving is
+off. Completed native filenames are queued separately from coalesced playback
+updates; state and completions share one locked handoff so newer files cannot be
+removed while an older snapshot is rendering. Clipboard side effects run even
+with OSD disabled. Clipboard-only captures decode/copy/show preview before exact
+confirmed-file cleanup and hide DELETE/EDIT/REVEAL actions. Unsupported decoding
+uses normal screenshot feedback; format fallback is still needed.
+
+Windows native-release tests used isolated LOCALAPPDATA and the original 320x180
+catalog fixture. Both-disabled produced no file, then enabling Save to produced
+catalog-0001.png. Enabling both created catalog-0002.png and the native clipboard
+RGBA matched the saved PNG exactly. Clipboard-only produced a new Screenshot
+Captured accessory without file actions and left only the two retained files.
+A distinct 96x64 original preview fixture was explicitly placed on the clipboard;
+another clipboard-only capture replaced it with the exact 320x180 frame, proving
+the earlier clipboard value was not masking a missing copy. Relaunching with OSD
+disabled repeated that replacement without feedback or an extra file. Both test
+player processes exited 0. Clipboard tests are ignored by default because they
+require a desktop and an explicit test capture. This verifies native clipboard
+round trips, not paste interoperability with every external application.
+
+Shared completion/cleanup regressions retain multiple successful paths across
+coalescing and source replacement without replaying failed captures, and remove
+only confirmed clipboard-only files while preserving unrelated files. Old settings
+retain destination defaults and all four destination combinations round-trip.
+The new arboard/Wayland dependency graph retains nine MIT notices and explicit
+feature/license inventory; GPL MIME database embedding is disabled. Changes remain local; native binary distribution audits remain open. Non-PNG
+fallback, HDR/colorimetry, rendered reference pixels and ports runtime remain open.
+
 Preferences saving now shares exclusive temporary-file allocation and failure
 cleanup across Windows/macOS/Linux. Each save creates its own same-directory
 replacement, writes/syncs/closes it and commits using the platform replacement

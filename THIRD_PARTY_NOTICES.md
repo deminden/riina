@@ -127,3 +127,10 @@ MIT under the root LICENSE. Their authorship and exact hashes are recorded in
 assets/provenance.json and checked by scripts/check-assets.py. They do not
 contain copied SF Symbols or other Apple artwork. Exact reference matching
 remains unverified.
+
+Screenshot clipboard integration uses arboard 3.6.1 (MIT OR Apache-2.0; MIT
+selected). The nine newly locked clipboard/Wayland dependency notices are retained
+under licenses/ and versions/features/hashes are recorded in
+docs/clipboard-dependencies.json. tree_magic_mini loads the desktop MIME database
+at runtime; its optional GPL database embedding feature is not enabled. Combined
+distribution and non-Windows runtime remain subject to the existing audit gates.

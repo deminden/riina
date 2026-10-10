@@ -1,11 +1,16 @@
+Screenshot destination plumbing and Windows PNG clipboard/file modes now have
+native pixel and cleanup evidence, including OSD-disabled capture. Add the image
+decoder fallback for supported formats, verify clipboard failure handling and
+rapid capture/shutdown lifecycle, then rendered reference geometry/materials and
+macOS/Linux native clipboard ownership/runtime. Keep defaults save true/copy false.
+
 Shared preferences save service now has native Windows concurrency and failure
 cleanup regressions. Verify accepted-folder screenshot routing and UI rollback in
 an isolated configuration; the latest folder-input automation was inconclusive.
 Keep external sharing failures explicit and verify macOS/Linux save/runtime.
 
-Complete the partial General Preferences window: implement save/clipboard
-destinations and folder chooser, then remaining General controls and tabbed
-preferences. Verify persistence failure rollback, repeated opening/close lifecycle
+Complete the partial General Preferences window: verify accepted folder
+selection and finish remaining General controls and tabbed preferences. Verify persistence failure rollback, repeated opening/close lifecycle
 and cross-platform runtime. Windows keyboard changes persist; rendered capture
 still fails, so exact appearance needs a working reference/comparison environment.
 

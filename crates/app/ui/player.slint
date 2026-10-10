@@ -372,6 +372,8 @@ export component PlayerWindow inherits Window {
     in property <float> video-osd-progress: -1;
     in property <bool> osd-enabled: true;
     in-out property <bool> screenshot-show-preview: true;
+    in-out property <bool> screenshot-save-to-file: true;
+    in-out property <bool> screenshot-copy-to-clipboard: false;
     in-out property <string> screenshot-format: "png";
     in-out property <string> screenshot-template: "%F-%n";
     in-out property <bool> screenshot-custom-directory: false;
@@ -964,6 +966,7 @@ export component PlayerWindow inherits Window {
         if screenshot-preview-visible && osd-enabled && loaded && !crop-editing : ScreenshotPreview {
             x: 8px; y: 49px;
             capture: root.screenshot-preview-image;
+            has-file: root.screenshot-preview-path != "";
             image-width: root.screenshot-preview-width * 1px;
             image-height: root.screenshot-preview-height * 1px;
             delete-capture => { root.screenshot-preview-action(0); }
