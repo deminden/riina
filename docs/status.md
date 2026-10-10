@@ -1,3 +1,14 @@
+An original active ASS cue now has native saved-pixel evidence: video-only
+versus subtitle captures differ in 1626 lower-frame pixels; hiding the selected
+cue makes subtitle capture match video-only RGB pixels exactly. All three
+captures retain pause and the confirmed 0.5-second position. The test must wait
+for both cue text and seek position: cue text alone can arrive before the clock.
+The native test and independent Pillow checker pass; workspace tests, formatting
+and strict lint pass. Product code is unchanged, so the release was not rebuilt.
+This verifies one primary ASS cue in SDR, not secondary/SRT/font/reference pixels,
+GUI preferences or HDR. Preferences window and clipboard semantics remain open.
+Changes and evidence remain local.
+
 Screenshot settings now persist format (png/jpg/jpeg/webp/jxl/avif), naming
 template, custom folder, subtitle inclusion and preview visibility. Old settings
 retain PNG/%F-%n/platform Pictures/subtitles/preview defaults. The session save

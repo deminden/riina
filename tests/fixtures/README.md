@@ -92,3 +92,10 @@ encoded files and decoded PNG round trips. Run
 (Pillow) to verify signatures, geometry and timestamp-aligned woven bar edges.
 The six-format pass uses original 4:2:0 media; native SVT AVIF rejection of 4:2:2
 input is separately checked. This does not validate GUI preview or HDR output.
+
+Active subtitle capture comparison uses the original styled-captions.ass over
+catalog.mkv at a confirmed paused 0.5 seconds. Run the ignored native test
+`screenshot_content_respects_active_subtitle_visibility`, then
+`python scripts/check-screenshot-subtitles.py <output-directory> --report <report.json>`.
+The checker requires actual lower-frame cue pixels and exact hidden/video RGB
+equality; it does not claim reference font or GUI parity.

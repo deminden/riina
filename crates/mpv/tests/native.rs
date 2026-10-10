@@ -8,6 +8,104 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies active subtitle composition in saved frames"]
+fn screenshot_content_respects_active_subtitle_visibility() {
+    use riina_core::screenshot::Content;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let output = root.join("tools/screenshot-subtitles").join(format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&output).unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some()
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| state.paused);
+    player
+        .send(Command::AddSubtitle(
+            root.join("tests/fixtures/styled-captions.ass")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        selected_track(state, TrackKind::Sub).is_some()
+    });
+    player
+        .send(Command::Seek {
+            seconds: 0.5,
+            absolute: true,
+        })
+        .unwrap();
+    let paused = wait_for(&receiver, |state| {
+        state.paused
+            && state
+                .position
+                .is_some_and(|position| (position - 0.5).abs() < 0.001)
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains("Styled first cue"))
+    });
+    assert!(paused.subtitle_visible);
+    assert_eq!(paused.error, None);
+    // Three captures share one paused frame. Hiding the cue must make the
+    // subtitles mode equivalent to video-only, without changing capture mode.
+    for (index, (name, content)) in [
+        ("video", Content::Video),
+        ("subtitles", Content::Subtitles),
+        ("hidden", Content::Subtitles),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if name == "hidden" {
+            player.send(Command::ToggleSubtitleVisibility).unwrap();
+            wait_for(&receiver, |state| !state.subtitle_visible);
+        }
+        let path = output
+            .join(format!("{name}.png"))
+            .to_string_lossy()
+            .into_owned();
+        player
+            .send(Command::ScreenshotToFile {
+                path: path.clone(),
+                content,
+            })
+            .unwrap();
+        let saved = wait_for(&receiver, |state| {
+            state.completed_screenshots == index as u64 + 1 || state.error.is_some()
+        });
+        assert_eq!(saved.error, None);
+        assert_eq!(saved.screenshot_file.as_deref(), Some(path.as_str()));
+        assert!(saved.paused);
+        assert_eq!(saved.position, paused.position);
+        assert!(std::fs::metadata(path).unwrap().len() > 20);
+    }
+    println!("Subtitle capture comparison: {}", output.display());
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; writes native PNG captures to ignored tools"]
 fn screenshots_complete_only_after_native_success() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
