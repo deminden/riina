@@ -1,4 +1,5 @@
-import { LineEdit, StandardListView, Button } from "std-widgets.slint";
+import { LineEdit, Button } from "std-widgets.slint";
+import { FontList } from "font-list.slint";
 
 export component FontPicker inherits Window {
     title: "Choose a Font";
@@ -74,14 +75,18 @@ export component FontPicker inherits Window {
         HorizontalLayout { spacing: 0px; height: 268px;
             VerticalLayout { spacing: 0px;
                 Text { text: "Family"; height: 23px; color: #dddddd; font-size: 12px; }
-                family-list := StandardListView { model: root.families; enabled: root.ready;
+                family-list := FontList { model: root.families; enabled: root.ready;
                     current-item <=> root.family-index;
                     current-item-changed(index) => { if !root.restoring-selection { root.family-selected(index); } } }
             }
             VerticalLayout { spacing: 0px;
                 Text { text: "Typeface"; height: 23px; color: #dddddd; font-size: 12px; }
-                face-list := StandardListView { model: root.faces; enabled: root.ready;
+                face-list := FontList { model: root.faces; enabled: root.ready;
                     current-item <=> root.face-index;
+                    activated(index) => {
+                        root.face-selected(index);
+                        root.accept-font(root.custom-name);
+                    }
                     current-item-changed(index) => { if !root.restoring-selection { root.face-selected(index); } } }
             }
         }

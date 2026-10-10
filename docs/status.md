@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Original shared font rows now expose native toolkit double-click activation.
+Double-clicking a face refreshes its exact font identity before accepting; family
+double-click does not accept. Selection and keyboard cursor share a bounded row
+index, with Home/End/Page/arrow navigation and reveal. Rows expose accessible
+labels/selection and default selection action. The list remains virtualized;
+first build rejected additional ListView children, so focus and background now
+sit outside its single repeater. Formatting, strict lint, unit checks and release
+build pass. Runtime double-click,
+keyboard/scroll/accessibility regressions and rendering remain pending.
+19pt pitch is derived from recorded scroll increments, not a proven native row
+height; colors/type/focus are provisional. Other OS runtime remains open.
+All work stays local.
+
 Font chooser source-layout correction: preview now precedes custom entry,
 matching the pinned XIB, with Choose a font, Typeface, Preview and Or enter the
 font name labels. Recorded margins are 12pt; table block 268pt including 23pt

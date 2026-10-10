@@ -1,0 +1,108 @@
+import { ListView } from "std-widgets.slint";
+
+// Original shared rows expose the toolkit's double-click signal. The standard
+// list only forwards pointer down/up and cannot preserve native click counting.
+export component FontList inherits Rectangle {
+    in property <[StandardListViewItem]> model;
+    in-out property <int> current-item: -1;
+    private property <int> cursor: 0;
+    private property <length> row-pitch: 19px;
+    callback current-item-changed(int);
+    callback activated(int);
+    forward-focus: keys;
+    in property <bool> enabled: true;
+    out property <length> viewport-height <=> rows.viewport-height;
+    private property <length> visible-height <=> rows.visible-height;
+    private property <length> visible-width <=> rows.visible-width;
+    private property <length> viewport-y <=> rows.viewport-y;
+    background: #202024;
+
+    function reveal(index: int) {
+        let top = index * root.row-pitch;
+        if top + root.viewport-y < 0px {
+            root.viewport-y = -top;
+        } else if top + root.row-pitch + root.viewport-y > root.visible-height {
+            root.viewport-y = root.visible-height - top - root.row-pitch;
+        }
+        root.viewport-y = clamp(root.viewport-y,
+            min(0px, root.visible-height - root.viewport-height), 0px);
+    }
+
+    public function set-current-item(index: int) {
+        if index < 0 || index >= root.model.length { return; }
+        root.cursor = index;
+        root.reveal(index);
+        if root.current-item != index {
+            root.current-item = index;
+            root.current-item-changed(index);
+        }
+    }
+
+    function navigate(index: int, select: bool) {
+        if root.model.length == 0 { return; }
+        root.cursor = clamp(index, 0, root.model.length - 1);
+        root.reveal(root.cursor);
+        if select { root.set-current-item(root.cursor); }
+    }
+
+    rows := ListView {
+    width: parent.width; height: parent.height;
+    enabled: root.enabled;
+    accessible-delegate-focus: root.cursor;
+    accessible-item-count: root.model.length;
+    viewport-height: root.model.length * root.row-pitch;
+    viewport-width: self.visible-width;
+    horizontal-scrollbar-policy: always-off;
+    for item[index] in root.model: Rectangle {
+        width: root.visible-width; height: root.row-pitch;
+        background: root.current-item == index ? #365c98 : transparent;
+        border-width: keys.has-focus && root.cursor == index ? 1px : 0px;
+        border-color: #a5bfe9;
+        accessible-role: list-item;
+        accessible-label: item.text;
+        accessible-item-index: index;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.current-item == index;
+        accessible-action-default => { root.set-current-item(index); keys.focus(); }
+        Text {
+            text: item.text; x: 4px; width: parent.width - 8px;
+            height: parent.height; font-size: 13px; color: #eeeeee;
+            vertical-alignment: center; overflow: elide;
+        }
+        TouchArea {
+            enabled: root.enabled;
+            clicked => { root.set-current-item(index); keys.focus(); }
+            double-clicked => {
+                root.set-current-item(index);
+                root.activated(index);
+            }
+        }
+    }
+    }
+    keys := FocusScope {
+        width: 0px;
+        enabled: root.enabled;
+        focus-changed-event => {
+            rows.has-focus = self.has-focus;
+            if self.has-focus {
+                root.navigate(root.current-item >= 0 ? root.current-item : 0,
+                    root.current-item < 0);
+            }
+        }
+        key-pressed(event) => {
+            if event.text == Key.Space {
+                root.navigate(root.cursor, true); return accept;
+            }
+            let page = max(1, floor(root.visible-height / root.row-pitch));
+            let target = event.text == Key.Home ? 0 : event.text == Key.End ? root.model.length - 1 :
+                event.text == Key.UpArrow ? root.cursor - 1 : event.text == Key.DownArrow ? root.cursor + 1 :
+                event.text == Key.PageUp ? root.cursor - page : event.text == Key.PageDown ? root.cursor + page : -1;
+            if event.text != Key.Home && event.text != Key.End && event.text != Key.UpArrow
+                && event.text != Key.DownArrow && event.text != Key.PageUp && event.text != Key.PageDown {
+                return reject;
+            }
+            root.navigate(target, !event.modifiers.control);
+            return accept;
+        }
+    }
+}

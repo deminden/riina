@@ -87,3 +87,10 @@ and flexible space before buttons, rather than claiming that discrepancy closed.
 These are compiled source allocations, not measured rendered equivalence.
 System colors, row height, selection material, table headers, font metrics,
 focus rings, theme behavior and screenshots remain open visual gates.
+
+Font table rows now use an original shared renderer with a 19pt pitch suggested
+by the XIB's verticalLineScroll value. That value is a scroll increment, so this
+pitch remains an estimate until native row measurements are available. Labels
+use provisional 13px system text, flat dark background, blue selection and a
+keyboard cursor outline. These replace the default toolkit rows to support
+native double-click callbacks; they do not close table-material or pixel gates.
