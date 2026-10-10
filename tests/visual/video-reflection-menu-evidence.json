@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-10",
+  "source_commit": "154d02a0c8fe86e077f26c2966e739c77e92b459",
+  "binary_sha256": "1198b6898502bf63c7aec0990609c7823869d6fa31bf381f2aa1463eeb1b417f",
+  "platform": "Windows",
+  "renderer": "shared GL",
+  "fixture": "tests/fixtures/catalog.mkv",
+  "menu": "Native Application > Video > Flip",
+  "entries": ["Horizontal (Mirror)", "Vertical (Flip)"],
+  "navigation": "F10, Return, Right opens the Flip submenu",
+  "activation": "Return on Horizontal (Mirror) closes menu and restores player scope",
+  "observed_player": {"play_button": "Play", "volume": 37, "initial_position": 5, "final_position": 4.9999585},
+  "recovery": "Second activation action/refresh reported unusable window; fresh inventory/state confirmed running player with menu closed. Its toggle result is not claimed.",
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "unverified": ["actual reflected pixels", "checked mark (not exposed in accessibility tree)", "Vertical activation", "crop-mode disabled menu", "native video owner attachment", "macOS/Linux menu runtime"]
+}

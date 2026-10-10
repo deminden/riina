@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Windows native application-menu evidence now covers Video > Flip, both exact
+labels, F10/Return/Right navigation and Mirror activation returning to player
+scope. Play and volume 37 remain observed; EOF position shifts slightly to
+4.9999585 during decoder refresh. Check marks are not exposed by this AX tree,
+so visual checked state is unverified. A later action lost its window reference;
+fresh inventory/state recovered the live player and its result remains unknown.
+Close returns 0 with empty stderr. Evidence/source/binary limits are recorded in
+tests/visual/video-reflection-menu-evidence.json. Release build passes in 38.07
+seconds. No reflected pixels, Vertical activation or port runtime claim.
+Nothing published.
+
 The shared player now exposes Video > Flip > Horizontal (Mirror)/Vertical (Flip)
 through Slint's menu bar, with observed filter checks and native atomic toggle
 callbacks. Entries require a known video/filter catalog and are disabled during
