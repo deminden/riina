@@ -42,6 +42,7 @@ pub(crate) fn connect(
                     return;
                 }
             };
+            crate::settings_search::connect(&window);
             let parent = app.as_weak();
             let weak = window.as_weak();
             let path = path.clone();

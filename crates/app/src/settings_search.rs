@@ -1,0 +1,538 @@
+//! Search only controls currently represented in the Settings UI.
+use crate::{PreferencesSearchResult, PreferencesWindow};
+use slint::{ComponentHandle, Image, Model, ModelRc, VecModel};
+use std::collections::BTreeSet;
+
+#[derive(Clone, Copy)]
+struct Entry {
+    page_index: i32,
+    page: &'static str,
+    section: &'static str,
+    title: &'static str,
+    terms: &'static str,
+}
+
+// The index follows visible user-facing labels. Aliases make common queries
+// useful without advertising controls that the current page does not expose.
+const ENTRIES: &[Entry] = &[
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "",
+        title: "General",
+        terms: "preferences",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
+        title: "When media is opened",
+        terms: "pause fullscreen open",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
+        title: "Pause",
+        terms: "pause when opened",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
+        title: "Enter fullscreen",
+        terms: "full screen",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Screenshots",
+        title: "Save to",
+        terms: "screenshot folder destination path",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Screenshots",
+        title: "Format",
+        terms: "screenshot png jpeg webp jxl",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Screenshots",
+        title: "Copy to clipboard",
+        terms: "screenshot copy",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Screenshots",
+        title: "Include subtitles",
+        terms: "subtitle captions screenshot",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Screenshots",
+        title: "Show previews after taking screenshots",
+        terms: "preview screenshot",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "History",
+        title: "Resume last position",
+        terms: "resume playback history",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Controller",
+        title: "Floating, Top, Bottom",
+        terms: "osc position layout",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Controller",
+        title: "Compact interface",
+        terms: "compact controls",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Controller",
+        title: "Dock control bar and titlebar",
+        terms: "dock controls",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Show OSD messages",
+        terms: "overlay display messages",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Suppress speed messages",
+        terms: "overlay playback speed",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Suppress seek messages",
+        terms: "overlay seeking",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Video",
+        title: "Hardware decoder",
+        terms: "disabled auto copy acceleration",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Volume",
+        title: "Allow volume boost (up to 200%)",
+        terms: "amplify gain volume cap",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Auto Load",
+        title: "Subtitle matching mode",
+        terms: "disabled filename intelligent auto load",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Auto Load",
+        title: "Priority keywords",
+        terms: "filename comma separated",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Auto Load",
+        title: "Search paths",
+        terms: "directories subtitle folder",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "ASS Subtitles",
+        title: "Override level",
+        terms: "primary secondary no yes scale force strip",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Text Subtitles",
+        title: "Font and size",
+        terms: "choose bold italic color background",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Text Subtitles",
+        title: "Border",
+        terms: "outline size color",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Text Subtitles",
+        title: "Shadow and other styles",
+        terms: "offset blur spacing advanced",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Position",
+        title: "Alignment and margins",
+        terms: "left center right top bottom x y",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Position",
+        title: "Vertical position",
+        terms: "letterboxes fullscreen window scaling",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Other",
+        title: "Preferred language",
+        terms: "language codes",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Other",
+        title: "Default encoding",
+        terms: "charset text",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "",
+        title: "Network",
+        terms: "preferences",
+    },
+    Entry {
+        page_index: 6,
+        page: "Control",
+        section: "",
+        title: "Control",
+        terms: "preferences",
+    },
+    Entry {
+        page_index: 7,
+        page: "Key Bindings",
+        section: "",
+        title: "Key Bindings",
+        terms: "keyboard shortcuts hotkeys",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "",
+        title: "Advanced",
+        terms: "preferences",
+    },
+    Entry {
+        page_index: 9,
+        page: "Plugins",
+        section: "",
+        title: "Plugins",
+        terms: "extensions",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "",
+        title: "Utilities",
+        terms: "tools",
+    },
+];
+
+fn page_icon(page_index: i32) -> Image {
+    let data: &[u8] = match page_index {
+        0 => include_bytes!("../ui/../../../assets/icons/settings.svg"),
+        1 => include_bytes!("../ui/../../../assets/icons/interface.svg"),
+        2 => include_bytes!("../ui/../../../assets/icons/video-page.svg"),
+        3 => include_bytes!("../ui/../../../assets/icons/audio-page.svg"),
+        4 => include_bytes!("../ui/../../../assets/icons/subtitles-page.svg"),
+        5 => include_bytes!("../ui/../../../assets/icons/network.svg"),
+        6 => include_bytes!("../ui/../../../assets/icons/control.svg"),
+        7 => include_bytes!("../ui/../../../assets/icons/keybindings.svg"),
+        8 => include_bytes!("../ui/../../../assets/icons/advanced.svg"),
+        9 => include_bytes!("../ui/../../../assets/icons/plugins.svg"),
+        _ => include_bytes!("../ui/../../../assets/icons/utilities.svg"),
+    };
+    Image::load_from_svg_data(data).unwrap_or_default()
+}
+
+fn anchor_y(entry: &Entry) -> i32 {
+    match (entry.page_index, entry.section, entry.title) {
+        (0, "Behavior", "When media is opened") => 60,
+        (0, "Behavior", _) => 80,
+        (0, "Screenshots", "Save to") => 160,
+        (0, "Screenshots", "Format") => 188,
+        (0, "Screenshots", "Copy to clipboard") => 212,
+        (0, "Screenshots", "Include subtitles") => 268,
+        (0, "Screenshots", _) => 292,
+        (0, "History", _) => 334,
+        (1..=3, _, _) => 52,
+        (4, "Auto Load", "Subtitle matching mode") => 56,
+        (4, "Auto Load", "Priority keywords") => 132,
+        (4, "Auto Load", _) => 193,
+        (4, "ASS Subtitles", _) => 291,
+        (4, "Text Subtitles", "Border") => 505,
+        (4, "Text Subtitles", "Shadow and other styles") => 661,
+        (4, "Text Subtitles", _) => 411,
+        (4, "Position", "Vertical position") => 850,
+        (4, "Position", _) => 772,
+        (4, "Other", "Default encoding") => 1000,
+        (4, "Other", _) => 950,
+        _ => 0,
+    }
+}
+
+fn normalized_query(query: &str) -> String {
+    query
+        .replace('　', " ")
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .to_lowercase()
+}
+
+fn results_for_query(query: &str) -> Vec<PreferencesSearchResult> {
+    let query = normalized_query(query);
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    let terms = query.split_whitespace().collect::<Vec<_>>();
+    let mut matches = ENTRIES
+        .iter()
+        .filter(|entry| {
+            // IINA indexes an entry's own title and explicit aliases; page and
+            // section labels organize the results but are not query terms.
+            let searchable = format!("{} {}", entry.title, entry.terms).to_lowercase();
+            terms.iter().all(|term| searchable.contains(term))
+        })
+        .collect::<Vec<_>>();
+    // The reference groups results by page, then orders them by section/title.
+    matches.sort_by_key(|entry| {
+        (
+            entry.page_index,
+            entry.section.to_lowercase(),
+            entry.title.to_lowercase(),
+        )
+    });
+    let mut seen = BTreeSet::new();
+    matches.retain(|entry| seen.insert((entry.page_index, entry.section, entry.title)));
+
+    let mut results = Vec::new();
+    let mut active_page = None;
+    for entry in matches {
+        if active_page != Some(entry.page_index) {
+            active_page = Some(entry.page_index);
+            results.push(PreferencesSearchResult {
+                page_index: entry.page_index,
+                page_name: entry.page.into(),
+                section_name: "".into(),
+                title: "".into(),
+                is_header: true,
+                icon: page_icon(entry.page_index),
+                anchor_y: -1,
+            });
+        }
+        results.push(PreferencesSearchResult {
+            page_index: entry.page_index,
+            page_name: entry.page.into(),
+            section_name: entry.section.into(),
+            title: entry.title.into(),
+            is_header: false,
+            icon: Image::default(),
+            anchor_y: anchor_y(entry),
+        });
+    }
+    results
+}
+
+pub(crate) fn connect(window: &PreferencesWindow) {
+    window.set_search_results(ModelRc::new(VecModel::from(Vec::new())));
+    let weak = window.as_weak();
+    window.on_search_query_changed(move |query| {
+        if let Some(window) = weak.upgrade() {
+            window.set_selected_search_index(-1);
+            window.set_search_results(ModelRc::new(VecModel::from(results_for_query(&query))));
+        }
+    });
+
+    let weak = window.as_weak();
+    window.on_search_selection_moved(move |direction| {
+        let Some(window) = weak.upgrade() else { return };
+        let rows = result_rows(&window);
+        let current = usize::try_from(window.get_selected_search_index()).ok();
+        let next = next_selectable_index(&rows, current, direction);
+        window.set_selected_search_index(next.map_or(-1, |index| index as i32));
+    });
+
+    let weak = window.as_weak();
+    window.on_search_selection_activated(move || {
+        let Some(window) = weak.upgrade() else { return };
+        let selected = usize::try_from(window.get_selected_search_index()).ok();
+        let Some(result) = selected.and_then(|index| window.get_search_results().row_data(index))
+        else {
+            return;
+        };
+        activate_result(
+            &window,
+            result.page_index,
+            &result.section_name,
+            &result.title,
+            result.anchor_y,
+        );
+    });
+
+    let weak = window.as_weak();
+    window.on_search_result_activated(move |page, section, title, anchor| {
+        if let Some(window) = weak.upgrade() {
+            activate_result(&window, page, &section, &title, anchor);
+        }
+    });
+}
+
+fn result_rows(window: &PreferencesWindow) -> Vec<PreferencesSearchResult> {
+    let results = window.get_search_results();
+    (0..results.row_count())
+        .filter_map(|index| results.row_data(index))
+        .collect()
+}
+
+fn next_selectable_index(
+    results: &[PreferencesSearchResult],
+    current: Option<usize>,
+    direction: i32,
+) -> Option<usize> {
+    let selectable = results
+        .iter()
+        .enumerate()
+        .filter_map(|(index, result)| (!result.is_header).then_some(index))
+        .collect::<Vec<_>>();
+    if selectable.is_empty() || direction == 0 {
+        return current.filter(|index| selectable.contains(index));
+    }
+
+    let current_position =
+        current.and_then(|index| selectable.iter().position(|item| *item == index));
+    let next_position = match (current_position, direction.signum()) {
+        (None, 1) => 0,
+        (None, -1) => selectable.len() - 1,
+        (Some(position), 1) => (position + 1).min(selectable.len() - 1),
+        (Some(position), -1) => position.saturating_sub(1),
+        _ => return current,
+    };
+    Some(selectable[next_position])
+}
+
+fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
+    if page == 4 {
+        if section == "Auto Load" && title != "Subtitle matching mode" {
+            window.set_subtitle_auto_load_advanced_expanded(true);
+        }
+        if title == "Shadow and other styles" {
+            window.set_subtitle_text_advanced_expanded(true);
+        }
+        window.set_subtitle_scroll_position((52 - anchor).max(-570) as f32);
+    }
+    window.set_selected_pane(page);
+    window.set_search_query("".into());
+    window.set_selected_search_index(-1);
+    window.set_search_results(ModelRc::new(VecModel::from(Vec::new())));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn item_results(query: &str) -> Vec<PreferencesSearchResult> {
+        results_for_query(query)
+            .into_iter()
+            .filter(|result| !result.is_header)
+            .collect()
+    }
+
+    #[test]
+    fn search_matches_case_insensitive_substrings_in_multiple_words() {
+        let results = item_results("BOOST　200;");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].page_name, "Audio");
+        assert_eq!(results[0].title, "Allow volume boost (up to 200%)");
+    }
+
+    #[test]
+    fn search_groups_hits_in_reference_page_order() {
+        let results = results_for_query("subtitle");
+        let pages = results
+            .iter()
+            .filter(|result| result.is_header)
+            .map(|result| result.page_name.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(pages, ["General", "Subtitles"]);
+    }
+
+    #[test]
+    fn subtitle_results_keep_reference_section_order() {
+        let subtitle_items = results_for_query("subtitle")
+            .into_iter()
+            .filter(|result| !result.is_header && result.page_index == 4)
+            .map(|result| result.title.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(subtitle_items, ["Search paths", "Subtitle matching mode"]);
+    }
+
+    #[test]
+    fn empty_and_unmatched_queries_have_no_rows() {
+        assert!(results_for_query(" ; ").is_empty());
+        assert!(results_for_query("unsupported-control-xyz").is_empty());
+    }
+
+    #[test]
+    fn subtitle_search_results_retain_their_visible_scroll_anchor() {
+        let border = item_results("border");
+        assert_eq!(border.len(), 1);
+        assert_eq!(border[0].anchor_y, 505);
+
+        let auto_load = item_results("priority keywords");
+        assert_eq!(auto_load.len(), 1);
+        assert_eq!(auto_load[0].anchor_y, 132);
+        assert_eq!(item_results("search paths")[0].anchor_y, 193);
+        assert_eq!(item_results("vertical position")[0].anchor_y, 850);
+    }
+
+    #[test]
+    fn keyboard_search_navigation_skips_page_headers_and_stays_in_bounds() {
+        let results = results_for_query("subtitle");
+        assert_eq!(next_selectable_index(&results, None, 1), Some(1));
+        assert_eq!(next_selectable_index(&results, Some(1), 1), Some(3));
+        assert_eq!(next_selectable_index(&results, Some(3), -1), Some(1));
+        assert_eq!(next_selectable_index(&results, Some(3), 0), Some(3));
+        let last = results
+            .iter()
+            .rposition(|result| !result.is_header)
+            .unwrap();
+        assert_eq!(next_selectable_index(&results, Some(last), 1), Some(last));
+        assert_eq!(next_selectable_index(&results, Some(1), -1), Some(1));
+    }
+}

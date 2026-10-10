@@ -15,6 +15,7 @@ mod screenshot_osd;
 mod screenshot_output;
 mod screenshot_preferences;
 mod seek_osd;
+mod settings_search;
 mod sidebar_preferences;
 mod subtitle_auto_load_preferences;
 mod subtitle_other_preferences;

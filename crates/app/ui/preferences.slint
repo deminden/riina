@@ -1,6 +1,16 @@
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
 
+export struct PreferencesSearchResult {
+    page-index: int,
+    page-name: string,
+    section-name: string,
+    title: string,
+    is-header: bool,
+    icon: image,
+    anchor-y: int,
+}
+
 // Native toolkit button padding can consume a 24px chooser's entire label.
 // Keep this small reference control explicit, including keyboard activation.
 component FolderChooser inherits FocusScope {
@@ -50,6 +60,112 @@ component PreferenceNavItem inherits Rectangle {
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
             return reject;
+        }
+    }
+}
+
+component PreferenceSearchField inherits Rectangle {
+    in-out property <string> query: "";
+    in property <int> result-count: 0;
+    in property <int> selected-index: -1;
+    callback query-changed(string);
+    callback move-selection(int);
+    callback activate-selection();
+    width: 184px;
+    height: 34px;
+    border-radius: 17px;
+    border-width: input.has-focus ? 3px : 1px;
+    border-color: input.has-focus ? #168bff : #d2d2d6;
+    background: #e6e6e9;
+
+    Image { x: 8px; y: 7px; width: 18px; height: 18px;
+        source: @image-url("../../../assets/icons/search.svg"); }
+    if root.query.is-empty : Text {
+        x: 31px; y: 0px; width: parent.width - 38px; height: parent.height;
+        text: "Search"; font-size: 13px; color: #77777d;
+        vertical-alignment: center;
+    }
+    input := TextInput {
+        x: 31px; y: 0px; width: parent.width - 38px; height: parent.height;
+        text <=> root.query; single-line: true;
+        accessible-label: "Search Settings";
+        accessible-action-set-value(value) => { self.text = value; }
+        key-pressed(event) => {
+            if event.text == Key.DownArrow && root.result-count > 0 {
+                root.move-selection(1); return accept;
+            }
+            if event.text == Key.UpArrow && root.result-count > 0 {
+                root.move-selection(-1); return accept;
+            }
+            if event.text == Key.Return && root.selected-index >= 0 {
+                root.activate-selection(); return accept;
+            }
+            return reject;
+        }
+        changed text => { root.query-changed(self.text); }
+        accepted => { root.query-changed(self.text); }
+        font-size: 13px; color: #303034; vertical-alignment: center;
+    }
+}
+
+component PreferenceSearchGroupHeader inherits Rectangle {
+    in property <string> title;
+    in property <image> icon;
+    width: 340px;
+    height: 38px;
+    accessible-role: none;
+
+    Image { x: 8px; y: 10px; width: 16px; height: 16px; source: root.icon; }
+    Text { x: 32px; y: 0px; width: parent.width - 40px; height: parent.height;
+        text: root.title; font-size: 13px; font-weight: 700;
+        color: #68686e; vertical-alignment: center; }
+}
+
+component PreferenceSearchResultRow inherits Rectangle {
+    in property <PreferencesSearchResult> result;
+    in property <bool> selected: false;
+    callback activated(int, string, string, int);
+    width: 340px;
+    height: 38px;
+    background: selected ? #e2e8f2 : touch.has-hover ? #eeeeF3 : transparent;
+    accessible-role: button;
+    accessible-label: root.result.page-name + " " + root.result.section-name + " " + root.result.title;
+    accessible-action-default => {
+        root.activated(root.result.page-index, root.result.section-name, root.result.title, root.result.anchor-y);
+    }
+
+    Text {
+        x: 32px; y: 2px; width: parent.width - 40px; height: 17px;
+        text: root.result.title; font-size: 13px; color: #242428;
+        vertical-alignment: center; overflow: elide;
+    }
+    Text {
+        x: 32px; y: 19px; width: parent.width - 40px; height: 15px;
+        text: root.result.section-name; font-size: 11px; color: #77777d;
+        vertical-alignment: center; overflow: elide;
+    }
+    touch := TouchArea {
+        clicked => {
+            root.activated(root.result.page-index, root.result.section-name, root.result.title, root.result.anchor-y);
+        }
+    }
+}
+
+component PreferenceSearchResultCell inherits Rectangle {
+    in property <PreferencesSearchResult> result;
+    in property <bool> selected: false;
+    callback activated(int, string, string, int);
+    width: 340px;
+    height: 38px;
+
+    if root.result.is-header : PreferenceSearchGroupHeader {
+        title: root.result.page-name; icon: root.result.icon;
+    }
+    if !root.result.is-header : PreferenceSearchResultRow {
+        result: root.result;
+        selected: root.selected;
+        activated(page-index, section-name, title, anchor-y) => {
+            root.activated(page-index, section-name, title, anchor-y);
         }
     }
 }
@@ -221,6 +337,14 @@ export component PreferencesWindow inherits Window {
     min-height: 320px;
     background: #ededed;
     in-out property <int> selected-pane: 0;
+    in-out property <string> search-query: "";
+    in property <[PreferencesSearchResult]> search-results: [];
+    in-out property <int> selected-search-index: -1;
+    in-out property <length> subtitle-scroll-position: 0px;
+    callback search-query-changed(string);
+    callback search-selection-moved(int);
+    callback search-selection-activated();
+    callback search-result-activated(int, string, string, int);
     in-out property <int> osc-position: 0;
     in-out property <int> hardware-decoder-index: 1;
     in-out property <int> subtitle-ass-override-lane: 0;
@@ -278,6 +402,16 @@ export component PreferencesWindow inherits Window {
     // IINA v1.5.0 enables its newer settings window by default; preserve its
     // page order even while some individual Riina pages are still in progress.
     Rectangle { x: 0; y: 0; width: 200px; height: parent.height; background: #e3e3e7;
+        PreferenceSearchField { x: 8px; y: 10px; query <=> root.search-query;
+            result-count: root.search-results.length;
+            selected-index: root.selected-search-index;
+            query-changed(query) => {
+                root.selected-search-index = -1;
+                root.search-query-changed(query);
+            }
+            move-selection(direction) => { root.search-selection-moved(direction); }
+            activate-selection => { root.search-selection-activated(); }
+        }
         PreferenceNavItem { x: 10px; y: 52px; width: 180px; label: "General";
             icon: @image-url("../../../assets/icons/settings.svg");
             selected: root.selected-pane == 0; activated => { root.selected-pane = 0; } }
@@ -435,7 +569,8 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 4 : ScrollView {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
-        content-height: 850px;
+        content-y <=> root.subtitle-scroll-position;
+        content-height: 1050px;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle { width: parent.width;
@@ -775,5 +910,33 @@ export component PreferencesWindow inherits Window {
         x: 202px; y: 0; width: parent.width - 202px; height: parent.height;
         background: #ededed;
         Text { x: 22px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: #222222; }
+    }
+
+    if !root.search-query.is-empty : Rectangle {
+        x: 8px; y: 48px; width: 340px;
+        height: min(400px, max(120px, root.search-results.length * 38px));
+        border-radius: 8px; border-width: 1px; border-color: #d0d0d5;
+        background: #fbfbfc;
+        ScrollView {
+            width: parent.width; height: parent.height;
+            content-height: max(120px, root.search-results.length * 38px);
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+            if root.search-results.length == 0 : Text {
+                width: parent.width; height: parent.height;
+                text: "No Results"; font-size: 13px; color: #77777d;
+                horizontal-alignment: center; vertical-alignment: center;
+            }
+            if root.search-results.length > 0 : VerticalLayout {
+                width: parent.width; spacing: 0px;
+                for result[index] in root.search-results : PreferenceSearchResultCell {
+                    result: result;
+                    selected: root.selected-search-index == index;
+                    activated(page-index, section-name, title, anchor-y) => {
+                        root.search-result-activated(page-index, section-name, title, anchor-y);
+                    }
+                }
+            }
+        }
     }
 }

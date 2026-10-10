@@ -1,19 +1,26 @@
-The pinned macOS IINA v1.5.0 run now captures all eleven Settings pages at the
-measured 600 x 480 client size. Riina's Settings sidebar now has original
-geometric page icons and selected-row styling, with provenance hashes recorded;
-its Search field, 400-point content reflow, native toolbar and matched pixel
-comparisons remain open. Windows `cargo check` and staged asset provenance checks
-pass. The v0.2.2 GitHub release contains source only because the distribution
-audit remains unapproved. Private Windows package candidate #12 is still building
-the patched native engine and has not produced an artifact. The opt-in 200% range
-remains in Audio > Volume; default playback still caps at 100%.
+The pinned macOS IINA v1.5.0 run captures and reviews all eleven Settings pages
+at the measured 600 x 480 client size. Riina's Settings sidebar now has original
+geometric page icons, selected-row styling and a live grouped Search popover over
+the controls currently implemented. Search now follows the reference's page and
+section ordering, supports Up/Down/Return in the search field, opens a selected
+page and scrolls to mapped positions for supported controls, expanding collapsed
+Subtitle sections when needed. Exact row highlighting, the full IINA search index,
+and rendered interaction remain open. The 400-point content reflow, native toolbar
+and matched pixel comparisons remain open. Windows `cargo check`, six focused
+search tests, Settings navigation checks and staged asset provenance checks pass.
+GUI search behavior and appearance remain unverified: the Windows capture helper
+returned no window state after target re-selection. The v0.2.2 release contains
+source only because the distribution audit remains unapproved. The opt-in 200%
+range remains in Audio > Volume; default playback still caps at 100%.
 
 Windows audit candidate #9 failed during the native dependency configure phase,
 before the mpv engine build. Several independent dependencies (zlib, brotli,
 Vulkan headers and libiconv) failed configuration; the old failure trap omitted
 their configure logs. Candidate #10 is rerunning with the improved configure and
-compile log capture to expose the underlying errors. No package was produced or
-approved for release.
+compile log capture to expose the underlying errors. Candidate #12 is now building
+the pinned engine at commit `05ec584d63b09df9a98fbe8df975a14cd296c656`; GitHub
+still reports its `native-engine` job in progress and no artifacts yet. This
+private candidate run does not publish a release or close the distribution audit.
 
 The user now prioritizes full interface parity before further feature expansion;
 sidebar edges now resize independently and persist on release. Actual Windows

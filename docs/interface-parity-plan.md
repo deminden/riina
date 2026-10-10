@@ -55,10 +55,13 @@ outer window at 1x scale, with a 200-point source-list sidebar, Search field,
 24-point icon slots with 18-point symbols, selected-row treatment, General
 section links and scrollable 400-point content. All eleven page screenshots were
 reviewed and indexed in `tests/visual/reference-captures.json`; they are not
-accepted comparison goldens. Riina now has original page symbols and selected-row
-styling, but Search, section jumps, the 600 x 480 client geometry and a matching
-Windows screenshot remain open. Source-derived dimensions alone do not prove
-rendered parity.
+accepted comparison goldens. Riina now has original page symbols, selected-row
+styling and a grouped live-search popover for currently implemented controls.
+Search supports arrow-key navigation and scrolls toward mapped item positions,
+with collapsed Subtitle sections opened when needed. Exact row highlighting, the
+full IINA search index, General section links, the 600 x 480 client geometry and a
+matched Windows screenshot remain open. Source-derived dimensions alone do not
+prove rendered parity.
 
 | Surface | Current gap and required comparison |
 |---|---|
@@ -96,7 +99,8 @@ Preferences pages are now captured from IINA v1.5.0: General, Interface, Video,
 Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugins and Utilities.
 The observed window is 608 x 500 including chrome; the source-derived content area
 is 600 x 480 with a 200-point sidebar. Riina's 820 x 480 shell still needs reflow,
-sidebar search and icons, matching cards, and rendered comparison. It has the existing General
+matching cards, and rendered comparison. The sidebar now has original icons and
+grouped search over implemented controls. It has the existing General
 controls, and a functional partial Interface pane for OSC position, compact mode,
 docked controls and OSD visibility/speed/seek suppression. OSD settings update
 live overlay filters and persist through the shared settings path. Video & Audio
@@ -122,9 +126,9 @@ glob is retained but not misinterpreted as a literal directory. Priority keyword
 ranking and full directory/glob matching remain unimplemented; Online Subtitles is
 not implemented.
 Audio, Network, Control, Key Bindings, Plugin and Utilities remain title-only or
-otherwise incomplete. Source-list search, icons, selection behavior, geometry,
-full pane content and a fresh live capture remain open. The category order is
-source-checked; it does not establish pixel parity.
+otherwise incomplete. Source-list selection behavior, geometry, full pane content
+and a fresh live capture remain open. The category order is source-checked; it does
+not establish pixel parity.
 
 Both sides now retain their own selected pane. Captured Windows playback shows
 Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and
