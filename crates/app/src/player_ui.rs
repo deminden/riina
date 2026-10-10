@@ -466,28 +466,15 @@ pub(crate) fn configure_player(
     app.on_set_delay_text(move |category, text| {
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
-            let text = text.trim();
-            // Text entry is not limited to the slider range and must preserve
-            // native double precision; a blank field resets the selected lane.
-            let value = if text.is_empty() {
-                Ok(0.0)
-            } else {
-                text.parse::<f64>()
+            use riina_core::subtitle_controls::SubtitleLane;
+            let lane = match category {
+                2 => Ok(SubtitleLane::Primary),
+                5 => Ok(SubtitleLane::Secondary),
+                _ => Err("Unknown subtitle delay lane"),
             };
-            let command = value
-                .map_err(|_| "Enter a numeric delay in seconds".to_string())
-                .and_then(|value| {
-                    if value.is_finite() {
-                        Ok(value)
-                    } else {
-                        Err("Enter a finite delay in seconds".into())
-                    }
-                })
-                .and_then(|value| match category {
-                    2 => Ok(Command::SubtitleDelay(value)),
-                    5 => Ok(Command::SecondarySubtitleDelay(value)),
-                    _ => Err("Unknown subtitle delay lane".into()),
-                });
+            let command = lane
+                .and_then(|lane| lane.delay_from_text(&text))
+                .map_err(str::to_owned);
             if let Err(error) = command.and_then(|command| text_delay_player.send(command)) {
                 app.set_status(error.into());
                 return false;

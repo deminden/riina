@@ -1,6 +1,7 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
 pub mod file_selection;
+pub mod subtitle_controls;
 
 use serde::{Deserialize, Serialize};
 

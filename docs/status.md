@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local portable subtitle edit validation: numeric text parsing and typed Primary/
+Secondary lane targeting now live in riina-core rather than the application UI
+callback. The shared contract preserves double precision beyond f32, accepts
+blank/whitespace reset and finite offsets outside the slider range, and rejects
+nonfinite, overflowing and malformed input before any command is created. Two
+new tests cover both lanes, including 1.0000000000000002 precision and invalid
+numeric strings. All 28 unit tests, strict lint and formatting pass. Locale-aware
+decimal separators and reference display formatting remain pending; comma input
+is explicitly rejected by the current invariant parser. No OS-specific services
+were introduced and no public update was made.
+
 Local numeric delay focus completion: successful text submission now returns
 focus to the player's shortcut scope, matching the pinned subtitle editor's
 content-view focus handoff. Invalid or nonfinite numeric text stays editable
