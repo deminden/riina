@@ -1,5 +1,6 @@
 //! The event worker owns the player; the GUI owns only its OpenGL render context.
 mod ffi;
+mod seek_feedback;
 pub mod video;
 
 use ffi::{Api, EndFile, Property};
@@ -176,6 +177,7 @@ impl Player {
                 let mut pending = HashMap::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
+                let mut seek_feedback = seek_feedback::SeekFeedback::default();
                 while let Ok(message) = receiver.recv() {
                     if let Message::Intent(command) = message {
                         if command == Command::Shutdown { break; }
@@ -186,11 +188,18 @@ impl Player {
                                 // Validate the whole intent before submitting any part. Multi-file
                                 // additions consume one queue slot and cannot be partially dropped.
                                 for args in plan.commands {
+                                    // Decoder option changes can produce their own SEEK /
+                                    // RESTART pair. They replace pending navigation feedback,
+                                    // while the raw native completion counter remains intact.
+                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Load(_) | Command::OpenFiles(_) | Command::Stop) {
+                                        seek_feedback.clear();
+                                    }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
                                         state.error = Some(error);
                                         resume_on_load = false;
                                         break;
                                     }
+                                    if seek_feedback::navigation(&args) { seek_feedback.submitted(next_id); }
                                 }
                             }
                             Err(error) => state.error = Some(error),
@@ -201,16 +210,18 @@ impl Player {
                         if event.id == 0 { break; }
                         match event.id {
                             5 => {
+                                seek_feedback.replied(event.userdata, event.error < 0);
                                 if let Some(generation) = pending.remove(&event.userdata)
                                     && generation == state.generation && event.error < 0 {
                                     state.error = worker_api.check(event.error).err();
                                     resume_on_load = false;
                                 }
                             }
-                            6 => { seek_pending = false; state.begin_load(); },
+                            6 => { seek_pending = false; seek_feedback.clear(); state.begin_load(); },
                             7 if !event.data.is_null() => {
                                 let end = &*event.data.cast::<EndFile>();
                                 seek_pending = false;
+                                seek_feedback.clear();
                                 state.phase = match end.reason { 0 => Phase::Ended, 4 => Phase::Failed, _ => Phase::Stopped };
                                 if matches!(state.phase, Phase::Stopped | Phase::Failed) {
                                     state.ab_loop_a = None;
@@ -227,12 +238,15 @@ impl Player {
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) { state.error = Some(error); }
                                 }
                             },
-                            20 => seek_pending = true,
+                            20 => { seek_pending = true; seek_feedback.started(); },
                             21 if seek_pending => {
                                 // Restart also occurs on initial load. Only a preceding
                                 // native SEEK establishes a completed seek notification.
                                 seek_pending = false;
                                 state.completed_seeks = state.completed_seeks.wrapping_add(1);
+                                if seek_feedback.completed() {
+                                    state.completed_navigation_seeks = state.completed_navigation_seeks.wrapping_add(1);
+                                }
                             }
                             22 if !event.data.is_null() => {
                                 let property = &*event.data.cast::<Property>();

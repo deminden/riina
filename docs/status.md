@@ -1,5 +1,15 @@
 # Status · 2026-10-09
 
+Seek feedback now uses a distinct completed-navigation counter associated with
+submitted seek/cue/chapter/frame commands, while the raw completed native seek
+counter retains decoder refreshes. Worker feedback clears on replacement,
+decoder-changing intent and failed reply. Native testing exposes reply-before-
+SEEK ordering; successful replies now retain provenance until playback completes.
+Regression checks cover internal restart suppression and repeated same-position
+navigation. Full native/build checks and decoding-message GUI retest are in
+progress. Asynchronous mixed-command stress, rendered parity and current other
+OS runtime remain open. Nothing published.
+
 Video-setting OSD now derives messages from confirmed native speed, configured
 hardware decoding and five equalizer channels, with signed equalizer progress.
 Initial GUI showed brightness feedback but missed speed messages. The catalog

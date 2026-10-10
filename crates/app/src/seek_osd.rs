@@ -14,7 +14,7 @@ pub(crate) enum Change {
 
 impl SeekOsd {
     pub(crate) fn observe(&mut self, state: &Playback) -> Change {
-        let key = (state.generation, state.completed_seeks);
+        let key = (state.generation, state.completed_navigation_seeks);
         if self.consumed.is_none_or(|old| old.0 != key.0)
             || matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed)
             || state.error.is_some()
@@ -70,7 +70,7 @@ mod tests {
         let mut osd = SeekOsd::default();
         let mut state = loaded();
         assert_eq!(osd.observe(&state), Change::Hide);
-        state.completed_seeks = 3;
+        state.completed_navigation_seeks = 3;
         state.seeking = true;
         assert_eq!(osd.observe(&state), Change::Keep);
         state.seeking = false;
@@ -83,11 +83,22 @@ mod tests {
     }
 
     #[test]
+    fn decoder_refresh_completions_do_not_create_navigation_feedback() {
+        let mut osd = SeekOsd::default();
+        let mut state = loaded();
+        osd.observe(&state);
+        state.completed_seeks += 1;
+        assert_eq!(osd.observe(&state), Change::Keep);
+        state.completed_navigation_seeks += 1;
+        assert_eq!(osd.observe(&state), Change::Show);
+    }
+
+    #[test]
     fn replacement_and_failure_discard_previous_notifications() {
         let mut osd = SeekOsd::default();
         let mut state = loaded();
         osd.observe(&state);
-        state.completed_seeks = 1;
+        state.completed_navigation_seeks = 1;
         assert_eq!(osd.observe(&state), Change::Show);
         state.begin_load();
         assert_eq!(osd.observe(&state), Change::Hide);
@@ -95,7 +106,7 @@ mod tests {
         state.position = Some(0.0);
         state.duration = Some(5.0);
         assert_eq!(osd.observe(&state), Change::Keep);
-        state.completed_seeks += 1;
+        state.completed_navigation_seeks += 1;
         state.error = Some("seek failed".into());
         assert_eq!(osd.observe(&state), Change::Hide);
         state.error = None;

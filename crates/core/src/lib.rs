@@ -655,6 +655,9 @@ pub struct Playback {
     pub seeking: bool,
     /// Completed native seeks; retained across coalesced UI snapshots.
     pub completed_seeks: u64,
+    /// Completed seeks associated with application navigation commands. Decoder
+    /// refresh seeks remain in completed_seeks without creating a seek OSD.
+    pub completed_navigation_seeks: u64,
     pub seekable: bool,
     pub volume: f64,
     pub muted: bool,

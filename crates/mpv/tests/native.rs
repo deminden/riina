@@ -28,6 +28,50 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies navigation feedback provenance"]
+fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| state.phase == Phase::Playing);
+    assert_eq!(loaded.completed_navigation_seeks, 0);
+    player.send(Command::TogglePause).unwrap();
+    let mut previous = wait_for(&receiver, |state| state.paused);
+    for position in [2.0, 2.0, 0.5] {
+        player
+            .send(Command::Seek {
+                seconds: position,
+                absolute: true,
+            })
+            .unwrap();
+        let completed = wait_for(&receiver, |state| {
+            state.completed_navigation_seeks > previous.completed_navigation_seeks
+                && !state.seeking
+                && state
+                    .position
+                    .is_some_and(|clock| (clock - position).abs() < 0.1)
+        });
+        assert!(completed.completed_seeks > previous.completed_seeks);
+        assert!(completed.paused);
+        assert!(completed.error.is_none(), "{:?}", completed.error);
+        previous = completed;
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies native rejection of an above-limit custom speed"]
 fn excessive_custom_speed_reports_native_error_without_changing_playback() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

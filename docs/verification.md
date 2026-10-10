@@ -1,5 +1,30 @@
 # Verification record · native Windows · 2026-10-09
 
+## Navigation versus decoder refresh feedback · 2026-10-10
+
+The prior hardware toggle GUI exposed a seek-clock overlay after decoder
+refresh. Raw native SEEK / PLAYBACK_RESTART pairs do not establish user
+navigation. The worker now retains that diagnostic counter separately from
+completed_navigation_seeks. A submitted navigation command arms feedback;
+native SEEK establishes its start and RESTART completes it. Decoder-changing
+intent and file replacement clear stale feedback. Failed replies clear it;
+successful replies retain it because native testing establishes reply-before-
+SEEK ordering. SeekOsd consumes the navigation counter.
+
+Worker unit checks cover internal restart, success, failure, replacement and
+successful reply preceding SEEK; presentation checks verify raw decoder completions remain quiet
+while navigation completion shows feedback. New native integration verifies
+initial load has zero navigation completions, then paused 2 / 2 / 0.5 absolute
+seeks each increment navigation and raw completion counters without errors.
+The first full suite has 22 passes and the new navigation test times out with
+raw completion 1 but navigation completion 0; a focused repeat reproduces it.
+Inspection identifies premature clearing on successful command reply. The
+repair retains that request, and its unit check covers reply before SEEK.
+Full suite/build checks and GUI retest pending. No-op navigation followed by
+automatic loops and command-reply/event interleaving
+under rapid mixed seeks/decoder changes, automatic loop feedback equivalence,
+current other OS runtime and rendered visual parity remain open.
+
 ## Video setting feedback · 2026-10-10
 
 Initial GUI at 201fb77 shows Brightness: -27 and eventual expiry, but speed
