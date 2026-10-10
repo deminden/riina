@@ -7,6 +7,55 @@ pub struct Point {
     pub y: f64,
 }
 
+/// Continuous editing coordinates. Integer conversion belongs at the label /
+/// native-command boundary, not in pointer movement or viewport reprojection.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SourceRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl From<Rectangle> for SourceRect {
+    fn from(rectangle: Rectangle) -> Self {
+        Self {
+            x: f64::from(rectangle.x),
+            y: f64::from(rectangle.y),
+            width: f64::from(rectangle.width),
+            height: f64::from(rectangle.height),
+        }
+    }
+}
+
+impl SourceRect {
+    fn validate(self, source: (u32, u32)) -> Result<(), String> {
+        if ![self.x, self.y, self.width, self.height]
+            .into_iter()
+            .all(f64::is_finite)
+            || self.x < 0.0
+            || self.y < 0.0
+            || self.width <= 0.0
+            || self.height <= 0.0
+            || self.x + self.width > f64::from(source.0)
+            || self.y + self.height > f64::from(source.1)
+        {
+            return Err("Crop rectangle is outside the source".into());
+        }
+        Ok(())
+    }
+
+    pub fn to_native(self, source: (u32, u32)) -> Result<Rectangle, String> {
+        self.validate(source)?;
+        Ok(Rectangle {
+            x: truncate(self.x, source.0),
+            y: truncate(self.y, source.1),
+            width: truncate(self.width, source.0),
+            height: truncate(self.height, source.1),
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DisplayRect {
     pub x: f64,
@@ -114,17 +163,15 @@ impl Projection {
     }
 
     pub fn project(&self, rectangle: Rectangle) -> Result<DisplayRect, String> {
-        if rectangle.width == 0
-            || rectangle.height == 0
-            || u64::from(rectangle.x) + u64::from(rectangle.width) > u64::from(self.source_width)
-            || u64::from(rectangle.y) + u64::from(rectangle.height) > u64::from(self.source_height)
-        {
-            return Err("Crop rectangle is outside the source".into());
-        }
-        let left = f64::from(rectangle.x) / f64::from(self.source_width);
-        let top = f64::from(rectangle.y) / f64::from(self.source_height);
-        let right = f64::from(rectangle.x + rectangle.width) / f64::from(self.source_width);
-        let bottom = f64::from(rectangle.y + rectangle.height) / f64::from(self.source_height);
+        self.project_continuous(rectangle.into())
+    }
+
+    pub fn project_continuous(&self, rectangle: SourceRect) -> Result<DisplayRect, String> {
+        rectangle.validate((self.source_width, self.source_height))?;
+        let left = rectangle.x / f64::from(self.source_width);
+        let top = rectangle.y / f64::from(self.source_height);
+        let right = (rectangle.x + rectangle.width) / f64::from(self.source_width);
+        let bottom = (rectangle.y + rectangle.height) / f64::from(self.source_height);
         let rotated = bounds(
             [
                 Point { x: left, y: top },
@@ -146,6 +193,16 @@ impl Projection {
     }
 
     pub fn select(&self, start: Point, end: Point) -> Result<Rectangle, String> {
+        let rectangle = self
+            .select_continuous(start, end)?
+            .to_native((self.source_width, self.source_height))?;
+        if rectangle.width == 0 || rectangle.height == 0 {
+            return Err("Crop selection has no area".into());
+        }
+        Ok(rectangle)
+    }
+
+    pub fn select_continuous(&self, start: Point, end: Point) -> Result<SourceRect, String> {
         if ![start.x, start.y, end.x, end.y]
             .into_iter()
             .all(f64::is_finite)
@@ -207,13 +264,13 @@ impl Projection {
             self.source_height,
             true,
         );
-        let rectangle = Rectangle {
-            x: truncate(left, self.source_width),
-            y: truncate(top, self.source_height),
-            width: truncate(right - left, self.source_width),
-            height: truncate(bottom - top, self.source_height),
+        let rectangle = SourceRect {
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top,
         };
-        if rectangle.width == 0 || rectangle.height == 0 {
+        if rectangle.width == 0.0 || rectangle.height == 0.0 {
             return Err("Crop selection has no area".into());
         }
         Ok(rectangle)
@@ -275,6 +332,108 @@ fn bounds(points: [Point; 4]) -> DisplayRect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fractional_pointer_motion_moves_overlay_without_changing_integer_label() {
+        let projection =
+            Projection::contain((320, 180), (320.0, 180.0), Rotation::Zero, viewport()).unwrap();
+        let start = Point { x: 30.6, y: 66.9 };
+        let first = projection
+            .select_continuous(start, Point { x: 330.9, y: 246.6 })
+            .unwrap();
+        let second = projection
+            .select_continuous(
+                start,
+                Point {
+                    x: 331.05,
+                    y: 246.6,
+                },
+            )
+            .unwrap();
+        assert!((first.x - 10.2).abs() < 1e-9);
+        assert!((first.y - 12.3).abs() < 1e-9);
+        assert!((first.width - 100.1).abs() < 1e-9);
+        assert!((first.height - 59.9).abs() < 1e-9);
+        assert!((second.width - first.width - 0.05).abs() < 1e-9);
+        let first_screen = projection.project_continuous(first).unwrap();
+        let second_screen = projection.project_continuous(second).unwrap();
+        assert!((second_screen.width - first_screen.width - 0.15).abs() < 1e-9);
+        let native = Rectangle {
+            x: 10,
+            y: 12,
+            width: 100,
+            height: 59,
+        };
+        assert_eq!(first.to_native((320, 180)).unwrap(), native);
+        assert_eq!(second.to_native((320, 180)).unwrap(), native);
+    }
+
+    #[test]
+    fn continuous_draft_survives_rotated_resize_and_native_conversion() {
+        let draft = SourceRect {
+            x: 23.25,
+            y: 17.75,
+            width: 251.125,
+            height: 137.5,
+        };
+        for degrees in [0, 90, 180, 270] {
+            for size in [(960.0, 600.0), (321.5, 777.25)] {
+                let projection = Projection::contain(
+                    (320, 180),
+                    (180.0, 180.0),
+                    Rotation::from_degrees(degrees).unwrap(),
+                    DisplayRect {
+                        width: size.0,
+                        height: size.1,
+                        ..viewport()
+                    },
+                )
+                .unwrap();
+                let screen = projection.project_continuous(draft).unwrap();
+                let restored = projection
+                    .select_continuous(
+                        Point {
+                            x: screen.x,
+                            y: screen.y,
+                        },
+                        Point {
+                            x: screen.x + screen.width,
+                            y: screen.y + screen.height,
+                        },
+                    )
+                    .unwrap();
+                assert!((restored.x - draft.x).abs() < 1e-9);
+                assert!((restored.y - draft.y).abs() < 1e-9);
+                assert!((restored.width - draft.width).abs() < 1e-9);
+                assert!((restored.height - draft.height).abs() < 1e-9);
+                assert_eq!(
+                    restored.to_native((320, 180)).unwrap(),
+                    Rectangle {
+                        x: 23,
+                        y: 17,
+                        width: 251,
+                        height: 137
+                    }
+                );
+            }
+        }
+        assert!(
+            SourceRect {
+                width: f64::NAN,
+                ..draft
+            }
+            .to_native((320, 180))
+            .is_err()
+        );
+        assert!(
+            SourceRect {
+                width: 320.0,
+                ..draft
+            }
+            .to_native((320, 180))
+            .is_err()
+        );
+    }
 
     #[test]
     fn small_sources_keep_whole_selection_and_empty_drags_stay_empty() {

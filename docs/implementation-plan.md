@@ -4,8 +4,9 @@ Crop next: verify free selection and edge resizing, then reproduce the reference
 video-area padding/shadow on both presentation routes. Custom... now opens the
 shared editor; presets, Done/Cancel and source selection labels have Windows
 keyboard evidence. Drag handlers exist but need actual pointer verification.
-Preserve continuous selection coordinates separately from the integer native
-crop/label to match the reference's subpixel overlay movement.
+Continuous source coordinates are now retained separately from the integer
+native crop/label; verify their actual overlay motion and edge dragging with
+pointer input and rendered evidence.
 Use the generation-bound crop_session::Session lifecycle for entry and exit;
 wait for native pause and cleared crop before presenting the selection surface.
 Retire the editor on replacement/Stop without restoring the old file's pause.

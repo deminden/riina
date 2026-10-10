@@ -2,8 +2,7 @@
 use crate::PlayerWindow;
 use riina_core::{
     Command, Playback,
-    crop::Rectangle,
-    crop_geometry::{DisplayRect, Point, Projection},
+    crop_geometry::{DisplayRect, Point, Projection, SourceRect},
     crop_session::Session,
 };
 use riina_mpv::CommandSender;
@@ -17,7 +16,7 @@ use std::{
 struct Data {
     latest: Option<Playback>,
     session: Option<Session>,
-    rectangle: Option<Rectangle>,
+    rectangle: Option<SourceRect>,
     drag: Option<(i32, Point, DisplayRect)>,
 }
 
@@ -67,10 +66,17 @@ impl Editor {
                 .as_ref()
                 .zip(data.latest.as_ref())
                 .is_some_and(|(session, state)| session.ready(state) && !state.seeking);
-            let screen = data
-                .rectangle
-                .and_then(|rectangle| Self::projection(&data, app).ok()?.project(rectangle).ok());
-            (data.session.is_some(), ready, data.rectangle, screen)
+            let screen = data.rectangle.and_then(|rectangle| {
+                Self::projection(&data, app)
+                    .ok()?
+                    .project_continuous(rectangle)
+                    .ok()
+            });
+            let rectangle = data.rectangle.and_then(|rectangle| {
+                let whole = data.session.as_ref()?.whole_source();
+                rectangle.to_native((whole.width, whole.height)).ok()
+            });
+            (data.session.is_some(), ready, rectangle, screen)
         };
         // Property changes may call back into layout. Never hold the coordinator
         // mutex while publishing UI properties or moving keyboard focus.
@@ -122,7 +128,7 @@ impl Editor {
             Self::projection(&data, app)?;
             let session = Session::begin(state)?;
             sender.send(Command::EnterCrop(session.clone()))?;
-            data.rectangle = Some(session.whole_source());
+            data.rectangle = Some(session.whole_source().into());
             data.session = Some(session);
             data.drag = None;
         }
@@ -145,7 +151,16 @@ impl Editor {
             if confirm && !session.ready(state) {
                 return Err("The video is not ready for crop confirmation".into());
             }
-            let rectangle = if confirm { data.rectangle } else { None };
+            let rectangle = if confirm {
+                let whole = session.whole_source();
+                Some(
+                    data.rectangle
+                        .ok_or("The crop selection is unavailable")?
+                        .to_native((whole.width, whole.height))?,
+                )
+            } else {
+                None
+            };
             session.exit_commands(state, rectangle)?;
             sender.send(Command::ExitCrop {
                 session: session.clone(),
@@ -216,11 +231,11 @@ impl Editor {
                     let ratio = w / h;
                     let width = f64::from(whole.width).min(f64::from(whole.height) * ratio);
                     let height = f64::from(whole.height).min(f64::from(whole.width) / ratio);
-                    data.rectangle = Some(Rectangle {
-                        x: ((f64::from(whole.width) - width) / 2.0) as u32,
-                        y: ((f64::from(whole.height) - height) / 2.0) as u32,
-                        width: width as u32,
-                        height: height as u32,
+                    data.rectangle = Some(SourceRect {
+                        x: (f64::from(whole.width) - width) / 2.0,
+                        y: (f64::from(whole.height) - height) / 2.0,
+                        width,
+                        height,
                     });
                 }
                 editor.refresh(&app);
@@ -235,7 +250,7 @@ impl Editor {
                 let mut data = editor.0.lock().expect("Crop editor state is available");
                 if let Ok(projection) = Self::projection(&data, &app)
                     && let Some(rectangle) = data.rectangle
-                    && let Ok(screen) = projection.project(rectangle)
+                    && let Ok(screen) = projection.project_continuous(rectangle)
                 {
                     let point = Point {
                         x: f64::from(x),
@@ -307,7 +322,7 @@ impl Editor {
                             ),
                             _ => (start, point),
                         };
-                        if let Ok(rectangle) = projection.select(start, end) {
+                        if let Ok(rectangle) = projection.select_continuous(start, end) {
                             data.rectangle = Some(rectangle);
                         }
                     }

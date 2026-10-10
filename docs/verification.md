@@ -1,5 +1,28 @@
 # Verification record · native Windows · 2026-10-09
 
+## Continuous crop draft coordinates · 2026-10-10
+
+The pinned CropBoxView keeps its selection geometry continuous and the crop
+action converts coordinates/dimensions to integers. Original SourceRect now
+separates that editing domain from the typed integer native rectangle. Continuous
+selection/project APIs retain edge snapping, aspect/rotation and bounds checks;
+legacy integer APIs convert only at their boundary. The app coordinator retains
+SourceRect for pointer movement and presets, projects it for drawing and converts
+it for labels/confirmation. Preset centering occurs before integer conversion.
+
+A known 960×600 viewport test moves the pointer by 0.15 logical units, changing
+continuous source width by 0.05 pixels while native/label width remains 100.
+The starting draft retains source x=10.2/y=12.3/width=100.1/height=59.9 and
+converts to x=10/y=12/width=100/height=59. Fractional source rectangles round-trip
+through two viewport shapes at every quarter turn with native truncation retained.
+Invalid NaN and out-of-source drafts are rejected. Existing integer native crop
+projection tests continue to pass.
+
+All 28 native tests, workspace unit tests, strict all-target lint and formatting
+pass. No GUI or current other OS app test was run for this change; these checks
+prove the model and conversion boundary, not pointer rendering or pixel parity.
+The optimized Windows build passes in 36.40 seconds.
+
 ## Connected interactive crop editor · 2026-10-10
 
 The original shared editor coordinates source sessions and rectangle projection.

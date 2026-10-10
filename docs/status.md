@@ -1,5 +1,17 @@
 # Status · 2026-10-09
 
+The crop editor now retains continuous source coordinates for pointer selection,
+edge resizing, presets and viewport reprojection. Integer conversion is confined
+to label/confirmation boundaries, preserving truncation and source validation.
+New checks show a 0.15-logical-unit motion changes the projected overlay while
+the integer label remains unchanged, and fractional drafts survive quarter-turn
+rotation/resize without integer drift. Existing integer projection callers and
+all 28 native tests pass; workspace unit tests, strict lint and formatting pass.
+Actual pointer/overlay rendering, reference padding/shadow, titlebar controls,
+native candidate layout and current other OS runtime remain unverified. No GUI
+test was run for this model change. No public update.
+The optimized Windows build passes in 36.40 seconds.
+
 Custom crop is now connected to a shared editor with whole-source selection,
 six presets including 3:2, source-coordinate label, Done/Cancel and free/edge drag
 handlers. Entry waits for native pause/filter reset; stale source observations
