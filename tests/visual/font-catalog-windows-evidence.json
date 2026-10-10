@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "date": "2026-10-10",
+  "source_base_commit": "aa5d480",
+  "method": "Read-only font-catalog-probe using pinned fontdb 0.23.0",
+  "os": "windows",
+  "observed": {
+    "families": 72,
+    "faces": 166,
+    "aliases": 84,
+    "scan_ms": 19,
+    "self_search_matches": true
+  },
+  "limitations": [
+    "Counts are specific to this host and are not completeness evidence",
+    "System font names, paths and bytes are not saved",
+    "Font picker UI, localized display sorting and face preview remain open",
+    "Catalog membership does not prove libass selects the same font",
+    "macOS and Linux runtime discovery remain unverified"
+  ],
+  "source_sha256": {
+    "crates/app/src/font_catalog.rs": "e6e48b6e80fec2e70228093e32e355168a522f9eec8a5874ff98bcf51deb3a19",
+    "crates/app/src/bin/font-catalog-probe.rs": "f0af984ca1af82a54ffda1fa767af255285a3d73e5ca018b6a2db3e966dd825d",
+    "crates/app/Cargo.toml": "cdb6a0ca65e0617ee695170851caf58abddf75722baa32aa3aa75574b40dcf7f",
+    "Cargo.lock": "1c2f7e5ddb85a14104035726332d17fcec827a00df1ff78a9e9badb0e99395c7"
+  },
+  "binary_sha256": "b1749ce0d608587d7ceda5aa2658a9ecb2ee96607ca80824a0f25cbd3ef3c097"
+}

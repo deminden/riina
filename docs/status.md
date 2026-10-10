@@ -1,5 +1,18 @@
 # Status · 2026-10-09
 
+Local installed-font discovery: an owned metadata catalog now groups families,
+localized aliases and faces through pinned fontdb 0.23.0. Duplicate source
+entries collapse; internal/empty names are filtered and search covers Unicode
+aliases without case sensitivity. A read-only Windows probe reports 72 families,
+166 faces and 84 aliases in 19 ms, with self-name searches matching every family.
+Counts are host-specific and do not prove complete platform font enumeration.
+Only counts are recorded in tests/visual/font-catalog-windows-evidence.json;
+no user font names, paths or bytes are saved. The font chooser UI and worker
+integration, localized display ordering, previews, engine resolution/fallback
+and macOS/Linux runtime remain open. Strict lint, formatting and all 33 unit
+tests pass; the focused catalog test covers grouping, duplicates, hidden names
+and Unicode alias searching. No public update was made.
+
 Local subtitle font contract: shared font-name intent and optional native
 observation now preserve Unicode and custom family strings. Empty custom entry
 restores the pinned sans-serif default. Control characters are rejected before
