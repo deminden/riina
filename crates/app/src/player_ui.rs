@@ -407,6 +407,8 @@ impl UiSession {
                 100.0
             }),
             volume_boost: app.get_volume_boost(),
+            screenshot: crate::screenshot_preferences::current(app)
+                .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
         };
         platform::save_preferences(&self.prefs_path, &serde_json::to_string_pretty(&prefs)?)?;
@@ -441,7 +443,7 @@ pub(crate) fn configure_player(
             .to_vec(),
     )));
     app.set_osd_enabled(prefs.enable_osd);
-    app.set_screenshot_show_preview(prefs.screenshot.show_preview);
+    crate::screenshot_preferences::install(app, &prefs.screenshot);
     refresh_video_menu(app);
     app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::LABELS
@@ -540,7 +542,6 @@ pub(crate) fn configure_player(
     });
     let seek_timer = slint::Timer::default();
     let screenshot_player = player.command_sender();
-    let screenshot_settings = prefs.screenshot.clone();
     let weak = app.as_weak();
     app.on_take_screenshot(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -548,29 +549,32 @@ pub(crate) fn configure_player(
             return;
         }
         app.invoke_activity();
-        let result = platform::screenshot_directory(screenshot_settings.directory.as_deref())
-            .map_err(|error| error.to_string())
-            .and_then(|directory| {
-                screenshot_player.send(Command::Screenshot {
-                    directory: directory.to_string_lossy().into_owned(),
-                    content: screenshot_settings.content(),
-                    encoding: screenshot_settings.encoding.clone(),
+        let result = crate::screenshot_preferences::current(&app).and_then(|screenshot_settings| {
+            platform::screenshot_directory(screenshot_settings.directory.as_deref())
+                .map_err(|error| error.to_string())
+                .and_then(|directory| {
+                    screenshot_player.send(Command::Screenshot {
+                        directory: directory.to_string_lossy().into_owned(),
+                        content: screenshot_settings.content(),
+                        encoding: screenshot_settings.encoding.clone(),
+                    })
                 })
-            });
+        });
         if let Err(error) = result {
             app.set_status(error.into());
         }
     });
     let weak = app.as_weak();
-    let screenshot_directory = prefs.screenshot.directory.clone();
     app.on_open_screenshot_folder(move || {
         let Some(app) = weak.upgrade() else { return };
         if app.get_crop_editing() || app.get_dialog_open() {
             return;
         }
-        if let Err(error) = platform::screenshot_directory(screenshot_directory.as_deref())
-            .and_then(|directory| platform::open_directory(&directory))
-        {
+        if let Err(error) = crate::screenshot_preferences::current(&app).and_then(|settings| {
+            platform::screenshot_directory(settings.directory.as_deref())
+                .and_then(|directory| platform::open_directory(&directory))
+                .map_err(|error| error.to_string())
+        }) {
             app.set_status(error.to_string().into());
         }
     });

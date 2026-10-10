@@ -1,5 +1,9 @@
 # Implementation plan
 
+Live screenshot preferences now use one validated shared UI snapshot for capture,
+folder opening and session save. Add the reference General preferences window
+and immediate persistence before claiming runtime settings parity.
+
 Saved screenshot format/template/folder/subtitle/preview settings now reach the
 app and native engine; all six choices have native decoded-frame evidence. Build
 reference preferences controls and save/clipboard destination semantics, verify

@@ -1,3 +1,11 @@
+Screenshot capture and folder opening now read live shared UI settings instead
+of startup clones. Session saving reads the same validated typed settings, keeping
+format/template/folder/subtitle/preview changes consistent across all three
+paths. Unknown format or NUL-containing drafts cannot reach capture or overwrite
+saved preferences. Platform-default versus custom directory remains an explicit
+choice, rather than collapsing an empty draft into the default. This is shared
+preferences plumbing; no preferences window or GUI interaction is claimed.
+
 An original active ASS cue now has native saved-pixel evidence: video-only
 versus subtitle captures differ in 1626 lower-frame pixels; hiding the selected
 cue makes subtitle capture match video-only RGB pixels exactly. All three
