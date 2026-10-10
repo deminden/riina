@@ -1,5 +1,16 @@
 # Status · 2026-10-09
 
+Local subtitle outline width increment: the shared style picker now offers the
+pinned border values zero, 0.25, 0.5, one, 1.5, two, 2.5, three, four and five.
+A typed finite nonnegative setter and optional native outline observation back
+the control; startup pins the reference default three. Unknown values disable
+editing, and bitmap-only subtitle selection hides it with other text controls.
+Real SRT playback verifies default three and widths zero, 0.25, five and three
+while retaining font size 55, position 100, timing and pause without errors.
+All twelve native tests pass (9.83 seconds), with 28 unit tests, strict lint and
+formatting passing. Rendered outlines, picker routing, source-matched scale/font/
+border layout, preferences and other-OS runtime remain pending. Work stays local.
+
 Local subtitle font-size increment: typed finite positive font size dispatch and
 optional native observation now back the shared style picker. Choices 25–75 in
 steps of five follow the pinned SubStyleView; startup explicitly pins size 55

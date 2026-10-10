@@ -202,6 +202,8 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-scale-known: false;
     in property <float> subtitle-font-size: 0;
     in property <bool> subtitle-font-size-known: false;
+    in property <float> subtitle-outline-size: 0;
+    in property <bool> subtitle-outline-size-known: false;
     in property <bool> subtitle-text-style-available: true;
     in property <bool> subtitle-ass-style-warning: false;
     in-out property <bool> edit-secondary-subtitle: false;
@@ -229,6 +231,7 @@ export component PlayerWindow inherits Window {
     callback adjust-subtitle-scale(float);
     callback set-subtitle-scale-slider(float);
     callback set-subtitle-font-size(float);
+    callback set-subtitle-outline-size(float);
     callback adjust-subtitle-position(float);
     callback set-subtitle-position(bool, float);
     callback adjust-audio-delay(float);
@@ -476,7 +479,7 @@ export component PlayerWindow inherits Window {
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
                         }
                         if sidebar == 2 && root.subtitle-text-style-available : VerticalLayout {
-                            height: 84px; vertical-stretch: 0;
+                            height: 138px; vertical-stretch: 0;
                             Text { text: "Text size"; color: #dddddd; font-size: 12px; font-weight: 700; }
                             ComboBox { height: 24px;
                                 model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
@@ -492,6 +495,14 @@ export component PlayerWindow inherits Window {
                                 Tool { label: "↺"; hint: "Reset subtitle text scale";
                                     enabled: root.loaded && root.subtitle-scale-known;
                                     activated => { root.set-subtitle-scale-slider(0); } }
+                            }
+                            Text { text: "Border"; color: #dddddd; font-size: 12px; font-weight: 700; }
+                            ComboBox { height: 24px;
+                                model: ["0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "4", "5"];
+                                current-value: root.subtitle-outline-size-known ? "" + root.subtitle-outline-size : "—";
+                                enabled: root.loaded && root.subtitle-outline-size-known;
+                                accessible-label: "Subtitle outline width";
+                                selected(value) => { if value.is-float() { root.set-subtitle-outline-size(value.to-float()); } }
                             }
                         }
                         if sidebar == 2 && !root.subtitle-text-style-available : Text {

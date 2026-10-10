@@ -191,6 +191,8 @@ fn update_ui(
     app.set_subtitle_scale_known(state.subtitle_scale.is_some());
     app.set_subtitle_font_size_known(state.subtitle_font_size.is_some());
     app.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
+    app.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
+    app.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);
     let subtitle_style = state.subtitle_style_availability();
     app.set_subtitle_text_style_available(subtitle_style.text_controls);
     app.set_subtitle_ass_style_warning(subtitle_style.ass_warning);
@@ -411,6 +413,17 @@ pub(crate) fn configure_player(
     let scale_player = player.command_sender();
     let absolute_scale_player = player.command_sender();
     let font_size_player = player.command_sender();
+    let outline_size_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_subtitle_outline_size(move |value| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
+            {
+                app.set_status(error.into());
+            }
+        }
+    });
     let weak = app.as_weak();
     app.on_set_subtitle_font_size(move |value| {
         if let Some(app) = weak.upgrade() {

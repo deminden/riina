@@ -45,6 +45,7 @@ pub enum Command {
     SubtitlePosition(f64),
     SubtitleScale(f64),
     SubtitleFontSize(f64),
+    SubtitleOutlineSize(f64),
     AdjustSubtitleDelay(f64),
     AdjustSubtitleScale(f64),
     AdjustSubtitlePosition(f64),
@@ -141,6 +142,9 @@ impl Command {
                 value.to_string(),
             ],
             Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            Self::SubtitleOutlineSize(value) if value.is_finite() && *value >= 0.0 => {
+                vec!["set".into(), "sub-outline-size".into(), value.to_string()]
+            }
             Self::SubtitleFontSize(value) if value.is_finite() && *value > 0.0 => {
                 vec!["set".into(), "sub-font-size".into(), value.to_string()]
             }
@@ -582,6 +586,7 @@ pub struct Playback {
     pub subtitle_delay: f64,
     pub subtitle_scale: Option<f64>,
     pub subtitle_font_size: Option<f64>,
+    pub subtitle_outline_size: Option<f64>,
     pub subtitle_position: Option<f64>,
     pub subtitle_visible: bool,
     pub secondary_subtitle_visible: Option<bool>,

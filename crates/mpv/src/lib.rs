@@ -121,6 +121,7 @@ impl Player {
                         // mpv defaults to stripping the secondary lane's styles.
                         ("secondary-sub-ass-override", "scale"),
                         ("sub-font-size", "55"),
+                        ("sub-outline-size", "3"),
                         // Loop points belong to the current media, unlike volume
                         // and speed. Reset in mpv too, not just in our UI snapshot.
                         ("reset-on-next-file", "ab-loop-a,ab-loop-b")] {
@@ -140,7 +141,7 @@ impl Player {
                         ("current-ao", 1), ("hwdec-current", 1),
                         ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
                         ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
-                        ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5),
+                        ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5), ("sub-outline-size", 5),
                         ("secondary-sub-visibility", 3), ("secondary-sub-text", 1),
                         ("secondary-sub-delay", 5),
                         ("secondary-sub-pos", 5),
@@ -304,6 +305,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"secondary-sub-pos" => state.secondary_subtitle_position = None,
             b"sub-scale" => state.subtitle_scale = None,
             b"sub-font-size" => state.subtitle_font_size = None,
+            b"sub-outline-size" => state.subtitle_outline_size = None,
             b"sub-pos" => state.subtitle_position = None,
             b"video-params" => state.video = None,
             b"video-target-params" => state.video_target = None,
@@ -370,6 +372,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             match name {
                 b"sub-scale" => state.subtitle_scale = None,
                 b"sub-font-size" => state.subtitle_font_size = None,
+                b"sub-outline-size" => state.subtitle_outline_size = None,
                 b"sub-pos" => state.subtitle_position = None,
                 b"secondary-sub-delay" => state.secondary_subtitle_delay = None,
                 b"secondary-sub-pos" => state.secondary_subtitle_position = None,
@@ -390,6 +393,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             }
             b"sub-scale" => state.subtitle_scale = (0.0..=100.0).contains(&value).then_some(value),
             b"sub-font-size" => state.subtitle_font_size = (value > 0.0).then_some(value),
+            b"sub-outline-size" => state.subtitle_outline_size = (value >= 0.0).then_some(value),
             b"sub-pos" => state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value),
             _ => {}
         }
