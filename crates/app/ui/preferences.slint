@@ -1,6 +1,10 @@
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
 
+global MotionSettings {
+    in-out property <bool> animations-disabled: false;
+}
+
 export struct PreferencesSearchResult {
     page-index: int,
     page-name: string,
@@ -97,13 +101,13 @@ component PluginEnabledSwitch inherits FocusScope {
         x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px;
         border-radius: 9px;
         background: root.checked ? #1684f8 : #d6d6d9;
-        animate background { duration: 120ms; }
+        animate background { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
     }
     Rectangle {
         x: root.checked ? parent.width - 17px : 1px; y: 1px; width: 16px; height: 16px;
         border-radius: 8px; background: #ffffff;
         drop-shadow-color: #00000033; drop-shadow-blur: 2px; drop-shadow-offset-y: 1px;
-        animate x { duration: 120ms; }
+        animate x { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
     }
     touch := TouchArea {
         enabled: root.switch-enabled;
@@ -386,9 +390,12 @@ component PreferenceSwitch inherits Rectangle {
         vertical-alignment: center; overflow: elide; }
     Rectangle { x: parent.width - 40px; y: 5px; width: 36px; height: 18px;
         border-radius: 9px; background: root.checked ? #198cff : #d6d6da;
+        animate background { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
         opacity: root.enabled ? 1 : 0.55;
         Rectangle { x: root.checked ? parent.width - 16px : 2px; y: 2px;
-            width: 14px; height: 14px; border-radius: 7px; background: #ffffff; }
+            width: 14px; height: 14px; border-radius: 7px; background: #ffffff;
+            animate x { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
+        }
     }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.checked = !root.checked; root.toggled(); } }
     focus := FocusScope {
@@ -903,6 +910,7 @@ export component PreferencesWindow inherits Window {
     min-height: 480px;
     background: #ffffff;
     in-out property <int> selected-pane: 0;
+    in-out property <bool> disable-animations: false;
     in-out property <int> selected-general-section: 0;
     in-out property <int> appearance-index: 0;
     in-out property <bool> liquid-glass-expanded: false;
@@ -1134,6 +1142,9 @@ export component PreferencesWindow inherits Window {
     in-out property <string> utilities-thumbnail-size: "0 B";
     in-out property <string> utilities-status: "";
     callback settings-changed();
+    changed disable-animations => {
+        MotionSettings.animations-disabled = root.disable-animations;
+    }
     callback choose-folder();
     callback choose-subtitle-font();
     callback utilities-open-default-apps();
@@ -1630,14 +1641,27 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        for title[index] in ["Thumbnail Preview", "Accessibility"] : Rectangle {
-            x: 20px; y: index == 0 ? root.interface-thumbnail-y : root.interface-accessibility-y;
+        Rectangle {
+            x: 20px; y: root.interface-thumbnail-y;
             width: parent.width - 40px; height: 80px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
-            Text { x: 0; y: 8px; text: title;
+            Text { x: 0; y: 8px; text: "Thumbnail Preview";
                 font-weight: 600; font-size: 13px; color: #222222; }
             Text { x: 24px; y: 36px; width: parent.width - 48px; text: "This section is not available yet.";
                 font-size: 12px; color: #77777d; }
+        }
+        Rectangle {
+            x: 20px; y: root.interface-accessibility-y;
+            width: parent.width - 40px; height: 80px;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            Text { x: 0; y: 8px; text: "Accessibility";
+                font-weight: 600; font-size: 13px; color: #222222; }
+            PreferenceSwitch { x: 16px; y: 29px; width: parent.width - 32px;
+                label: "Disable animations"; checked <=> root.disable-animations;
+                toggled => { root.settings-changed(); }
+            }
+            Text { x: 16px; y: 58px; text: "Turn off interface motion.";
+                font-size: 10px; color: #77777d; }
         }
         }
     }

@@ -825,6 +825,7 @@ impl UiSession {
                 .map_err(std::io::Error::other)?,
             compact_ui: app.get_compact_ui(),
             auto_switch_to_music_mode: app.get_auto_switch_to_music_mode(),
+            disable_animations: app.get_disable_animations(),
             music_mode_show_playlist: app.get_music_mode_show_playlist(),
             music_mode_show_album_art: app.get_music_mode_show_album_art(),
             osc_position: app.get_osc_position() as u8,
@@ -1016,6 +1017,7 @@ pub(crate) fn configure_player(
     );
     app.set_volume_boost(prefs.volume_boost);
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
+    app.set_disable_animations(prefs.disable_animations);
     app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
     crate::control_preferences::install_player(app, &prefs.controls);

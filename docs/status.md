@@ -16,7 +16,7 @@ support.
 ## Parity state
 
 The pinned baseline is official IINA v1.5.0. The parity inventory currently traces
-191 atomic requirements, and the inventory is still incomplete. Many requirements
+192 atomic requirements, and the inventory is still incomplete. Many requirements
 remain partial or unverified. There is no defensible overall parity percentage.
 Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
@@ -37,12 +37,17 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The current Windows release candidate is
+no Windows application binary. The current release-candidate native build is
 [workflow run 38144973846](https://github.com/deminden/riina/actions/runs/38144973846).
-Its metadata job succeeded, but artifact verification is still false. The native-engine job is still running, so package
-assembly, extracted-package playback, and final corresponding-source verification
-have not yet completed. No binary is available to download until those checks pass
-and the release workflow publishes the assets.
+Its readiness check succeeded, but its native-engine job is still running and the
+release packaging and publish jobs have not started. The latest main-branch
+Windows release workflow passed readiness in
+[run 38146503040](https://github.com/deminden/riina/actions/runs/38146503040),
+then skipped native build and packaging because it was not a release-tag event.
+The latest Windows compilation check is still running in
+[run 38146633681](https://github.com/deminden/riina/actions/runs/38146633681).
+No binary is available to download until native build, package playback, licensing,
+and corresponding-source checks pass and the release workflow publishes the assets.
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. The
@@ -51,12 +56,14 @@ settled license choices and candidate build inputs are recorded in
 
 ## Verification state
 
-The parity traceability check accepts all 191 currently inventoried requirements,
+The parity traceability check accepts all 192 currently inventoried requirements,
 while explicitly reporting that the inventory is incomplete. Candidate artifact
 verification and native engine completion are pending. The Unix presentation marker
-derives `Clone` to match the Windows adapter's shared timer ownership; full
-macOS/Linux application verification remains pending. Windows compilation/domain and portable playback workflows are separate
-checks; consult their linked Actions runs for live conclusions.
+derives `Clone` to match the Windows adapter's shared timer ownership. The latest
+macOS/Linux application run failed lint because the marker also derived `Copy`, making
+the shared clone redundant; the marker now derives only `Clone`, and that correction
+is awaiting the next normal CI run. Windows compilation/domain and portable playback
+workflows are separate checks; consult their linked Actions runs for live conclusions.
 
 Local verification evidence and exact limitations are recorded in
 `docs/verification.md` and the requirement rows in `docs/parity.csv`. GUI, HDR,

@@ -6,7 +6,7 @@ pub(crate) use dialogs::open as open_dialog;
 // Unix currently uses the shared GL renderer. A real presentation value keeps
 // shared setup closures reachable to rustc while reserving native window APIs
 // for a later adapter with a verified surface lifetime.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct NativePresentation;
 
 impl NativePresentation {

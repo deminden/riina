@@ -831,6 +831,7 @@ pub(crate) fn connect(
                         )
                         .ok_or_else(|| "Choose a valid launch action".to_owned())?,
                         live_text_enabled: window.get_live_text_enabled(),
+                        disable_animations: window.get_disable_animations(),
                         theme_material: Some(selected_theme),
                         always_float_on_top: window.get_always_float_on_top(),
                         always_show_on_top_icon: window.get_always_show_on_top_icon(),
@@ -891,6 +892,7 @@ pub(crate) fn connect(
                         app.set_show_chapter_pos(window.get_show_chapter_pos());
                         crate::pip_preferences::install_player(&app, selected_picture_in_picture);
                         app.set_live_text_enabled(window.get_live_text_enabled());
+                        app.set_disable_animations(window.get_disable_animations());
                         *saved_tone_mapping_for_change.borrow_mut() = selected_tone_mapping.clone();
                         *saved_video_threads_for_change.borrow_mut() = selected_video_threads;
                         app.set_appearance_mode(selected_theme.index());
@@ -1172,6 +1174,7 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     crate::network_cache_preferences::refresh_window(window, app);
     crate::network_ytdl_preferences::refresh_window(window, app);
     window.set_live_text_enabled(app.get_live_text_enabled());
+    window.set_disable_animations(app.get_disable_animations());
     window.set_live_text_available(app.get_live_text_available());
     if let Ok(controls) = crate::control_preferences::current_player(app) {
         crate::control_preferences::install_window(window, &controls);

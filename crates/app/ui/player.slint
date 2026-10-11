@@ -701,6 +701,7 @@ export component PlayerWindow inherits Window {
     in property <bool> hdr-source-detected: false;
     in-out property <bool> live-text-enabled: false;
     in-out property <bool> live-text-available: false;
+    in-out property <bool> disable-animations: false;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
     callback set-hdr-enabled(bool);
