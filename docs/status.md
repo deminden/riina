@@ -1,3 +1,9 @@
+2026-10-11 Binary candidate 38127030555 stopped before native compilation because
+GitHub rejected fetching curl's pinned commit SHA as an unadvertised ref. Its
+official curl-8_22_0 tag resolves to the expected 01346829096c61b372692f6dc43ffa778c6caccd
+commit. The script now fetches that tag, then verifies the commit; it also creates
+the native compiler-cache directory before the build. Binary delivery remains open.
+
 2026-10-11 Binary delivery follow-up: candidate 38119383913 failed at curl-build
 (846/886), after the patch committer identity fix. The release builder now pins
 curl 8.22.0 and its exact source revision; the pinned libssh compatibility patch

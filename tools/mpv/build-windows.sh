@@ -68,7 +68,7 @@ run_ninja -C build_x86_64 update
 
 # A fixed builder still fetches curl's development branch. Use the current
 # stable release so its changing APIs cannot silently alter a binary candidate.
-git -C "$BUILDER/src_packages/curl" fetch origin "$CURL_REVISION"
+git -C "$BUILDER/src_packages/curl" fetch origin tag curl-8_22_0
 git -C "$BUILDER/src_packages/curl" checkout --detach "$CURL_REVISION"
 test "$(git -C "$BUILDER/src_packages/curl" rev-parse HEAD)" = "$CURL_REVISION"
 

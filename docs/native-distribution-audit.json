@@ -78,7 +78,7 @@
     "commit": "068536d83a50ba64c1aa8154566fc535b8f9c135",
     "failed_dependency": "curl",
     "evidence": "GitHub native-engine log reports curl-build exit 1 at 846/886; inner build logs were lost because ERR was not inherited by run_ninja.",
-    "next_candidate": "Enable inherited ERR diagnostics, preserve full logs and compiler cache, and pin the curl source/recipe to 8.22.0. The upstream libssh compatibility patch applies to that source; full build is pending."
+    "next_candidate": "Fetch the official curl-8_22_0 tag and verify its dereferenced commit before compiling. The previous direct SHA fetch was rejected by the server as an unadvertised ref; full build is pending."
   },
   "rust_candidate_audit": {
     "version": "0.2.11",

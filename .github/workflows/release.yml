@@ -63,6 +63,7 @@ jobs:
           RIINA_BUILD_IMAGE: ghcr.io/shinchiro/archlinux@sha256:c7dffe77b57d98b10e327dde12d3977faf4cb90aa7cb4f5eeac4e9d68d724239
         run: |
           set -o pipefail
+          mkdir -p "$CCACHE_DIR"
           bash tools/mpv/build-windows.sh 2>&1 | tee native-build.log
       - name: Upload native build diagnostics after failure
         if: failure()
