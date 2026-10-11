@@ -38,18 +38,16 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The current private package-verification run is
-[workflow run 38149950847](https://github.com/deminden/riina/actions/runs/38149950847).
-It reuses the native engine and captured-source artifacts from run 38138622911,
-whose native build passed before its later packaging checks failed. Run 38149950847
-has been queued to verify the updated package, notices, playback, and corresponding
-source. The earlier native candidate [run 38144973846](https://github.com/deminden/riina/actions/runs/38144973846)
-is also still active and predates the packaging repairs. The latest push-triggered
-release workflow, [run 38149913443](https://github.com/deminden/riina/actions/runs/38149913443),
-passed readiness and correctly skipped release packaging because no verified release
-tag exists. No binary is available to download until the private candidate passes
-the complete package, playback, licensing, and corresponding-source checks, then a
-versioned release publishes its assets.
+no Windows application binary. Candidate
+[workflow run 38149950847](https://github.com/deminden/riina/actions/runs/38149950847)
+reused the native engine and captured-source artifacts from run 38138622911; its
+source bundle and dependency notices passed, but the native playback suite failed
+because the hosted Windows runner has no hardware audio endpoint and the tests used
+mpv's automatic output selection. The test setup now selects the bundled OpenAL
+backend with OpenAL Soft's null driver, and local verification passes all 42 native
+tests. A new private package candidate has not yet been started. No binary is
+available to download until that exact candidate passes package playback, licensing,
+and corresponding-source checks and a versioned release publishes its assets.
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. The
@@ -59,9 +57,9 @@ settled license choices and candidate build inputs are recorded in
 ## Verification state
 
 The parity traceability check accepts all 192 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. Candidate package
-verification is pending. The previous candidate's native engine and source artifacts
-are available for the current packaging check. The Unix presentation marker
+while explicitly reporting that the inventory is incomplete. The previous
+candidate's native engine and source artifacts are available to reuse for the next
+package check. The Unix presentation marker
 derives `Clone` to match the Windows adapter's shared timer ownership. The latest
 macOS/Linux application run failed lint because the marker also derived `Copy`, making
 the shared clone redundant; the marker now derives only `Clone`, and that correction

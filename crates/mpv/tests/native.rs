@@ -2,9 +2,11 @@
 use riina_core::{Command, Phase, Playback, TrackKind};
 use riina_mpv::Player;
 use std::{
+    fs::File,
+    io::{BufWriter, Write},
     path::PathBuf,
     sync::mpsc,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 #[test]
@@ -15,7 +17,7 @@ fn play_restarts_media_after_end_of_file() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -44,7 +46,7 @@ fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -82,7 +84,7 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
         .to_string_lossy()
         .into_owned();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -164,7 +166,7 @@ fn resume_last_position_saves_and_restores_only_when_enabled() {
     };
 
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start_with_options(
+    let player = start_test_player_with_options(
         &test_library(&root),
         true,
         options(&enabled_watch_later, true),
@@ -188,7 +190,7 @@ fn resume_last_position_saves_and_restores_only_when_enabled() {
     );
 
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start_with_options(
+    let player = start_test_player_with_options(
         &test_library(&root),
         true,
         options(&enabled_watch_later, true),
@@ -208,7 +210,7 @@ fn resume_last_position_saves_and_restores_only_when_enabled() {
     drop(player);
 
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start_with_options(
+    let player = start_test_player_with_options(
         &test_library(&root),
         true,
         options(&disabled_watch_later, false),
@@ -231,7 +233,7 @@ fn resume_last_position_saves_and_restores_only_when_enabled() {
     );
 
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start_with_options(
+    let player = start_test_player_with_options(
         &test_library(&root),
         true,
         options(&disabled_watch_later, false),
@@ -270,7 +272,7 @@ fn screenshot_content_respects_active_subtitle_visibility() {
     ));
     std::fs::create_dir_all(&output).unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -367,7 +369,7 @@ fn screenshots_complete_only_after_native_success() {
     ));
     std::fs::create_dir_all(&output).unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -519,7 +521,7 @@ fn screenshots_complete_only_after_native_success() {
         assert_eq!(saved.position, format_paused.position);
         println!("{format:?}: {}", path.display());
         let (decode_sender, decode_receiver) = mpsc::channel();
-        let decoder = Player::start(&test_library(&root), true, move |state| {
+        let decoder = start_test_player(&test_library(&root), true, move |state| {
             let _ = decode_sender.send(state);
         })
         .unwrap();
@@ -584,7 +586,7 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
         "interlaced-mpeg2-bff.mkv",
     ] {
         let (sender, receiver) = mpsc::channel();
-        let player = Player::start(&test_library(&root), true, move |state| {
+        let player = start_test_player(&test_library(&root), true, move |state| {
             let _ = sender.send(state);
         })
         .unwrap();
@@ -683,7 +685,7 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -790,7 +792,7 @@ fn picture_viewport_preserves_pause_volume_and_source_geometry() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -850,7 +852,7 @@ fn video_reflection_axes_preserve_crop_and_playback() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -961,7 +963,7 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1039,7 +1041,7 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1093,7 +1095,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1295,7 +1297,7 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1421,7 +1423,7 @@ fn crop_projection_preserves_source_selection_under_native_display_overrides() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1525,6 +1527,78 @@ fn test_library(root: &std::path::Path) -> PathBuf {
     }
 }
 
+struct TemporaryMedia(PathBuf);
+
+impl Drop for TemporaryMedia {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+fn create_long_seek_fixture() -> TemporaryMedia {
+    // Keep the sample rate typical so headless audio backends do not add
+    // seconds of timestamp latency while a seek is paused and observed.
+    const SAMPLE_RATE: u32 = 48_000;
+    const DURATION_SECONDS: u32 = 1_300;
+    const DATA_BYTES: u32 = SAMPLE_RATE * DURATION_SECONDS;
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be after the Unix epoch")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "riina-long-seek-{}-{unique}.wav",
+        std::process::id()
+    ));
+    let mut output = BufWriter::new(File::create(&path).expect("create long-seek fixture"));
+    output.write_all(b"RIFF").unwrap();
+    output
+        .write_all(&(36_u32 + DATA_BYTES).to_le_bytes())
+        .unwrap();
+    output.write_all(b"WAVEfmt ").unwrap();
+    output.write_all(&16_u32.to_le_bytes()).unwrap();
+    output.write_all(&1_u16.to_le_bytes()).unwrap();
+    output.write_all(&1_u16.to_le_bytes()).unwrap();
+    output.write_all(&SAMPLE_RATE.to_le_bytes()).unwrap();
+    output.write_all(&SAMPLE_RATE.to_le_bytes()).unwrap();
+    output.write_all(&1_u16.to_le_bytes()).unwrap();
+    output.write_all(&8_u16.to_le_bytes()).unwrap();
+    output.write_all(b"data").unwrap();
+    output.write_all(&DATA_BYTES.to_le_bytes()).unwrap();
+
+    let silence = [0x80; 1024 * 1024];
+    let mut remaining = DATA_BYTES as usize;
+    while remaining > 0 {
+        let chunk_len = remaining.min(silence.len());
+        output.write_all(&silence[..chunk_len]).unwrap();
+        remaining -= chunk_len;
+    }
+    output.flush().expect("finish long-seek fixture");
+    TemporaryMedia(path)
+}
+
+fn start_test_player(
+    path: &std::path::Path,
+    headless: bool,
+    notify: impl Fn(Playback) + Send + 'static,
+) -> Result<Player, String> {
+    start_test_player_with_options(path, headless, Vec::new(), notify)
+}
+
+fn start_test_player_with_options(
+    path: &std::path::Path,
+    headless: bool,
+    mut options: Vec<(String, String)>,
+    notify: impl Fn(Playback) + Send + 'static,
+) -> Result<Player, String> {
+    // Hosted Windows runners have no audio endpoint. Keep mpv's OpenAL AO active
+    // over OpenAL Soft's null device so tests still exercise audio initialization.
+    if let Some(output) = std::env::var_os("RIINA_TEST_MPV_AUDIO_OUTPUT") {
+        let output = output.to_string_lossy().into_owned();
+        options.push(("ao".into(), output.clone()));
+    }
+    Player::start_with_options(path, headless, options, notify)
+}
+
 #[test]
 #[ignore = "requires provisioned libmpv; verifies selected last-cue navigation before an automatic loop"]
 fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
@@ -1533,7 +1607,7 @@ fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1612,7 +1686,7 @@ fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1667,7 +1741,7 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1711,7 +1785,7 @@ fn excessive_custom_speed_reports_native_error_without_changing_playback() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1745,7 +1819,7 @@ fn speed_controls_preserve_pause_volume_and_custom_precision() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1792,7 +1866,7 @@ fn video_equalizer_preserves_other_channels_and_playback_options() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1846,7 +1920,7 @@ fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1905,7 +1979,7 @@ fn unicode_aspect_input_preserves_text_and_native_failure_state() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -1983,7 +2057,7 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2092,7 +2166,7 @@ fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2188,7 +2262,7 @@ fn track_cycling_includes_disabled_and_external_tracks() {
             .into_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2278,7 +2352,7 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2423,7 +2497,7 @@ fn subtitle_font_selection_preserves_other_style_options() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2494,17 +2568,14 @@ fn long_relative_seeks_preserve_pause_and_volume() {
         .join("../..")
         .canonicalize()
         .unwrap();
+    let silence = create_long_seek_fixture();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
     player
-        .send(Command::Load(
-            root.join("tests/fixtures/long-silence.wav")
-                .to_string_lossy()
-                .into_owned(),
-        ))
+        .send(Command::Load(silence.0.to_string_lossy().into_owned()))
         .unwrap();
     wait_for(&receiver, |state| {
         state.phase == Phase::Playing
@@ -2560,7 +2631,7 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
             .into_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2641,7 +2712,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
             .into_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2882,7 +2953,7 @@ fn file_repeat_wraps_and_preserves_playlist_repeat() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -2967,7 +3038,7 @@ fn ab_repeat_observes_points_and_wraps_playback() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -3055,7 +3126,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -3305,7 +3376,7 @@ fn frame_navigation_moves_one_frame_and_retains_pause() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -3365,7 +3436,7 @@ fn ab_repeat_resets_on_replacement_and_stop() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -3455,7 +3526,7 @@ fn hdr_metadata_replacement_and_stop() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -3521,7 +3592,7 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
             .to_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -3569,16 +3640,18 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
     drop(player);
 }
 
+#[track_caller]
 fn wait_for(
     receiver: &mpsc::Receiver<Playback>,
     predicate: impl Fn(&Playback) -> bool,
 ) -> Playback {
     let deadline = Instant::now() + Duration::from_secs(12);
+    let caller = std::panic::Location::caller();
     let mut last = None;
     loop {
         assert!(
             Instant::now() < deadline,
-            "Timed out; last observed state: {last:?}"
+            "Timed out at {caller}; last observed state: {last:?}"
         );
         if let Ok(state) = receiver.recv_timeout(Duration::from_millis(200)) {
             if predicate(&state) {
@@ -3597,7 +3670,7 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .expect("Prerequisite failure: provision libmpv and select its absolute path with RIINA_TEST_MPV_LIBRARY");
@@ -3617,6 +3690,12 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
         loaded.audio_output.is_some(),
         "No active native audio output was observed"
     );
+    // Volume and speed controls take longer than this five-second fixture on
+    // some software audio backends. Keep it alive until the explicit EOF check.
+    player.send(Command::CycleLoop).unwrap();
+    wait_for(&receiver, |state| {
+        state.loop_mode() == riina_core::LoopMode::File
+    });
     let catalog = wait_for(&receiver, |state| {
         state
             .tracks
@@ -3628,6 +3707,9 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
                 .any(|track| track.kind == TrackKind::Video)
             && state.playlist.len() == 1
     });
+    // Freeze the short clip while the test changes its selected audio track.
+    player.send(Command::SetPaused(true)).unwrap();
+    wait_for(&receiver, |state| state.paused);
     let audio_id = catalog
         .tracks
         .iter()
@@ -3660,15 +3742,30 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
     });
     // The transport button dispatches TogglePause, so cover that exact native
     // command path before exercising the idempotent preference-oriented setter.
+    player.send(Command::SetPaused(false)).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && !state.paused
+    });
     player.send(Command::TogglePause).unwrap();
     let paused = wait_for(&receiver, |state| state.phase == Phase::Paused);
     let paused_position = paused.position;
-    std::thread::sleep(Duration::from_millis(250));
-    let still_paused = wait_for(&receiver, |state| state.paused);
-    assert!(match (still_paused.position, paused_position) {
-        (Some(current), Some(at_pause)) => (current - at_pause).abs() < 0.05,
-        _ => false,
-    });
+    let stable_until = Instant::now() + Duration::from_millis(250);
+    while Instant::now() < stable_until {
+        let remaining = stable_until.saturating_duration_since(Instant::now());
+        match receiver.recv_timeout(remaining) {
+            Ok(state) => {
+                assert!(state.paused, "Playback resumed without a command");
+                assert!(match (state.position, paused_position) {
+                    (Some(current), Some(at_pause)) => (current - at_pause).abs() < 0.05,
+                    _ => false,
+                });
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => break,
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("Playback state stream ended while the player was paused")
+            }
+        }
+    }
     player.send(Command::TogglePause).unwrap();
     wait_for(&receiver, |state| {
         state.phase == Phase::Playing && !state.paused
@@ -3759,6 +3856,14 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
     wait_for(&receiver, |state| (state.volume - 25.0).abs() < 0.1);
     player.send(Command::ToggleMute).unwrap();
     wait_for(&receiver, |state| state.muted);
+    player.send(Command::CycleLoop).unwrap();
+    wait_for(&receiver, |state| {
+        state.loop_mode() == riina_core::LoopMode::Playlist
+    });
+    player.send(Command::CycleLoop).unwrap();
+    wait_for(&receiver, |state| {
+        state.loop_mode() == riina_core::LoopMode::Off
+    });
     player.send(Command::TogglePause).unwrap();
     player
         .send(Command::Seek {
@@ -3806,7 +3911,7 @@ fn ui_open_files_command_starts_real_media() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .expect("Provision libmpv and set RIINA_TEST_MPV_LIBRARY to its absolute path");
@@ -3877,7 +3982,7 @@ fn chapters_external_tracks_and_playlist_editing() {
             .to_owned()
     };
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start(&test_library(&root), true, move |state| {
+    let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
     })
     .unwrap();
@@ -4122,7 +4227,7 @@ fn invalid_optional_startup_option_keeps_media_playable() {
         .canonicalize()
         .unwrap();
     let (sender, receiver) = mpsc::channel();
-    let player = Player::start_with_options(
+    let player = start_test_player_with_options(
         &test_library(&root),
         true,
         vec![("riina-invalid-option".into(), "value".into())],
@@ -4131,6 +4236,12 @@ fn invalid_optional_startup_option_keeps_media_playable() {
         },
     )
     .expect("invalid user options must not fail player initialization");
+    let warning = wait_for(&receiver, |state| {
+        state
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("riina-invalid-option"))
+    });
     player
         .send(Command::Load(
             root.join("tests/fixtures/moving-square.avi")
@@ -4143,10 +4254,6 @@ fn invalid_optional_startup_option_keeps_media_playable() {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
     });
     assert!(playing.audio_output.is_some());
-    assert!(
-        playing
-            .error
-            .as_deref()
-            .is_some_and(|error| error.contains("riina-invalid-option"))
-    );
+    assert!(playing.error.is_none());
+    assert!(warning.error.unwrap().contains("riina-invalid-option"));
 }

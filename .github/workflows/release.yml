@@ -166,6 +166,8 @@ jobs:
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path native-runtime/libmpv-2.dll).Path
+          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'openal'
+          $env:ALSOFT_DRIVERS = 'null'
           $runtimePath = (Resolve-Path native-runtime).Path
           $env:PATH = "$runtimePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1
@@ -206,6 +208,8 @@ jobs:
           python scripts/check-windows-runtime.py --package package-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Extracted package has unresolved Windows imports.' }
           $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path package-smoke/libmpv-2.dll).Path
+          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'openal'
+          $env:ALSOFT_DRIVERS = 'null'
           $packagePath = (Resolve-Path package-smoke).Path
           $env:PATH = "$packagePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked --target x86_64-pc-windows-msvc playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture

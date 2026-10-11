@@ -1,7 +1,7 @@
 # riina
 
 An established Rust media-player application targeting official **IINA v1.5.0**.
-Riina 0.2.14 has real libmpv playback, broad player and settings workflows, and
+Riina 0.2.15 has real libmpv playback, broad player and settings workflows, and
 workspace regression coverage. Full behavioral and visual parity remain active
 acceptance goals.
 

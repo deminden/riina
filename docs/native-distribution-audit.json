@@ -45,11 +45,10 @@
     "runtime_assembly": "Embed libmpv-2.dll from mpv-dev output and recursively resolve required non-system PE imports from built dependency DLLs. Verify both assembled and extracted Windows ZIP; use static CRT for riina.exe."
   },
   "release_verification_remaining": [
-    "Rerun the private candidate after the build-scoped Git identity fix and produce the Windows runtime and captured-source artifacts",
-    "Verify the exact candidate source manifest, notices and corresponding-source bundle",
-    "Regenerate application dependency notices for the candidate Cargo.lock and include the pinned Slint Royalty-free 2.0 terms",
-    "Run native playback/lifecycle tests and playback against the final extracted portable ZIP",
-    "Rebuild from captured sources in the pinned environment and record the result, including toolchain-provided Rust source and notices"
+    "Run a new private package candidate against the passing native engine and captured-source artifacts from workflow run 38138622911",
+    "Verify the candidate source manifest, notices, corresponding-source bundle and exact extracted portable ZIP playback/lifecycle tests",
+    "Rebuild from captured sources in the pinned environment and record the result, including toolchain-provided Rust source and notices",
+    "Publish the verified Windows portable ZIP, matching source bundle and SHA-256 checksums as a versioned GitHub Release"
   ],
   "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
   "build_repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
@@ -82,12 +81,12 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38128557321,
-    "commit": "8bc1bb2",
-    "stage": "native-engine / spirv-cross patch step",
-    "failure": "git am exited 128 because the nested build process had no Git committer identity",
-    "evidence": "The workflow log supplied for this candidate ends with Committer identity unknown. The build script now installs an isolated per-build Git config for nested Git subprocesses.",
-    "next_action": "Run the private binary candidate workflow; package and release checks have not executed for this run."
+    "run_id": 38149950847,
+    "commit": "6da3a7a",
+    "stage": "windows-package / native playback and lifecycle tests",
+    "failure": "The hosted Windows runner had no hardware audio endpoint; mpv automatic AO selection left native integration tests without an active audio output, causing six of 42 tests to fail or time out.",
+    "evidence": "Source and dependency notice packaging passed. Local reproduction was resolved by selecting the bundled OpenAL output with ALSOFT_DRIVERS=null in the test process, generating a typical-rate long-seek WAV fixture, and asserting change-driven state notifications correctly. The complete local native suite passed 42/42.",
+    "next_action": "Run a private package candidate using native engine and captured-source artifacts from successful workflow run 38138622911."
   },
   "historical_candidate_failures": [
     {
@@ -116,11 +115,5 @@
     ]
   },
   "verified_candidate_run_id": null,
-  "candidate_in_flight": {
-    "run_id": 38144973846,
-    "commit": "6363d92c237a6864b5f9aa5a30f14fe1565e8b91",
-    "url": "https://github.com/deminden/riina/actions/runs/38144973846",
-    "status": "in_progress",
-    "note": "Private candidate only; no release assets exist until native build, package/source creation and playback checks succeed."
-  }
+  "candidate_in_flight": null
 }

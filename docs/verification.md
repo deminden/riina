@@ -1543,3 +1543,27 @@ resume_last_position_saves_and_restores_only_when_enabled -- --ignored --nocaptu
 passes. Workspace tests, strict all-target Clippy, formatting and the optimized
 workspace build also pass. This tests engine policy, not the app's full settings
 restart flow or the Preferences control's rendered pixels; both remain open.
+
+## Windows Picture-in-Picture surface
+
+The Windows controller keeps the existing libmpv renderer and decoder, projects its
+native video surface into a compact always-on-top Slint window through DWM, and
+syncs title, pause, seek and configured main-window lifecycle behavior. Closing PiP
+now pauses playback, matching IINA's observed exit behavior, and restores the main
+window only when that PiP session hid or minimized it. Core lifecycle tests cover
+those effects. DWM projection, live PiP controls, minimized/hidden restoration,
+display changes and visual parity have not been GUI-tested. macOS PiP remains pending.
+
+## Headless Windows native playback tests
+
+GitHub candidate [38149950847](https://github.com/deminden/riina/actions/runs/38149950847)
+passed source packaging and dependency notices but failed its 42-test native playback
+gate: the hosted Windows runner exposes no hardware audio endpoint, so mpv's
+automatic audio-output choice left several tests without an active output. The test
+helpers now select the release bundle's OpenAL backend and set OpenAL Soft's `null`
+driver, allowing playback and audio decoding tests to run without physical speakers.
+The long-seek fixture uses a typical 48 kHz sample rate, and event assertions now
+respect the change-driven playback state stream. The complete ignored native suite
+passes locally: 42 passed, 0 failed. The null driver verifies initialization,
+decoding and player lifecycle; it does not verify audible output hardware. The
+workflow also runs an integration test against the exact extracted portable package.

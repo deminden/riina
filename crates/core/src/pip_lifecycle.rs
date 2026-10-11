@@ -15,6 +15,12 @@ pub struct EntryEffects {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ExitEffects {
+    pub restore_main_window: bool,
+    pub pause_playback: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Session {
     restore_main_window: bool,
 }
@@ -55,6 +61,14 @@ impl Session {
     /// Only undo the main-window action this PiP session initiated.
     pub const fn should_restore_main_window(self) -> bool {
         self.restore_main_window
+    }
+
+    /// IINA pauses the player once its Picture-in-Picture surface closes.
+    pub const fn exit(self) -> ExitEffects {
+        ExitEffects {
+            restore_main_window: self.restore_main_window,
+            pause_playback: true,
+        }
     }
 }
 
@@ -132,6 +146,41 @@ mod tests {
         );
         assert!(!effects.pause_playback);
         assert!(!session.should_restore_main_window());
+    }
+
+    #[test]
+    fn exiting_picture_in_picture_pauses_and_restores_only_session_hidden_windows() {
+        for behavior in [WindowBehavior::Hide, WindowBehavior::Minimize] {
+            let (session, _) = Session::enter(
+                Settings {
+                    window_behavior: behavior,
+                    ..Settings::default()
+                },
+                MainWindowState::default(),
+            );
+            assert_eq!(
+                session.exit(),
+                super::ExitEffects {
+                    restore_main_window: true,
+                    pause_playback: true,
+                }
+            );
+        }
+
+        let (session, _) = Session::enter(
+            Settings {
+                window_behavior: WindowBehavior::DoNothing,
+                ..Settings::default()
+            },
+            MainWindowState::default(),
+        );
+        assert_eq!(
+            session.exit(),
+            super::ExitEffects {
+                restore_main_window: false,
+                pause_playback: true,
+            }
+        );
     }
 
     #[test]

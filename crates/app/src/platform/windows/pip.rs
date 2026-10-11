@@ -364,18 +364,20 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
 }
 
 fn exit(controller: Rc<RefCell<Controller>>) {
-    let (pip, player_weak, host_weak, active) = {
+    let (pip, player_weak, host_weak, active, commands) = {
         let controller = controller.borrow();
         (
             controller.pip.as_weak(),
             controller.player.clone(),
             controller.host.clone(),
             controller.active.clone(),
+            controller.commands.clone(),
         )
     };
     let Some(session) = active.borrow_mut().take() else {
         return;
     };
+    let effects = session.lifecycle.exit();
     if let Some(pip) = pip.upgrade() {
         let _ = pip.hide();
     }
@@ -394,12 +396,15 @@ fn exit(controller: Rc<RefCell<Controller>>) {
                 window.set_minimized(false);
             }
         });
-        if session.lifecycle.should_restore_main_window() {
+        if effects.restore_main_window {
             let _ = player.window().show();
         }
         player
             .window()
             .with_winit_window(|window| window.focus_window());
+    }
+    if effects.pause_playback {
+        let _ = commands.send(Command::SetPaused(true));
     }
 }
 
