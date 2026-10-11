@@ -2851,3 +2851,13 @@ button on this Windows run. The native automation test separately timed out
 before its first playback callback, so that test provides no additional evidence.
 The layered-window screenshot path returned black and could not support a visual
 comparison; video-mode boundary behavior and macOS input remain open.
+
+2026-10-11 Timeline chapter positions now have an off-by-default preference in
+the Interface settings and appear as narrow progress-bar cuts after the first
+chapter when enabled. Chapter times come from the observed playback catalog, and
+the preference persists with settings search support. Source-backed behavior and
+core round-trip coverage are in place; rendered placement, exact macOS pixels,
+and a live GUI toggle check remain pending.
+The feature compiles with the full Windows workspace and all workspace tests pass
+(88 app unit tests plus the other workspace suites). Strict Clippy passes;
+no GUI marker render or macOS comparison has been claimed.

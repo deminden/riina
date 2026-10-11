@@ -946,7 +946,8 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-physical-resolution-y: interface-resize-y + 134px;
     out property <length> interface-float-y: interface-physical-resolution-y + 56px;
     out property <length> interface-osc-y: interface-float-y + 96px;
-    out property <length> interface-osd-y: interface-osc-y + 116px;
+    out property <length> interface-osc-card-height: 124px;
+    out property <length> interface-osd-y: interface-osc-y + interface-osc-card-height + 16px;
     out property <length> osd-suppression-detail-height: osd-suppression-expanded ? 112px : 0px;
     out property <length> interface-thumbnail-y: interface-osd-y + 108px + osd-suppression-detail-height + 128px;
     out property <length> interface-pip-y: interface-thumbnail-y + 96px;
@@ -975,6 +976,7 @@ export component PreferencesWindow inherits Window {
     callback search-selection-activated();
     callback search-result-activated(int, string, string, int);
     in-out property <int> osc-position: 0;
+    in-out property <bool> show-chapter-pos: false;
     in-out property <int> hardware-decoder-index: 1;
     in-out property <string> video-threads-text: "0";
     in-out property <bool> tone-mapping-enabled: true;
@@ -1500,7 +1502,7 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.settings-changed(); }
             }
         }
-        Rectangle { x: 20px; y: root.interface-osc-y; width: parent.width - 40px; height: 100px;
+        Rectangle { x: 20px; y: root.interface-osc-y; width: parent.width - 40px; height: root.interface-osc-card-height;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 0; y: 8px; text: "On-Screen Controller:";
                 font-weight: 600; font-size: 13px; color: #222222; }
@@ -1512,6 +1514,11 @@ export component PreferencesWindow inherits Window {
             CheckBox { x: 160px; y: 42px; height: 24px; text: "Dock control bar and titlebar";
                 checked <=> root.docked-controls;
                 enabled: !root.edge-to-edge-video;
+                toggled => { root.settings-changed(); }
+            }
+            PreferenceSwitch { x: 36px; y: 82px; width: parent.width - 48px;
+                label: "Show chapter position in progress bar";
+                checked <=> root.show-chapter-pos;
                 toggled => { root.settings-changed(); }
             }
         }

@@ -331,6 +331,16 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             })
             .collect::<Vec<_>>(),
     )));
+    // IINA omits the first chapter boundary because it coincides with the bar origin.
+    app.set_chapter_times(slint::ModelRc::new(slint::VecModel::from(
+        state
+            .chapters
+            .iter()
+            .skip(1)
+            .map(|chapter| chapter.time as f32)
+            .filter(|time| time.is_finite() && *time >= 0.0)
+            .collect::<Vec<_>>(),
+    )));
     app.set_playlist(slint::ModelRc::new(slint::VecModel::from(
         state
             .playlist
@@ -723,6 +733,7 @@ impl UiSession {
                 100.0
             }),
             volume_boost: app.get_volume_boost(),
+            show_chapter_pos: app.get_show_chapter_pos(),
             hdr_enabled: app.get_hdr_enabled(),
             live_text_enabled: app.get_live_text_enabled(),
             always_float_on_top: app.get_always_float_on_top(),
@@ -992,6 +1003,7 @@ pub(crate) fn configure_player(
     app.set_dark_theme(appearance.dark_for(prefs.dark));
     let appearance_timer = crate::appearance_preferences::connect(app);
     app.set_osc_position(i32::from(prefs.osc_position));
+    app.set_show_chapter_pos(prefs.show_chapter_pos);
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);

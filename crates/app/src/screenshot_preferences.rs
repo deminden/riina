@@ -326,6 +326,7 @@ pub(crate) fn connect(
                     app.get_compact_ui(),
                     app.get_docked_controls(),
                 );
+                let previous_chapter_positions = app.get_show_chapter_pos();
                 let previous_window_resize =
                     match crate::window_resize_preferences::from_player(&app) {
                         Ok(settings) => settings,
@@ -743,6 +744,7 @@ pub(crate) fn connect(
                 app.set_disable_osd_speed(window.get_disable_osd_speed());
                 app.set_disable_osd_seek(window.get_disable_osd_seek());
                 app.set_osc_position(window.get_osc_position().clamp(0, 2));
+                app.set_show_chapter_pos(window.get_show_chapter_pos());
                 app.set_compact_ui(window.get_compact_ui());
                 if !app.get_edge_to_edge_video() {
                     app.set_docked_controls(window.get_docked_controls());
@@ -810,6 +812,7 @@ pub(crate) fn connect(
                             100.0
                         }),
                         volume_boost: app.get_volume_boost(),
+                        show_chapter_pos: window.get_show_chapter_pos(),
                         live_text_enabled: window.get_live_text_enabled(),
                         theme_material: Some(selected_theme),
                         always_float_on_top: window.get_always_float_on_top(),
@@ -868,6 +871,7 @@ pub(crate) fn connect(
                 });
                 match result {
                     Ok(()) => {
+                        app.set_show_chapter_pos(window.get_show_chapter_pos());
                         app.set_live_text_enabled(window.get_live_text_enabled());
                         *saved_tone_mapping_for_change.borrow_mut() = selected_tone_mapping.clone();
                         *saved_video_threads_for_change.borrow_mut() = selected_video_threads;
@@ -975,6 +979,7 @@ pub(crate) fn connect(
                         app.set_resume_last_position(previous_resume);
                         previous_osd.install_player(&app);
                         app.set_osc_position(previous_layout.0);
+                        app.set_show_chapter_pos(previous_chapter_positions);
                         app.set_compact_ui(previous_layout.1);
                         app.set_docked_controls(previous_layout.2);
                         crate::liquid_glass_preferences::install_player(
@@ -1172,6 +1177,7 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_music_mode_show_playlist(app.get_music_mode_show_playlist());
     window.set_music_mode_show_album_art(app.get_music_mode_show_album_art());
     window.set_osc_position(app.get_osc_position());
+    window.set_show_chapter_pos(app.get_show_chapter_pos());
     window.set_hardware_decoder_index(app.get_hardware_decoder_index());
     window.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
     window

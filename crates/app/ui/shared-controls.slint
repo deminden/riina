@@ -16,6 +16,8 @@ export component PlayerSlider inherits Rectangle {
     in property <float> loop-a-value: 0;
     in property <bool> loop-b-visible: false;
     in property <float> loop-b-value: 0;
+    in property <bool> show-chapter-positions: false;
+    in property <[float]> chapter-times: [];
     callback changed(float);
     callback loop-a-moved(float);
     callback loop-b-moved(float);
@@ -50,6 +52,16 @@ export component PlayerSlider inherits Rectangle {
         width: 1px; height: 8px; background: #ffffff60; }
     Rectangle { x: 3px; y: 9px; width: (parent.width - 6px) * fraction; height: 2px;
         background: enabled ? #dddde5 : #666666; border-radius: 1px; }
+    // Chapter ticks reveal the underlying track through both progress fills,
+    // matching the reference's one-pixel cutouts without changing seek math.
+    for chapter-time in root.chapter-times : Rectangle {
+        visible: root.show-chapter-positions && chapter-time > root.minimum && chapter-time < root.maximum;
+        x: clamp(3px + (root.width - 6px) *
+            (chapter-time - root.minimum) / max(0.001, root.maximum - root.minimum) - 0.5px,
+            3px, root.width - 4px);
+        y: 9px; width: 1px; height: 2px;
+        background: root.dark-theme ? #202025 : #f2f2f2;
+    }
     if loop-a-visible : Rectangle {
         x: loop-a-x; y: (parent.height - round(knob-height / 1px * 0.75) * 1px) / 2;
         width: knob-width; height: round(knob-height / 1px * 0.75) * 1px;

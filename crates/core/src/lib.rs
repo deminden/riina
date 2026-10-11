@@ -1506,6 +1506,7 @@ pub struct Preferences {
     pub osd_timeout_secs: f64,
     pub osd_text_size: f64,
     pub display_time_and_battery_in_fullscreen: bool,
+    pub show_chapter_pos: bool,
     pub screenshot: screenshot::Settings,
     pub network: network_preferences::Connection,
     pub network_cache: network_preferences::Cache,
@@ -1612,6 +1613,7 @@ impl Default for Preferences {
             osd_timeout_secs: 1.0,
             osd_text_size: 20.0,
             display_time_and_battery_in_fullscreen: false,
+            show_chapter_pos: false,
             screenshot: screenshot::Settings::default(),
             network: network_preferences::Connection::default(),
             network_cache: network_preferences::Cache::default(),
@@ -2219,6 +2221,19 @@ mod tests {
         for value in [4.999, 500.001, f64::NAN, f64::INFINITY] {
             assert!(Preferences::parse(&format!(r#"{{"osd_text_size":{value}}}"#)).is_err());
         }
+    }
+
+    #[test]
+    fn chapter_position_markers_default_off_and_round_trip_when_enabled() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert!(!legacy.show_chapter_pos);
+
+        let enabled = Preferences {
+            show_chapter_pos: true,
+            ..legacy
+        };
+        let saved = serde_json::to_string(&enabled).unwrap();
+        assert!(Preferences::parse(&saved).unwrap().show_chapter_pos);
     }
 
     #[test]

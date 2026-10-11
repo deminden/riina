@@ -165,6 +165,13 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 1,
         page: "Interface",
+        section: "On-Screen Controller",
+        title: "Show chapter position in progress bar",
+        terms: "chapter timeline marker position progress bar",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
         section: "On-Screen Display",
         title: "Enable OSD",
         terms: "overlay display messages",
@@ -895,6 +902,11 @@ mod tests {
             ("stay above other windows", "Window", 207),
             ("title bar pin status", "Window", 207),
             ("osc position", "On-Screen Controller", 619),
+            (
+                "chapter position in progress bar",
+                "On-Screen Controller",
+                619,
+            ),
             ("overlay display messages", "On-Screen Display", 735),
         ] {
             let result = item_results(query);

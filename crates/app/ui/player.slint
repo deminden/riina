@@ -871,6 +871,8 @@ export component PlayerWindow inherits Window {
     in property <bool> secondary-subtitle-visible;
     in property <bool> secondary-subtitle-visibility-known;
     in property <[CatalogRow]> chapters;
+    in property <[float]> chapter-times: [];
+    in-out property <bool> show-chapter-pos: false;
     in property <[CatalogRow]> playlist;
     in property <bool> playlist-shuffled: false;
     in-out property <int> sidebar: 0;
@@ -1645,6 +1647,7 @@ export component PlayerWindow inherits Window {
                     PlayerSlider { dark-theme: root.dark-theme; knob-width: 3px; knob-height: 15px; knob-radius: 1px;
                         loop-a-visible: root.ab-loop-a-known; loop-a-value: root.ab-loop-a;
                         loop-b-visible: root.ab-loop-b-known; loop-b-value: root.ab-loop-b;
+                        show-chapter-positions: root.show-chapter-pos; chapter-times: root.chapter-times;
                         minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
                         changed(value) => { root.seek(value); }
                         loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
