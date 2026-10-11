@@ -60,7 +60,7 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The 0.3.0 package candidate fails during native
+no Windows application binary. The 0.3.0 package candidate is blocked by native
 shutdown on the hosted Windows runner, despite passing local playback checks
 against the exact release DLL. A captured mini dump identifies native audio-device
 notification cleanup calling into the unloaded Windows MMDevApi module. Selecting
@@ -68,7 +68,13 @@ a headless audio backend and retaining libmpv did not resolve it. The playback
 worker now owns a Windows MTA initialization through core destruction, while native
 modules remain loaded for the application's lifetime. Shutdown stages and a
 failure-only mini dump distinguish native destruction from worker teardown.
-The release checks exercise independent players and reopening, preserve the full
+The hosted MTA candidate passes the original crash point, but stalls in the
+interlaced-video test before native termination, while waiting for async requests.
+Shutdown now delegates pending-work cancellation and joining to native termination
+instead of blocking its start with a separate async wait. A queued paused-frame
+close/reopen regression covers this path. The native CI step and diagnostic
+reproduction are bounded; failed diagnostics capture hung-thread stacks as well as
+exception dumps. The release checks exercise independent players and reopening, preserve the full
 playback assertions, and run ahead of the slower application build. Hosted
 verification of this change is pending. A binary remains unavailable until the hosted
 playback gate, exact extracted-package checks, and corresponding-source audit

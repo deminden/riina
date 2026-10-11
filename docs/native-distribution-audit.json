@@ -81,13 +81,13 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38173249849,
-    "commit": "09d1bd3a9be82bc13aef95053a02ceb30d341316",
+    "run_id": 38173667126,
+    "commit": "41efdabfe5db34e01e00247148691a6840d9bbbc",
     "stage": "windows-package / native playback and lifecycle tests",
-    "failure": "The test ab_repeat_observes_points_and_wraps_playback completed its playback assertions, then the test process exited with 0xc0000005 (STATUS_ACCESS_VIOLATION) during player shutdown. Package assembly and publish were skipped.",
-    "evidence": "A hosted mini dump identifies libmpv-2.dll+0xf4a510 calling a COM vtable slot at offset 0x38 into the unloaded MMDevApi.dll range. This matches the engine audio-device notification unregister path. Request draining and callback removal completed before the fault. Neither null audio output nor retaining the native module resolved it.",
-    "resolution": "A Windows-only COM MTA guard now covers playback-worker creation through native core destruction. It balances successful initialization on the same worker thread and cannot move across threads. The full native suite, extracted-package test, and binary/source audit remain required. Hosted verification is pending.",
-    "local_verification": "44 native tests pass against release libmpv SHA-256 1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af with mpv null output. The exact runtime manifest and 15 package regressions pass locally.",
+    "failure": "The guarded Windows candidate passes the original A-B repeat shutdown crash, HTTP and independent-player checks, but stalls at interlaced-video shutdown before the async-request wait returns. The stalled run was canceled; package assembly and publication did not occur.",
+    "evidence": "Live native step output ends after shutdown intent is delivered while joining the event worker, before asynchronous requests drained. The preceding captured fault identified a COM virtual call into unloaded MMDevApi; the MTA guard passes that point in this candidate.",
+    "resolution": "Keep the Windows MTA guard through core destruction. Remove the additional pre-termination async wait so mpv_terminate_destroy can quit pending playback work and join the core. Add queued paused-frame close/reopen coverage, bounded native CI and bounded failure diagnostics with hung-thread dumps. Hosted verification remains required.",
+    "local_verification": "45 native tests pass against release libmpv SHA-256 1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af with mpv null output, including queued frame work at close. Exact runtime manifest and 15 package regressions pass locally.",
     "next_action": "Verify the Windows COM lifetime change on the hosted runner; publish only after complete playback and exact binary/source audit pass."
   },
   "historical_candidate_failures": [

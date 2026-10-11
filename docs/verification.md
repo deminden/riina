@@ -1638,7 +1638,7 @@ Startup now retains every positional media argument, including paths containing 
 
 The exact release DLL from native-engine run 38138622911 has SHA-256
 `1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`.
-Its complete runtime manifest passes locally. All 44 current native playback/lifecycle
+Its complete runtime manifest passes locally. All 45 current native playback/lifecycle
 tests pass against it with mpv's clocked null audio output, including independent
 players and the HTTP range fixture. The preceding 43-test suite also passed with
 OpenAL Soft's null device. Workspace tests, formatting and strict Clippy pass locally.
@@ -1651,10 +1651,15 @@ The hosted mini dump identifies `libmpv-2.dll+0xf4a510` making a virtual call at
 `[rax+0x38]` into the unloaded `MMDevApi.dll` range during audio-device notification
 cleanup. This matches the pinned engine's endpoint-notification unregister path.
 The Windows playback worker now owns a COM MTA guard before core creation and
-releases it only after core destruction on that same thread. Hosted verification
-of this guard remains required. Native
+releases it only after core destruction on that same thread. The hosted guarded
+candidate passes the A-B loop, HTTP and independent-player checks, then hangs while
+waiting for async requests on interlaced-media shutdown. The separate wait is now
+removed: `mpv_terminate_destroy` starts termination and owns core joining. A new
+native regression closes and reopens paused interlaced media with frame-step and
+capture commands still queued. All 45 tests pass locally in about 28 seconds;
+hosted verification of the complete suite remains required. Native
 modules now remain loaded for the application lifetime while each player destroys
-its own core; shutdown tracing records request draining, callback removal, native
+its own core; shutdown tracing records accepted shutdown, callback removal, native
 destruction and worker joining. The additional native regression closes one of two
 players, verifies the survivor can seek while paused, then reopens playback after
 both earlier cores have been destroyed. The HTTP fixture server now handles
@@ -1662,7 +1667,10 @@ reopened connections and byte-range requests during decoder probing and seeking.
 These locally verified changes still require hosted verification before being reported as the
 release fix. The application keeps its normal Windows audio selection. The full
 native assertions are retained and run before the slower application checks and
-build. A hosted run must pass the full suite and a separate
+build. The native step has a ten-minute outer limit, including compilation. Its
+failure-only reproduction has a 90-second limit and captures a hang dump from its
+own child process before stopping that child. Diagnostic results cannot replace
+the failing gate. A hosted run must pass the full suite and a separate
 playback check against the final extracted ZIP. Publication additionally requires
 the exact source hashes, native repository revisions, notice contents, application
 commit and final asset checksums to match.

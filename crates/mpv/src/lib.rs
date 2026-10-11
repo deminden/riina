@@ -276,10 +276,11 @@ impl Player {
                 while let Ok(message) = receiver.recv() {
                     if let Message::Intent(command) = message {
                         if command == Command::Shutdown {
-                            // Property notifications can arrive before the async command
-                            // reply; drain requests before destroying the native client.
-                            (worker_api.wait_async_requests)(handle);
-                            trace_shutdown("asynchronous requests drained");
+                            // Termination must start before waiting for pending work:
+                            // frame/screenshot commands can require playback progress.
+                            // mpv_terminate_destroy owns quitting and joining the core;
+                            // a separate wait_async_requests here can stall that quit.
+                            trace_shutdown("shutdown accepted; terminating pending playback work");
                             break;
                         }
                         match command.plan(&state) {

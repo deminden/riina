@@ -11,6 +11,41 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies close with queued paused-frame work"]
+fn closing_with_queued_frame_work_terminates_and_reopens() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let library = test_library(&root);
+    let media = root.join("tests/fixtures/interlaced-tff.mkv");
+    for _ in 0..3 {
+        let (sender, receiver) = mpsc::channel();
+        let player = start_test_player(&library, true, move |state| {
+            let _ = sender.send(state);
+        })
+        .unwrap();
+        player.send(Command::SetPauseWhenOpen(true)).unwrap();
+        player
+            .send(Command::Load(media.to_str().unwrap().into()))
+            .unwrap();
+        let loaded = wait_for(&receiver, |state| {
+            state.error.is_some() || (state.paused && state.position.is_some())
+        });
+        assert_eq!(loaded.error, None);
+        // Close while frame work is queued rather than waiting for every reply.
+        // This is a normal window-close path, including a close during capture.
+        for _ in 0..12 {
+            player.send(Command::FrameStep).unwrap();
+            player.send(Command::CaptureFrame).unwrap();
+        }
+        let closing = Instant::now();
+        drop(player);
+        assert!(closing.elapsed() < Duration::from_secs(12));
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies independent cores and reopening"]
 fn independent_players_survive_peer_shutdown_and_reopen() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

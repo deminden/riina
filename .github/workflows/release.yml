@@ -179,6 +179,7 @@ jobs:
           python scripts/check-assets.py
           cargo fmt --all -- --check
       - name: Native playback and lifecycle tests
+        timeout-minutes: 10
         shell: pwsh
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
@@ -195,6 +196,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Native playback and lifecycle tests failed with exit code $LASTEXITCODE." }
       - name: Capture the hosted native shutdown fault
         if: failure()
+        timeout-minutes: 5
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -218,11 +220,26 @@ jobs:
           # A failed runner gets one instrumented reproduction with a mini dump; its
           # stack and module addresses distinguish engine faults from FFI misuse.
           # Diagnostic artifacts are never copied into public release assets.
-          & $procdump -accepteula -mm -e -x native-fault $test.FullName --ignored --nocapture --test-threads=1 2>&1 | Tee-Object native-fault/procdump.log
+          $started = Get-Date
+          $diagnostic = Start-Process -FilePath $procdump -WindowStyle Hidden -PassThru `
+            -ArgumentList @('-accepteula', '-mm', '-e', '-x', 'native-fault', $test.FullName, '--ignored', '--nocapture', '--test-threads=1') `
+            -RedirectStandardOutput native-fault/procdump.log -RedirectStandardError native-fault/procdump-error.log
+          if (!$diagnostic.WaitForExit(90000)) {
+            # Capture the process launched by this diagnostic, not another test or
+            # player. A blocked Drop must fail verification, never turn into a pass.
+            $children = Get-CimInstance Win32_Process | Where-Object {
+              $_.ParentProcessId -eq $diagnostic.Id -and $_.ExecutablePath -eq $test.FullName -and $_.CreationDate -ge $started
+            }
+            foreach ($child in $children) {
+              & $procdump -accepteula -mm $child.ProcessId "native-fault/hang-$($child.ProcessId).dmp"
+              Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            Stop-Process -Id $diagnostic.Id -Force -ErrorAction SilentlyContinue
+          }
           $debugger = Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($debugger) {
             Get-ChildItem native-fault/*.dmp | ForEach-Object {
-              & $debugger.FullName -z $_.FullName -c '.symfix;.reload;.ecxr;k;!analyze -v;q' 2>&1 | Tee-Object native-fault/stack.log
+              & $debugger.FullName -z $_.FullName -c '.symfix;.reload;.ecxr;k;~*k;!analyze -v;q' 2>&1 | Tee-Object -Append native-fault/stack.log
             }
           }
       - name: Preserve native test output after failure
