@@ -6,7 +6,10 @@ Riina is an established Rust media-player application, beyond its initial feasib
 and playback milestones. The current development version is 0.3.0. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
-file handling, and lifecycle behavior.
+file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
+native HTTP playback check that serves the repository's moving-square fixture over
+localhost and verifies advancing playback, duration, and the selected audio track.
+This does not verify physical audio hardware, public network streams, or macOS playback.
 
 Windows 11 x64 is the supported application target. macOS and Linux application
 ports are in development and are not supported yet. Full application builds, visible
@@ -34,10 +37,20 @@ Windows HDR and native-window work has runtime evidence, but calibrated end-to-e
 HDR parity and broad hardware coverage remain unverified. Consult the parity
 inventory for the exact state of each requirement.
 
-The playlist sidebar now supports additive and range selection plus stable-order
-multi-row drag reordering. Pure reorder planning is covered across small playlist
-permutations and the Windows application workspace compiles; live drag behavior,
-external file drops, edge autoscroll, and macOS interaction comparison remain open.
+The PiP lifecycle now follows IINA's distinction between closing and stopping:
+closing restores the main-window state without changing playback, while the
+explicit Stop control pauses playback. Shared lifecycle tests and the Windows
+application compile pass. The macOS surface is still not implemented, and the
+Windows projection and interaction still need live GUI verification. The Mac
+rendering constraint and required surface experiment are recorded in
+`docs/adr/0005-macos-picture-in-picture.md`.
+
+The playlist sidebar now supports additive and range selection, stable-order
+multi-row drag reordering, and multi-entry Copy, Cut, and Remove actions. Removal
+resolves stable native IDs against one playlist snapshot and adjusts indices as
+rows are removed; core tests cover order and stale selections. The Windows app
+compile and live selection/removal still need verification, as do drag behavior,
+external file drops, edge autoscroll, and macOS interaction comparison.
 
 ## Licensing and binary distribution
 
@@ -75,11 +88,14 @@ The parity traceability check accepts all 192 currently inventoried requirements
 while explicitly reporting that the inventory is incomplete. The previous
 candidate's native engine and source artifacts are available to reuse for the next
 package check. The Unix presentation marker
-derives `Clone` to match the Windows adapter's shared timer ownership. The latest
-macOS/Linux application run failed lint because the marker also derived `Copy`, making
-the shared clone redundant; the marker now derives only `Clone`, and that correction
-is awaiting the next normal CI run. Windows compilation/domain and portable playback
-workflows are separate checks; consult their linked Actions runs for live conclusions.
+derives `Clone` to match the Windows adapter's shared timer ownership. The full
+macOS/Linux application workflow passed Clippy, workspace tests, and application
+builds for both matrix hosts at commit `007e410` in
+[run 38167050195](https://github.com/deminden/riina/actions/runs/38167050195).
+This establishes successful linking on those runners, not native media playback,
+PiP, display behavior, or supported-platform status. Windows compilation/domain
+and portable playback workflows are separate checks; consult their linked Actions
+runs for live conclusions.
 
 Local verification evidence and exact limitations are recorded in
 `docs/verification.md` and the requirement rows in `docs/parity.csv`. GUI, HDR,

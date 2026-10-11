@@ -1565,13 +1565,13 @@ restart flow or the Preferences control's rendered pixels; both remain open.
 The Windows controller keeps the existing libmpv renderer and decoder, projects its
 native video surface into a compact always-on-top Slint window through DWM, and
 syncs title, pause, seek and configured main-window lifecycle behavior. Closing PiP
-now pauses playback, matching IINA's observed exit behavior, and restores the main
-window only when that PiP session hid or minimized it. Core lifecycle tests cover
-those effects. Entry now checks the pause command and restores its prior pause state
-if hiding the main window fails; the renderer is moved only after that fallible
-window action succeeds. Windows app compilation covers this path, but DWM projection,
-live PiP controls, minimized/hidden restoration, display changes and visual parity
-have not been GUI-tested. macOS PiP remains pending.
+preserves playback state, while its explicit Stop action pauses, matching IINA's
+separate exit and stop semantics. Core lifecycle tests cover restoration without an
+implicit pause. Entry checks the pause command and restores its prior pause state if
+hiding the main window fails; the renderer is moved only after that fallible window
+action succeeds. Windows app compilation covers this path, but DWM projection, live
+PiP controls, minimized/hidden restoration, display changes and visual parity have
+not been GUI-tested. macOS PiP remains pending.
 
 ## Headless Windows native playback tests
 
@@ -1584,3 +1584,70 @@ which verifies initialization, decoding and player lifecycle without physical
 speakers; it does not verify audible output hardware. The difference between hosted
 and local execution remains unresolved. The workflow also runs an integration test
 against the exact extracted portable package after the native suite passes.
+
+## HTTP URL playback
+
+`http_url_opens_and_plays_a_local_media_fixture` serves the original
+`moving-square.avi` fixture over localhost and loads its HTTP URL through the
+provisioned libmpv library. The native Windows run passes and verifies advancing
+playback, the five-second duration, and the selected audio track. It runs headless
+with the OpenAL null output configured for the hosted-style environment; this is
+not evidence of physical audio output, public network protocols, GUI URL entry,
+or macOS runtime behavior.
+
+Command: `cargo test -p riina-mpv --test native --locked --
+http_url_opens_and_plays_a_local_media_fixture --ignored --nocapture`.
+
+## macOS Live Text recognition adapter
+
+Riina now routes the existing opt-in, paused-frame capture through Apple's Vision
+text-recognition request on macOS 13 and later. Recognition runs on a worker with
+an autorelease pool; the captured RGBA storage remains alive until the synchronous
+request completes. Vision's normalized bottom-left boxes are clipped and converted
+inside the macOS adapter to top-left pixel coordinates. Recognition results are dropped
+if the media generation, paused state, or interactive crop/music mode changes.
+
+The adapter API was source-checked for `aarch64-apple-darwin` using the pinned Rust
+toolchain; macOS runtime and GUI tests are deferred until an Apple test environment is
+available. A full application cross-check from Windows could not build `rquickjs-sys`
+because this host has no Apple-target C compiler or SDK. This is source/API evidence
+only: macOS application linking, real frame recognition, and rendering are still
+unverified. The reference uses VisionKit's `ImageAnalysisOverlayView`;
+Riina's current shared clickable-region overlay still lacks its native text-selection
+interaction, context menu, accessibility behavior, and matched appearance.
+
+## Multi-selection playlist removal
+
+The playlist toolbar's Copy, Cut, and Remove actions now honor the selected rows.
+Cut copies the selected paths in visible playlist order, then submits their stable
+native IDs in one intent. The planner resolves every ID against the same observed
+playlist snapshot, sorts the resulting indices, and adjusts each later removal for
+the rows already removed, matching IINA's `IndexSet` behavior. Missing and duplicate
+IDs reject the whole intent before native commands are issued. Core planning tests
+cover non-adjacent rows, reversed selection order, stale IDs, duplicates, and the
+empty selection. The Windows workspace compiles with the updated toolbar dispatcher.
+The New action now reaches its independent-player launch handler. Live Windows
+selection/cut, new-player launch, and removal of the currently playing row remain
+unverified.
+
+## Multiple command-line media paths
+
+Startup now retains every positional media argument, including paths containing spaces, and submits the batch through the same directory expansion and natural ordering used by file selection. The internal renderer switch remains a first-argument control and is not treated as media. Two startup parser regressions pass. Windows GUI acceptance, command-line network URLs, and the wider IINA CLI option grammar remain unverified.
+
+## Current binary candidate verification
+
+The exact release DLL from native-engine run 38138622911 has SHA-256
+`1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`.
+Its complete runtime manifest passes locally. All 43 native playback/lifecycle
+tests pass against it with both OpenAL Soft's null device and mpv's clocked null
+audio output. Workspace tests, formatting and strict Clippy also pass locally.
+These runs cover the current Windows source changes; they do not certify GUI,
+physical audio hardware, HDR display or macOS runtime behavior.
+
+Hosted candidate 38163947662 still crashed during A-B loop shutdown using OpenAL.
+The release tests now select mpv's null audio output for runners without speakers;
+the application keeps its normal Windows audio selection. The native test count
+and assertions are retained. A hosted run must pass the full suite and a separate
+playback check against the final extracted ZIP. Publication additionally requires
+the exact source hashes, native repository revisions, notice contents, application
+commit and final asset checksums to match.

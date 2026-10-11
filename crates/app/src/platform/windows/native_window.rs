@@ -107,9 +107,9 @@ fn align(host: &slint::Window, chrome: &slint::Window) {
     });
 }
 
-pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(media: Vec<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let action_after_launch = crate::player_ui::action_after_launch()?;
-    let supplied_media_argument = media.is_some();
+    let supplied_media_argument = !media.is_empty();
     let owner = Arc::new(AtomicIsize::new(0));
     let hook_owner = owner.clone();
     slint::BackendSelector::new()

@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 spec = importlib.util.spec_from_file_location("release", Path(__file__).parents[1] / "check-release-artifacts.py")
@@ -66,6 +67,42 @@ class ReleaseArtifactTests(unittest.TestCase):
             manifest.write_text("path\tsha256\n../outside.dll\t" + "0" * 64 + "\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "path"):
                 release.verify_runtime(root)
+
+    def test_sources_must_match_engine_revision_bytes_and_notices(self):
+        with tempfile.TemporaryDirectory() as temp:
+            native = Path(temp) / "native"
+            runtime = Path(temp) / "runtime"
+            source = native / "native-sources/codec"
+            notices = runtime / "THIRD_PARTY_LICENSES/codec"
+            source.mkdir(parents=True)
+            notices.mkdir(parents=True)
+            (source / "decode.c").write_bytes(b"original source")
+            (source / "LICENSE").write_bytes(b"original notice")
+            (notices / "LICENSE").write_bytes(b"original notice")
+            manifest = ("source_git\tsrc_packages/codec\thttps://example.org/codec\trevision\n"
+                        f"source_sha256\tcodec/decode.c\t{release.digest(source / 'decode.c')}\n")
+            (native / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            (runtime / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            with patch.object(release.subprocess, "check_output", return_value="revision\n"):
+                self.assertEqual(release.verify_native_sources(native, runtime), (1, 1))
+                (source / "decode.c").write_bytes(b"different source")
+                with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                    release.verify_native_sources(native, runtime)
+                (source / "decode.c").write_bytes(b"original source")
+                (notices / "LICENSE").write_bytes(b"different notice")
+                with self.assertRaisesRegex(ValueError, "notice differs"):
+                    release.verify_native_sources(native, runtime)
+                (notices / "LICENSE").write_bytes(b"original notice")
+                (runtime / "SOURCE-MANIFEST.tsv").write_text("different engine", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "do not belong"):
+                    release.verify_native_sources(native, runtime)
+
+    def test_source_paths_reject_traversal_and_absolute_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ("../outside", "/outside", "C:/outside", "codec\\outside"):
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    release.source_path(root, name)
 
 
 if __name__ == "__main__":

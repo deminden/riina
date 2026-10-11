@@ -204,6 +204,11 @@ pub(crate) use windows::{
     NativePresentation, file_dialog, native_window, open_dialog, services::*,
 };
 
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::text_recognition;
+
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod unix;
 #[cfg(any(target_os = "macos", target_os = "linux"))]

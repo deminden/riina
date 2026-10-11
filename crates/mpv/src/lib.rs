@@ -301,6 +301,7 @@ impl Player {
                                             | Command::MovePlaylistId { .. }
                                             | Command::RemovePlaylistEntry(_)
                                             | Command::RemovePlaylistId(_)
+                                            | Command::RemovePlaylistIds(_)
                                             | Command::ClearPlaylist
                                             | Command::AppendFiles(_)
                                             | Command::OpenFiles(_)

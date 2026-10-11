@@ -27,6 +27,11 @@ on:
         type: string
         required: false
         default: ''
+      publish_release:
+        description: Publish this version after package, playback and corresponding-source verification pass
+        type: boolean
+        required: true
+        default: false
 permissions:
   contents: write
   actions: read
@@ -43,7 +48,13 @@ jobs:
         shell: bash
         env:
           NATIVE_ARTIFACT_RUN_ID: ${{ inputs.native_artifact_run_id }}
+          PUBLISH_RELEASE: ${{ inputs.publish_release }}
+          BUILD_CANDIDATE: ${{ inputs.build_release_candidate }}
         run: |
+          if [[ "$PUBLISH_RELEASE" == true && "$BUILD_CANDIDATE" != true ]]; then
+            echo 'Publishing requires a complete package candidate in this run' >&2
+            exit 1
+          fi
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$NATIVE_ARTIFACT_RUN_ID" ]]; then
             [[ "$NATIVE_ARTIFACT_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
               echo 'native_artifact_run_id must be a positive numeric workflow run ID' >&2
@@ -122,6 +133,8 @@ jobs:
     runs-on: windows-latest
     needs: [release-readiness, native-engine]
     timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
@@ -167,8 +180,10 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           Set-Content -Path native-playback-tests.log -Value '' -Encoding utf8
           $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path native-runtime/libmpv-2.dll).Path
-          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'openal'
-          $env:ALSOFT_DRIVERS = 'null'
+          # These runners have no speakers. mpv's clocked null AO still decodes
+          # selected audio and exercises transport/lifecycle without introducing
+          # an unrelated OpenAL device into the Windows WASAPI application path.
+          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'null'
           $runtimePath = (Resolve-Path native-runtime).Path
           $env:PATH = "$runtimePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1 2>&1 | Tee-Object -FilePath native-playback-tests.log
@@ -218,8 +233,7 @@ jobs:
           python scripts/check-windows-runtime.py --package package-smoke
           if ($LASTEXITCODE -ne 0) { throw 'Extracted package has unresolved Windows imports.' }
           $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path package-smoke/libmpv-2.dll).Path
-          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'openal'
-          $env:ALSOFT_DRIVERS = 'null'
+          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'null'
           $packagePath = (Resolve-Path package-smoke).Path
           $env:PATH = "$packagePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked --target x86_64-pc-windows-msvc playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture
@@ -273,6 +287,7 @@ jobs:
           source_dir="$RUNNER_TEMP/riina-source-$version"
           mkdir -p "$source_dir/.cargo" "$source_dir/native-build"
           git archive "$GITHUB_SHA" | tar -xf - -C "$source_dir"
+          printf '%s\n' "$GITHUB_SHA" > "$source_dir/SOURCE-COMMIT.txt"
           mkdir -p "$source_dir/THIRD_PARTY_LICENSES"
           cp -a "$RUNNER_TEMP/rust-license-bundle" "$source_dir/THIRD_PARTY_LICENSES/RUST"
           cp "$RUNNER_TEMP/SLINT-ROYALTY-FREE-2.0.pdf" "$source_dir/THIRD_PARTY_LICENSES/"
@@ -294,11 +309,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true'
+  package-verification:
     runs-on: ubuntu-24.04
-    needs: [release-readiness, windows-package, source-package]
+    needs: [windows-package, source-package]
+    outputs:
+      version: ${{ steps.package.outputs.version }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
         with:
           name: windows-package
@@ -307,20 +324,65 @@ jobs:
         with:
           name: complete-source
           path: release-assets
-      - name: Confirm tag and package versions match
+      - name: Audit exact extracted binary and corresponding source
+        id: package
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v$version"
+          fi
           test -f "release-assets/riina-$version-windows-x86_64.zip"
           test -f "release-assets/riina-$version-source.tar.zst"
           cat "release-assets/riina-$version-source.tar.zst.sha256" >> release-assets/SHA256SUMS.txt
           (cd release-assets && sha256sum --check SHA256SUMS.txt)
+          mkdir binary-source-check source-check
+          unzip -q "release-assets/riina-$version-windows-x86_64.zip" -d binary-source-check
+          tar --zstd -xf "release-assets/riina-$version-source.tar.zst" -C source-check
+          test "$(cat "source-check/riina-$version/SOURCE-COMMIT.txt")" = "$GITHUB_SHA"
+          python scripts/check-windows-runtime.py --package binary-source-check
+          python scripts/check-release-artifacts.py package --binary binary-source-check \
+            --source "source-check/riina-$version" --version "$version" \
+            > release-assets/RELEASE-VERIFICATION.json
+          cat release-assets/RELEASE-VERIFICATION.json
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
+        with:
+          name: verified-release-assets
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.publish_release)
+    runs-on: ubuntu-24.04
+    needs: [release-readiness, windows-package, source-package, package-verification]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
+        with:
+          name: verified-release-assets
+          path: release-assets
       - name: Publish release with visible binary and source assets
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.package-verification.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          set -euo pipefail
+          version="$RELEASE_VERSION"
           repo="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          tag="$GITHUB_REF_NAME"
+          tag="v$version"
+          # Never attach new assets to a tag pointing at different application
+          # sources. A dispatch creates the version tag only after verification.
+          if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            test "$(git rev-list -n1 "$tag")" = "$GITHUB_SHA"
+          else
+            git tag "$tag" "$GITHUB_SHA"
+            git push origin "refs/tags/$tag"
+          fi
+          (cd release-assets && sha256sum --check SHA256SUMS.txt)
           cat > release-notes.md <<EOF
           Riina $version for Windows x86_64.
 
@@ -337,12 +399,13 @@ jobs:
           independently written source remains MIT-licensed; third-party terms
           and notices are included in the package and source archive.
           EOF
-          gh release create "$GITHUB_REF_NAME" \
+          gh release create "$tag" \
             "release-assets/riina-$version-windows-x86_64.zip" \
             "release-assets/SHA256SUMS.txt" \
             "release-assets/riina-$version-source.tar.zst" \
             "release-assets/riina-$version-source.tar.zst.sha256" \
-            --title "Riina $version" --notes-file release-notes.md
+            "release-assets/RELEASE-VERIFICATION.json" \
+            --verify-tag --latest --title "Riina $version" --notes-file release-notes.md
           release_url="$repo/releases/tag/$tag"
           {
             echo "## Riina $version release"

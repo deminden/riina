@@ -107,6 +107,13 @@ its runtime hash manifest. It also checks the native source archive's checksum
 before extraction and both final asset checksums before publication. Application
 import checks produce a separate report so the recorded engine report stays intact.
 
+The final package audit compares the engine's source manifest with the distributed
+native source tree, checks each captured source hash and repository revision, and
+matches packaged notices to those sources. The source archive also records the
+application commit. An explicitly requested release dispatch publishes only after
+the complete native suite, extracted-package playback, source packaging and this
+audit succeed in the same run. The verification report is a release asset.
+
 The pinned `subrandr` helper also brings in `unicode-ident 1.0.13`, which declares
 the Unicode License Agreement for Data Files and Software (2016). The Free
 Software Foundation classifies that permissive grant as compatible with all GPL

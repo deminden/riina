@@ -203,7 +203,7 @@ fn recent_document_rows(
     recent_media_rows(media.get(offset..).unwrap_or_default())
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 fn install_live_text(
     app: &PlayerWindow,
     sender: riina_mpv::CommandSender,
@@ -224,6 +224,8 @@ fn install_live_text(
                 || !app.get_live_text_available()
                 || !app.get_loaded()
                 || state.phase != Phase::Paused
+                || app.get_crop_editing()
+                || app.get_music_mode()
             {
                 requested_frame.set(None);
                 recognized_capture.set(None);
@@ -274,6 +276,8 @@ fn install_live_text(
                         || current.phase != Phase::Paused
                         || current.completed_frame_captures != key.1
                         || !app.get_live_text_enabled()
+                        || app.get_crop_editing()
+                        || app.get_music_mode()
                     {
                         return;
                     }
@@ -368,6 +372,42 @@ fn install_playlist_selection(app: &PlayerWindow, selected: &[String]) {
         })
         .collect::<Vec<_>>();
     app.set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
+}
+
+fn selected_playlist_paths(app: &PlayerWindow, clicked_token: &str) -> Vec<String> {
+    let selected = app
+        .get_selected_playlist_tokens()
+        .iter()
+        .map(|token| token.to_string())
+        .collect::<Vec<_>>();
+    let selected = if selected.iter().any(|token| token == clicked_token) {
+        selected
+    } else {
+        vec![clicked_token.to_owned()]
+    };
+    let rows = app.get_playlist();
+    (0..rows.row_count())
+        .filter_map(|index| rows.row_data(index))
+        .filter(|row| selected.iter().any(|token| token == row.token.as_str()))
+        .map(|row| row.path.to_string())
+        .collect()
+}
+
+fn selected_playlist_ids(app: &PlayerWindow, clicked_token: &str) -> Result<Vec<i64>, String> {
+    let selected = app
+        .get_selected_playlist_tokens()
+        .iter()
+        .map(|token| token.to_string())
+        .collect::<Vec<_>>();
+    let selected = if selected.iter().any(|token| token == clicked_token) {
+        selected
+    } else {
+        vec![clicked_token.to_owned()]
+    };
+    selected
+        .iter()
+        .map(|token| token.parse::<i64>().map_err(|error| error.to_string()))
+        .collect()
 }
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
@@ -1032,9 +1072,20 @@ pub(crate) fn action_after_launch()
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
-    media: Option<std::ffi::OsString>,
+    media: Vec<std::ffi::OsString>,
     welcome: Option<&WelcomeWindow>,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let weak = app.as_weak();
+        app.on_toggle_picture_in_picture(move || {
+            if let Some(app) = weak.upgrade() {
+                app.set_status(
+                    "Picture-in-Picture is unavailable on this presentation path".into(),
+                );
+            }
+        });
+    }
     let prefs_path = platform::preferences_path()?;
     let prefs = match std::fs::read_to_string(&prefs_path) {
         Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
@@ -1044,7 +1095,7 @@ pub(crate) fn configure_player(
     app.set_live_text_enabled(prefs.live_text_enabled);
     app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
     app.set_live_text_available(false);
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         let weak = app.as_weak();
         let _ = platform::text_recognition::check_availability(move |available| {
@@ -1328,13 +1379,13 @@ pub(crate) fn configure_player(
             return Err(std::io::Error::other(error).into());
         }
     };
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     let live_text_timer = Some(install_live_text(
         app,
         player.command_sender(),
         latest_playback.clone(),
     ));
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     let live_text_timer = None;
     let manual_music_mode = music_mode_state.clone();
     let weak = app.as_weak();
@@ -2296,32 +2347,33 @@ pub(crate) fn configure_player(
     let playlist_player = player.command_sender();
     let weak = app.as_weak();
     app.on_playlist_action(move |action, token| {
-        if matches!(action, 6..=8) {
-            let Some(app) = weak.upgrade() else {
-                return;
-            };
-            app.invoke_activity();
-            let rows = app.get_playlist();
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        if matches!(action, 6..=9) {
+            window.invoke_activity();
+            let rows = window.get_playlist();
             let selected_index = (0..rows.row_count()).find(|index| {
                 rows.row_data(*index)
                     .is_some_and(|row| row.token.as_str() == token.as_str())
             });
             let result = match action {
-                6 | 7 => selected_index
-                    .and_then(|index| rows.row_data(index))
-                    .ok_or_else(|| "Select a playlist item first".to_owned())
-                    .and_then(|row| crate::platform::clipboard::copy_text(row.path.as_str()))
-                    .and_then(|()| {
-                        if action == 7 {
-                            token
-                                .parse::<i64>()
-                                .map(Command::RemovePlaylistId)
-                                .map_err(|error| error.to_string())
-                                .and_then(|command| playlist_player.send(command))
-                        } else {
-                            Ok(())
-                        }
-                    }),
+                6 | 7 => {
+                    let paths = selected_playlist_paths(&window, token.as_str());
+                    if paths.is_empty() {
+                        Err("Select a playlist item first".into())
+                    } else {
+                        crate::platform::clipboard::copy_text(&paths.join("\n")).and_then(|()| {
+                            if action == 7 {
+                                selected_playlist_ids(&window, token.as_str()).and_then(|ids| {
+                                    playlist_player.send(Command::RemovePlaylistIds(ids))
+                                })
+                            } else {
+                                Ok(())
+                            }
+                        })
+                    }
+                }
                 8 => crate::platform::clipboard::read_text().and_then(|text| {
                     let paths = riina_core::playlist::clipboard_references(&text);
                     if paths.is_empty() {
@@ -2337,17 +2389,16 @@ pub(crate) fn configure_player(
                 _ => unreachable!(),
             };
             if let Err(error) = result {
-                app.set_status(error.into());
+                window.set_status(error.into());
             } else if action == 7 {
-                app.set_selected_playlist_token("".into());
+                window.set_selected_playlist_token("".into());
+                window.set_selected_playlist_tokens(slint::ModelRc::default());
+                install_playlist_selection(&window, &[]);
             }
             return;
         }
         let command = match action {
-            1 => token
-                .parse()
-                .map(Command::RemovePlaylistId)
-                .map_err(|error: std::num::ParseIntError| error.to_string()),
+            1 => selected_playlist_ids(&window, token.as_str()).map(Command::RemovePlaylistIds),
             2 | 3 => token
                 .parse()
                 .map(|id| Command::MovePlaylistId {
@@ -2359,11 +2410,13 @@ pub(crate) fn configure_player(
             5 => Ok(Command::CycleLoop),
             _ => Err("Unknown playlist action".into()),
         };
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
-                app.set_status(error.into());
-            }
+        window.invoke_activity();
+        if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
+            window.set_status(error.into());
+        } else if action == 1 {
+            window.set_selected_playlist_token("".into());
+            window.set_selected_playlist_tokens(slint::ModelRc::default());
+            install_playlist_selection(&window, &[]);
         }
     });
     let playlist_selection_anchor = Rc::new(RefCell::new(None::<String>));
@@ -2839,8 +2892,8 @@ pub(crate) fn configure_player(
         player
             .send(Command::Volume(prefs.volume))
             .map_err(std::io::Error::other)?;
-        if let Some(path) = media {
-            media_open::startup(app, path, player.command_sender());
+        if !media.is_empty() {
+            media_open::startup(app, media, player.command_sender());
         }
         return Ok(UiSession {
             player: Some(player),
@@ -2926,10 +2979,11 @@ pub(crate) fn configure_player(
                                 if !started {
                                     started = true;
                                     let _ = render_player.send(Command::Volume(volume));
-                                    if let Some(path) = pending_media.borrow_mut().take() {
+                                    let paths = std::mem::take(&mut *pending_media.borrow_mut());
+                                    if !paths.is_empty() {
                                         media_open::startup(
                                             &app,
-                                            path,
+                                            paths,
                                             render_player.command_sender(),
                                         );
                                     }

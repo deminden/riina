@@ -150,6 +150,10 @@ impl Controller {
                 let _ = play_commands.send(Command::SetPaused(!player.get_paused()));
             }
         });
+        let stop_commands = controller.borrow().commands.clone();
+        controller.borrow().pip.on_stop(move || {
+            let _ = stop_commands.send(Command::SetPaused(true));
+        });
         let skip_commands = controller.borrow().commands.clone();
         controller.borrow().pip.on_skip(move |seconds| {
             let _ = skip_commands.send(Command::Seek {
@@ -377,14 +381,13 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
 }
 
 fn exit(controller: Rc<RefCell<Controller>>) {
-    let (pip, player_weak, host_weak, active, commands) = {
+    let (pip, player_weak, host_weak, active) = {
         let controller = controller.borrow();
         (
             controller.pip.as_weak(),
             controller.player.clone(),
             controller.host.clone(),
             controller.active.clone(),
-            controller.commands.clone(),
         )
     };
     let Some(session) = active.borrow_mut().take() else {
@@ -415,9 +418,6 @@ fn exit(controller: Rc<RefCell<Controller>>) {
         player
             .window()
             .with_winit_window(|window| window.focus_window());
-    }
-    if effects.pause_playback {
-        let _ = commands.send(Command::SetPaused(true));
     }
 }
 

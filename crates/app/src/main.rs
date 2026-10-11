@@ -54,24 +54,16 @@ slint::include_modules!();
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     prepare_online_video_path()?;
     let action_after_launch = player_ui::action_after_launch()?;
-    let mut args = std::env::args_os().skip(1);
-    let first = args.next();
-    let shared_gl = first.as_deref() == Some(std::ffi::OsStr::new("--shared-gl"));
-    let native_video = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
-    let media = if shared_gl || native_video {
-        args.next()
-    } else {
-        first
-    };
-    let supplied_media_argument = media.is_some();
+    let (_shared_gl, _native_video, media) = startup_arguments(std::env::args_os().skip(1));
+    let supplied_media_argument = !media.is_empty();
     #[cfg(target_os = "windows")]
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
-    if !shared_gl {
+    if !_shared_gl {
         return platform::native_window::run(media);
     }
     #[cfg(not(target_os = "windows"))]
-    if native_video {
+    if _native_video {
         return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
     }
     slint::BackendSelector::new()
@@ -101,6 +93,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     session.save(&app)
 }
 
+fn startup_arguments(
+    mut args: impl Iterator<Item = std::ffi::OsString>,
+) -> (bool, bool, Vec<std::ffi::OsString>) {
+    let first = args.next();
+    let shared_gl = first.as_deref() == Some(std::ffi::OsStr::new("--shared-gl"));
+    let native_video = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
+    let media = if shared_gl || native_video {
+        args.collect()
+    } else {
+        first.into_iter().chain(args).collect()
+    };
+    (shared_gl, native_video, media)
+}
+
 fn prepare_online_video_path() -> Result<(), Box<dyn std::error::Error>> {
     let path = platform::preferences_path()?;
     let preferences = match std::fs::read_to_string(path) {
@@ -119,4 +125,33 @@ fn prepare_online_video_path() -> Result<(), Box<dyn std::error::Error>> {
     // can observe a partially updated environment while mpv resolves yt-dlp.
     unsafe { std::env::set_var("PATH", path) };
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::startup_arguments;
+    use std::ffi::OsString;
+
+    #[test]
+    fn startup_keeps_every_media_argument_after_an_internal_renderer_switch() {
+        let (shared_gl, native_video, media) = startup_arguments(
+            ["--shared-gl", "first file.mkv", "second.mkv"]
+                .into_iter()
+                .map(OsString::from),
+        );
+
+        assert!(shared_gl);
+        assert!(!native_video);
+        assert_eq!(media, ["first file.mkv", "second.mkv"].map(OsString::from));
+    }
+
+    #[test]
+    fn startup_treats_all_arguments_as_media_without_a_renderer_switch() {
+        let (shared_gl, native_video, media) =
+            startup_arguments(["first.mkv", "second.mkv"].into_iter().map(OsString::from));
+
+        assert!(!shared_gl);
+        assert!(!native_video);
+        assert_eq!(media, ["first.mkv", "second.mkv"].map(OsString::from));
+    }
 }

@@ -5,6 +5,7 @@ export component PictureInPictureWindow inherits Window {
     in property <string> media-title: "riina";
     in property <bool> paused: false;
     callback play-pause();
+    callback stop();
     callback skip(float);
     callback exit-picture-in-picture();
 
@@ -40,6 +41,11 @@ export component PictureInPictureWindow inherits Window {
                 Button {
                     text: root.paused ? "Play" : "Pause";
                     clicked => { root.play-pause(); }
+                }
+                Button {
+                    text: "■";
+                    accessible-label: "Stop playback";
+                    clicked => { root.stop(); }
                 }
                 Button { text: "+15"; clicked => { root.skip(15); } }
                 Text {

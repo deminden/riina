@@ -18,10 +18,14 @@ pub fn open_in_new_player(path: &str) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-pub fn startup(app: &PlayerWindow, path: OsString, sender: CommandSender) {
-    match path.into_string() {
-        Ok(path) => selection(app, vec![path], false, sender),
-        Err(_) => app.set_status("The path contains invalid Unicode".into()),
+pub fn startup(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) {
+    let paths = paths
+        .into_iter()
+        .map(OsString::into_string)
+        .collect::<Result<Vec<_>, _>>();
+    match paths {
+        Ok(paths) => selection(app, paths, false, sender),
+        Err(_) => app.set_status("A media path contains invalid Unicode".into()),
     }
 }
 

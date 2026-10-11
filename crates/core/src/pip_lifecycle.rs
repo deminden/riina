@@ -17,7 +17,6 @@ pub struct EntryEffects {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ExitEffects {
     pub restore_main_window: bool,
-    pub pause_playback: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -63,11 +62,10 @@ impl Session {
         self.restore_main_window
     }
 
-    /// IINA pauses the player once its Picture-in-Picture surface closes.
+    /// IINA restores the main window without changing playback when PiP closes.
     pub const fn exit(self) -> ExitEffects {
         ExitEffects {
             restore_main_window: self.restore_main_window,
-            pause_playback: true,
         }
     }
 }
@@ -149,7 +147,7 @@ mod tests {
     }
 
     #[test]
-    fn exiting_picture_in_picture_pauses_and_restores_only_session_hidden_windows() {
+    fn exiting_picture_in_picture_restores_only_session_hidden_windows() {
         for behavior in [WindowBehavior::Hide, WindowBehavior::Minimize] {
             let (session, _) = Session::enter(
                 Settings {
@@ -162,7 +160,6 @@ mod tests {
                 session.exit(),
                 super::ExitEffects {
                     restore_main_window: true,
-                    pause_playback: true,
                 }
             );
         }
@@ -178,7 +175,6 @@ mod tests {
             session.exit(),
             super::ExitEffects {
                 restore_main_window: false,
-                pause_playback: true,
             }
         );
     }

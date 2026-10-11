@@ -3,11 +3,94 @@ use riina_core::{Command, Phase, Playback, TrackKind};
 use riina_mpv::Player;
 use std::{
     fs::File,
-    io::{BufWriter, Write},
+    io::{BufRead, BufReader, BufWriter, Write},
+    net::{TcpListener, TcpStream},
     path::PathBuf,
     sync::mpsc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies HTTP media playback from a local server"]
+fn http_url_opens_and_plays_a_local_media_fixture() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let fixture = std::fs::read(root.join("tests/fixtures/moving-square.avi")).unwrap();
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || serve_http_fixture(listener, fixture));
+
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(format!("http://{address}/moving-square.avi")))
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.error.is_some()
+            || (state.phase == Phase::Playing
+                && state.position.is_some_and(|position| position > 0.1))
+    });
+    assert_eq!(loaded.error, None);
+    assert!(
+        loaded
+            .duration
+            .is_some_and(|duration| (duration - 5.0).abs() < 0.1)
+    );
+    assert!(
+        loaded
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Audio && track.selected)
+    );
+    server.join().unwrap().unwrap();
+    drop(player);
+}
+
+fn serve_http_fixture(listener: TcpListener, fixture: Vec<u8>) -> std::io::Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let (stream, _) = loop {
+        match listener.accept() {
+            Ok(connection) => break connection,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                if Instant::now() >= deadline {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "libmpv did not request the HTTP fixture",
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(error),
+        }
+    };
+    write_http_fixture(stream, &fixture)
+}
+
+fn write_http_fixture(stream: TcpStream, fixture: &[u8]) -> std::io::Result<()> {
+    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+    let mut request = BufReader::new(stream);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        if request.read_line(&mut line)? == 0 || line == "\r\n" {
+            break;
+        }
+    }
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: video/x-msvideo\r\nContent-Length: {}\r\nAccept-Ranges: none\r\nConnection: close\r\n\r\n",
+        fixture.len()
+    );
+    let stream = request.get_mut();
+    stream.write_all(response.as_bytes())?;
+    stream.write_all(fixture)?;
+    stream.flush()
+}
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies Play restarts media after EOF"]
@@ -1590,8 +1673,8 @@ fn start_test_player_with_options(
     mut options: Vec<(String, String)>,
     notify: impl Fn(Playback) + Send + 'static,
 ) -> Result<Player, String> {
-    // Hosted Windows runners have no audio endpoint. Keep mpv's OpenAL AO active
-    // over OpenAL Soft's null device so tests still exercise audio initialization.
+    // Hosted runners have no physical endpoint. An explicit test AO preserves
+    // decoding and clocked transport without changing the application's AO.
     if let Some(output) = std::env::var_os("RIINA_TEST_MPV_AUDIO_OUTPUT") {
         let output = output.to_string_lossy().into_owned();
         options.push(("ao".into(), output.clone()));
@@ -4163,13 +4246,18 @@ fn chapters_external_tracks_and_playlist_editing() {
     let avi_id = appended.playlist[1].id;
     let wav_id = appended.playlist[2].id;
     player
+        .send(Command::AppendFiles(vec![fixture("external-tone.wav")]))
+        .unwrap();
+    let expanded = wait_for(&receiver, |state| state.playlist.len() == 4);
+    let trailing_wav_id = expanded.playlist[3].id;
+    player
         .send(Command::MovePlaylistId {
             id: wav_id,
             direction: -1,
         })
         .unwrap();
     wait_for(&receiver, |state| {
-        state.playlist.len() == 3 && state.playlist[2].id == avi_id
+        state.playlist.len() == 4 && state.playlist[2].id == avi_id
     });
     player
         .send(Command::MovePlaylistId {
@@ -4178,7 +4266,7 @@ fn chapters_external_tracks_and_playlist_editing() {
         })
         .unwrap();
     wait_for(&receiver, |state| {
-        state.playlist.len() == 3 && state.playlist[1].id == avi_id
+        state.playlist.len() == 4 && state.playlist[1].id == avi_id
     });
     player
         .send(Command::MovePlaylistId {
@@ -4187,9 +4275,11 @@ fn chapters_external_tracks_and_playlist_editing() {
         })
         .unwrap();
     wait_for(&receiver, |state| {
-        state.playlist.len() == 3 && state.playlist[2].id == avi_id
+        state.playlist.len() == 4 && state.playlist[2].id == avi_id
     });
-    player.send(Command::RemovePlaylistId(wav_id)).unwrap();
+    player
+        .send(Command::RemovePlaylistIds(vec![trailing_wav_id, wav_id]))
+        .unwrap();
     wait_for(&receiver, |state| {
         state.playlist.len() == 2 && state.playlist[1].id == avi_id
     });

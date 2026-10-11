@@ -130,6 +130,7 @@ pub enum Command {
     SelectPlaylistEntry(usize),
     SelectPlaylistId(i64),
     RemovePlaylistId(i64),
+    RemovePlaylistIds(Vec<i64>),
     MovePlaylistId {
         id: i64,
         direction: i32,
@@ -512,6 +513,7 @@ impl Command {
             | Self::VideoThreads(_)
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
+            | Self::RemovePlaylistIds(_)
             | Self::MovePlaylistId { .. } => {
                 return Err("This intent requires a command plan".into());
             }
@@ -800,6 +802,29 @@ impl Command {
                     _ => unreachable!(),
                 };
                 return command.plan(state);
+            }
+            Self::RemovePlaylistIds(ids) => {
+                let mut indices = Vec::with_capacity(ids.len());
+                for id in ids {
+                    let Some(index) = state.playlist.iter().position(|entry| entry.id == *id)
+                    else {
+                        return Err("A selected playlist entry is no longer available".into());
+                    };
+                    indices.push(index);
+                }
+                indices.sort_unstable();
+                if indices.windows(2).any(|pair| pair[0] == pair[1]) {
+                    return Err("A playlist entry was selected more than once".into());
+                }
+                // IINA removes ascending index sets while accounting for each prior
+                // removal; stable IDs are resolved before any native row can shift.
+                indices
+                    .into_iter()
+                    .enumerate()
+                    .map(|(removed, index)| {
+                        vec!["playlist-remove".into(), (index - removed).to_string()]
+                    })
+                    .collect()
             }
             Self::OpenFiles(paths) | Self::AppendFiles(paths) => {
                 if paths.is_empty() || paths.iter().any(|path| !valid_path(path)) {
@@ -3328,6 +3353,44 @@ mod tests {
             .unwrap()
             .commands[0],
             vec!["playlist-move", "0", "2"]
+        );
+    }
+
+    #[test]
+    fn removing_selected_playlist_ids_uses_original_order_and_rejects_stale_or_duplicate_ids() {
+        let state = Playback {
+            playlist: [10, 20, 30, 40, 50]
+                .into_iter()
+                .map(|id| PlaylistEntry {
+                    id,
+                    filename: format!("{id}.mkv"),
+                    title: None,
+                    current: id == 30,
+                    playing: id == 30,
+                })
+                .collect(),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            Command::RemovePlaylistIds(vec![50, 20])
+                .plan(&state)
+                .unwrap()
+                .commands,
+            vec![vec!["playlist-remove", "1"], vec!["playlist-remove", "3"]]
+        );
+        assert!(
+            Command::RemovePlaylistIds(vec![20, 20])
+                .plan(&state)
+                .is_err()
+        );
+        assert!(Command::RemovePlaylistIds(vec![99]).plan(&state).is_err());
+        assert!(
+            Command::RemovePlaylistIds(Vec::new())
+                .plan(&state)
+                .unwrap()
+                .commands
+                .is_empty()
         );
     }
 
