@@ -8,6 +8,10 @@ pub(crate) use dialogs::open as open_dialog;
 pub(crate) enum NativePresentation {}
 
 impl NativePresentation {
+    pub(crate) fn hdr_display_active(&self) -> bool {
+        match *self {}
+    }
+
     pub(crate) fn host(&self) -> slint::Weak<crate::NativeVideoHost> {
         match *self {}
     }

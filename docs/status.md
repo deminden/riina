@@ -2839,3 +2839,5 @@ Windows/macOS surface comparison and timeline color/track geometry remain open.
 The A/B timeline change now passes cargo test --workspace --locked on the Windows Rust toolchain. This covers independent A/B endpoint command mapping and validation; real mouse capture and pixel-level behavior are not exercised by that suite.
 
 Strict cargo clippy --workspace --all-targets --locked -- -D warnings also passes for the A/B loop timeline increment.
+
+2026-10-11 Cross-platform application matrix audit: run 38138622903 failed on commit d05ef8a. The Linux lint log exposed an import used only by the Windows Live Text path and missing HDR-display query on the uninhabited Unix presentation adapter. The import is now Windows-gated and the Unix adapter supplies the unreachable query required by shared code. Windows workspace check, strict Clippy, and all workspace tests pass locally. Remote macOS/Linux verification remains pending; this does not establish either port as supported.

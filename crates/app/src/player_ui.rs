@@ -1,6 +1,8 @@
+#[cfg(target_os = "windows")]
+use crate::LiveTextRegion;
 use crate::seek_osd::{self, Change, SeekOsd};
 use crate::{
-    CatalogRow, LiveTextRegion, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
+    CatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
