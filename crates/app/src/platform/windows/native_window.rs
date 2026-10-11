@@ -154,6 +154,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let startup_menu_lifecycle = menu_lifecycle.clone();
     let menu_focus = Rc::new(Cell::new(false));
     let startup_menu_focus = menu_focus.clone();
+    let menu_owner = owner.clone();
     host.show()?;
     slint::spawn_local(async move {
         let Some(host) = weak_host.upgrade() else {
@@ -432,6 +433,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             .map_or(EventResult::Propagate, |filter| filter(host, event));
         if matches!(event, winit::event::WindowEvent::Focused(true))
             && !menu_focus.get()
+            && !super::menu_focus::cursor_is_over_menu(menu_owner.load(Ordering::Relaxed))
             && let Some(app) = event_chrome.borrow().as_ref()
             && !app.get_dialog_open()
         {

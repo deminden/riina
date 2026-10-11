@@ -313,15 +313,26 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                 fit_source_in_rect(thumbnail.source_size(), client.width, video_bottom);
             thumbnail.set_visible(destination_rect, true)?;
 
+            let was_paused = player.get_paused();
+            if effects.pause_playback {
+                commands
+                    .send(Command::SetPaused(true))
+                    .map_err(|error| error.to_string())?;
+            }
             if behavior != WindowBehavior::DoNothing {
-                // Keep the renderer HWND alive and drawable while its pixels are
-                // projected; the player-level policy only affects its chrome.
-                host.window().with_winit_window(|window| {
-                    window.set_outer_position(PhysicalPosition::new(-32_000, -32_000));
-                });
+                // Do the fallible player-window request before parking the
+                // renderer HWND, so a rejected PiP entry cannot strand video off-screen.
                 match behavior {
                     WindowBehavior::Hide => {
-                        player.window().hide().map_err(|error| error.to_string())?
+                        if let Err(error) = player.window().hide() {
+                            // A rejected hide may leave the window state uncertain. Restore
+                            // the visible entry surface and the pause state before aborting.
+                            let _ = player.window().show();
+                            if effects.pause_playback && !was_paused {
+                                let _ = commands.send(Command::SetPaused(false));
+                            }
+                            return Err(error.to_string());
+                        }
                     }
                     WindowBehavior::Minimize => {
                         player
@@ -330,9 +341,11 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                     }
                     WindowBehavior::DoNothing => {}
                 }
-            }
-            if effects.pause_playback {
-                let _ = commands.send(Command::SetPaused(true));
+                // Keep the renderer HWND alive and drawable while its pixels are
+                // projected; the player-level policy only affects its chrome.
+                host.window().with_winit_window(|window| {
+                    window.set_outer_position(PhysicalPosition::new(-32_000, -32_000));
+                });
             }
             Ok(ActiveSession {
                 _thumbnail: thumbnail,

@@ -13,6 +13,7 @@ pub mod key_bindings;
 pub mod liquid_glass;
 pub mod music_mode;
 pub mod network_preferences;
+pub mod osc_preferences;
 pub mod pip_lifecycle;
 pub mod pip_preferences;
 pub mod playlist;
@@ -47,6 +48,10 @@ pub enum Command {
     Seek {
         seconds: f64,
         absolute: bool,
+    },
+    SeekWithType {
+        seconds: f64,
+        seek_type: control_preferences::SeekType,
     },
     Volume(f64),
     AdjustVolume {
@@ -220,6 +225,16 @@ impl Command {
                     "absolute+exact"
                 } else {
                     "relative"
+                }
+                .into(),
+            ],
+            Self::SeekWithType { seconds, seek_type } if seconds.is_finite() => vec![
+                "seek".into(),
+                seconds.to_string(),
+                match seek_type {
+                    control_preferences::SeekType::Keyframe
+                    | control_preferences::SeekType::Auto => "relative",
+                    control_preferences::SeekType::Exact => "relative+exact",
                 }
                 .into(),
             ],
@@ -1465,6 +1480,7 @@ pub struct Preferences {
     pub window_resize: window_resize::Settings,
     pub compact_ui: bool,
     pub osc_position: u8,
+    pub control_bar: osc_preferences::Settings,
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
     pub action_after_launch: ActionAfterLaunch,
@@ -1616,6 +1632,7 @@ impl Default for Preferences {
             window_resize: window_resize::Settings::default(),
             compact_ui: false,
             osc_position: 0,
+            control_bar: osc_preferences::Settings::default(),
             always_float_on_top: false,
             always_show_on_top_icon: false,
             action_after_launch: ActionAfterLaunch::default(),
@@ -1716,6 +1733,7 @@ impl Preferences {
         prefs.hdr_tone_mapping.validate().map_err(str::to_owned)?;
         prefs.advanced.validate()?;
         prefs.controls.validate().map_err(str::to_owned)?;
+        prefs.control_bar.validate().map_err(str::to_owned)?;
         prefs.key_bindings.validate().map_err(str::to_owned)?;
         prefs.subtitle_other.validate().map_err(str::to_owned)?;
         prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
@@ -2237,11 +2255,21 @@ mod tests {
         assert!(!old.disable_osd_seek);
         assert_eq!(old.osd_timeout_secs, 1.0);
         assert_eq!(old.osd_text_size, 20.0);
+        assert!(old.control_bar.auto_hide_enabled);
+        assert_eq!(old.control_bar.auto_hide_timeout_secs, 2.5);
+        let partial_control_bar =
+            Preferences::parse(r#"{"control_bar":{"auto_hide_timeout_secs":1.5}}"#).unwrap();
+        assert!(partial_control_bar.control_bar.auto_hide_enabled);
+        assert_eq!(partial_control_bar.control_bar.auto_hide_timeout_secs, 1.5);
         assert!(!old.display_time_and_battery_in_fullscreen);
         assert!(!old.live_text_enabled);
         let configured = Preferences {
             enable_osd: false,
             live_text_enabled: true,
+            control_bar: osc_preferences::Settings {
+                auto_hide_enabled: false,
+                auto_hide_timeout_secs: 4.25,
+            },
             disable_osd_speed: true,
             disable_osd_seek: true,
             osd_timeout_secs: 0.125,
@@ -2254,9 +2282,19 @@ mod tests {
         assert!(restored.disable_osd_speed);
         assert!(restored.disable_osd_seek);
         assert_eq!(restored.osd_timeout_secs, 0.125);
+        assert!(!restored.control_bar.auto_hide_enabled);
+        assert_eq!(restored.control_bar.auto_hide_timeout_secs, 4.25);
         assert_eq!(restored.volume, 37.0);
         for timeout in ["-1", "1e300"] {
             assert!(Preferences::parse(&format!("{{\"osd_timeout_secs\":{timeout}}}")).is_err());
+        }
+        for timeout in ["-0.5", "1e300"] {
+            assert!(
+                Preferences::parse(&format!(
+                    "{{\"control_bar\":{{\"auto_hide_timeout_secs\":{timeout}}}}}"
+                ))
+                .is_err()
+            );
         }
         assert_eq!(
             Preferences::parse(r#"{"osd_timeout_secs":0}"#)
@@ -2996,6 +3034,23 @@ mod tests {
                 .mpv_args()
                 .is_err()
         );
+    }
+
+    #[test]
+    fn scroll_seek_uses_the_selected_keyframe_or_exact_mode() {
+        for (seek_type, mode) in [
+            (control_preferences::SeekType::Keyframe, "relative"),
+            (control_preferences::SeekType::Exact, "relative+exact"),
+            (control_preferences::SeekType::Auto, "relative"),
+        ] {
+            let plan = Command::SeekWithType {
+                seconds: 2.5,
+                seek_type,
+            }
+            .plan(&Playback::default())
+            .unwrap();
+            assert_eq!(plan.commands, [["seek", "2.5", mode]]);
+        }
     }
 
     #[test]

@@ -1,0 +1,12 @@
+{
+  "brand": "Riina",
+  "wordmark": "riina",
+  "concept": "Forward r",
+  "version": "1.0.0",
+  "colors": {
+    "teal": "#0D9488",
+    "charcoal": "#181D20",
+    "warm_white": "#F6F5F1"
+  },
+  "symbol_path": "M0 248V109C0 49 49 0 109 0H201C206 0 210 2 214 5L251 38C257 43 257 47 251 52L214 84C210 87 206 88 201 88H135C109 88 89 109 89 135V248C89 252 85 256 81 256H8C4 256 0 252 0 248Z"
+}

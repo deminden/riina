@@ -377,7 +377,7 @@ component ResumeMediaEntry inherits Rectangle {
 }
 
 export component WelcomeWindow inherits Window {
-    title: "riina";
+    title: "Riina";
     // Match IINA v1.5.0's fixed 560 x 440 point welcome window.
     preferred-width: 560px; preferred-height: 440px;
     min-width: 560px; min-height: 440px;
@@ -404,11 +404,11 @@ export component WelcomeWindow inherits Window {
                 padding-top: 48px; padding-bottom: 24px; spacing: 0px;
             HorizontalLayout {
                 alignment: start; spacing: 14px; height: 76px;
-                Rectangle {
-                    width: 68px; height: 68px; border-radius: 15px;
-                    background: #2d75cf;
-                    Text { text: "R"; color: #ffffff; font-size: 43px; font-weight: 700;
-                        horizontal-alignment: center; vertical-alignment: center; }
+                Image {
+                    width: 68px; height: 68px;
+                    source: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
+                    image-fit: contain;
+                    accessible-label: "Riina";
                 }
                 VerticalLayout {
                     alignment: center; spacing: 3px;
@@ -703,6 +703,7 @@ export component PlayerWindow inherits Window {
     in-out property <bool> live-text-enabled: false;
     in-out property <bool> live-text-available: false;
     in-out property <bool> disable-animations: false;
+    in property <duration> osd-fade-duration: disable-animations || !osd-enabled ? 0ms : 500ms;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
     callback set-hdr-enabled(bool);
@@ -763,6 +764,8 @@ export component PlayerWindow inherits Window {
     in property <string> video-osd-text;
     in property <float> video-osd-progress: -1;
     in property <bool> osd-enabled: true;
+    callback osd-enabled-changed(bool);
+    changed osd-enabled => { root.osd-enabled-changed(root.osd-enabled); }
     in-out property <bool> disable-osd-file-start: false;
     in-out property <bool> disable-osd-pause-resume: false;
     in property <bool> disable-osd-speed: false;
@@ -813,6 +816,7 @@ export component PlayerWindow inherits Window {
     in-out property <string> key-binding-current-profile: "IINA Default";
     in-out property <bool> key-binding-use-system-media-controls: true;
     in-out property <bool> key-binding-display-raw-values: false;
+    callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
     in-out property <bool> network-cache-enabled: true;
     in-out property <bool> network-cache-pause-initial: false;
     in-out property <string> network-cache-pause-wait-text: "1";
@@ -972,6 +976,18 @@ export component PlayerWindow inherits Window {
     in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
     in-out property <bool> controls-visible: true;
+    in-out property <bool> controls-rendered: true;
+    in-out property <bool> control-auto-hide-enabled: true;
+    in-out property <float> control-auto-hide-timeout-secs: 2.5;
+    in-out property <bool> title-bar-hovered: false;
+    in-out property <bool> control-bar-hovered: false;
+    callback control-bar-settings-changed();
+    callback control-bar-hover-changed();
+    callback controls-visibility-changed(bool);
+    changed control-auto-hide-enabled => { root.control-bar-settings-changed(); }
+    changed control-auto-hide-timeout-secs => { root.control-bar-settings-changed(); }
+    changed title-bar-hovered => { root.control-bar-hover-changed(); }
+    changed control-bar-hovered => { root.control-bar-hover-changed(); }
     // One logical-point viewport drives both GL texture size and native mpv margins.
     private property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
     private property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
@@ -1048,6 +1064,7 @@ export component PlayerWindow inherits Window {
     callback single-click-action(int);
     callback double-click-action(int);
     callback mouse-button-action(int);
+    callback scroll-action-request(float, float) -> bool;
     callback refresh-fullscreen-info();
     callback show-seek-osd();
     callback show-video-osd();
@@ -1132,14 +1149,26 @@ export component PlayerWindow inherits Window {
                     }
                 }
             }
+            scroll-event(event) => {
+                if root.scroll-action-request(event.delta-x / 1px, event.delta-y / 1px) {
+                    return accept;
+                }
+                return reject;
+            }
         }
 
-        if controls-visible && loaded && !crop-editing : Rectangle {
+        if controls-rendered && loaded && !crop-editing : Rectangle {
             x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px;
+            opacity: root.controls-visible ? 1 : 0;
+            animate opacity { duration: root.disable-animations ? 0ms : 250ms; }
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
                 : (root.dark-theme ? #151519 : #f2f2f2);
-            HorizontalLayout { padding-left: 12px; padding-right: 12px;
+            TouchArea {
+                width: parent.width; height: parent.height;
+                changed has-hover => { root.title-bar-hovered = self.has-hover; }
+                HorizontalLayout { width: parent.width; height: parent.height;
+                padding-left: 12px; padding-right: 12px;
                 Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
                 Text { text: media-title; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
                     horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
@@ -1157,6 +1186,7 @@ export component PlayerWindow inherits Window {
                 Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
                 Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
                 Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                }
             }
         }
         if (!controls-visible || !loaded) && !crop-editing && !fullscreen &&
@@ -1632,7 +1662,7 @@ export component PlayerWindow inherits Window {
                 }
             }
         }
-        if controls-visible && loaded && !crop-editing : Rectangle {
+        if controls-rendered && loaded && !crop-editing : Rectangle {
             width: root.osc-position == 0 ? min(460px, parent.width - 24px) : parent.width;
             height: root.compact-ui ? 59px : 67px;
             x: root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
@@ -1641,6 +1671,8 @@ export component PlayerWindow inherits Window {
             y: root.music-mode && root.music-mode-show-playlist ? parent.height - 300px - self.height :
                 root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
                 root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
+            opacity: root.controls-visible ? 1 : 0;
+            animate opacity { duration: root.disable-animations ? 0ms : 250ms; }
             border-radius: root.osc-position == 0 ? 12px : 4px;
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #202025e8 : #f2f2f2ed)
@@ -1650,7 +1682,11 @@ export component PlayerWindow inherits Window {
             // Keep the outer baseline separate from glyph/material estimates. A
             // 17-point button row and 20-point timeline fit the recorded 67-point
             // panel with spacious 14/8 insets and an 8-point row separation.
-            VerticalLayout { padding-top: root.compact-ui ? 10px : 14px;
+            TouchArea {
+                width: parent.width; height: parent.height;
+                changed has-hover => { root.control-bar-hovered = self.has-hover; }
+                VerticalLayout { width: parent.width; height: parent.height;
+                padding-top: root.compact-ui ? 10px : 14px;
                 padding-bottom: root.compact-ui ? 6px : 8px;
                 spacing: root.compact-ui ? 6px : 8px;
                 HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
@@ -1677,11 +1713,14 @@ export component PlayerWindow inherits Window {
                         loop-b-moved(value) => { root.set-ab-loop-point(1, value); } }
                     Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                 }
+                }
             }
         }
         // Geometry is estimated from the reviewed 320×180 reference capture.
-        if seek-osd-visible && osd-enabled && loaded && !crop-editing : Rectangle {
+        if loaded && !crop-editing : Rectangle {
             x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
+            opacity: root.seek-osd-visible && root.osd-enabled ? 1 : 0;
+            animate opacity { duration: root.osd-fade-duration; }
             border-radius: 14px;
             background: root.liquid-glass-osd ? #181818dc : #181818;
             seek-clock := HorizontalLayout {
@@ -1764,9 +1803,11 @@ export component PlayerWindow inherits Window {
                 }
             }
         }
-        if video-osd-visible && osd-enabled && loaded : Rectangle {
+        if loaded : Rectangle {
             x: 8px; y: 49px; width: video-message.preferred-width + 32px;
             height: video-osd-progress >= 0 ? 50px : 41px;
+            opacity: root.video-osd-visible && root.osd-enabled ? 1 : 0;
+            animate opacity { duration: root.osd-fade-duration; }
             border-radius: 14px;
             background: root.liquid-glass-osd ? #181818dc : #181818;
             video-message := Text { x: 16px; y: 8px; text: root.video-osd-text;
@@ -1775,8 +1816,11 @@ export component PlayerWindow inherits Window {
                 width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
                 height: 2px; background: #168bff; border-radius: 1px; }
         }
-        if screenshot-preview-visible && osd-enabled && loaded && !crop-editing : ScreenshotPreview {
+        if loaded && !crop-editing : ScreenshotPreview {
             x: 8px; y: 49px;
+            active: root.screenshot-preview-visible && root.osd-enabled;
+            opacity: root.screenshot-preview-visible && root.osd-enabled ? 1 : 0;
+            animate opacity { duration: root.osd-fade-duration; }
             capture: root.screenshot-preview-image;
             has-file: root.screenshot-preview-path != "";
             image-width: root.screenshot-preview-width * 1px;
@@ -1804,6 +1848,10 @@ export component PlayerWindow inherits Window {
         key-pressed(event) => {
             if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
             if native-video && event.text == Key.F10 { return accept; }
+            if root.dispatch-key-binding(event.text, event.modifiers.control,
+                    event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
+                return accept;
+            }
             root.controls-visible = true; root.activity();
             if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
                 if event.text == "," && !event.modifiers.shift && !event.modifiers.alt {
@@ -1895,7 +1943,11 @@ export component PlayerWindow inherits Window {
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
     changed loaded => { root.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
-    changed controls-visible => { if !root.controls-visible { keys.focus(); } root.refresh-fullscreen-info(); }
+    changed controls-visible => {
+        if !root.controls-visible { keys.focus(); }
+        root.refresh-fullscreen-info();
+        root.controls-visibility-changed(root.controls-visible);
+    }
     changed fullscreen => { root.refresh-fullscreen-info(); }
     changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
     init => { keys.focus(); }

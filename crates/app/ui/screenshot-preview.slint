@@ -21,6 +21,7 @@ export component ScreenshotPreview inherits Rectangle {
     in property <length> image-width;
     in property <length> image-height;
     in property <bool> has-file: true;
+    in property <bool> active: true;
     callback delete-capture();
     callback edit-capture();
     callback reveal-capture();
@@ -37,10 +38,10 @@ export component ScreenshotPreview inherits Rectangle {
         Rectangle { width: parent.width; height: parent.height; background: transparent;
             border-radius: 4px; border-width: 1px; border-color: #80808099; }
     }
-    if has-file : CaptureAction { x: 16px; y: root.image-height + 61px; width: 54px; label: "DELETE";
+    if active && has-file : CaptureAction { x: 16px; y: root.image-height + 61px; width: 54px; label: "DELETE";
         activated => { root.delete-capture(); } }
-    if has-file : CaptureAction { x: 82px; y: root.image-height + 61px; width: 35px; label: "EDIT";
+    if active && has-file : CaptureAction { x: 82px; y: root.image-height + 61px; width: 35px; label: "EDIT";
         activated => { root.edit-capture(); } }
-    if has-file : CaptureAction { x: 129px; y: root.image-height + 61px; width: 56px; label: "REVEAL";
+    if active && has-file : CaptureAction { x: 129px; y: root.image-height + 61px; width: 56px; label: "REVEAL";
         activated => { root.reveal-capture(); } }
 }

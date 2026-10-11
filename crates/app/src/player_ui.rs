@@ -53,7 +53,9 @@ fn dispatch_control_mouse_action(
             player.set_paused(paused)
         }
         MouseEffect::HideControls => {
-            app.set_controls_visible(false);
+            if app.get_control_auto_hide_enabled() {
+                app.set_controls_visible(false);
+            }
             return;
         }
         MouseEffect::PictureInPicture => {
@@ -93,6 +95,47 @@ fn set_native_video_host_visible(
 
 fn configured_osd_timeout(app: &PlayerWindow) -> Duration {
     Duration::try_from_secs_f64(f64::from(app.get_osd_timeout_secs())).unwrap_or_default()
+}
+
+fn control_hide_is_allowed(
+    enabled: bool,
+    loaded: bool,
+    dialog_open: bool,
+    crop_editing: bool,
+    title_bar_hovered: bool,
+    control_bar_hovered: bool,
+) -> bool {
+    enabled && loaded && !dialog_open && !crop_editing && !title_bar_hovered && !control_bar_hovered
+}
+
+fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
+    timer.stop();
+    if !app.get_control_auto_hide_enabled()
+        || !app.get_controls_visible()
+        || !app.get_loaded()
+        || app.get_dialog_open()
+        || app.get_crop_editing()
+    {
+        return;
+    }
+    let timeout = Duration::try_from_secs_f64(f64::from(app.get_control_auto_hide_timeout_secs()))
+        .unwrap_or_default();
+    let weak = app.as_weak();
+    // IINA's controller deadline is interaction-driven; pausing does not pin its chrome.
+    timer.start(slint::TimerMode::SingleShot, timeout, move || {
+        if let Some(app) = weak.upgrade()
+            && control_hide_is_allowed(
+                app.get_control_auto_hide_enabled(),
+                app.get_loaded(),
+                app.get_dialog_open(),
+                app.get_crop_editing(),
+                app.get_title_bar_hovered(),
+                app.get_control_bar_hovered(),
+            )
+        {
+            app.set_controls_visible(false);
+        }
+    });
 }
 
 fn refresh_video_menu(app: &PlayerWindow) {
@@ -811,6 +854,7 @@ impl UiSession {
             disable_osd_seek: app.get_disable_osd_seek(),
             osd_timeout_secs: f64::from(app.get_osd_timeout_secs()),
             osd_text_size: f64::from(app.get_osd_text_size()),
+            control_bar: crate::osc_preferences::current_player(app),
             display_time_and_battery_in_fullscreen: app
                 .get_display_time_and_battery_in_fullscreen(),
             liquid_glass: crate::liquid_glass_preferences::current_player(app),
@@ -1054,6 +1098,7 @@ pub(crate) fn configure_player(
     app.set_osd_timeout_secs(prefs.osd_timeout_secs as f32);
     app.set_osd_text_size(prefs.osd_text_size as f32);
     app.set_display_time_and_battery_in_fullscreen(prefs.display_time_and_battery_in_fullscreen);
+    crate::osc_preferences::install_player(app, prefs.control_bar);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_fullscreen_when_open(prefs.fullscreen_when_open);
@@ -1287,6 +1332,33 @@ pub(crate) fn configure_player(
         },
     );
     let idle_timer = Rc::new(slint::Timer::default());
+    let controls_fade_timer = Rc::new(slint::Timer::default());
+    let controls_fade_parent = app.as_weak();
+    let controls_fade_timeout = controls_fade_timer.clone();
+    app.on_controls_visibility_changed(move |visible| {
+        controls_fade_timeout.stop();
+        let Some(app) = controls_fade_parent.upgrade() else {
+            return;
+        };
+        if visible {
+            app.set_controls_rendered(true);
+        } else if app.get_disable_animations() {
+            app.set_controls_rendered(false);
+        } else {
+            let weak = app.as_weak();
+            controls_fade_timeout.start(
+                slint::TimerMode::SingleShot,
+                Duration::from_millis(250),
+                move || {
+                    if let Some(app) = weak.upgrade()
+                        && !app.get_controls_visible()
+                    {
+                        app.set_controls_rendered(false);
+                    }
+                },
+            );
+        }
+    });
     let opening_player = player.command_sender();
     let opening_app = app.as_weak();
     let resume_player = player.command_sender();
@@ -1334,7 +1406,27 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let seek_timer = slint::Timer::default();
+    let seek_timer = Rc::new(slint::Timer::default());
+    let video_timer = Rc::new(slint::Timer::default());
+    let screenshot_timer = Rc::new(slint::Timer::default());
+    let disable_seek_timer = seek_timer.clone();
+    let disable_video_timer = video_timer.clone();
+    let disable_screenshot_timer = screenshot_timer.clone();
+    let weak = app.as_weak();
+    app.on_osd_enabled_changed(move |enabled| {
+        if enabled {
+            return;
+        }
+        let Some(app) = weak.upgrade() else { return };
+        // Disabling OSD is an immediate visibility policy, so dismiss an
+        // already-visible message instead of leaving it until its old deadline.
+        disable_seek_timer.stop();
+        disable_video_timer.stop();
+        disable_screenshot_timer.stop();
+        app.set_seek_osd_visible(false);
+        app.set_video_osd_visible(false);
+        clear_screenshot_preview(&app);
+    });
     let screenshot_player = player.command_sender();
     let weak = app.as_weak();
     app.on_take_screenshot(move || {
@@ -1416,8 +1508,6 @@ pub(crate) fn configure_player(
             },
         );
     });
-    let video_timer = slint::Timer::default();
-    let screenshot_timer = slint::Timer::default();
     let weak = app.as_weak();
     app.on_show_screenshot_preview(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -1485,24 +1575,43 @@ pub(crate) fn configure_player(
         );
     });
     let weak = app.as_weak();
+    let activity_timer = idle_timer.clone();
     app.on_activity(move || {
         if let Some(app) = weak.upgrade() {
             app.set_controls_visible(true);
+            schedule_control_hide(&app, &activity_timer);
         }
-        let weak = weak.clone();
-        // One deadline per interaction: paused/hidden playback has no UI polling timer.
-        idle_timer.start(
-            slint::TimerMode::SingleShot,
-            Duration::from_millis(2500),
-            move || {
-                if let Some(app) = weak.upgrade()
-                    && app.get_playing()
-                    && !app.get_dialog_open()
-                {
-                    app.set_controls_visible(false);
-                }
-            },
-        );
+    });
+    let auto_hide_parent = app.as_weak();
+    let auto_hide_timer = idle_timer.clone();
+    app.on_control_bar_settings_changed(move || {
+        let Some(app) = auto_hide_parent.upgrade() else {
+            return;
+        };
+        if app.get_title_bar_hovered() || app.get_control_bar_hovered() {
+            auto_hide_timer.stop();
+            app.set_controls_visible(true);
+        } else if app.get_control_auto_hide_enabled() {
+            schedule_control_hide(&app, &auto_hide_timer);
+        } else {
+            auto_hide_timer.stop();
+            if app.get_loaded() && !app.get_dialog_open() && !app.get_crop_editing() {
+                app.set_controls_visible(true);
+            }
+        }
+    });
+    let hover_parent = app.as_weak();
+    let hover_timer = idle_timer.clone();
+    app.on_control_bar_hover_changed(move || {
+        let Some(app) = hover_parent.upgrade() else {
+            return;
+        };
+        if app.get_title_bar_hovered() || app.get_control_bar_hovered() {
+            hover_timer.stop();
+            app.set_controls_visible(true);
+        } else {
+            schedule_control_hide(&app, &hover_timer);
+        }
     });
     let pending_single_click = Rc::new(RefCell::new(None::<i32>));
     let single_click_timer = Rc::new(slint::Timer::default());
@@ -1545,6 +1654,53 @@ pub(crate) fn configure_player(
         if let Some(app) = button_app.upgrade() {
             dispatch_control_mouse_action(&app, &button_player, action);
         }
+    });
+    let scroll_player = player.command_sender();
+    let scroll_app = app.as_weak();
+    app.on_scroll_action_request(move |delta_x, delta_y| {
+        let Some(app) = scroll_app.upgrade() else {
+            return false;
+        };
+        let horizontal = delta_x.abs() > delta_y.abs();
+        let delta = if horizontal { delta_x } else { delta_y };
+        if delta == 0.0 {
+            return false;
+        }
+        let Ok(settings) = crate::control_preferences::current_player(&app) else {
+            return false;
+        };
+        // Slint/winit reports line-wheel steps as 60 logical pixels; smaller
+        // deltas retain trackpad precision for the source sensitivity curves.
+        let precise = delta.abs() < 60.0;
+        let effect = riina_core::control_preferences::scroll_effect(
+            &settings,
+            horizontal,
+            f64::from(delta),
+            precise,
+        );
+        let command = match effect {
+            riina_core::control_preferences::ScrollEffect::None => return false,
+            riina_core::control_preferences::ScrollEffect::AdjustVolume(delta) => {
+                Command::AdjustVolume {
+                    delta,
+                    boost: app.get_volume_boost(),
+                }
+            }
+            riina_core::control_preferences::ScrollEffect::Seek(seconds) => Command::SeekWithType {
+                seconds,
+                seek_type: settings.seek_type,
+            },
+            riina_core::control_preferences::ScrollEffect::MultiplySpeed(factor) => {
+                let current = f64::from(app.get_speed_value()).clamp(0.05, 4.0);
+                let target = (current * factor).clamp(0.05, 4.0);
+                Command::MultiplySpeed(target / current)
+            }
+        };
+        app.invoke_activity();
+        if let Err(error) = scroll_player.send(command) {
+            app.set_status(error.into());
+        }
+        true
     });
     macro_rules! connect {
         ($method:ident, $command:expr) => {{
@@ -2629,6 +2785,31 @@ pub(crate) fn configure_player(
         history_cleared,
         latest_playback,
     })
+}
+
+#[cfg(test)]
+mod control_auto_hide_tests {
+    use super::control_hide_is_allowed;
+
+    #[test]
+    fn deadline_hides_only_an_idle_loaded_controller() {
+        assert!(control_hide_is_allowed(
+            true, true, false, false, false, false
+        ));
+        let blocked_states = [
+            (false, true, false, false, false, false),
+            (true, false, false, false, false, false),
+            (true, true, true, false, false, false),
+            (true, true, false, true, false, false),
+            (true, true, false, false, true, false),
+            (true, true, false, false, false, true),
+        ];
+        for (enabled, loaded, dialog, crop, title, controller) in blocked_states {
+            assert!(!control_hide_is_allowed(
+                enabled, loaded, dialog, crop, title, controller
+            ));
+        }
+    }
 }
 
 #[cfg(test)]

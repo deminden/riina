@@ -81,12 +81,12 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38149950847,
-    "commit": "6da3a7a",
+    "run_id": 38152037885,
+    "commit": "ed0e1cf",
     "stage": "windows-package / native playback and lifecycle tests",
-    "failure": "The hosted Windows runner had no hardware audio endpoint; mpv automatic AO selection left native integration tests without an active audio output, causing six of 42 tests to fail or time out.",
-    "evidence": "Source and dependency notice packaging passed. Local reproduction was resolved by selecting the bundled OpenAL output with ALSOFT_DRIVERS=null in the test process, generating a typical-rate long-seek WAV fixture, and asserting change-driven state notifications correctly. The complete local native suite passed 42/42.",
-    "next_action": "Run a private package candidate using native engine and captured-source artifacts from successful workflow run 38138622911."
+    "failure": "The hosted Windows test process exited with STATUS_ACCESS_VIOLATION at the first test, ab_repeat_observes_points_and_wraps_playback. The native runtime and source artifacts downloaded successfully; source and dependency notice packaging passed.",
+    "evidence": "The exact windows-native-engine artifact from run 38138622911 passed the runtime manifest verifier, the isolated A-B repeat test, and all 42 native playback/lifecycle tests serially on the local Windows host. The hosted-only access violation is not reproduced locally; the A-B test now emits stage markers for a fresh hosted run. The long-seek test allows one audio packet interval while still detecting clamping.",
+    "next_action": "Run a fresh private 0.3.0 package candidate reusing native engine and captured-source artifacts from run 38138622911; inspect the Windows package result and stage markers before publishing."
   },
   "historical_candidate_failures": [
     {
@@ -115,5 +115,12 @@
     ]
   },
   "verified_candidate_run_id": null,
-  "candidate_in_flight": null
+  "candidate_in_flight": null,
+  "latest_native_engine_artifact": {
+    "run_id": 38138622911,
+    "artifact_id": 11705630709,
+    "artifact_sha256": "6e44bf0250959ca383a0b7a494b7c53b6fc1fbf4e6739c59a9fdbaad133d9613",
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "runtime_manifest_check": "passed locally; exact downloaded artifact"
+  }
 }

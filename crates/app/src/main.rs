@@ -20,6 +20,7 @@ mod network_cache_preferences;
 mod network_connection_preferences;
 mod network_ytdl_preferences;
 mod opening_fullscreen;
+mod osc_preferences;
 mod osd_preferences;
 mod pip_preferences;
 mod platform;

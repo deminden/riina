@@ -81,15 +81,23 @@ The shared component renders a consistent 17-point box and enabled/disabled tint
 independent of system symbol-font coverage. Remaining repeat/secondary controls
 use provisional glyphs. Vector shapes are not yet measured against macOS goldens.
 
+The supplied Riina identity is used for the welcome-window mark, README wordmark
+and Windows executable icon. See assets/branding/BRAND_GUIDE.md for capitalization
+and asset rules. Branding does not recolor or reshape playback controls, whose
+appearance continues to follow the pinned IINA reference. Windows shell rendering
+of the embedded icon has not yet been checked on a built application.
+
 The shared seek panel now uses estimated geometry from the reviewed paused-seek
 capture: an upper-left rounded dark panel, bright elapsed clock, subdued total
 clock and blue progress indicator. Values come from observed playback, triggered
 by a native seek completion counter rather than the requested destination. The
 one-second timeout follows the pinned Preference.swift osdAutoHideTimeout default
-(line 1088). The capture proves a visible state, not its duration. The clock
-layout now explicitly reserves the panel's 16-point left/right padding.
-Typeface, material, exact metrics, animation and event-relative timing remain open
-comparison gates. No reference pixels or protected assets are shipped in the UI.
+(line 1088). Seek, video, and screenshot overlays fade out over the source's
+0.5-second OSDAnimationDuration; disabling animation or global OSD uses an
+immediate transition. The clock layout explicitly reserves the panel's 16-point
+left/right padding. Typeface, material, exact metrics, and event-relative timing
+remain open comparison gates. No reference pixels or protected assets are shipped
+in the UI.
 
 Font chooser geometry is source-derived from the pinned
 Base.lproj/FontPickerWindowController.xib: 458pt width, 12pt outer margins,

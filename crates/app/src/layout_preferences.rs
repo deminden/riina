@@ -76,6 +76,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                 disable_osd_seek: app.get_disable_osd_seek(),
                 osd_timeout_secs: f64::from(app.get_osd_timeout_secs()),
                 osd_text_size: f64::from(app.get_osd_text_size()),
+                control_bar: crate::osc_preferences::current_player(&app),
                 display_time_and_battery_in_fullscreen: app
                     .get_display_time_and_battery_in_fullscreen(),
                 liquid_glass: crate::liquid_glass_preferences::current_player(&app),

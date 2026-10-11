@@ -919,6 +919,8 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> liquid-glass-osc: true;
     in-out property <bool> liquid-glass-sidebar: true;
     in-out property <int> selected-interface-section: 0;
+    in-out property <bool> control-auto-hide-enabled: true;
+    in-out property <string> control-auto-hide-timeout-text: "2.5";
     in-out property <bool> osd-suppression-expanded: false;
     in-out property <bool> disable-osd-file-start: false;
     in-out property <bool> disable-osd-pause-resume: false;
@@ -955,7 +957,7 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-physical-resolution-y: interface-resize-y + 134px;
     out property <length> interface-float-y: interface-physical-resolution-y + 56px;
     out property <length> interface-osc-y: interface-float-y + 96px;
-    out property <length> interface-osc-card-height: 124px;
+    out property <length> interface-osc-card-height: 158px;
     out property <length> interface-osd-y: interface-osc-y + interface-osc-card-height + 16px;
     out property <length> osd-suppression-detail-height: osd-suppression-expanded ? 112px : 0px;
     out property <length> interface-thumbnail-y: interface-osd-y + 108px + osd-suppression-detail-height + 128px;
@@ -1552,6 +1554,22 @@ export component PreferencesWindow inherits Window {
                 checked <=> root.show-chapter-pos;
                 toggled => { root.settings-changed(); }
             }
+            PreferenceSwitch { x: 36px; y: 116px; width: 128px;
+                label: "Auto hide after:";
+                checked <=> root.control-auto-hide-enabled;
+                toggled => { root.settings-changed(); }
+            }
+            Rectangle { x: 170px; y: 118px; width: 70px; height: 24px;
+                border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                    text <=> root.control-auto-hide-timeout-text; enabled: root.control-auto-hide-enabled;
+                    font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+            }
+            Text { x: 244px; y: 118px; width: 20px; height: 24px; text: "s";
+                font-size: 11px; color: root.control-auto-hide-enabled ? #55555b : #a0a0a4;
+                vertical-alignment: center; }
         }
         Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;
             height: 92px + root.osd-suppression-detail-height;

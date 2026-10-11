@@ -1152,12 +1152,28 @@ on replacement. Other-OS native runtime, GUI shortcuts, loop markers, menus and
 OSD are unverified. Commands use the documented
 [mpv A–B loop interface](https://mpv.io/manual/stable/#command-interface).
 
-OSD preference increment: 23 Windows workspace tests and strict lint pass.
-Legacy preference JSON receives enabled/one-second defaults; disabled OSD and
-fractional timeout values round-trip while preserving saved volume. Zero is
-accepted by the pinned reference field's nonnegative range; negative and
-unrepresentable durations are rejected. Settings UI and runtime timeout checks
-remain open.
+OSD preferences preserve the enabled and one-second defaults across legacy
+settings, round-trip fractional timeouts, and reject negative or unrepresentable
+durations. The Interface pane exposes auto-hide time and text size, and the
+configured timeout drives transient seek and video feedback. Seek, video, and
+screenshot overlays now fade out over the pinned 0.5-second duration; disabling
+animations or turning off OSD removes the overlay without a fade. Workspace
+compilation verifies the Slint changes. Live timer/fade behavior, reduced-motion
+integration, accessibility during the transition, and matched macOS rendering
+remain unverified.
+
+The On-Screen Controller preferences now include IINA's enabled-by-default
+auto-hide policy and editable 2.5-second timeout. The single-shot deadline is
+re-armed by activity, applies while paused, and is cancelled when auto-hide is
+disabled. Core tests cover legacy defaults, fractional values, validation and
+round-tripping; app tests cover the numeric editor. The pinned source also keeps
+the controller visible while hovered or dragged and fades it over 0.25 seconds.
+Transparent hover areas now cancel the deadline over the title bar and OSC, then
+restart it on exit; input is forwarded to the existing controls. Compilation
+verifies this wiring. Controller chrome now fades over the pinned 0.25 seconds,
+with a delayed removal that is cancelled if activity returns during the fade.
+Live hover/fade interaction remains unverified. Dragging the floating controller
+and live Settings interaction remain open.
 
 The shared application reducer tests cover coalesced native completion counters,
 an overlapping seek, delayed/unknown clock values, ordinary ticks, file replacement,
@@ -1551,19 +1567,20 @@ native video surface into a compact always-on-top Slint window through DWM, and
 syncs title, pause, seek and configured main-window lifecycle behavior. Closing PiP
 now pauses playback, matching IINA's observed exit behavior, and restores the main
 window only when that PiP session hid or minimized it. Core lifecycle tests cover
-those effects. DWM projection, live PiP controls, minimized/hidden restoration,
-display changes and visual parity have not been GUI-tested. macOS PiP remains pending.
+those effects. Entry now checks the pause command and restores its prior pause state
+if hiding the main window fails; the renderer is moved only after that fallible
+window action succeeds. Windows app compilation covers this path, but DWM projection,
+live PiP controls, minimized/hidden restoration, display changes and visual parity
+have not been GUI-tested. macOS PiP remains pending.
 
 ## Headless Windows native playback tests
 
-GitHub candidate [38149950847](https://github.com/deminden/riina/actions/runs/38149950847)
+GitHub candidate [38152037885](https://github.com/deminden/riina/actions/runs/38152037885)
 passed source packaging and dependency notices but failed its 42-test native playback
-gate: the hosted Windows runner exposes no hardware audio endpoint, so mpv's
-automatic audio-output choice left several tests without an active output. The test
-helpers now select the release bundle's OpenAL backend and set OpenAL Soft's `null`
-driver, allowing playback and audio decoding tests to run without physical speakers.
-The long-seek fixture uses a typical 48 kHz sample rate, and event assertions now
-respect the change-driven playback state stream. The complete ignored native suite
-passes locally: 42 passed, 0 failed. The null driver verifies initialization,
-decoding and player lifecycle; it does not verify audible output hardware. The
-workflow also runs an integration test against the exact extracted portable package.
+gate with a process access violation. The exact native engine artifact from run
+38138622911 passes the complete ignored native suite locally: 42 passed, 0 failed.
+The test setup selects the bundled OpenAL backend and OpenAL Soft's `null` driver,
+which verifies initialization, decoding and player lifecycle without physical
+speakers; it does not verify audible output hardware. The difference between hosted
+and local execution remains unresolved. The workflow also runs an integration test
+against the exact extracted portable package after the native suite passes.

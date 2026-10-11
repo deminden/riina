@@ -256,9 +256,12 @@ mapping operations, not the new Settings page geometry. Riina now follows the
 captured one-column hierarchy, includes the first seven visible IINA defaults, and
 filters rows by readable labels or raw values. Its profile store supports list,
 create, duplicate, import, save, rename and delete, with reveal/delete wired to the
-page. Other built-in maps, add/edit/key recording, selection-aware removal, runtime
-dispatch and system media-session behavior remain incomplete. The Windows page has
-not yet been captured against the macOS reference.
+page. Active-profile dispatch now covers the shipped IINA Default mappings through
+a bounded supported-action set; unsupported custom actions are consumed with a
+status message. Action-builder parity, the remaining built-in maps, key recording,
+selection-aware removal, system media-session behavior and matched pixels remain
+incomplete. Runtime GUI interaction and the Windows page have not yet been
+captured against the macOS reference.
 
 ### Utilities page
 

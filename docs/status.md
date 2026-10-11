@@ -3,7 +3,7 @@
 ## Application state
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.0. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior.
@@ -24,8 +24,11 @@ captured reference surfaces to choose and verify work.
 
 Known substantial gaps include live verification of the new Windows
 Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
-preferences and plugin behavior, and source-matched menus, sidebars, materials,
-window geometry, and complete interaction captures.
+preferences and plugin behavior, controller-drag auto-hide suppression and live
+validation of its source-matched fade, and source-matched menus, sidebars, materials, window
+geometry, and complete interaction captures. Windows native-menu activation now
+keeps focus on the menu owner during the initial click; live playback interaction
+still needs verification.
 Windows HDR and native-window work has runtime evidence, but calibrated end-to-end
 HDR parity and broad hardware coverage remain unverified. Consult the parity
 inventory for the exact state of each requirement.
@@ -39,15 +42,16 @@ pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
 no Windows application binary. Candidate
-[workflow run 38149950847](https://github.com/deminden/riina/actions/runs/38149950847)
-reused the native engine and captured-source artifacts from run 38138622911; its
-source bundle and dependency notices passed, but the native playback suite failed
-because the hosted Windows runner has no hardware audio endpoint and the tests used
-mpv's automatic output selection. The test setup now selects the bundled OpenAL
-backend with OpenAL Soft's null driver, and local verification passes all 42 native
-tests. A new private package candidate has not yet been started. No binary is
-available to download until that exact candidate passes package playback, licensing,
-and corresponding-source checks and a versioned release publishes its assets.
+[workflow run 38152037885](https://github.com/deminden/riina/actions/runs/38152037885)
+reused the native engine and corresponding-source artifacts from run 38138622911.
+Source packaging and dependency notices passed, but the Windows package job stopped
+in its native playback gate when the serial native test process hit a Windows access
+violation while running `ab_repeat_observes_points_and_wraps_playback`. The exact
+candidate engine artifact passes its runtime-manifest check and all 42 native tests
+in a local serial Windows run; the hosted-runner crash remains unresolved. No binary
+is available until the Windows package gate,
+exact package checks, and corresponding-source audit pass and a versioned release
+publishes its assets.
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. The

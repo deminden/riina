@@ -10,6 +10,11 @@ and the Slint Royalty-free 2.0 agreement; the corresponding source archive
 includes those materials, the native source checkouts, locked Rust crate sources
 and build recipes.
 
+The Riina identity assets in `assets/branding/` retain the pack's MIT license.
+The vector wordmark includes letter outlines based on Inter; its OFL 1.1 notice is
+included alongside the brand guide. The Inter font file is not bundled. See
+`assets/branding/THIRD_PARTY_NOTICES.md` for details.
+
 IINA v1.5.0, https://github.com/iina/iina, commit fbcff4df7183b335880396af0655f6bb89d46442:
 GPL version 3 text. Inspected headers attribute PlayerCore/MPVController to lhc (2016),
 OSCFloatingView/LayoutValue to Hechen Li/lhc (2026). Geometry/defaults/behavior are
@@ -44,6 +49,7 @@ OpenGL example source by SixtyFPS GmbH is MIT; inspected as interop guidance. Ou
 renderer implementation is independently written with mpv ABI declarations.
 glow 0.18.0: MIT/Apache-2.0/Zlib; libloading 0.9.0: ISC;
 serde/serde_json: MIT/Apache-2.0; windows 0.62.2: MIT/Apache-2.0.
+The Windows resource build helper `winresource` 0.1.31 is MIT.
 Cargo.lock pins the complete dependency graph. The source archive vendors the
 locked crates with their original license files, alongside this notice and the
 Unicode notice under third-party-licenses/.

@@ -1,6 +1,6 @@
 use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
-use slint::{ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 const BUILTIN_PROFILES: [&str; 5] = [
     "IINA Default",
@@ -324,6 +324,165 @@ pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
     app.set_key_binding_current_profile(settings.current_profile.clone().into());
     app.set_key_binding_use_system_media_controls(settings.use_system_media_controls);
     app.set_key_binding_display_raw_values(settings.display_raw_values);
+    let mappings = match mappings_for(&settings.current_profile) {
+        Ok(mappings) => mappings,
+        Err(error) => {
+            app.set_status(format!("Could not load input profile: {error}").into());
+            Vec::new()
+        }
+    };
+    let player = app.as_weak();
+    app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+        let Some(key) = recorded_key(text.as_str(), control, alt, shift, meta) else {
+            return false;
+        };
+        let Some(mapping) = mappings
+            .iter()
+            .rev()
+            .find(|mapping| normalize_profile_key(&mapping.key) == key)
+        else {
+            return false;
+        };
+        let Some(app) = player.upgrade() else {
+            return true;
+        };
+        dispatch_mapping(&app, mapping);
+        true
+    });
+}
+
+fn normalize_profile_key(value: &str) -> String {
+    let mut control = false;
+    let mut alt = false;
+    let mut shift = false;
+    let mut meta = false;
+    let mut key = value;
+    let mut has_meta = false;
+    for part in value.split('+') {
+        match part.to_ascii_lowercase().as_str() {
+            "ctrl" | "control" => control = true,
+            "alt" | "option" => alt = true,
+            "shift" => shift = true,
+            "meta" | "super" | "command" => {
+                meta = true;
+                has_meta = true;
+            }
+            _ => key = part,
+        }
+    }
+    // IINA's Meta modifier is the platform's primary shortcut; its additional
+    // Control modifier maps to Alt on Windows and Linux, matching the UI layer.
+    if !cfg!(target_os = "macos") && meta {
+        meta = false;
+        if control {
+            alt = true;
+        }
+        control = true;
+    }
+    if !has_meta && !cfg!(target_os = "macos") && value.contains("Meta+") {
+        control = true;
+    }
+    let key = match key.to_ascii_uppercase().as_str() {
+        "SPACE" => " ".to_owned(),
+        "LEFT" | "LEFTARROW" => "←".to_owned(),
+        "RIGHT" | "RIGHTARROW" => "→".to_owned(),
+        "UP" | "UPARROW" => "↑".to_owned(),
+        "DOWN" | "DOWNARROW" => "↓".to_owned(),
+        "ENTER" | "RETURN" => "Return".to_owned(),
+        "ESC" | "ESCAPE" => "Escape".to_owned(),
+        "PGUP" | "PAGEUP" => "PageUp".to_owned(),
+        "PGDWN" | "PAGEDOWN" => "PageDown".to_owned(),
+        _ if key.chars().count() == 1 && key.chars().next().is_some_and(char::is_uppercase) => {
+            shift = true;
+            key.to_lowercase()
+        }
+        _ => key.to_owned(),
+    };
+    recorded_key(&key, control, alt, shift, meta).unwrap_or_default()
+}
+
+enum RuntimeAction {
+    TogglePause,
+    Stop,
+    Seek(f32),
+    Volume(f32),
+    Mute,
+    SubtitleVisibility,
+    Fullscreen,
+    CycleAudio,
+    CycleSubtitle,
+    CycleVideo,
+    FrameStep,
+    FrameBackStep,
+    SubtitlePosition(f32),
+    OpenPreferences,
+    SettingsPane(i32),
+}
+
+fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
+    let action = mapping.action.trim();
+    if mapping.kind == ActionKind::Riina {
+        return match action {
+            "video-panel" => Some(RuntimeAction::SettingsPane(6)),
+            "audio-panel" => Some(RuntimeAction::SettingsPane(1)),
+            "sub-panel" => Some(RuntimeAction::SettingsPane(2)),
+            "preferences" => Some(RuntimeAction::OpenPreferences),
+            _ => None,
+        };
+    }
+    let words = action.split_whitespace().collect::<Vec<_>>();
+    match words.as_slice() {
+        ["cycle", "pause"] => Some(RuntimeAction::TogglePause),
+        ["stop"] => Some(RuntimeAction::Stop),
+        ["cycle", "mute"] => Some(RuntimeAction::Mute),
+        ["cycle", "sub-visibility"] => Some(RuntimeAction::SubtitleVisibility),
+        ["cycle", "fullscreen"] => Some(RuntimeAction::Fullscreen),
+        ["cycle", "audio"] => Some(RuntimeAction::CycleAudio),
+        ["cycle", "sub"] => Some(RuntimeAction::CycleSubtitle),
+        ["cycle", "video"] => Some(RuntimeAction::CycleVideo),
+        ["frame-step"] => Some(RuntimeAction::FrameStep),
+        ["frame-back-step"] => Some(RuntimeAction::FrameBackStep),
+        ["seek", seconds] => seconds
+            .parse::<f32>()
+            .ok()
+            .filter(|value| value.is_finite())
+            .map(RuntimeAction::Seek),
+        ["add", "volume", amount] => amount
+            .parse::<f32>()
+            .ok()
+            .filter(|value| value.is_finite())
+            .map(RuntimeAction::Volume),
+        ["add", "sub-pos", amount] => amount
+            .parse::<f32>()
+            .ok()
+            .filter(|value| value.is_finite())
+            .map(RuntimeAction::SubtitlePosition),
+        _ => None,
+    }
+}
+
+fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping) {
+    let Some(action) = runtime_action(mapping) else {
+        app.set_status(format!("Input action is not supported yet: {}", mapping.action).into());
+        return;
+    };
+    match action {
+        RuntimeAction::TogglePause => app.invoke_toggle_pause(),
+        RuntimeAction::Stop => app.invoke_stop(),
+        RuntimeAction::Seek(seconds) => app.invoke_seek_relative(seconds),
+        RuntimeAction::Volume(amount) => app.invoke_adjust_volume(amount),
+        RuntimeAction::Mute => app.invoke_toggle_mute(),
+        RuntimeAction::SubtitleVisibility => app.invoke_toggle_subtitle_visibility(),
+        RuntimeAction::Fullscreen => app.invoke_toggle_fullscreen(),
+        RuntimeAction::CycleAudio => app.invoke_cycle_audio_track(),
+        RuntimeAction::CycleSubtitle => app.invoke_cycle_subtitle_track(),
+        RuntimeAction::CycleVideo => app.invoke_cycle_video_track(),
+        RuntimeAction::FrameStep => app.invoke_frame_step(),
+        RuntimeAction::FrameBackStep => app.invoke_frame_back_step(),
+        RuntimeAction::SubtitlePosition(amount) => app.invoke_adjust_subtitle_position(amount),
+        RuntimeAction::OpenPreferences => app.invoke_open_preferences(),
+        RuntimeAction::SettingsPane(index) => app.invoke_toggle_settings_pane(index),
+    }
 }
 
 pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
@@ -465,5 +624,39 @@ mod tests {
             Some("Shift+Meta+v")
         );
         assert_eq!(recorded_key("Control", true, false, false, false), None);
+    }
+
+    #[test]
+    fn recorded_profile_keys_match_platform_primary_shortcuts() {
+        let video_panel = normalize_profile_key("Shift+Meta+v");
+        if cfg!(target_os = "macos") {
+            assert_eq!(video_panel, "Shift+Meta+v");
+        } else {
+            assert_eq!(video_panel, "Ctrl+Shift+v");
+            assert_eq!(normalize_profile_key("Ctrl+Meta+v"), "Ctrl+Alt+v");
+        }
+        assert_eq!(normalize_profile_key("R"), "Shift+r");
+        assert_eq!(normalize_profile_key("SPACE"), "SPACE");
+        assert_eq!(normalize_profile_key("RIGHT"), "RIGHT");
+    }
+
+    #[test]
+    fn runtime_dispatch_accepts_supported_actions_and_rejects_unbounded_commands() {
+        let mapping = |action: &str, kind| Mapping {
+            key: "SPACE".into(),
+            action: action.into(),
+            kind,
+            comment: None,
+        };
+        assert!(matches!(
+            runtime_action(&mapping("cycle pause", ActionKind::Mpv)),
+            Some(RuntimeAction::TogglePause)
+        ));
+        assert!(matches!(
+            runtime_action(&mapping("video-panel", ActionKind::Riina)),
+            Some(RuntimeAction::SettingsPane(6))
+        ));
+        assert!(runtime_action(&mapping("run calc.exe", ActionKind::Mpv)).is_none());
+        assert!(runtime_action(&mapping("seek NaN", ActionKind::Mpv)).is_none());
     }
 }

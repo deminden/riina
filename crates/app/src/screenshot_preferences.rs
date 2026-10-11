@@ -323,6 +323,15 @@ pub(crate) fn connect(
                         return;
                     }
                 };
+                let selected_control_bar =
+                    match crate::osc_preferences::current_preferences(&window) {
+                        Ok(settings) => settings,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
                 let selected_picture_in_picture =
                     match crate::pip_preferences::current_preferences(&window) {
                         Ok(settings) => settings,
@@ -846,6 +855,7 @@ pub(crate) fn connect(
                         disable_osd_seek: selected_osd.disable_seek,
                         osd_timeout_secs: selected_osd.timeout_secs,
                         osd_text_size: selected_osd.text_size,
+                        control_bar: selected_control_bar,
                         display_time_and_battery_in_fullscreen: selected_osd
                             .display_time_and_battery_in_fullscreen,
                         leading_sidebar_width: app.get_leading_sidebar_width() as u32,
@@ -898,6 +908,7 @@ pub(crate) fn connect(
                         app.set_appearance_mode(selected_theme.index());
                         app.set_dark_theme(selected_dark);
                         selected_osd.install_player(&app);
+                        crate::osc_preferences::install_player(&app, selected_control_bar);
                         app.set_always_float_on_top(window.get_always_float_on_top());
                         app.set_always_show_on_top_icon(window.get_always_show_on_top_icon());
                         crate::control_preferences::install_player(&app, &selected_controls);
@@ -1167,6 +1178,10 @@ pub(crate) fn connect(
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     crate::osd_preferences::current_player(app).install_preferences(window);
+    crate::osc_preferences::install_preferences(
+        window,
+        crate::osc_preferences::current_player(app),
+    );
     crate::liquid_glass_preferences::install_preferences(
         window,
         crate::liquid_glass_preferences::current_player(app),

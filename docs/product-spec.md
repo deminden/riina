@@ -428,8 +428,6 @@ Treat these as navigation links. The pinned source and the documentation matchin
     https://github.com/slint-ui/slint/tree/master/examples/opengl_texture
     https://github.com/microsoft/windows-rs
     https://learn.microsoft.com/en-us/windows/win32/api/systemmediatransportcontrolsinterop/nf-systemmediatransportcontrolsinterop-isystemmediatransportcontrolsinterop-getforwindow
-    https://developers.openai.com/codex/agent-configuration/agents-md
-    https://developers.openai.com/cookbook/articles/codex_exec_plans
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect

@@ -16,10 +16,16 @@ Original riina contributions are MIT. Develop independently from observable
 behavior and documented platform APIs; do not translate IINA implementation code
 or copy its protected assets. Read docs/licensing.md before changing license terms.
 
+Preserve Denis Demin as the repository's sole contributor identity. Use the
+configured Denis author and committer identity for commits. Never add assistant
+co-author or review trailers, assistant attribution in commit messages, or
+assistant names or metadata in repository files. Do not rewrite published
+history unless the user explicitly requests it.
+
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.2.15.
+the minor digit for major milestones. The current development version is 0.3.0.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.

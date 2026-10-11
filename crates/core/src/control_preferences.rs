@@ -75,6 +75,57 @@ pub enum ScrollAction {
     PlaybackSpeed,
 }
 
+/// A playback change produced by one configured scroll gesture.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ScrollEffect {
+    None,
+    AdjustVolume(f64),
+    Seek(f64),
+    MultiplySpeed(f64),
+}
+
+/// Convert a platform scroll delta to an IINA-style adjustment. `delta` is in
+/// logical pixels; coarse wheel events are normalized by the host adapter.
+pub fn scroll_effect(
+    settings: &Settings,
+    horizontal: bool,
+    delta: f64,
+    precise: bool,
+) -> ScrollEffect {
+    if !delta.is_finite() || delta == 0.0 || settings.validate().is_err() {
+        return ScrollEffect::None;
+    }
+
+    let action = if horizontal {
+        settings.horizontal_scroll_action
+    } else {
+        settings.vertical_scroll_action
+    };
+    let direction = if precise {
+        delta
+    } else {
+        delta.signum() * if horizontal { 1.0 } else { 2.0 }
+    };
+    let sensitivity = |values: [f64; 4], index: u8| values[usize::from(index - 1)];
+
+    match action {
+        ScrollAction::None => ScrollEffect::None,
+        ScrollAction::Volume if precise => ScrollEffect::AdjustVolume(
+            delta * sensitivity([0.25, 0.5, 0.75, 1.0], settings.volume_sensitivity),
+        ),
+        ScrollAction::Volume => ScrollEffect::AdjustVolume(direction),
+        ScrollAction::Seek if precise => ScrollEffect::Seek(
+            delta * sensitivity([0.05, 0.1, 0.25, 0.5], settings.seek_sensitivity),
+        ),
+        ScrollAction::Seek => ScrollEffect::Seek(
+            direction * sensitivity([0.5, 1.0, 2.0, 4.0], settings.seek_sensitivity),
+        ),
+        ScrollAction::PlaybackSpeed => ScrollEffect::MultiplySpeed(
+            1.0 + direction * sensitivity([0.001, 0.002, 0.005, 0.01], settings.speed_sensitivity),
+        ),
+    }
+}
+
 impl ScrollAction {
     pub const fn index(self) -> i32 {
         match self {
@@ -271,5 +322,57 @@ mod tests {
             ..Settings::default()
         };
         assert!(upper_boundary.validate().is_ok());
+    }
+
+    #[test]
+    fn default_scrolls_match_volume_and_keyframe_seek_controls() {
+        let settings = Settings::default();
+        assert_eq!(
+            scroll_effect(&settings, false, 60.0, false),
+            ScrollEffect::AdjustVolume(2.0)
+        );
+        assert_eq!(
+            scroll_effect(&settings, true, 60.0, false),
+            ScrollEffect::Seek(2.0)
+        );
+    }
+
+    #[test]
+    fn precise_scroll_uses_selected_sensitivity_and_speed_is_bounded() {
+        let precise = Settings {
+            vertical_scroll_action: ScrollAction::Seek,
+            seek_sensitivity: 4,
+            ..Settings::default()
+        };
+        assert_eq!(
+            scroll_effect(&precise, false, 4.0, true),
+            ScrollEffect::Seek(2.0)
+        );
+
+        let speed = Settings {
+            vertical_scroll_action: ScrollAction::PlaybackSpeed,
+            speed_sensitivity: 4,
+            ..Settings::default()
+        };
+        assert_eq!(
+            scroll_effect(&speed, false, 60.0, false),
+            ScrollEffect::MultiplySpeed(1.02)
+        );
+    }
+
+    #[test]
+    fn invalid_or_zero_scroll_does_not_create_playback_commands() {
+        let invalid = Settings {
+            volume_sensitivity: 0,
+            ..Settings::default()
+        };
+        assert_eq!(
+            scroll_effect(&Settings::default(), false, f64::NAN, true),
+            ScrollEffect::None
+        );
+        assert_eq!(
+            scroll_effect(&invalid, false, 1.0, true),
+            ScrollEffect::None
+        );
     }
 }

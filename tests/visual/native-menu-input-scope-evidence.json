@@ -11,7 +11,7 @@
     "Tab focus reaches 4:3, Space changes selection to (40, 0) (240×180), and Escape returns to Play, volume 37, position 5",
     "Control+O opens the native file picker; F10 retains its Search Box focus and Open File dialog, without a player Video menu",
     "Two Escapes leave the picker keyboard scope and cancel; the Video shortcut works afterward with Play, volume 37, position 5 preserved",
-    "Alt+Tab closes the observed Video dropdown but reports owner focus; explicit Codex activation yields retained focus labels in both apps, so foreground ownership is not proven"
+    "Alt+Tab closes the observed Video dropdown but reports owner focus; explicit external activation yields retained focus labels in both apps, so foreground ownership is not proven"
   ],
   "exit_code": 0,
   "stderr": "Only expected scale=3, client=2880x1858, layout=960x619.3333 diagnostic",

@@ -29,7 +29,7 @@ for asset in manifest["assets"]:
     assert hashlib.sha256(read_asset(name)).hexdigest() == asset["sha256"], name
     recorded.add(name)
 
-asset_extensions = {".svg", ".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".woff", ".woff2"}
+asset_extensions = {".svg", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".ttf", ".otf", ".woff", ".woff2"}
 if staged:
     # Windows working files can use CRLF while Git stores LF. The publication
     # gate must hash the indexed bytes, rather than trusting a local-only pass.

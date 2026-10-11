@@ -55,12 +55,12 @@
     "moving-square.avi": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636"
   },
   "renderer_log": [
-    "[   0.005][d][cplayer] Run command: loadfile, flags=64, args=[url=\"C:\\\\Codex\\\\wiina\\\\tests\\\\fixtures\\\\hdr-hlg.mkv\", flags=\"replace\", index=\"-1\", options=\"\"]",
+    "[   0.005][d][cplayer] Run command: loadfile, flags=64, args=[url=\"C:\\\\workspace\\\\riina\\\\tests\\\\fixtures\\\\hdr-hlg.mkv\", flags=\"replace\", index=\"-1\", options=\"\"]",
     "[   0.187][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G2084_NONE_P2020 (12)",
     "[   0.189][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
     "[   0.193][v][vo/gpu-next] reconfig to 192x108 yuv422p10 bt.2020-ncl/bt.2020/hlg/limited/hlg CL=mpeg2/4/h264 crop=192x108+0+0 A=none",
     "[  15.462][v][vo/gpu-next/win32] uninit",
-    "[  37.651][d][cplayer] Run command: loadfile, flags=64, args=[url=\"C:\\\\Codex\\\\wiina\\\\tests\\\\fixtures\\\\moving-square.avi\", flags=\"replace\", index=\"-1\", options=\"\"]",
+    "[  37.651][d][cplayer] Run command: loadfile, flags=64, args=[url=\"C:\\\\workspace\\\\riina\\\\tests\\\\fixtures\\\\moving-square.avi\", flags=\"replace\", index=\"-1\", options=\"\"]",
     "[  37.808][v][vo/gpu-next/d3d11] Queried output: \\\\.\\DISPLAY1, 3840x2160 @ 10 bits, colorspace: RGB_FULL_G2084_NONE_P2020 (12)",
     "[  37.810][v][vo/gpu-next/libplacebo] Initial swap chain configuration: format: R16G16B16A16_FLOAT, color space: RGB_FULL_G10_NONE_P709.",
     "[  37.829][v][vo/gpu-next] reconfig to 320x180 yuv420p bt.601/bt.709/srgb/full/display CL=mpeg1/jpeg crop=320x180+0+0 A=none",

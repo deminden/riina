@@ -1,6 +1,48 @@
 {
   "assets": [
     {
+      "path": "assets/branding/social/riina-github-social.png",
+      "author": "deminden and riina contributors",
+      "license": "MIT (brand artwork); SIL OFL 1.1 notice in assets/branding/source/fonts/Inter-OFL.txt",
+      "origin": "Original Riina brand pack repository preview; Inter-derived lettering is documented in assets/branding/THIRD_PARTY_NOTICES.md",
+      "sha256": "4bfd888a28fa6d45e215c46c65defb8933452b4ccad6ab5e93047fc737c64e50"
+    },
+    {
+      "path": "assets/branding/social/riina-github-social.svg",
+      "author": "deminden and riina contributors",
+      "license": "MIT (brand artwork); SIL OFL 1.1 notice in assets/branding/source/fonts/Inter-OFL.txt",
+      "origin": "Original Riina brand pack editable repository preview; Inter-derived lettering is documented in assets/branding/THIRD_PARTY_NOTICES.md",
+      "sha256": "b4924c8d046a4d4e92a2553c4e60f575e2d8968821eaa3ab7d3a28e69e06a5a8"
+    },
+    {
+      "path": "assets/branding/svg/riina-app-icon-dark.svg",
+      "author": "deminden and riina contributors",
+      "license": "MIT (brand artwork); SIL OFL 1.1 notice in assets/branding/source/fonts/Inter-OFL.txt",
+      "origin": "Original Riina brand pack application symbol and tile geometry; Inter-derived lettering is documented in assets/branding/THIRD_PARTY_NOTICES.md",
+      "sha256": "f00063192be51478cf945124648588e5203bf1f504e090a077476d2a545ea696"
+    },
+    {
+      "path": "assets/branding/svg/riina-logo-horizontal-dark.svg",
+      "author": "deminden and riina contributors",
+      "license": "MIT (brand artwork); SIL OFL 1.1 notice in assets/branding/source/fonts/Inter-OFL.txt",
+      "origin": "Original Riina brand pack vector logo; Inter-derived lettering is documented in assets/branding/THIRD_PARTY_NOTICES.md",
+      "sha256": "dc4cd9ccdd02c8d532610997b60593694fb45fb419cc80c50edc870ac0374061"
+    },
+    {
+      "path": "assets/branding/svg/riina-logo-horizontal-light.svg",
+      "author": "deminden and riina contributors",
+      "license": "MIT (brand artwork); SIL OFL 1.1 notice in assets/branding/source/fonts/Inter-OFL.txt",
+      "origin": "Original Riina brand pack vector logo; Inter-derived lettering is documented in assets/branding/THIRD_PARTY_NOTICES.md",
+      "sha256": "1247ce5c86e2697441ad5797b8d88a299d5d113314a049c4316811df889ac620"
+    },
+    {
+      "path": "assets/branding/windows/riina.ico",
+      "author": "deminden and riina contributors",
+      "license": "MIT (brand artwork); SIL OFL 1.1 notice in assets/branding/source/fonts/Inter-OFL.txt",
+      "origin": "Original Riina brand pack Windows application icon; Inter-derived lettering is documented in assets/branding/THIRD_PARTY_NOTICES.md",
+      "sha256": "ed13d17475954854f31f319a43ccf8bf9f24a915f5cdb727b5e3e96895732a01"
+    },
+    {
       "path": "assets/icons/add.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -197,6 +239,20 @@
       "sha256": "6336372455797843afba03c55186123dbe58ee1aa22965acf403aeeacee25599"
     },
     {
+      "path": "assets/icons/shuffle.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "2077766738e74b539f9e5642a625a9e49f395b00c179427defc423f260bed905"
+    },
+    {
+      "path": "assets/icons/sort.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "da00c80a3c06fa1ff46517a4d1d1386bbacf98df0f333be07212d2181c3c837d"
+    },
+    {
       "path": "assets/icons/stop.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -237,21 +293,7 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "97007dbdb618c0aa72c2861c25d4df13325fb9feeba54d4e017aad236219fa6e"
-    },
-    {
-      "path": "assets/icons/shuffle.svg",
-      "author": "riina contributors",
-      "license": "MIT",
-      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "2077766738e74b539f9e5642a625a9e49f395b00c179427defc423f260bed905"
-    },
-    {
-      "path": "assets/icons/sort.svg",
-      "author": "riina contributors",
-      "license": "MIT",
-      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "da00c80a3c06fa1ff46517a4d1d1386bbacf98df0f333be07212d2181c3c837d"
     }
   ],
-  "notes": "Original vector player icons replace font-dependent controls. Remaining Unicode symbols, system typography, exact reference geometry and material matching still need review. No Apple artwork, fonts or SF Symbols are bundled."
+  "notes": "Original vector player icons replace font-dependent controls. Remaining Unicode symbols, system typography, exact reference geometry and material matching still need review. Riina brand logos and icons are documented in assets/branding; the Inter source font is not bundled. No Apple artwork or SF Symbols are bundled."
 }
