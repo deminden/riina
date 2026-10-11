@@ -296,6 +296,27 @@ const ENTRIES: &[Entry] = &[
         terms: "lavf tcp udp http stream",
     },
     Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Online Videos (yt-dlp)",
+        title: "Enable mpv's youtube-dl script",
+        terms: "online video youtube yt-dlp extractor streaming",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Online Videos (yt-dlp)",
+        title: "Custom youtube-dl path",
+        terms: "directory executable binary folder yt-dlp",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Online Videos (yt-dlp)",
+        title: "Raw options",
+        terms: "youtube-dl yt-dlp format key value",
+    },
+    Entry {
         page_index: 6,
         page: "Control",
         section: "",
@@ -588,6 +609,15 @@ mod tests {
         assert_eq!(result[0].section_name, "Network");
         assert_eq!(result[0].title, "RTSP transport");
         assert_eq!(result[0].anchor_y, 80);
+    }
+
+    #[test]
+    fn online_video_options_are_searchable_in_their_reference_subsection() {
+        let result = item_results("yt-dlp raw options");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].page_name, "Network");
+        assert_eq!(result[0].section_name, "Online Videos (yt-dlp)");
+        assert_eq!(result[0].title, "Raw options");
     }
 
     #[test]

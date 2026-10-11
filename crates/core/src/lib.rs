@@ -85,6 +85,7 @@ pub enum Command {
     SubtitleEncoding(String),
     SubtitleAutoLoad(subtitle_controls::AutoLoadPreferences),
     NetworkCache(network_preferences::Cache),
+    NetworkOnlineVideos(network_preferences::OnlineVideos),
     VideoEqualizer {
         option: video_controls::Equalizer,
         value: i64,
@@ -501,6 +502,11 @@ impl Command {
                 commands
             }
             Self::NetworkCache(preferences) => preferences.commands()?,
+            Self::NetworkOnlineVideos(preferences) => preferences
+                .engine_options()?
+                .into_iter()
+                .map(|(name, value)| vec!["set".into(), name, value])
+                .collect(),
             Self::Screenshot {
                 directory,
                 content,
@@ -1220,6 +1226,7 @@ pub struct Preferences {
     pub screenshot: screenshot::Settings,
     pub network: network_preferences::Connection,
     pub network_cache: network_preferences::Cache,
+    pub network_online_videos: network_preferences::OnlineVideos,
     pub recent_media: Vec<RecentMedia>,
 }
 
@@ -1267,6 +1274,7 @@ impl Default for Preferences {
             screenshot: screenshot::Settings::default(),
             network: network_preferences::Connection::default(),
             network_cache: network_preferences::Cache::default(),
+            network_online_videos: network_preferences::OnlineVideos::default(),
             recent_media: Vec::new(),
         }
     }
@@ -1302,6 +1310,10 @@ impl Preferences {
         prefs.subtitle_position.validate().map_err(str::to_owned)?;
         prefs.network_cache.validate().map_err(str::to_owned)?;
         prefs.network.validate().map_err(str::to_owned)?;
+        prefs
+            .network_online_videos
+            .validate()
+            .map_err(str::to_owned)?;
         prefs.subtitle_other.validate().map_err(str::to_owned)?;
         prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
@@ -1614,6 +1626,48 @@ mod tests {
             configured
         );
         assert!(Preferences::parse(r#"{"network":{"user_agent":"bad\u0000value"}}"#).is_err());
+    }
+
+    #[test]
+    fn online_video_preferences_keep_reference_defaults_and_update_mpv() {
+        use network_preferences::OnlineVideos;
+
+        let defaults = Preferences::parse("{}").unwrap().network_online_videos;
+        assert_eq!(defaults, OnlineVideos::default());
+        assert!(defaults.enabled);
+        assert_eq!(
+            Command::NetworkOnlineVideos(defaults.clone())
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            vec![
+                vec!["set", "ytdl", "yes"],
+                vec!["set", "ytdl-raw-options", ""],
+            ]
+        );
+        let configured = OnlineVideos {
+            enabled: false,
+            search_path: "C:\\apps\\yt-dlp".into(),
+            raw_options: "proxy=http://proxy.example:8080".into(),
+        };
+        let preferences = Preferences {
+            network_online_videos: configured.clone(),
+            ..Preferences::default()
+        };
+        assert_eq!(
+            Preferences::parse(&serde_json::to_string(&preferences).unwrap())
+                .unwrap()
+                .network_online_videos,
+            configured
+        );
+        assert!(
+            OnlineVideos {
+                raw_options: "bad\0option".into(),
+                ..OnlineVideos::default()
+            }
+            .validate()
+            .is_err()
+        );
     }
 
     #[test]

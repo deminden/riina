@@ -169,3 +169,10 @@ captured. These icon shapes are authored independently and recorded in
 comparison. See
 `IINA-1.5.0-SETTINGS-SURFACES-001` in the reference-capture manifest before
 changing those layouts.
+
+Network > Online Videos (yt-dlp) is implemented as the source's two stacked
+rounded lists: the Online Media recommendation and the extractor switch with
+custom search-folder and raw-options details. The pinned source identifies the
+switch as enabled by default and requires a restart for the custom folder. The
+Windows surface has not been captured in this state; row metrics, plugin-state
+copy, disabled styling and matched reference pixels remain open.

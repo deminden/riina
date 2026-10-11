@@ -2293,3 +2293,21 @@ build failure trap now records the failing shell command and writes the recent
 dependency logs to `native-build-failure.log`; the workflow uploads that file as a
 short-lived artifact when the native job fails. This diagnostic change is local;
 the current public run cannot be retroactively enriched.
+
+2026-10-11 Network > Online Videos now follows the pinned settings pane: the
+plug-in recommendation, mpv extractor switch, custom search folder and raw option
+field are visible in the existing Network subnavigation. The new typed settings
+preserve reference defaults, persist, update mpv's `ytdl` options live and add the
+custom folder to PATH on next launch. The development version advances to 0.2.3.
+This extends media URL handling when a compatible extractor is installed; it does
+not include the optional Online Media plug-in's download or quality-switching
+features. Rust formatting, strict Clippy, workspace tests (49 app, 82 core, 4 mpv;
+38 native tests skipped without the DLL), workspace build, parity/navigation/
+fixture/asset checks and the 341-package Rust license/notice collection pass. The
+new pane has not been captured or compared, and site playback remains untested.
+
+GitHub native binary candidate run 38097291166 continues on commit 226b62e. The
+current branch changes prepare cross-run artifact reuse so release packaging can
+continue from that verified build instead of rebuilding the native engine. The
+GPLv3 distribution gate remains false until the exact runtime dependency and
+source audit plus native tests pass; no binary release has been published.

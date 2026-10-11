@@ -451,6 +451,9 @@ export component PreferencesWindow inherits Window {
     in-out property <string> network-http-proxy: "";
     in-out property <int> network-rtsp-transport-index: 1;
     in property <[string]> network-rtsp-transport-options: ["lavf", "tcp", "udp", "http"];
+    in-out property <bool> network-ytdl-enabled: true;
+    in-out property <string> network-ytdl-search-path: "";
+    in-out property <string> network-ytdl-raw-options: "";
     in-out property <bool> compact-ui: false;
     in-out property <bool> docked-controls: false;
     in-out property <bool> edge-to-edge-video: true;
@@ -1094,10 +1097,52 @@ export component PreferencesWindow inherits Window {
                 text: "Changes take effect after restarting riina.";
                 font-size: 10px; color: #77777d; vertical-alignment: center; }
         }
-        if root.selected-network-section == 2 : Text {
-            x: 28px; y: 88px; width: parent.width - 56px; height: 50px;
-            text: "Online video options are available through the optional media integration.";
-            font-size: 12px; color: #77777d; wrap: word-wrap;
+        if root.selected-network-section == 2 : Rectangle {
+            x: 0; y: 0; width: parent.width; height: parent.height; background: #ededed;
+            Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 78px;
+                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+                Image { x: 12px; y: 14px; width: 18px; height: 18px;
+                    source: @image-url("../../../assets/icons/plugins.svg"); image-fit: contain; }
+                Text { x: 42px; y: 10px; width: parent.width - 58px; height: 22px;
+                    text: "The Online Media plugin is recommended"; font-size: 12px; font-weight: 600; color: #252529; }
+                Text { x: 42px; y: 34px; width: parent.width - 58px; height: 40px;
+                    text: "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor.";
+                    font-size: 10px; color: #77777d; wrap: word-wrap; }
+            }
+            Rectangle { x: 20px; y: 170px; width: parent.width - 40px; height: 220px;
+                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+                PreferenceSwitch { x: 12px; y: 6px; width: parent.width - 24px;
+                    label: "Enable mpv's youtube-dl script";
+                    checked <=> root.network-ytdl-enabled;
+                    toggled => { root.settings-changed(); }
+                }
+                Text { x: 12px; y: 43px; width: parent.width - 24px; height: 32px;
+                    text: "Custom youtube-dl path"; font-size: 12px; color: #252529; }
+                Rectangle { x: 12px; y: 63px; width: parent.width - 24px; height: 24px;
+                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
+                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                        text <=> root.network-ytdl-search-path; font-size: 11px; color: #222222;
+                        enabled: root.network-ytdl-enabled;
+                        accepted => { root.settings-changed(); }
+                    }
+                }
+                Text { x: 12px; y: 90px; width: parent.width - 24px; height: 24px;
+                    text: "Search this folder at startup. Restart required.";
+                    font-size: 10px; color: #77777d; }
+                Text { x: 12px; y: 119px; width: parent.width - 24px; height: 22px;
+                    text: "Raw options"; font-size: 12px; color: #252529; }
+                Rectangle { x: 12px; y: 141px; width: parent.width - 24px; height: 24px;
+                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
+                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                        text <=> root.network-ytdl-raw-options; font-size: 11px; color: #222222;
+                        enabled: root.network-ytdl-enabled;
+                        accepted => { root.settings-changed(); }
+                    }
+                }
+                Text { x: 12px; y: 168px; width: parent.width - 24px; height: 28px;
+                    text: "Format: <key>=<value>[,<key>=<value>[,…]]";
+                    font-size: 10px; color: #77777d; }
+            }
         }
     }
     if root.selected-pane == 6 : Rectangle {

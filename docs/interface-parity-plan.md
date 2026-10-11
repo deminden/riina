@@ -131,11 +131,15 @@ now exposes the source's user-agent, HTTP-proxy and RTSP-transport controls, per
 them and supplies libmpv startup options; those options keep the source's restart-
 required behavior. Its visual measurements are source-derived from the pinned
 SettingsPageNetwork and legacy XIB because no capture of this subsection exists.
-Online Videos still needs the full source-matched controls and plugin-dependent
-behavior. Audio, Control, Key Bindings, Plugin and Utilities are otherwise
-incomplete. Source-list selection behavior, geometry, full pane content and a fresh
-live capture remain open. The category order is source-checked; it does not
-establish pixel parity.
+Online Videos (yt-dlp) now has source-ordered extractor enablement, search-folder
+and raw-options controls, persisted preferences, and startup/live mpv options.
+The custom search folder takes effect on the next app launch, following the
+reference behavior. Online Media plug-in installation and site playback remain
+open. The app has not been captured in this state, so rendered content, dimensions
+and matched pixels remain unverified. Audio, Control, Key Bindings, Plugin and
+Utilities are otherwise incomplete. Source-list selection behavior, geometry,
+full pane content and a fresh live capture remain open. The category order is
+source-checked; it does not establish pixel parity.
 
 Both sides now retain their own selected pane. Captured Windows playback shows
 Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and

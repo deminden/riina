@@ -44,6 +44,10 @@ pub(crate) fn connect(
             };
             crate::settings_search::connect(&window);
             crate::network_connection_preferences::install_window(&window, &baseline.network);
+            crate::network_ytdl_preferences::install_window(
+                &window,
+                &baseline.network_online_videos,
+            );
             let parent = app.as_weak();
             let weak = window.as_weak();
             let path = path.clone();
@@ -174,6 +178,24 @@ pub(crate) fn connect(
                     };
                 let selected_network =
                     match crate::network_connection_preferences::current_window(&window) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let previous_network_ytdl =
+                    match crate::network_ytdl_preferences::current_player(&app) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let selected_network_ytdl =
+                    match crate::network_ytdl_preferences::current_window(&window) {
                         Ok(preferences) => preferences,
                         Err(error) => {
                             app.set_status(error.into());
@@ -415,6 +437,14 @@ pub(crate) fn connect(
                     )
                 })
                 .and_then(|()| {
+                    crate::network_ytdl_preferences::apply(
+                        &decoder_player,
+                        &app,
+                        &previous_network_ytdl,
+                        &selected_network_ytdl,
+                    )
+                })
+                .and_then(|()| {
                     crate::subtitle_position_preferences::install_player(&app, selected_position);
                     crate::subtitle_other_preferences::install_player(
                         &app,
@@ -460,6 +490,7 @@ pub(crate) fn connect(
                         subtitle_text_style: desired_text_style,
                         network: selected_network,
                         network_cache: selected_network_cache.clone(),
+                        network_online_videos: selected_network_ytdl.clone(),
                         ..baseline.clone()
                     };
                     let text = serde_json::to_string_pretty(&preferences)
@@ -477,6 +508,12 @@ pub(crate) fn connect(
                         }
                     }
                     Err(error) => {
+                        crate::network_ytdl_preferences::restore(
+                            &decoder_player,
+                            &app,
+                            &previous_network_ytdl,
+                            &selected_network_ytdl,
+                        );
                         crate::network_cache_preferences::restore(
                             &decoder_player,
                             &app,
@@ -639,6 +676,7 @@ pub(crate) fn connect(
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     crate::network_cache_preferences::refresh_window(window, app);
+    crate::network_ytdl_preferences::refresh_window(window, app);
     window.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
     window
         .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());

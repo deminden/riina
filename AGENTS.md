@@ -14,7 +14,7 @@ or copy its protected assets. Read docs/licensing.md before changing license ter
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.2.2.
+the minor digit for major milestones. The current development version is 0.2.3.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
@@ -24,9 +24,10 @@ Never report an unrun GUI/HDR test as passed. Keep implementation and verificati
 After staging asset changes, run `python scripts/check-assets.py --staged` before
 publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
 Do not package native binaries until licensing and corresponding-source obligations are closed.
-Never spend the development session waiting on a long-running local or CI build. Once a
-build is running, continue independent interface, audit, or release work and check the
-build again only when its result is actionable.
+Never spend development time waiting on a long-running local or CI build. As soon as a
+build starts, move to independent interface, audit, or release work and advance the
+next useful steps. Check the build only when its result can change the next action; do
+not poll repeatedly or let a running build pause development.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect

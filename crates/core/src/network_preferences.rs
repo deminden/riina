@@ -1,6 +1,66 @@
 //! Typed network-cache settings shared by the UI, persistence, and player.
 
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+/// Optional mpv URL extraction preferences, matching IINA's ytdl settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OnlineVideos {
+    pub enabled: bool,
+    pub search_path: String,
+    pub raw_options: String,
+}
+
+impl Default for OnlineVideos {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            search_path: String::new(),
+            raw_options: String::new(),
+        }
+    }
+}
+
+impl OnlineVideos {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.search_path.contains('\0') || self.raw_options.contains('\0') {
+            return Err("Online video options cannot contain a NUL character");
+        }
+        Ok(())
+    }
+
+    pub fn engine_options(&self) -> Result<Vec<(String, String)>, String> {
+        self.validate().map_err(str::to_owned)?;
+        Ok(vec![
+            (
+                "ytdl".into(),
+                if self.enabled { "yes" } else { "no" }.into(),
+            ),
+            ("ytdl-raw-options".into(), self.raw_options.clone()),
+        ])
+    }
+
+    /// Put the configured extractor folder and app folder before inherited PATH.
+    pub fn process_search_path(
+        &self,
+        executable: &Path,
+        inherited: Option<&std::ffi::OsStr>,
+    ) -> Result<std::ffi::OsString, String> {
+        self.validate().map_err(str::to_owned)?;
+        let mut paths: Vec<PathBuf> = Vec::new();
+        if !self.search_path.is_empty() {
+            paths.push(PathBuf::from(&self.search_path));
+        }
+        if let Some(folder) = executable.parent() {
+            paths.push(folder.to_owned());
+        }
+        if let Some(inherited) = inherited {
+            paths.extend(std::env::split_paths(inherited));
+        }
+        std::env::join_paths(paths).map_err(|_| "Invalid online video search path".into())
+    }
+}
 
 /// Connection options in IINA's Network section.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -9,6 +69,79 @@ pub struct Connection {
     pub user_agent: String,
     pub http_proxy: String,
     pub rtsp_transport: RtspTransport,
+}
+
+#[cfg(test)]
+mod online_video_tests {
+    use super::OnlineVideos;
+    use std::path::PathBuf;
+
+    #[test]
+    fn online_video_options_follow_reference_defaults_and_custom_values() {
+        let defaults = OnlineVideos::default();
+        assert_eq!(
+            defaults.engine_options().unwrap(),
+            [
+                ("ytdl".into(), "yes".into()),
+                ("ytdl-raw-options".into(), "".into())
+            ]
+        );
+        let configured = OnlineVideos {
+            enabled: false,
+            search_path: "C:\\tools".into(),
+            raw_options: "proxy=http://proxy.example:8080".into(),
+        };
+        assert_eq!(
+            configured.engine_options().unwrap(),
+            [
+                ("ytdl".into(), "no".into()),
+                (
+                    "ytdl-raw-options".into(),
+                    "proxy=http://proxy.example:8080".into()
+                ),
+            ]
+        );
+        assert!(
+            OnlineVideos {
+                raw_options: "bad\0option".into(),
+                ..defaults
+            }
+            .validate()
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn custom_extractor_and_application_folders_precede_inherited_path() {
+        let custom = std::env::temp_dir().join("riina-ytdl");
+        let app = std::env::temp_dir().join("riina-app").join("riina.exe");
+        let inherited = std::env::join_paths(["system-one", "system-two"]).unwrap();
+        let preferences = OnlineVideos {
+            search_path: custom.to_string_lossy().into_owned(),
+            ..OnlineVideos::default()
+        };
+        let actual = preferences
+            .process_search_path(&app, Some(&inherited))
+            .unwrap();
+        let paths: Vec<_> = std::env::split_paths(&actual).collect();
+        assert_eq!(
+            paths,
+            [
+                custom,
+                app.parent().unwrap().to_owned(),
+                PathBuf::from("system-one"),
+                PathBuf::from("system-two")
+            ]
+        );
+        assert!(
+            OnlineVideos {
+                search_path: "bad\0path".into(),
+                ..OnlineVideos::default()
+            }
+            .process_search_path(&app, None)
+            .is_err()
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

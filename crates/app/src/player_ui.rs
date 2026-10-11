@@ -105,6 +105,7 @@ fn resume_engine_options(
     subtitle_auto_load: &riina_core::subtitle_controls::AutoLoadPreferences,
     network: &riina_core::network_preferences::Connection,
     network_cache: &riina_core::network_preferences::Cache,
+    network_online_videos: &riina_core::network_preferences::OnlineVideos,
 ) -> Result<Vec<(String, String)>, String> {
     let enabled = if resume_last_position { "yes" } else { "no" }.to_owned();
     let mut options = vec![
@@ -125,6 +126,7 @@ fn resume_engine_options(
     ));
     options.extend(network.engine_options()?);
     options.extend(network_cache.engine_options()?);
+    options.extend(network_online_videos.engine_options()?);
     Ok(options)
 }
 
@@ -579,6 +581,8 @@ impl UiSession {
                 .map_err(std::io::Error::other)?,
             network_cache: crate::network_cache_preferences::current_player(app)
                 .map_err(std::io::Error::other)?,
+            network_online_videos: crate::network_ytdl_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
         };
         if let Ok(state) = self.latest_playback.lock()
@@ -652,6 +656,7 @@ pub(crate) fn configure_player(
         &prefs.subtitle_auto_load,
         &prefs.network,
         &prefs.network_cache,
+        &prefs.network_online_videos,
     )
     .map_err(std::io::Error::other)?;
     app.set_volume_boost(prefs.volume_boost);
@@ -666,6 +671,7 @@ pub(crate) fn configure_player(
     crate::subtitle_other_preferences::install_player(app, &prefs.subtitle_other);
     crate::subtitle_auto_load_preferences::install_player(app, &prefs.subtitle_auto_load);
     crate::network_cache_preferences::install_player(app, &prefs.network_cache);
+    crate::network_ytdl_preferences::install_player(app, &prefs.network_online_videos);
     app.set_subtitle_font(prefs.subtitle_font.clone().into());
     app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
@@ -2006,6 +2012,7 @@ mod welcome_tests {
             &riina_core::subtitle_controls::AutoLoadPreferences::default(),
             &riina_core::network_preferences::Connection::default(),
             &riina_core::network_preferences::Cache::default(),
+            &riina_core::network_preferences::OnlineVideos::default(),
         )
         .unwrap();
         assert_eq!(enabled[0].0, "watch-later-directory");
@@ -2017,6 +2024,8 @@ mod welcome_tests {
         assert_eq!(enabled[5], ("rtsp-transport".into(), "tcp".into()));
         assert_eq!(enabled[6], ("cache".into(), "yes".into()));
         assert_eq!(enabled[9], ("cache-secs".into(), "36000".into()));
+        assert_eq!(enabled[11], ("ytdl".into(), "yes".into()));
+        assert_eq!(enabled[12], ("ytdl-raw-options".into(), "".into()));
 
         let disabled = resume_engine_options(
             directory,
@@ -2024,6 +2033,7 @@ mod welcome_tests {
             &riina_core::subtitle_controls::AutoLoadPreferences::default(),
             &riina_core::network_preferences::Connection::default(),
             &riina_core::network_preferences::Cache::default(),
+            &riina_core::network_preferences::OnlineVideos::default(),
         )
         .unwrap();
         assert_eq!(disabled[1].1, "no");

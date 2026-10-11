@@ -10,6 +10,7 @@ mod layout_preferences;
 mod media_open;
 mod network_cache_preferences;
 mod network_connection_preferences;
+mod network_ytdl_preferences;
 mod opening_fullscreen;
 mod platform;
 mod player_ui;
@@ -33,6 +34,7 @@ use slint::ComponentHandle;
 slint::include_modules!();
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    prepare_online_video_path()?;
     let mut args = std::env::args_os().skip(1);
     let first = args.next();
     let native = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
@@ -61,4 +63,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     slint::run_event_loop()?;
     session.save(&app)
+}
+
+fn prepare_online_video_path() -> Result<(), Box<dyn std::error::Error>> {
+    let path = platform::preferences_path()?;
+    let preferences = match std::fs::read_to_string(path) {
+        Ok(text) => riina_core::Preferences::parse(&text).map_err(std::io::Error::other)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            riina_core::Preferences::default()
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let executable = std::env::current_exe()?;
+    let path = preferences
+        .network_online_videos
+        .process_search_path(&executable, std::env::var_os("PATH").as_deref())
+        .map_err(std::io::Error::other)?;
+    // This runs before Slint or the playback worker creates threads, so no thread
+    // can observe a partially updated environment while mpv resolves yt-dlp.
+    unsafe { std::env::set_var("PATH", path) };
+    Ok(())
 }

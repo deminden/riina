@@ -17,6 +17,11 @@ SPDX_FILENAMES = {
     "Apache-2.0": ("LICENSE-APACHE", "LICENSE-APACHE.txt", "APACHE-LICENSE", "LICENSE", "LICENSE.md"),
     "BSL-1.0": ("LICENSE_1_0.txt", "LICENSE-BOOST", "LICENSE", "LICENSE.md"),
 }
+GPLV3_COMPATIBLE_GRANTS = {
+    "0BSD", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "BSL-1.0", "CC0-1.0",
+    "ISC", "LicenseRef-Slint-Royalty-free-2.0", "MIT", "MPL-2.0", "Unicode-3.0",
+    "Unlicense", "Zlib",
+}
 
 
 def dependency_packages(metadata):
@@ -185,9 +190,20 @@ def collect(metadata, output):
             "pinned_upstream_license_files": remote,
         })
 
+    for record in records:
+        chosen = set(record["selected_license"].split(" AND "))
+        unsupported = chosen - GPLV3_COMPATIBLE_GRANTS
+        if unsupported:
+            raise ValueError(
+                f"No reviewed GPLv3-compatible grant selected for "
+                f"{record['name']} {record['version']}: {sorted(unsupported)}"
+            )
+
     manifest = {
         "target": "x86_64-pc-windows-msvc",
         "workspace_binary": "riina",
+        "combined_distribution_license": "GPL-3.0-only",
+        "selected_grants_policy": "Select a reviewed GPLv3-compatible option; preserve every package license and notice file.",
         "packages": records,
     }
     (output / "RUST-LICENSES.json").write_text(

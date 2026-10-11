@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       approved: ${{ steps.audit.outputs.approved }}
+      native_run_id: ${{ steps.audit.outputs.native_run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
       - name: Read binary distribution decision
@@ -33,10 +34,12 @@ jobs:
         shell: bash
         run: |
           approved="$(python -c 'import json; print(str(json.load(open("docs/native-distribution-audit.json"))["distribution_approved"]).lower())')"
+          native_run_id="$(python -c 'import json; print(json.load(open("docs/native-distribution-audit.json")).get("verified_candidate_run_id", ""))')"
           echo "approved=$approved" >> "$GITHUB_OUTPUT"
+          echo "native_run_id=$native_run_id" >> "$GITHUB_OUTPUT"
 
   native-engine:
-    if: needs.distribution-audit.outputs.approved == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
+    if: (startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true' && needs.distribution-audit.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
     runs-on: ubuntu-latest
     needs: distribution-audit
     container:
@@ -73,16 +76,25 @@ jobs:
           retention-days: 7
 
   windows-package:
-    if: needs.distribution-audit.outputs.approved == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
+    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.distribution-audit.outputs.native_run_id != ''))
     runs-on: windows-latest
     needs: [distribution-audit, native-engine]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        if: needs.native-engine.result == 'success'
         with:
           name: windows-native-engine
           path: native-runtime
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        if: needs.native-engine.result == 'skipped'
+        with:
+          name: windows-native-engine
+          path: native-runtime
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.distribution-audit.outputs.native_run_id }}
+          github-token: ${{ github.token }}
       - name: Pinned Rust toolchain
         shell: pwsh
         run: |
@@ -151,16 +163,25 @@ jobs:
           retention-days: 7
 
   source-package:
-    if: needs.distribution-audit.outputs.approved == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
+    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.distribution-audit.outputs.native_run_id != ''))
     runs-on: ubuntu-latest
     needs: [distribution-audit, native-engine]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        if: needs.native-engine.result == 'success'
         with:
           name: windows-native-source
           path: native-source-artifact
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
+        if: needs.native-engine.result == 'skipped'
+        with:
+          name: windows-native-source
+          path: native-source-artifact
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.distribution-audit.outputs.native_run_id }}
+          github-token: ${{ github.token }}
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal
       - name: Vendor locked Rust sources
