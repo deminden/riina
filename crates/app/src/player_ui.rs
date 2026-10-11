@@ -356,6 +356,20 @@ fn resume_engine_options(
     Ok(options)
 }
 
+fn install_playlist_selection(app: &PlayerWindow, selected: &[String]) {
+    let current = app.get_playlist();
+    let rows = (0..current.row_count())
+        .filter_map(|index| current.row_data(index))
+        .map(|mut row| {
+            row.selected = selected
+                .iter()
+                .any(|token| token.as_str() == row.token.as_str());
+            row
+        })
+        .collect::<Vec<_>>();
+    app.set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
+}
+
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
     let languages = crate::language_names::LanguageNames::current();
     for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
@@ -370,6 +384,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             path: "".into(),
             language: "".into(),
             selected: !tracks.iter().any(|track| track.is_primary_selected()),
+            playing: false,
         }];
         rows.extend(tracks.into_iter().map(|track| CatalogRow {
             token: track.id.to_string().into(),
@@ -377,6 +392,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             path: "".into(),
             language: languages.display_name(track.lang.as_deref()).into(),
             selected: track.is_primary_selected(),
+            playing: false,
         }));
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
         match kind {
@@ -398,6 +414,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
         path: "".into(),
         language: "".into(),
         selected: !subtitle_tracks.iter().any(secondary_selected),
+        playing: false,
     }];
     secondary_rows.extend(subtitle_tracks.into_iter().map(|track| CatalogRow {
         token: track.id.to_string().into(),
@@ -405,6 +422,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
         path: "".into(),
         language: languages.display_name(track.lang.as_deref()).into(),
         selected: track.selected && track.main_selection == Some(1),
+        playing: false,
     }));
     app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
     app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
@@ -432,6 +450,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
                             .get(index + 1)
                             .is_none_or(|next| position < next.time)
                 }),
+                playing: false,
             })
             .collect::<Vec<_>>(),
     )));
@@ -445,29 +464,36 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             .filter(|time| time.is_finite() && *time >= 0.0)
             .collect::<Vec<_>>(),
     )));
+    let selected_playlist_tokens = app.get_selected_playlist_tokens();
     app.set_playlist(slint::ModelRc::new(slint::VecModel::from(
         state
             .playlist
             .iter()
-            .map(|entry| CatalogRow {
-                token: entry.id.to_string().into(),
-                path: entry.filename.clone().into(),
-                language: "".into(),
-                label: entry
-                    .title
-                    .clone()
-                    .unwrap_or_else(|| {
-                        if entry.filename.contains("://") {
-                            entry.filename.clone()
-                        } else {
-                            PathBuf::from(&entry.filename).file_name().map_or_else(
-                                || entry.filename.clone(),
-                                |name| name.to_string_lossy().into_owned(),
-                            )
-                        }
-                    })
-                    .into(),
-                selected: entry.current,
+            .map(|entry| {
+                let token = entry.id.to_string();
+                CatalogRow {
+                    token: token.clone().into(),
+                    path: entry.filename.clone().into(),
+                    language: "".into(),
+                    label: entry
+                        .title
+                        .clone()
+                        .unwrap_or_else(|| {
+                            if entry.filename.contains("://") {
+                                entry.filename.clone()
+                            } else {
+                                PathBuf::from(&entry.filename).file_name().map_or_else(
+                                    || entry.filename.clone(),
+                                    |name| name.to_string_lossy().into_owned(),
+                                )
+                            }
+                        })
+                        .into(),
+                    selected: selected_playlist_tokens
+                        .iter()
+                        .any(|selected| selected.as_str() == token),
+                    playing: entry.current,
+                }
             })
             .collect::<Vec<_>>(),
     )));
@@ -478,6 +504,25 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
     {
         app.set_selected_playlist_token("".into());
     }
+    let selection = app.get_selected_playlist_tokens();
+    let retained = selection
+        .iter()
+        .filter(|token| {
+            state
+                .playlist
+                .iter()
+                .any(|entry| entry.id.to_string() == token.as_str())
+        })
+        .collect::<Vec<_>>();
+    if retained != selection.iter().collect::<Vec<_>>() {
+        app.set_selected_playlist_tokens(slint::ModelRc::new(slint::VecModel::from(retained)));
+    }
+    let retained_selection = app
+        .get_selected_playlist_tokens()
+        .iter()
+        .map(|token| token.to_string())
+        .collect::<Vec<_>>();
+    install_playlist_selection(app, &retained_selection);
 }
 
 fn current_chapter(state: &Playback) -> Option<usize> {
@@ -2318,6 +2363,101 @@ pub(crate) fn configure_player(
             app.invoke_activity();
             if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
                 app.set_status(error.into());
+            }
+        }
+    });
+    let playlist_selection_anchor = Rc::new(RefCell::new(None::<String>));
+    let selection_anchor = playlist_selection_anchor.clone();
+    let weak = app.as_weak();
+    app.on_select_playlist_row(move |index, extend, range| {
+        let Some(app) = weak.upgrade() else {
+            return slint::ModelRc::default();
+        };
+        let Ok(index) = usize::try_from(index) else {
+            return slint::ModelRc::default();
+        };
+        let rows = app.get_playlist();
+        let Some(clicked) = rows.row_data(index) else {
+            return app.get_selected_playlist_tokens();
+        };
+        let clicked_token = clicked.token.to_string();
+        let previous = app
+            .get_selected_playlist_tokens()
+            .iter()
+            .map(|token| token.to_string())
+            .collect::<Vec<_>>();
+        let selected = if range {
+            let anchor = selection_anchor
+                .borrow()
+                .as_deref()
+                .and_then(|anchor| {
+                    (0..rows.row_count()).find(|row| {
+                        rows.row_data(*row)
+                            .is_some_and(|entry| entry.token.as_str() == anchor)
+                    })
+                })
+                .unwrap_or(index);
+            let mut selected = if extend { previous } else { Vec::new() };
+            for row in anchor.min(index)..=anchor.max(index) {
+                if let Some(entry) = rows.row_data(row)
+                    && !selected.iter().any(|token| token == entry.token.as_str())
+                {
+                    selected.push(entry.token.to_string());
+                }
+            }
+            selected
+        } else if extend {
+            let mut selected = previous;
+            if let Some(position) = selected.iter().position(|token| token == &clicked_token) {
+                selected.remove(position);
+                if selection_anchor.borrow().as_deref() == Some(clicked_token.as_str()) {
+                    *selection_anchor.borrow_mut() = None;
+                }
+            } else {
+                selected.push(clicked_token.clone());
+                *selection_anchor.borrow_mut() = Some(clicked_token.clone());
+            }
+            selected
+        } else {
+            *selection_anchor.borrow_mut() = Some(clicked_token.clone());
+            vec![clicked_token]
+        };
+        install_playlist_selection(&app, &selected);
+        slint::ModelRc::new(slint::VecModel::from(
+            selected.into_iter().map(Into::into).collect::<Vec<_>>(),
+        ))
+    });
+
+    let reorder_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_reorder_playlist(move |tokens, insertion_slot| {
+        let Some(app) = weak.upgrade() else { return };
+        app.invoke_activity();
+        let rows = app.get_playlist();
+        let entries = (0..rows.row_count())
+            .filter_map(|index| rows.row_data(index))
+            .map(|row| row.token.parse::<i64>().ok())
+            .collect::<Option<Vec<_>>>();
+        let selected = tokens
+            .iter()
+            .map(|token| token.parse::<i64>().ok())
+            .collect::<Option<Vec<_>>>();
+        let plan = entries
+            .as_deref()
+            .zip(selected.as_deref())
+            .and_then(|(entries, selected)| {
+                usize::try_from(insertion_slot).ok().and_then(|slot| {
+                    riina_core::playlist::reorder_selection(entries, selected, slot)
+                })
+            });
+        let Some(plan) = plan else {
+            app.set_status("The playlist drop position is no longer available".into());
+            return;
+        };
+        for (from, to) in plan {
+            if let Err(error) = reorder_player.send(Command::MovePlaylistEntry { from, to }) {
+                app.set_status(error.into());
+                break;
             }
         }
     });

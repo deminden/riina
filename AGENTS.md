@@ -25,6 +25,13 @@ lists. Let the GitHub contributor record reflect the people who contribute as
 the project evolves. Do not rewrite published history unless the user explicitly
 requests it.
 
+## Contributors
+
+The README links to GitHub's contributor graph, which is the maintained record
+of project contributors. Keep contributor documentation inclusive and account-
+based; never describe a single person as the sole developer or name automated
+coding tools as contributors.
+
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and

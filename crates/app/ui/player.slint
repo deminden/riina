@@ -7,7 +7,7 @@ export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
-export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool }
+export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool, playing: bool }
 export struct RecentMediaRow { title: string, position-label: string }
 export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
 component SidebarTab inherits FocusScope {
@@ -776,6 +776,7 @@ export component PlayerWindow inherits Window {
     callback focus-player();
     focus-player => { keys.focus(); }
     in property <bool> paused: true;
+    changed paused => { root.video-menu-changed(); }
     in property <bool> playing: false;
     in property <bool> seekable: false;
     in property <bool> muted: false;
@@ -972,6 +973,16 @@ export component PlayerWindow inherits Window {
     callback select-playlist-pane(int);
     callback sidebar-resize-finished();
     in-out property <string> selected-playlist-token: "";
+    in-out property <[string]> selected-playlist-tokens: [];
+    in-out property <string> playlist-drag-token: "";
+    in-out property <float> playlist-drag-start-x: 0;
+    in-out property <float> playlist-drag-start-y: 0;
+    in-out property <bool> playlist-drag-active: false;
+    in-out property <int> playlist-drop-index: -1;
+    in-out property <bool> playlist-drag-extend: false;
+    in-out property <bool> playlist-drag-range: false;
+    in-out property <int> playlist-focus-index: -1;
+    callback select-playlist-row(int, bool, bool) -> [string];
     in property <float> audio-delay: 0;
     in property <float> subtitle-delay: 0;
     in property <float> secondary-subtitle-delay: 0;
@@ -1010,6 +1021,7 @@ export component PlayerWindow inherits Window {
     in-out property <bool> edit-secondary-subtitle: false;
     in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
+    changed loop-label => { root.video-menu-changed(); }
     in-out property <bool> controls-visible: true;
     in-out property <bool> controls-rendered: true;
     in-out property <bool> control-auto-hide-enabled: true;
@@ -1120,6 +1132,7 @@ export component PlayerWindow inherits Window {
     callback set-delay-text(int, string) -> bool;
     callback toggle-subtitle-visibility();
     callback playlist-action(int, string);
+    callback reorder-playlist([string], int);
     callback toggle-playlist-shuffle();
     callback sort-playlist(int);
 
@@ -1395,13 +1408,20 @@ export component PlayerWindow inherits Window {
                             Tool { dark-theme: root.dark-theme; label: root.subtitle-visible ? "●" : "○"; hint: "Toggle subtitle visibility";
                                 enabled: root.loaded; activated => { root.toggle-subtitle-visibility(); } }
                         }
-                        for row in (pane-kind == 1 ? audio-tracks : pane-kind == 2 ? subtitle-tracks : pane-kind == 3 ? chapters : pane-kind == 6 ? video-tracks : playlist): Rectangle {
+                        for row[index] in (pane-kind == 1 ? audio-tracks : pane-kind == 2 ? subtitle-tracks : pane-kind == 3 ? chapters : pane-kind == 6 ? video-tracks : playlist): Rectangle {
+                            property <int> current-playlist-focus-index: root.playlist-focus-index;
                             height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px : 30px;
-                            background: (pane-kind == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
+                            background: row.selected ? #ffffff15 : transparent;
                     accessible-role: button; accessible-label: pane-kind == 4 && row.path != "" ? row.label + ", " + row.path : row.label;
+                            if pane-kind == 4 && root.playlist-drag-active && root.playlist-drop-index == index : Rectangle {
+                                x: 0; y: 0; width: parent.width; height: 2px; background: #90b7ef;
+                            }
+                            if pane-kind == 4 && root.playlist-drag-active && root.playlist-drop-index == root.playlist.length && index == root.playlist.length - 1 : Rectangle {
+                                x: 0; y: parent.height - 2px; width: parent.width; height: 2px; background: #90b7ef;
+                            }
                             accessible-action-default => { root.select-item(pane-kind, row.token); }
                             if row-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
-                            if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
+                            if (pane-kind == 4 ? row.playing : row.selected) : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
                             Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label; color: #dddddd;
                                 font-size: 12px; vertical-alignment: center; overflow: elide; }
                             if row.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
@@ -1410,7 +1430,48 @@ export component PlayerWindow inherits Window {
                             TouchArea {
                                 clicked => { row-focus.focus(); if pane-kind < 3 { root.select-item(pane-kind, row.token); }
                                     if pane-kind == 4 { root.selected-playlist-token = row.token; } }
-                                double-clicked => { if pane-kind >= 3 { root.select-item(pane-kind, row.token); root.selected-playlist-token = ""; } }
+                                double-clicked => { if pane-kind >= 3 { root.select-item(pane-kind, row.token); root.selected-playlist-token = ""; root.selected-playlist-tokens = []; } }
+                                pointer-event(event) => {
+                                    if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                                        root.playlist-drag-token = row.token;
+                                        root.playlist-focus-index = index;
+                                        root.playlist-drag-start-x = self.mouse-x / 1px;
+                                        root.playlist-drag-start-y = self.mouse-y / 1px;
+                                        root.playlist-drag-active = false;
+                                        root.playlist-drag-extend = event.modifiers.control || event.modifiers.meta;
+                                        root.playlist-drag-range = event.modifiers.shift;
+                                        root.playlist-drop-index = index;
+                                    } else if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.up && root.playlist-drag-token == row.token {
+                                        if root.playlist-drag-active {
+                                            root.reorder-playlist(root.selected-playlist-tokens, root.playlist-drop-index);
+                                        } else {
+                                            root.selected-playlist-tokens = root.select-playlist-row(index,
+                                                root.playlist-drag-extend, root.playlist-drag-range);
+                                        }
+                                        root.selected-playlist-token = row.token;
+                                        root.playlist-drag-token = "";
+                                        root.playlist-drag-active = false;
+                                        root.playlist-drop-index = -1;
+                                    }
+                                }
+                                moved => {
+                                    if pane-kind == 4 && self.pressed && root.playlist-drag-token == row.token {
+                                        let distance-x = abs(self.mouse-x / 1px - root.playlist-drag-start-x);
+                                        let distance-y = abs(self.mouse-y / 1px - root.playlist-drag-start-y);
+                                        if distance-x + distance-y >= 5 {
+                                            if !row.selected
+                                                || root.playlist-drag-extend || root.playlist-drag-range {
+                                                root.selected-playlist-tokens = root.select-playlist-row(index,
+                                                    root.playlist-drag-extend, root.playlist-drag-range);
+                                            }
+                                            root.selected-playlist-token = row.token;
+                                            root.playlist-drag-active = true;
+                                            // Each row is 30px high with the layout's 1px gap.
+                                            let content-y = (parent.y + self.mouse-y) / 31px;
+                                            root.playlist-drop-index = clamp(floor(content-y), 0, root.playlist.length);
+                                        }
+                                    }
+                                }
                             }
                             row-focus := FocusScope {
                                 key-pressed(event) => {
@@ -1421,8 +1482,22 @@ export component PlayerWindow inherits Window {
                                         root.selected-playlist-token = "";
                                         return accept;
                                     }
+                                    if pane-kind == 4 && (event.text == Key.UpArrow || event.text == Key.DownArrow)
+                                        && root.playlist.length > 0 {
+                                        let next-index = event.text == Key.UpArrow
+                                            ? max(0, index - 1)
+                                            : min(root.playlist.length - 1, index + 1);
+                                        root.playlist-focus-index = next-index;
+                                        root.selected-playlist-tokens = root.select-playlist-row(next-index,
+                                            event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
+                                        root.selected-playlist-token = root.playlist[next-index].token;
+                                        return accept;
+                                    }
                                     return reject;
                                 }
+                            }
+                            changed current-playlist-focus-index => {
+                                if pane-kind == 4 && current-playlist-focus-index == index { row-focus.focus(); }
                             }
                         }
                         if pane-kind == 6 : VideoControls {

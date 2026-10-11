@@ -6,6 +6,24 @@ export component NativeVideoHost inherits Window {
     callback open-preferences();
     callback open-jump-time-dialog();
     in property <bool> playback-loaded: false;
+    in property <bool> playback-paused: true;
+    in property <string> loop-label: "Off";
+    callback toggle-pause();
+    callback stop();
+    callback seek-relative(float);
+    callback seek(float);
+    callback frame-step();
+    callback frame-back-step();
+    callback set-speed(float);
+    callback reset-speed();
+    callback cycle-ab-loop();
+    callback toggle-file-loop();
+    callback cycle-playlist-loop();
+    callback playlist-next();
+    callback playlist-previous();
+    callback show-playlist-panel();
+    callback show-chapters-panel();
+    callback adjust-chapter(int);
     callback toggle-picture-in-picture();
     in property <bool> picture-in-picture-active: false;
     in property <bool> picture-in-picture-available: false;
@@ -40,8 +58,49 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Preferences…"; activated => { root.open-preferences(); } }
         }
         Menu { title: "Playback";
+            MenuItem { title: root.playback-paused ? "Play" : "Pause";
+                enabled: root.playback-loaded; activated => { root.toggle-pause(); } }
+            MenuItem { title: "Stop"; enabled: root.playback-loaded;
+                activated => { root.stop(); } }
+            MenuSeparator {}
+            MenuItem { title: "Step Forward 5s"; enabled: root.playback-loaded;
+                activated => { root.seek-relative(5); } }
+            MenuItem { title: "Next Frame"; enabled: root.playback-loaded;
+                activated => { root.frame-step(); } }
+            MenuItem { title: "Step Backward 5s"; enabled: root.playback-loaded;
+                activated => { root.seek-relative(-5); } }
+            MenuItem { title: "Previous Frame"; enabled: root.playback-loaded;
+                activated => { root.frame-back-step(); } }
+            MenuItem { title: "Jump to Beginning"; enabled: root.playback-loaded;
+                activated => { root.seek(0); } }
             MenuItem { title: "Jump to…"; enabled: root.playback-loaded;
                 activated => { root.open-jump-time-dialog(); } }
+            MenuSeparator {}
+            MenuItem { title: "Speed Up 2x"; enabled: root.playback-loaded;
+                activated => { root.set-speed(2); } }
+            MenuItem { title: "Speed Down 0.5x"; enabled: root.playback-loaded;
+                activated => { root.set-speed(0.5); } }
+            MenuItem { title: "Reset Speed"; enabled: root.playback-loaded;
+                activated => { root.reset-speed(); } }
+            MenuSeparator {}
+            MenuItem { title: "A-B Loop"; enabled: root.playback-loaded;
+                activated => { root.cycle-ab-loop(); } }
+            MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
+                enabled: root.playback-loaded; activated => { root.toggle-file-loop(); } }
+            MenuItem { title: "Playlist Loop"; checkable: true; checked: root.loop-label == "Playlist";
+                enabled: root.playback-loaded; activated => { root.cycle-playlist-loop(); } }
+            MenuItem { title: "Next Media"; enabled: root.playback-loaded;
+                activated => { root.playlist-next(); } }
+            MenuItem { title: "Previous Media"; enabled: root.playback-loaded;
+                activated => { root.playlist-previous(); } }
+            MenuItem { title: "Show Playlist Panel";
+                activated => { root.show-playlist-panel(); } }
+            MenuItem { title: "Show Chapters Panel";
+                activated => { root.show-chapters-panel(); } }
+            MenuItem { title: "Next Chapter"; enabled: root.playback-loaded;
+                activated => { root.adjust-chapter(1); } }
+            MenuItem { title: "Previous Chapter"; enabled: root.playback-loaded;
+                activated => { root.adjust-chapter(-1); } }
             MenuSeparator {}
             MenuItem {
                 title: root.picture-in-picture-active ? "Exit Picture in Picture" : "Enter Picture in Picture";

@@ -34,6 +34,11 @@ Windows HDR and native-window work has runtime evidence, but calibrated end-to-e
 HDR parity and broad hardware coverage remain unverified. Consult the parity
 inventory for the exact state of each requirement.
 
+The playlist sidebar now supports additive and range selection plus stable-order
+multi-row drag reordering. Pure reorder planning is covered across small playlist
+permutations and the Windows application workspace compiles; live drag behavior,
+external file drops, edge autoscroll, and macOS interaction comparison remain open.
+
 ## Licensing and binary distribution
 
 Riina's original source is MIT. The combined application package is GPL-3.0-only.
@@ -42,21 +47,22 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The 0.3.0 candidate
-[workflow run 38158114361](https://github.com/deminden/riina/actions/runs/38158114361)
-passed source packaging and dependency notices but failed in the Windows package
-job's native playback and lifecycle test step. The authenticated log identifies
-`ab_repeat_observes_points_and_wraps_playback`: its assertions passed, then the
-process crashed with `STATUS_ACCESS_VIOLATION` during player shutdown. Teardown
-freed libmpv's wakeup-callback context before `mpv_terminate_destroy` had finished
-joining native worker threads. The context now remains alive until destroy returns.
-All 42 native playback/lifecycle tests pass serially on the local Windows host
-against the available native DLL. The fix still needs a fresh hosted candidate
-run using the release DLL and an extracted-package playback check. The failed run produced a
-complete-source artifact but no portable application ZIP, and nothing was
-published. A binary remains unavailable until the hosted playback gate, exact
-extracted-package checks, and corresponding-source audit pass and a versioned
-release publishes its assets.
+no Windows application binary. The latest 0.3.0 candidate
+[workflow run 38163947662](https://github.com/deminden/riina/actions/runs/38163947662)
+passed source packaging but failed in the Windows package job's native playback
+and lifecycle step. The authenticated log ends after the A-B repeat test's
+shutdown marker and reports `0xc0000005` before the test harness prints success.
+The release DLL hash matches the locally tested candidate DLL. Twenty-five local
+runs of that shutdown test and the full 42-test native suite passed with the same
+OpenAL null-output environment as CI, so the hosted-only failure has not yet been
+reproduced. The worker now calls libmpv's `mpv_wait_async_requests` at shutdown
+before unregistering the wakeup callback and destroying the handle. The full
+candidate-DLL suite passes locally with that barrier; a fresh hosted candidate
+and extracted-package playback check are still required. The failed run produced
+a complete-source artifact and native failure log, but no portable application
+ZIP, and nothing was published. A binary remains unavailable until the hosted
+playback gate, exact extracted-package checks, and corresponding-source audit
+pass and a versioned release publishes its assets.
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. The

@@ -301,6 +301,8 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     );
                     host.set_screenshot_folder_enabled(!app.get_crop_editing());
                     host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
+                    host.set_playback_paused(app.get_paused());
+                    host.set_loop_label(app.get_loop_label());
                     host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
                     host.set_music_mode(app.get_music_mode());
                     host.set_picture_in_picture_available(
@@ -379,6 +381,102 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             host.on_open_jump_time_dialog(move || {
                 if let Some(app) = jump_app.upgrade() {
                     app.invoke_open_jump_time_dialog();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_pause(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_pause();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_stop(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_stop();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_seek_relative(move |seconds| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_seek_relative(seconds);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_seek(move |seconds| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_seek(seconds);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_frame_step(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_frame_step();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_frame_back_step(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_frame_back_step();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_set_speed(move |factor| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_speed(factor);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_reset_speed(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_reset_speed();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_cycle_ab_loop(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_cycle_ab_loop();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_file_loop(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_file_loop();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_cycle_playlist_loop(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_playlist_action(5, "".into());
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_playlist_next(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_playlist_next();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_playlist_previous(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_playlist_previous();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_playlist_panel(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_playlist_pane(4);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_chapters_panel(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_playlist_pane(3);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_adjust_chapter(move |delta| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_adjust_chapter(delta);
                 }
             });
             let close_host = host.as_weak();

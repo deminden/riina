@@ -11,6 +11,65 @@ pub enum PlaylistSort {
     PathDescending,
 }
 
+/// Convert a drop insertion slot into the resulting row index after removing its source.
+pub fn drop_destination(source: usize, insertion_slot: usize, row_count: usize) -> Option<usize> {
+    if row_count == 0 || source >= row_count || insertion_slot > row_count {
+        return None;
+    }
+    Some(insertion_slot.saturating_sub(usize::from(insertion_slot > source)))
+}
+
+/// mpv's playlist-move destination counts the source row until the move completes.
+pub fn move_command_target(source: usize, destination: usize) -> usize {
+    destination + usize::from(destination > source)
+}
+
+/// Plan stable, ordered moves for a selection dropped at a playlist insertion slot.
+pub fn reorder_selection(
+    entries: &[i64],
+    selected: &[i64],
+    insertion_slot: usize,
+) -> Option<Vec<(usize, usize)>> {
+    if insertion_slot > entries.len() {
+        return None;
+    }
+
+    let mut selected_entries = Vec::with_capacity(selected.len());
+    for id in entries {
+        if selected.contains(id) && !selected_entries.contains(id) {
+            selected_entries.push(*id);
+        }
+    }
+    if selected_entries.is_empty() || selected_entries.len() != selected.len() {
+        return None;
+    }
+
+    let removed_before_slot = entries[..insertion_slot]
+        .iter()
+        .filter(|id| selected_entries.contains(id))
+        .count();
+    let destination = insertion_slot - removed_before_slot;
+    let mut desired = entries
+        .iter()
+        .copied()
+        .filter(|id| !selected_entries.contains(id))
+        .collect::<Vec<_>>();
+    desired.splice(destination..destination, selected_entries);
+
+    let mut current = entries.to_vec();
+    let mut moves = Vec::new();
+    for (destination, id) in desired.into_iter().enumerate() {
+        let source = current.iter().position(|entry| *entry == id)?;
+        if source == destination {
+            continue;
+        }
+        moves.push((source, move_command_target(source, destination)));
+        let entry = current.remove(source);
+        current.insert(destination, entry);
+    }
+    Some(moves)
+}
+
 /// Decode newline-separated clipboard references without splitting spaces inside paths.
 pub fn clipboard_references(text: &str) -> Vec<String> {
     text.lines()
@@ -92,7 +151,9 @@ fn display_name(entry: &PlaylistEntry) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{PlaylistSort, sorted_ids};
+    use super::{
+        PlaylistSort, drop_destination, move_command_target, reorder_selection, sorted_ids,
+    };
     use crate::PlaylistEntry;
 
     fn entry(id: i64, filename: &str, title: Option<&str>) -> PlaylistEntry {
@@ -136,5 +197,93 @@ mod tests {
             sorted_ids(&entries(), PlaylistSort::PathDescending),
             [3, 1, 2, 4]
         );
+    }
+
+    #[test]
+    fn drop_slots_resolve_to_final_indices_after_source_removal() {
+        assert_eq!(drop_destination(0, 3, 4), Some(2));
+        assert_eq!(drop_destination(3, 0, 4), Some(0));
+        assert_eq!(drop_destination(1, 4, 4), Some(3));
+        assert_eq!(drop_destination(2, 2, 4), Some(2));
+        assert_eq!(drop_destination(2, 3, 4), Some(2));
+    }
+
+    #[test]
+    fn drop_slots_reject_out_of_range_rows_and_slots() {
+        assert_eq!(drop_destination(0, 0, 0), None);
+        assert_eq!(drop_destination(4, 0, 4), None);
+        assert_eq!(drop_destination(0, 5, 4), None);
+    }
+
+    #[test]
+    fn move_command_target_accounts_for_the_source_row() {
+        assert_eq!(move_command_target(0, 2), 3);
+        assert_eq!(move_command_target(3, 0), 0);
+        assert_eq!(move_command_target(2, 2), 2);
+    }
+
+    #[test]
+    fn multi_selection_reorder_preserves_order_and_drop_slot() {
+        let entries = [10, 20, 30, 40, 50, 60];
+        let moves = reorder_selection(&entries, &[20, 40], 5).unwrap();
+        let mut reordered = entries.to_vec();
+        for (from, command_target) in moves {
+            let destination = command_target - usize::from(command_target > from);
+            let entry = reordered.remove(from);
+            reordered.insert(destination, entry);
+        }
+        assert_eq!(reordered, [10, 30, 50, 20, 40, 60]);
+    }
+
+    #[test]
+    fn multi_selection_reorder_matches_stable_drop_order_for_small_playlists() {
+        for length in 1..=6 {
+            let entries = (0..length as i64).collect::<Vec<_>>();
+            for mask in 1..(1 << length) {
+                let selected = entries
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, _)| mask & (1 << index) != 0)
+                    .map(|(_, id)| *id)
+                    .collect::<Vec<_>>();
+                for insertion_slot in 0..=length {
+                    let moves = reorder_selection(&entries, &selected, insertion_slot).unwrap();
+                    let mut actual = entries.clone();
+                    for (from, command_target) in moves {
+                        let destination = command_target - usize::from(command_target > from);
+                        let entry = actual.remove(from);
+                        actual.insert(destination, entry);
+                    }
+
+                    let mut expected = entries
+                        .iter()
+                        .copied()
+                        .filter(|id| !selected.contains(id))
+                        .collect::<Vec<_>>();
+                    let destination = insertion_slot
+                        - entries[..insertion_slot]
+                            .iter()
+                            .filter(|id| selected.contains(id))
+                            .count();
+                    expected.splice(destination..destination, selected.iter().copied());
+                    assert_eq!(
+                        actual, expected,
+                        "length={length}, mask={mask}, slot={insertion_slot}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn multi_selection_drop_inside_selection_is_a_noop() {
+        assert_eq!(reorder_selection(&[1, 2, 3, 4], &[2, 3], 2), Some(vec![]));
+    }
+
+    #[test]
+    fn multi_selection_rejects_missing_or_duplicate_identity() {
+        assert_eq!(reorder_selection(&[1, 2], &[3], 0), None);
+        assert_eq!(reorder_selection(&[1, 2], &[1, 1, 2], 0), None);
+        assert_eq!(reorder_selection(&[1, 2], &[1], 3), None);
     }
 }

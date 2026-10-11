@@ -256,7 +256,12 @@ impl Player {
                 let mut seek_feedback = seek_feedback::SeekFeedback::default();
                 while let Ok(message) = receiver.recv() {
                     if let Message::Intent(command) = message {
-                        if command == Command::Shutdown { break; }
+                        if command == Command::Shutdown {
+                            // Property notifications can arrive before the async command
+                            // reply; drain requests before destroying the native client.
+                            (worker_api.wait_async_requests)(handle);
+                            break;
+                        }
                         match command.plan(&state) {
                             Ok(plan) => {
                                 if let Command::SetPauseWhenOpen(pause) = &command {

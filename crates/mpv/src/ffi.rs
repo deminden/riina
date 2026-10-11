@@ -241,6 +241,7 @@ pub struct Api {
     pub command: unsafe extern "C" fn(*mut c_void, u64, *const *const c_char) -> c_int,
     pub observe: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
     pub wait: unsafe extern "C" fn(*mut c_void, f64) -> *const Event,
+    pub wait_async_requests: unsafe extern "C" fn(*mut c_void),
     pub wakeup:
         unsafe extern "C" fn(*mut c_void, Option<unsafe extern "C" fn(*mut c_void)>, *mut c_void),
     pub error: unsafe extern "C" fn(c_int) -> *const c_char,
@@ -296,6 +297,7 @@ impl Api {
                 command: symbol!("mpv_command_async"),
                 observe: symbol!("mpv_observe_property"),
                 wait: symbol!("mpv_wait_event"),
+                wait_async_requests: symbol!("mpv_wait_async_requests"),
                 wakeup: symbol!("mpv_set_wakeup_callback"),
                 error: symbol!("mpv_error_string"),
                 render_create: symbol!("mpv_render_context_create"),
