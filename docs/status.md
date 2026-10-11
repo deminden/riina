@@ -22,9 +22,10 @@ Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
 captured reference surfaces to choose and verify work.
 
-Known substantial gaps include the separate Picture-in-Picture surface and its
-window lifecycle, unfinished preferences and plugin behavior, and source-matched
-menus, sidebars, materials, window geometry, and complete interaction captures.
+Known substantial gaps include live verification of the new Windows
+Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
+preferences and plugin behavior, and source-matched menus, sidebars, materials,
+window geometry, and complete interaction captures.
 Windows HDR and native-window work has runtime evidence, but calibrated end-to-end
 HDR parity and broad hardware coverage remain unverified. Consult the parity
 inventory for the exact state of each requirement.

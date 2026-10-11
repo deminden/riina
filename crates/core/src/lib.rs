@@ -3119,6 +3119,18 @@ mod tests {
     }
 
     #[test]
+    fn accessibility_motion_preference_defaults_off_and_round_trips() {
+        assert!(!Preferences::parse("{}").unwrap().disable_animations);
+
+        let configured = Preferences {
+            disable_animations: true,
+            ..Preferences::default()
+        };
+        let encoded = serde_json::to_string(&configured).unwrap();
+        assert!(Preferences::parse(&encoded).unwrap().disable_animations);
+    }
+
+    #[test]
     fn recent_media_round_trips_and_rejects_invalid_history() {
         let item = RecentMedia {
             path: r"C:\Фильмы\a.mkv".into(),

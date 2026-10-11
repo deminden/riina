@@ -1,0 +1,59 @@
+import { Button, HorizontalBox } from "std-widgets.slint";
+
+export component PictureInPictureWindow inherits Window {
+    in property <string> media-title: "riina";
+    in property <bool> paused: false;
+    callback play-pause();
+    callback skip(float);
+    callback exit-picture-in-picture();
+
+    title: media-title;
+    preferred-width: 480px;
+    preferred-height: 326px;
+    min-width: 360px;
+    min-height: 258px;
+    background: #09090b;
+
+    Rectangle {
+        background: #09090b;
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: parent.width;
+            height: parent.height - 54px;
+            background: #000000;
+        }
+        Rectangle {
+            x: 0;
+            y: parent.height - 54px;
+            width: parent.width;
+            height: 54px;
+            background: #17171b;
+
+            HorizontalBox {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 4px;
+
+                Button { text: "−15"; clicked => { root.skip(-15); } }
+                Button {
+                    text: root.paused ? "Play" : "Pause";
+                    clicked => { root.play-pause(); }
+                }
+                Button { text: "+15"; clicked => { root.skip(15); } }
+                Text {
+                    text: root.media-title;
+                    color: #f3f3f5;
+                    font-size: 12px;
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Button {
+                    text: "×";
+                    clicked => { root.exit-picture-in-picture(); }
+                }
+            }
+        }
+    }
+}

@@ -4,6 +4,11 @@ Read [the product contract](docs/product-spec.md), [status](docs/status.md), and
 [implementation plan](docs/implementation-plan.md) before changing behavior.
 Baseline: official IINA v1.5.0, never silently upgrade it.
 
+When in doubt, follow the pinned IINA v1.5.0 architectural decisions: inspect its
+ownership, lifecycle, and subsystem boundaries, and mirror them wherever the target
+platform permits. Use a documented platform equivalent when it does not. This
+guides independent implementations; do not translate or copy IINA source code.
+
 Use small Rust modules, explicit ownership and typed intent. Comments explain why,
 upstream semantics, or unsafe invariants; avoid narrating obvious statements.
 No existing application code was present at project acquisition.

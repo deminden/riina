@@ -141,12 +141,64 @@ def fetch_pinned_notice_files(package, source_root, target, output):
     return found
 
 
+def copy_sibling_notice_files(package, packages, target, output):
+    """Reuse a license from another crate in the same pinned Cargo VCS tree."""
+    repository = package.get("repository") or ""
+    vcs_path = Path(package["manifest_path"]).parent / ".cargo_vcs_info.json"
+    if not vcs_path.is_file():
+        return []
+    current_vcs = json.loads(vcs_path.read_text(encoding="utf-8"))
+    revision = current_vcs.get("git", {}).get("sha1")
+    path_in_vcs = current_vcs.get("path_in_vcs", ".").strip("/")
+    match = re.fullmatch(r"https://github\.com/([^/]+)/([^/]+)/?", repository)
+    if not revision or not match:
+        return []
+
+    owner, repository_name = match.groups()
+    found = []
+    for sibling in packages:
+        if sibling["id"] == package["id"] or sibling.get("repository") != repository:
+            continue
+        if not sibling.get("license") or choose_license(sibling["license"]) != choose_license(
+            package.get("license", "")
+        ):
+            continue
+        sibling_root, sibling_files = notice_files(sibling)
+        if not sibling_files:
+            continue
+        sibling_vcs_path = sibling_root / ".cargo_vcs_info.json"
+        if not sibling_vcs_path.is_file():
+            continue
+        sibling_vcs = json.loads(sibling_vcs_path.read_text(encoding="utf-8"))
+        if sibling_vcs.get("git", {}).get("sha1") != revision:
+            continue
+        sibling_path = sibling_vcs.get("path_in_vcs", ".").strip("/")
+        for source in sibling_files:
+            relative = Path(sibling_path) / source.relative_to(sibling_root)
+            upstream_path = relative.as_posix().lstrip("./")
+            url = (
+                f"https://raw.githubusercontent.com/{owner}/{repository_name}/"
+                f"{revision}/{upstream_path}"
+            )
+            payload = source.read_bytes()
+            destination = target / "upstream" / f"{sibling['name']}-{source.name}"
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(payload)
+            found.append({
+                "path": str(destination.relative_to(output)).replace(os.sep, "/"),
+                "source_url": url,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            })
+    return found
+
+
 def collect(metadata, output, root_name="riina", target_platform="x86_64-pc-windows-msvc"):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     records = []
     missing = []
-    for package in dependency_packages(metadata, root_name):
+    packages = dependency_packages(metadata, root_name)
+    for package in packages:
         if package.get("source") is None:
             continue
         expression = package.get("license")
@@ -167,7 +219,9 @@ def collect(metadata, output, root_name="riina", target_platform="x86_64-pc-wind
                 "path": str(destination.relative_to(output)).replace(os.sep, "/"),
                 "sha256": hashlib.sha256(payload).hexdigest(),
             })
-        remote = fetch_pinned_notice_files(package, source_root, target, output) if not files else []
+        remote = copy_sibling_notice_files(package, packages, target, output) if not files else []
+        if not files and not remote:
+            remote = fetch_pinned_notice_files(package, source_root, target, output)
         if not files and not remote:
             missing.append({
                 "name": package["name"],

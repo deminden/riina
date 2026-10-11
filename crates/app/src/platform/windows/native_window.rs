@@ -139,10 +139,13 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
     let chrome: Rc<RefCell<Option<PlayerWindow>>> = Rc::new(RefCell::new(None));
     let welcome_window: Rc<RefCell<Option<crate::WelcomeWindow>>> = Rc::new(RefCell::new(None));
     let session: Rc<RefCell<Option<UiSession>>> = Rc::new(RefCell::new(None));
+    let pip_controller: Rc<RefCell<Option<Rc<RefCell<super::pip::Controller>>>>> =
+        Rc::new(RefCell::new(None));
     let weak_host = host.as_weak();
     let startup_chrome = chrome.clone();
     let startup_welcome = welcome_window.clone();
     let startup_session = session.clone();
+    let startup_pip = pip_controller.clone();
     let resize_filter = Rc::new(RefCell::new(
         None::<crate::window_aspect::WindowEventFilter>,
     ));
@@ -161,6 +164,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(520.0, 300.0)));
             let presentation = super::NativePresentation::new(window, host.as_weak())
                 .map_err(std::io::Error::other)?;
+            let video_hwnd = presentation.owner_handle();
             owner.store(presentation.owner_handle(), Ordering::Relaxed);
             // Slint captures the attributes hook when creating the component adapter.
             // Construct only after its owner HWND exists, as in the verified probe.
@@ -298,6 +302,9 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     host.set_screenshot_folder_enabled(!app.get_crop_editing());
                     host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
                     host.set_music_mode(app.get_music_mode());
+                    host.set_picture_in_picture_available(
+                        app.get_loaded() && app.get_video_width() > 0.0 && !app.get_crop_editing(),
+                    );
                 }
             });
             let menu_app = app.as_weak();
@@ -313,6 +320,15 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
             let configured = configure_player(&app, Some(presentation), media, welcome.as_ref())?;
+            let commands = configured
+                .player
+                .as_ref()
+                .ok_or("The player engine was not initialized")?
+                .command_sender();
+            *startup_pip.borrow_mut() = Some(
+                super::pip::Controller::install(&app, &host, video_hwnd, commands)
+                    .map_err(std::io::Error::other)?,
+            );
             let menu_app = app.as_weak();
             host.on_set_menu_video_crop(move |index| {
                 if let Some(app) = menu_app.upgrade() {
@@ -333,6 +349,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
             let close_session = startup_session.clone();
+            let close_pip = startup_pip.clone();
             let menu_app = app.as_weak();
             host.on_toggle_deinterlace(move || {
                 if let Some(app) = menu_app.upgrade() {
@@ -363,7 +380,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 if weak_app.upgrade().is_some_and(|app| app.get_dialog_open()) {
                     return slint::CloseRequestResponse::KeepWindowShown;
                 }
-                close(&close_session, weak_app.upgrade().as_ref());
+                close(&close_session, &close_pip, weak_app.upgrade().as_ref());
                 if let Some(host) = close_host.upgrade() {
                     let _ = host.hide();
                 }
@@ -399,7 +416,11 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
         .await;
         if let Err(error) = result {
             eprintln!("Native player startup failed: {error}");
-            close(&startup_session, startup_chrome.borrow().as_ref());
+            close(
+                &startup_session,
+                &startup_pip,
+                startup_chrome.borrow().as_ref(),
+            );
             let _ = host.hide();
         }
     })?;
@@ -431,24 +452,32 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
         result
     });
     let close_session = session.clone();
+    let close_pip = pip_controller.clone();
     let close_chrome = chrome.clone();
     host.window().on_close_requested(move || {
         let chrome = close_chrome.borrow();
         if chrome.as_ref().is_some_and(|app| app.get_dialog_open()) {
             return slint::CloseRequestResponse::KeepWindowShown;
         }
-        close(&close_session, chrome.as_ref());
+        close(&close_session, &close_pip, chrome.as_ref());
         if let Some(app) = chrome.as_ref() {
             let _ = app.hide();
         }
         slint::CloseRequestResponse::HideWindow
     });
     slint::run_event_loop()?;
-    close(&session, chrome.borrow().as_ref());
+    close(&session, &pip_controller, chrome.borrow().as_ref());
     Ok(())
 }
 
-fn close(session: &RefCell<Option<UiSession>>, app: Option<&PlayerWindow>) {
+fn close(
+    session: &RefCell<Option<UiSession>>,
+    pip: &RefCell<Option<Rc<RefCell<super::pip::Controller>>>>,
+    app: Option<&PlayerWindow>,
+) {
+    if let Some(controller) = pip.borrow_mut().take() {
+        super::pip::Controller::shutdown(controller);
+    }
     if let Some(app) = app {
         app.invoke_dismiss_font_picker();
     }

@@ -20,7 +20,7 @@ pub(crate) fn system_reduce_motion_enabled() -> bool {
         let mut animations_enabled = BOOL(1);
         // SAFETY: SPI_GETCLIENTAREAANIMATION writes one BOOL to the valid local
         // output pointer; the zero flags value performs a read-only query.
-        return unsafe {
+        unsafe {
             SystemParametersInfoW(
                 SPI_GETCLIENTAREAANIMATION,
                 0,
@@ -29,11 +29,20 @@ pub(crate) fn system_reduce_motion_enabled() -> bool {
             )
             .is_ok()
                 && !animations_enabled.as_bool()
-        };
+        }
     }
 
-    #[cfg(not(target_os = "windows"))]
-    false
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::NSWorkspace;
+
+        NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        false
+    }
 }
 
 pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::path::PathBuf> {

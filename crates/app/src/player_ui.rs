@@ -57,7 +57,7 @@ fn dispatch_control_mouse_action(
             return;
         }
         MouseEffect::PictureInPicture => {
-            app.set_status("Picture-in-Picture is not available yet".into());
+            app.invoke_toggle_picture_in_picture();
             return;
         }
         MouseEffect::CycleAbLoop => {

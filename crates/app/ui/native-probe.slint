@@ -4,6 +4,9 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
     callback open-preferences();
+    callback toggle-picture-in-picture();
+    in property <bool> picture-in-picture-active: false;
+    in property <bool> picture-in-picture-available: false;
     in property <bool> music-mode-available: false;
     in property <bool> music-mode: false;
     callback toggle-music-mode();
@@ -34,6 +37,12 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Preferences…"; activated => { root.open-preferences(); } }
         }
         Menu { title: "Playback";
+            MenuItem {
+                title: root.picture-in-picture-active ? "Exit Picture in Picture" : "Enter Picture in Picture";
+                enabled: root.picture-in-picture-active || root.picture-in-picture-available;
+                activated => { root.toggle-picture-in-picture(); }
+            }
+            MenuSeparator {}
             MenuItem { title: "Music Mode"; checkable: true; checked: root.music-mode;
                 enabled: root.music-mode-available;
                 activated => { root.toggle-music-mode(); } }

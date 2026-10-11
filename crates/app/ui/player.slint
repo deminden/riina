@@ -4,6 +4,7 @@ import { VideoControls, HardwareDecodingControls, HdrControls } from "video-cont
 import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
+export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
 export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool }
@@ -1042,6 +1043,7 @@ export component PlayerWindow inherits Window {
     callback playlist-previous();
     callback reset-speed();
     callback toggle-fullscreen();
+    callback toggle-picture-in-picture();
     callback activity();
     callback single-click-action(int);
     callback double-click-action(int);
