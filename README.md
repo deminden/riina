@@ -36,6 +36,11 @@ currently contains source archives. A Windows portable binary will be attached
 after its playback, dependency notices, and corresponding-source bundle pass
 release checks.
 
+## Contributors
+
+Contributions are welcome. GitHub maintains the current list on the
+[contributors graph](https://github.com/deminden/riina/graphs/contributors).
+
 ## Build on Windows
 
 Requirements: Windows 11 x64, Rust 1.99.0, MSVC C++ build tools, Windows SDK,

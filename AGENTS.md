@@ -16,11 +16,14 @@ Original riina contributions are MIT. Develop independently from observable
 behavior and documented platform APIs; do not translate IINA implementation code
 or copy its protected assets. Read docs/licensing.md before changing license terms.
 
-Preserve Denis Demin as the repository's sole contributor identity. Use the
-configured Denis author and committer identity for commits. Never add assistant
-co-author or review trailers, assistant attribution in commit messages, or
-assistant names or metadata in repository files. Do not rewrite published
-history unless the user explicitly requests it.
+Use the configured GitHub account identity for project commits, releases, and
+other published actions. Project responsibility belongs to the publishing
+account; do not present any one person as the sole developer. Do not name or
+attribute project work to coding agents, assistants, automation tools, or models
+in repository files, commit messages, trailers, release notes, or contributor
+lists. Let the GitHub contributor record reflect the people who contribute as
+the project evolves. Do not rewrite published history unless the user explicitly
+requests it.
 
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
