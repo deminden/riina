@@ -446,7 +446,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             event_scroll_transition.set(generation);
             let scroll_transition = event_scroll_transition.clone();
             let weak_app = app.as_weak();
-            let _ = slint::Timer::single_shot(std::time::Duration::from_millis(220), move || {
+            slint::Timer::single_shot(std::time::Duration::from_millis(220), move || {
                 if scroll_transition.get() == generation
                     && let Some(app) = weak_app.upgrade()
                 {
