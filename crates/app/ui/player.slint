@@ -773,6 +773,7 @@ export component PlayerWindow inherits Window {
     in property <float> fullscreen-info-battery-level: 0;
     in-out property <bool> screenshot-show-preview: true;
     in-out property <bool> screenshot-save-to-file: true;
+    in-out property <int> launch-action-index: 0;
     in-out property <bool> pause-when-open: false;
     in-out property <bool> fullscreen-when-open: false;
     in-out property <bool> resume-last-position: true;
@@ -873,6 +874,10 @@ export component PlayerWindow inherits Window {
     in property <[CatalogRow]> chapters;
     in property <[float]> chapter-times: [];
     in-out property <bool> show-chapter-pos: false;
+    in-out property <int> pip-window-behavior-index: 1;
+    in-out property <bool> pip-pause-when-entering: false;
+    in-out property <bool> pip-toggle-by-minimizing: false;
+    in-out property <bool> pip-minimize-toggle-video-only: false;
     in property <[CatalogRow]> playlist;
     in property <bool> playlist-shuffled: false;
     in-out property <int> sidebar: 0;
@@ -1037,6 +1042,9 @@ export component PlayerWindow inherits Window {
     callback reset-speed();
     callback toggle-fullscreen();
     callback activity();
+    callback single-click-action(int);
+    callback double-click-action(int);
+    callback mouse-button-action(int);
     callback refresh-fullscreen-info();
     callback show-seek-osd();
     callback show-video-osd();
@@ -1105,11 +1113,23 @@ export component PlayerWindow inherits Window {
         }
         TouchArea { moved => { root.controls-visible = true; root.activity(); }
             clicked => {
+                root.activity();
+                root.single-click-action(root.control-single-click-index);
                 if root.sidebar != 0 || root.leading-sidebar != 0 {
                     keys.focus(); root.sidebar = 0; root.leading-sidebar = 0;
                 }
             }
-            double-clicked => { root.toggle-fullscreen(); } }
+            double-clicked => { root.double-click-action(root.control-double-click-index); }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.up {
+                    if event.button == PointerEventButton.right {
+                        root.activity(); root.mouse-button-action(root.control-right-click-index);
+                    } else if event.button == PointerEventButton.middle {
+                        root.activity(); root.mouse-button-action(root.control-middle-click-index);
+                    }
+                }
+            }
+        }
 
         if controls-visible && loaded && !crop-editing : Rectangle {
             x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px;

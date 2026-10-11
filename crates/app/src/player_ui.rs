@@ -25,6 +25,59 @@ fn clear_screenshot_preview(app: &PlayerWindow) {
     app.set_screenshot_preview_image(slint::Image::default());
 }
 
+fn dispatch_control_mouse_action(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    index: i32,
+) {
+    use riina_core::control_preferences::MouseEffect;
+
+    let Some(action) = riina_core::control_preferences::MouseAction::from_index(index) else {
+        app.set_status("Invalid mouse action preference".into());
+        return;
+    };
+    if app.get_crop_editing() || app.get_dialog_open() {
+        return;
+    }
+    let effect = action.effect(app.get_paused());
+    let result = match effect {
+        MouseEffect::None => return,
+        MouseEffect::Fullscreen => {
+            app.invoke_toggle_fullscreen();
+            return;
+        }
+        MouseEffect::SetPaused(paused) => {
+            if !app.get_loaded() {
+                return;
+            }
+            player.set_paused(paused)
+        }
+        MouseEffect::HideControls => {
+            app.set_controls_visible(false);
+            return;
+        }
+        MouseEffect::PictureInPicture => {
+            app.set_status("Picture-in-Picture is not available yet".into());
+            return;
+        }
+        MouseEffect::CycleAbLoop => {
+            if !app.get_loaded() {
+                return;
+            }
+            player.send(Command::CycleAbLoop)
+        }
+        MouseEffect::ResetSpeed => {
+            if !app.get_loaded() {
+                return;
+            }
+            player.send(Command::Speed(1.0))
+        }
+    };
+    if let Err(error) = result {
+        app.set_status(error.into());
+    }
+}
+
 fn set_native_video_host_visible(
     host: Option<&slint::Weak<crate::NativeVideoHost>>,
     visible: bool,
@@ -734,6 +787,12 @@ impl UiSession {
             }),
             volume_boost: app.get_volume_boost(),
             show_chapter_pos: app.get_show_chapter_pos(),
+            picture_in_picture: crate::pip_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
+            action_after_launch: riina_core::ActionAfterLaunch::from_index(
+                app.get_launch_action_index(),
+            )
+            .ok_or_else(|| std::io::Error::other("Invalid launch action selection"))?,
             hdr_enabled: app.get_hdr_enabled(),
             live_text_enabled: app.get_live_text_enabled(),
             always_float_on_top: app.get_always_float_on_top(),
@@ -861,6 +920,17 @@ impl Drop for UiSession {
     }
 }
 
+pub(crate) fn action_after_launch()
+-> Result<riina_core::ActionAfterLaunch, Box<dyn std::error::Error>> {
+    let path = platform::preferences_path()?;
+    let preferences = match std::fs::read_to_string(path) {
+        Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
+        Err(error) => return Err(error.into()),
+    };
+    Ok(preferences.action_after_launch)
+}
+
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
@@ -986,6 +1056,7 @@ pub(crate) fn configure_player(
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_fullscreen_when_open(prefs.fullscreen_when_open);
     app.set_resume_last_position(prefs.resume_last_position);
+    app.set_launch_action_index(prefs.action_after_launch.index());
     app.set_leading_sidebar_width(prefs.leading_sidebar_width as f32);
     app.set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
     app.set_settings_at_leading(prefs.settings_at_leading);
@@ -1004,6 +1075,7 @@ pub(crate) fn configure_player(
     let appearance_timer = crate::appearance_preferences::connect(app);
     app.set_osc_position(i32::from(prefs.osc_position));
     app.set_show_chapter_pos(prefs.show_chapter_pos);
+    crate::pip_preferences::install_player(app, prefs.picture_in_picture);
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);
@@ -1430,6 +1502,48 @@ pub(crate) fn configure_player(
             },
         );
     });
+    let pending_single_click = Rc::new(RefCell::new(None::<i32>));
+    let single_click_timer = Rc::new(slint::Timer::default());
+    let pending = pending_single_click.clone();
+    let timer = single_click_timer.clone();
+    let single_player = player.command_sender();
+    let single_app = app.as_weak();
+    app.on_single_click_action(move |action| {
+        *pending.borrow_mut() = Some(action);
+        let pending = pending.clone();
+        let player = single_player.clone();
+        let weak = single_app.clone();
+        // Slint reports clicked before double-clicked. Delay the single action
+        // so a double click invokes only its configured action.
+        timer.start(
+            slint::TimerMode::SingleShot,
+            Duration::from_millis(500),
+            move || {
+                let action = pending.borrow_mut().take();
+                if let (Some(action), Some(app)) = (action, weak.upgrade()) {
+                    dispatch_control_mouse_action(&app, &player, action);
+                }
+            },
+        );
+    });
+    let pending = pending_single_click;
+    let timer = single_click_timer;
+    let double_player = player.command_sender();
+    let double_app = app.as_weak();
+    app.on_double_click_action(move |action| {
+        timer.stop();
+        pending.borrow_mut().take();
+        if let Some(app) = double_app.upgrade() {
+            dispatch_control_mouse_action(&app, &double_player, action);
+        }
+    });
+    let button_player = player.command_sender();
+    let button_app = app.as_weak();
+    app.on_mouse_button_action(move |action| {
+        if let Some(app) = button_app.upgrade() {
+            dispatch_control_mouse_action(&app, &button_player, action);
+        }
+    });
     macro_rules! connect {
         ($method:ident, $command:expr) => {{
             let player = player.command_sender();
@@ -1450,8 +1564,8 @@ pub(crate) fn configure_player(
             });
         }};
     }
-    // Let mpv toggle its own state: the UI property is an asynchronously observed
-    // snapshot and can lag behind the engine when clicks arrive close together.
+    // Let mpv toggle its current state: UI pause snapshots can lag an in-flight
+    // transition, while the playback worker serializes this action with engine events.
     let pause_player = player.command_sender();
     let pause_app = app.as_weak();
     app.on_toggle_pause(move || {
@@ -1459,7 +1573,7 @@ pub(crate) fn configure_player(
             return;
         };
         app.invoke_activity();
-        if let Err(error) = pause_player.send(Command::TogglePause) {
+        if let Err(error) = pause_player.toggle_pause() {
             app.set_status(error.into());
         }
     });

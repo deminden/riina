@@ -14,7 +14,7 @@ or copy its protected assets. Read docs/licensing.md before changing license ter
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.2.11.
+the minor digit for major milestones. The current development version is 0.2.14.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
@@ -23,7 +23,9 @@ Verify `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --l
 Never report an unrun GUI/HDR test as passed. Keep implementation and verification separate.
 After staging asset changes, run `python scripts/check-assets.py --staged` before
 publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
-Do not package native binaries until licensing and corresponding-source obligations are closed.
+The repository's license choice is settled: original Riina source is MIT and
+the combined application package is GPLv3. Before publishing a native binary,
+verify the exact package, notices, corresponding source, and playback checks.
 Never spend development time waiting on a long-running local build, test suite, or CI
 job. Launch long checks without blocking, then immediately continue with the next
 independent implementation, interface-parity, audit, or release task while they run.
@@ -56,6 +58,11 @@ make the interface visually indistinguishable from the pinned macOS version step
 by step. Use actual captured Windows and pinned macOS reference surfaces for the
 visual phase. Keep the complete interface scope; do not treat a few corrected
 controls or source dimensions as proof of full pixel parity.
+
+Project maturity: the application is beyond initial feasibility and has real
+Windows playback, extensive player/settings workflows and regression coverage.
+Continue from the current milestone instead of describing or treating riina as an
+early prototype.
 
 Develop macOS/Linux application ports alongside Windows work now. Shared feature
 changes must preserve portable boundaries. Require full application builds and

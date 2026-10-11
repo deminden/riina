@@ -2,9 +2,13 @@
 
 use serde::Deserialize;
 use std::{
+    collections::BTreeSet,
     fs,
     path::{Component, Path, PathBuf},
 };
+
+const MAX_OVERLAY_TEXT_BYTES: usize = 1024 * 1024;
+const MAX_OVERLAY_MESSAGE_NAME_BYTES: usize = 256;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Author {
@@ -20,6 +24,211 @@ pub enum Permission {
     ShowAlert,
     VideoOverlay,
     FileSystem,
+}
+
+/// Commands crossing from the isolated plugin runtime to a platform webview.
+/// The core owns state transitions; a native adapter owns rendering and input.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OverlayEffect {
+    LoadPluginFile(PathBuf),
+    EnterSimpleMode,
+    Show,
+    Hide,
+    SetOpacity(f64),
+    SetStyle(String),
+    SetContent(String),
+    SetClickable(bool),
+    PostMessage {
+        name: String,
+        data: serde_json::Value,
+    },
+    DeliverMessage {
+        name: String,
+        data: serde_json::Value,
+    },
+    ListenMessage(String),
+}
+
+/// Per-plugin overlay state stays platform-neutral so Windows, macOS and Linux
+/// webview adapters observe identical visibility and message semantics.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OverlayState {
+    loaded: bool,
+    visible: bool,
+    opacity: f64,
+    clickable: bool,
+    simple_mode: bool,
+    message_listeners: BTreeSet<String>,
+}
+
+impl Default for OverlayState {
+    fn default() -> Self {
+        Self {
+            loaded: false,
+            visible: false,
+            opacity: 1.0,
+            clickable: false,
+            simple_mode: false,
+            message_listeners: BTreeSet::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OverlayIntent {
+    LoadFile(PathBuf),
+    SimpleMode,
+    Show,
+    Hide,
+    SetOpacity(f64),
+    SetStyle(String),
+    SetContent(String),
+    SetClickable(bool),
+    PostMessage {
+        name: String,
+        data: serde_json::Value,
+    },
+    OnMessage(String),
+}
+
+impl OverlayState {
+    pub fn is_loaded(&self) -> bool {
+        self.loaded
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.visible
+    }
+
+    pub fn opacity(&self) -> f64 {
+        self.opacity
+    }
+
+    pub fn is_clickable(&self) -> bool {
+        self.clickable
+    }
+
+    /// Apply one permission-checked plugin request and return work for the
+    /// platform webview. File containment is rechecked by that adapter.
+    pub fn apply(&mut self, intent: OverlayIntent) -> Result<Vec<OverlayEffect>, String> {
+        let effect = match intent {
+            OverlayIntent::LoadFile(path) => {
+                validate_overlay_path(&path)?;
+                self.loaded = true;
+                self.simple_mode = false;
+                self.message_listeners.clear();
+                Some(OverlayEffect::LoadPluginFile(path))
+            }
+            OverlayIntent::SimpleMode => {
+                if self.simple_mode {
+                    None
+                } else {
+                    self.loaded = true;
+                    self.simple_mode = true;
+                    self.message_listeners.clear();
+                    Some(OverlayEffect::EnterSimpleMode)
+                }
+            }
+            OverlayIntent::Show if self.loaded => {
+                self.visible = true;
+                Some(OverlayEffect::Show)
+            }
+            OverlayIntent::Hide if self.loaded => {
+                self.visible = false;
+                Some(OverlayEffect::Hide)
+            }
+            OverlayIntent::SetOpacity(opacity) if self.loaded => {
+                if !opacity.is_finite() {
+                    return Err("Overlay opacity must be a finite number".into());
+                }
+                self.opacity = opacity.clamp(0.0, 1.0);
+                Some(OverlayEffect::SetOpacity(self.opacity))
+            }
+            OverlayIntent::SetStyle(style) if self.loaded && self.simple_mode => {
+                validate_overlay_text(&style)?;
+                Some(OverlayEffect::SetStyle(style))
+            }
+            OverlayIntent::SetContent(content) if self.loaded && self.simple_mode => {
+                validate_overlay_text(&content)?;
+                Some(OverlayEffect::SetContent(content))
+            }
+            OverlayIntent::SetClickable(clickable) => {
+                self.clickable = clickable;
+                Some(OverlayEffect::SetClickable(clickable))
+            }
+            OverlayIntent::PostMessage { name, data } if self.loaded => {
+                validate_message_name(&name)?;
+                validate_message_data(&data)?;
+                Some(OverlayEffect::PostMessage { name, data })
+            }
+            OverlayIntent::OnMessage(name) if self.loaded => {
+                validate_message_name(&name)?;
+                if self.message_listeners.insert(name.clone()) {
+                    Some(OverlayEffect::ListenMessage(name))
+                } else {
+                    None
+                }
+            }
+            // IINA's show/hide/opacity/message calls before a document is loaded
+            // are no-ops; style and content require the simple-mode document.
+            OverlayIntent::Show
+            | OverlayIntent::Hide
+            | OverlayIntent::SetOpacity(_)
+            | OverlayIntent::PostMessage { .. }
+            | OverlayIntent::OnMessage(_)
+            | OverlayIntent::SetStyle(_)
+            | OverlayIntent::SetContent(_) => None,
+        };
+        Ok(effect.into_iter().collect())
+    }
+
+    /// Deliver only messages for names this plugin explicitly subscribed to.
+    pub fn receive_message(
+        &self,
+        name: String,
+        data: serde_json::Value,
+    ) -> Result<Option<OverlayEffect>, String> {
+        validate_message_name(&name)?;
+        validate_message_data(&data)?;
+        Ok(self
+            .message_listeners
+            .contains(&name)
+            .then_some(OverlayEffect::DeliverMessage { name, data }))
+    }
+}
+
+fn validate_overlay_path(path: &Path) -> Result<(), String> {
+    if path.as_os_str().is_empty()
+        || path.is_absolute()
+        || path
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+    {
+        return Err("Overlay files must use a safe relative plugin path".into());
+    }
+    Ok(())
+}
+
+fn validate_overlay_text(value: &str) -> Result<(), String> {
+    if value.len() > MAX_OVERLAY_TEXT_BYTES {
+        return Err("Overlay style or content exceeds the 1 MiB limit".into());
+    }
+    Ok(())
+}
+
+fn validate_message_name(name: &str) -> Result<(), String> {
+    if name.is_empty() || name.len() > MAX_OVERLAY_MESSAGE_NAME_BYTES {
+        return Err("Overlay message names must contain 1–256 UTF-8 bytes".into());
+    }
+    Ok(())
+}
+
+fn validate_message_data(data: &serde_json::Value) -> Result<(), String> {
+    let bytes = serde_json::to_vec(data).map_err(|error| error.to_string())?;
+    if bytes.len() > MAX_OVERLAY_TEXT_BYTES {
+        return Err("Overlay message data exceeds the 1 MiB limit".into());
+    }
+    Ok(())
 }
 
 impl Permission {
@@ -301,5 +510,132 @@ mod tests {
         assert!(valid_domain_pattern("video.example.org"));
         assert!(!valid_domain_pattern("https://example.org"));
         assert!(!valid_domain_pattern("*."));
+    }
+
+    #[test]
+    fn overlay_starts_hidden_and_ignores_visibility_requests_until_loaded() {
+        let mut overlay = OverlayState::default();
+        assert!(!overlay.is_loaded());
+        assert!(!overlay.is_visible());
+        assert_eq!(overlay.opacity(), 1.0);
+        assert!(!overlay.is_clickable());
+        assert!(overlay.apply(OverlayIntent::Show).unwrap().is_empty());
+        assert!(!overlay.is_visible());
+    }
+
+    #[test]
+    fn overlay_file_load_is_relative_and_simple_mode_accepts_bounded_content() {
+        let mut overlay = OverlayState::default();
+        assert!(
+            overlay
+                .apply(OverlayIntent::LoadFile(PathBuf::from("../outside.html")))
+                .is_err()
+        );
+        assert_eq!(
+            overlay
+                .apply(OverlayIntent::LoadFile(PathBuf::from("overlay/index.html")))
+                .unwrap(),
+            [OverlayEffect::LoadPluginFile(PathBuf::from(
+                "overlay/index.html"
+            ))]
+        );
+        assert!(!overlay.is_visible());
+        assert!(
+            overlay
+                .apply(OverlayIntent::SetContent(
+                    "<p>before simple mode</p>".into()
+                ))
+                .unwrap()
+                .is_empty()
+        );
+
+        assert_eq!(
+            overlay.apply(OverlayIntent::SimpleMode).unwrap(),
+            [OverlayEffect::EnterSimpleMode]
+        );
+        assert_eq!(
+            overlay
+                .apply(OverlayIntent::SetContent("<p>Ready</p>".into()))
+                .unwrap(),
+            [OverlayEffect::SetContent("<p>Ready</p>".into())]
+        );
+        assert_eq!(
+            overlay
+                .apply(OverlayIntent::SetStyle("p { color: white; }".into()))
+                .unwrap(),
+            [OverlayEffect::SetStyle("p { color: white; }".into())]
+        );
+        assert!(
+            overlay
+                .apply(OverlayIntent::SetContent(
+                    "x".repeat(MAX_OVERLAY_TEXT_BYTES + 1)
+                ))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn overlay_visibility_opacity_clickability_and_messages_are_typed() {
+        let mut overlay = OverlayState::default();
+        overlay.apply(OverlayIntent::SimpleMode).unwrap();
+        assert_eq!(
+            overlay.apply(OverlayIntent::SetOpacity(2.0)).unwrap(),
+            [OverlayEffect::SetOpacity(1.0)]
+        );
+        assert!(overlay.apply(OverlayIntent::SetOpacity(f64::NAN)).is_err());
+        assert_eq!(
+            overlay.apply(OverlayIntent::SetClickable(true)).unwrap(),
+            [OverlayEffect::SetClickable(true)]
+        );
+        assert!(overlay.is_clickable());
+        assert_eq!(
+            overlay.apply(OverlayIntent::Show).unwrap(),
+            [OverlayEffect::Show]
+        );
+        assert!(overlay.is_visible());
+        assert!(
+            overlay
+                .receive_message("ready".into(), serde_json::json!({"ok": true}))
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            overlay
+                .apply(OverlayIntent::OnMessage("ready".into()))
+                .unwrap(),
+            [OverlayEffect::ListenMessage("ready".into())]
+        );
+        assert!(
+            overlay
+                .apply(OverlayIntent::OnMessage("ready".into()))
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            overlay
+                .receive_message("ready".into(), serde_json::json!({"ok": true}))
+                .unwrap(),
+            Some(OverlayEffect::DeliverMessage {
+                name: "ready".into(),
+                data: serde_json::json!({"ok": true}),
+            })
+        );
+        assert_eq!(
+            overlay
+                .apply(OverlayIntent::PostMessage {
+                    name: "seek-to".into(),
+                    data: serde_json::json!({"seconds": 12.5}),
+                })
+                .unwrap(),
+            [OverlayEffect::PostMessage {
+                name: "seek-to".into(),
+                data: serde_json::json!({"seconds": 12.5}),
+            }]
+        );
+        assert!(
+            overlay
+                .apply(OverlayIntent::OnMessage(String::new()))
+                .is_err()
+        );
     }
 }

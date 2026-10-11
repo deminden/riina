@@ -951,7 +951,8 @@ export component PreferencesWindow inherits Window {
     out property <length> osd-suppression-detail-height: osd-suppression-expanded ? 112px : 0px;
     out property <length> interface-thumbnail-y: interface-osd-y + 108px + osd-suppression-detail-height + 128px;
     out property <length> interface-pip-y: interface-thumbnail-y + 96px;
-    out property <length> interface-accessibility-y: interface-pip-y + 96px;
+    out property <length> interface-pip-card-height: 148px;
+    out property <length> interface-accessibility-y: interface-pip-y + interface-pip-card-height + 44px;
     out property <length> interface-content-height: interface-accessibility-y + root.height - 13px;
     out property <length> interface-window-target: 0px - (interface-window-title-y - 13px);
     out property <length> interface-osc-target: 0px - (interface-osc-y - 13px);
@@ -977,6 +978,10 @@ export component PreferencesWindow inherits Window {
     callback search-result-activated(int, string, string, int);
     in-out property <int> osc-position: 0;
     in-out property <bool> show-chapter-pos: false;
+    in-out property <int> pip-window-behavior-index: 1;
+    in-out property <bool> pip-pause-when-entering: false;
+    in-out property <bool> pip-toggle-by-minimizing: false;
+    in-out property <bool> pip-minimize-toggle-video-only: false;
     in-out property <int> hardware-decoder-index: 1;
     in-out property <string> video-threads-text: "0";
     in-out property <bool> tone-mapping-enabled: true;
@@ -1118,6 +1123,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> show-preview: true;
     in-out property <bool> save-to-file: true;
     in-out property <bool> copy-to-clipboard: false;
+    in-out property <int> launch-action-index: 0;
     in-out property <bool> pause-when-open: false;
     in-out property <bool> fullscreen-when-open: false;
     in-out property <bool> resume-last-position: true;
@@ -1257,14 +1263,24 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 0 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.selected-general-section == 0 ? 300px : 300px;
+        content-height: root.selected-general-section == 0 ? 380px : 300px;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
-        width: parent.width; height: 300px; background: #ffffff;
+        width: parent.width; height: root.selected-general-section == 0 ? 380px : 300px; background: #ffffff;
         Text { x: 28px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
         if root.selected-general-section == 0 : Text { x: 28px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        if root.selected-general-section == 0 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 206px;
+        if root.selected-general-section == 0 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 48px;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            Text { x: 16px; y: 0; width: 130px; height: parent.height; text: "At launch";
+                font-size: 13px; color: #222222; vertical-alignment: center; }
+            ComboBox { x: 144px; y: 10px; width: parent.width - 160px; height: 26px;
+                model: ["Show welcome window", "Show open file panel", "Do nothing"];
+                current-index <=> root.launch-action-index;
+                selected => { root.settings-changed(); }
+            }
+        }
+        if root.selected-general-section == 0 : Rectangle { x: 20px; y: 145px; width: parent.width - 40px; height: 206px;
         border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 16px; y: 8px; text: "When media is opened"; font-size: 13px; color: #222222; }
             CheckBox { x: 16px; y: 40px; height: 24px; text: "Pause";
@@ -1586,8 +1602,36 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.settings-changed(); }
             }
         }
-        for title[index] in ["Thumbnail Preview", "Picture-in-Picture", "Accessibility"] : Rectangle {
-            x: 20px; y: index == 0 ? root.interface-thumbnail-y : index == 1 ? root.interface-pip-y : root.interface-accessibility-y;
+        Text { x: 28px; y: root.interface-pip-y; text: "Picture-in-Picture";
+            font-size: 13px; font-weight: 600; color: #77777d; }
+        Rectangle {
+            x: 20px; y: root.interface-pip-y + 28px; width: parent.width - 40px;
+            height: root.interface-pip-card-height;
+            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: #f8f8f8;
+            VerticalLayout { x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px; spacing: 0px;
+                PreferenceChoiceRow { width: parent.width; label: "Window after entering";
+                    options: ["Do nothing", "Hide", "Minimize"];
+                    selected-index <=> root.pip-window-behavior-index;
+                    selected => { root.settings-changed(); }
+                }
+                PreferenceSwitch { width: parent.width; label: "Automatically pause playback";
+                    checked <=> root.pip-pause-when-entering;
+                    toggled => { root.settings-changed(); }
+                }
+                PreferenceSwitch { width: parent.width;
+                    label: "Toggle Picture-in-Picture by minimizing/un-minimizing the window";
+                    checked <=> root.pip-toggle-by-minimizing;
+                    toggled => { root.settings-changed(); }
+                }
+                PreferenceSwitch { width: parent.width; label: "Only for video files";
+                    enabled: root.pip-toggle-by-minimizing;
+                    checked <=> root.pip-minimize-toggle-video-only;
+                    toggled => { root.settings-changed(); }
+                }
+            }
+        }
+        for title[index] in ["Thumbnail Preview", "Accessibility"] : Rectangle {
+            x: 20px; y: index == 0 ? root.interface-thumbnail-y : root.interface-accessibility-y;
             width: parent.width - 40px; height: 80px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 0; y: 8px; text: title;

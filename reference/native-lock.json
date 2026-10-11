@@ -7,6 +7,6 @@
   "architecture": "x86_64",
   "source": "https://github.com/shinchiro/mpv-winbuild-cmake",
   "authenticity": "SHA-256 matches GitHub release API digest; no independent signed attestation",
-  "redistribution_status": "development only; native dependencies and corresponding source audit pending",
+  "redistribution_status": "development-only archive; release packaging rebuilds the engine from captured sources under the settled GPLv3 package choice",
   "archive_sha256": "8a15fc07996a33235778256157151c42cbaceee976f0a98860f55047856935b2"
 }

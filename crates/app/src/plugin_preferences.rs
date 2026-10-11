@@ -57,7 +57,7 @@ pub(crate) fn connect(window: &PreferencesWindow, app: &PlayerWindow, preference
                 }
                 refresh(&window, &plugins, &entries);
                 window.set_plugin_update_status(
-                    format!("Installed {}. Plugin execution will be available after its runtime is added.", manifest.name).into(),
+                    format!("Installed {}. Plugin activation and overlay display are not available yet.", manifest.name).into(),
                 );
                 if let Some(app) = parent.upgrade() {
                     app.set_status(format!("Installed plugin {}", manifest.name).into());
@@ -241,7 +241,7 @@ fn confirm_permissions(manifest: &Manifest) -> bool {
     MessageDialog::new()
         .set_title(format!("Permissions requested by {}", manifest.name))
         .set_description(format!(
-            "Review these permissions before installing:\n\n{permissions}\n\nPlugin execution is not yet available in this build."
+            "Review these permissions before installing:\n\n{permissions}\n\nPlugin activation and overlay display are not available yet."
         ))
         .set_buttons(MessageButtons::YesNo)
         .show()

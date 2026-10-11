@@ -26,11 +26,15 @@ Behavior controls and preferences navigation; verify save failure rollback,
 reference layout/materials and macOS/Linux runtime. Maintain native pause state
 as observed playback, separate from the policy for future file opening.
 
-Resolve native distribution using the inspected producing recipe and dependency
-revisions in docs/native-distribution-audit.json. Preserve parity requirements
-while choosing compatible dependencies; do not silently remove DVD or other
-features to obtain a superficially simpler license. Complete notices/source and
-package/runtime verification before attaching Windows binaries to GitHub Releases.
+The MIT source / GPLv3 combined-package choice is settled. The next binary step is
+engineering verification of the exact candidate: fix the nested native build,
+produce its runtime and captured sources, then pass package/playback checks before
+attaching Windows binaries to GitHub Releases. Preserve parity requirements while
+doing so; do not silently remove DVD or other features.
+
+Riina is beyond its initial feasibility stage. It has real Windows playback and
+substantial player/preferences workflows; the active work is closing missing
+behavior and complete visual parity against captured macOS reference surfaces.
 
 Clipboard-only scratch ownership now lasts through engine teardown with an
 unreported-output filesystem regression. Verify actual rapid captures and close

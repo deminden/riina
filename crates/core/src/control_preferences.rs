@@ -14,7 +14,32 @@ pub enum MouseAction {
     ResetSpeed,
 }
 
+/// Portable meaning of a configured click gesture; platform UI applies it to
+/// window state or routes its playback intent to the engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MouseEffect {
+    None,
+    Fullscreen,
+    SetPaused(bool),
+    HideControls,
+    PictureInPicture,
+    CycleAbLoop,
+    ResetSpeed,
+}
+
 impl MouseAction {
+    pub const fn effect(self, currently_paused: bool) -> MouseEffect {
+        match self {
+            Self::None => MouseEffect::None,
+            Self::Fullscreen => MouseEffect::Fullscreen,
+            Self::Pause => MouseEffect::SetPaused(!currently_paused),
+            Self::HideOsc => MouseEffect::HideControls,
+            Self::PictureInPicture => MouseEffect::PictureInPicture,
+            Self::AbLoop => MouseEffect::CycleAbLoop,
+            Self::ResetSpeed => MouseEffect::ResetSpeed,
+        }
+    }
+
     pub const fn index(self) -> i32 {
         match self {
             Self::None => 0,
@@ -201,6 +226,36 @@ mod tests {
         assert_eq!(ScrollAction::PlaybackSpeed.index(), 3);
         assert_eq!(PinchAction::AdjustWindowSize.index(), 0);
         assert_eq!(SeekType::Auto.index(), 2);
+    }
+
+    #[test]
+    fn click_actions_map_to_explicit_window_and_playback_effects() {
+        assert_eq!(MouseAction::None.effect(false), MouseEffect::None);
+        assert_eq!(
+            MouseAction::Fullscreen.effect(false),
+            MouseEffect::Fullscreen
+        );
+        assert_eq!(
+            MouseAction::Pause.effect(false),
+            MouseEffect::SetPaused(true)
+        );
+        assert_eq!(
+            MouseAction::Pause.effect(true),
+            MouseEffect::SetPaused(false)
+        );
+        assert_eq!(
+            MouseAction::HideOsc.effect(false),
+            MouseEffect::HideControls
+        );
+        assert_eq!(
+            MouseAction::PictureInPicture.effect(false),
+            MouseEffect::PictureInPicture
+        );
+        assert_eq!(MouseAction::AbLoop.effect(false), MouseEffect::CycleAbLoop);
+        assert_eq!(
+            MouseAction::ResetSpeed.effect(false),
+            MouseEffect::ResetSpeed
+        );
     }
 
     #[test]

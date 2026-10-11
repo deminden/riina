@@ -26,6 +26,13 @@ const ENTRIES: &[Entry] = &[
         page_index: 0,
         page: "General",
         section: "Behavior",
+        title: "At launch",
+        terms: "startup welcome window open file panel nothing",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
         title: "When media is opened",
         terms: "pause fullscreen open",
     },
@@ -224,6 +231,34 @@ const ENTRIES: &[Entry] = &[
         section: "On-Screen Display",
         title: "Time and battery in full screen",
         terms: "fullscreen status time clock battery information",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Picture-in-Picture",
+        title: "Window after entering",
+        terms: "pip do nothing hide minimize main player window",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Picture-in-Picture",
+        title: "Automatically pause playback",
+        terms: "pip pause playback enter",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Picture-in-Picture",
+        title: "Toggle by minimizing the window",
+        terms: "pip minimize unminimize toggle window",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Picture-in-Picture",
+        title: "Only for video files",
+        terms: "pip minimize audio only video",
     },
     Entry {
         page_index: 2,
@@ -890,6 +925,15 @@ mod tests {
     }
 
     #[test]
+    fn launch_action_is_searchable_in_general_behavior() {
+        let results = item_results("open panel at launch");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].page_name, "General");
+        assert_eq!(results[0].section_name, "Behavior");
+        assert_eq!(results[0].title, "At launch");
+    }
+
+    #[test]
     fn interface_search_results_use_the_captured_subsection_scroll_anchors() {
         for (query, section, anchor) in [
             ("system appearance", "Appearance", 0),
@@ -908,6 +952,14 @@ mod tests {
                 619,
             ),
             ("overlay display messages", "On-Screen Display", 735),
+            ("pip minimize main window", "Picture-in-Picture", 939),
+            (
+                "automatically pause playback pip",
+                "Picture-in-Picture",
+                939,
+            ),
+            ("toggle by minimizing window", "Picture-in-Picture", 939),
+            ("only for video files pip", "Picture-in-Picture", 939),
         ] {
             let result = item_results(query);
             assert_eq!(result.len(), 1, "query: {query}");

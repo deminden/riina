@@ -1,6 +1,14 @@
 {
-  "distribution_approved": false,
   "distribution_license": "GPL-3.0-only",
+  "license_decision": {
+    "status": "settled",
+    "source_license": "MIT",
+    "combined_application_license": "GPL-3.0-only",
+    "x264": "Excluded from the release engine; built-in H.264 decoding is retained",
+    "unicode_dfs_2016": "Accepted as GPL-compatible; its original notice is required in the source bundle",
+    "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
+  },
+  "release_artifacts_verified": false,
   "workflow_run": "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/37862467302",
   "build_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
   "workflow_verification": {
@@ -18,12 +26,12 @@
       "ffmpeg-version": "N-127256-g538d10d18"
     },
     "embedded_gpl_configuration_strings": [],
-    "redistribution_approved": false,
     "limits": [
       "Embedded strings do not enumerate every linked dependency",
-      "Build recipes and corresponding source still require independent verification",
-      "Runtime inspection does not certify distribution license compliance"
-    ]
+      "This is the development DLL, not the separately rebuilt release candidate",
+      "Runtime inspection cannot verify package contents or corresponding-source delivery"
+    ],
+    "development_bundle_scope": "Local development input only; the release workflow rebuilds a separate engine."
   },
   "release_candidate_policy": {
     "builder_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
@@ -36,14 +44,12 @@
     "native_rust_toolchain": "nightly-2026-10-10; required by the upstream subrandr Cargo xtask; official channel manifest verified",
     "runtime_assembly": "Embed libmpv-2.dll from mpv-dev output and recursively resolve required non-system PE imports from built dependency DLLs. Verify both assembled and extracted Windows ZIP; use static CRT for riina.exe."
   },
-  "remaining": [
-    "Build and verify the private release candidate before approving distribution; inventory the exact runtime and verify compatible redistribution terms without dropping required playback parity",
-    "Review the native source manifest and verify that the package includes every required native license, copyright notice and corresponding source for the exact candidate",
-    "Regenerate and verify the reviewed notices for all 346 Windows-targeted external Rust dependencies in the candidate portable package",
-    "Verify and include the selected Slint Royalty-free 2.0 attribution and terms in the portable package",
-    "Run the complete native playback and lifecycle suite plus playback against the final extracted portable package",
-    "Rebuild the complete package from its captured sources in the pinned build environment and record verification results",
-    "Review Rust standard-library notices for both Rust 1.99.0 and the pinned native nightly: Cargo metadata does not enumerate compiler-provided standard libraries"
+  "release_verification_remaining": [
+    "Rerun the private candidate after the build-scoped Git identity fix and produce the Windows runtime and captured-source artifacts",
+    "Verify the exact candidate source manifest, notices and corresponding-source bundle",
+    "Regenerate application dependency notices for the candidate Cargo.lock and include the pinned Slint Royalty-free 2.0 terms",
+    "Run native playback/lifecycle tests and playback against the final extracted portable ZIP",
+    "Rebuild from captured sources in the pinned environment and record the result, including toolchain-provided Rust source and notices"
   ],
   "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
   "build_repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
@@ -69,29 +75,37 @@
     "Pinned FFmpeg recipe enables --enable-gpl, --enable-version3, --enable-openssl, --enable-libx264 and --enable-libx265",
     "Pinned FFmpeg configure source states --enable-version3 upgrades GPL builds to GPLv3-or-later; it also says OpenSSL 3 requires this option in GPL mode",
     "Pinned FFmpeg configure source describes --enable-libx264 as H.264 encoding; the recipe does not disable the built-in H.264 decoder, so rebuild and fixture tests can verify playback parity without x264",
-    "x264's official licensing page says GPLv2-only; the build recipe fetches x264 without a source revision pin, so the exact built source grant remains unverified",
-    "A GPLv2-only package cannot be made by relabeling this build: FFmpeg's version-3 upgrade and OpenSSL 3 must be addressed in a separate native build and compatibility audit",
+    "The development recipe can include x264 and is not the release recipe; the release patch removes x264 while preserving H.264 decoding",
+    "The release recipe selects FFmpeg GPLv3 mode and OpenSSL 3, whose Apache-2.0 terms are compatible with GPLv3",
     "The development archive contains the DLL and import library but not the native dependency sources, notices or reproducible source bundle",
     "No embedded FFmpeg GPL configuration string was found; absence is not license evidence",
-    "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields, but selected alternatives and notices still need package-level review"
+    "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38127346214,
-    "job_id": 114434375205,
-    "commit": "62adaae",
-    "failed_dependency": "curl source bootstrap",
-    "evidence": "The builder excludes curl and libsixel from its download/update aggregate despite mpv depending on both. CMake creates empty source directories; Git fetch in the empty curl directory discovers the parent builder repository and asks its origin for the curl tag.",
-    "next_candidate": "Bootstrap omitted curl/libsixel sources, preserve the compiler cache, collect the DLL from mpv-dev, verify transitive DLL imports, vendor subrandr dependencies, and restore sources before toolchain compilation. Candidate and static-CRT app verification remain in flight."
+    "run_id": 38128557321,
+    "commit": "8bc1bb2",
+    "stage": "native-engine / spirv-cross patch step",
+    "failure": "git am exited 128 because the nested build process had no Git committer identity",
+    "evidence": "The workflow log supplied for this candidate ends with Committer identity unknown. The build script now installs an isolated per-build Git config for nested Git subprocesses.",
+    "next_action": "Run the private binary candidate workflow; package and release checks have not executed for this run."
   },
-  "rust_candidate_audit": {
+  "historical_candidate_failures": [
+    {
+      "run_id": 38127346214,
+      "commit": "62adaae",
+      "failure": "curl/libsixel source bootstrap",
+      "resolution": "Source bootstrap was subsequently patched."
+    }
+  ],
+  "previous_application_notice_audit": {
     "version": "0.2.11",
     "external_dependency_count": 346,
     "missing_notice_files": 0,
     "cargo_lock_sha256": "edb5b5bd5f4a852243d668fb889ecb82442074c645d0453473af7dcf11ff216e",
     "notice_manifest_sha256": "f2462592c8fa447aabd8d4c244e55ecfd3cec4d1a7d4204ba95a5853836748b8",
-    "evidence": "scripts/package-rust-licenses.py completed on 2026-10-11 for the application's locked dependencies; all selected grants passed and notice files were collected. The native subrandr Rust dependency audit separately exposed Unicode-DFS-2016 and is being corrected; CI must regenerate both sets from the exact sources."
+    "evidence": "The application dependency collector passed its selected-license checks and collected notices. The native collector accepts Unicode-DFS-2016 and retains its notice; CI regenerates both notice sets from exact candidate sources."
   },
-  "windows_app_candidate_verification": {
+  "previous_windows_app_candidate_verification": {
     "version": "0.2.11",
     "build": "cargo build -p riina --release --locked --target x86_64-pc-windows-msvc with target-feature=+crt-static",
     "result": "success",
@@ -101,12 +115,5 @@
       "Local app link and import evidence only; release native engine and final package playback remain pending"
     ]
   },
-  "latest_candidate_failure": {
-    "run_id": 38128557321,
-    "commit": "8bc1bb2",
-    "native_job_id": 114437955798,
-    "failed_dependency": "native Rust dependency license selection",
-    "evidence": "Native source collection reached subrandr's vendored unicode-ident 1.0.13 and stopped because Unicode-DFS-2016 was not in the reviewed GPLv3-compatible grant list. The Free Software Foundation classifies the permissive Unicode data/software license as compatible with all GPL versions; its original notice must remain in the package.",
-    "next_candidate": "Add Unicode-DFS-2016 to the reviewed compatible grants, retain its collected notice, and regression-test the collector before rebuilding the private candidate. Distribution approval remains false until the complete runtime and corresponding-source audit passes."
-  }
+  "verified_candidate_run_id": null
 }

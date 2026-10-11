@@ -1,3 +1,66 @@
+2026-10-11 Release status correction: the MIT source / GPLv3 combined-package
+choice is settled. The earlier Unicode-DFS-2016 license-selection failure was
+fixed by accepting that GPL-compatible grant while retaining its required
+notice. It is no longer a licensing blocker. The current binary blocker is
+engineering verification: the latest public native candidate failed before
+producing a runtime package (the supplied log shows `git am` exited 128 because
+the build process had no committer identity). Package playback, extracted-ZIP
+checks and exact corresponding-source delivery therefore have not run. The
+private candidate workflow remains the path to produce and verify those assets;
+only its successful evidence can enable a public binary release. Older entries
+below record the state at the time and are superseded by this status.
+
+Project maturity: Riina is a functioning application beyond the initial
+prototype/feasibility phase. It has Windows playback, broad player and settings
+workflows, screenshot and subtitle handling, and substantial automated coverage.
+Current work targets missing IINA behaviors and measured full-surface parity with
+the captured macOS reference; this is not an early-stage project summary.
+
+2026-10-11 Picture-in-Picture Settings slice: the Interface page now exposes
+the source-defined main-window action (Do nothing/Hide/Minimize), pause-on-entry,
+minimize-to-toggle and video-only policies. Typed shared defaults match IINA
+(Hide; all switches off), legacy preference files retain those defaults, and
+the choices participate in app/session persistence and Settings search. This is
+settings behavior only: the distinct PiP playback surface and window lifecycle
+are still absent. Shared PiP lifecycle decisions now preserve IINA's fullscreen
+and minimized-window exception, pause-on-entry choice, and restore-only-when-PiP
+changed the main window rule. Minimize/restore toggling honors its enabled and
+video-only settings and ignores window events during PiP transitions to avoid
+re-entering itself. The pinned mpv API permits one render context per
+player, so the floating surface must transfer or embed that output through a
+platform adapter. No reference image shows this scrolled section, so its geometry
+is source-derived and not visually verified. All 154 core tests pass; the full
+workspace test suite and strict Clippy pass. The locked workspace build is being
+refreshed for this final transition guard. Version 0.2.14 records the shared
+lifecycle milestone; no public release was made.
+
+2026-10-11 Pause-control reliability follow-up: the on-screen Play/Pause route
+sends a native TogglePause intent so mpv acts on its latest state instead of an
+asynchronously observed UI snapshot. If the bounded player queue is full,
+delivery moves off the UI event loop and is not dropped. A fresh Windows app
+0.2.12 build passes. Workspace tests and strict Clippy pass. On a long audio
+fixture, the shared action changed the observed control Pause → Play, then Play
+→ Pause on resume. The automation helper rejected direct accessibility-button
+clicks after its element cache expired, and its screenshot capture failed;
+therefore this run confirms the shared transport action, not a fresh mouse click.
+The earlier real-mouse Pause/Play cycle remains the latest direct button evidence.
+
+2026-10-11 Plugin runtime follow-up: QuickJS now stays on a bounded worker
+session after the entry script returns, retains `onMessage` callbacks, and
+delivers only subscribed, size-checked overlay messages back into that realm.
+The session can drain bounded host events and shuts down its worker on drop.
+Plugin activation does not yet retain or consume these sessions, and no
+platform webview is created or composed with video. PLUGIN-002 remains partial
+until activation, webview, navigation policy and cross-platform composition work.
+
+2026-10-11 Control gesture follow-up: saved single-, double-, right- and
+middle-click choices now dispatch their configured fullscreen, pause, hide
+controls, A/B loop or speed-reset behavior. Single-click actions wait for
+Slint's 500 ms double-click interval and are canceled when the double-click
+callback arrives, avoiding both actions firing together. Picture-in-Picture,
+first-click focus, pinch/Force Touch and live platform gesture verification
+remain open.
+
 2026-10-11 The Windows native-video overlay now retains layered alpha while
 clearing Winit's mouse-transparent extended style, and the rebuilt player shows
 the video without the black cover from the user report. A live Windows mouse test
@@ -77,7 +140,7 @@ download/update aggregate. The native bootstrap patch includes curl and libsixel
 checks curl owns its checkout and matches the pinned release revision, and lets
 the compiler wrapper use the persistent CI cache. Both dependencies are now
 captured before compiling. Full native build, extracted-package playback, exact
-source/license verification and public binary publication remain pending.
+candidate package/source verification and public binary publication remain pending; the license choice is settled.
 
 2026-10-11 Binary candidate 38127030555 stopped before native compilation because
 GitHub rejected fetching curl's pinned commit SHA as an unadvertised ref. Its
@@ -134,7 +197,7 @@ and matched pixel comparisons remain open. Windows `cargo check`, six focused
 search tests, Settings navigation checks and staged asset provenance checks pass.
 GUI search behavior and appearance remain unverified: the Windows capture helper
 returned no window state after target re-selection. The v0.2.2 release contains
-source only because the distribution audit remains unapproved. The opt-in 200%
+source only because no verified native package artifacts were available at that time. The opt-in 200%
 range remains in Audio > Volume; default playback still caps at 100%.
 
 Windows audit candidate #9 failed during the native dependency configure phase,
@@ -144,7 +207,7 @@ their configure logs. Candidate #10 is rerunning with the improved configure and
 compile log capture to expose the underlying errors. Candidate #12 is now building
 the pinned engine at commit `05ec584d63b09df9a98fbe8df975a14cd296c656`; GitHub
 still reports its `native-engine` job in progress and no artifacts yet. This
-private candidate run does not publish a release or close the distribution audit.
+private candidate run produces test artifacts only; it does not publish a release.
 
 The user now prioritizes full interface parity before further feature expansion;
 sidebar edges now resize independently and persist on release. Actual Windows
@@ -237,7 +300,7 @@ coalescing and source replacement without replaying failed captures, and remove
 only confirmed clipboard-only files while preserving unrelated files. Old settings
 retain destination defaults and all four destination combinations round-trip.
 The new arboard/Wayland dependency graph retains nine MIT notices and explicit
-feature/license inventory; GPL MIME database embedding is disabled. Changes remain local; native binary distribution audits remain open. Non-PNG
+feature/license inventory; GPL MIME database embedding is disabled. Changes remain local; native candidate packaging and release verification remain open. Non-PNG
 fallback, HDR/colorimetry, rendered reference pixels and ports runtime remain open.
 
 Preferences saving now shares exclusive temporary-file allocation and failure
@@ -1914,8 +1977,8 @@ Published source: https://github.com/deminden/riina. At the user's request,
 original riina contributions now use MIT and an explicit independent-development
 policy (docs/licensing.md). Slint uses Royalty-free 2.0 with the official badge
 in the public README; mpv ABI notices remain ISC. Third-party references and
-native binaries retain their own terms. This source grant does not certify
-clean-room provenance or close the native redistribution audit.
+native binaries retain their own terms. The provenance review is separate from package licensing. Exact candidate build,
+notices, corresponding source and playback checks remain required for release.
 
 The separate D3D11 experiment now runs native gpu-next video with an owned Slint
 overlay. Runtime logs report a 16-bit float scRGB swap chain on the observed SDR
@@ -2200,23 +2263,13 @@ saved/restored only when enabled. App-level saved-settings restart, live Windows
 setting interaction and matched reference pixels remain unverified. This closes
 no broad Preferences or pixel-parity gate.
 
-Release readiness: the only public release is 0.1.0-preview.1, published
-2026-10-10. The local 0.2.0 milestone remains unreleased. A binary release is
-blocked by docs/native-distribution-audit.json: the selected combined-package
-terms are GPLv3, but the pinned native build has not passed a compatibility and
-corresponding-source audit. Its FFmpeg recipe enables GPL and version 3 while
-also enabling OpenSSL 3 and x264. The pinned FFmpeg configure script says
-version 3 upgrades its GPL build and OpenSSL 3 requires that mode; x264's
-licensing page says GPLv2-only, and the builder does not pin its exact source
-revision. GPLv2 was evaluated, but changing the package label alone cannot
-resolve those native settings. The recommended GPLv3 candidate removes optional
-x264 encoding while retaining and testing FFmpeg's built-in H.264 decoder. The
-archive has no native sources or notices; dependency inventory and reproducible
-package evidence remain open.
-The Windows Actions workflow compiles the app but does not package or upload
-release assets; an audited zip/package still needs an explicit release step.
-Do not attach native binaries until that audit is closed; full interface parity
-is also incomplete.
+Historical release-readiness note (2026-10-10): the GPLv3 package route was then
+being evaluated because the development recipe enabled OpenSSL 3 and x264. The
+decision was settled by removing the optional x264 encoder while keeping H.264
+decoding, retaining GPLv3 mode, and validating the OpenSSL 3 terms. The current
+remaining work is to fix the private candidate build and verify its exact runtime,
+notices, corresponding-source archive and package playback. Full interface parity
+also remains an active goal.
 
 2026-10-10 welcome Resume-row parity increment: split the Resume action into the
 reference's 32-point row with a separate history glyph, Resume label, elided media
@@ -2288,17 +2341,16 @@ optimized build in `target/verification-021` pass. Two earlier builds in reused
 verification directories hit linker access denial while replacing generated import
 libraries; the clean output directory resolved it.
 
-2026-10-10 GitHub release repair: the release workflow now reads the native
-distribution audit before building. With its current `distribution_approved: false`
-decision, a version tag publishes a checksummed source snapshot with a direct
-download link in the Releases panel and skips native/application binary packaging.
-Binary assets remain gated on closing the dependency, notices, corresponding-source
-and package-test audit. The workflow change passes whitespace validation;
+2026-10-10 GitHub release repair: the release workflow now checks exact candidate
+verification status before publishing. At that time, the version tag published
+only the checksummed source snapshot and skipped native/app packaging. The license
+choice is now settled; binary assets require a successful candidate build, exact
+source bundle, notices and package/playback verification. The workflow change passes whitespace validation;
 Rust 1.99.0 formatting, strict all-target Clippy and workspace tests pass locally.
 Tag `v0.2.1` is published at
 https://github.com/deminden/riina/releases/tag/v0.2.1 with a direct source-download
 link and SHA-256 file. Its Actions run completed successfully; native and Windows
-package jobs were skipped by the explicit audit gate. No binary release is claimed.
+package jobs were skipped by the explicit candidate-verification check. No binary release is claimed.
 
 2026-10-10 Subtitle Position interface increment: added X/Y subtitle alignment,
 X/Y margins, vertical position, letterbox display and window-scaling settings.
@@ -2348,7 +2400,7 @@ not reproduce IINA's priority-keyword ranking or complete directory/glob matcher
 tests and strict all-target Clippy pass; the 38 native integration tests are
 ignored without the pinned runtime DLL, and no GUI interaction or pixel parity
 is claimed. Release v0.2.2 is available as a source archive and SHA-256 file;
-binary packaging remains behind the dependency audit gate.
+binary packaging still awaits a successful candidate build and exact package/source verification.
 
 2026-10-10 IINA Settings reference capture: all eleven pages from the pinned v1.5.0
 disk image were captured and visually checked on macOS 26.6.2 in Light appearance
@@ -2383,8 +2435,8 @@ after about 65 minutes at “Build pinned native engine and corresponding source
 The Windows package and complete-source jobs were consequently skipped; no
 candidate artifacts were created. The unauthenticated Actions log endpoint
 returns 403, so the actionable build diagnostic is still pending from the run
-viewer. The native distribution audit remains open and false; no binary has been
-published or claimed.
+viewer. The package-license choice is settled, but this failed candidate produced
+no runtime or source artifact; no binary has been published or claimed.
 
 2026-10-11 Network Cache parity increment: added the captured Cache section beneath
 Network with the source text, defaults, startup-buffer explanation, numeric inputs,
@@ -2619,7 +2671,8 @@ development defaults Windows to native D3D11 and retains `--shared-gl` for diagn
 The Rust 1.99 app build now passes, the pinned native pause/seek/stop/recovery test
 passes, and a fresh current app run opened `hdr-hlg.mkv` through mpv's D3D11 `gpu-next`
 output. This fixture run was not screen-captured and does not cover arbitrary media or
-a packaged release. Public binary distribution remains blocked by the audit gate.
+a packaged release. Public binary distribution remains blocked until the private
+candidate build and exact package/source checks pass.
 
 2026-10-11 Interface > Window increment: added the source's expandable Initial
 window size and Initial window position switches, typed numeric/unit/anchor fields,
@@ -2817,16 +2870,15 @@ localization and matched Windows/macOS visuals remain open.
 sends the native TogglePause command, matching the playback menu and key route;
 the Play/Pause icon remains driven by mpv observation. The latest workspace test
 suite passes, and the shared Video menu now includes cycle/direct video-track
-selection. The GitHub Windows candidate 8bc1bb2 failed in license collection for
-the native subrandr dependency unicode-ident 1.0.13 because Unicode-DFS-2016
-was absent from the reviewed GPL-compatible grants. The FSF identifies that
-permissive license as GPL-compatible; the collector now accepts it and a Python
-regression test ensures the original package notice remains required. The six
+selection. The GitHub Windows candidate 8bc1bb2 initially stopped in native license collection
+for unicode-ident 1.0.13 because Unicode-DFS-2016 was absent from the accepted-grant
+list. The collector now accepts this GPL-compatible license, preserves its notice,
+and has a regression test. That issue is resolved; a later native build failure is
+tracked at the top of this file. The six
 Python checks, parity traceability, settings routes, fixtures, strict Clippy and
 workspace checks pass locally. A repeat native playback test with the local DLL
 timed out before its first playback event, so this does not verify the pause
-button in the live app. No binary release has been published; the full runtime
-and corresponding-source audit is still open.
+button in the live app. No binary release has been published; exact candidate runtime, package and corresponding-source verification remain open.
 
 2026-10-11 Playback timeline geometry increment: the shared slider now accepts
 per-instance handle dimensions, and the playback timeline uses IINA's 3 x 15 px
@@ -2861,3 +2913,34 @@ and a live GUI toggle check remain pending.
 The feature compiles with the full Windows workspace and all workspace tests pass
 (88 app unit tests plus the other workspace suites). Strict Clippy passes;
 no GUI marker render or macOS comparison has been claimed.
+
+The General > Behavior pane now exposes IINA's default welcome-window startup
+action plus Show open file panel and Do nothing. Explicit media arguments take precedence, and
+the selected action is persisted and used by both shared and Windows-native
+startup paths. Core tests cover legacy defaults, all choices and argument
+precedence; app builds and the file-dialog/window lifecycle still need verification.
+
+Pause and resume clicks now wait for an available player-command queue slot, so
+temporary queue pressure cannot drop the transport action. A queue-pressure unit
+test covers this delivery guarantee. The real playback automation test timed out
+before receiving its first playback snapshot, so this change still needs a live
+button check; the existing Windows mouse evidence records earlier successful
+Pause/Play label transitions.
+
+2026-10-11 Plugin overlay behavior now has a shared typed lifecycle model and
+the one-shot QuickJS entry runtime emits permission-gated overlay intents. Tests
+cover hidden startup, loaded-state gating, simple-mode content/style, bounded
+payloads, opacity clamping, click-through state and listener registration. The
+parity item remains partial: plugin activation, persistent callback delivery,
+real webview rendering and video-aligned Windows/macOS/Linux composition are
+still open.
+
+2026-10-11 Pause-button transition fix: the transport callback now sends mpv's
+serialized TogglePause intent instead of deriving an absolute target from a UI
+snapshot that can lag playback transitions. Queue pressure still defers delivery
+off the UI thread. The 0.2.12 workspace build, full tests and strict Clippy pass.
+On a long Windows audio fixture, the shared transport action changed the
+observed control Pause → Play, then Play → Pause on resume. The automation helper
+rejected direct button clicks after its element cache expired, and screenshot
+capture failed; the earlier real-mouse Pause/Play cycle remains the latest direct
+button evidence. Fresh direct mouse confirmation of this adjustment remains open.

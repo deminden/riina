@@ -55,6 +55,36 @@ impl CommandSender {
             .try_send(Message::Intent(command))
             .map_err(|e| format!("Player command was not accepted: {e}"))
     }
+
+    /// The pause click toggles the worker's latest native state without blocking the UI.
+    pub fn toggle_pause(&self) -> Result<(), String> {
+        self.send_without_blocking(Command::TogglePause)
+    }
+
+    /// Mouse preferences may request an absolute pause state; retain it under queue pressure too.
+    pub fn set_paused(&self, paused: bool) -> Result<(), String> {
+        self.send_without_blocking(Command::SetPaused(paused))
+    }
+
+    fn send_without_blocking(&self, command: Command) -> Result<(), String> {
+        let message = Message::Intent(command);
+        match self.0.try_send(message) {
+            Ok(()) => Ok(()),
+            Err(mpsc::TrySendError::Disconnected(_)) => {
+                Err("Player command was not accepted: playback worker has stopped".into())
+            }
+            Err(mpsc::TrySendError::Full(message)) => {
+                let sender = self.0.clone();
+                std::thread::Builder::new()
+                    .name("mpv-command-delivery".into())
+                    .spawn(move || {
+                        let _ = sender.send(message);
+                    })
+                    .map(|_| ())
+                    .map_err(|error| format!("Could not queue the playback action: {error}"))
+            }
+        }
+    }
 }
 
 unsafe extern "C" fn wakeup(context: *mut c_void) {
@@ -745,5 +775,25 @@ mod metadata_property_tests {
         assert_eq!(metadata_value(&metadata, "ALBUM").as_deref(), Some("Debut"));
         assert_eq!(metadata_value(&metadata, "track"), None);
         assert_eq!(metadata_value(&metadata, "title"), None);
+    }
+}
+
+#[cfg(test)]
+mod command_sender_tests {
+    use super::{Command, CommandSender, Message};
+    use std::sync::mpsc;
+
+    #[test]
+    fn pause_toggle_returns_promptly_and_is_delivered_after_queue_pressure() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        sender.try_send(Message::Wake).unwrap();
+        let command_sender = CommandSender(sender);
+        command_sender.toggle_pause().unwrap();
+
+        assert!(matches!(receiver.recv().unwrap(), Message::Wake));
+        assert!(matches!(
+            receiver.recv().unwrap(),
+            Message::Intent(Command::TogglePause)
+        ));
     }
 }

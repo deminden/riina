@@ -21,6 +21,7 @@ mod network_connection_preferences;
 mod network_ytdl_preferences;
 mod opening_fullscreen;
 mod osd_preferences;
+mod pip_preferences;
 mod platform;
 mod player_ui;
 mod plugin_packages;
@@ -51,6 +52,7 @@ slint::include_modules!();
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     prepare_online_video_path()?;
+    let action_after_launch = player_ui::action_after_launch()?;
     let mut args = std::env::args_os().skip(1);
     let first = args.next();
     let shared_gl = first.as_deref() == Some(std::ffi::OsStr::new("--shared-gl"));
@@ -60,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         first
     };
+    let supplied_media_argument = media.is_some();
     #[cfg(target_os = "windows")]
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
@@ -78,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This entry point renders video in the Slint window and needs its menu bar.
     // Native-video mode keeps the transparent surface menu-free at initialization.
     app.set_native_video(false);
-    let welcome = if media.is_none() {
+    let welcome = if action_after_launch.show_welcome(supplied_media_argument) {
         Some(WelcomeWindow::new()?)
     } else {
         None
@@ -89,6 +92,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         welcome.show()?;
     } else {
         app.show()?;
+        if action_after_launch.open_file_panel(supplied_media_argument) {
+            app.invoke_open_file();
+        }
     }
     slint::run_event_loop()?;
     session.save(&app)

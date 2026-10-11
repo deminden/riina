@@ -1,11 +1,12 @@
 # MIT source and GPLv3 application distribution
 
 Riina's independently written source remains MIT licensed by the root LICENSE
-and package metadata. The combined application is intended for distribution
-under GPLv3 terms; the complete text is in LICENSE-GPL-3.0.txt. This does not
-change third-party component licenses or grant permission to relicense them.
-Distribution of a particular binary still requires the exact dependency, notice
-and corresponding-source audit below.
+and package metadata. The combined application package uses GPLv3 terms; the
+complete text is in LICENSE-GPL-3.0.txt. This does not change third-party
+component licenses or grant permission to relicense them. The distribution choice
+is settled. The private release workflow verifies that the
+exact candidate includes its notices and corresponding source and passes package
+and playback checks before publication.
 
 The source license and combined-package terms describe different scopes: the
 former grants rights to Riina's original source; the latter governs redistribution
@@ -29,10 +30,9 @@ required corresponding source and build information for that exact package.
 The workspace began empty. Its Rust command queue, observed-state model,
 Windows COM ownership, native HWND lifecycle and Slint rendering integration
 were written here. The reference checkout and Apple artwork are excluded from
-publication. Existing records of source-informed behavior do not certify a
-clean-room process: reference implementation code was inspected during earlier
-development. The provenance review remains part of the release audit. MIT on
-original contributions is not a blanket legal certification.
+publication. Provenance notes are maintained separately in
+[upstream-audit.md](upstream-audit.md); they do not change the settled MIT source
+and GPLv3 application package terms.
 
 ## Dependency and data licenses
 
@@ -47,17 +47,16 @@ original contributions is not a blanket legal certification.
 | ICU4X locale/display-name code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
 | Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native source bundle |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
-| Development libmpv DLL and native dependencies | Existing terms, redistribution audit incomplete |
+| Development libmpv DLL and native dependencies | Local development input; release workflow rebuilds a separate engine |
 
 Slint itself has not been relicensed. Its royalty-free license permits desktop
 applications with attribution. The public README displays the official badge
 from the pinned v1.18.1 resource. This avoids selecting Slint's GPL option for
 the Windows application. Future download pages must retain compliant attribution.
 
-The selected GPLv3 package route is intended to permit a full-featured native
-engine build, subject to verifying that every included component can be
-redistributed together under those terms. The pinned development libmpv build has
-not passed that audit. Its producing recipe enables FFmpeg's GPL mode,
+The GPLv3 package route is the settled release choice. The pinned development
+libmpv build is kept separate from release packaging. Its producing recipe enables
+FFmpeg's GPL mode,
 `--enable-version3`, OpenSSL, x264, x265 and dvdnav. FFmpeg's pinned configure
 upgrades the GPL libraries to GPLv3-or-later and accepts OpenSSL only when it
 detects OpenSSL 3 and GPLv3 mode. OpenSSL 3 is Apache-2.0 licensed, which the FSF
@@ -71,8 +70,10 @@ only cannot be combined with GPLv3, even though FFmpeg's general codec page
 describes x264 as GPLv2-or-later. The release build therefore removes the
 optional x264 encoder and its source dependency, while retaining FFmpeg's built-in
 H.264 decoder. Riina's current player does not expose encoding. The candidate
-engine must pass the native playback suite and final package smoke test before
-the bundle is published. The current development DLL is not approved for release.
+engine preserves built-in H.264 decoding. This license selection is recorded in
+the release recipe; the development DLL remains development-only. CI must still
+build the candidate and verify its exact native inventory, notices, source archive
+and final portable package before publication.
 
 The first reproducible native inspection is recorded in
 [native-distribution-audit.json](native-distribution-audit.json). Run
@@ -81,14 +82,12 @@ DLL without loading media or user configuration. Its runtime configuration enabl
 dvdnav and prefers static libraries. The exact producing workflow revision is
 `b2856ee6deed6957380b32465f359e67f67fafd8`; its FFmpeg recipe explicitly enables
 GPL, x264 and x265. The runtime FFmpeg revision resolves to
-`538d10d1878fb546c3a2645efa56119848f9ccfc`. These are concrete build facts, not an
-approved distribution arrangement. A Windows-targeted Cargo metadata traversal
-reached 344 packages and found no missing declared license fields; this does not
-select every offered license, validate notices, or audit the native dependency
-graph. Lack of embedded configuration strings does not establish complete
-component inventory or license compatibility. Exact corresponding source, all
-dependency notices, review of the combined executable, and a clean-package smoke
-test remain outstanding.
+`538d10d1878fb546c3a2645efa56119848f9ccfc`. A Windows-targeted Cargo metadata
+traversal reached 344 packages and found no missing declared license fields.
+Release CI regenerates notices against the exact lockfile and packages native
+sources from captured revisions. The remaining checks verify those exact
+candidate artifacts and their rebuild/playback results; they do not reopen the
+MIT source and GPLv3 package choice or the x264 exclusion.
 
 ## Windows release build
 

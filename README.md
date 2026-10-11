@@ -1,20 +1,21 @@
 # riina
 
-Rust IINA reimplementation, targeting
-official **IINA v1.5.0**. Riina 0.2.11 is in development;
-full parity remains in progress.
+An established Rust media-player application targeting official **IINA v1.5.0**.
+Riina 0.2.14 has real libmpv playback, broad player and settings workflows, and
+workspace regression coverage. It is beyond the initial feasibility stage, with
+full behavioral and visual parity still in active development.
 
 [![Latest release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/latest)
 
 ## Downloads
 
 The [latest GitHub Release](https://github.com/deminden/riina/releases/latest) lists
-published downloads. The Windows x64 package will be attached after the native
-dependency distribution audit and corresponding-source checks are complete.
+published downloads. The Windows x64 package will be attached after the private
+candidate build, package tests and corresponding-source bundle pass.
 
-Windows 11 is the current supported platform; macOS and Linux ports are near-term work.
-Their shared GL application backends and build matrix are now under validation;
-see [port development](docs/port-development.md).
+Windows 11 is the current supported platform. macOS parity work is active now,
+alongside the Linux port; neither port is declared supported until its complete
+application, playback and lifecycle have been verified. See [port development](docs/port-development.md).
 Feature parity and pixel-perfect interface parity are primary goals, with original
 MIT code and assets. Volume is capped at 100% by default; an optional audio setting permits up to 200%.
 
@@ -29,8 +30,8 @@ Run `./scripts/fetch-reference.ps1`, then `./scripts/fetch-mpv.ps1` (requires 7-
 Build with `cargo build --workspace --locked`; run with
 `cargo run -p riina --locked -- "C:\media\movie.mkv"`.
 The local development executable uses the pinned development DLL. A Windows
-binary release is pending completion of the native dependency distribution audit
-and corresponding-source checks.
+binary release is pending successful verification of the exact portable package
+and its corresponding-source bundle.
 `./scripts/dev.ps1` also supports the workspace-local tools prepared during development.
 
 Implemented slice: local-file dialog with batch selection, file filtering and
@@ -61,8 +62,9 @@ The repository contains source and original test fixtures. Downloaded tools, nat
 binaries and raw desktop captures stay local. Evidence summaries describe their
 tested binary and known limitations; screenshot paths refer to local observations.
 
-The current release target is still in development: full IINA behavior, preferences,
-menus, plugins, visual fidelity and broad hardware/DPI coverage remain incomplete.
+The current version remains under active development: full IINA behavior,
+preferences, menus, plugins, visual fidelity and broad hardware/DPI coverage remain
+incomplete.
 Issues and focused contributions are welcome. Include reproduction steps, Windows
 version and media format when reporting a bug; use a shareable sample where possible.
 

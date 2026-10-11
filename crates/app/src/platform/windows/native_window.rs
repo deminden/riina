@@ -108,6 +108,8 @@ fn align(host: &slint::Window, chrome: &slint::Window) {
 }
 
 pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
+    let action_after_launch = crate::player_ui::action_after_launch()?;
+    let supplied_media_argument = media.is_some();
     let owner = Arc::new(AtomicIsize::new(0));
     let hook_owner = owner.clone();
     slint::BackendSelector::new()
@@ -230,7 +232,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     }
                 })
                 .map_err(std::io::Error::other)?;
-            let welcome = if media.is_none() {
+            let welcome = if action_after_launch.show_welcome(supplied_media_argument) {
                 Some(crate::WelcomeWindow::new()?)
             } else {
                 None
@@ -368,6 +370,9 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 slint::CloseRequestResponse::HideWindow
             });
             app.show()?;
+            if action_after_launch.open_file_panel(supplied_media_argument) {
+                app.invoke_open_file();
+            }
             // Its initial DPI and frameless client geometry are not settled until
             // the popup exists. Sizing a queued adapter can be overwritten at creation.
             {

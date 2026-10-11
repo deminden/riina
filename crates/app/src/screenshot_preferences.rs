@@ -70,6 +70,7 @@ pub(crate) fn connect(
                 &window,
                 &baseline.network_online_videos,
             );
+            crate::pip_preferences::install_preferences(&window, baseline.picture_in_picture);
             crate::window_resize_preferences::install_preferences(&window, baseline.window_resize);
             let parent = app.as_weak();
             let weak = window.as_weak();
@@ -312,6 +313,7 @@ pub(crate) fn connect(
                 let previous_pause = app.get_pause_when_open();
                 let previous_fullscreen = app.get_fullscreen_when_open();
                 let previous_resume = app.get_resume_last_position();
+                let previous_launch_action = app.get_launch_action_index();
                 let previous_osd = crate::osd_preferences::current_player(&app);
                 let selected_osd = match crate::osd_preferences::current_preferences(&window) {
                     Ok(settings) => settings,
@@ -321,6 +323,15 @@ pub(crate) fn connect(
                         return;
                     }
                 };
+                let selected_picture_in_picture =
+                    match crate::pip_preferences::current_preferences(&window) {
+                        Ok(settings) => settings,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
                 let previous_layout = (
                     app.get_osc_position(),
                     app.get_compact_ui(),
@@ -736,6 +747,7 @@ pub(crate) fn connect(
                 app.set_pause_when_open(window.get_pause_when_open());
                 app.set_fullscreen_when_open(window.get_fullscreen_when_open());
                 app.set_resume_last_position(window.get_resume_last_position());
+                app.set_launch_action_index(window.get_launch_action_index().clamp(0, 2));
                 app.set_auto_switch_to_music_mode(window.get_auto_switch_to_music_mode());
                 app.set_music_mode_show_playlist(window.get_music_mode_show_playlist());
                 app.set_music_mode_show_album_art(window.get_music_mode_show_album_art());
@@ -813,6 +825,11 @@ pub(crate) fn connect(
                         }),
                         volume_boost: app.get_volume_boost(),
                         show_chapter_pos: window.get_show_chapter_pos(),
+                        picture_in_picture: selected_picture_in_picture,
+                        action_after_launch: riina_core::ActionAfterLaunch::from_index(
+                            window.get_launch_action_index(),
+                        )
+                        .ok_or_else(|| "Choose a valid launch action".to_owned())?,
                         live_text_enabled: window.get_live_text_enabled(),
                         theme_material: Some(selected_theme),
                         always_float_on_top: window.get_always_float_on_top(),
@@ -872,6 +889,7 @@ pub(crate) fn connect(
                 match result {
                     Ok(()) => {
                         app.set_show_chapter_pos(window.get_show_chapter_pos());
+                        crate::pip_preferences::install_player(&app, selected_picture_in_picture);
                         app.set_live_text_enabled(window.get_live_text_enabled());
                         *saved_tone_mapping_for_change.borrow_mut() = selected_tone_mapping.clone();
                         *saved_video_threads_for_change.borrow_mut() = selected_video_threads;
@@ -977,6 +995,7 @@ pub(crate) fn connect(
                         app.set_pause_when_open(previous_pause);
                         app.set_fullscreen_when_open(previous_fullscreen);
                         app.set_resume_last_position(previous_resume);
+                        app.set_launch_action_index(previous_launch_action);
                         previous_osd.install_player(&app);
                         app.set_osc_position(previous_layout.0);
                         app.set_show_chapter_pos(previous_chapter_positions);
@@ -1173,11 +1192,15 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_pause_when_open(app.get_pause_when_open());
     window.set_fullscreen_when_open(app.get_fullscreen_when_open());
     window.set_resume_last_position(app.get_resume_last_position());
+    window.set_launch_action_index(app.get_launch_action_index());
     window.set_auto_switch_to_music_mode(app.get_auto_switch_to_music_mode());
     window.set_music_mode_show_playlist(app.get_music_mode_show_playlist());
     window.set_music_mode_show_album_art(app.get_music_mode_show_album_art());
     window.set_osc_position(app.get_osc_position());
     window.set_show_chapter_pos(app.get_show_chapter_pos());
+    if let Ok(settings) = crate::pip_preferences::current_player(app) {
+        crate::pip_preferences::install_preferences(window, settings);
+    }
     window.set_hardware_decoder_index(app.get_hardware_decoder_index());
     window.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
     window

@@ -1,5 +1,13 @@
 # Build a faithful Rust reimplementation of IINA for Windows
 
+## Current project state
+
+Riina is beyond its initial feasibility and genuine-playback milestones. It is a
+functioning media-player application with real libmpv playback, substantial player
+and preferences workflows, and regression coverage. This document preserves the
+full acceptance contract; the remaining work is closing uncovered behavior and
+measured interface differences, not establishing whether an application can be built.
+
 Start by downloading the official IINA source. Then begin implementing the Windows application. Do not respond with only an architecture proposal, mockup, or roadmap.
 
 ## 1. First action: obtain and pin the reference implementation
@@ -96,7 +104,7 @@ Translucent panels must not become flat gray rectangles disguised as â€œglass.â€
 
 Use licensed typography with carefully tuned metrics. Do not promise pixel-identical glyph rasterization across operating systems. Compare geometry and visual hierarchy independently from unavoidable text-rendering differences.
 
-## 6. Default technology and an early feasibility gate
+## 6. Default technology and rendering feasibility requirements
 
 Start with stable Rust, a pinned toolchain, Cargo workspaces, Slint for a custom retained-mode UI, libmpv for playback, and the `windows` crate for Windows APIs. Use `.slint` components to express the reference interface; do not ship unstyled default controls as the final design.
 
@@ -335,6 +343,10 @@ Implement update infrastructure only with a verifiable trust model and an actual
 
 ## 18. Implementation milestones and exit criteria
 
+Milestone 0 (pinned reference and executable foundation) and the genuine playback
+foundation have been reached. Milestones below remain acceptance criteria, not a
+description of the project's current stage; consult docs/status.md for evidence.
+
 ### Milestone 0: pinned reference and executable foundation
 
 Fetch and lock the upstream source. Complete the initial broad feature inventory and visual reference plan. Set up the Rust workspace, toolchain, licenses, basic tests, and short project instructions. Record environment constraints and the first concrete implementation task.
@@ -373,13 +385,17 @@ Systematically close outstanding behavioral and visual differences. Complete pac
 
 Publish an honest compatibility report. Claim exact portable parity only for requirements actually implemented and verified. Report unavailable macOS hardware interactions and approved Windows adaptations separately. An attractive release candidate with known gaps must still list those gaps.
 
-## 19. How to work during this run
+## 19. Ongoing implementation practice
 
-Begin executing now. The first substantial operation must be obtaining or validating the pinned IINA source, followed by implementation work.
+The pinned IINA reference and application foundation are established. Continue from
+the current status and verification evidence rather than restarting acquisition or
+repeating completed milestones.
 
 Make reasonable engineering decisions without repeatedly asking me to select frameworks, folder names, or small design details. Preserve the stated defaults unless evidence requires a change. Honor existing approvals and access restrictions for installations or external actions.
 
-Do not stop after creating a plan. Work through Milestone 0 and into the genuine-playback milestone during the initial run, then continue through subsequent work as execution resources allow. Keep milestones small enough to build and test after each meaningful change.
+Keep milestones small enough to build and test after each meaningful change. Track
+completed foundation and playback milestones accurately while continuing toward
+the full parity criteria below.
 
 Keep the normal application free of fake controls, production mock data, silent no-op handlers, and placeholder success messages. Test doubles belong in tests. During development, unimplemented controls must be visibly unavailable and tracked; final parity requires implementing them.
 

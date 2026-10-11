@@ -9,6 +9,7 @@ readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
 readonly REPO_ROOT="$PWD"
 readonly WORK_ROOT="${RUNNER_TEMP:-$PWD}/riina-native-build"
 readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
+readonly BUILD_GIT_CONFIG="$WORK_ROOT/gitconfig"
 readonly SOURCE_ARCHIVE_ROOT="$PWD/native-source"
 
 print_build_failure() {
@@ -47,6 +48,11 @@ run_ninja() {
 rm -f "$REPO_ROOT/native-build-failure.log"
 rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
 mkdir -p "$WORK_ROOT"
+# Git am runs inside nested ExternalProject subprocesses. Persist this identity
+# only for this CI build so those processes do not depend on runner user settings.
+git config --file "$BUILD_GIT_CONFIG" user.name 'Riina native build'
+git config --file "$BUILD_GIT_CONFIG" user.email 'native-build@riina.invalid'
+export GIT_CONFIG_GLOBAL="$BUILD_GIT_CONFIG"
 git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git "$BUILDER"
 git -C "$BUILDER" checkout --detach "$BUILDER_REVISION"
 git -C "$BUILDER" apply "$PWD/tools/mpv/remove-x264.patch"

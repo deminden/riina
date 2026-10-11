@@ -13,6 +13,8 @@ pub mod key_bindings;
 pub mod liquid_glass;
 pub mod music_mode;
 pub mod network_preferences;
+pub mod pip_lifecycle;
+pub mod pip_preferences;
 pub mod playlist;
 pub mod plugin;
 pub mod screenshot;
@@ -1465,6 +1467,7 @@ pub struct Preferences {
     pub osc_position: u8,
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
+    pub action_after_launch: ActionAfterLaunch,
     pub pause_when_open: bool,
     pub fullscreen_when_open: bool,
     pub resume_last_position: bool,
@@ -1507,6 +1510,7 @@ pub struct Preferences {
     pub osd_text_size: f64,
     pub display_time_and_battery_in_fullscreen: bool,
     pub show_chapter_pos: bool,
+    pub picture_in_picture: pip_preferences::Settings,
     pub screenshot: screenshot::Settings,
     pub network: network_preferences::Connection,
     pub network_cache: network_preferences::Cache,
@@ -1522,6 +1526,44 @@ pub enum ThemeMaterial {
     Dark,
     Light,
     System,
+}
+
+/// Startup action for launches without a media argument, matching IINA's
+/// General > Behavior choice while keeping supplied media arguments primary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionAfterLaunch {
+    #[default]
+    WelcomeWindow,
+    OpenPanel,
+    None,
+}
+
+impl ActionAfterLaunch {
+    pub const fn show_welcome(self, has_media_argument: bool) -> bool {
+        !has_media_argument && matches!(self, Self::WelcomeWindow)
+    }
+
+    pub const fn open_file_panel(self, has_media_argument: bool) -> bool {
+        !has_media_argument && matches!(self, Self::OpenPanel)
+    }
+
+    pub const fn from_index(index: i32) -> Option<Self> {
+        match index {
+            0 => Some(Self::WelcomeWindow),
+            1 => Some(Self::OpenPanel),
+            2 => Some(Self::None),
+            _ => None,
+        }
+    }
+
+    pub const fn index(self) -> i32 {
+        match self {
+            Self::WelcomeWindow => 0,
+            Self::OpenPanel => 1,
+            Self::None => 2,
+        }
+    }
 }
 
 impl ThemeMaterial {
@@ -1575,6 +1617,7 @@ impl Default for Preferences {
             osc_position: 0,
             always_float_on_top: false,
             always_show_on_top_icon: false,
+            action_after_launch: ActionAfterLaunch::default(),
             pause_when_open: false,
             fullscreen_when_open: false,
             resume_last_position: true,
@@ -1614,6 +1657,7 @@ impl Default for Preferences {
             osd_text_size: 20.0,
             display_time_and_battery_in_fullscreen: false,
             show_chapter_pos: false,
+            picture_in_picture: pip_preferences::Settings::default(),
             screenshot: screenshot::Settings::default(),
             network: network_preferences::Connection::default(),
             network_cache: network_preferences::Cache::default(),
@@ -2234,6 +2278,63 @@ mod tests {
         };
         let saved = serde_json::to_string(&enabled).unwrap();
         assert!(Preferences::parse(&saved).unwrap().show_chapter_pos);
+    }
+
+    #[test]
+    fn picture_in_picture_preferences_keep_iina_defaults_and_round_trip() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(
+            legacy.picture_in_picture.window_behavior,
+            pip_preferences::WindowBehavior::Hide
+        );
+        assert!(!legacy.picture_in_picture.pause_when_entering);
+
+        let configured = Preferences {
+            picture_in_picture: pip_preferences::Settings {
+                window_behavior: pip_preferences::WindowBehavior::Minimize,
+                pause_when_entering: true,
+                toggle_by_minimizing: true,
+                minimize_toggle_video_only: true,
+            },
+            ..legacy
+        };
+        let saved = serde_json::to_string(&configured).unwrap();
+        assert_eq!(
+            Preferences::parse(&saved).unwrap().picture_in_picture,
+            configured.picture_in_picture
+        );
+    }
+
+    #[test]
+    fn action_after_launch_matches_welcome_default_and_round_trips_all_choices() {
+        assert_eq!(
+            Preferences::parse("{} ").unwrap().action_after_launch,
+            ActionAfterLaunch::WelcomeWindow
+        );
+        for action in [
+            ActionAfterLaunch::WelcomeWindow,
+            ActionAfterLaunch::OpenPanel,
+            ActionAfterLaunch::None,
+        ] {
+            let preferences = Preferences {
+                action_after_launch: action,
+                ..Preferences::default()
+            };
+            let saved = serde_json::to_string(&preferences).unwrap();
+            assert_eq!(
+                Preferences::parse(&saved).unwrap().action_after_launch,
+                action
+            );
+            assert_eq!(ActionAfterLaunch::from_index(action.index()), Some(action));
+        }
+        assert_eq!(ActionAfterLaunch::from_index(-1), None);
+        assert_eq!(ActionAfterLaunch::from_index(3), None);
+        assert!(ActionAfterLaunch::WelcomeWindow.show_welcome(false));
+        assert!(!ActionAfterLaunch::OpenPanel.show_welcome(false));
+        assert!(ActionAfterLaunch::OpenPanel.open_file_panel(false));
+        assert!(!ActionAfterLaunch::OpenPanel.open_file_panel(true));
+        assert!(!ActionAfterLaunch::None.show_welcome(false));
+        assert!(!ActionAfterLaunch::None.open_file_panel(false));
     }
 
     #[test]

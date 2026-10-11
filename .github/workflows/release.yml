@@ -15,7 +15,7 @@ on:
       - 'LICENSES/**'
   workflow_dispatch:
     inputs:
-      build_audit_candidate:
+      build_release_candidate:
         description: Build and test a private Windows package candidate without publishing a release
         type: boolean
         required: true
@@ -24,26 +24,26 @@ permissions:
   contents: write
   actions: read
 jobs:
-  distribution-audit:
+  release-readiness:
     runs-on: ubuntu-latest
     outputs:
-      approved: ${{ steps.audit.outputs.approved }}
-      native_run_id: ${{ steps.audit.outputs.native_run_id }}
+      release_ready: ${{ steps.readiness.outputs.release_ready }}
+      native_run_id: ${{ steps.readiness.outputs.native_run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
-      - name: Read binary distribution decision
-        id: audit
+      - name: Check exact candidate verification status
+        id: readiness
         shell: bash
         run: |
-          approved="$(python -c 'import json; print(str(json.load(open("docs/native-distribution-audit.json"))["distribution_approved"]).lower())')"
+          release_ready="$(python -c 'import json; print(str(json.load(open("docs/native-distribution-audit.json"))["release_artifacts_verified"]).lower())')"
           native_run_id="$(python -c 'import json; print(json.load(open("docs/native-distribution-audit.json")).get("verified_candidate_run_id", ""))')"
-          echo "approved=$approved" >> "$GITHUB_OUTPUT"
+          echo "release_ready=$release_ready" >> "$GITHUB_OUTPUT"
           echo "native_run_id=$native_run_id" >> "$GITHUB_OUTPUT"
 
   native-engine:
-    if: (startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true' && needs.distribution-audit.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
+    if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true' && needs.release-readiness.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
     runs-on: ubuntu-latest
-    needs: distribution-audit
+    needs: release-readiness
     container:
       image: ghcr.io/shinchiro/archlinux@sha256:c7dffe77b57d98b10e327dde12d3977faf4cb90aa7cb4f5eeac4e9d68d724239
     timeout-minutes: 360
@@ -103,9 +103,9 @@ jobs:
           retention-days: 7
 
   windows-package:
-    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.distribution-audit.outputs.native_run_id != ''))
+    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.release-readiness.outputs.native_run_id != ''))
     runs-on: windows-latest
-    needs: [distribution-audit, native-engine]
+    needs: [release-readiness, native-engine]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
@@ -120,7 +120,7 @@ jobs:
           name: windows-native-engine
           path: native-runtime
           repository: ${{ github.repository }}
-          run-id: ${{ needs.distribution-audit.outputs.native_run_id }}
+          run-id: ${{ needs.release-readiness.outputs.native_run_id }}
           github-token: ${{ github.token }}
       - name: Pinned Rust toolchain
         shell: pwsh
@@ -201,9 +201,9 @@ jobs:
           retention-days: 7
 
   source-package:
-    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_audit_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.distribution-audit.outputs.native_run_id != ''))
+    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.release-readiness.outputs.native_run_id != ''))
     runs-on: ubuntu-latest
-    needs: [distribution-audit, native-engine]
+    needs: [release-readiness, native-engine]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
@@ -218,7 +218,7 @@ jobs:
           name: windows-native-source
           path: native-source-artifact
           repository: ${{ github.repository }}
-          run-id: ${{ needs.distribution-audit.outputs.native_run_id }}
+          run-id: ${{ needs.release-readiness.outputs.native_run_id }}
           github-token: ${{ github.token }}
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal
@@ -261,9 +261,9 @@ jobs:
           retention-days: 7
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved == 'true'
+    if: startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true'
     runs-on: ubuntu-latest
-    needs: [distribution-audit, windows-package, source-package]
+    needs: [release-readiness, windows-package, source-package]
     steps:
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # verified v4.1.8
         with:
@@ -317,11 +317,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   require-binary-release:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.distribution-audit.outputs.approved != 'true'
+    if: startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready != 'true'
     runs-on: ubuntu-latest
-    needs: distribution-audit
+    needs: release-readiness
     steps:
       - name: Refuse a source-only substitute for the requested binary release
         run: |
-          echo "::error::Windows binary distribution is not approved. Build and verify a candidate, close its source/license audit, and retry the release. No source-only release was published."
+          echo "::error::The exact Windows release package has not passed candidate build, corresponding-source, and playback verification. No source-only release was published."
           exit 1
