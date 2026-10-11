@@ -1411,6 +1411,8 @@ export component PlayerWindow inherits Window {
                         activated => { root.playlist-action(7, root.selected-playlist-token); } }
                     Tool { dark-theme: root.dark-theme; label: "Paste"; hint: "Paste playlist items at the selected position";
                         activated => { root.playlist-action(8, root.selected-playlist-token); } }
+                    Tool { dark-theme: root.dark-theme; label: "New"; hint: "Open selected item in a new player"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(9, root.selected-playlist-token); } }
                     Tool { dark-theme: root.dark-theme; label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
                     Tool { dark-theme: root.dark-theme; label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";

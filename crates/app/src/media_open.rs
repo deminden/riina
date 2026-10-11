@@ -5,6 +5,19 @@ use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::ffi::OsString;
 
+pub fn open_in_new_player(path: &str) -> Result<(), String> {
+    if path.is_empty() || path.contains('\0') {
+        return Err("The media reference is invalid".into());
+    }
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    // Pass the media reference as one OS argument so spaces and Unicode stay intact.
+    std::process::Command::new(executable)
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 pub fn startup(app: &PlayerWindow, path: OsString, sender: CommandSender) {
     match path.into_string() {
         Ok(path) => selection(app, vec![path], false, sender),

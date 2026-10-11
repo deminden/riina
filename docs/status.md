@@ -5,6 +5,11 @@ entry only after the clipboard write succeeds. The current single-row UI and tex
 clipboard do not yet match IINA's multi-selection and native file-reference
 pasteboard formats; no playback or cross-platform GUI verification was run.
 
+2026-10-11 A selected playlist item can now open in a separate Riina process.
+The media path is passed as one argument, preserving spaces and Unicode. This
+provides independent playback while the pinned always-open-new-window default
+and same-process multi-window lifecycle remain to be implemented and verified.
+
 2026-10-11 Independent port build repair while the binary candidate runs:
 macOS/Linux CI failed strict lint because the Windows native-host aspect hook
 was compiled on every platform. Gate its import, binding, enum variant and match

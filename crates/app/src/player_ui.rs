@@ -1688,6 +1688,10 @@ pub(crate) fn configure_player(
                     let index = selected_index.unwrap_or(0);
                     playlist_player.send(Command::InsertPlaylistFiles { paths, index })
                 }),
+                9 => selected_index
+                    .and_then(|index| rows.row_data(index))
+                    .ok_or_else(|| "Select a playlist item first".to_owned())
+                    .and_then(|row| crate::media_open::open_in_new_player(row.path.as_str())),
                 _ => unreachable!(),
             };
             if let Err(error) = result {

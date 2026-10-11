@@ -1,9 +1,10 @@
-# Interface parity first
+# Feature gaps, then interface parity
 
-Priority set by the user on 2026-10-10: complete interface parity before adding
-further features. Target the pinned IINA 1.5.0 release, preserving independent
-original Rust/Slint code and artwork. Subsequent development stays local until a
-substantial verified public milestone.
+Priority revised by the user on 2026-10-11: implement the currently unaddressed
+IINA behaviors first, then close visual differences against the pinned IINA
+1.5.0 reference step by step. Preserve independent original Rust/Slint code and
+artwork. Keep subsequent development local until a substantial verified public
+milestone.
 
 Windows capture now succeeds through the computer-use tool. Earlier captures did
 not distinguish capture failure from native-overlay opacity. The 2026-10-11 live
