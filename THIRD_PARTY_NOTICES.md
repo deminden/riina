@@ -5,8 +5,10 @@ LICENSE. The combined application package is distributed under GPLv3 terms; see
 LICENSE-GPL-3.0.txt. The riina-mpv ABI declarations retain the ISC grant below.
 Third-party components retain their own licenses and notices. The Windows release
 package includes the licenses collected from the exact native source checkouts in
-THIRD_PARTY_LICENSES/; the corresponding source archive includes those checkouts,
-the locked Rust crate sources and the build recipes.
+THIRD_PARTY_LICENSES/, the locked Windows Rust dependency licenses and notices,
+and the Slint Royalty-free 2.0 agreement; the corresponding source archive
+includes those materials, the native source checkouts, locked Rust crate sources
+and build recipes.
 
 IINA v1.5.0, https://github.com/iina/iina, commit fbcff4df7183b335880396af0655f6bb89d46442:
 GPL version 3 text. Inspected headers attribute PlayerCore/MPVController to lhc (2016),

@@ -155,13 +155,17 @@ Interface, Video, Audio, Subtitles, Network, Control, Key Bindings, Advanced,
 Plugins and Utilities. General shows section headings above rounded bordered
 cards, with 40-point rows and 10-point card corners. These captures are research
 references from the official disk image, not matched Windows screenshots or
-accepted comparison goldens. Riina still uses an 820 x 480 Settings shell; its
-sidebar now has original geometric page symbols, selected-row styling and a live
-Search field with grouped results for currently implemented controls. Search
-supports arrow-key selection, Return activation and mapped item-position scrolling,
-but does not cover the full IINA settings index or highlight an exact row. The pane
-content has not been reflowed to the 400-point right column. These icon shapes are
-authored independently and recorded in `assets/provenance.json`; their rendered
-scale and spacing still need matched comparison. See
+accepted comparison goldens. Riina now declares a 600 x 480 Settings client area
+with a 200-point sidebar, matching the measured reference geometry. That is a
+source-level dimension match; no fresh Windows Settings capture has verified its
+rendered outer frame or content alignment. The sidebar has original geometric
+page symbols, selected-row styling and a live Search field with grouped results
+for currently implemented controls. Search supports arrow-key selection, Return
+activation and mapped item-position scrolling, but does not cover the full IINA
+settings index or highlight an exact row. The Network connection section is
+source-derived from the pinned SettingsPageNetwork and legacy XIB, not visually
+captured. These icon shapes are authored independently and recorded in
+`assets/provenance.json`; their rendered scale and spacing still need matched
+comparison. See
 `IINA-1.5.0-SETTINGS-SURFACES-001` in the reference-capture manifest before
 changing those layouts.

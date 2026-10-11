@@ -24,6 +24,9 @@ Never report an unrun GUI/HDR test as passed. Keep implementation and verificati
 After staging asset changes, run `python scripts/check-assets.py --staged` before
 publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
 Do not package native binaries until licensing and corresponding-source obligations are closed.
+Never spend the development session waiting on a long-running local or CI build. Once a
+build is running, continue independent interface, audit, or release work and check the
+build again only when its result is actionable.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect

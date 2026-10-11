@@ -221,9 +221,79 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 5,
         page: "Network",
+        section: "Cache",
+        title: "Prefetch and buffer network data",
+        terms: "cache buffer networking download",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Cache",
+        title: "Buffer before starting playback",
+        terms: "startup initial wait buffering",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Cache",
+        title: "Seconds to buffer before restarting",
+        terms: "cache wait seconds threshold",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Cache",
+        title: "Seconds to prefetch",
+        terms: "network cache seconds duration",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Cache",
+        title: "Cache buffer size (KiB)",
+        terms: "memory size bytes",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Cache",
+        title: "Show throbber when buffering",
+        terms: "spinner loading progress",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Cache",
+        title: "Show throbber when seeking",
+        terms: "spinner loading progress",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
         section: "",
         title: "Network",
         terms: "preferences",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Network",
+        title: "User agent",
+        terms: "browser client header http request",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Network",
+        title: "HTTP proxy",
+        terms: "proxy server address",
+    },
+    Entry {
+        page_index: 5,
+        page: "Network",
+        section: "Network",
+        title: "RTSP transport",
+        terms: "lavf tcp udp http stream",
     },
     Entry {
         page_index: 6,
@@ -301,6 +371,7 @@ fn anchor_y(entry: &Entry) -> i32 {
         (4, "Position", _) => 772,
         (4, "Other", "Default encoding") => 1000,
         (4, "Other", _) => 950,
+        (5, "Cache", _) | (5, "Network", _) => 80,
         _ => 0,
     }
 }
@@ -456,6 +527,13 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         }
         window.set_subtitle_scroll_position((52 - anchor).max(-570) as f32);
     }
+    if page == 5 {
+        window.set_selected_network_section(match section {
+            "Network" => 1,
+            "Online Videos (yt-dlp)" => 2,
+            _ => 0,
+        });
+    }
     window.set_selected_pane(page);
     window.set_search_query("".into());
     window.set_selected_search_index(-1);
@@ -490,6 +568,26 @@ mod tests {
             .map(|result| result.page_name.to_string())
             .collect::<Vec<_>>();
         assert_eq!(pages, ["General", "Subtitles"]);
+    }
+
+    #[test]
+    fn network_cache_controls_are_searchable_in_the_cache_section() {
+        let results = item_results("buffer before playback");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].page_name, "Network");
+        assert_eq!(results[0].section_name, "Cache");
+        assert_eq!(results[0].title, "Buffer before starting playback");
+        assert_eq!(results[0].anchor_y, 80);
+    }
+
+    #[test]
+    fn connection_controls_are_searchable_in_the_network_section() {
+        let result = item_results("RTSP transport");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].page_name, "Network");
+        assert_eq!(result[0].section_name, "Network");
+        assert_eq!(result[0].title, "RTSP transport");
+        assert_eq!(result[0].anchor_y, 80);
     }
 
     #[test]

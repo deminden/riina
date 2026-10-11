@@ -125,10 +125,17 @@ preference saves. Literal directory lists are passed to mpv; IINA's default `./*
 glob is retained but not misinterpreted as a literal directory. Priority keyword
 ranking and full directory/glob matching remain unimplemented; Online Subtitles is
 not implemented.
-Audio, Network, Control, Key Bindings, Plugin and Utilities remain title-only or
-otherwise incomplete. Source-list selection behavior, geometry, full pane content
-and a fresh live capture remain open. The category order is source-checked; it does
-not establish pixel parity.
+Network's Cache section now follows the captured reference layout and uses the
+pinned defaults for live and startup mpv configuration. The Network subsection
+now exposes the source's user-agent, HTTP-proxy and RTSP-transport controls, persists
+them and supplies libmpv startup options; those options keep the source's restart-
+required behavior. Its visual measurements are source-derived from the pinned
+SettingsPageNetwork and legacy XIB because no capture of this subsection exists.
+Online Videos still needs the full source-matched controls and plugin-dependent
+behavior. Audio, Control, Key Bindings, Plugin and Utilities are otherwise
+incomplete. Source-list selection behavior, geometry, full pane content and a fresh
+live capture remain open. The category order is source-checked; it does not
+establish pixel parity.
 
 Both sides now retain their own selected pane. Captured Windows playback shows
 Playlist plus Audio simultaneously; switching to Chapters preserves Audio, and
@@ -178,6 +185,5 @@ matching. Literal directories map to `sub-file-paths`; the default `./*` glob is
 retained without being passed as an invalid directory. IINA keyword ranking and
 its complete directory/glob matcher remain unimplemented. Playlist effects, live
 GUI interaction, source comparison and matched macOS pixels remain open.
-Audio, Network, Control, Key Bindings, Plugin and Utilities are still title-only;
-the remaining Subtitle sections
-and full surface comparison are part of the complete parity goal.
+Audio, the remaining Network pages, Control, Key Bindings, Plugin and Utilities
+remain unfinished. Full surface comparison is part of the complete parity goal.

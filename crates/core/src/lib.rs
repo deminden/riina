@@ -5,6 +5,7 @@ pub mod crop_drag;
 pub mod crop_geometry;
 pub mod crop_session;
 pub mod file_selection;
+pub mod network_preferences;
 pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
@@ -83,6 +84,7 @@ pub enum Command {
     SubtitlePreferredLanguages(String),
     SubtitleEncoding(String),
     SubtitleAutoLoad(subtitle_controls::AutoLoadPreferences),
+    NetworkCache(network_preferences::Cache),
     VideoEqualizer {
         option: video_controls::Equalizer,
         value: i64,
@@ -498,6 +500,7 @@ impl Command {
                 ]);
                 commands
             }
+            Self::NetworkCache(preferences) => preferences.commands()?,
             Self::Screenshot {
                 directory,
                 content,
@@ -1215,6 +1218,8 @@ pub struct Preferences {
     pub disable_osd_seek: bool,
     pub osd_timeout_secs: f64,
     pub screenshot: screenshot::Settings,
+    pub network: network_preferences::Connection,
+    pub network_cache: network_preferences::Cache,
     pub recent_media: Vec<RecentMedia>,
 }
 
@@ -1260,6 +1265,8 @@ impl Default for Preferences {
             disable_osd_seek: false,
             osd_timeout_secs: 1.0,
             screenshot: screenshot::Settings::default(),
+            network: network_preferences::Connection::default(),
+            network_cache: network_preferences::Cache::default(),
             recent_media: Vec::new(),
         }
     }
@@ -1293,6 +1300,8 @@ impl Preferences {
             .validate()
             .map_err(str::to_owned)?;
         prefs.subtitle_position.validate().map_err(str::to_owned)?;
+        prefs.network_cache.validate().map_err(str::to_owned)?;
+        prefs.network.validate().map_err(str::to_owned)?;
         prefs.subtitle_other.validate().map_err(str::to_owned)?;
         prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
@@ -1514,6 +1523,97 @@ mod tests {
                 .osd_timeout_secs,
             0.0
         );
+    }
+
+    #[test]
+    fn network_cache_preferences_match_reference_defaults_and_reach_native_options() {
+        use network_preferences::Cache;
+
+        let defaults = Preferences::parse("{}").unwrap().network_cache;
+        assert_eq!(defaults, Cache::default());
+        assert_eq!(defaults.prefetch_secs, 36_000.0);
+        assert_eq!(defaults.buffer_size_kib, 153_600.0);
+        assert_eq!(
+            Command::NetworkCache(defaults.clone())
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            vec![
+                vec!["set", "cache", "yes"],
+                vec!["set", "cache-pause-initial", "no"],
+                vec!["set", "cache-pause-wait", "1"],
+                vec!["set", "cache-secs", "36000"],
+                vec!["set", "demuxer-max-bytes", "153600KiB"],
+            ]
+        );
+
+        let configured = Cache {
+            enabled: false,
+            pause_initial: true,
+            pause_wait_secs: 2.5,
+            prefetch_secs: 12_000.0,
+            buffer_size_kib: 512_000.0,
+            show_buffering_throbber: false,
+            show_seeking_throbber: false,
+        };
+        let persisted = Preferences {
+            network_cache: configured.clone(),
+            ..Preferences::default()
+        };
+        assert_eq!(
+            Preferences::parse(&serde_json::to_string(&persisted).unwrap())
+                .unwrap()
+                .network_cache,
+            configured
+        );
+        assert!(
+            Cache {
+                pause_wait_secs: f64::NAN,
+                ..defaults
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            Cache {
+                prefetch_secs: 2_000_000_000.0,
+                ..Cache::default()
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            Cache {
+                buffer_size_kib: 2_000_000_001.0,
+                ..Cache::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn network_connection_preferences_default_and_round_trip() {
+        use network_preferences::{Connection, RtspTransport};
+
+        let defaults = Preferences::parse("{}").unwrap().network;
+        assert_eq!(defaults, Connection::default());
+        let configured = Connection {
+            user_agent: "player agent".into(),
+            http_proxy: "http://proxy.example:8080".into(),
+            rtsp_transport: RtspTransport::Http,
+        };
+        let saved = Preferences {
+            network: configured.clone(),
+            ..Preferences::default()
+        };
+        assert_eq!(
+            Preferences::parse(&serde_json::to_string(&saved).unwrap())
+                .unwrap()
+                .network,
+            configured
+        );
+        assert!(Preferences::parse(r#"{"network":{"user_agent":"bad\u0000value"}}"#).is_err());
     }
 
     #[test]

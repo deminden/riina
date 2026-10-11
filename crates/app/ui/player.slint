@@ -568,6 +568,13 @@ export component PlayerWindow inherits Window {
     in property <float> duration: 0;
     in property <float> volume: 100;
     in-out property <bool> volume-boost: false;
+    in-out property <bool> network-cache-enabled: true;
+    in-out property <bool> network-cache-pause-initial: false;
+    in-out property <string> network-cache-pause-wait-text: "1";
+    in-out property <string> network-cache-prefetch-secs-text: "36000";
+    in-out property <string> network-cache-size-kib-text: "153600";
+    in-out property <bool> network-show-buffering-throbber: true;
+    in-out property <bool> network-show-seeking-throbber: true;
     in-out property <int> hardware-decoder-index: 1;
     in-out property <int> subtitle-ass-override-index: 2;
     in-out property <int> secondary-subtitle-ass-override-index: 2;

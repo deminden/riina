@@ -103,7 +103,9 @@ fn resume_engine_options(
     watch_later_directory: &std::path::Path,
     resume_last_position: bool,
     subtitle_auto_load: &riina_core::subtitle_controls::AutoLoadPreferences,
-) -> Vec<(String, String)> {
+    network: &riina_core::network_preferences::Connection,
+    network_cache: &riina_core::network_preferences::Cache,
+) -> Result<Vec<(String, String)>, String> {
     let enabled = if resume_last_position { "yes" } else { "no" }.to_owned();
     let mut options = vec![
         (
@@ -121,7 +123,9 @@ fn resume_engine_options(
         "sub-file-paths".into(),
         subtitle_auto_load.mpv_search_paths().unwrap_or_default(),
     ));
-    options
+    options.extend(network.engine_options()?);
+    options.extend(network_cache.engine_options()?);
+    Ok(options)
 }
 
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
@@ -573,6 +577,8 @@ impl UiSession {
                 .map_err(std::io::Error::other)?,
             screenshot: crate::screenshot_preferences::current(app)
                 .map_err(std::io::Error::other)?,
+            network_cache: crate::network_cache_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
             ..self.prefs.clone()
         };
         if let Ok(state) = self.latest_playback.lock()
@@ -644,7 +650,10 @@ pub(crate) fn configure_player(
         &watch_later_directory,
         prefs.resume_last_position,
         &prefs.subtitle_auto_load,
-    );
+        &prefs.network,
+        &prefs.network_cache,
+    )
+    .map_err(std::io::Error::other)?;
     app.set_volume_boost(prefs.volume_boost);
     app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
     app.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
@@ -656,6 +665,7 @@ pub(crate) fn configure_player(
     crate::subtitle_position_preferences::install_player(app, prefs.subtitle_position);
     crate::subtitle_other_preferences::install_player(app, &prefs.subtitle_other);
     crate::subtitle_auto_load_preferences::install_player(app, &prefs.subtitle_auto_load);
+    crate::network_cache_preferences::install_player(app, &prefs.network_cache);
     app.set_subtitle_font(prefs.subtitle_font.clone().into());
     app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
@@ -1994,19 +2004,28 @@ mod welcome_tests {
             directory,
             true,
             &riina_core::subtitle_controls::AutoLoadPreferences::default(),
-        );
+            &riina_core::network_preferences::Connection::default(),
+            &riina_core::network_preferences::Cache::default(),
+        )
+        .unwrap();
         assert_eq!(enabled[0].0, "watch-later-directory");
         assert_eq!(enabled[0].1, directory.to_string_lossy());
         assert_eq!(enabled[1], ("save-position-on-quit".into(), "yes".into()));
         assert_eq!(enabled[2], ("resume-playback".into(), "yes".into()));
         assert_eq!(enabled[3], ("sub-auto".into(), "exact".into()));
         assert_eq!(enabled[4], ("sub-file-paths".into(), "".into()));
+        assert_eq!(enabled[5], ("rtsp-transport".into(), "tcp".into()));
+        assert_eq!(enabled[6], ("cache".into(), "yes".into()));
+        assert_eq!(enabled[9], ("cache-secs".into(), "36000".into()));
 
         let disabled = resume_engine_options(
             directory,
             false,
             &riina_core::subtitle_controls::AutoLoadPreferences::default(),
-        );
+            &riina_core::network_preferences::Connection::default(),
+            &riina_core::network_preferences::Cache::default(),
+        )
+        .unwrap();
         assert_eq!(disabled[1].1, "no");
         assert_eq!(disabled[2].1, "no");
     }

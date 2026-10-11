@@ -11,24 +11,31 @@ readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
 readonly SOURCE_ARCHIVE_ROOT="$PWD/native-source"
 
 print_build_failure() {
-  local status=$?
+  local status="$1"
+  local command="$2"
   trap - ERR
-  echo "Native engine build failed with exit code $status. Recent dependency build logs:" >&2
-  if [[ -d "$BUILDER/build_x86_64/packages" ]]; then
-    find "$BUILDER/build_x86_64/packages" -type f \
-      \( -name '*-configure-err.log' -o -name '*-configure-out.log' \
-         -o -name '*-build-err.log' -o -name '*-build-out.log' \) -size +0c \
-      -printf '%T@ %p\0' \
-      | sort -z -nr | head -z -n 16 | cut -z -d' ' -f2- \
-      | while IFS= read -r -d '' log; do
-          echo "--- $log ---" >&2
-          tail -n 100 "$log" >&2
-        done
-  fi
+  local diagnostics="$REPO_ROOT/native-build-failure.log"
+  {
+    echo "Native engine build failed with exit code $status while running: $command"
+    echo "Recent dependency build logs:"
+    if [[ -d "$BUILDER/build_x86_64/packages" ]]; then
+      find "$BUILDER/build_x86_64/packages" -type f \
+        \( -name '*-configure-err.log' -o -name '*-configure-out.log' \
+           -o -name '*-build-err.log' -o -name '*-build-out.log' \) -size +0c \
+        -printf '%T@ %p\0' \
+        | sort -z -nr | head -z -n 24 | cut -z -d' ' -f2- \
+        | while IFS= read -r -d '' log; do
+            echo "--- $log ---"
+            tail -n 100 "$log"
+          done
+    fi
+  } > "$diagnostics" 2>&1 || true
+  cat "$diagnostics" >&2
   exit "$status"
 }
-trap print_build_failure ERR
+trap 'print_build_failure "$?" "$BASH_COMMAND"' ERR
 
+rm -f "$REPO_ROOT/native-build-failure.log"
 rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
 mkdir -p "$WORK_ROOT"
 git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git "$BUILDER"
@@ -47,7 +54,11 @@ cmake \
   -DCLANG_PACKAGES_LTO=ON \
   -G Ninja --fresh -B build_x86_64 -S .
 ninja -C build_x86_64 download
-ninja -C build_x86_64 update
+# Upstream applies some dependency patches with `git am`; the clean CI
+# container has no user identity, so provide one only to that build step.
+GIT_COMMITTER_NAME='Riina native build' \
+  GIT_COMMITTER_EMAIL='native-build@riina.invalid' \
+  ninja -C build_x86_64 update
 
 # The mpv target does not bootstrap the selected cross-toolchain. The pinned
 # builder documents these as explicit build targets; in particular, skipping

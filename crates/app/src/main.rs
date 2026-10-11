@@ -8,6 +8,8 @@ mod font_picker;
 mod language_names;
 mod layout_preferences;
 mod media_open;
+mod network_cache_preferences;
+mod network_connection_preferences;
 mod opening_fullscreen;
 mod platform;
 mod player_ui;

@@ -64,6 +64,66 @@ component PreferenceNavItem inherits Rectangle {
     }
 }
 
+component PreferenceSubNavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback activated();
+    height: 24px;
+    horizontal-stretch: 1;
+    border-radius: 4px;
+    background: selected ? #e7e7eb : touch.has-hover ? #ffffffb8 : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { root.activated(); }
+    Rectangle { x: 1px; y: 8px; width: 6px; height: 6px; border-radius: 3px;
+        background: root.selected ? #7a7a80 : #9a9a9f; }
+    Text { x: 20px; width: parent.width - 24px; height: parent.height;
+        text: root.label; font-size: 11px; font-weight: root.selected ? 600 : 400;
+        color: #55555b; vertical-alignment: center; overflow: elide; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
+
+component PreferenceSwitch inherits Rectangle {
+    in property <string> label;
+    in-out property <bool> checked: false;
+    in property <bool> enabled: true;
+    callback toggled();
+    height: 28px;
+    accessible-role: checkbox;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: checked;
+    accessible-action-default => { if root.enabled { root.checked = !root.checked; root.toggled(); } }
+    Text { x: 0; y: 0; width: parent.width - 52px; height: parent.height;
+        text: root.label; font-size: 12px; color: root.enabled ? #252529 : #98989e;
+        vertical-alignment: center; overflow: elide; }
+    Rectangle { x: parent.width - 40px; y: 5px; width: 36px; height: 18px;
+        border-radius: 9px; background: root.checked ? #198cff : #d6d6da;
+        opacity: root.enabled ? 1 : 0.55;
+        Rectangle { x: root.checked ? parent.width - 16px : 2px; y: 2px;
+            width: 14px; height: 14px; border-radius: 7px; background: #ffffff; }
+    }
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.checked = !root.checked; root.toggled(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if root.enabled && (event.text == Key.Return || event.text == " ") {
+                root.checked = !root.checked; root.toggled(); return accept;
+            }
+            return reject;
+        }
+    }
+}
+
 component PreferenceSearchField inherits Rectangle {
     in-out property <string> query: "";
     in property <int> result-count: 0;
@@ -337,6 +397,7 @@ export component PreferencesWindow inherits Window {
     min-height: 480px;
     background: #ededed;
     in-out property <int> selected-pane: 0;
+    in-out property <int> selected-network-section: 0;
     in-out property <string> search-query: "";
     in property <[PreferencesSearchResult]> search-results: [];
     in-out property <int> selected-search-index: -1;
@@ -379,6 +440,17 @@ export component PreferencesWindow inherits Window {
     in-out property <string> subtitle-spacing-text: "0";
     in-out property <bool> subtitle-text-advanced-expanded: false;
     in-out property <bool> volume-boost: false;
+    in-out property <bool> network-cache-enabled: true;
+    in-out property <bool> network-cache-pause-initial: false;
+    in-out property <string> network-cache-pause-wait-text: "1";
+    in-out property <string> network-cache-prefetch-secs-text: "36000";
+    in-out property <string> network-cache-size-kib-text: "153600";
+    in-out property <bool> network-show-buffering-throbber: true;
+    in-out property <bool> network-show-seeking-throbber: true;
+    in-out property <string> network-user-agent: "";
+    in-out property <string> network-http-proxy: "";
+    in-out property <int> network-rtsp-transport-index: 1;
+    in property <[string]> network-rtsp-transport-options: ["lavf", "tcp", "udp", "http"];
     in-out property <bool> compact-ui: false;
     in-out property <bool> docked-controls: false;
     in-out property <bool> edge-to-edge-video: true;
@@ -412,39 +484,56 @@ export component PreferencesWindow inherits Window {
             move-selection(direction) => { root.search-selection-moved(direction); }
             activate-selection => { root.search-selection-activated(); }
         }
-        PreferenceNavItem { x: 10px; y: 52px; width: 180px; label: "General";
+        ScrollView { x: 0; y: 52px; width: parent.width; height: parent.height - 52px;
+            content-height: root.selected-pane == 5 ? 488px : 416px;
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+            Rectangle { width: parent.width; height: root.selected-pane == 5 ? 488px : 416px; background: transparent;
+        PreferenceNavItem { x: 10px; y: 0px; width: 180px; label: "General";
             icon: @image-url("../../../assets/icons/settings.svg");
             selected: root.selected-pane == 0; activated => { root.selected-pane = 0; } }
-        PreferenceNavItem { x: 10px; y: 88px; width: 180px; label: "Interface";
+        PreferenceNavItem { x: 10px; y: 36px; width: 180px; label: "Interface";
             icon: @image-url("../../../assets/icons/interface.svg");
             selected: root.selected-pane == 1; activated => { root.selected-pane = 1; } }
-        PreferenceNavItem { x: 10px; y: 124px; width: 180px; label: "Video";
+        PreferenceNavItem { x: 10px; y: 72px; width: 180px; label: "Video";
             icon: @image-url("../../../assets/icons/video-page.svg");
             selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
-        PreferenceNavItem { x: 10px; y: 160px; width: 180px; label: "Audio";
+        PreferenceNavItem { x: 10px; y: 108px; width: 180px; label: "Audio";
             icon: @image-url("../../../assets/icons/audio-page.svg");
             selected: root.selected-pane == 3; activated => { root.selected-pane = 3; } }
-        PreferenceNavItem { x: 10px; y: 196px; width: 180px; label: "Subtitles";
+        PreferenceNavItem { x: 10px; y: 144px; width: 180px; label: "Subtitles";
             icon: @image-url("../../../assets/icons/subtitles-page.svg");
             selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
-        PreferenceNavItem { x: 10px; y: 232px; width: 180px; label: "Network";
+        PreferenceNavItem { x: 10px; y: 180px; width: 180px; label: "Network";
             icon: @image-url("../../../assets/icons/network.svg");
-            selected: root.selected-pane == 5; activated => { root.selected-pane = 5; } }
-        PreferenceNavItem { x: 10px; y: 268px; width: 180px; label: "Control";
+            selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.selected-network-section = 0; } }
+        if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: #d3d3d7; }
+        if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Cache";
+            selected: root.selected-network-section == 0;
+            activated => { root.selected-pane = 5; root.selected-network-section = 0; } }
+        if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 240px; width: 158px; label: "Network";
+            selected: root.selected-network-section == 1;
+            activated => { root.selected-pane = 5; root.selected-network-section = 1; } }
+        if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 264px; width: 158px; label: "Online Videos (yt-dlp)";
+            selected: root.selected-network-section == 2;
+            activated => { root.selected-pane = 5; root.selected-network-section = 2; } }
+        PreferenceNavItem { x: 10px; y: (root.selected-pane == 5 ? 300px : 216px); width: 180px; label: "Control";
             icon: @image-url("../../../assets/icons/control.svg");
             selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
-        PreferenceNavItem { x: 10px; y: 304px; width: 180px; label: "Key Bindings";
+        PreferenceNavItem { x: 10px; y: (root.selected-pane == 5 ? 336px : 252px); width: 180px; label: "Key Bindings";
             icon: @image-url("../../../assets/icons/keybindings.svg");
             selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
-        PreferenceNavItem { x: 10px; y: 340px; width: 180px; label: "Advanced";
+        PreferenceNavItem { x: 10px; y: (root.selected-pane == 5 ? 372px : 288px); width: 180px; label: "Advanced";
             icon: @image-url("../../../assets/icons/advanced.svg");
             selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
-        PreferenceNavItem { x: 10px; y: 376px; width: 180px; label: "Plugins";
+        PreferenceNavItem { x: 10px; y: (root.selected-pane == 5 ? 408px : 324px); width: 180px; label: "Plugins";
             icon: @image-url("../../../assets/icons/plugins.svg");
             selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
-        PreferenceNavItem { x: 10px; y: 412px; width: 180px; label: "Utilities";
+        PreferenceNavItem { x: 10px; y: (root.selected-pane == 5 ? 444px : 360px); width: 180px; label: "Utilities";
             icon: @image-url("../../../assets/icons/utilities.svg");
             selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
+            }
+        }
     }
     if root.selected-pane == 0 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
@@ -891,6 +980,125 @@ export component PreferencesWindow inherits Window {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: #ededed;
         Text { x: 28px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 28px; y: 54px; text: root.selected-network-section == 0 ? "Cache" : root.selected-network-section == 1 ? "Network" : "Online Videos (yt-dlp)"; font-size: 13px; font-weight: 600; color: #77777d; }
+        if root.selected-network-section == 0 : Rectangle {
+        Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 390px;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            // Match the reference's compact rows; explanations stay with the control they qualify.
+            Rectangle { x: 0; y: 0; width: parent.width; height: 40px; background: transparent;
+                Text { x: 12px; y: 0; width: 18px; height: parent.height; text: "▤"; font-size: 14px; color: #77777d; vertical-alignment: center; }
+                PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
+                    label: "Prefetch and buffer network data";
+                    checked <=> root.network-cache-enabled;
+                    toggled => { root.settings-changed(); }
+                }
+            }
+            Rectangle { x: 0; y: 40px; width: parent.width; height: 94px; background: transparent;
+                border-width: 0px; border-color: #dedee2;
+                PreferenceSwitch { x: 44px; y: 0; width: parent.width - 58px; height: 26px;
+                    label: "Buffer before starting playback";
+                    enabled: root.network-cache-enabled;
+                    checked <=> root.network-cache-pause-initial; toggled => { root.settings-changed(); }
+                }
+                Text { x: 44px; y: 26px; width: parent.width - 62px; height: 48px;
+                    text: "Enter buffering mode before playback starts. This can be useful to ensure playback starts smoothly, in exchange for waiting some time to prefetch and buffer network data.";
+                    font-size: 10px; color: #77777d; wrap: word-wrap;
+                }
+                Text { x: 44px; y: 75px; width: parent.width - 62px; height: 16px;
+                    text: "Default: 1"; font-size: 10px; color: #77777d; vertical-alignment: center; }
+            }
+            Rectangle { x: 0; y: 134px; width: parent.width; height: 64px; background: transparent;
+                Text { x: 44px; y: 0; width: parent.width - 170px; height: 32px;
+                    text: "Seconds to buffer before restarting"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
+                TextInput { x: parent.width - 94px; y: 9px; width: 66px; height: 24px;
+                    enabled: root.network-cache-enabled;
+                    text <=> root.network-cache-pause-wait-text; font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 44px; y: 32px; width: parent.width - 62px; height: 25px;
+                    text: "Number of seconds the cache should have buffered before starting playback again if buffering mode was entered. Increase this setting if playback quickly reenters buffering mode.";
+                    font-size: 10px; color: #77777d; wrap: word-wrap;
+                }
+            }
+            Rectangle { x: 0; y: 198px; width: parent.width; height: 52px; background: transparent;
+                Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
+                    text: "Seconds to prefetch"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                TextInput { x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
+                    enabled: root.network-cache-enabled;
+                    text <=> root.network-cache-prefetch-secs-text; font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
+                    text: "Default: 36,000"; font-size: 10px; color: #77777d; vertical-alignment: center; }
+            }
+            Rectangle { x: 0; y: 250px; width: parent.width; height: 52px; background: transparent;
+                Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
+                    text: "Cache buffer size (KiB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                TextInput { x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
+                    enabled: root.network-cache-enabled;
+                    text <=> root.network-cache-size-kib-text; font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+                Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
+                    text: "Default: 153,600"; font-size: 10px; color: #77777d; vertical-alignment: center; }
+            }
+            Rectangle { x: 0; y: 302px; width: parent.width; height: 40px; background: transparent;
+                PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
+                    label: "Show throbber when buffering";
+                    checked <=> root.network-show-buffering-throbber;
+                    toggled => { root.settings-changed(); }
+                }
+            }
+            Rectangle { x: 0; y: 342px; width: parent.width; height: 40px; background: transparent;
+                PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
+                    label: "Show throbber when seeking";
+                    checked <=> root.network-show-seeking-throbber;
+                    toggled => { root.settings-changed(); }
+                }
+            }
+        }
+        }
+        if root.selected-network-section == 1 : Rectangle {
+            x: 20px; y: 80px; width: parent.width - 40px; height: 205px;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            Text { x: 12px; y: 8px; text: "Network"; font-size: 13px; font-weight: 600; color: #252529; }
+            Text { x: 12px; y: 44px; width: 94px; height: 24px; text: "User agent";
+                font-size: 12px; color: #252529; vertical-alignment: center; }
+            Rectangle { x: 108px; y: 44px; width: parent.width - 122px; height: 24px;
+                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
+                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                    text <=> root.network-user-agent; font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+            }
+            Text { x: 12px; y: 82px; width: 94px; height: 24px; text: "HTTP proxy";
+                font-size: 12px; color: #252529; vertical-alignment: center; }
+            Rectangle { x: 108px; y: 82px; width: parent.width - 122px; height: 24px;
+                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
+                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                    text <=> root.network-http-proxy; font-size: 11px; color: #222222;
+                    accepted => { root.settings-changed(); }
+                }
+            }
+            Text { x: 108px; y: 108px; width: parent.width - 122px; height: 30px;
+                text: "Enter a proxy URL, such as http://proxy.example:8080.";
+                font-size: 10px; color: #77777d; wrap: word-wrap; }
+            Text { x: 12px; y: 146px; width: 94px; height: 24px; text: "RTSP transport";
+                font-size: 12px; color: #252529; vertical-alignment: center; }
+            ComboBox { x: 108px; y: 146px; width: parent.width - 122px; height: 25px;
+                model: root.network-rtsp-transport-options;
+                current-index <=> root.network-rtsp-transport-index;
+                selected => { root.settings-changed(); }
+            }
+            Text { x: 108px; y: 177px; width: parent.width - 122px; height: 16px;
+                text: "Changes take effect after restarting riina.";
+                font-size: 10px; color: #77777d; vertical-alignment: center; }
+        }
+        if root.selected-network-section == 2 : Text {
+            x: 28px; y: 88px; width: parent.width - 56px; height: 50px;
+            text: "Online video options are available through the optional media integration.";
+            font-size: 12px; color: #77777d; wrap: word-wrap;
+        }
     }
     if root.selected-pane == 6 : Rectangle {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;

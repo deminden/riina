@@ -2261,3 +2261,35 @@ candidate artifacts were created. The unauthenticated Actions log endpoint
 returns 403, so the actionable build diagnostic is still pending from the run
 viewer. The native distribution audit remains open and false; no binary has been
 published or claimed.
+
+2026-10-11 Network Cache parity increment: added the captured Cache section beneath
+Network with the source text, defaults, startup-buffer explanation, numeric inputs,
+and buffering/seeking indicators. The parent category now expands to Cache, Network
+and Online Videos (yt-dlp) navigation; the latter two sections remain pending. Cache
+values are typed, validated against the pinned source's two-billion numeric bound,
+saved in preferences, supplied to mpv at startup, and applied as a grouped live
+command when changed. Search now routes Cache settings into the correct section.
+Existing preference files receive the reference defaults. The two saved throbber
+choices still need to drive the player indicator itself.
+Rust 1.99.0 Windows app check, formatting, strict workspace Clippy, and workspace
+tests pass, including default, serialization and option-plan coverage. The app was
+not captured in this Settings state; matched Windows/macOS pixels, runtime editing
+and restart persistence remain unverified. Network's remaining panes and all other
+incomplete preference pages remain part of full parity.
+
+2026-10-11 Network connection preferences now expose the pinned source's User agent,
+HTTP proxy, and RTSP transport choices in source order (`lavf`, `tcp`, `udp`, `http`),
+with TCP selected by default. Typed preferences reject NUL characters, round-trip
+through the settings file, and pass nonempty overrides plus the selected transport
+to libmpv at startup. The UI states the source's restart requirement; the app was
+not visually captured in this subsection. Rust format, strict workspace Clippy,
+workspace tests, and Windows application compilation pass. The source-derived layout
+still needs a rendered Windows/macOS comparison.
+
+The failed native-engine job's pasted diagnostic dump contains successful zstd,
+libdvdcss, Brotli, Ogg, and Vulkan configure/build logs but no failing command or
+fatal diagnostic, so exit 128 is not yet attributed to a dependency. The native
+build failure trap now records the failing shell command and writes the recent
+dependency logs to `native-build-failure.log`; the workflow uploads that file as a
+short-lived artifact when the native job fails. This diagnostic change is local;
+the current public run cannot be retroactively enriched.
