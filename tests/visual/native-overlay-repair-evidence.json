@@ -1,0 +1,55 @@
+{
+  "debug_executable_sha256": "03f766055e860d20a599488ca4075bd4a005881bbd63dfba84d02e25d97b93f1",
+  "version": "0.2.10",
+  "checks": {
+    "strict_lint": "passed",
+    "settings_routes": "passed",
+    "workspace_tests": "212 passed, 44 ignored",
+    "optimized_build": "passed",
+    "parity_inventory": "182 valid rows; inventory incomplete",
+    "format": "passed",
+    "fixture_hashes": "16 verified",
+    "native_engine": "ui_open_files_command_starts_real_media passed; 39 other engine tests not rerun"
+  },
+  "optimized_executable_sha256": "0948d671412f4452753da0704fe9e08bc7e0bc3a82344cea4dcfa431ab8c87d0",
+  "date": "2026-10-11",
+  "baseline": "official IINA v1.5.0",
+  "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+  "verified": [
+    "Native DWM correction reveals the complete original video fixture",
+    "Owner event router preserves aspect filtering, chrome alignment and fullscreen focus together",
+    "Windowed/fullscreen playback and Escape restoration captured",
+    "Stop clears video; Ctrl+O opens owned picker and Escape cancels",
+    "Fresh isolated startup survives accessibility captures after deferred aspect correction",
+    "Optimized no-argument launch resumes saved fixture through recreated chrome without black overlay",
+    "Shared GL fixture remains visible with its native menus",
+    "Test player shutdown leaves no Riina processes"
+  ],
+  "limitations": [
+    "No calibrated HDR luminance or color measurement",
+    "No complete matched IINA interface parity",
+    "Accepted picker selection after Stop was not verified; helper targeting was inconsistent",
+    "Mixed-monitor DPI, minimize/restore and broad live resize matrix remain open",
+    "Optimized resumed window capture is clipped at the left desktop edge; placement remains a parity gap",
+    "Raw captures stay private; these observations do not authorize public binary distribution"
+  ],
+  "scope": "Windows native black-overlay repair; no matched macOS pixel comparison",
+  "captures": [
+    {
+      "sha256": "2b70f5b6c5040f0771f7c2a72079c3ec89ac219896b9825831b263ad0ba31250",
+      "path": "tests/visual/native-overlay-repaired-window.png"
+    },
+    {
+      "sha256": "9e7dfc08d213832f155c12f0096a6dfc4fd28840d58f3059da691ddb9379b948",
+      "path": "tests/visual/native-overlay-repaired-fullscreen.png"
+    },
+    {
+      "sha256": "4b7a548eca3abca34303d856a68941aacbac53ea4e525139de246bd0a567ede6",
+      "path": "tests/visual/native-overlay-shared-gl-regression.png"
+    },
+    {
+      "sha256": "be3b0658addbbb0a5b13ec991278e67dd810f8a9ce784ed2873aebaa25b0c4c8",
+      "path": "tests/visual/native-overlay-release-resume.png"
+    }
+  ]
+}

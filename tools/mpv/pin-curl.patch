@@ -1,0 +1,7 @@
+diff --git a/packages/curl.cmake b/packages/curl.cmake
+--- a/packages/curl.cmake
++++ b/packages/curl.cmake
+@@ -13,2 +13,3 @@ ExternalProject_Add(curl
+     GIT_REPOSITORY https://github.com/curl/curl.git
++    GIT_TAG 01346829096c61b372692f6dc43ffa778c6caccd
+     SOURCE_DIR ${SOURCE_LOCATION}

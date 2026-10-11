@@ -1,17 +1,26 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod advanced_preferences;
+mod appearance_preferences;
+mod audio_preferences;
 mod codec_preferences;
+mod control_preferences;
 mod crop_editor;
 mod file_selection;
 mod font_catalog;
 mod font_picker;
+mod fullscreen_info;
+mod key_binding_preferences;
+pub mod key_binding_profiles;
 mod language_names;
 mod layout_preferences;
+mod liquid_glass_preferences;
 mod media_open;
 mod network_cache_preferences;
 mod network_connection_preferences;
 mod network_ytdl_preferences;
 mod opening_fullscreen;
+mod osd_preferences;
 mod platform;
 mod player_ui;
 mod screenshot_osd;
@@ -24,9 +33,13 @@ mod subtitle_auto_load_preferences;
 mod subtitle_other_preferences;
 mod subtitle_position_preferences;
 mod subtitle_preferences;
+mod tone_mapping_preferences;
 mod ui_dialogs;
+mod utilities_preferences;
 mod video_osd;
+mod window_aspect;
 mod window_controls;
+mod window_resize_preferences;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 use player_ui::configure_player;
@@ -37,13 +50,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     prepare_online_video_path()?;
     let mut args = std::env::args_os().skip(1);
     let first = args.next();
-    let native = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
-    let media = if native { args.next() } else { first };
-    if native {
-        #[cfg(target_os = "windows")]
+    let shared_gl = first.as_deref() == Some(std::ffi::OsStr::new("--shared-gl"));
+    let native_video = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
+    let media = if shared_gl || native_video {
+        args.next()
+    } else {
+        first
+    };
+    #[cfg(target_os = "windows")]
+    // Native D3D11 preserves the Windows HDR presentation path. Its control
+    // overlay restores compositor alpha after Slint realizes the window.
+    if !shared_gl {
         return platform::native_window::run(media);
-        #[cfg(not(target_os = "windows"))]
-        return Err("Native video presentation is currently available on Windows; run without --native-video for shared OpenGL playback".into());
+    }
+    #[cfg(not(target_os = "windows"))]
+    if native_video {
+        return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
     }
     slint::BackendSelector::new()
         .backend_name("winit".into())
@@ -56,6 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
     let session = configure_player(&app, None, media, welcome.as_ref())?;
+    window_aspect::connect(&app);
     if let Some(welcome) = &welcome {
         welcome.show()?;
     } else {

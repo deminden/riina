@@ -45,6 +45,7 @@ original contributions is not a blanket legal certification.
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |
 | Slint 1.18.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b) |
 | ICU4X locale/display-name code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
+| Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
 | Development libmpv DLL and native dependencies | Existing terms, redistribution audit incomplete |
 
 Slint itself has not been relicensed. Its royalty-free license permits desktop

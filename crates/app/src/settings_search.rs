@@ -88,16 +88,72 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 1,
         page: "Interface",
-        section: "On-Screen Controller",
-        title: "Floating, Top, Bottom",
-        terms: "osc position layout",
+        section: "Appearance",
+        title: "Appearance",
+        terms: "dark light system theme",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Appearance",
+        title: "Liquid Glass",
+        terms: "glass material translucency overlay controller sidebar",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Appearance",
+        title: "Compact interface",
+        terms: "compact controls spacing",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Window",
+        title: "Initial window size",
+        terms: "startup initial width height dimensions size points screen percent",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Window",
+        title: "Initial window position",
+        terms: "startup initial position x y offset left right bottom top screen",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Window",
+        title: "Resize window to",
+        terms: "resize fit screen video size half one 1.5x 2x always manually never",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Window",
+        title: "Use physical resolution on Retina displays",
+        terms: "physical resolution retina pixels display scale",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Window",
+        title: "Always float on top",
+        terms: "stay above other windows floating window level",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Window",
+        title: "Always show float on top status in the title bar",
+        terms: "always show pin icon topmost status title bar",
     },
     Entry {
         page_index: 1,
         page: "Interface",
         section: "On-Screen Controller",
-        title: "Compact interface",
-        terms: "compact controls",
+        title: "Floating, Top, Bottom",
+        terms: "osc position layout",
     },
     Entry {
         page_index: 1,
@@ -110,8 +166,29 @@ const ENTRIES: &[Entry] = &[
         page_index: 1,
         page: "Interface",
         section: "On-Screen Display",
-        title: "Show OSD messages",
+        title: "Enable OSD",
         terms: "overlay display messages",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Suppress file-start messages",
+        terms: "overlay file start notification",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Suppress pause and resume messages",
+        terms: "overlay pause resume playback",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Suppress seek messages",
+        terms: "overlay seeking",
     },
     Entry {
         page_index: 1,
@@ -124,15 +201,64 @@ const ENTRIES: &[Entry] = &[
         page_index: 1,
         page: "Interface",
         section: "On-Screen Display",
-        title: "Suppress seek messages",
-        terms: "overlay seeking",
+        title: "Auto hide after",
+        terms: "overlay timeout seconds duration",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Text size",
+        terms: "overlay font point size",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Display",
+        title: "Time and battery in full screen",
+        terms: "fullscreen status time clock battery information",
     },
     Entry {
         page_index: 2,
         page: "Video",
-        section: "Video",
+        section: "Decoding",
+        title: "Number of threads",
+        terms: "video decoder lavc count concurrency automatic",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Decoding",
         title: "Hardware decoder",
         terms: "disabled auto copy acceleration",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Color and HDR",
+        title: "Tone Mapping",
+        terms: "hdr peak nits algorithm clip mobius reinhard hable bt2390 gamma linear parameter",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Hardware",
+        title: "Audio threads and driver",
+        terms: "hardware backend output device wasapi coreaudio pipewire",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Volume",
+        title: "Initial volume and ReplayGain",
+        terms: "volume replay gain preamp clipping fallback",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Other",
+        title: "Gapless playback and languages",
+        terms: "gapless audio alang language",
     },
     Entry {
         page_index: 3,
@@ -338,6 +464,48 @@ const ENTRIES: &[Entry] = &[
         terms: "preferences",
     },
     Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "",
+        title: "Enable advanced settings",
+        terms: "restart mpv options logging",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "Logging",
+        title: "Log level",
+        terms: "verbose debug warning error",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "Logging",
+        title: "Enable logging to file",
+        terms: "log directory viewer",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "mpv Settings",
+        title: "Use mpv's OSD",
+        terms: "on screen display",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "mpv Settings",
+        title: "Use config directory",
+        terms: "mpv folder configuration",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
+        section: "mpv Settings",
+        title: "Additional mpv options",
+        terms: "custom option key value",
+    },
+    Entry {
         page_index: 9,
         page: "Plugins",
         section: "",
@@ -350,6 +518,48 @@ const ENTRIES: &[Entry] = &[
         section: "",
         title: "Utilities",
         terms: "tools",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "Default Application",
+        title: "Set Riina as the Default Application",
+        terms: "file associations default media player",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "Restore Alerts",
+        title: "Restore Suppressed Alerts",
+        terms: "reset hidden notifications do not show again",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "Clear Cache",
+        title: "Clear Saved Playback Progress",
+        terms: "watch later resume position delete",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "Clear Cache",
+        title: "Clear Playback History",
+        terms: "recent files playback history",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "Clear Cache",
+        title: "Clear Thumbnail Cache",
+        terms: "thumbnails preview cache",
+    },
+    Entry {
+        page_index: 10,
+        page: "Utilities",
+        section: "Browser Extensions",
+        title: "Get Browser Extensions for Riina",
+        terms: "browser extension open links current webpage",
     },
 ];
 
@@ -370,6 +580,8 @@ fn page_icon(page_index: i32) -> Image {
     Image::load_from_svg_data(data).unwrap_or_default()
 }
 
+// These default offsets label search entries; activation reads live Slint targets
+// so expanding preference details never leaves search with stale coordinates.
 fn anchor_y(entry: &Entry) -> i32 {
     match (entry.page_index, entry.section, entry.title) {
         (0, "Behavior", "When media is opened") => 60,
@@ -380,7 +592,17 @@ fn anchor_y(entry: &Entry) -> i32 {
         (0, "Screenshots", "Include subtitles") => 268,
         (0, "Screenshots", _) => 292,
         (0, "History", _) => 334,
-        (1..=3, _, _) => 52,
+        (1, "Appearance", _) => 0,
+        (1, "Window", _) => 207,
+        (1, "On-Screen Controller", _) => 619,
+        (1, "On-Screen Display", _) => 735,
+        (1, "Thumbnail Preview", _) => 843,
+        (1, "Picture-in-Picture", _) => 939,
+        (1, "Accessibility", _) => 1035,
+        (2, "Decoding", "Number of threads") => 80,
+        (2, "Decoding", _) => 145,
+        (2, "Color and HDR", _) => 420,
+        (3, _, _) => 52,
         (4, "Auto Load", "Subtitle matching mode") => 56,
         (4, "Auto Load", "Priority keywords") => 132,
         (4, "Auto Load", _) => 193,
@@ -539,6 +761,41 @@ fn next_selectable_index(
 }
 
 fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
+    if page == 0 {
+        window.set_selected_general_section(match section {
+            "History" => 1,
+            "Playlist" => 2,
+            "Screenshots" => 3,
+            _ => 0,
+        });
+    }
+    if page == 1 {
+        window.set_selected_interface_section(match section {
+            "Window" => 1,
+            "On-Screen Controller" => 2,
+            "On-Screen Display" => 3,
+            "Thumbnail Preview" => 4,
+            "Picture-in-Picture" => 5,
+            "Accessibility" => 6,
+            _ => 0,
+        });
+        let target = match section {
+            "Window" => window.get_interface_window_target(),
+            "On-Screen Controller" => window.get_interface_osc_target(),
+            "On-Screen Display" => window.get_interface_osd_target(),
+            "Thumbnail Preview" => window.get_interface_thumbnail_target(),
+            "Picture-in-Picture" => window.get_interface_pip_target(),
+            "Accessibility" => window.get_interface_accessibility_target(),
+            _ => 0.0,
+        };
+        window.set_interface_scroll_position(target);
+    }
+    if page == 2 {
+        if title == "Tone Mapping" {
+            window.set_tone_mapping_expanded(true);
+        }
+        window.set_video_scroll_position((52 - anchor).max(-540) as f32);
+    }
     if page == 4 {
         if section == "Auto Load" && title != "Subtitle matching mode" {
             window.set_subtitle_auto_load_advanced_expanded(true);
@@ -552,6 +809,13 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         window.set_selected_network_section(match section {
             "Network" => 1,
             "Online Videos (yt-dlp)" => 2,
+            _ => 0,
+        });
+    }
+    if page == 3 {
+        window.set_selected_audio_section(match section {
+            "Volume" => 1,
+            "Other" => 2,
             _ => 0,
         });
     }
@@ -578,6 +842,58 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].page_name, "Audio");
         assert_eq!(results[0].title, "Allow volume boost (up to 200%)");
+    }
+
+    #[test]
+    fn audio_preferences_search_into_their_matching_sections() {
+        for (query, expected_section) in [
+            ("threads driver", "Hardware"),
+            ("ReplayGain preamp", "Volume"),
+            ("gapless languages", "Other"),
+        ] {
+            let result = item_results(query);
+            assert_eq!(result.len(), 1, "query: {query}");
+            assert_eq!(result[0].page_name, "Audio");
+            assert_eq!(result[0].section_name, expected_section);
+        }
+    }
+
+    #[test]
+    fn video_preferences_search_into_decoding_and_color_sections() {
+        for (query, section, anchor) in [
+            ("hardware decoder", "Decoding", 145),
+            ("video threads", "Decoding", 80),
+            ("hdr bt2390", "Color and HDR", 420),
+        ] {
+            let result = item_results(query);
+            assert_eq!(result.len(), 1, "query: {query}");
+            assert_eq!(result[0].page_name, "Video");
+            assert_eq!(result[0].section_name, section);
+            assert_eq!(result[0].anchor_y, anchor);
+        }
+    }
+
+    #[test]
+    fn interface_search_results_use_the_captured_subsection_scroll_anchors() {
+        for (query, section, anchor) in [
+            ("system appearance", "Appearance", 0),
+            ("liquid glass", "Appearance", 0),
+            ("compact interface", "Appearance", 0),
+            ("initial window size", "Window", 207),
+            ("initial window position", "Window", 207),
+            ("video size", "Window", 207),
+            ("physical resolution", "Window", 207),
+            ("stay above other windows", "Window", 207),
+            ("title bar pin status", "Window", 207),
+            ("osc position", "On-Screen Controller", 619),
+            ("overlay display messages", "On-Screen Display", 735),
+        ] {
+            let result = item_results(query);
+            assert_eq!(result.len(), 1, "query: {query}");
+            assert_eq!(result[0].page_name, "Interface");
+            assert_eq!(result[0].section_name, section);
+            assert_eq!(result[0].anchor_y, anchor);
+        }
     }
 
     #[test]
@@ -618,6 +934,23 @@ mod tests {
         assert_eq!(result[0].page_name, "Network");
         assert_eq!(result[0].section_name, "Online Videos (yt-dlp)");
         assert_eq!(result[0].title, "Raw options");
+    }
+
+    #[test]
+    fn utility_actions_are_searchable_on_their_reference_page() {
+        for (query, expected_title) in [
+            (
+                "watch later resume position",
+                "Clear Saved Playback Progress",
+            ),
+            ("hidden notifications", "Restore Suppressed Alerts"),
+            ("thumbnail cache", "Clear Thumbnail Cache"),
+        ] {
+            let result = item_results(query);
+            assert_eq!(result.len(), 1, "query: {query}");
+            assert_eq!(result[0].page_name, "Utilities");
+            assert_eq!(result[0].title, expected_title);
+        }
     }
 
     #[test]

@@ -14,12 +14,15 @@ workspace = true
 slint.workspace = true
 glow.workspace = true
 serde_json.workspace = true
+chrono = { version = "=0.4.45", default-features = false, features = ["clock"] }
+battery = "=0.7.8"
 fontdb = "=0.24.0"
 ttf-parser = "=0.25.1"
 icu_experimental = "=0.6.0"
 icu_locale = "=2.3.1"
 sys-locale = "=0.3.2"
 dirs = "=7.0.0"
+rfd = "=0.17.2"
 arboard = { version = "=3.6.1", default-features = false, features = ["image-data", "wayland-data-control"] }
 riina-core = { path = "../core" }
 riina-mpv = { path = "../mpv" }
@@ -29,9 +32,6 @@ slint-build.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows.workspace = true
-
-[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
-rfd = "=0.17.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"

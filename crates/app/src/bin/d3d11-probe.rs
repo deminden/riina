@@ -121,8 +121,10 @@ mod windows_probe {
                 let player = Player::start_native_window(
                     &root.join("tools/mpv/libmpv-2.dll"),
                     wid,
-                    &log,
-                    Vec::new(),
+                    vec![
+                        ("log-file".into(), log.to_string_lossy().into_owned()),
+                        ("msg-level".into(), "all=v".into()),
+                    ],
                     move |state| {
                         let metadata = (
                             state.generation,

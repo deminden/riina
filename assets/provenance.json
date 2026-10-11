@@ -50,11 +50,25 @@
       "sha256": "12991e3a2205ccf0856eb181ca33e8d8bef152804bba5a59aa29365973430158"
     },
     {
+      "path": "assets/icons/config-directory.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored independently for riina; no external artwork copied or traced",
+      "sha256": "01943223154e04e6c4ed1fb48a5046c8d07e5856f0bb3bf1ee8c47f6a55f8c8f"
+    },
+    {
       "path": "assets/icons/control.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "c73eddfab88faa0e9a29b8a80340a9e263859f64d396ae9b8d7c02630ecef4a7"
+    },
+    {
+      "path": "assets/icons/fit-window-to-video.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "7216a690dee2cfc14149379241abad34443a5cc280a5a4418da1968b7eb5669f"
     },
     {
       "path": "assets/icons/forward.svg",
@@ -85,6 +99,27 @@
       "sha256": "14c6b10941a566dbecbc8683f399ea09b9cc7fedfb3ed652ebbf5cc836e89e61"
     },
     {
+      "path": "assets/icons/log-level.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored independently for riina; no external artwork copied or traced",
+      "sha256": "323ca77508c697233e0bb916d4c1c169fd3c06f1157d8cd8dfe6587456996696"
+    },
+    {
+      "path": "assets/icons/log-viewer.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored independently for riina; no external artwork copied or traced",
+      "sha256": "6cc78a3446a46ea4d9396ce637a268e90f19be9645193d6f474dadf2e568ec5b"
+    },
+    {
+      "path": "assets/icons/mpv-osd.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored independently for riina; no external artwork copied or traced",
+      "sha256": "0a19073ee8f651b326b19c518e8770c965c65f01ce4b3b5d79dddd7b47a02c19"
+    },
+    {
       "path": "assets/icons/muted.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -104,6 +139,20 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "278b74f3267d2d641b9d65a5b3492e5315fc58e50633b1e85ef6909180f96303"
+    },
+    {
+      "path": "assets/icons/pin-fill.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "c3dca7975385a86b2f2c87625a17be207a1691933d4780f7482232be5f67473c"
+    },
+    {
+      "path": "assets/icons/pin.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "89105962a4b3e0ff84deb6d722369120af6d65867b7447992d75b41fb2896d87"
     },
     {
       "path": "assets/icons/play.svg",
@@ -188,6 +237,20 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "97007dbdb618c0aa72c2861c25d4df13325fb9feeba54d4e017aad236219fa6e"
+    },
+    {
+      "path": "assets/icons/shuffle.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "2077766738e74b539f9e5642a625a9e49f395b00c179427defc423f260bed905"
+    },
+    {
+      "path": "assets/icons/sort.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "da00c80a3c06fa1ff46517a4d1d1386bbacf98df0f333be07212d2181c3c837d"
     }
   ],
   "notes": "Original vector player icons replace font-dependent controls. Remaining Unicode symbols, system typography, exact reference geometry and material matching still need review. No Apple artwork, fonts or SF Symbols are bundled."

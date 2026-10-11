@@ -1,8 +1,25 @@
-# Native D3D11 presentation experiment
+# Native D3D11 Windows presentation
 
-Status: feasibility evidence, **not** a production-renderer decision.
+Status: default Windows presentation path; color calibration, broader display
+coverage and full parity validation remain open.
 
-The application now accepts `--native-video` to test this route with the shared
+The Windows application uses this route by default and accepts `--shared-gl` to
+select GL composition for diagnostics. `--native-video` remains an explicit alias.
+The 2026-10-11 black-overlay regression was caused by Slint 1.18.1 registering
+the shared renderer's conditional MenuBar even when `native-video` hides it.
+Its Windows backend then overrides the transparent window attribute. Restore DWM
+alpha on the realized chrome HWND with Winit's empty blur region; the visible menu
+continues to belong to the framed host. Keep the native-mode background transparent
+through loaded/stopped transitions. This is compositor setup, not a video decode fix.
+
+The native owner has one event router: aspect filtering, control-window alignment
+and focus restoration share it. Slint replaces rather than stacks window event
+hooks, so installing the aspect filter separately removed alignment/fullscreen
+focus handling. Property-driven aspect and window-level changes are queued after
+the current UI read: synchronous resizing during an AccessKit tree update caused
+reentrant `WM_GETOBJECT` and a RefCell panic on isolated startup.
+
+This route uses the shared
 player UI, not the probe toolbar. `player_ui.rs` configures the same controls,
 catalogs, command senders and coalesced state updates for both renderers.
 `native_window.rs` owns the host/popup relationship and fullscreen focus routing.
@@ -11,7 +28,14 @@ player's mouse/keyboard interactions, so invisible regions need no separate
 hit-test region. Host resize/move/DPI events align both physical size and position.
 Startup awaits both HWNDs before sizing the popup. UI callbacks retain senders,
 not the Player owner; closing either window joins the native worker before the
-host HWND disappears. The default route remains GL until the remaining gates close.
+host HWND disappears.
+
+During a 2026-10-11 Windows HDR desktop check, playback advanced through the
+five-second fixture and the mpv GL framebuffer contained decoded pixels, while
+the captured shared-GL application window showed a blank video area. The native
+D3D11 route displayed the moving fixture on that same desktop. Windows now selects
+the native route by default. Shared GL remains available and remains the default
+for macOS/Linux while its Windows HDR composition issue is investigated.
 
 Actual shared-UI evidence: `tests/visual/native-shared-evidence.json`. On the user's
 HDR desktop, PQ/HLG presentation, source-derived sidebar placement, fullscreen,
@@ -21,7 +45,7 @@ before popup realization and shortcut loss after removing a focused OSC were
 found and corrected. Narrow-window dragging did not produce an observed resize;
 that check remains pending. Translucency is observed, but sampled-video blur,
 calibrated color, full DPI/ownership coverage and exact macOS UI matching remain
-open. No production-renderer or full-parity claim follows from this increment.
+open. This renderer selection does not imply full interface or feature parity.
 
 The pinned mpv render API supplies OpenGL/software, not a D3D11 texture API.
 Its `display-swapchain` property is available in composition mode; native HWND
@@ -34,7 +58,8 @@ An owned, frameless Slint window overlays the video. Ownership is established
 before constructing that component because Slint captures winit attributes at
 adapter creation. Startup awaits the actual winit window; `show()` or a zero-time
 timer alone is insufficient. Host move/resize/scale events reposition the controls.
-The ordinary application continues using its existing GL renderer.
+The ordinary application uses the native D3D11 host on Windows. Non-Windows
+application ports continue using shared OpenGL behind the platform boundary.
 
 `d3d11-probe` requests `vo=gpu-next`, D3D11 API/context, `rgba16f`, and automatic
 color-space hints. The pinned manual calls rgba16f a best-effort hint for gpu-next,
@@ -79,6 +104,7 @@ sidebars/menus, keyboard routing outside controls, taskbar/Alt-Tab behavior,
 load-failure/rapid-replacement lifecycle, performance and hardware-decoder interop.
 The assistant did not change Windows HDR settings; the user enabled HDR for the
 second run. Alt+F4 initially hid only the focused overlay; the probe now closes
-the complete player from either window. Native scRGB remains the candidate to
-integrate with source-matched controls, sidebars and clipping before production
-renderer selection. The general HDR parity requirement remains open.
+the complete player from either window. Native scRGB is the active Windows
+presentation route while source-matched controls, sidebars, clipping, output
+calibration and broader display coverage are validated. The general HDR parity
+requirement remains open.

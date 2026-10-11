@@ -30,10 +30,12 @@
     "openssl_revision": "d8bf6cdd4849925c30e4f1911c7acb49cb34b702",
     "x264_encoder": "Removed by tools/mpv/remove-x264.patch; built-in H.264 decoding is retained",
     "source_capture": "The release build records each source checkout revision and each non-Git source file hash in SOURCE-MANIFEST.tsv, then packages those sources with the build scripts.",
-    "build_container": "Pinned by digest in .github/workflows/release.yml"
+    "build_container": "Pinned by digest in .github/workflows/release.yml",
+    "curl_revision": "01346829096c61b372692f6dc43ffa778c6caccd",
+    "curl_version": "8.22.0; latest stable release verified on 2026-10-11"
   },
   "remaining": [
-    "Build the release candidate after the audit gate is approved, then inventory every dependency actually linked into the runtime and verify GPLv3 compatibility and redistribution rights without dropping required playback parity",
+    "Build and verify the private release candidate before approving distribution; inventory the exact runtime and verify compatible redistribution terms without dropping required playback parity",
     "Review the native source manifest and verify that the package includes every required native license, copyright notice and corresponding source for the exact candidate",
     "Audit all 344 Windows-targeted Rust dependencies, select compatible license grants, and include required license and copyright notices in the portable package",
     "Verify and include the selected Slint Royalty-free 2.0 attribution and terms in the portable package",
@@ -69,5 +71,21 @@
     "The development archive contains the DLL and import library but not the native dependency sources, notices or reproducible source bundle",
     "No embedded FFmpeg GPL configuration string was found; absence is not license evidence",
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields, but selected alternatives and notices still need package-level review"
-  ]
+  ],
+  "latest_candidate_failure": {
+    "run_id": 38119383913,
+    "job_id": 114410787436,
+    "commit": "068536d83a50ba64c1aa8154566fc535b8f9c135",
+    "failed_dependency": "curl",
+    "evidence": "GitHub native-engine log reports curl-build exit 1 at 846/886; inner build logs were lost because ERR was not inherited by run_ninja.",
+    "next_candidate": "Enable inherited ERR diagnostics, preserve full logs and compiler cache, and pin the curl source/recipe to 8.22.0. The upstream libssh compatibility patch applies to that source; full build is pending."
+  },
+  "rust_candidate_audit": {
+    "version": "0.2.11",
+    "external_dependency_count": 346,
+    "missing_notice_files": 0,
+    "cargo_lock_sha256": "edb5b5bd5f4a852243d668fb889ecb82442074c645d0453473af7dcf11ff216e",
+    "notice_manifest_sha256": "f2462592c8fa447aabd8d4c244e55ecfd3cec4d1a7d4204ba95a5853836748b8",
+    "evidence": "scripts/package-rust-licenses.py completed on 2026-10-11; all selected grants passed its reviewed GPLv3-compatible list and notice files were collected. CI must regenerate from this exact lockfile."
+  }
 }

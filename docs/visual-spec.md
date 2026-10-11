@@ -42,6 +42,17 @@ estimated until actual visible-control captures are reviewed and measured.
 | chapter rows | 40 points | SidebarChaptersPane.tableView |
 | auto-hide | 2.5 s | Preference.defaultPreference |
 
+Fullscreen Additional Info is source-derived from `AdditionalInfoView.swift` and
+`MainWindowController.swift`: the title sits above an 18-point bold monospaced
+clock, a 2-by-16-point separator and a 13-point bold battery percentage. The
+horizontal stack uses 4-point spacing; the card uses 16-point liquid-glass or
+10-point visual-effect corners with 16/8-point content padding. It is anchored
+below the title bar, beside the trailing sidebar, and fades with fullscreen UI.
+The current original Slint card follows those text sizes, alignment and visibility
+rules, but its rendered glass, system clock symbol, exact card height and battery
+glyph still need a same-state capture comparison. Riina currently shows local
+24-hour time; matching each platform's user-selected short-time format remains open.
+
 The floating controls now use the recorded 67-point outer height, 460-point width,
 14/8 vertical insets and 8-point row separation. The 17-point button row is an
 independent layout allocation pending reference capture measurements. A native
@@ -166,9 +177,33 @@ settings index or highlight an exact row. The Network connection section is
 source-derived from the pinned SettingsPageNetwork and legacy XIB, not visually
 captured. These icon shapes are authored independently and recorded in
 `assets/provenance.json`; their rendered scale and spacing still need matched
-comparison. See
+comparison. Pixel samples from the Plugins capture show the navigation surface at
+approximately `#f6f6f6` and the content surface at `#ffffff`; inset lists use a
+slightly shaded fill with a thin gray outline. Riina now uses those base surface
+colors while retaining its rounded, bordered cards. This source-pixel correction
+has not been validated in a live Windows render. See
 `IINA-1.5.0-SETTINGS-SURFACES-001` in the reference-capture manifest before
 changing those layouts.
+
+Interface > Window uses four separate rounded lists after Appearance: expandable
+Initial window size and Initial window position switches; resize mode and its
+three timing choices; physical-resolution behavior; and two float-on-top options.
+The size detail is one horizontal Width/Height, value, and unit row. Position
+details follow the source's four-row X/Y offset and screen-edge arrangement.
+Riina now represents these controls and derives later card positions and scroll
+anchors from their expanded heights. This is a layout implementation step, not
+evidence of pixel parity: live expanded-state capture, exact card and row metrics,
+keyboard focus appearance, and matched Windows/macOS pixels remain open.
+
+The 2026-10-11 macOS capture places the Appearance heading above a three-row,
+122-point rounded list starting at y=81 in the captured client. The Window heading
+follows, with its two expandable switches in an 82-point default list starting at
+y=248. Resize mode and its three radio choices occupy a separate 118-point list
+starting at y=346; physical resolution is its own single-row list. Riina now follows
+that default heading/card hierarchy and the measured first-card positions and
+heights, and recomputes later positions when geometry details expand. The captured
+Liquid Glass row is represented visually, while its per-surface effect and expanded
+controls remain an explicit implementation gap.
 
 Network > Online Videos (yt-dlp) is implemented as the source's two stacked
 rounded lists: the Online Media recommendation and the extractor switch with
@@ -176,3 +211,50 @@ custom search-folder and raw-options details. The pinned source identifies the
 switch as enabled by default and requires a restart for the custom folder. The
 Windows surface has not been captured in this state; row metrics, plugin-state
 copy, disabled styling and matched reference pixels remain open.
+
+The captured Control page (Settings surfaces capture, page 07) begins with a
+Trackpad card containing Pinch to and Force Touch to, followed by a Mouse card
+with single click, double click, right click, middle click and first-click-focus
+options. The next card assigns vertical and horizontal scrolling; the final card
+contains Seek type and seek, speed and volume sensitivity. At the captured 608 x
+500 outer size the latter controls continue below the initial 480-point client and
+use the page's vertical scroll view. These source-visible order and defaults guide
+the new shared Control page; its rendered Windows metrics, state changes and
+matched macOS pixels have not yet been reviewed.
+
+The pinned macOS Settings capture for Key Bindings (page 08) shows a 600 × 480-point
+client area. The page has a rounded system-media-control row, then a rounded profile
+card with a profile selector, delete and keyboard buttons, a search field, a raw or
+lock control, and a vertically scrolling action/shortcut table. Rows use a text
+label on the left and a compact outlined key-cap on the right. Riina now implements
+that one-column hierarchy and the first seven visible default mappings. Its complete
+Windows render, selected-row behavior, source-specific keycap metrics, full maps and
+matched pixels remain unverified. The legacy XIB retains profile lifecycle and
+table-edit behavior not fully visible in the captured state.
+
+The pinned Utilities capture (page 11) uses the same 600 × 480-point client and
+200-point sidebar. Its scrollable content orders Default Application, Restore
+Alerts, Clear Cache and Browser Extensions as separate gray section labels above
+rounded bordered lists. The cache list groups saved playback progress, playback
+history and thumbnail cache rows; long descriptions wrap beneath the row title,
+while compact trailing action buttons and cache size labels align to the right.
+Riina now follows this section and row hierarchy, and the recent-media history
+row has a confirmed clear action. Thumbnail clearing remains disabled because
+there is no application-owned thumbnail cache yet. Native action surfaces,
+lower-page scrolling and Windows pixel comparison remain to verify.
+At the captured 1x scale, the three cards begin at y≈81, 168 and 290 points from
+the image top. The Clear Cache card is about 202 points tall, with row heights near
+87, 74 and 41 points; Browser Extensions begins below the first viewport at y≈514.
+Trailing action pills are about 40 × 26 points with a 10-point card inset. These
+are screenshot measurements, not toolkit layout constants from upstream.
+
+The pinned Advanced capture (page 09) uses the same 600 × 480-point client and
+200-point sidebar. A single advanced-settings card sits first with the flask glyph,
+help affordance, switch and two-line restart note. Logging has a two-row card and
+a separate log-window action row. mpv Settings follows with compact OSD and
+configuration-directory cards; the latter keeps its path chooser and switch on
+one line. Additional mpv options continues below the initial viewport in a
+120-point editor with a two-column table and add/remove controls. Riina now follows
+that order and compact row hierarchy with original vector symbols. The current
+render, in-app log window, editor drag/paste/focus behavior, scroll and matched
+macOS pixels still require direct comparison.

@@ -1,7 +1,7 @@
 # riina
 
 Rust IINA reimplementation, targeting
-official **IINA v1.5.0**. Riina 0.2.3 is in development;
+official **IINA v1.5.0**. Riina 0.2.11 is in development;
 full parity remains in progress.
 
 [![Latest release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/latest)
@@ -19,17 +19,18 @@ Feature parity and pixel-perfect interface parity are primary goals, with origin
 MIT code and assets. Volume is capped at 100% by default; an optional audio setting permits up to 200%.
 
 Application code is Rust (edition 2024); Slint supplies the retained UI and libmpv
-supplies real playback. The default renderer uses a shared OpenGL texture.
+supplies real playback. Windows uses native D3D11 presentation beneath the shared
+controls; macOS/Linux use shared OpenGL presentation. `--shared-gl` keeps the
+Windows GL route available for diagnostics.
 There is no web frontend or telemetry.
 
 On Windows 11 x64, install Rust 1.99.0 and MSVC C++ build tools with Windows SDK.
 Run `./scripts/fetch-reference.ps1`, then `./scripts/fetch-mpv.ps1` (requires 7-Zip).
 Build with `cargo build --workspace --locked`; run with
 `cargo run -p riina --locked -- "C:\media\movie.mkv"`.
-The local development executable uses the pinned development DLL; a portable
-release ZIP includes its matching media runtime beside the executable. Verified
-release downloads include the Windows x64 package, complete corresponding source
-archive and SHA-256 checksums on the repository's GitHub Releases page.
+The local development executable uses the pinned development DLL. A Windows
+binary release is pending completion of the native dependency distribution audit
+and corresponding-source checks.
 `./scripts/dev.ps1` also supports the workspace-local tools prepared during development.
 
 Implemented slice: local-file dialog with batch selection, file filtering and
@@ -65,17 +66,15 @@ menus, plugins, visual fidelity and broad hardware/DPI coverage remain incomplet
 Issues and focused contributions are welcome. Include reproduction steps, Windows
 version and media format when reporting a bug; use a shareable sample where possible.
 
-Native renderer experiment: `cargo run -p riina --bin d3d11-probe --locked --
+Native renderer probe: `cargo run -p riina --bin d3d11-probe --locked --
 "C:\media\movie.mkv"`. This separate development surface tests D3D11 video with
 owned Slint controls and writes `tools/d3d11-probe.log`. Its current evidence and
-remaining HDR gates are in [the experiment record](docs/adr/0002-native-d3d11-experiment.md).
+remaining HDR gates are in [the presentation record](docs/adr/0002-native-d3d11-experiment.md).
 Pass several media paths to cycle them with Next / Reload. Stop and keyboard
 Tab/Enter allow testing native output destruction/recreation. The fixture set
-includes original PQ and HLG 10-bit samples; the ordinary player still uses its
-provisional SDR renderer.
+includes original PQ and HLG 10-bit samples.
 
-To test the native HDR candidate with the shared player controls and sidebars:
-`cargo run -p riina --locked -- --native-video "C:\media\movie.mkv"`.
-This option uses a native D3D11 video host and the same player UI in a transparent
-owned window. Renderer logs go to `%LOCALAPPDATA%/riina/native-player.log`. It remains experimental;
-calibrated HDR color, video blur and complete window/DPI coverage are open gates.
+Renderer logs go to `%LOCALAPPDATA%/riina/native-player.log`. Calibrated HDR
+color, video blur and complete window/DPI coverage remain open gates. Use
+`cargo run -p riina --locked -- --shared-gl "C:\media\movie.mkv"` to compare
+the shared OpenGL route.

@@ -5,11 +5,13 @@ further features. Target the pinned IINA 1.5.0 release, preserving independent
 original Rust/Slint code and artwork. Subsequent development stays local until a
 substantial verified public milestone.
 
-Windows capture now succeeds through the computer-use tool. The default shared
-renderer capture shows the original video fixture and complete floating panel.
-Native renderer captures expose chrome but show a black video region; that alone
-does not establish that the visible native playback surface is black. The prior
-monitor-capture failure is no longer a blanket blocker.
+Windows capture now succeeds through the computer-use tool. Earlier captures did
+not distinguish capture failure from native-overlay opacity. The 2026-10-11 live
+repair identifies an opaque Slint chrome HWND over correctly decoded native video;
+restoring DWM alpha reveals the complete fixture. The owner event router now keeps
+aspect filtering, alignment and fullscreen focus handling together. Retained
+windowed/fullscreen captures verify the local correction, not macOS pixel parity.
+The prior monitor-capture failure is no longer a blanket blocker.
 
 The earlier empty-player capture was a separate 962 x 649 window state: Riina's
 name and subtitle sat in the center, while Open File remained at the left edge.
@@ -31,12 +33,17 @@ when disabled. App-level saved-settings restart, live Windows preference
 interaction and matching pixels remain unverified; material is incomplete, and
 no pixel comparison against a matching reference has passed.
 
-A fresh screenshot of the release build showed a 560 x 328 outer welcome window,
-so the earlier preferred-height request was not reaching the actual window. The
-welcome component now sets concrete 558 x 391 bounds instead of only preferred
-dimensions. The capture helper displayed the window image but returned a null
-state object on both attempts; recapture the rebuilt app before accepting these
-bounds or comparing welcome pixels.
+The pinned `InitialWindowController.swift` constructs the welcome surface at
+560 x 440 points and omits the resizable style. A fresh Riina release capture
+showed only 560 x 328, despite earlier source requests intended to reach 560 x
+440 on Windows. The welcome component now constrains its preferred, minimum and
+maximum logical size to the source dimensions. In the rebuilt native Windows
+app, the complete welcome contents render at 562 x 469 outer pixels (560 x 440
+logical client points) and sit centered. The retained black video host is hidden
+without covering Welcome; opening and cancelling the native file picker returns
+to the rendered welcome surface. This verifies dimensions and the welcome/picker
+lifecycle only; a matched screenshot comparison and remaining welcome details
+are still open.
 
 General > History now exposes the source's default-enabled Resume last position
 setting. The persisted policy configures libmpv's save-on-quit and resume options
@@ -68,7 +75,7 @@ prove rendered parity.
 | Main window | Native title/menu strip, in-player title/buttons, rounded window shape, aspect fit, startup, separate welcome window and empty state |
 | Floating controls | 12pt macOS 26 corners, complete button groups, glyph weight, sliders, spacing, video-sampled material, compact/spacious layouts, hide animation |
 | Other control layouts | Top/bottom layouts and their exact allocation, visibility and resize behavior |
-| Video settings | Tab organization, aspect/crop/rotation controls, equalizer and hardware-decode controls |
+| Video settings | Pixel-accurate tab, card and scroll layout; decoder threads, hardware decoder choices and nested tone-mapping controls; ICC/HDR switches and a matched macOS comparison |
 | Audio/subtitles | Shared reference tab organization, row styles, selections, editable fields, warnings and secondary subtitle controls |
 | Playlist/chapters | Width, resize, row metrics, tabs, text treatment, selections, footer actions and drag/drop |
 | Menus | Complete structure, text, checks, enabled state, shortcut display and window ownership |
@@ -98,12 +105,17 @@ resizing and non-edge-to-edge control allocation remain open. All eleven pinned
 Preferences pages are now captured from IINA v1.5.0: General, Interface, Video,
 Audio, Subtitles, Network, Control, Key Bindings, Advanced, Plugins and Utilities.
 The observed window is 608 x 500 including chrome; the source-derived content area
-is 600 x 480 with a 200-point sidebar. Riina's 820 x 480 shell still needs reflow,
-matching cards, and rendered comparison. The sidebar now has original icons and
+is 600 x 480 with a 200-point sidebar. Riina's current Settings component now uses
+the same 600 x 480 client bounds and 200-point sidebar. Its outer Windows chrome,
+card layout, scrolling, and matched rendering remain unverified. The sidebar now has original icons and
 grouped search over implemented controls. It has the existing General
 controls, and a functional partial Interface pane for OSC position, compact mode,
 docked controls and OSD visibility/speed/seek suppression. OSD settings update
-live overlay filters and persist through the shared settings path. Video & Audio
+live overlay filters and persist through the shared settings path. The optional
+fullscreen information row now refreshes local time and battery percentage while
+fullscreen controls are visible, and stops its timer when hidden. Its border,
+glass, clock glyph, and matched-state geometry still require a fresh Windows and
+macOS reference comparison. Video & Audio
 now includes the source-sized hardware-decoder selector for Disabled, Auto and
 Auto (Copy), with the selected mode applied to libmpv and persisted. Advanced
 Audio > Volume now contains the opt-in 200% cap extension, retaining the
@@ -186,8 +198,89 @@ source-ordered modes and Advanced priority-keyword/search-path fields with the
 pinned defaults. Startup and live preference saves configure mpv's `sub-auto`
 property, translating Disabled/filename/IINA modes to no/fuzzy/exact sidecar
 matching. Literal directories map to `sub-file-paths`; the default `./*` glob is
-retained without being passed as an invalid directory. IINA keyword ranking and
-its complete directory/glob matcher remain unimplemented. Playlist effects, live
-GUI interaction, source comparison and matched macOS pixels remain open.
-Audio, the remaining Network pages, Control, Key Bindings, Plugin and Utilities
-remain unfinished. Full surface comparison is part of the complete parity goal.
+retained without being passed as an invalid directory. IINA keyword ranking and its complete directory/glob matcher remain unimplemented.
+Playlist shuffle/unshuffle and filename/path sorting now have native command plans,
+sidebar controls, and focused core coverage. Native playback confirmation, exact
+sort ordering against the live engine, drag and multi-select actions, and matched
+Windows/macOS pixels remain open.
+Audio now has the captured Hardware, Volume and Other section routes. Typed
+preferences configure startup audio threads, driver, device ID, S/PDIF, initial
+volume, ReplayGain, gapless playback and preferred languages. The independent
+200% volume extension is visible in Volume and remains disabled by default.
+Device enumeration, immediate reconfiguration, native language selection and
+matched surface pixels remain open. The remaining Network pages, Control, Key
+Bindings, Plugin and Utilities remain unfinished. Full surface comparison is
+part of the complete parity goal.
+
+Window-aspect lock and Fit Window to Video now appear in the Layout sidebar with
+the reference default and visibility conditions. Shared sizing logic uses display
+dimensions, rotation and explicit aspect overrides; resize events preserve the
+dominant edge, and fitting grows the short dimension within the current monitor.
+This is only a portable policy and application compile check. Live window drags,
+fit placement, fullscreen/maximize transitions, saved restart, native-window
+rendering and matched macOS/Windows captures must still verify the actual behavior.
+The aspect callbacks now target the separate native-video host window as well as
+the shared chrome window; this wiring still needs playback and resize verification.
+
+The Control Preferences page was a heading-only stub. It now follows the captured
+Control page order and exposes Trackpad, Mouse, Scroll and Scrolling Sensitivity
+groups. IINA's action enums, available popup choices and defaults are represented
+by a validated shared Rust model and saved with the existing preferences file.
+The source screenshot shows the Trackpad card at the top, five Mouse rows, then
+the vertically and horizontally assigned scroll actions. Riina's page scrolls to
+keep the seek-type and three sensitivity sliders reachable in the 480-point client.
+The Settings controls and persisted values are now represented; actual gesture
+dispatch, Force Touch/pinch platform mapping, a live Windows capture and a matched
+macOS comparison remain open. See PREFERENCES-CONTROL-POINTER-001 and
+PREFERENCES-CONTROL-SCROLL-001 in the atomic inventory.
+
+### Key Bindings page
+
+The pinned macOS Settings capture (page 08) is the visual reference: a rounded
+system-media-control row, then a profile selector and action list with outlined
+key-caps aligned at the right. A search field and raw-value control sit above the
+list. The legacy `PrefKeyBindingViewController.xib` is evidence for profile and
+mapping operations, not the new Settings page geometry. Riina now follows the
+captured one-column hierarchy, includes the first seven visible IINA defaults, and
+filters rows by readable labels or raw values. Its profile store supports list,
+create, duplicate, import, save, rename and delete, with reveal/delete wired to the
+page. Other built-in maps, add/edit/key recording, selection-aware removal, runtime
+dispatch and system media-session behavior remain incomplete. The Windows page has
+not yet been captured against the macOS reference.
+
+### Utilities page
+
+The pinned page 11 capture shows the four section hierarchy and a scrollable
+content column. Riina now renders those sections and their action rows. Confirmed
+Clear Saved Playback Progress deletes only files inside Riina's watch-later
+directory and leaves that directory ready for future progress writes. The default
+application action opens Windows Default Apps; Restore Alerts reports the current
+source-equivalent empty state. Clear Playback History confirms and removes Riina's
+persisted recent-media entries, refreshes the live welcome list, and prevents the
+current item from being re-added at shutdown until another media item opens. Riina
+does not yet have IINA's separate playback-history database or a thumbnail cache;
+thumbnail deletion stays disabled. Browser extensions remain absent. The latest
+Windows render, focus treatment and matched pixel comparison remain unverified.
+
+The Plugins page now uses the captured overview card, GitHub/local-package actions,
+update status, refresh affordance and 60-point installed-plugin rows. Its row model
+is data-driven, so an empty installation is represented honestly instead of showing
+the reference machine's installed plugins as if they were present. Wiring these
+actions to the portable plugin manager, permission and update states, and a matched
+Windows capture remain open; this layout increment does not close plugin parity.
+The row columns now follow the capture: a bounded plugin-name field, version and
+overflow action grouped together, with the information control aligned at the far
+edge. Disabled switches also reject Space/Enter, matching their disabled pointer
+behavior. These are source-layout and interaction corrections only; the rendered
+Windows page still needs a matched capture.
+
+The pinned General page exposes a four-item section list: Behavior, History,
+Playlist and Screenshots. Riina now follows that navigation pattern and separates
+the existing pause/fullscreen, resume-position and screenshot controls into their
+corresponding sections. Settings search also opens the matching General subsection.
+The additional IINA window-lifecycle and playlist policies, source-matched row
+details, and macOS/Windows pixel comparison remain open.
+The settings base now uses the captured white content surface and light-gray
+sidebar; the settings cards retain their inset fill and border.
+Pixel samples from the Plugins image also set its overview/list fill to `#fafafa`
+and the row separators to `#e1e1e1` across the complete card width.

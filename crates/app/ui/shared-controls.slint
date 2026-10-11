@@ -8,6 +8,7 @@ export component PlayerSlider inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> hint;
     in property <bool> neutral-mark: false;
+    in property <bool> dark-theme: true;
     callback changed(float);
     height: 20px;
     horizontal-stretch: 1;
@@ -26,13 +27,13 @@ export component PlayerSlider inherits Rectangle {
     accessible-action-decrement => { if enabled { changed(max(minimum, value - step)); } }
     private property <float> fraction: clamp((value - minimum) / max(0.001, maximum - minimum), 0, 1);
     Rectangle { x: 3px; y: 9px; width: parent.width - 6px; height: 2px;
-        background: #ffffff40; border-radius: 1px; }
+        background: root.dark-theme ? #ffffff40 : #00000030; border-radius: 1px; }
     if neutral-mark : Rectangle { x: parent.width / 2 - 0.5px; y: 6px;
         width: 1px; height: 8px; background: #ffffff60; }
     Rectangle { x: 3px; y: 9px; width: (parent.width - 6px) * fraction; height: 2px;
         background: enabled ? #dddde5 : #666666; border-radius: 1px; }
     Rectangle { x: (parent.width - 6px) * fraction; y: 6px; width: 6px; height: 8px;
-        border-radius: 2px; background: enabled ? #f4f4f7 : #777777; }
+        border-radius: 2px; background: enabled ? (root.dark-theme ? #f4f4f7 : #3b3b40) : #777777; }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
     touch := TouchArea {
         enabled: root.enabled;

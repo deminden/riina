@@ -85,12 +85,11 @@ impl Player {
     pub fn start_native_window(
         path: &Path,
         window: u32,
-        log: &Path,
         mut options: Vec<(String, String)>,
         notify: impl Fn(Playback) + Send + 'static,
     ) -> Result<Self, String> {
-        if window == 0 || !log.is_absolute() {
-            return Err("Native output requires a live HWND and absolute log path".into());
+        if window == 0 {
+            return Err("Native output requires a live HWND".into());
         }
         options.extend([
             ("vo".into(), "gpu-next".into()),
@@ -99,8 +98,6 @@ impl Player {
             ("gpu-context".into(), "d3d11".into()),
             ("d3d11-output-format".into(), "rgba16f".into()),
             ("target-colorspace-hint".into(), "auto".into()),
-            ("log-file".into(), log.to_string_lossy().into_owned()),
-            ("msg-level".into(), "all=v".into()),
         ]);
         Self::start_options(path, false, options, notify)
     }
@@ -122,6 +119,7 @@ impl Player {
             unsafe {
                 let handle = (worker_api.create)();
                 if handle.is_null() { let _ = ready_tx.send(Err("mpv_create failed".into())); return; }
+                let mut startup_option_errors = Vec::new();
                 let initialized = (|| -> Result<(), String> {
                     for (key, value) in [("config", "no"), ("load-scripts", "no"), ("idle", "yes"),
                         ("vo", if headless { "null" } else { "libmpv" }),
@@ -158,14 +156,22 @@ impl Player {
                     for (key, value) in &options {
                         let key = CString::new(key.as_str()).map_err(|e| e.to_string())?;
                         let value = CString::new(value.as_str()).map_err(|e| e.to_string())?;
-                        worker_api.check((worker_api.option)(handle, key.as_ptr(), value.as_ptr()))?;
+                        let result = (worker_api.option)(handle, key.as_ptr(), value.as_ptr());
+                        if let Err(error) = worker_api.check(result) {
+                            // IINA reports invalid optional mpv preferences but still
+                            // starts the player; a typo must not make media unplayable.
+                            startup_option_errors.push(format!(
+                                "{}: {error}",
+                                key.to_string_lossy()
+                            ));
+                        }
                     }
                     worker_api.check((worker_api.initialize)(handle))?;
                     for (name, format) in [("time-pos", 5), ("duration", 5), ("pause", 3),
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
-                        ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("video-params", 6), ("video-target-params", 6),
+                        ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("deinterlace", 1), ("deinterlace-active", 3),
                         ("video-frame-info", 6),
@@ -197,7 +203,17 @@ impl Player {
                 // The numeric token is opaque outside video.rs. No Rust object is given a
                 // fabricated Send implementation; the worker owns and destroys this handle.
                 let _ = ready_tx.send(Ok(handle as usize));
-                let mut state = Playback { volume: 100.0, speed: 1.0, ..Default::default() };
+                let mut state = Playback {
+                    volume: 100.0,
+                    speed: 1.0,
+                    error: (!startup_option_errors.is_empty()).then(|| {
+                        format!(
+                            "Some mpv options were ignored: {}",
+                            startup_option_errors.join("; ")
+                        )
+                    }),
+                    ..Default::default()
+                };
                 let mut next_id = 0u64;
                 let mut pending = HashMap::new();
                 let mut pending_screenshots = HashMap::new();
@@ -236,6 +252,21 @@ impl Player {
                                         state.error = Some(error);
                                         resume_on_load = false;
                                         break;
+                                    }
+                                    if matches!(command, Command::TogglePlaylistShuffle) {
+                                        state.playlist_shuffled = !state.playlist_shuffled;
+                                    } else if matches!(
+                                        command,
+                                        Command::SortPlaylist(_)
+                                            | Command::MovePlaylistEntry { .. }
+                                            | Command::MovePlaylistId { .. }
+                                            | Command::RemovePlaylistEntry(_)
+                                            | Command::RemovePlaylistId(_)
+                                            | Command::ClearPlaylist
+                                            | Command::AppendFiles(_)
+                                            | Command::OpenFiles(_)
+                                    ) {
+                                        state.playlist_shuffled = false;
                                     }
                                     if seek_feedback::navigation(&args, &state) { seek_feedback.submitted(next_id); }
                                     if let Command::ScreenshotToFile { path, .. } = &command {
@@ -374,6 +405,19 @@ unsafe fn issue(
     Ok(())
 }
 
+fn decode_audio_devices(
+    value: serde_json::Value,
+) -> Result<Vec<riina_core::audio_preferences::OutputDevice>, String> {
+    let devices: Vec<riina_core::audio_preferences::OutputDevice> =
+        serde_json::from_value(value).map_err(|error| error.to_string())?;
+    if devices.iter().any(|device| {
+        device.name.is_empty() || device.name.contains('\0') || device.description.contains('\0')
+    }) {
+        return Err("mpv returned an invalid audio device entry".into());
+    }
+    Ok(devices)
+}
+
 unsafe fn apply_property(state: &mut Playback, property: &Property) {
     // SAFETY: caller processes the event before asking mpv for another one. Format
     // tags are checked before dereferencing; unavailable properties remain unknown.
@@ -391,6 +435,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"track-list" => state.tracks.clear(),
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
+            b"audio-device-list" => state.audio_devices.clear(),
             b"sub-text" => state.subtitle_text = None,
             b"secondary-sub-text" => state.secondary_subtitle_text = None,
             b"secondary-sub-visibility" => state.secondary_subtitle_visible = None,
@@ -458,6 +503,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"playlist" => {
                     state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?
                 }
+                b"audio-device-list" => state.audio_devices = decode_audio_devices(value)?,
                 b"video-frame-info" => {
                     state.video_frame_info =
                         if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
@@ -605,5 +651,38 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 _ => {}
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod audio_device_property_tests {
+    use super::*;
+
+    #[test]
+    fn observed_audio_devices_keep_engine_ids_and_descriptions() {
+        let devices = decode_audio_devices(serde_json::json!([
+            {"name": "auto", "description": "Autoselect device"},
+            {"name": "wasapi/{endpoint}", "description": "Speakers"}
+        ]))
+        .unwrap();
+        assert_eq!(devices.len(), 2);
+        assert_eq!(devices[1].name, "wasapi/{endpoint}");
+        assert_eq!(devices[1].description, "Speakers");
+    }
+
+    #[test]
+    fn malformed_native_audio_device_entries_are_rejected() {
+        assert!(
+            decode_audio_devices(serde_json::json!([
+                {"name": "", "description": "No identifier"}
+            ]))
+            .is_err()
+        );
+        assert!(
+            decode_audio_devices(serde_json::json!([
+                {"name": "wasapi/device\u{0000}", "description": "Bad ID"}
+            ]))
+            .is_err()
+        );
     }
 }

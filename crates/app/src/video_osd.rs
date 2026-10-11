@@ -5,6 +5,8 @@ use riina_core::{Phase, Playback, speed_controls};
 pub(crate) enum Kind {
     Aspect,
     Deinterlace,
+    FileStart,
+    PauseResume,
     Speed,
     Equalizer,
     HardwareDecoding,
@@ -17,22 +19,36 @@ pub(crate) struct Message {
     pub progress: Option<f32>,
 }
 
+pub(crate) fn file_start_message(title: &str, enabled: bool, disabled: bool) -> Option<Message> {
+    (enabled && !disabled && !title.is_empty()).then(|| Message {
+        kind: Kind::FileStart,
+        text: title.to_owned(),
+        progress: None,
+    })
+}
+
 #[derive(Default)]
 pub(crate) struct VideoOsd {
     previous: Option<Playback>,
     disable_speed: bool,
+    disable_pause_resume: bool,
 }
 
 impl VideoOsd {
-    pub(crate) fn new(disable_speed: bool) -> Self {
+    pub(crate) fn new(disable_speed: bool, disable_pause_resume: bool) -> Self {
         Self {
             disable_speed,
+            disable_pause_resume,
             ..Default::default()
         }
     }
 
     pub(crate) fn set_disable_speed(&mut self, disabled: bool) {
         self.disable_speed = disabled;
+    }
+
+    pub(crate) fn set_disable_pause_resume(&mut self, disabled: bool) {
+        self.disable_pause_resume = disabled;
     }
 
     pub(crate) fn observe(&mut self, state: &Playback) -> Option<Message> {
@@ -43,12 +59,18 @@ impl VideoOsd {
         {
             previous.speed = state.speed;
         }
+        if self.disable_pause_resume
+            && let Some(previous) = &mut self.previous
+        {
+            previous.paused = state.paused;
+        }
         let message = changed(self.previous.as_ref(), state);
         // Catalog caches intentionally ignore clock/settings-only snapshots.
         // Consume every observation here, retaining only feedback fields so a
         // prior edit cannot repeatedly mask a later edit or restart its timer.
         self.previous = Some(Playback {
             generation: state.generation,
+            paused: state.paused,
             speed: state.speed,
             hardware_decoding: state.hardware_decoding.clone(),
             video_equalizer: state.video_equalizer,
@@ -76,6 +98,13 @@ pub(crate) fn changed(previous: Option<&Playback>, state: &Playback) -> Option<M
         return Some(Message {
             kind: Kind::Aspect,
             text: format!("Aspect Ratio: {}", state.video_aspect.requested_text()),
+            progress: None,
+        });
+    }
+    if previous.paused != state.paused {
+        return Some(Message {
+            kind: Kind::PauseResume,
+            text: if state.paused { "Paused" } else { "Resumed" }.into(),
             progress: None,
         });
     }
@@ -179,6 +208,33 @@ mod tests {
         assert_eq!(feedback.observe(&state).unwrap().text, "Speed: 2x");
         state.position = Some(4.0);
         assert_eq!(feedback.observe(&state), None);
+    }
+
+    #[test]
+    fn pause_resume_messages_follow_confirmed_playback_state_and_can_be_suppressed() {
+        let mut feedback = VideoOsd::new(false, false);
+        let mut state = loaded();
+        assert_eq!(feedback.observe(&state), None);
+        state.paused = true;
+        assert_eq!(feedback.observe(&state).unwrap().text, "Paused");
+        state.paused = false;
+        assert_eq!(feedback.observe(&state).unwrap().text, "Resumed");
+
+        feedback.set_disable_pause_resume(true);
+        state.paused = true;
+        assert_eq!(feedback.observe(&state), None);
+        state.video_equalizer[0] = Some(-27);
+        assert_eq!(feedback.observe(&state).unwrap().kind, Kind::Equalizer);
+        feedback.set_disable_pause_resume(false);
+        assert_eq!(feedback.observe(&state), None);
+    }
+
+    #[test]
+    fn file_start_feedback_obeys_global_and_category_suppression() {
+        assert!(file_start_message("clip.mkv", true, false).is_some());
+        assert!(file_start_message("clip.mkv", false, false).is_none());
+        assert!(file_start_message("clip.mkv", true, true).is_none());
+        assert!(file_start_message("", true, false).is_none());
     }
 
     #[test]

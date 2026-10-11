@@ -1,3 +1,40 @@
+2026-10-11 Binary delivery follow-up: candidate 38119383913 failed at curl-build
+(846/886), after the patch committer identity fix. The release builder now pins
+curl 8.22.0 and its exact source revision; the pinned libssh compatibility patch
+applies to that release. ERR inheritance and a complete build-log artifact retain
+inner dependency failures, and compiler caching survives failed attempts. Tagged
+releases now fail explicitly when binary approval is absent instead of publishing
+a source-only substitute. Rust notice collection passes for all 346 Windows
+external dependencies. The native compile, package/source audit and public binary
+delivery remain open; no binary release has been claimed.
+
+2026-10-11 Welcome lifecycle: the 0.2.11 development build presents the native Windows
+welcome contents without the retained black video host covering them. Its outer
+capture measures 562 x 469 pixels (560 x 440 logical client points), centered.
+The Open File dialog opens and cancellation returns to Welcome. Host visibility
+uses the retained native surface so the playback HWND remains alive for mpv.
+Formatting, workspace strict clippy, app check and optimized build pass. This is
+geometry/lifecycle evidence only; no matched IINA welcome pixel comparison or
+playback-open transition was captured in this increment.
+
+2026-10-11 Native overlay repair: live Windows capture confirms the original
+moving-square fixture is now visible across the complete player area. Slint's
+registered conditional menu forced its chrome HWND opaque; restore DWM alpha on
+each realized surface and keep native backgrounds transparent through Stop.
+The owner now routes aspect, alignment and fullscreen focus through one hook.
+Deferred aspect/window-level updates avoid the AccessKit re-entry panic observed
+on isolated startup. Windowed/fullscreen captures, Escape restoration, Stop,
+file-picker opening/cancellation and shutdown have live evidence. File selection
+after Stop remains unverified because the helper could not target the modal's
+file-name field reliably. The final optimized build also resumes the saved fixture
+from its welcome window through recreated chrome without the opaque block.
+Shared GL playback remains visible. The resumed window is partially offscreen;
+startup placement remains a separate parity gap. The final optimized build,
+formatting, strict lint and workspace tests pass (212 ordinary tests; 44 ignored).
+One explicit native media-open test passes; the other native tests were not rerun.
+See tests/visual/native-overlay-repair-evidence.json. This establishes the local
+overlay repair, not calibrated HDR or macOS pixel parity.
+
 The pinned macOS IINA v1.5.0 run captures and reviews all eleven Settings pages
 at the measured 600 x 480 client size. Riina's Settings sidebar now has original
 geometric page icons, selected-row styling and a live grouped Search popover over
@@ -2311,3 +2348,317 @@ current branch changes prepare cross-run artifact reuse so release packaging can
 continue from that verified build instead of rebuilding the native engine. The
 GPLv3 distribution gate remains false until the exact runtime dependency and
 source audit plus native tests pass; no binary release has been published.
+
+2026-10-11 Layout parity increment: added IINA's default window-aspect lock and
+the conditional Fit Window to Video action. The shared policy derives display
+ratio from video display dimensions, quarter-turn rotation and explicit aspect
+overrides; it preserves the dominant dragged edge and grows the short dimension
+for the fit action. The preference is saved alongside the other Layout choices.
+Actual resize gestures, fit centering/bounds, fullscreen/maximized behavior,
+restart persistence, native-host playback/resizing and matched reference pixels
+remain unverified; the new action is not counted as visually accepted. Both the
+shared chrome window and separate native-video host now bind the portable aspect
+policy, including the fit action against the host's actual dimensions.
+
+Playback evidence clarification: an earlier native screenshot with a black video
+region was superseded by the later GUI run in tests/visual/native-shared-evidence.json.
+Its native SDR and HLG captures show decoded frames, its accessibility state observes
+the 4.998-second position of a 5-second clip, and the shared GL captures also show
+video. Playback is demonstrated on Windows in both routes; the separate binary
+distribution still requires the full package with its adjacent libmpv runtime.
+
+2026-10-11 Audio parity increment: added the captured Hardware, Volume and Other
+sections under Settings > Audio. Shared typed preferences now cover decode threads,
+platform output driver, selected mpv device ID, S/PDIF codecs, initial volume,
+ReplayGain, gapless playback and preferred audio languages; startup maps these to
+libmpv options. The 200% cap remains a normal visible Volume control and stays off
+by default. These engine options apply at Riina startup; changing audio hardware settings asks the user to restart. The device picker now uses the observed libmpv audio-device-list and keeps a
+missing saved device visible; hot-plug refresh while Settings is open, live option
+changes, GUI capture and matched macOS/Windows pixels remain open. No new playback or GUI test is claimed.
+
+2026-10-11 playback presentation correction: on this HDR-enabled Windows desktop,
+the shared GL player reported `Playing`, advanced through the five-second fixture,
+and produced its decoded blue-frame pixels in the mpv framebuffer; the captured
+application window remained blank. The D3D11 route displayed the same moving fixture.
+Windows now selects D3D11 by default, while `--shared-gl` retains the GL path for
+diagnostics and non-Windows platforms continue using it. The Welcome window remains
+available on startup. A focused native test now covers the UI's `OpenFiles` command.
+This does not close HDR calibration, visual parity, or full playback verification.
+
+2026-10-11 default-route retest: the current Windows build launched the five-second
+moving-square AVI without a renderer override. A physical desktop capture shows the
+decoded fixture frame and its frame counter in the app window; startup reports the
+expected 3× scale and 2880×1800 physical client. The earlier shared-GL failure was
+presentation/composition: libmpv decoded and advanced, but its final window capture
+was blank. A separate pre-existing `target/debug/riina.exe` held that output locked,
+so this retest built in `target/validation-audio`. This verifies the fixture and
+default Windows route, not every codec, HDR calibration, or full UI parity.
+
+2026-10-11 Control Settings increment: replaced the heading-only Control page with
+the captured Trackpad and Mouse action rows, vertical/horizontal scroll choices,
+seek type and three sensitivity controls. A typed shared preference model preserves
+the IINA v1.5.0 defaults and popup ordering; edited values now serialize through the
+existing atomic Settings save path. Workspace compilation is clean. The actual
+Windows render and persisted interaction have not yet been captured, and the host
+input gestures, Force Touch/pinch mapping, gesture-specific behavior and matched
+macOS pixels remain open. The two Control-page requirements are now tracked in the
+parity inventory; they remain partial until the input behavior and surfaces are verified.
+
+2026-10-11 Key Bindings foundation: added a portable parser/serializer for mpv-style
+input profiles, including IINA's application-command marker, stable row order and
+inline comments. Invalid or multiline fields are rejected before serialization.
+Parser tests and core lint passed at this increment. The profile catalog and file
+operations were then added in the following increment; the editor surface, default
+mappings, key dispatch and system media controls remain open.
+
+2026-10-11 Key Bindings profile storage: added per-user profile listing, creation,
+duplication, validated import, atomic edits, rename and deletion. Names cannot escape
+the profile directory or shadow pinned built-in profile names. App profile-store
+tests and workspace Clippy pass. Built-in profile content, editor rendering, key
+dispatch, system media controls, accessibility and matched surface comparison remain open.
+
+2026-10-11 Key Bindings surface increment: restructured the page around the captured
+profile selector and one-column action/key-cap list. The default preview now begins
+with the captured Video/Audio/Subtitle panel and track-cycling entries, followed by
+Pause and Stop. Search filters readable and raw mapping text; profile-file reveal and
+custom-profile deletion are connected to the cross-platform file service and profile
+store. The other built-in profiles still lack mappings, key recording/editing and
+runtime dispatch are open, and no new Windows rendering capture has been made.
+
+2026-10-11 playback diagnosis: the current Key Bindings Slint component redeclared
+FocusScope's built-in `enabled` property, so the latest application build failed
+before any playback could start. Removing that shadowing declaration restored the
+build. A focused libmpv integration test then passed against the pinned local DLL;
+the current workspace app also launched `moving-square.avi`, and its native log
+reported WASAPI audio output plus the D3D11 `gpu-next` video output and playback
+restart. This verifies real decode/output initialization on this machine; the
+current rerun was not separately screen-captured. GitHub's latest published
+release remains source-only: portable binary distribution is still blocked by
+the native dependency audit and package verification gate.
+
+2026-10-11 Key Bindings capture-alignment increment: replaced the draft two-column
+assumption with the captured one-column profile card and action/key-cap list. The
+preview now starts with the seven captured panel, track and pause entries; keycaps
+use compact platform-aware shortcut labels. Search filters both display and raw
+values, and custom-profile reveal/deletion use the shared platform and profile
+services. Focusable rows move selection with the arrow keys. The 59 app unit tests,
+workspace test suite, formatting, strict all-target Clippy, parity traceability and
+Settings navigation checks pass; the default workspace run leaves all 39 native
+integration tests ignored. Mapping add/edit/key recording, selected-row removal,
+the other built-in maps, runtime dispatch, system media integration, and a live
+Windows/macOS comparison remain open.
+
+2026-10-11 Key Bindings editor increment: the keyboard-plus control now opens the mapping editor, and user profiles support recording shortcuts, changing action and comment, saving edits, and removing the selected row with Delete/Backspace. Built-in profiles stay read-only, and filtered rows retain their source mapping identity. Added tests for source-index preservation and mpv shortcut formatting; formatting and workspace compilation pass. This is a functional increment, not full editor parity: the action builder, a reference-matched remove affordance, full built-in maps, key dispatch and live Windows/macOS comparison remain open. GUI interaction has not been verified.
+2026-10-11 macOS Appearance parity increment: the pinned Interface capture places Appearance
+before On-Screen Controller and offers Dark, Light and Match System Appearance. Riina
+now adds a Dark/Light selector before the controller and OSD groups, persists the
+existing dark preference, and recolors the player toolbar, floating controller, text,
+icons and sliders live. A core settings regression covers the default Dark mode and
+Light round-trip. The System choice, Liquid Glass control, full Interface subnavigation,
+native titlebar material and matched macOS rendering remain open. The parity audit also
+corrected stale Missing entries for URL opening, compact spacing, controller position
+and secondary subtitle delay to Partial using their current code and Windows/native
+evidence. This remains an incomplete parity increment.
+
+2026-10-11 System Appearance parity increment: the Interface selector now includes
+Match System Appearance. A typed, backward-compatible preference retains old Dark/Light
+files, while the player follows the effective theme reported by its winit window and
+updates the custom control palette when it changes. Core tests cover legacy migration,
+explicit System persistence, and invalid values. Workspace tests and strict all-target
+Clippy pass, and the 0.2.6 workspace build succeeds (39 native tests remain ignored).
+Rendered appearance interaction and matched macOS rendering remain unverified; Liquid
+Glass, native titlebar material, and the full Interface subnavigation remain open.
+
+2026-10-11 Interface navigation increment: added the seven subsection links shown
+under Interface in the pinned Settings capture and tied them to the scroll position
+of one continuous settings page. Existing Appearance, On Screen Controller and On
+Screen Display search hits now jump to their matching sections. Window, Thumbnail
+Preview, Picture-in-Picture and Accessibility sections are visibly marked unavailable
+instead of exposing controls without behavior. Static navigation and anchor tests
+pass; live interaction, reference-matched rendering, and the four missing section
+bodies remain open.
+
+2026-10-11 Window Appearance increment: added the captured Always float on top
+checkbox to Interface > Window. Its value now persists with the shared preferences
+and drives Winit's cross-platform window level for the active player surface. A core
+regression covers the false default and saved true value; Interface search can jump
+to the Window section. Workspace tests pass (39 native tests remain ignored). Strict
+all-target Clippy and the 0.2.7 Windows app build pass. The focused native playback
+lifecycle test also passes (38 other native tests remain ignored in a default run).
+Live window behavior and matched
+macOS rendering remain unverified; initial size, position, resize and
+physical-resolution controls are still open.
+
+2026-10-11 native playback fixture verification: the focused pinned-libmpv lifecycle
+test passes on Windows, including video decoding, active audio output, pause/seek/stop,
+and failure recovery. The 0.2.7 app also launches the original generated moving-square
+fixture through native D3D11/gpu-next; its log reports WASAPI audio and video playing.
+These checks prove fixture playback and engine initialization on this machine. They
+do not verify arbitrary user media, a captured visual comparison, or a release package.
+The regular debug executable was locked by an already-running instance during the
+first rebuild, so verification used the separate parity output directory.
+
+2026-10-11 Interface navigation repair: corrected duplicate scroll boundaries that
+made the Window subsection unreachable, shifted later section selection to match
+the captured anchors, and routed Accessibility to the actual maximum scroll position.
+The static navigation guard now checks all seven link destinations and scroll
+boundaries; all 11 Settings search tests, formatting, strict workspace Clippy, parity
+traceability, the static navigation guard and the 0.2.7 Windows app build pass.
+Live scroll interaction and rendered Windows/macOS parity are still unverified.
+
+2026-10-11 Window float-status increment: added IINA's default-off title-bar pin
+visibility setting and an original outline/filled vector indicator. The indicator
+appears when topmost or when visibility is enabled; activating it toggles the same
+persisted topmost state as Interface > Window. Save failures restore the prior
+window level, and other layout saves retain both pin preferences. The workspace
+tests, strict Settings navigation/static parity checks, asset provenance check and
+formatting pass. Live Windows interaction and matched macOS pixels remain open.
+
+2026-10-11 playback follow-up: corrected a moved `Rc` in the new shared Window
+resize callbacks that prevented the latest application revision from compiling.
+`cargo check -p riina --locked` now passes. The pinned native lifecycle test and
+multi-file-open playback test pass; a real mpv frame capture also contains the
+expected moving video image. These verify decoding, audio output, engine commands
+and captured frame content. A fresh Windows app build was also launched with the
+fixture; libmpv reported `audio=playing, video=playing` before normal end-of-file.
+This does not prove every user file or a matched visual capture: Windows Graphics
+Capture could not capture the active monitor in this session (0x80070057), and the
+log includes a non-fatal D3D11 output-query error before video output initialized.
+
+2026-10-11 HDR playback mismatch: public tag v0.2.2 is source-only and makes shared
+OpenGL the Windows default. The HDR capture record shows that route decoded but left
+the video area blank; `--native-video` selects the D3D11 path in that version. Current
+development defaults Windows to native D3D11 and retains `--shared-gl` for diagnosis.
+The Rust 1.99 app build now passes, the pinned native pause/seek/stop/recovery test
+passes, and a fresh current app run opened `hdr-hlg.mkv` through mpv's D3D11 `gpu-next`
+output. This fixture run was not screen-captured and does not cover arbitrary media or
+a packaged release. Public binary distribution remains blocked by the audit gate.
+
+2026-10-11 Interface > Window increment: added the source's expandable Initial
+window size and Initial window position switches, typed numeric/unit/anchor fields,
+and independent resize, physical-resolution, and float preference lists. Expanded
+rows now drive following card positions, content height, sidebar scroll routes, and
+subsection selection. The existing navigation and parity inventory checks pass;
+the current Slint render and expanded interactions still need a fresh Windows
+capture and matched macOS comparison. Recorded as partial UI implementation only.
+
+2026-10-11 Interface capture alignment: the macOS 26.6 Settings reference showed
+separate gray section headings and bordered lists, with Appearance and Window
+cards above the resize and physical-resolution lists. Riina now uses the captured
+default hierarchy, 122/82/118-point first-card heights, and measured y=81/248/346
+anchors, with dynamic geometry expansion retained. The 26-only Liquid Glass row is present, but its
+expanded per-surface controls and rendering effects are still a tracked gap.
+Static navigation and parity-inventory checks pass; no current UI image comparison
+has been made.
+This noticeable captured-layout milestone advances the local development version
+from 0.2.7 to 0.2.8; it is not a public release.
+
+2026-10-11 Interface > On Screen Display increment: implemented the opt-in
+fullscreen time and battery card from the pinned IINA v1.5.0 reference. It follows
+fullscreen, loaded-media, visible-controls, saved-preference, and crop-editor
+state; the clock refreshes once per minute, and unavailable or invalid battery
+data leaves the battery detail out. The shared preference defaults off. The
+cross-platform battery and local-clock dependencies are locked. Battery-label
+unit tests and the full workspace test suite pass, as do strict Clippy, settings
+routing, parity inventory, and Rust formatting checks. A matched GUI render has
+not been captured: the translucent material, card placement and shape, and the
+platform-specific short-time preference still need visual and behavior checks on
+Windows and macOS. This is a code implementation milestone, not evidence of full
+interface parity.
+The clean Rust 1.99 Windows workspace build has since completed successfully in
+an isolated target directory; this is compile evidence only. A fresh GUI capture
+could not be made because the desktop helper did not expose the new process's
+window. Bounded GDI/PrintWindow attempts returned black client pixels, which are
+not reliable evidence of the actual Slint render; rendered parity remains
+unverified.
+
+2026-10-11 Settings > Utilities increment: replaced the heading-only page with
+the four captured groups and source-ordered action rows. Default Application
+opens Windows Default Apps; Restore Alerts reports that there are no suppressed
+alerts, matching the pinned source's current behavior. Clearing saved playback
+progress asks first, removes entries only from Riina's watch-later directory,
+and leaves that directory ready for subsequent writes. File-size formatting and
+path-bounded clearing have unit coverage. Recent-media history now also clears
+after confirmation, updates the live welcome list, and persists across shutdown;
+thumbnail clearing remains disabled because there is no app-owned cache, and
+browser integration is not implemented. The 600 x 480 layout has not been captured
+from the current build, so row styling, focus behavior, and pixel parity remain
+unverified.
+
+2026-10-11 Utilities history action: Clear Playback History now confirms deletion,
+clears the persisted recent-media list without overwriting other preferences,
+refreshes the live welcome-window rows, and prevents shutdown from re-adding the
+current media until another file is opened. Thumbnail-cache clearing remains
+disabled because Riina does not yet own a thumbnail cache. Focused persistence and
+workspace tests pass (39 native-only tests are ignored by default), as do strict
+workspace Clippy and static Settings/parity checks. Captured Windows render and
+matched macOS visual parity remain open.
+
+A follow-up audit found layout, sidebar and open Preferences saves could carry stale
+startup snapshots. All three now preserve the current persisted history, with a
+regression covering stale snapshots after a clear.
+
+2026-10-11 startup/playback compatibility fix: the ordinary debug executable was
+an earlier build and rejected newer root-level preference fields before it could
+open media. Root preference parsing now ignores additive fields from newer saves
+while keeping validation for known settings. A fresh Rust 1.99 workspace build and
+the compatibility regression pass; a real fixture run reports WASAPI audio and
+D3D11 video playing. The normal debug executable remains locked by its existing
+process, so this build was verified from an isolated output directory. The live
+render from that run was not screen-captured.
+
+Playback diagnosis confirmed the older 0.2.2 release exits before opening a
+window when it reads the current profile: `unlock_window_aspect_ratio` is unknown
+to that binary. The current parser keeps forward compatibility for additive
+root-level preferences. The pinned native playback test passes, and the current
+local playback-fix build displayed advancing frames from a real MKV. Do not delete
+the user's preferences; use a build containing the compatibility fix.
+
+2026-10-11 Settings > Advanced increment: replaced the heading-only pane with
+the pinned v1.5.0 Advanced toggle, Logging and mpv Settings groups. Source defaults
+remain off for advanced settings, logging, mpv OSD and custom config directories;
+custom mpv options are validated and applied only when Advanced is enabled.
+Optional native-option failures are reported while media initialization continues.
+The config-directory controls now share the reference's single row, and option
+editing recognizes complete `key=value` pairs. Rust formatting and static settings
+routing checks pass; the four new utility symbols are original vectors, and all 34
+asset provenance hashes pass. The isolated Rust 1.99 workspace compile and the
+full workspace test suite pass; 40 native-only tests remain ignored without the
+pinned DLL. A follow-up focused core test, strict workspace Clippy and a fresh
+workspace build also pass. An early computer-use capture selected the native
+video host while its separate welcome surface was still starting; it does not
+establish playback or empty-state behavior. Subsequent monitor captures failed
+with `CreateForMonitor (0x80070057)`, so the Advanced page could not be inspected.
+Pixel parity, in-app log-window behavior, drag reorder, macOS runtime and complete
+application parity remain open.
+
+2026-10-11 Playlist sorting increment: added stable-ID filename/path sorting plans,
+native shuffle/unshuffle actions, and the playlist sidebar controls with original
+shuffle/sort vectors. Playlist rows retain their full path for accessibility, and
+network URI entries keep their URI as the display name. UI callbacks now submit
+the matching core intents. Rust 1.99 workspace tests, strict all-target Clippy,
+and the locked workspace build pass; the build used an isolated target because the
+default executable was already open. The native `ui_open_files_command_starts_real_media`
+test also passes with the pinned DLL, confirming advancing playback position,
+audio output, a video track, and no startup error on the real fixture. The other
+39 native-only tests remain ignored without separate execution. Live native
+shuffle behavior, sorting confirmation, and a matched Windows/macOS capture
+remain unverified. This noticeable local milestone advances development to
+0.2.9; it is not a public release.
+
+2026-10-11 Plugins Settings parity increment: the captured overview, install affordances, update status and data-driven 60-point rows replace the heading-only page. An empty plugin state no longer pretends the reference plugins are installed. The plugin manager and action wiring plus a matched Windows capture remain open; layout is not complete parity.
+
+2026-10-11 Native build repair: the failed GitHub candidate log identified `git am` during the spirv-cross patch stage under `ninja mpv`; only `ninja update` previously received a committer identity. All native Ninja phases now run with the same explicit build-only identity. Fix 068536d was pushed to main to start a private binary candidate; release publication remains gated by the separate dependency/source audit.
+
+2026-10-11 Plugins Settings follow-up: aligned the plugin version and overflow affordance beside the bounded name column, retaining the information button at the trailing edge as captured. Keyboard activation now respects the disabled state. Matched Windows rendering, plugin manager integration and action behavior remain open.
+
+2026-10-11 Settings surface color follow-up: sampled the pinned Plugins capture and matched the preferences content/sidebar base colors, plugin card fill and full-width row separators. This is source-pixel evidence only; no live Windows Settings capture is available in the current desktop surface.
+
+2026-10-11 General Preferences navigation increment: added the pinned IINA
+Behavior, History, Playlist and Screenshots subsections to the Settings sidebar.
+Existing pause/fullscreen, resume-position and screenshot controls now occupy their
+matching sections, and Settings search routes into the selected subsection. The
+additional window-lifecycle and playlist policies remain incomplete. Static
+navigation/inventory checks pass, and the rebuilt Windows page renders all four
+subsection links and its Behavior controls. A measured pixel comparison and the
+native macOS runtime remain open.

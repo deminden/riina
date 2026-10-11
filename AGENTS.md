@@ -14,7 +14,7 @@ or copy its protected assets. Read docs/licensing.md before changing license ter
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.2.3.
+the minor digit for major milestones. The current development version is 0.2.11.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
@@ -24,10 +24,19 @@ Never report an unrun GUI/HDR test as passed. Keep implementation and verificati
 After staging asset changes, run `python scripts/check-assets.py --staged` before
 publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
 Do not package native binaries until licensing and corresponding-source obligations are closed.
-Never spend development time waiting on a long-running local or CI build. As soon as a
-build starts, move to independent interface, audit, or release work and advance the
-next useful steps. Check the build only when its result can change the next action; do
-not poll repeatedly or let a running build pause development.
+Never spend development time waiting on a long-running local build, test suite, or CI
+job. Launch long checks without blocking, then immediately continue with the next
+independent implementation, interface-parity, audit, or release task while they run.
+Keep a short list of the checks in flight and the code they cover. Check a result only
+when it can change the next action, when dependent work is ready, or before reporting
+verification; do not poll repeatedly or let a running check pause development. If a
+check fails, inspect the failure, fix it, and resume independent work while any rerun
+is in flight. Do not start duplicate builds or CI runs just to get another status update.
+Monitor free space on C: during large or repeated builds. When space is running low,
+remove stale project-local Cargo build artifacts with `cargo clean` (or a specific
+project target directory), after confirming no active check is using that directory.
+Do not routinely erase the shared Cargo registry or Git download caches: they are
+costly to repopulate and are not the project's generated build output.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect

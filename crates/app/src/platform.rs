@@ -2,7 +2,7 @@
 pub(crate) mod clipboard;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
-mod settings_file;
+pub(crate) mod settings_file;
 
 pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::path::PathBuf> {
     let directory = if let Some(path) = configured {
@@ -49,6 +49,42 @@ pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
         };
         if result.0 as isize <= 32 {
             return Err(std::io::Error::other("Could not open screenshot folder"));
+        }
+    }
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        let program = if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+        std::process::Command::new(program).arg(path).spawn()?;
+    }
+    Ok(())
+}
+
+pub fn open_file(path: &std::path::Path) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use ::windows::{
+            Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
+            core::{PCWSTR, w},
+        };
+        use std::os::windows::ffi::OsStrExt;
+        let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        // The user explicitly asks to open this log in its registered text viewer.
+        let result = unsafe {
+            ShellExecuteW(
+                None,
+                w!("open"),
+                PCWSTR(path.as_ptr()),
+                None,
+                None,
+                SW_SHOWNORMAL,
+            )
+        };
+        if result.0 as isize <= 32 {
+            return Err(std::io::Error::other("Could not open the log file"));
         }
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]

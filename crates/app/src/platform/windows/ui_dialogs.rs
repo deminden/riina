@@ -28,6 +28,11 @@ impl ModalWindows {
         }
         if return_to_welcome && let Some(welcome) = self.welcome.as_ref().and_then(|w| w.upgrade())
         {
+            // The optional second surface is the native video owner. It must
+            // leave the z-order before the separate welcome window is restored.
+            if let Some(video_host) = self.windows.get(1) {
+                video_host.set_visible(false);
+            }
             if let Some(app) = self.app.upgrade() {
                 let _ = app.hide();
             }

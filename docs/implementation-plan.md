@@ -1,3 +1,14 @@
+Current playback repair: restore DWM alpha on the realized Windows chrome HWND.
+Slint's registered conditional menu otherwise overrides Winit transparency and
+covers correctly playing native video with an opaque rectangle. Fresh Windows
+instances show the full fixture, including fullscreen and Escape restoration with
+aligned controls. Stop, picker cancellation, shutdown and shared GL playback have
+live evidence. The optimized build also resumes saved media through recreated
+chrome. Verify accepted media selection after Stop, offscreen startup placement
+and mixed-monitor resizing before closing the wider lifecycle gate.
+Property-triggered native window updates now defer until
+accessibility tree reads unwind.
+
 Current priority is full interface parity before further feature expansion. The
 Preferences sidebar now follows all 11 pages in IINA v1.5.0's default new Settings
 window. Continue page bodies, search/navigation behavior, source-matched geometry,
@@ -227,12 +238,14 @@ native clipping/blur and narrow-window/DPI behavior on the D3D11 candidate, plus
 compressed HDR/hardware decoding and calibrated color/performance evidence.
 The existing GL path remains a provisional SDR feasibility renderer.
 
-The native candidate now runs behind the shared player UI via `--native-video`.
-Shared command ownership, native focus routing, actual HWND realization, fullscreen,
-Stop/reopen and popup-focused shutdown have runtime evidence. Next renderer work:
-video blur/composition, narrow-window and mixed-monitor DPI coverage, modal ownership,
-compressed HDR/hardware decode and measured color/performance. Keep these gates open
-while completing source-matched controls; transparent tint does not reproduce blur.
+Windows now defaults to native D3D11 presentation behind the shared player UI;
+`--shared-gl` remains available for the GL composition route. Shared command
+ownership, native focus routing, actual HWND realization, fullscreen, Stop/reopen,
+HDR fixture playback and popup-focused shutdown have runtime evidence. Next renderer
+work: video blur/composition, narrow-window and mixed-monitor DPI coverage, modal
+ownership, compressed HDR/hardware decode and measured color/performance. Keep these
+gates open while completing source-matched controls; transparent tint does not
+reproduce blur.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect
@@ -265,6 +278,18 @@ Full interface parity remains the priority. Layout now persists controller
 placement and Compact plus the leading/trailing assignment for Settings and
 Playlist/Chapters. Edge-to-edge and docked-controller settings now drive shared
 GL/native viewport geometry, with the native mpv margin regression passing.
-Continue through window-aspect lock and fit-to-video behavior, then matched
-capture comparisons for menus, Preferences, window modes, DPI, materials and
-sidebar resize/animation.
+Window-aspect locking and Fit Window to Video now use a portable display-ratio
+policy and shared winit resize filtering, with the reference's default lock and
+unlocked fit action represented in the Layout sidebar. The same actions now bind
+to the separate Windows native-video host window when that renderer is selected.
+Complete application builds and core tests still need to be followed by live drag,
+fit, fullscreen, restart and matched macOS/Windows captures. Then continue matched
+comparisons for menus, Preferences, window modes, DPI, materials and sidebar
+resize/animation.
+
+Settings > Video now has the captured decoder-thread field, hardware-decoder
+choices and nested tone-mapping controls, backed by typed preferences and live
+libmpv commands. Keep this page partial until its current Windows render is
+compared to the pinned macOS capture. ICC profile and HDR support switches are
+still open; so are Live Text's platform-specific equivalent and dedicated-GPU
+behavior. Do not treat the source layout or decoder tests as pixel-parity evidence.

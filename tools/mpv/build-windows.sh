@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 # Build from a fixed recipe revision, then preserve every fetched source checkout
 # used by the binary so the release source archive matches the native engine.
 readonly BUILDER_REVISION='b2856ee6deed6957380b32465f359e67f67fafd8'
 readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
+readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
 readonly REPO_ROOT="$PWD"
 readonly WORK_ROOT="${RUNNER_TEMP:-$PWD}/riina-native-build"
 readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
@@ -49,6 +50,7 @@ mkdir -p "$WORK_ROOT"
 git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git "$BUILDER"
 git -C "$BUILDER" checkout --detach "$BUILDER_REVISION"
 git -C "$BUILDER" apply "$PWD/tools/mpv/remove-x264.patch"
+git -C "$BUILDER" apply "$PWD/tools/mpv/pin-curl.patch"
 
 cd "$BUILDER"
 cmake \
@@ -63,6 +65,12 @@ cmake \
   -G Ninja --fresh -B build_x86_64 -S .
 run_ninja -C build_x86_64 download
 run_ninja -C build_x86_64 update
+
+# A fixed builder still fetches curl's development branch. Use the current
+# stable release so its changing APIs cannot silently alter a binary candidate.
+git -C "$BUILDER/src_packages/curl" fetch origin "$CURL_REVISION"
+git -C "$BUILDER/src_packages/curl" checkout --detach "$CURL_REVISION"
+test "$(git -C "$BUILDER/src_packages/curl" rev-parse HEAD)" = "$CURL_REVISION"
 
 # The mpv target does not bootstrap the selected cross-toolchain. The pinned
 # builder documents these as explicit build targets; in particular, skipping
@@ -104,10 +112,13 @@ mkdir -p "$SOURCE_ARCHIVE_ROOT/buildscripts" "$SOURCE_ARCHIVE_ROOT/native-source
 git -C "$BUILDER" archive "$BUILDER_REVISION" | tar -xf - -C "$SOURCE_ARCHIVE_ROOT/buildscripts/"
 cp -a "$REPO_ROOT/tools/mpv/build-windows.sh" "$SOURCE_ARCHIVE_ROOT/"
 cp -a "$REPO_ROOT/tools/mpv/remove-x264.patch" "$SOURCE_ARCHIVE_ROOT/"
+cp -a "$REPO_ROOT/tools/mpv/pin-curl.patch" "$SOURCE_ARCHIVE_ROOT/"
 {
   printf 'builder_revision\t%s\n' "$BUILDER_REVISION"
+  printf 'curl_revision\t%s\n' "$CURL_REVISION"
   printf 'x264_policy\tFFmpeg libx264 encoder disabled; built-in H.264 decoder retained\n'
   printf 'builder_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/remove-x264.patch" | cut -d' ' -f1)"
+  printf 'curl_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/pin-curl.patch" | cut -d' ' -f1)"
   printf 'container_image\t%s\n' "${RIINA_BUILD_IMAGE:-ghcr.io/shinchiro/archlinux:latest}"
   while IFS= read -r -d '' gitdir; do
     repo="${gitdir%/.git}"

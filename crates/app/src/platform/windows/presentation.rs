@@ -1,5 +1,4 @@
 //! A presentation owns its native target; the shared controller never handles HWNDs.
-use super::services;
 use crate::NativeVideoHost;
 use riina_core::Playback;
 use riina_mpv::Player;
@@ -53,15 +52,9 @@ impl NativePresentation {
         options: Vec<(String, String)>,
         notify: impl Fn(Playback) + Send + 'static,
     ) -> Result<Player, String> {
-        // Runtime diagnostics belong to the user's application directory, not to
-        // the compiler's source checkout, which may not exist on another machine.
-        let log = services::preferences_path()
-            .map_err(|error| error.to_string())?
-            .with_file_name("native-player.log");
         Player::start_native_window(
-            &services::playback_library(),
+            &super::services::playback_library(),
             self.wid,
-            &log,
             options,
             notify,
         )

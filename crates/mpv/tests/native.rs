@@ -3713,6 +3713,70 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; exercises the UI's multi-file open command"]
+fn ui_open_files_command_starts_real_media() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .expect("Provision libmpv and set RIINA_TEST_MPV_LIBRARY to its absolute path");
+    player
+        .send(Command::OpenFiles(vec![
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ]))
+        .unwrap();
+
+    let playing = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
+    });
+    assert!(
+        playing
+            .duration
+            .is_some_and(|duration| (duration - 5.0).abs() < 0.1)
+    );
+    assert!(playing.audio_output.is_some(), "Audio output did not start");
+    assert!(
+        playing
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Video)
+    );
+    assert_eq!(playing.error, None);
+
+    let overridden = riina_core::hdr_preferences::Settings {
+        target_peak_override_enabled: true,
+        target_peak_nits: 1000,
+        algorithm: riina_core::hdr_preferences::Algorithm::Bt2390,
+        param_override_enabled: true,
+        param: -0.25,
+        ..Default::default()
+    };
+    player.send(Command::VideoThreads(4)).unwrap();
+    player.send(Command::SetToneMapping(overridden)).unwrap();
+    player
+        .send(Command::SetToneMapping(
+            riina_core::hdr_preferences::Settings {
+                enabled: false,
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+    let tone_mapping_updated = wait_for(&receiver, |state| {
+        state.error.is_some()
+            || state
+                .position
+                .is_some_and(|position| position > playing.position.unwrap_or_default() + 0.5)
+    });
+    assert_eq!(tone_mapping_updated.error, None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; exercises real catalog workflows"]
 fn chapters_external_tracks_and_playlist_editing() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -3962,4 +4026,41 @@ fn chapters_external_tracks_and_playlist_editing() {
         cleared.error
     );
     drop(player);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies an invalid optional setting does not block playback"]
+fn invalid_optional_startup_option_keeps_media_playable() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start_with_options(
+        &test_library(&root),
+        true,
+        vec![("riina-invalid-option".into(), "value".into())],
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .expect("invalid user options must not fail player initialization");
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_str()
+                .unwrap()
+                .into(),
+        ))
+        .unwrap();
+    let playing = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
+    });
+    assert!(playing.audio_output.is_some());
+    assert!(
+        playing
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("riina-invalid-option"))
+    );
 }

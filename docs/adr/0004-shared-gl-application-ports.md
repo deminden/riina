@@ -28,8 +28,8 @@ codec provenance and native packaging remain separate gates.
 
 NativePresentation is uninhabited on these targets until a real native surface and
 its ownership/lifecycle are implemented. This avoids fabricated handles and allows
-the actual shared GL player to compile. --native-video gives a clear unsupported
-route error on these systems. The D3D11 probe is isolated to Windows.
+the actual shared GL player to compile. Windows-only native D3D11 startup remains
+behind the platform boundary; macOS/Linux use the shared GL route by default.
 
 Linux's provisional numeric filename comparator handles arbitrary-length ASCII
 digit runs without integer overflow and preserves Unicode characters; localized

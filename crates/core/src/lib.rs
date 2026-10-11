@@ -1,11 +1,18 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
+pub mod advanced_preferences;
+pub mod audio_preferences;
+pub mod control_preferences;
 pub mod crop;
 pub mod crop_drag;
 pub mod crop_geometry;
 pub mod crop_session;
 pub mod file_selection;
+pub mod hdr_preferences;
+pub mod key_bindings;
+pub mod liquid_glass;
 pub mod network_preferences;
+pub mod playlist;
 pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
@@ -14,6 +21,8 @@ mod track_labels;
 pub mod video_controls;
 pub mod video_reflection;
 pub mod video_viewport;
+pub mod window_aspect;
+pub mod window_resize;
 
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +80,8 @@ pub enum Command {
         rectangle: Option<crop::Rectangle>,
     },
     HardwareDecoding(video_controls::HardwareDecoder),
+    VideoThreads(u32),
+    SetToneMapping(hdr_preferences::Settings),
     SubtitleAssOverride {
         lane: subtitle_controls::SubtitleLane,
         level: subtitle_controls::AssOverrideLevel,
@@ -92,6 +103,8 @@ pub enum Command {
     },
     PlaylistNext,
     PlaylistPrevious,
+    TogglePlaylistShuffle,
+    SortPlaylist(playlist::PlaylistSort),
     SelectTrack {
         kind: TrackKind,
         id: Option<i64>,
@@ -448,6 +461,8 @@ impl Command {
             | Self::SubtitleAutoLoad(_)
             | Self::CycleLoop
             | Self::SetAbLoop { .. }
+            | Self::SetToneMapping(_)
+            | Self::VideoThreads(_)
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
             | Self::MovePlaylistId { .. } => {
@@ -641,6 +656,24 @@ impl Command {
                     vec!["set".into(), "ab-loop-b".into(), b],
                 ]
             }
+            Self::SetToneMapping(settings) => settings.engine_commands()?,
+            Self::VideoThreads(threads) if *threads <= i32::MAX as u32 => vec![vec![
+                "set".into(),
+                "vd-lavc-threads".into(),
+                threads.to_string(),
+            ]],
+            Self::VideoThreads(_) => {
+                return Err("Video decoder threads must be between 0 and 2,147,483,647".into());
+            }
+            Self::TogglePlaylistShuffle => vec![vec![
+                if state.playlist_shuffled {
+                    "playlist-unshuffle"
+                } else {
+                    "playlist-shuffle"
+                }
+                .into(),
+            ]],
+            Self::SortPlaylist(sort) => playlist_reorder_commands(&state.playlist, *sort)?,
             Self::SelectPlaylistId(id)
             | Self::RemovePlaylistId(id)
             | Self::MovePlaylistId { id, .. } => {
@@ -963,6 +996,35 @@ pub struct PlaylistEntry {
     pub playing: bool,
 }
 
+fn playlist_reorder_commands(
+    entries: &[PlaylistEntry],
+    sort: playlist::PlaylistSort,
+) -> Result<Vec<Vec<String>>, String> {
+    let desired = playlist::sorted_ids(entries, sort);
+    let mut current = entries.iter().map(|entry| entry.id).collect::<Vec<_>>();
+    let mut commands = Vec::new();
+    for (target, id) in desired.into_iter().enumerate() {
+        let from = current
+            .iter()
+            .position(|candidate| *candidate == id)
+            .ok_or("The playlist changed before sorting")?;
+        if from == target {
+            continue;
+        }
+        // mpv's destination is an insertion position before removal; increment
+        // downward moves to leave the item at its requested final index.
+        let destination = if target > from { target + 1 } else { target };
+        commands.push(vec![
+            "playlist-move".into(),
+            from.to_string(),
+            destination.to_string(),
+        ]);
+        let moved = current.remove(from);
+        current.insert(target, moved);
+    }
+    Ok(commands)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Phase {
     #[default]
@@ -997,6 +1059,7 @@ pub struct Playback {
     pub muted: bool,
     pub speed: f64,
     pub audio_output: Option<String>,
+    pub audio_devices: Vec<audio_preferences::OutputDevice>,
     pub hardware_decoder: Option<String>,
     // Configured policy is separate from hwdec-current: unsupported codecs can
     // use software while the user's hardware-decoding switch remains enabled.
@@ -1025,6 +1088,8 @@ pub struct Playback {
     pub tracks: Vec<Track>,
     pub chapters: Vec<Chapter>,
     pub playlist: Vec<PlaylistEntry>,
+    /// libmpv does not expose whether its native shuffle order is active.
+    pub playlist_shuffled: bool,
     pub audio_delay: f64,
     pub subtitle_delay: f64,
     pub subtitle_scale: Option<f64>,
@@ -1192,7 +1257,10 @@ pub fn time_label(seconds: Option<f64>) -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+// Root-level preferences grow additively between releases. Older binaries must
+// ignore fields they do not understand so a settings save cannot prevent media
+// playback after a user temporarily launches an earlier installed version.
+#[serde(default)]
 pub struct Preferences {
     pub leading_sidebar_width: u32,
     pub trailing_sidebar_width: u32,
@@ -1200,14 +1268,25 @@ pub struct Preferences {
     pub playlist_at_leading: bool,
     pub edge_to_edge_video: bool,
     pub docked_controls: bool,
+    pub unlock_window_aspect_ratio: bool,
+    pub window_resize: window_resize::Settings,
     pub compact_ui: bool,
     pub osc_position: u8,
+    pub always_float_on_top: bool,
+    pub always_show_on_top_icon: bool,
     pub pause_when_open: bool,
     pub fullscreen_when_open: bool,
     pub resume_last_position: bool,
     pub schema_version: u32,
     pub volume: f64,
     pub volume_boost: bool,
+    pub advanced: advanced_preferences::Settings,
+    pub audio: audio_preferences::Settings,
+    pub hdr_tone_mapping: hdr_preferences::Settings,
+    pub video_threads: u32,
+    pub controls: control_preferences::Settings,
+    pub key_bindings: key_bindings::Settings,
+    pub liquid_glass: liquid_glass::SurfaceSettings,
     pub hardware_decoder: video_controls::HardwareDecoder,
     pub subtitle_ass_override: subtitle_controls::AssOverrideLevel,
     pub secondary_subtitle_ass_override: subtitle_controls::AssOverrideLevel,
@@ -1217,17 +1296,62 @@ pub struct Preferences {
     pub subtitle_font: String,
     pub subtitle_font_size: f64,
     pub subtitle_text_style: subtitle_controls::TextStylePreferences,
+    // `None` means a settings file predates explicit appearance selection; in
+    // that case keep honoring its saved `dark` bit instead of changing themes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_material: Option<ThemeMaterial>,
     pub dark: bool,
     pub compact: bool,
     pub enable_osd: bool,
+    pub disable_osd_file_start: bool,
+    pub disable_osd_pause_resume: bool,
     pub disable_osd_speed: bool,
     pub disable_osd_seek: bool,
     pub osd_timeout_secs: f64,
+    pub osd_text_size: f64,
+    pub display_time_and_battery_in_fullscreen: bool,
     pub screenshot: screenshot::Settings,
     pub network: network_preferences::Connection,
     pub network_cache: network_preferences::Cache,
     pub network_online_videos: network_preferences::OnlineVideos,
     pub recent_media: Vec<RecentMedia>,
+}
+
+/// Appearance intent. `System` follows the effective theme reported by the
+/// native window system while keeping the player palette in sync with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThemeMaterial {
+    Dark,
+    Light,
+    System,
+}
+
+impl ThemeMaterial {
+    pub const fn from_index(index: i32) -> Option<Self> {
+        match index {
+            0 => Some(Self::Dark),
+            1 => Some(Self::Light),
+            2 => Some(Self::System),
+            _ => None,
+        }
+    }
+
+    pub const fn index(self) -> i32 {
+        match self {
+            Self::Dark => 0,
+            Self::Light => 1,
+            Self::System => 2,
+        }
+    }
+
+    pub const fn dark_for(self, system_is_dark: bool) -> bool {
+        match self {
+            Self::Dark => true,
+            Self::Light => false,
+            Self::System => system_is_dark,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1248,14 +1372,25 @@ impl Default for Preferences {
             playlist_at_leading: true,
             edge_to_edge_video: true,
             docked_controls: false,
+            unlock_window_aspect_ratio: false,
+            window_resize: window_resize::Settings::default(),
             compact_ui: false,
             osc_position: 0,
+            always_float_on_top: false,
+            always_show_on_top_icon: false,
             pause_when_open: false,
             fullscreen_when_open: false,
             resume_last_position: true,
             schema_version: 1,
             volume: 100.0,
             volume_boost: false,
+            advanced: advanced_preferences::Settings::default(),
+            audio: audio_preferences::Settings::default(),
+            hdr_tone_mapping: hdr_preferences::Settings::default(),
+            video_threads: 0,
+            controls: control_preferences::Settings::default(),
+            key_bindings: key_bindings::Settings::default(),
+            liquid_glass: liquid_glass::SurfaceSettings::default(),
             hardware_decoder: video_controls::HardwareDecoder::Auto,
             subtitle_ass_override: subtitle_controls::AssOverrideLevel::Scale,
             secondary_subtitle_ass_override: subtitle_controls::AssOverrideLevel::Scale,
@@ -1265,12 +1400,17 @@ impl Default for Preferences {
             subtitle_font: subtitle_controls::DEFAULT_SUBTITLE_FONT.into(),
             subtitle_font_size: 55.0,
             subtitle_text_style: subtitle_controls::TextStylePreferences::default(),
+            theme_material: Some(ThemeMaterial::Dark),
             dark: true,
             compact: false,
             enable_osd: true,
+            disable_osd_file_start: false,
+            disable_osd_pause_resume: false,
             disable_osd_speed: false,
             disable_osd_seek: false,
             osd_timeout_secs: 1.0,
+            osd_text_size: 20.0,
+            display_time_and_battery_in_fullscreen: false,
             screenshot: screenshot::Settings::default(),
             network: network_preferences::Connection::default(),
             network_cache: network_preferences::Cache::default(),
@@ -1281,6 +1421,14 @@ impl Default for Preferences {
 }
 
 impl Preferences {
+    pub fn effective_theme_material(&self) -> ThemeMaterial {
+        self.theme_material.unwrap_or(if self.dark {
+            ThemeMaterial::Dark
+        } else {
+            ThemeMaterial::Light
+        })
+    }
+
     pub fn volume_limit(&self) -> f64 {
         if self.volume_boost { 200.0 } else { 100.0 }
     }
@@ -1298,6 +1446,7 @@ impl Preferences {
         if prefs.schema_version != 1
             || !prefs.volume.is_finite()
             || !(0.0..=200.0).contains(&prefs.volume)
+            || prefs.video_threads > i32::MAX as u32
             || !subtitle_controls::valid_preference_font_size(prefs.subtitle_font_size)
             || !subtitle_controls::valid_font_name(&prefs.subtitle_font)
         {
@@ -1314,6 +1463,11 @@ impl Preferences {
             .network_online_videos
             .validate()
             .map_err(str::to_owned)?;
+        prefs.audio.validate().map_err(str::to_owned)?;
+        prefs.hdr_tone_mapping.validate().map_err(str::to_owned)?;
+        prefs.advanced.validate()?;
+        prefs.controls.validate().map_err(str::to_owned)?;
+        prefs.key_bindings.validate().map_err(str::to_owned)?;
         prefs.subtitle_other.validate().map_err(str::to_owned)?;
         prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
@@ -1341,6 +1495,9 @@ impl Preferences {
         if timeout.as_millis() > u64::MAX as u128 {
             return Err("On-screen display timeout exceeds timer capacity".into());
         }
+        if !prefs.osd_text_size.is_finite() || !(5.0..=500.0).contains(&prefs.osd_text_size) {
+            return Err("On-screen display text size must be between 5 and 500 points".into());
+        }
         Ok(prefs)
     }
 }
@@ -1348,6 +1505,102 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unknown_root_preferences_do_not_block_launch_or_playback() {
+        // A newer install may have saved additive settings before an older
+        // executable is launched again; keep recognized values and defaults.
+        let preferences = Preferences::parse(
+            r#"{"volume":37,"unlock_window_aspect_ratio":false,"future_setting":{"mode":"auto"}}"#,
+        )
+        .unwrap();
+        assert_eq!(preferences.volume, 37.0);
+        assert!(!preferences.unlock_window_aspect_ratio);
+
+        // Forward compatibility must not weaken validation of known controls.
+        assert!(Preferences::parse(r#"{"volume":"loud","future_setting":true}"#).is_err());
+    }
+
+    #[test]
+    fn tone_mapping_preferences_keep_reference_defaults_and_round_trip() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(
+            legacy.hdr_tone_mapping,
+            hdr_preferences::Settings::default()
+        );
+
+        let selected = Preferences {
+            hdr_tone_mapping: hdr_preferences::Settings {
+                enabled: false,
+                target_peak_override_enabled: true,
+                target_peak_nits: 1200,
+                algorithm: hdr_preferences::Algorithm::Bt2390,
+                param_override_enabled: true,
+                param: -0.25,
+            },
+            ..legacy
+        };
+        let encoded = serde_json::to_string(&selected).unwrap();
+        assert_eq!(
+            Preferences::parse(&encoded).unwrap().hdr_tone_mapping,
+            selected.hdr_tone_mapping
+        );
+        assert!(
+            Preferences::parse(r#"{"hdr_tone_mapping":{"enabled":true,"param":1e999}}"#).is_err()
+        );
+    }
+
+    #[test]
+    fn tone_mapping_command_plan_sets_the_live_renderer_options() {
+        let selected = hdr_preferences::Settings {
+            target_peak_override_enabled: true,
+            target_peak_nits: 1000,
+            algorithm: hdr_preferences::Algorithm::Bt2390,
+            param_override_enabled: true,
+            param: -0.25,
+            ..Default::default()
+        };
+        assert_eq!(
+            Command::SetToneMapping(selected)
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            [
+                ["set", "target-peak", "1000"],
+                ["set", "tone-mapping", "bt.2390"],
+                ["set", "tone-mapping-param", "-0.25"],
+            ]
+        );
+    }
+
+    #[test]
+    fn video_decoder_threads_default_to_auto_and_reach_mpv() {
+        let defaults = Preferences::parse("{}").unwrap();
+        assert_eq!(defaults.video_threads, 0);
+        let configured = Preferences {
+            video_threads: 8,
+            ..defaults
+        };
+        assert_eq!(
+            Preferences::parse(&serde_json::to_string(&configured).unwrap())
+                .unwrap()
+                .video_threads,
+            8
+        );
+        assert!(Preferences::parse(r#"{"video_threads":2147483648}"#).is_err());
+        assert_eq!(
+            Command::VideoThreads(8)
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            [["set", "vd-lavc-threads", "8"]]
+        );
+        assert!(
+            Command::VideoThreads(i32::MAX as u32 + 1)
+                .plan(&Playback::default())
+                .is_err()
+        );
+    }
 
     #[test]
     fn sidebar_widths_keep_legacy_defaults_and_bound_persisted_sizes() {
@@ -1389,9 +1642,34 @@ mod tests {
         assert!(legacy.playlist_at_leading);
         assert!(legacy.edge_to_edge_video);
         assert!(!legacy.docked_controls);
+        assert!(!legacy.unlock_window_aspect_ratio);
+        assert!(legacy.dark);
+        assert!(!legacy.always_float_on_top);
+        assert!(!legacy.always_show_on_top_icon);
+        assert_eq!(legacy.window_resize, window_resize::Settings::default());
+        assert_eq!(legacy.effective_theme_material(), ThemeMaterial::Dark);
         let selected = Preferences::parse(r#"{"compact_ui":true,"osc_position":2}"#).unwrap();
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert!(restored.compact_ui);
+        let light = Preferences::parse(r#"{"dark":false}"#).unwrap();
+        assert!(!light.dark);
+        assert_eq!(light.effective_theme_material(), ThemeMaterial::Light);
+        let system = Preferences::parse(r#"{"theme_material":"system","dark":false}"#).unwrap();
+        assert_eq!(system.effective_theme_material(), ThemeMaterial::System);
+        let restored_system = Preferences::parse(&serde_json::to_string(&system).unwrap()).unwrap();
+        assert_eq!(
+            restored_system.effective_theme_material(),
+            ThemeMaterial::System
+        );
+        assert!(Preferences::parse(r#"{"theme_material":"automatic"}"#).is_err());
+        let floating = Preferences::parse(r#"{"always_float_on_top":true}"#).unwrap();
+        let restored_floating =
+            Preferences::parse(&serde_json::to_string(&floating).unwrap()).unwrap();
+        assert!(restored_floating.always_float_on_top);
+        let with_pin_indicator = Preferences::parse(r#"{"always_show_on_top_icon":true}"#).unwrap();
+        let restored_pin_indicator =
+            Preferences::parse(&serde_json::to_string(&with_pin_indicator).unwrap()).unwrap();
+        assert!(restored_pin_indicator.always_show_on_top_icon);
         assert_eq!(restored.osc_position, 2);
         assert!(Preferences::parse(r#"{"osc_position":3}"#).is_err());
     }
@@ -1410,6 +1688,75 @@ mod tests {
         assert!(restored.docked_controls);
         assert!(!Preferences::parse("{}").unwrap().settings_at_leading);
         assert!(Preferences::parse("{}").unwrap().playlist_at_leading);
+    }
+
+    #[test]
+    fn unlocked_window_aspect_persists_and_defaults_to_iina_locking() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert!(!legacy.unlock_window_aspect_ratio);
+        let selected = Preferences::parse(r#"{"unlock_window_aspect_ratio":true}"#).unwrap();
+        let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
+        assert!(restored.unlock_window_aspect_ratio);
+    }
+
+    #[test]
+    fn window_resize_preferences_migrate_and_round_trip() {
+        let legacy = Preferences::parse(r#"{"window_resize":{}}"#).unwrap();
+        assert_eq!(legacy.window_resize, window_resize::Settings::default());
+
+        let selected = Preferences::parse(
+            r#"{"window_resize":{"option":"video_size15","timing":"always","use_physical_resolution":false}}"#,
+        )
+        .unwrap();
+        let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
+        assert_eq!(restored.window_resize, selected.window_resize);
+        assert_eq!(
+            restored.window_resize.option,
+            window_resize::ResizeOption::VideoSize15
+        );
+        assert_eq!(
+            restored.window_resize.timing,
+            window_resize::ResizeTiming::Always
+        );
+        assert!(!restored.window_resize.use_physical_resolution);
+    }
+
+    #[test]
+    fn control_preferences_keep_iina_defaults_and_round_trip_validated_values() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(legacy.controls, control_preferences::Settings::default());
+
+        let selected = Preferences::parse(
+            r#"{"controls":{"single_click_action":"pause","vertical_scroll_action":"playback_speed","seek_sensitivity":4}}"#,
+        )
+        .unwrap();
+        let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
+        assert_eq!(restored.controls, selected.controls);
+
+        assert!(Preferences::parse(r#"{"controls":{"seek_sensitivity":5}}"#).is_err());
+    }
+
+    #[test]
+    fn key_binding_preferences_keep_reference_defaults_and_round_trip() {
+        let defaults = Preferences::parse("{}").unwrap().key_bindings;
+        assert_eq!(defaults, key_bindings::Settings::default());
+        let selected = Preferences {
+            key_bindings: key_bindings::Settings {
+                current_profile: "Cinema".into(),
+                use_system_media_controls: false,
+                display_raw_values: true,
+            },
+            ..Preferences::default()
+        };
+        assert_eq!(
+            Preferences::parse(&serde_json::to_string(&selected).unwrap())
+                .unwrap()
+                .key_bindings,
+            selected.key_bindings
+        );
+        assert!(
+            Preferences::parse(r#"{"key_bindings":{"current_profile":"../outside"}}"#).is_err()
+        );
     }
 
     #[test]
@@ -1509,9 +1856,13 @@ mod tests {
         )
         .unwrap();
         assert!(old.enable_osd);
+        assert!(!old.disable_osd_file_start);
+        assert!(!old.disable_osd_pause_resume);
         assert!(!old.disable_osd_speed);
         assert!(!old.disable_osd_seek);
         assert_eq!(old.osd_timeout_secs, 1.0);
+        assert_eq!(old.osd_text_size, 20.0);
+        assert!(!old.display_time_and_battery_in_fullscreen);
         let configured = Preferences {
             enable_osd: false,
             disable_osd_speed: true,
@@ -1535,6 +1886,9 @@ mod tests {
                 .osd_timeout_secs,
             0.0
         );
+        for value in [4.999, 500.001, f64::NAN, f64::INFINITY] {
+            assert!(Preferences::parse(&format!(r#"{{"osd_text_size":{value}}}"#)).is_err());
+        }
     }
 
     #[test]
@@ -2393,6 +2747,60 @@ mod tests {
             .unwrap()
             .commands[0],
             vec!["playlist-move", "0", "2"]
+        );
+    }
+
+    #[test]
+    fn playlist_sort_plans_keep_native_entry_identity_and_current_item() {
+        let state = Playback {
+            playlist: vec![
+                PlaylistEntry {
+                    id: 41,
+                    filename: "D:/media/zeta.mkv".into(),
+                    title: None,
+                    current: true,
+                    playing: true,
+                },
+                PlaylistEntry {
+                    id: 40,
+                    filename: "C:/media/alpha.mkv".into(),
+                    title: None,
+                    current: false,
+                    playing: false,
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            Command::SortPlaylist(playlist::PlaylistSort::FilenameAscending)
+                .plan(&state)
+                .unwrap()
+                .commands,
+            vec![vec!["playlist-move", "1", "0"]]
+        );
+        assert!(
+            Command::SortPlaylist(playlist::PlaylistSort::PathAscending)
+                .plan(&Playback::default())
+                .unwrap()
+                .commands
+                .is_empty()
+        );
+        assert_eq!(
+            Command::TogglePlaylistShuffle
+                .plan(&Playback::default())
+                .unwrap()
+                .commands,
+            vec![vec!["playlist-shuffle"]]
+        );
+        assert_eq!(
+            Command::TogglePlaylistShuffle
+                .plan(&Playback {
+                    playlist_shuffled: true,
+                    ..Default::default()
+                })
+                .unwrap()
+                .commands,
+            vec![vec!["playlist-unshuffle"]]
         );
     }
 }

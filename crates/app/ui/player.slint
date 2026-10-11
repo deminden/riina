@@ -6,7 +6,7 @@ import { ScreenshotPreview } from "screenshot-preview.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
-export struct CatalogRow { token: string, label: string, language: string, selected: bool }
+export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool }
 export struct RecentMediaRow { title: string, position-label: string }
 component SidebarTab inherits FocusScope {
     in property <string> label;
@@ -102,26 +102,56 @@ component SidebarPositionToggle inherits FocusScope {
         return reject;
     }
 }
+component SidebarAction inherits FocusScope {
+    in property <string> label;
+    in property <image> icon;
+    callback activated();
+    height: 32px;
+    horizontal-stretch: 1;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { activated(); } }
+    Rectangle {
+        border-radius: 5px;
+        background: touch.has-hover && root.enabled ? #ffffff18 : #ffffff0a;
+        Image { source: root.icon; image-fit: contain; x: 8px; y: 8px;
+            width: 16px; height: 16px; colorize: root.enabled ? #dddddd : #777777; }
+        Text { x: 32px; width: parent.width - 38px; text: root.label;
+            color: root.enabled ? #dddddd : #777777; font-size: 12px; vertical-alignment: center; }
+        if root.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef;
+            border-radius: 5px; background: transparent; }
+        touch := TouchArea { enabled: root.enabled; clicked => { root.focus(); root.activated(); } }
+    }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { if root.enabled { activated(); } return accept; }
+        return reject;
+    }
+}
 component Tool inherits Rectangle {
     in property <string> label;
     in property <image> icon;
     in property <string> hint;
     in property <bool> enabled: true;
+    in property <bool> dark-theme: true;
+    in property <bool> selected: false;
     callback activated();
     width: 30px; height: 28px;
     border-radius: 5px;
-    background: touch.has-hover && enabled ? #ffffff20 : transparent;
+    background: selected ? (dark-theme ? #90b7ef24 : #168bff18) :
+        touch.has-hover && enabled ? (dark-theme ? #ffffff20 : #00000014) : transparent;
     accessible-role: button;
     accessible-label: hint;
     accessible-enabled: enabled;
     accessible-action-default => { if enabled { activated(); } }
-    if icon.width == 0 : Text { text: label; color: enabled ? #eeeeee : #777777; font-size: 17px;
+    if icon.width == 0 : Text { text: label; color: !enabled ? #777777 : selected ? #90b7ef : (dark-theme ? #eeeeee : #29292d); font-size: 17px;
         horizontal-alignment: center; vertical-alignment: center; }
     if icon.width > 0 : Image {
         source: icon; image-fit: contain;
         width: min(17px, root.width); height: min(17px, root.height);
         x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-        colorize: enabled ? #eeeeee : #777777;
+        colorize: !enabled ? #777777 : selected ? #90b7ef : (dark-theme ? #eeeeee : #29292d);
     }
     if focus.has-focus : Rectangle {
         border-width: 1px; border-color: #90b7ef; border-radius: 5px; background: transparent;
@@ -135,6 +165,50 @@ component Tool inherits Rectangle {
             }
             return reject;
         }
+    }
+}
+
+component PlaylistSortButton inherits Rectangle {
+    in property <bool> dark-theme: true;
+    callback sort-requested(int);
+    width: 30px; height: 28px; background: transparent;
+    Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/sort.svg"); hint: "Sort playlist";
+        activated => { choices.show(); } }
+    choices := PopupWindow {
+        x: 0px; y: -self.height; width: 190px; height: 146px;
+        close-policy: close-on-click-outside;
+        Rectangle { background: root.dark-theme ? #29292e : #f8f8fa;
+            border-width: 1px; border-color: root.dark-theme ? #ffffff38 : #b8b8bc; border-radius: 6px;
+            VerticalLayout { padding: 6px; spacing: 1px;
+                Text { text: "Sorting"; height: 22px; x: 7px; color: root.dark-theme ? #a9a9b1 : #77777d; font-size: 11px; vertical-alignment: center; }
+                for label[index] in ["Filename Ascending", "Filename Descending", "File Path Ascending", "File Path Descending"] : Rectangle {
+                    height: 27px; border-radius: 4px;
+                    background: row-touch.has-hover ? (root.dark-theme ? #ffffff20 : #00000012) : transparent;
+                    accessible-role: button; accessible-label: label;
+                    accessible-action-default => { root.sort-requested(index); choices.close(); }
+                    Text { x: 8px; width: parent.width - 16px; text: label; font-size: 11px;
+                        color: root.dark-theme ? #eeeeee : #29292d; vertical-alignment: center; }
+                    row-touch := TouchArea { clicked => { root.sort-requested(index); choices.close(); } }
+                }
+            }
+        }
+    }
+}
+
+component TopmostPin inherits Rectangle {
+    in property <bool> pinned;
+    in property <bool> dark-theme: true;
+    callback changed(bool);
+    width: 30px;
+    height: 28px;
+    background: transparent;
+    Tool {
+        dark-theme: root.dark-theme;
+        icon: root.pinned
+            ? @image-url("../../../assets/icons/pin-fill.svg")
+            : @image-url("../../../assets/icons/pin.svg");
+        hint: root.pinned ? "Remove float on top" : "Float on top";
+        activated => { root.changed(!root.pinned); }
     }
 }
 
@@ -300,9 +374,10 @@ component ResumeMediaEntry inherits Rectangle {
 
 export component WelcomeWindow inherits Window {
     title: "riina";
-    // Keep the launch height from falling back below the reference client size.
-    preferred-width: 558px; preferred-height: 391px;
-    min-width: 520px; min-height: 391px;
+    // Match IINA v1.5.0's fixed 560 x 440 point welcome window.
+    preferred-width: 560px; preferred-height: 440px;
+    min-width: 560px; min-height: 440px;
+    max-width: 560px; max-height: 440px;
     background: #17171b;
     in property <string> app-version: "0.2.1";
     in-out property <string> url-draft;
@@ -443,7 +518,8 @@ export component PlayerWindow inherits Window {
     changed video-mirrored => { root.video-menu-changed(); }
     changed video-flipped => { root.video-menu-changed(); }
     callback crop-window-controls-changed();
-    changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); }
+    changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); root.refresh-fullscreen-info(); }
+
     if !native-video : MenuBar {
         Menu { title: "riina";
             MenuItem { title: "Preferences…"; enabled: !root.crop-editing;
@@ -496,10 +572,13 @@ export component PlayerWindow inherits Window {
     preferred-width: 960px; preferred-height: 600px;
     min-width: 520px; min-height: 300px;
     // The native VO lives in the owner window; this surface supplies only chrome.
+    // Native mode must begin frameless so Winit creates its transparent surface
+    // before the owner window is attached. The shared-GL entry point opts out.
     in property <bool> native-video: false;
     in-out property <bool> dialog-open: false;
     in-out property <int> media-request-generation: 0;
     no-frame: native-video;
+    // Native output sits behind this window even while loading or between files.
     background: native-video ? transparent : #111111;
     in property <image> video-frame;
     in property <bool> loaded: false;
@@ -547,8 +626,16 @@ export component PlayerWindow inherits Window {
     in property <string> video-osd-text;
     in property <float> video-osd-progress: -1;
     in property <bool> osd-enabled: true;
+    in-out property <bool> disable-osd-file-start: false;
+    in-out property <bool> disable-osd-pause-resume: false;
     in property <bool> disable-osd-speed: false;
     in property <bool> disable-osd-seek: false;
+    in-out property <float> osd-timeout-secs: 1;
+    in-out property <float> osd-text-size: 20;
+    in-out property <bool> display-time-and-battery-in-fullscreen: false;
+    in property <string> fullscreen-info-time: "";
+    in property <string> fullscreen-info-battery: "";
+    in property <float> fullscreen-info-battery-level: 0;
     in-out property <bool> screenshot-show-preview: true;
     in-out property <bool> screenshot-save-to-file: true;
     in-out property <bool> pause-when-open: false;
@@ -568,6 +655,22 @@ export component PlayerWindow inherits Window {
     in property <float> duration: 0;
     in property <float> volume: 100;
     in-out property <bool> volume-boost: false;
+    in-out property <int> control-pinch-index: 0;
+    in-out property <int> control-force-touch-index: 0;
+    in-out property <int> control-single-click-index: 3;
+    in-out property <int> control-double-click-index: 1;
+    in-out property <int> control-right-click-index: 2;
+    in-out property <int> control-middle-click-index: 0;
+    in-out property <bool> control-accepts-first-mouse: false;
+    in-out property <int> control-vertical-scroll-index: 0;
+    in-out property <int> control-horizontal-scroll-index: 1;
+    in-out property <int> control-seek-type-index: 0;
+    in-out property <int> control-seek-sensitivity: 3;
+    in-out property <int> control-volume-sensitivity: 3;
+    in-out property <int> control-speed-sensitivity: 3;
+    in-out property <string> key-binding-current-profile: "IINA Default";
+    in-out property <bool> key-binding-use-system-media-controls: true;
+    in-out property <bool> key-binding-display-raw-values: false;
     in-out property <bool> network-cache-enabled: true;
     in-out property <bool> network-cache-pause-initial: false;
     in-out property <string> network-cache-pause-wait-text: "1";
@@ -630,6 +733,7 @@ export component PlayerWindow inherits Window {
     in property <bool> secondary-subtitle-visibility-known;
     in property <[CatalogRow]> chapters;
     in property <[CatalogRow]> playlist;
+    in property <bool> playlist-shuffled: false;
     in-out property <int> sidebar: 0;
     in-out property <int> leading-sidebar: 0;
     in-out property <int> remembered-settings-pane: 6;
@@ -639,10 +743,42 @@ export component PlayerWindow inherits Window {
     in-out property <float> leading-sidebar-width: 360;
     in-out property <float> trailing-sidebar-width: 360;
     in-out property <bool> compact-ui: false;
+    in-out property <bool> dark-theme: true;
+    in-out property <int> appearance-mode: 0;
+    in-out property <bool> liquid-glass-osd: true;
+    in-out property <bool> liquid-glass-osc: true;
+    in-out property <bool> liquid-glass-sidebar: true;
+    in-out property <bool> always-float-on-top: false;
+    in-out property <bool> always-show-on-top-icon: false;
+    in-out property <int> window-resize-option-index: 2;
+    in-out property <int> window-resize-timing-index: 1;
+    in-out property <bool> use-physical-resolution: true;
+    in-out property <bool> initial-window-size-enabled: false;
+    in-out property <int> initial-window-size-axis-index: 0;
+    in-out property <string> initial-window-size-value-text: "1280";
+    in-out property <int> initial-window-size-unit-index: 0;
+    in-out property <bool> initial-window-position-enabled: false;
+    in-out property <int> initial-window-x-anchor-index: 0;
+    in-out property <string> initial-window-x-offset-text: "20";
+    in-out property <int> initial-window-x-unit-index: 0;
+    in-out property <int> initial-window-y-anchor-index: 1;
+    in-out property <string> initial-window-y-offset-text: "20";
+    in-out property <int> initial-window-y-unit-index: 0;
+    in-out property <float> video-window-width: 0;
+    in-out property <float> video-window-height: 0;
+    in-out property <int> video-window-rotation: 0;
+    changed always-float-on-top => { root.window-level-changed(); }
     in-out property <bool> edge-to-edge-video: true;
     in-out property <bool> docked-controls: false;
+    in-out property <bool> unlock-window-aspect-ratio: false;
+    in property <float> video-display-aspect-ratio: 0;
     in-out property <int> osc-position: 0;
     callback layout-settings-changed();
+    callback window-aspect-changed();
+    callback window-level-changed();
+    callback window-level-toggle-requested(bool);
+    callback resize-window-for-media();
+    callback fit-window-to-video();
     callback toggle-settings-pane(int);
     callback toggle-playlist-pane(int);
     callback select-settings-pane(int);
@@ -707,7 +843,9 @@ export component PlayerWindow inherits Window {
     out property <length> render-height: crop-editing && !native-video ? crop-picture-height * 1px : video-height;
     changed video-width => { root.crop-viewport-changed(); }
     changed video-height => { root.crop-viewport-changed(); }
-    changed edge-to-edge-video => { root.crop-viewport-changed(); }
+    changed edge-to-edge-video => { root.crop-viewport-changed(); root.window-aspect-changed(); }
+    changed unlock-window-aspect-ratio => { root.window-aspect-changed(); }
+    changed video-display-aspect-ratio => { root.window-aspect-changed(); }
     changed docked-controls => { root.crop-viewport-changed(); }
     changed sidebar => { root.crop-viewport-changed(); }
     changed leading-sidebar => { root.crop-viewport-changed(); }
@@ -758,6 +896,7 @@ export component PlayerWindow inherits Window {
     callback reset-speed();
     callback toggle-fullscreen();
     callback activity();
+    callback refresh-fullscreen-info();
     callback show-seek-osd();
     callback show-video-osd();
     callback cycle-ab-loop();
@@ -772,6 +911,8 @@ export component PlayerWindow inherits Window {
     callback set-delay-text(int, string) -> bool;
     callback toggle-subtitle-visibility();
     callback playlist-action(int, string);
+    callback toggle-playlist-shuffle();
+    callback sort-playlist(int);
 
     // Keys bubble from focused controls through this scope, including sliders.
     // A sibling key scope would lose fullscreen/escape after toolbar navigation.
@@ -815,23 +956,48 @@ export component PlayerWindow inherits Window {
             double-clicked => { root.toggle-fullscreen(); } }
 
         if controls-visible && loaded && !crop-editing : Rectangle {
-            x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px; background: #151515b0;
+            x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px;
+            background: root.liquid-glass-osc
+                ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
+                : (root.dark-theme ? #151519 : #f2f2f2);
             HorizontalLayout { padding-left: 12px; padding-right: 12px;
-                Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
-                Text { text: media-title; color: #dddddd; font-size: 12px;
+                Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
+                Text { text: media-title; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
                     horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
-                Tool { icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
-                Tool { icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
-                Tool { label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
-                Tool { icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
-                Tool { icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
-                Tool { icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                if root.always-float-on-top || root.always-show-on-top-icon : TopmostPin {
+                    dark-theme: root.dark-theme;
+                    pinned: root.always-float-on-top;
+                    changed(value) => {
+                        root.always-float-on-top = value;
+                        root.window-level-toggle-requested(value);
+                    }
+                }
+                Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
+                Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
+                Tool { dark-theme: root.dark-theme; label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
+                Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
+                Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
+                Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+            }
+        }
+        if (!controls-visible || !loaded) && !crop-editing && !fullscreen &&
+            (root.always-float-on-top || root.always-show-on-top-icon) : TopmostPin {
+            x: parent.width - 36px;
+            y: 2px;
+            dark-theme: root.dark-theme;
+            pinned: root.always-float-on-top;
+            changed(value) => {
+                root.always-float-on-top = value;
+                root.window-level-toggle-requested(value);
             }
         }
         for side in [0, 1] : Rectangle {
             // Each side owns its selected pane; catalog callbacks retain their original kind.
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
             visible: pane-kind != 0 && !root.crop-editing;
+            background: root.liquid-glass-sidebar
+                ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
+                : (root.dark-theme ? #151519 : #f2f2f2);
             x: side == 0 ? 0px : parent.width - self.width;
             y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? 67px : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
@@ -865,7 +1031,7 @@ export component PlayerWindow inherits Window {
                         SidebarTab { label: "Chapters"; selected: pane-kind == 3;
                             activated => { root.select-playlist-pane(3); } }
                     }
-                    Tool { icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar";
+                    Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar";
                         activated => {
                             // Retire focus before hiding a pane so later shortcuts reach the player.
                             keys.focus();
@@ -890,6 +1056,15 @@ export component PlayerWindow inherits Window {
                     Text { text: "Video"; color: #bdbdc5; font-size: 11px; font-weight: 700; }
                     SidebarPositionToggle { label: "Edge-to-edge video"; leading: root.edge-to-edge-video;
                         changed(value) => { root.edge-to-edge-video = value; root.layout-settings-changed(); } }
+                    if root.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
+                        leading: !root.unlock-window-aspect-ratio;
+                        changed(value) => { root.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
+                    if (root.unlock-window-aspect-ratio || !root.edge-to-edge-video) && root.video-display-aspect-ratio > 0 : SidebarAction {
+                        label: "Fit Window to Video";
+                        icon: @image-url("../../../assets/icons/fit-window-to-video.svg");
+                        enabled: root.loaded && !root.fullscreen;
+                        activated => { root.fit-window-to-video(); }
+                    }
                     if !root.edge-to-edge-video : SidebarPositionToggle { label: "Dock control bar and titlebar"; leading: root.docked-controls;
                         changed(value) => { root.docked-controls = value; root.layout-settings-changed(); } }
                     Text { text: "On-Screen Controller"; color: #bdbdc5;
@@ -932,7 +1107,7 @@ export component PlayerWindow inherits Window {
                 if pane-kind == 1 : VerticalLayout {
                     height: 48px; vertical-stretch: 0;
                     Text { text: "Delay: " + (pane-kind == 1 ? root.audio-delay : root.subtitle-delay) + " s"; color: #bbbbbb; font-size: 11px; }
-                    PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: pane-kind == 1 ? root.audio-delay : root.subtitle-delay;
+                    PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.1; value: pane-kind == 1 ? root.audio-delay : root.subtitle-delay;
                         enabled: root.loaded; hint: pane-kind == 1 ? "Audio delay" : "Subtitle delay";
                         changed(value) => { root.set-delay(pane-kind, value); } }
                 }
@@ -969,13 +1144,13 @@ export component PlayerWindow inherits Window {
                         if pane-kind == 2 : HorizontalLayout {
                             height: 28px;
                             Text { text: "Primary"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                            Tool { label: root.subtitle-visible ? "●" : "○"; hint: "Toggle subtitle visibility";
+                            Tool { dark-theme: root.dark-theme; label: root.subtitle-visible ? "●" : "○"; hint: "Toggle subtitle visibility";
                                 enabled: root.loaded; activated => { root.toggle-subtitle-visibility(); } }
                         }
                         for row in (pane-kind == 1 ? audio-tracks : pane-kind == 2 ? subtitle-tracks : pane-kind == 3 ? chapters : pane-kind == 6 ? video-tracks : playlist): Rectangle {
                             height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px : 30px;
                             background: (pane-kind == 4 ? root.selected-playlist-token == row.token : row.selected) ? #ffffff15 : transparent;
-                            accessible-role: button; accessible-label: row.label;
+                    accessible-role: button; accessible-label: pane-kind == 4 && row.path != "" ? row.label + ", " + row.path : row.label;
                             accessible-action-default => { root.select-item(pane-kind, row.token); }
                             if row-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
                             if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
@@ -1018,7 +1193,7 @@ export component PlayerWindow inherits Window {
                         if pane-kind == 6 : VerticalLayout { spacing: 8px;
                             Text { text: "Speed"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
                             HorizontalLayout { spacing: 8px; height: 24px;
-                                PlayerSlider { minimum: 0; maximum: 24; step: 1;
+                                PlayerSlider { dark-theme: root.dark-theme; minimum: 0; maximum: 24; step: 1;
                                     value: root.speed-slider-position; hint: "Playback speed";
                                     enabled: root.loaded;
                                     changed(value) => { root.set-speed-slider(value); }
@@ -1043,7 +1218,7 @@ export component PlayerWindow inherits Window {
                                         }
                                     }
                                 }
-                                if root.speed-value != 1 : Tool { width: 20px; height: 24px;
+                                if root.speed-value != 1 : Tool { dark-theme: root.dark-theme; width: 20px; height: 24px;
                                     label: "↺"; hint: "Reset playback speed"; activated => { root.reset-speed(); } }
                             }
                             HorizontalLayout { height: 14px;
@@ -1062,13 +1237,13 @@ export component PlayerWindow inherits Window {
                                 height: 20px; spacing: 8px;
                                 Text { text: label; width: 65px; font-size: 11px; color: #dddddd;
                                     vertical-alignment: center; }
-                                PlayerSlider { minimum: -100; maximum: 100; step: 1;
+                                PlayerSlider { dark-theme: root.dark-theme; minimum: -100; maximum: 100; step: 1;
                                     neutral-mark: true;
                                     value: root.video-equalizer-values[index]; hint: label;
                                     enabled: root.video-equalizer-known[index];
                                     changed(value) => { root.set-video-equalizer(index, value); }
                                 }
-                                Tool { width: 20px; height: 20px; label: "↺";
+                                Tool { dark-theme: root.dark-theme; width: 20px; height: 20px; label: "↺";
                                     hint: "Reset " + label; enabled: root.video-equalizer-known[index];
                                     activated => { root.set-video-equalizer(index, 0); }
                                 }
@@ -1077,7 +1252,7 @@ export component PlayerWindow inherits Window {
                         if pane-kind == 2 : HorizontalLayout {
                             height: 28px;
                             Text { text: "Secondary"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                            Tool { label: root.secondary-subtitle-visible ? "●" : "○"; hint: "Toggle secondary subtitle visibility";
+                            Tool { dark-theme: root.dark-theme; label: root.secondary-subtitle-visible ? "●" : "○"; hint: "Toggle secondary subtitle visibility";
                                 enabled: root.loaded && root.secondary-subtitle-visibility-known;
                                 activated => { root.toggle-secondary-subtitle-visibility(); } }
                         }
@@ -1146,14 +1321,14 @@ export component PlayerWindow inherits Window {
                                     } }
                                 Text { text: "s"; color: #bbbbbb; font-size: 11px; vertical-alignment: center; }
                             }
-                            PlayerSlider { minimum: -5; maximum: 5; step: 0.1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
+                            PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
                                 enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                 hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
                                 changed(value) => { root.set-delay(root.edit-secondary-subtitle ? 5 : 2, value); } }
                             Text { text: "Position";
                                 color: #bbbbbb; font-size: 11px; }
                             // The reference slider ends at 100 even though the engine accepts 150.
-                            PlayerSlider { minimum: 0; maximum: 100; step: 1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-position : root.subtitle-position;
+                            PlayerSlider { dark-theme: root.dark-theme; minimum: 0; maximum: 100; step: 1; value: root.edit-secondary-subtitle ? root.secondary-subtitle-position : root.subtitle-position;
                                 enabled: root.loaded && (root.edit-secondary-subtitle ? root.secondary-subtitle-position-known : root.subtitle-position-known);
                                 hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
                                 changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
@@ -1162,17 +1337,17 @@ export component PlayerWindow inherits Window {
                             height: 182px; vertical-stretch: 0; spacing: 8px;
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Scale"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                                PlayerSlider { minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
+                                PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
                                     enabled: root.loaded && root.subtitle-scale-known; hint: "Subtitle text scale";
                                     changed(value) => { root.set-subtitle-scale-slider(value); } }
-                                Tool { label: "↺"; hint: "Reset subtitle text scale";
+                                Tool { dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle text scale";
                                     enabled: root.loaded && root.subtitle-scale-known;
                                     activated => { root.set-subtitle-scale-slider(0); } }
                             }
                             HorizontalLayout { height: 30px; spacing: 8px;
                                 Text { text: "Font"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                                Tool { width: 140px; label: root.subtitle-font; hint: "Choose subtitle font";
+                                Tool { dark-theme: root.dark-theme; width: 140px; label: root.subtitle-font; hint: "Choose subtitle font";
                                     enabled: root.loaded && root.subtitle-font-known;
                                     activated => { root.choose-subtitle-font(); } }
                                 ObservedSizePicker { width: 60px; height: 24px;
@@ -1225,15 +1400,18 @@ export component PlayerWindow inherits Window {
                     }
                 }
                 if pane-kind == 4 : HorizontalLayout { spacing: 2px;
-                    Tool { icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist"; activated => { root.browse-files(4); } }
-                    Tool { label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
+                    Tool { dark-theme: root.dark-theme; label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label; activated => { root.playlist-action(5, ""); } }
+                    Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/shuffle.svg"); hint: root.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
+                        selected: root.playlist-shuffled; activated => { root.toggle-playlist-shuffle(); } }
+                    PlaylistSortButton { dark-theme: root.dark-theme; sort-requested(index) => { root.sort-playlist(index); } }
+                    Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist"; activated => { root.browse-files(4); } }
+                    Tool { dark-theme: root.dark-theme; label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
-                    Tool { label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";
+                    Tool { dark-theme: root.dark-theme; label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(2, root.selected-playlist-token); } }
-                    Tool { label: "↓"; hint: "Move selected entry down"; enabled: root.selected-playlist-token != "";
+                    Tool { dark-theme: root.dark-theme; label: "↓"; hint: "Move selected entry down"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(3, root.selected-playlist-token); } }
-                    Tool { label: "⌫"; hint: "Clear playlist except current file"; activated => { root.playlist-action(4, ""); root.selected-playlist-token = ""; } }
-                    Tool { label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label; activated => { root.playlist-action(5, ""); } }
+                    Tool { dark-theme: root.dark-theme; label: "⌫"; hint: "Clear playlist except current file"; activated => { root.playlist-action(4, ""); root.selected-playlist-token = ""; } }
                 }
             }
         }
@@ -1268,7 +1446,10 @@ export component PlayerWindow inherits Window {
             x: root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
             y: root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
                 root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
-            border-radius: root.osc-position == 0 ? 12px : 4px; background: #202025e8;
+            border-radius: root.osc-position == 0 ? 12px : 4px;
+            background: root.liquid-glass-osc
+                ? (root.dark-theme ? #202025e8 : #f2f2f2ed)
+                : (root.dark-theme ? #202025 : #f2f2f2);
             border-width: 1px; border-color: #ffffff25;
             // This is a tinted SDR spike, not a claim of matching AppKit video blur.
             // Keep the outer baseline separate from glyph/material estimates. A
@@ -1278,46 +1459,80 @@ export component PlayerWindow inherits Window {
                 padding-bottom: root.compact-ui ? 6px : 8px;
                 spacing: root.compact-ui ? 6px : 8px;
                 HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
-                    Tool { height: 17px; icon: @image-url("../../../assets/icons/backward.svg"); hint: "Half playback speed"; activated => { root.speed(0.5); } }
-                    Tool { height: 17px; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/backward.svg"); hint: "Half playback speed"; activated => { root.speed(0.5); } }
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";
                         activated => { root.toggle-pause(); } }
-                    Tool { height: 17px; icon: @image-url("../../../assets/icons/forward.svg"); hint: "Double playback speed"; activated => { root.speed(2); } }
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/forward.svg"); hint: "Double playback speed"; activated => { root.speed(2); } }
                     Rectangle { horizontal-stretch: 1; background: transparent; }
-                    Tool { height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Mute"; activated => { root.toggle-mute(); } }
-                    PlayerSlider { width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Mute"; activated => { root.toggle-mute(); } }
+                    PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
                         changed(value) => { root.set-volume(value); } }
-                    Tool { height: 17px; icon: @image-url("../../../assets/icons/stop.svg"); hint: "Stop"; activated => { root.stop(); } }
-                    Tool { height: 17px; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/stop.svg"); hint: "Stop"; activated => { root.stop(); } }
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
                 }
                 HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
-                    Text { text: position-label; color: #d4d4d4; font-size: 11px; vertical-alignment: center; }
-                    PlayerSlider { minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
+                    Text { text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
+                    PlayerSlider { dark-theme: root.dark-theme; minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
                         changed(value) => { root.seek(value); } }
-                    Text { text: duration-label; color: #d4d4d4; font-size: 11px; vertical-alignment: center; }
+                    Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                 }
             }
         }
         // Geometry is estimated from the reviewed 320×180 reference capture.
         if seek-osd-visible && osd-enabled && loaded && !crop-editing : Rectangle {
             x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
-            border-radius: 14px; background: #181818dc;
+            border-radius: 14px;
+            background: root.liquid-glass-osd ? #181818dc : #181818;
             seek-clock := HorizontalLayout {
                 x: 16px; y: 8px; width: parent.width - 32px; height: 25px; spacing: 5px;
-                Text { text: seek-position-label; color: white; font-size: 20px; font-weight: 600; }
-                Text { text: "/ " + seek-duration-label; color: #b0b0b0; font-size: 20px; font-weight: 600; }
+                Text { text: seek-position-label; color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
+                Text { text: "/ " + seek-duration-label; color: #b0b0b0; font-size: root.osd-text-size * 1px; font-weight: 600; }
             }
             Rectangle { x: 16px; y: 35px; height: 2px;
                 width: (parent.width - 32px) * clamp(position / max(0.001, duration), 0, 1);
                 background: #168bff; border-radius: 1px; }
         }
         if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
-            text: status; color: #bbbbbb; font-size: 11px; overflow: elide; }
+            text: status; color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
+        if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : Rectangle {
+            private property <length> card-width: min(340px, parent.width - 16px -
+                (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
+            x: parent.width - self.card-width -
+                (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
+            y: (root.compact-ui ? 38px : 42px) +
+                (root.osc-position == 1 ? (root.compact-ui ? 59px : 67px) : 0px);
+            width: self.card-width; height: 77px;
+            border-radius: root.liquid-glass-osd ? 16px : 10px;
+            background: root.liquid-glass-osd ? #1b1b20d8 : #1b1b20;
+            border-width: 1px; border-color: #ffffff22;
+            Text { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
+                text: root.media-title; color: white; font-size: 18px; overflow: elide; }
+            HorizontalLayout { x: 16px; y: 39px; width: parent.width - 32px; height: 24px; spacing: 4px;
+                Rectangle { width: 22px; height: 22px; border-radius: 11px;
+                    border-width: 2px; border-color: #d0d0d4;
+                    Rectangle { x: 9px; y: 4px; width: 2px; height: 7px; background: #d0d0d4; }
+                    Rectangle { x: 10px; y: 10px; width: 6px; height: 2px; background: #d0d0d4; }
+                }
+                Text { text: root.fullscreen-info-time; color: #d0d0d4; font-family: "monospace"; font-size: 18px; font-weight: 700; vertical-alignment: center; }
+                Rectangle { width: 2px; height: 16px; background: #ffffff55; }
+                if root.fullscreen-info-battery != "" : HorizontalLayout {
+                    spacing: 4px;
+                    Rectangle { width: 22px; height: 12px; border-radius: 2px;
+                        border-width: 1px; border-color: #d0d0d4;
+                        Rectangle { x: 3px; y: 3px; width: 15px * root.fullscreen-info-battery-level / 100; height: 4px; background: #d0d0d4; }
+                        Rectangle { x: 22px; y: 4px; width: 2px; height: 4px; background: #d0d0d4; }
+                    }
+                    Text { text: root.fullscreen-info-battery; color: #d0d0d4; font-size: 13px; font-weight: 700; vertical-alignment: center; }
+                }
+            }
+        }
         if video-osd-visible && osd-enabled && loaded : Rectangle {
             x: 8px; y: 49px; width: video-message.preferred-width + 32px;
             height: video-osd-progress >= 0 ? 50px : 41px;
-            border-radius: 14px; background: #181818dc;
+            border-radius: 14px;
+            background: root.liquid-glass-osd ? #181818dc : #181818;
             video-message := Text { x: 16px; y: 8px; text: root.video-osd-text;
-                color: white; font-size: 20px; font-weight: 600; }
+                color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
             if root.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;
                 width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
                 height: 2px; background: #168bff; border-radius: 1px; }
@@ -1441,7 +1656,9 @@ export component PlayerWindow inherits Window {
         }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
-    changed loaded => { root.video-menu-changed(); if !root.loaded { keys.focus(); } }
-    changed controls-visible => { if !root.controls-visible { keys.focus(); } }
+    changed loaded => { root.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
+    changed controls-visible => { if !root.controls-visible { keys.focus(); } root.refresh-fullscreen-info(); }
+    changed fullscreen => { root.refresh-fullscreen-info(); }
+    changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
     init => { keys.focus(); }
 }
