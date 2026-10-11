@@ -1,6 +1,8 @@
 //! Apply the shared aspect policy to the winit window without coupling it to a host OS.
 
-use crate::{NativeVideoHost, PlayerWindow};
+#[cfg(target_os = "windows")]
+use crate::NativeVideoHost;
+use crate::PlayerWindow;
 use riina_core::window_aspect::{self as policy, PixelSize};
 use slint::{
     ComponentHandle, PhysicalPosition, PhysicalSize,
@@ -15,6 +17,7 @@ pub(crate) fn connect(app: &PlayerWindow) {
 
 /// Bind the same portable aspect policy to the real surface when video is hosted
 /// outside the shared chrome window.
+#[cfg(target_os = "windows")]
 pub(crate) fn connect_to_native_host(
     app: &PlayerWindow,
     host: &NativeVideoHost,
@@ -32,6 +35,7 @@ pub(crate) type WindowEventFilter =
 #[derive(Clone)]
 enum WindowTarget {
     Player,
+    #[cfg(target_os = "windows")]
     NativeHost(slint::Weak<NativeVideoHost>),
 }
 
@@ -243,6 +247,7 @@ fn with_target_window(
 ) {
     match target {
         WindowTarget::Player => action(app.window()),
+        #[cfg(target_os = "windows")]
         WindowTarget::NativeHost(host) => {
             if let Some(host) = host.upgrade() {
                 action(host.window());

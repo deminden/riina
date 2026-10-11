@@ -42,7 +42,8 @@
     "Regenerate and verify the reviewed notices for all 346 Windows-targeted external Rust dependencies in the candidate portable package",
     "Verify and include the selected Slint Royalty-free 2.0 attribution and terms in the portable package",
     "Run the complete native playback and lifecycle suite plus playback against the final extracted portable package",
-    "Rebuild the complete package from its captured sources in the pinned build environment and record verification results"
+    "Rebuild the complete package from its captured sources in the pinned build environment and record verification results",
+    "Review Rust standard-library notices for both Rust 1.99.0 and the pinned native nightly: Cargo metadata does not enumerate compiler-provided standard libraries"
   ],
   "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
   "build_repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
@@ -99,5 +100,12 @@
     "limits": [
       "Local app link and import evidence only; release native engine and final package playback remain pending"
     ]
+  },
+  "candidate_in_flight": {
+    "run_id": 38128557321,
+    "commit": "8bc1bb2",
+    "native_job_id": 114437955798,
+    "preflight": "success: Bash syntax and five portable-runtime regression tests",
+    "native_build": "in progress; final engine, source and ZIP checks not yet available"
   }
 }

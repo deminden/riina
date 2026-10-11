@@ -1,3 +1,13 @@
+2026-10-11 Independent port build repair while the binary candidate runs:
+macOS/Linux CI failed strict lint because the Windows native-host aspect hook
+was compiled on every platform. Gate its import, binding, enum variant and match
+arm to Windows; the shared player policy remains available on all platforms.
+Windows formatting, strict workspace clippy and 212 ordinary tests pass (44
+native/platform tests ignored). Non-Windows full application builds must verify
+the fix before it is described as a port build success. Candidate 38128557321
+passes Bash syntax and five portable-runtime regressions and is compiling its
+native engine; no public binary has been delivered yet.
+
 2026-10-11 Broader binary-pipeline audit: collect libmpv from mpv-dev instead of
 the CLI output, assemble required non-system DLL imports recursively from build
 outputs, and verify both the folder and extracted ZIP. The application release
