@@ -135,9 +135,18 @@ class ReleaseArtifactTests(unittest.TestCase):
             slint_license.write_bytes(b"Slint terms")
             engine = binary / "libmpv-2.dll"
             engine.write_bytes(b"exact engine")
-            (binary / "SOURCE-MANIFEST.tsv").write_text("native source revision\n", encoding="utf-8")
+            source_manifest = binary / "SOURCE-MANIFEST.tsv"
+            source_manifest.write_text("native source revision\n", encoding="utf-8")
+            import_report = binary / "PACKAGE-WINDOWS-IMPORTS.json"
+            import_report.write_bytes(b"Windows CRLF report\r\n")
             runtime_manifest = binary / "RUNTIME-MANIFEST.tsv"
-            runtime_manifest.write_text("old manifest\n", encoding="utf-8")
+            runtime_manifest.write_text(
+                "path\tsha256\n"
+                f"libmpv-2.dll\t{prepare.sha256(engine)}\n"
+                f"SOURCE-MANIFEST.tsv\t{prepare.sha256(source_manifest)}\n"
+                f"THIRD_PARTY_LICENSES/highway/subprojects/googletest-1.17.0/LICENSE.build\t{prepare.sha256(stale_notice)}\n"
+                f"THIRD_PARTY_LICENSES/RUST/LICENSES.json\t{prepare.sha256(rust_notice)}\n",
+                encoding="utf-8")
             before = prepare.sha256(engine)
 
             self.assertEqual(prepare.prepare(binary, native), 1)
@@ -146,6 +155,8 @@ class ReleaseArtifactTests(unittest.TestCase):
             self.assertEqual(rust_notice.read_bytes(), b"Rust inventory")
             self.assertEqual(slint_license.read_bytes(), b"Slint terms")
             self.assertEqual((notices / "highway/LICENSE.txt").read_bytes(), b"captured license")
+            self.assertNotIn("PACKAGE-WINDOWS-IMPORTS.json", runtime_manifest.read_text(encoding="utf-8"))
+            import_report.write_bytes(b"Linux LF report\n")
             release.verify_runtime(binary, application=True)
             archive = root / "riina.zip"
             prepare.write_portable_zip(binary, archive)
