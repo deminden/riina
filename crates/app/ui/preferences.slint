@@ -911,6 +911,7 @@ export component PreferencesWindow inherits Window {
     background: #ffffff;
     in-out property <int> selected-pane: 0;
     in-out property <bool> disable-animations: false;
+    in property <bool> system-reduce-motion: false;
     in-out property <int> selected-general-section: 0;
     in-out property <int> appearance-index: 0;
     in-out property <bool> liquid-glass-expanded: false;
@@ -1143,7 +1144,10 @@ export component PreferencesWindow inherits Window {
     in-out property <string> utilities-status: "";
     callback settings-changed();
     changed disable-animations => {
-        MotionSettings.animations-disabled = root.disable-animations;
+        MotionSettings.animations-disabled = root.disable-animations || root.system-reduce-motion;
+    }
+    changed system-reduce-motion => {
+        MotionSettings.animations-disabled = root.disable-animations || root.system-reduce-motion;
     }
     callback choose-folder();
     callback choose-subtitle-font();

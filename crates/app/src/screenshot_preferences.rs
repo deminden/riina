@@ -1175,6 +1175,7 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     crate::network_ytdl_preferences::refresh_window(window, app);
     window.set_live_text_enabled(app.get_live_text_enabled());
     window.set_disable_animations(app.get_disable_animations());
+    window.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
     window.set_live_text_available(app.get_live_text_available());
     if let Ok(controls) = crate::control_preferences::current_player(app) {
         crate::control_preferences::install_window(window, &controls);

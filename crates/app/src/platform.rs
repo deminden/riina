@@ -4,6 +4,38 @@ pub(crate) mod folder_dialog;
 pub(crate) mod language;
 pub(crate) mod settings_file;
 
+/// Respect the Windows client-area motion accessibility switch without
+/// mutating a user preference or making calls into the OS from a render callback.
+pub(crate) fn system_reduce_motion_enabled() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use ::windows::{
+            Win32::UI::WindowsAndMessaging::{
+                SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
+                SystemParametersInfoW,
+            },
+            core::BOOL,
+        };
+
+        let mut animations_enabled = BOOL(1);
+        // SAFETY: SPI_GETCLIENTAREAANIMATION writes one BOOL to the valid local
+        // output pointer; the zero flags value performs a read-only query.
+        return unsafe {
+            SystemParametersInfoW(
+                SPI_GETCLIENTAREAANIMATION,
+                0,
+                Some((&mut animations_enabled as *mut BOOL).cast()),
+                SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+            )
+            .is_ok()
+                && !animations_enabled.as_bool()
+        };
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    false
+}
+
 pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::path::PathBuf> {
     let directory = if let Some(path) = configured {
         if path == "~" || path.starts_with("~/") || path.starts_with("~\\") {
