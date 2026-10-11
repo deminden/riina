@@ -46,7 +46,7 @@ jobs:
       image: ghcr.io/shinchiro/archlinux@sha256:c7dffe77b57d98b10e327dde12d3977faf4cb90aa7cb4f5eeac4e9d68d724239
     timeout-minutes: 360
     env:
-      CCACHE_DIR: ${{ runner.temp }}/riina-ccache
+      CCACHE_DIR: /__w/_temp/riina-ccache
       CCACHE_MAXSIZE: 4G
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
