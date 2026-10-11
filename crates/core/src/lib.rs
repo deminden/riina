@@ -170,7 +170,17 @@ pub enum Command {
         a: Option<f64>,
         b: Option<f64>,
     },
+    SetAbLoopPoint {
+        point: AbLoopPoint,
+        value: Option<f64>,
+    },
     Shutdown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AbLoopPoint {
+    A,
+    B,
 }
 
 impl Command {
@@ -478,6 +488,7 @@ impl Command {
             | Self::SubtitleAutoLoad(_)
             | Self::CycleLoop
             | Self::SetAbLoop { .. }
+            | Self::SetAbLoopPoint { .. }
             | Self::SetToneMapping(_)
             | Self::SetHdrEnabled(_)
             | Self::VideoThreads(_)
@@ -691,6 +702,20 @@ impl Command {
                     vec!["set".into(), "ab-loop-a".into(), a],
                     vec!["set".into(), "ab-loop-b".into(), b],
                 ]
+            }
+            Self::SetAbLoopPoint { point, value } => {
+                let name = match point {
+                    AbLoopPoint::A => "ab-loop-a",
+                    AbLoopPoint::B => "ab-loop-b",
+                };
+                let value = match value {
+                    None => "no".to_owned(),
+                    Some(value) if value.is_finite() && *value >= 0.0 => {
+                        value.max(0.000001).to_string()
+                    }
+                    _ => return Err("Invalid A–B loop point".into()),
+                };
+                vec![vec!["set".into(), name.into(), value]]
             }
             Self::SetToneMapping(settings) => settings.engine_commands()?,
             Self::SetHdrEnabled(enabled) => {
@@ -2112,6 +2137,43 @@ mod tests {
         };
         loaded.begin_load();
         assert!(loaded.ab_loop_a.is_none() && loaded.ab_loop_b.is_none());
+    }
+
+    #[test]
+    fn dragging_an_ab_loop_point_updates_only_the_selected_endpoint() {
+        let state = Playback {
+            ab_loop_a: Some(1.0),
+            ab_loop_b: Some(4.0),
+            ..Default::default()
+        };
+        assert_eq!(
+            Command::SetAbLoopPoint {
+                point: AbLoopPoint::A,
+                value: Some(2.5),
+            }
+            .plan(&state)
+            .unwrap()
+            .commands,
+            [vec!["set", "ab-loop-a", "2.5"]]
+        );
+        assert_eq!(
+            Command::SetAbLoopPoint {
+                point: AbLoopPoint::B,
+                value: None,
+            }
+            .plan(&state)
+            .unwrap()
+            .commands,
+            [vec!["set", "ab-loop-b", "no"]]
+        );
+        assert!(
+            Command::SetAbLoopPoint {
+                point: AbLoopPoint::A,
+                value: Some(f64::INFINITY),
+            }
+            .plan(&state)
+            .is_err()
+        );
     }
 
     #[test]

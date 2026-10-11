@@ -2833,3 +2833,9 @@ per-instance handle dimensions, and the playback timeline uses IINA's 3 x 15 px
 handle with a 1 px radius; volume and Preferences sliders retain their existing
 shape. This is source geometry matching, not a visual-parity claim: captured
 Windows/macOS surface comparison and timeline color/track geometry remain open.
+
+2026-10-11 A/B loop timeline increment: the main timeline now draws the observed A and B endpoints and routes dragging to a typed single-endpoint intent. The player playhead keeps priority when markers overlap, and moving A does not overwrite B (or vice versa). Workspace compilation passes; automated tests are running. Marker color, chapter marks, real pointer-drag behavior, and matched Windows/macOS captures remain unverified.
+
+The A/B timeline change now passes cargo test --workspace --locked on the Windows Rust toolchain. This covers independent A/B endpoint command mapping and validation; real mouse capture and pixel-level behavior are not exercised by that suite.
+
+Strict cargo clippy --workspace --all-targets --locked -- -D warnings also passes for the A/B loop timeline increment.

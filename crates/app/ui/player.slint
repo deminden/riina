@@ -788,6 +788,10 @@ export component PlayerWindow inherits Window {
     in property <string> status: "Open a file to begin";
     in property <float> position: 0;
     in property <float> duration: 0;
+    in property <float> ab-loop-a: 0;
+    in property <bool> ab-loop-a-known: false;
+    in property <float> ab-loop-b: 0;
+    in property <bool> ab-loop-b-known: false;
     in property <float> volume: 100;
     in-out property <bool> volume-boost: false;
     in-out property <int> control-pinch-index: 0;
@@ -1035,6 +1039,7 @@ export component PlayerWindow inherits Window {
     callback show-seek-osd();
     callback show-video-osd();
     callback cycle-ab-loop();
+    callback set-ab-loop-point(int, float);
     callback toggle-file-loop();
     callback toggle-secondary-subtitle-visibility();
     callback cycle-audio-track();
@@ -1638,8 +1643,12 @@ export component PlayerWindow inherits Window {
                 HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
                     Text { text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                     PlayerSlider { dark-theme: root.dark-theme; knob-width: 3px; knob-height: 15px; knob-radius: 1px;
+                        loop-a-visible: root.ab-loop-a-known; loop-a-value: root.ab-loop-a;
+                        loop-b-visible: root.ab-loop-b-known; loop-b-value: root.ab-loop-b;
                         minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
-                        changed(value) => { root.seek(value); } }
+                        changed(value) => { root.seek(value); }
+                        loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
+                        loop-b-moved(value) => { root.set-ab-loop-point(1, value); } }
                     Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                 }
             }

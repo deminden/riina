@@ -525,6 +525,10 @@ fn update_ui(
     app.set_seekable(state.seekable && state.duration.is_some());
     app.set_position(state.position.unwrap_or(0.0) as f32);
     app.set_duration(state.duration.unwrap_or(0.0) as f32);
+    app.set_ab_loop_a(state.ab_loop_a.unwrap_or_default() as f32);
+    app.set_ab_loop_a_known(state.ab_loop_a.is_some());
+    app.set_ab_loop_b(state.ab_loop_b.unwrap_or_default() as f32);
+    app.set_ab_loop_b_known(state.ab_loop_b.is_some());
     app.set_volume(state.volume as f32);
     app.set_muted(state.muted);
     app.set_speed_value(state.speed as f32);
@@ -1846,6 +1850,28 @@ pub(crate) fn configure_player(
         }
     });
     connect!(on_cycle_ab_loop, Command::CycleAbLoop);
+    let ab_loop_player = player.command_sender();
+    let ab_loop_app = app.as_weak();
+    app.on_set_ab_loop_point(move |point, value| {
+        let Some(app) = ab_loop_app.upgrade() else {
+            return;
+        };
+        if !app.get_loaded() || !value.is_finite() {
+            return;
+        }
+        let point = match point {
+            0 => riina_core::AbLoopPoint::A,
+            1 => riina_core::AbLoopPoint::B,
+            _ => return,
+        };
+        app.invoke_activity();
+        if let Err(error) = ab_loop_player.send(Command::SetAbLoopPoint {
+            point,
+            value: Some(f64::from(value)),
+        }) {
+            app.set_status(error.into());
+        }
+    });
     connect!(on_toggle_file_loop, Command::ToggleFileLoop);
     connect!(
         on_toggle_secondary_subtitle_visibility,
