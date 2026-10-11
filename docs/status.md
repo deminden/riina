@@ -1,3 +1,28 @@
+2026-10-11 The Windows native-video overlay now retains layered alpha while
+clearing Winit's mouse-transparent extended style, and the rebuilt player shows
+the video without the black cover from the user report. A live Windows mouse test
+confirmed both Play and Pause update the observed mpv state on the looping fixture;
+the Pause icon and paused OSD appear, and the frame stops advancing. Keyboard pause
+also works. Play at EOF now seeks to zero before resuming, covered by core planning
+and native playback tests. Full IINA comparison and macOS/Linux pointer behavior
+remain open.
+
+2026-10-11 The compact music player now places its transport row above the playlist
+hit area and reserves space for it above the metadata card. This keeps Play/Pause
+visible and clickable in both compact layouts. The pinned libmpv pause/seek/stop
+integration test passes; the updated layout still needs a live GUI check.
+
+2026-10-11 The Video pane now exposes the IINA-style HDR switch for detected HDR
+sources. Windows availability follows the DXGI output attached to the player
+window and requires the active HDR10/PQ color space; monitor moves and periodic
+refreshes detect display-setting changes. The user's enabled setting is persisted,
+and disabling HDR applies the automatic ICC/SDR policy at startup and during
+playback. Core preference and
+policy tests cover defaults and source guards. Load plans clear source-specific
+target overrides before replacing media. The native output transition, pixel
+accuracy, HLG display modes, and other platform implementations remain
+unverified.
+
 2026-10-11 Playlist clipboard behavior is now implemented for a selected entry:
 copy/cut retain its media reference, and paste inserts newline-separated paths or
 file URLs at the selected row (or at the top with no selection). Cut removes the
@@ -10,13 +35,18 @@ The media path is passed as one argument, preserving spaces and Unicode. This
 provides independent playback while the pinned always-open-new-window default
 and same-process multi-window lifecycle remain to be implemented and verified.
 
-2026-10-11 The next fully missing feature audit is Music mode. The pinned source
-transfers the active video and playlist views between windows, auto-switches on
-audio-only track lists when enabled (except fullscreen), and lets a manual switch
-override that policy. Its defaults show artwork and hide the playlist. The
-current project has no shared Music mode state or window lifecycle yet. Full
-macOS IINA v1.5.0 feature and visual parity remains the active goal; nothing in
-this audit establishes macOS runtime support.
+2026-10-11 Music mode now has shared typed transition state, album-art-aware
+audio detection, artist/album metadata observation, default-enabled automatic
+switching for local audio, fullscreen suppression, manual override, a Playback
+menu toggle, and persisted artwork/playlist/auto-switch preferences. The compact
+window uses the same playback surface: shared-renderer sizing restores the prior
+dimensions, and the Windows native host resizes in sync to preserve libmpv's one
+render context. A source-sized metadata card and optional playlist panel are
+present. Core and metadata unit tests pass, and the workspace type check passed
+before the latest preferences layout edit. This is an implementation increment,
+not visual parity: mode-specific transport layout/materials, artwork presentation
+comparison, native-window lifecycle testing and macOS GUI verification remain
+open. Next, continue the missing-feature audit before matched macOS surface work.
 
 2026-10-11 Independent port build repair while the binary candidate runs:
 macOS/Linux CI failed strict lint because the Windows native-host aspect hook
@@ -2719,3 +2749,81 @@ additional window-lifecycle and playlist policies remain incomplete. Static
 navigation/inventory checks pass, and the rebuilt Windows page renders all four
 subsection links and its Behavior controls. A measured pixel comparison and the
 native macOS runtime remain open.
+
+2026-10-11 Pause control reliability follow-up: the transport button now routes
+through the same native-state toggle as the keyboard shortcut. This avoids
+replaying a stale UI pause snapshot as an absolute command when mpv notifications
+are still in flight. Play after EOF still seeks to the beginning first. The
+workspace build and the pinned libmpv playback test pass; the native test now
+uses the exact TogglePause command, confirms playback position stops, then
+resumes. A fresh GUI capture exposes the transport control, but screenshot
+refresh failed after the click, so the interactive GUI click result remains
+unverified. Explicit SetPaused intents remain available for callers that need
+an idempotent target state.
+
+2026-10-11 Live Text now has a Windows path from the saved opt-in preference to
+in-memory paused-frame capture, local asynchronous Windows OCR and normalized
+on-video result regions; clicking a recognized line copies its text. Capture is
+bounded and row-packed, OCR converts RGBA to BGRA and downsizes to the installed
+engine limit. Stale recognition results are ignored when the source, capture or
+paused state changes. Windows workspace check/build, the workspace test suite,
+targeted preference persistence and OCR search-route tests pass; 42 native-only
+integration tests were skipped because the pinned DLL is not provisioned here.
+No GUI OCR or screenshot parity test has been run, and macOS/Linux
+recognition adapters remain open. The toolbar Play/Pause uses the same mpv toggle
+path as the keyboard shortcut; the earlier live Windows test confirmed pause and
+resume state changes on the looping fixture.
+
+2026-10-11 Plugin package foundation: `.iinaplgz` archives now stage with
+traversal, symlink, duplicate-entry and size guards; manifests and entry points
+are validated before install. The Settings page lists installed plugin metadata,
+reviews requested permissions before install and persists explicit grants.
+JavaScript execution, plugin host APIs, GitHub update/install, teardown and
+video-overlay integration remain open; plugin switches stay disabled until the
+runtime can honor them. Rust compilation passes; package rejection and install
+tests pass with the workspace suite.
+
+2026-10-11 Playback menu and pause follow-up: the player menu now includes A-B Loop and Playlist Loop, direct Playlist/Chapters
+panel actions, plus data-driven Audio/Subtitles menus for native track selection,
+mute, subtitle visibility, file loading, and panel navigation. The on-screen Play/Pause action sends an explicit target from
+the observed pause state, avoiding a toggle against stale mpv state; resuming from
+EOF retains the existing seek-to-start behavior. Rust 1.99 workspace check,
+strict all-target Clippy, the `riina` app tests (81 passed, 2 ignored), and the
+core idempotent-pause intent test pass. The native playback test did not reach its
+first playback notification and timed out with no observed state, so
+native pause and GUI click behavior remain unverified. Jump To, playlist submenu,
+matched menu captures, and complete macOS/Linux presentation remain open.
+
+2026-10-11 Plugin execution foundation: added the MIT RQuickJS 0.14 engine behind
+source, memory, stack, runtime and host-output limits. Package-entry activation
+rechecks canonical containment and UTF-8 before evaluation. Only requested and
+granted logging, OSD and alert calls are exposed; network, filesystem and overlay
+permissions remain unavailable, and the runtime is not yet wired to plugin toggle
+or player-event lifecycles. Five runtime tests pass for API gating, runaway code,
+size/output bounds and package containment. Full plugin behavior and overlay
+composition remain incomplete.
+
+2026-10-11 Pause control and Video menu increment: the toolbar now sends mpv's
+native TogglePause intent instead of deriving a target from the asynchronous UI
+snapshot; the observed pause property still controls the Play/Pause icon. The
+Video menu now includes dynamic video-track cycling and direct selection from
+the current catalog, with the selected track marked. `cargo test -p riina
+--locked` passed (86 tests, 2 ignored), and the latest workspace check passed.
+Native pause playback and a fresh GUI click were not verified in this turn; the
+previous native run timed out before its first playback-state event. Menu
+localization and matched Windows/macOS visuals remain open.
+
+2026-10-11 Pause and binary-candidate follow-up: the transport callback now
+sends the native TogglePause command, matching the playback menu and key route;
+the Play/Pause icon remains driven by mpv observation. The latest workspace test
+suite passes, and the shared Video menu now includes cycle/direct video-track
+selection. The GitHub Windows candidate 8bc1bb2 failed in license collection for
+the native subrandr dependency unicode-ident 1.0.13 because Unicode-DFS-2016
+was absent from the reviewed GPL-compatible grants. The FSF identifies that
+permissive license as GPL-compatible; the collector now accepts it and a Python
+regression test ensures the original package notice remains required. The six
+Python checks, parity traceability, settings routes, fixtures, strict Clippy and
+workspace checks pass locally. A repeat native playback test with the local DLL
+timed out before its first playback event, so this does not verify the pause
+button in the live app. No binary release has been published; the full runtime
+and corresponding-source audit is still open.

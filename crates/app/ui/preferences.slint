@@ -27,6 +27,7 @@ export struct PluginPreferencesRow {
     version: string,
     description: string,
     enabled: bool,
+    runtime-ready: bool,
 }
 
 component KeyBindingActionRow inherits Rectangle {
@@ -176,7 +177,9 @@ component PluginPreferencesRowView inherits Rectangle {
         background: #e1e1e1;
     }
     PluginEnabledSwitch {
-        x: 16px; y: 12px; checked: root.entry.enabled; label: root.entry.name + " enabled";
+        x: 16px; y: 12px; checked: root.entry.enabled;
+        switch-enabled: root.entry.runtime-ready;
+        label: root.entry.name + " enabled";
         toggled(checked) => { root.enabled-toggled(root.row-index, checked); }
     }
     Text {
@@ -1093,6 +1096,8 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> advanced-use-mpv-osd: false;
     in-out property <bool> advanced-use-config-directory: false;
     in-out property <string> advanced-config-directory-text: "~/.config/mpv/";
+    in-out property <bool> live-text-enabled: false;
+    in property <bool> live-text-available: false;
     in property <[AdvancedMpvOptionRow]> advanced-mpv-options: [];
     in-out property <int> advanced-mpv-option-selection: -1;
     in property <[PluginPreferencesRow]> plugin-rows: [];
@@ -1114,6 +1119,9 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> pause-when-open: false;
     in-out property <bool> fullscreen-when-open: false;
     in-out property <bool> resume-last-position: true;
+    in-out property <bool> auto-switch-to-music-mode: true;
+    in-out property <bool> music-mode-show-playlist: false;
+    in-out property <bool> music-mode-show-album-art: true;
     in-out property <string> utilities-progress-size: "0 B";
     in-out property <string> utilities-thumbnail-size: "0 B";
     in-out property <string> utilities-status: "";
@@ -1247,14 +1255,14 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 0 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.selected-general-section == 0 ? 240px : 300px;
+        content-height: root.selected-general-section == 0 ? 300px : 300px;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
-        width: parent.width; height: root.selected-general-section == 0 ? 240px : 300px; background: #ffffff;
+        width: parent.width; height: 300px; background: #ffffff;
         Text { x: 28px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
         if root.selected-general-section == 0 : Text { x: 28px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        if root.selected-general-section == 0 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 122px;
+        if root.selected-general-section == 0 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 206px;
         border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             Text { x: 16px; y: 8px; text: "When media is opened"; font-size: 13px; color: #222222; }
             CheckBox { x: 16px; y: 40px; height: 24px; text: "Pause";
@@ -1262,6 +1270,13 @@ export component PreferencesWindow inherits Window {
             Rectangle { x: 44px; y: 72px; width: parent.width - 56px; height: 1px; background: #e1e1e1; }
             CheckBox { x: 16px; y: 80px; height: 24px; text: "Enter fullscreen";
                 checked <=> root.fullscreen-when-open; toggled => { root.settings-changed(); } }
+            Rectangle { x: 44px; y: 112px; width: parent.width - 56px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 16px; y: 120px; height: 24px; text: "Automatically switch to Music Mode";
+                checked <=> root.auto-switch-to-music-mode; toggled => { root.settings-changed(); } }
+            CheckBox { x: 16px; y: 148px; height: 24px; text: "Show playlist in Music Mode";
+                checked <=> root.music-mode-show-playlist; toggled => { root.settings-changed(); } }
+            CheckBox { x: 16px; y: 176px; height: 24px; text: "Show album artwork in Music Mode";
+                checked <=> root.music-mode-show-album-art; toggled => { root.settings-changed(); } }
         }
         if root.selected-general-section == 1 : Text { x: 28px; y: 52px; text: "History"; font-weight: 600; font-size: 13px; color: #7a7a80; }
         if root.selected-general-section == 1 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 48px;
@@ -1578,11 +1593,16 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 2 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-y <=> root.video-scroll-position;
-        content-height: root.tone-mapping-expanded ? 820px : 560px;
+        content-height: root.tone-mapping-expanded
+            ? (root.live-text-available ? 930px : 820px)
+            : (root.live-text-available ? 670px : 560px);
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
-            width: parent.width; height: 820px; background: #ffffff;
+            width: parent.width;
+            height: root.tone-mapping-expanded
+                ? (root.live-text-available ? 930px : 820px)
+                : (root.live-text-available ? 670px : 560px);
             Text { x: 22px; y: 16px; text: "Video";
                 font-size: 15px; font-weight: 600; color: #222222; }
             Text { x: 20px; y: 52px; text: "Decoding";
@@ -1618,10 +1638,25 @@ export component PreferencesWindow inherits Window {
                     activated => { root.hardware-decoder-index = 2; root.settings-changed(); }
                 }
             }
-            Text { x: 20px; y: 378px; text: "Color and HDR";
+            if root.live-text-available : Rectangle {
+                x: 20px; y: 378px; width: parent.width - 40px; height: 88px;
+                Text { x: 8px; y: 0px; text: "Live Text";
+                    font-size: 12px; font-weight: 600; color: #737379; }
+                Rectangle { x: 0px; y: 24px; width: parent.width; height: 64px;
+                    border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                    PreferenceSwitch { x: 16px; y: 7px; width: parent.width - 32px; height: 24px;
+                        label: "Live Text"; checked <=> root.live-text-enabled;
+                        toggled => { root.settings-changed(); }
+                    }
+                    Text { x: 16px; y: 32px; width: parent.width - 32px; height: 26px;
+                        text: "Show a text-selection overlay when video is paused.";
+                        font-size: 9px; color: #77777d; wrap: word-wrap; }
+                }
+            }
+            Text { x: 20px; y: root.live-text-available ? 492px : 378px; text: "Color and HDR";
                 font-size: 12px; font-weight: 600; color: #737379; }
             Rectangle {
-                x: 20px; y: 402px; width: parent.width - 40px;
+                x: 20px; y: root.live-text-available ? 516px : 402px; width: parent.width - 40px;
                 height: root.tone-mapping-expanded ? 376px : 84px;
                 border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
                 PreferenceToggle { x: 12px; y: 8px; width: parent.width - 24px;

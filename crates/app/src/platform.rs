@@ -157,6 +157,8 @@ pub fn reveal_file(path: &std::path::Path) -> std::io::Result<()> {
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
+pub(crate) use windows::text_recognition;
+#[cfg(target_os = "windows")]
 pub(crate) use windows::{
     NativePresentation, file_dialog, native_window, open_dialog, services::*,
 };

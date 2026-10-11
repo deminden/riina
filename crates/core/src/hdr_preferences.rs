@@ -148,9 +148,57 @@ impl Settings {
     }
 }
 
+/// Build the per-player renderer changes used when IINA-style HDR output is
+/// enabled or disabled for the current HDR source.
+pub fn output_commands(
+    enabled: bool,
+    source_primaries: Option<&str>,
+) -> Result<Vec<Vec<String>>, String> {
+    if enabled {
+        let primaries = match source_primaries {
+            Some("bt.2020") => "bt.2020",
+            Some("display-p3") => "display-p3",
+            _ => return Err("HDR output requires a supported HDR source".into()),
+        };
+        Ok(vec![
+            vec!["set".into(), "icc-profile-auto".into(), "no".into()],
+            vec!["set".into(), "icc-profile".into(), String::new()],
+            vec!["set".into(), "target-prim".into(), primaries.into()],
+            vec!["set".into(), "target-trc".into(), "pq".into()],
+            vec![
+                "set".into(),
+                "screenshot-tag-colorspace".into(),
+                "yes".into(),
+            ],
+        ])
+    } else {
+        Ok(vec![
+            vec!["set".into(), "icc-profile-auto".into(), "yes".into()],
+            vec!["set".into(), "target-prim".into(), "auto".into()],
+            vec!["set".into(), "target-trc".into(), "auto".into()],
+            vec![
+                "set".into(),
+                "screenshot-tag-colorspace".into(),
+                "no".into(),
+            ],
+        ])
+    }
+}
+
+/// Startup overrides used when a user disabled HDR before opening a source.
+/// The normal enabled path leaves libmpv's automatic HDR selection untouched.
+pub fn disabled_output_options() -> Vec<(String, String)> {
+    vec![
+        ("icc-profile-auto".into(), "yes".into()),
+        ("target-prim".into(), "auto".into()),
+        ("target-trc".into(), "auto".into()),
+        ("screenshot-tag-colorspace".into(), "no".into()),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Algorithm, Settings};
+    use super::{Algorithm, Settings, output_commands};
 
     #[test]
     fn defaults_match_the_pinned_codec_preferences() {
@@ -192,6 +240,19 @@ mod tests {
         assert_eq!(
             settings.engine_commands().unwrap()[1],
             ["set", "tone-mapping", "bt.2390"]
+        );
+    }
+
+    #[test]
+    fn disabled_hdr_startup_options_restore_automatic_sdr_color_management() {
+        assert_eq!(
+            super::disabled_output_options(),
+            [
+                ("icc-profile-auto".into(), "yes".into()),
+                ("target-prim".into(), "auto".into()),
+                ("target-trc".into(), "auto".into()),
+                ("screenshot-tag-colorspace".into(), "no".into()),
+            ]
         );
     }
 
@@ -262,5 +323,33 @@ mod tests {
                 .is_ok()
             );
         }
+    }
+
+    #[test]
+    fn per_player_hdr_output_uses_source_primaries_and_restores_sdr_defaults() {
+        assert_eq!(
+            output_commands(true, Some("bt.2020")).unwrap(),
+            [
+                ["set", "icc-profile-auto", "no"],
+                ["set", "icc-profile", ""],
+                ["set", "target-prim", "bt.2020"],
+                ["set", "target-trc", "pq"],
+                ["set", "screenshot-tag-colorspace", "yes"],
+            ]
+        );
+        assert_eq!(
+            output_commands(true, Some("display-p3")).unwrap()[2],
+            ["set", "target-prim", "display-p3"]
+        );
+        assert!(output_commands(true, Some("bt.709")).is_err());
+        assert_eq!(
+            output_commands(false, None).unwrap(),
+            [
+                ["set", "icc-profile-auto", "yes"],
+                ["set", "target-prim", "auto"],
+                ["set", "target-trc", "auto"],
+                ["set", "screenshot-tag-colorspace", "no"],
+            ]
+        );
     }
 }

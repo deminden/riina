@@ -48,6 +48,7 @@ pub(crate) fn connect(
             };
             crate::settings_search::connect(&window);
             crate::utilities_preferences::connect(&window, &path, clear_history.clone());
+            crate::plugin_preferences::connect(&window, &app, &path);
             crate::advanced_preferences::install_window(&window, &baseline.advanced);
             crate::advanced_preferences::connect_actions(&app, &window, path.clone());
             let available_devices = latest_playback
@@ -734,6 +735,9 @@ pub(crate) fn connect(
                 app.set_pause_when_open(window.get_pause_when_open());
                 app.set_fullscreen_when_open(window.get_fullscreen_when_open());
                 app.set_resume_last_position(window.get_resume_last_position());
+                app.set_auto_switch_to_music_mode(window.get_auto_switch_to_music_mode());
+                app.set_music_mode_show_playlist(window.get_music_mode_show_playlist());
+                app.set_music_mode_show_album_art(window.get_music_mode_show_album_art());
                 crate::window_resize_preferences::install_player(&app, selected_window_resize);
                 app.set_osd_enabled(window.get_osd_enabled());
                 app.set_disable_osd_speed(window.get_disable_osd_speed());
@@ -806,6 +810,7 @@ pub(crate) fn connect(
                             100.0
                         }),
                         volume_boost: app.get_volume_boost(),
+                        live_text_enabled: window.get_live_text_enabled(),
                         theme_material: Some(selected_theme),
                         always_float_on_top: window.get_always_float_on_top(),
                         always_show_on_top_icon: window.get_always_show_on_top_icon(),
@@ -863,6 +868,7 @@ pub(crate) fn connect(
                 });
                 match result {
                     Ok(()) => {
+                        app.set_live_text_enabled(window.get_live_text_enabled());
                         *saved_tone_mapping_for_change.borrow_mut() = selected_tone_mapping.clone();
                         *saved_video_threads_for_change.borrow_mut() = selected_video_threads;
                         app.set_appearance_mode(selected_theme.index());
@@ -1141,6 +1147,8 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     );
     crate::network_cache_preferences::refresh_window(window, app);
     crate::network_ytdl_preferences::refresh_window(window, app);
+    window.set_live_text_enabled(app.get_live_text_enabled());
+    window.set_live_text_available(app.get_live_text_available());
     if let Ok(controls) = crate::control_preferences::current_player(app) {
         crate::control_preferences::install_window(window, &controls);
     }
@@ -1160,6 +1168,9 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_pause_when_open(app.get_pause_when_open());
     window.set_fullscreen_when_open(app.get_fullscreen_when_open());
     window.set_resume_last_position(app.get_resume_last_position());
+    window.set_auto_switch_to_music_mode(app.get_auto_switch_to_music_mode());
+    window.set_music_mode_show_playlist(app.get_music_mode_show_playlist());
+    window.set_music_mode_show_album_art(app.get_music_mode_show_album_art());
     window.set_osc_position(app.get_osc_position());
     window.set_hardware_decoder_index(app.get_hardware_decoder_index());
     window.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());

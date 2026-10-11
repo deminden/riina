@@ -89,7 +89,7 @@
     "missing_notice_files": 0,
     "cargo_lock_sha256": "edb5b5bd5f4a852243d668fb889ecb82442074c645d0453473af7dcf11ff216e",
     "notice_manifest_sha256": "f2462592c8fa447aabd8d4c244e55ecfd3cec4d1a7d4204ba95a5853836748b8",
-    "evidence": "scripts/package-rust-licenses.py completed on 2026-10-11; all selected grants passed its reviewed GPLv3-compatible list and notice files were collected. CI must regenerate from this exact lockfile."
+    "evidence": "scripts/package-rust-licenses.py completed on 2026-10-11 for the application's locked dependencies; all selected grants passed and notice files were collected. The native subrandr Rust dependency audit separately exposed Unicode-DFS-2016 and is being corrected; CI must regenerate both sets from the exact sources."
   },
   "windows_app_candidate_verification": {
     "version": "0.2.11",
@@ -101,11 +101,12 @@
       "Local app link and import evidence only; release native engine and final package playback remain pending"
     ]
   },
-  "candidate_in_flight": {
+  "latest_candidate_failure": {
     "run_id": 38128557321,
     "commit": "8bc1bb2",
     "native_job_id": 114437955798,
-    "preflight": "success: Bash syntax and five portable-runtime regression tests",
-    "native_build": "in progress; final engine, source and ZIP checks not yet available"
+    "failed_dependency": "native Rust dependency license selection",
+    "evidence": "Native source collection reached subrandr's vendored unicode-ident 1.0.13 and stopped because Unicode-DFS-2016 was not in the reviewed GPLv3-compatible grant list. The Free Software Foundation classifies the permissive Unicode data/software license as compatible with all GPL versions; its original notice must remain in the package.",
+    "next_candidate": "Add Unicode-DFS-2016 to the reviewed compatible grants, retain its collected notice, and regression-test the collector before rebuilding the private candidate. Distribution approval remains false until the complete runtime and corresponding-source audit passes."
   }
 }

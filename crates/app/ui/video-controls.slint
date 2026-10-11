@@ -164,3 +164,42 @@ export component HardwareDecodingControls inherits Rectangle {
             }
         }
 }
+
+export component HdrControls inherits Rectangle {
+    in property <bool> hdr-enabled: true;
+    in property <bool> hdr-available: false;
+    callback hdr-changed(bool);
+    height: 24px;
+    background: transparent;
+    HorizontalLayout { height: 24px; spacing: 8px;
+        Text { text: "HDR"; font-size: 12px; color: #dddddd;
+            vertical-alignment: center; horizontal-stretch: 1; }
+        toggle := Rectangle { width: 30px; height: 18px; border-radius: 9px;
+            background: root.hdr-enabled ? #478adc : #ffffff28;
+            accessible-role: switch; accessible-label: "HDR";
+            accessible-enabled: root.hdr-available;
+            accessible-checkable: true; accessible-checked: root.hdr-enabled;
+            accessible-action-default => {
+                if root.hdr-available { root.hdr-changed(!root.hdr-enabled); }
+            }
+            Rectangle { x: root.hdr-enabled ? 14px : 2px; y: 2px;
+                width: 14px; height: 14px; border-radius: 7px;
+                background: root.hdr-available ? #eeeeee : #777777; }
+            if toggle-focus.has-focus : Rectangle { background: transparent;
+                border-radius: 9px; border-width: 1px; border-color: #90b7ef; }
+            toggle-focus := FocusScope { enabled: root.hdr-available;
+                key-pressed(event) => {
+                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                    if event.text == " " || event.text == Key.Return {
+                        root.hdr-changed(!root.hdr-enabled); return accept;
+                    }
+                    return reject;
+                }
+            }
+            // Keep the pointer hit target last in stacking order so the focus
+            // helper cannot take the click without toggling HDR.
+            TouchArea { enabled: root.hdr-available;
+                clicked => { toggle-focus.focus(); root.hdr-changed(!root.hdr-enabled); } }
+        }
+    }
+}

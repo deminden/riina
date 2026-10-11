@@ -289,6 +289,7 @@ fn resize_filter(app: &PlayerWindow, previous_size: Rc<Cell<PixelSize>>) -> Wind
 
 fn aspect_lock_enabled(app: &PlayerWindow) -> bool {
     app.get_loaded()
+        && !app.get_music_mode()
         && app.get_edge_to_edge_video()
         && !app.get_unlock_window_aspect_ratio()
         && f64::from(app.get_video_display_aspect_ratio()).is_finite()

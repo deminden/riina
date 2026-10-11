@@ -1,6 +1,6 @@
 import { ScrollView, ComboBox } from "std-widgets.slint";
 import { PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
-import { VideoControls, HardwareDecodingControls } from "video-controls.slint";
+import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
 import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
@@ -8,6 +8,7 @@ export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
 export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool }
 export struct RecentMediaRow { title: string, position-label: string }
+export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
 component SidebarTab inherits FocusScope {
     in property <string> label;
     in property <bool> selected;
@@ -156,7 +157,6 @@ component Tool inherits Rectangle {
     if focus.has-focus : Rectangle {
         border-width: 1px; border-color: #90b7ef; border-radius: 5px; background: transparent;
     }
-    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
         enabled: root.enabled;
         key-pressed(event) => {
@@ -166,6 +166,9 @@ component Tool inherits Rectangle {
             return reject;
         }
     }
+    // Keep pointer activation above the focus helper in Slint's stacking order;
+    // otherwise a mouse press can focus a toolbar item without activating it.
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
 }
 
 component PlaylistSortButton inherits Rectangle {
@@ -525,13 +528,77 @@ export component PlayerWindow inherits Window {
             MenuItem { title: "Preferences…"; enabled: !root.crop-editing;
                 activated => { root.open-preferences(); } }
         }
+        Menu { title: "File";
+            MenuItem { title: "Open…"; enabled: !root.crop-editing;
+                activated => { root.open-file(); } }
+        }
         Menu { title: "Playback";
+            MenuItem { title: root.paused ? "Play" : "Pause";
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.toggle-pause(); } }
+            MenuItem { title: "Stop"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.stop(); } }
+            MenuSeparator {}
+            MenuItem { title: "Step Forward 5s"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.seek-relative(5); } }
+            MenuItem { title: "Next Frame"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.frame-step(); } }
+            MenuItem { title: "Step Backward 5s"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.seek-relative(-5); } }
+            MenuItem { title: "Previous Frame"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.frame-back-step(); } }
+            MenuItem { title: "Jump to Beginning"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.seek(0); } }
+            MenuSeparator {}
+            MenuItem { title: "Speed Up to 2x"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.speed(2); } }
+            MenuItem { title: "Speed Down to 0.5x"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.speed(0.5); } }
+            MenuItem { title: "Reset Speed"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.reset-speed(); } }
+            MenuSeparator {}
+            MenuItem { title: "Music Mode"; checkable: true; checked: root.music-mode;
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.toggle-music-mode(); } }
+            MenuItem { title: "A-B Loop"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.cycle-ab-loop(); } }
+            MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.toggle-file-loop(); } }
+            MenuItem { title: "Playlist Loop"; checkable: true; checked: root.loop-label == "Playlist";
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.playlist-action(5, ""); } }
+            MenuItem { title: "Show Playlist Panel"; enabled: !root.crop-editing;
+                activated => { root.toggle-playlist-pane(4); } }
+            MenuItem { title: "Next Media"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.playlist-next(); } }
+            MenuItem { title: "Previous Media"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.playlist-previous(); } }
+            MenuItem { title: "Show Chapters Panel"; enabled: !root.crop-editing;
+                activated => { root.toggle-playlist-pane(3); } }
+            MenuItem { title: "Next Chapter"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.adjust-chapter(1); } }
+            MenuItem { title: "Previous Chapter"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.adjust-chapter(-1); } }
+            MenuSeparator {}
             MenuItem { title: "Take a Screenshot"; enabled: root.screenshot-available && !root.crop-editing;
                 activated => { root.take-screenshot(); } }
             MenuItem { title: "Go to Screenshot Folder"; enabled: !root.crop-editing;
                 activated => { root.open-screenshot-folder(); } }
         }
         Menu { title: "Video";
+            MenuItem { title: "Show Video Panel"; enabled: !root.crop-editing;
+                activated => { root.toggle-settings-pane(6); } }
+            MenuSeparator {}
+            MenuItem { title: "Cycle Video Tracks"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.cycle-video-track(); } }
+            Menu { title: "Video Track"; enabled: root.loaded && !root.crop-editing;
+                for row in root.video-tracks : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.select-item(6, row.token); }
+                }
+            }
+            MenuSeparator {}
             Menu { title: "Aspect Ratio"; enabled: root.loaded && root.video-aspect-known && !root.crop-editing;
                 for label[index] in root.video-aspect-menu-labels : MenuItem {
                     title: label; checkable: true; checked: root.video-aspect-menu-index == index;
@@ -566,15 +633,62 @@ export component PlayerWindow inherits Window {
             MenuItem { title: "Deinterlace"; checkable: true; checked: root.deinterlace-enabled;
                 enabled: root.loaded && root.deinterlace-known && !root.crop-editing;
                 activated => { root.toggle-deinterlace(); } }
+            MenuItem { title: "Fit Window to Video";
+                enabled: root.loaded && root.video-display-aspect-ratio > 0 && !root.crop-editing;
+                activated => { root.fit-window-to-video(); } }
+            MenuItem { title: "Lock Window Aspect Ratio"; checkable: true;
+                checked: !root.unlock-window-aspect-ratio; enabled: !root.crop-editing;
+                activated => { root.unlock-window-aspect-ratio = !root.unlock-window-aspect-ratio; } }
+            MenuItem { title: root.fullscreen ? "Exit Full Screen" : "Enter Full Screen";
+                checkable: true; checked: root.fullscreen; enabled: !root.crop-editing;
+                activated => { root.toggle-fullscreen(); } }
+            MenuItem { title: "Float on Top"; checkable: true;
+                checked: root.always-float-on-top; enabled: !root.crop-editing;
+                activated => { root.always-float-on-top = !root.always-float-on-top; } }
+        }
+        Menu { title: "Audio";
+            MenuItem { title: root.muted ? "Unmute" : "Mute";
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.toggle-mute(); } }
+            MenuSeparator {}
+            for row in root.audio-tracks : MenuItem {
+                title: row.label; checkable: true; checked: row.selected;
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.select-item(1, row.token); }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Show Audio Panel"; enabled: !root.crop-editing;
+                activated => { root.toggle-settings-pane(1); } }
+        }
+        Menu { title: "Subtitles";
+            MenuItem { title: root.subtitle-visible ? "Hide Subtitles" : "Show Subtitles";
+                checkable: true; checked: root.subtitle-visible;
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.toggle-subtitle-visibility(); } }
+            MenuItem { title: "Load Subtitle…"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.browse-files(2); } }
+            MenuSeparator {}
+            for row in root.subtitle-tracks : MenuItem {
+                title: row.label; checkable: true; checked: row.selected;
+                enabled: root.loaded && !root.crop-editing;
+                activated => { root.select-item(2, row.token); }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Show Subtitle Panel"; enabled: !root.crop-editing;
+                activated => { root.toggle-settings-pane(2); } }
         }
     }
     title: "riina";
     preferred-width: 960px; preferred-height: 600px;
-    min-width: 520px; min-height: 300px;
+    min-width: music-mode ? 260px : 520px;
+    min-height: music-mode ? 72px : 300px;
     // The native VO lives in the owner window; this surface supplies only chrome.
     // Native mode must begin frameless so Winit creates its transparent surface
     // before the owner window is attached. The shared-GL entry point opts out.
-    in property <bool> native-video: false;
+    // Start in overlay mode so the native video window can request a genuinely
+    // transparent renderer before Slint discovers the conditional native menu.
+    // Shared-window entry points opt into their opaque menu surface before show().
+    in property <bool> native-video: true;
     in-out property <bool> dialog-open: false;
     in-out property <int> media-request-generation: 0;
     no-frame: native-video;
@@ -582,6 +696,25 @@ export component PlayerWindow inherits Window {
     background: native-video ? transparent : #111111;
     in property <image> video-frame;
     in property <bool> loaded: false;
+    in-out property <bool> hdr-enabled: true;
+    in property <bool> hdr-display-active: false;
+    in property <bool> hdr-source-detected: false;
+    in-out property <bool> live-text-enabled: false;
+    in-out property <bool> live-text-available: false;
+    in property <[LiveTextRegion]> live-text-regions: [];
+    callback copy-live-text(string);
+    callback set-hdr-enabled(bool);
+    in-out property <bool> music-mode: false;
+    in-out property <bool> auto-switch-to-music-mode: true;
+    in-out property <bool> music-mode-show-playlist: false;
+    in-out property <bool> music-mode-show-album-art: true;
+    callback toggle-music-mode();
+    callback music-mode-changed();
+    callback auto-switch-music-mode-changed(bool);
+    changed music-mode => { root.music-mode-changed(); root.video-menu-changed(); }
+    changed auto-switch-to-music-mode => { root.auto-switch-music-mode-changed(root.auto-switch-to-music-mode); }
+    changed music-mode-show-playlist => { if root.music-mode { root.music-mode-changed(); } }
+    changed music-mode-show-album-art => { if root.music-mode { root.music-mode-changed(); } }
     callback renderer-ready();
     changed engine-ready => { if root.engine-ready { root.renderer-ready(); } }
     callback media-opened();
@@ -610,6 +743,8 @@ export component PlayerWindow inherits Window {
     in property <bool> muted: false;
     in-out property <bool> fullscreen: false;
     in property <string> media-title: "riina";
+    in property <string> music-artist: "";
+    in property <string> music-album: "";
     in property <string> position-label: "--:--";
     in property <string> duration-label: "--:--";
     in property <string> seek-position-label;
@@ -933,6 +1068,20 @@ export component PlayerWindow inherits Window {
             y: video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
             width: root.render-width; height: root.render-height; image-fit: contain;
         }
+        for region in (root.live-text-enabled && root.paused ? root.live-text-regions : []) : Rectangle {
+            x: video-inset-leading + region.x * root.render-width;
+            y: video-inset-top + region.y * root.render-height;
+            width: max(1px, region.width * root.render-width);
+            height: max(1px, region.height * root.render-height);
+            border-width: 1px; border-color: #82b6ff; background: #82b6ff22;
+            accessible-role: button; accessible-label: region.text;
+            TouchArea { clicked => { root.copy-live-text(region.text); } }
+            Rectangle { x: 0; y: -18px; width: max(parent.width, 120px); height: 18px;
+                background: #151519e8;
+                Text { x: 4px; width: parent.width - 8px; text: region.text;
+                    color: #ffffff; font-size: 11px; overflow: elide; vertical-alignment: center; }
+            }
+        }
         if !root.edge-to-edge-video && root.native-video : Rectangle {
             x: 0px; y: 0px; width: root.video-inset-leading; height: root.height; background: #000000;
         }
@@ -1232,6 +1381,11 @@ export component PlayerWindow inherits Window {
                             hardware-known: root.hardware-decoding-known;
                             hardware-changed(value) => { root.set-hardware-decoding(value); }
                         }
+                        if pane-kind == 6 && root.hdr-source-detected && root.hdr-display-active : HdrControls {
+                            hdr-enabled: root.hdr-enabled;
+                            hdr-available: true;
+                            hdr-changed(value) => { root.set-hdr-enabled(value); }
+                        }
                         if pane-kind == 6 : VerticalLayout { spacing: 8px;
                             for label[index] in ["Brightness", "Contrast", "Saturation", "Gamma", "Hue"] : HorizontalLayout {
                                 height: 20px; spacing: 8px;
@@ -1452,7 +1606,10 @@ export component PlayerWindow inherits Window {
             width: root.osc-position == 0 ? min(460px, parent.width - 24px) : parent.width;
             height: root.compact-ui ? 59px : 67px;
             x: root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
-            y: root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
+            // Keep the transport row outside the playlist's hit-test surface
+            // in the compact music layout so Play/Pause remains directly usable.
+            y: root.music-mode && root.music-mode-show-playlist ? parent.height - 300px - self.height :
+                root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
                 root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
             border-radius: root.osc-position == 0 ? 12px : 4px;
             background: root.liquid-glass-osc
@@ -1502,6 +1659,43 @@ export component PlayerWindow inherits Window {
         }
         if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
             text: status; color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
+        if music-mode && music-mode-show-album-art && !music-mode-show-playlist && loaded : Rectangle {
+            // Reserve the transport row; otherwise the metadata card can cover
+            // the pause glyph in the compact window's default floating layout.
+            x: 12px;
+            y: root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) + (root.compact-ui ? 59px : 67px) + 8px :
+                root.osc-position == 2 ? parent.height - (root.compact-ui ? 59px : 67px) - 56px :
+                parent.height * 0.9 - (root.compact-ui ? 59px : 67px) - 56px;
+            width: parent.width - 24px; height: 48px; border-radius: 8px;
+            background: root.dark-theme ? #101014b8 : #f6f6f7dc;
+            VerticalLayout {
+                x: 10px; y: 5px; width: parent.width - 20px; height: parent.height - 10px;
+                spacing: 1px;
+                Text { text: root.media-title; color: root.dark-theme ? #ffffff : #202024;
+                    font-size: 13px; font-weight: 600; overflow: elide; }
+                Text { text: root.music-artist + (root.music-album != "" ? " · " + root.music-album : "");
+                    color: root.dark-theme ? #d0d0d4 : #505056; font-size: 11px; overflow: elide; }
+            }
+        }
+        if music-mode && music-mode-show-playlist : Rectangle {
+            x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
+            background: root.dark-theme ? #17171b : #f0f0f2;
+            ScrollView {
+                width: parent.width; height: parent.height;
+                VerticalLayout {
+                    spacing: 1px;
+                    for row in root.playlist : Rectangle {
+                        height: 30px; horizontal-stretch: 1;
+                        background: row.selected ? (root.dark-theme ? #ffffff1c : #168bff24) :
+                            music-row-touch.has-hover ? (root.dark-theme ? #ffffff10 : #0000000a) : transparent;
+                        Text { x: 10px; width: parent.width - 20px; text: row.label;
+                            color: root.dark-theme ? #eeeeee : #29292d; font-size: 12px;
+                            vertical-alignment: center; overflow: elide; }
+                        music-row-touch := TouchArea { clicked => { root.select-item(4, row.token); } }
+                    }
+                }
+            }
+        }
         if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : Rectangle {
             private property <length> card-width: min(340px, parent.width - 16px -
                 (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));

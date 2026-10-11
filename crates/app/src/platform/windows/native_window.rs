@@ -23,6 +23,11 @@ use windows::{
             Dwm::{DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BLURBEHIND, DwmEnableBlurBehindWindow},
             Gdi::{CreateRectRgn, DeleteObject, HGDIOBJ},
         },
+        UI::WindowsAndMessaging::{
+            GWL_EXSTYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
+            SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
+            WS_EX_TRANSPARENT,
+        },
     },
     core::BOOL,
 };
@@ -38,6 +43,36 @@ fn enable_video_transparency(window: &winit::window::Window) -> Result<(), Strin
         return Err("Native video transparency requires a Windows window".into());
     };
     let hwnd = HWND(handle.hwnd.get() as *mut _);
+    // Keep Winit's layered alpha for video composition, but remove its input
+    // transparency so the controls remain part of the hit-test surface.
+    let extended_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+    let interactive_style = extended_style & !(WS_EX_TRANSPARENT.0 as isize);
+    if interactive_style != extended_style {
+        // SAFETY: hwnd is the retained, realized Slint chrome window. The style
+        // is updated without replacing its owner, alpha, or taskbar attributes.
+        unsafe {
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, interactive_style);
+            SetWindowPos(
+                hwnd,
+                None,
+                0,
+                0,
+                0,
+                0,
+                SWP_FRAMECHANGED
+                    | SWP_NOMOVE
+                    | SWP_NOSIZE
+                    | SWP_NOACTIVATE
+                    | SWP_NOOWNERZORDER
+                    | SWP_NOZORDER,
+            )
+            .map_err(|error| format!("Could not enable native video control input: {error}"))?;
+        }
+    }
+    let effective_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+    if effective_style & (WS_EX_TRANSPARENT.0 as isize) != 0 {
+        return Err("The native video overlay is still mouse-transparent".into());
+    }
     // SAFETY: This creates a locally owned GDI region with no borrowed pointers.
     let region = unsafe { CreateRectRgn(0, 0, -1, -1) };
     if region.0.is_null() {
@@ -129,6 +164,47 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
+            let music_original_size = Rc::new(Cell::new(None));
+            let saved_music_size = music_original_size.clone();
+            let music_host = host.as_weak();
+            let music_app = app.as_weak();
+            app.on_music_mode_changed(move || {
+                let (Some(host), Some(app)) = (music_host.upgrade(), music_app.upgrade()) else {
+                    return;
+                };
+                host.window().with_winit_window(|window| {
+                    let scale = window.scale_factor();
+                    let target = if app.get_music_mode() {
+                        if saved_music_size.get().is_none() {
+                            saved_music_size.set(Some(window.inner_size()));
+                        }
+                        let height =
+                            72.0 + if app.get_music_mode_show_album_art() {
+                                300.0
+                            } else {
+                                0.0
+                            } + if app.get_music_mode_show_playlist() {
+                                300.0
+                            } else {
+                                0.0
+                            };
+                        window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(260.0, 72.0)));
+                        winit::dpi::PhysicalSize::new(
+                            (300.0 * scale).round() as u32,
+                            (height * scale).round() as u32,
+                        )
+                    } else if let Some(size) = saved_music_size.take() {
+                        window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(520.0, 300.0)));
+                        size
+                    } else {
+                        return;
+                    };
+                    let _ = window.request_inner_size(target);
+                    let chrome_size = slint::PhysicalSize::new(target.width, target.height);
+                    host.window().set_size(chrome_size);
+                    app.window().set_size(chrome_size);
+                });
+            });
             let recreated_app = app.as_weak();
             let recreated_host = host.as_weak();
             app.window()
@@ -218,6 +294,14 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                         app.get_screenshot_available() && !app.get_crop_editing(),
                     );
                     host.set_screenshot_folder_enabled(!app.get_crop_editing());
+                    host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
+                    host.set_music_mode(app.get_music_mode());
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_music_mode(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_music_mode();
                 }
             });
             let menu_app = app.as_weak();
@@ -336,6 +420,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                 | winit::event::WindowEvent::ScaleFactorChanged { .. }
         ) && let Some(app) = event_chrome.borrow().as_ref()
         {
+            app.set_hdr_display_active(super::presentation::hdr_display_active_for_slint(host));
             align(host, app.window());
         }
         result

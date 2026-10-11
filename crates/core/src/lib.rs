@@ -11,8 +11,10 @@ pub mod file_selection;
 pub mod hdr_preferences;
 pub mod key_bindings;
 pub mod liquid_glass;
+pub mod music_mode;
 pub mod network_preferences;
 pub mod playlist;
+pub mod plugin;
 pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
@@ -25,6 +27,7 @@ pub mod window_aspect;
 pub mod window_resize;
 
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -36,6 +39,7 @@ pub enum Command {
     OpenFiles(Vec<String>),
     SetPauseWhenOpen(bool),
     SetResumeLastPosition(bool),
+    SetPaused(bool),
     TogglePause,
     Stop,
     Seek {
@@ -53,6 +57,7 @@ pub enum Command {
     MultiplySpeed(f64),
     FrameStep,
     FrameBackStep,
+    CaptureFrame,
     Screenshot {
         directory: String,
         content: screenshot::Content,
@@ -82,6 +87,7 @@ pub enum Command {
     HardwareDecoding(video_controls::HardwareDecoder),
     VideoThreads(u32),
     SetToneMapping(hdr_preferences::Settings),
+    SetHdrEnabled(bool),
     SubtitleAssOverride {
         lane: subtitle_controls::SubtitleLane,
         level: subtitle_controls::AssOverrideLevel,
@@ -188,6 +194,11 @@ impl Command {
             Self::LoadAtPosition { .. } => {
                 return Err("The resume file or position is invalid".into());
             }
+            Self::SetPaused(paused) => vec![
+                "set".into(),
+                "pause".into(),
+                if *paused { "yes" } else { "no" }.into(),
+            ],
             Self::TogglePause => vec!["cycle".into(), "pause".into()],
             Self::Stop => vec!["stop".into()],
             Self::Seek { seconds, absolute } if seconds.is_finite() => vec![
@@ -215,6 +226,7 @@ impl Command {
             Self::ToggleMute => vec!["cycle".into(), "mute".into()],
             Self::FrameStep => vec!["frame-step".into()],
             Self::FrameBackStep => vec!["frame-back-step".into()],
+            Self::CaptureFrame => vec!["screenshot-raw".into(), "video".into(), "rgba".into()],
             Self::ScreenshotToFile { path, content } if valid_path(path) => vec![
                 "screenshot-to-file".into(),
                 path.clone(),
@@ -467,6 +479,7 @@ impl Command {
             | Self::CycleLoop
             | Self::SetAbLoop { .. }
             | Self::SetToneMapping(_)
+            | Self::SetHdrEnabled(_)
             | Self::VideoThreads(_)
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
@@ -481,6 +494,9 @@ impl Command {
 
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
+        if matches!(self, Self::CaptureFrame) && state.phase != Phase::Paused {
+            return Err("Text recognition is available only while video is paused".into());
+        }
         let commands = match self {
             Self::SubtitleLetterboxMargins(enabled) => {
                 let value = if *enabled { "yes" } else { "no" };
@@ -520,6 +536,21 @@ impl Command {
                     preferences.mpv_search_paths().unwrap_or_default(),
                 ]);
                 commands
+            }
+            Self::TogglePause if state.phase == Phase::Ended => {
+                // mpv stays at EOF after toggling its pause flag. Treat Play on
+                // the ended state as replay so the visible Play control works.
+                vec![
+                    vec!["seek".into(), "0".into(), "absolute+exact".into()],
+                    vec!["set".into(), "pause".into(), "no".into()],
+                ]
+            }
+            Self::SetPaused(false) if state.phase == Phase::Ended => {
+                // Play from EOF must seek first; setting pause=no alone does not replay.
+                vec![
+                    vec!["seek".into(), "0".into(), "absolute+exact".into()],
+                    vec!["set".into(), "pause".into(), "no".into()],
+                ]
             }
             Self::NetworkCache(preferences) => preferences.commands()?,
             Self::NetworkOnlineVideos(preferences) => preferences
@@ -662,6 +693,21 @@ impl Command {
                 ]
             }
             Self::SetToneMapping(settings) => settings.engine_commands()?,
+            Self::SetHdrEnabled(enabled) => {
+                let primaries = if *enabled {
+                    let source = state
+                        .video
+                        .as_ref()
+                        .or(state.video_target.as_ref())
+                        .or(state.video_output.as_ref())
+                        .filter(|video| video.is_hdr())
+                        .ok_or("HDR output is available only for a recognized HDR source")?;
+                    source.primaries.as_deref()
+                } else {
+                    None
+                };
+                hdr_preferences::output_commands(*enabled, primaries)?
+            }
             Self::VideoThreads(threads) if *threads <= i32::MAX as u32 => vec![vec![
                 "set".into(),
                 "vd-lavc-threads".into(),
@@ -732,6 +778,10 @@ impl Command {
                             if state.pause_when_open { "yes" } else { "no" }.into(),
                         ],
                     );
+                    // HDR overrides target the current source's primaries. Clear
+                    // them before replacement so the next source inherits auto/ICC.
+                    let hdr_reset = hdr_preferences::output_commands(false, None)?;
+                    commands.splice(0..0, hdr_reset);
                 }
                 commands
             }
@@ -758,14 +808,18 @@ impl Command {
                 }
                 commands
             }
-            Self::Load(_) | Self::LoadAtPosition { .. } => vec![
-                vec![
-                    "set".into(),
-                    "pause".into(),
-                    if state.pause_when_open { "yes" } else { "no" }.into(),
-                ],
-                self.mpv_args()?,
-            ],
+            Self::Load(_) | Self::LoadAtPosition { .. } => {
+                let mut commands = hdr_preferences::output_commands(false, None)?;
+                commands.extend([
+                    vec![
+                        "set".into(),
+                        "pause".into(),
+                        if state.pause_when_open { "yes" } else { "no" }.into(),
+                    ],
+                    self.mpv_args()?,
+                ]);
+                commands
+            }
             Self::SelectChapter(index) => {
                 let chapter = state
                     .chapters
@@ -943,6 +997,8 @@ pub struct Track {
     pub main_selection: Option<i64>,
     #[serde(default)]
     pub external: bool,
+    #[serde(default)]
+    pub albumart: bool,
     #[serde(default, rename = "external-filename")]
     pub external_filename: Option<String>,
     #[serde(default, rename = "default")]
@@ -1066,6 +1122,52 @@ pub enum Phase {
     Failed,
 }
 
+/// A tightly packed RGBA snapshot copied from the native engine's event-owned buffer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CapturedFrame {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Arc<[u8]>,
+}
+
+impl CapturedFrame {
+    pub fn new(width: u32, height: u32, stride: usize, bytes: &[u8]) -> Result<Self, String> {
+        const MAX_DIMENSION: u32 = 16_384;
+        const MAX_BYTES: usize = 512 * 1024 * 1024;
+        if width == 0 || height == 0 || width > MAX_DIMENSION || height > MAX_DIMENSION {
+            return Err("The captured frame dimensions are invalid".into());
+        }
+        let row_bytes = (width as usize)
+            .checked_mul(4)
+            .ok_or("The captured frame is too large")?;
+        if stride < row_bytes {
+            return Err("The captured frame row is shorter than its RGBA pixels".into());
+        }
+        let source_len = stride
+            .checked_mul(height as usize)
+            .filter(|length| *length <= MAX_BYTES)
+            .ok_or("The captured frame is too large")?;
+        if bytes.len() < source_len {
+            return Err("The captured frame buffer is incomplete".into());
+        }
+        let packed_len = row_bytes
+            .checked_mul(height as usize)
+            .ok_or("The captured frame is too large")?;
+        let mut rgba = Vec::with_capacity(packed_len);
+        for row in bytes[..source_len]
+            .chunks_exact(stride)
+            .take(height as usize)
+        {
+            rgba.extend_from_slice(&row[..row_bytes]);
+        }
+        Ok(Self {
+            width,
+            height,
+            rgba: rgba.into(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
@@ -1110,8 +1212,13 @@ pub struct Playback {
     /// Native successful captures, retained through snapshot coalescing.
     pub completed_screenshots: u64,
     pub screenshot_file: Option<String>,
+    /// Latest paused-frame snapshot for asynchronous OCR and selection overlays.
+    pub captured_frame: Option<Arc<CapturedFrame>>,
+    pub completed_frame_captures: u64,
     pub video_equalizer: [Option<i64>; 5],
     pub title: String,
+    pub artist: Option<String>,
+    pub album: Option<String>,
     pub error: Option<String>,
     pub tracks: Vec<Track>,
     pub chapters: Vec<Chapter>,
@@ -1152,6 +1259,34 @@ pub struct SubtitleStyleAvailability {
 }
 
 impl Playback {
+    pub fn audio_status(&self) -> music_mode::AudioStatus {
+        if self
+            .playlist
+            .iter()
+            .find(|entry| entry.current)
+            .is_some_and(|entry| entry.filename.contains("://"))
+        {
+            return music_mode::AudioStatus::Video;
+        }
+        let video_tracks = self
+            .tracks
+            .iter()
+            .filter(|track| track.kind == TrackKind::Video)
+            .collect::<Vec<_>>();
+        let has_audio_track = self
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Audio);
+        if video_tracks.is_empty() && !has_audio_track {
+            return music_mode::AudioStatus::Unknown;
+        }
+        if video_tracks.iter().all(|track| track.albumart) {
+            music_mode::AudioStatus::Audio
+        } else {
+            music_mode::AudioStatus::Video
+        }
+    }
+
     pub fn subtitle_style_availability(&self) -> SubtitleStyleAvailability {
         let mut any_selected = false;
         let mut any_text = false;
@@ -1206,11 +1341,14 @@ impl Playback {
         self.subtitle_text = None;
         self.secondary_subtitle_text = None;
         self.video = None;
+        self.artist = None;
+        self.album = None;
         self.video_target = None;
         self.video_output = None;
         self.deinterlace_active = None;
         self.video_frame_info = None;
         self.screenshot_file = None;
+        self.captured_frame = None;
     }
 
     pub fn reconcile(&mut self) {
@@ -1305,11 +1443,16 @@ pub struct Preferences {
     pub pause_when_open: bool,
     pub fullscreen_when_open: bool,
     pub resume_last_position: bool,
+    pub auto_switch_to_music_mode: bool,
+    pub music_mode_show_playlist: bool,
+    pub music_mode_show_album_art: bool,
     pub schema_version: u32,
     pub volume: f64,
     pub volume_boost: bool,
     pub advanced: advanced_preferences::Settings,
     pub audio: audio_preferences::Settings,
+    pub hdr_enabled: bool,
+    pub live_text_enabled: bool,
     pub hdr_tone_mapping: hdr_preferences::Settings,
     pub video_threads: u32,
     pub controls: control_preferences::Settings,
@@ -1409,11 +1552,16 @@ impl Default for Preferences {
             pause_when_open: false,
             fullscreen_when_open: false,
             resume_last_position: true,
+            auto_switch_to_music_mode: true,
+            music_mode_show_playlist: false,
+            music_mode_show_album_art: true,
             schema_version: 1,
             volume: 100.0,
             volume_boost: false,
             advanced: advanced_preferences::Settings::default(),
             audio: audio_preferences::Settings::default(),
+            hdr_enabled: true,
+            live_text_enabled: false,
             hdr_tone_mapping: hdr_preferences::Settings::default(),
             video_threads: 0,
             controls: control_preferences::Settings::default(),
@@ -1533,6 +1681,84 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn play_from_end_seeks_to_start_then_unpauses() {
+        let ended = Playback {
+            phase: Phase::Ended,
+            ..Playback::default()
+        };
+        assert_eq!(
+            Command::TogglePause.plan(&ended).unwrap().commands,
+            [["seek", "0", "absolute+exact"], ["set", "pause", "no"],]
+        );
+
+        let playing = Playback {
+            phase: Phase::Playing,
+            ..Playback::default()
+        };
+        assert_eq!(
+            Command::TogglePause.plan(&playing).unwrap().commands,
+            [["cycle", "pause"]]
+        );
+    }
+
+    #[test]
+    fn set_paused_command_is_idempotent_and_replays_at_end() {
+        let playing = Playback {
+            phase: Phase::Playing,
+            ..Playback::default()
+        };
+        assert_eq!(
+            Command::SetPaused(true).plan(&playing).unwrap().commands,
+            [["set", "pause", "yes"]]
+        );
+        assert_eq!(
+            Command::SetPaused(false).plan(&playing).unwrap().commands,
+            [["set", "pause", "no"]]
+        );
+
+        let ended = Playback {
+            phase: Phase::Ended,
+            ..Playback::default()
+        };
+        assert_eq!(
+            Command::SetPaused(false).plan(&ended).unwrap().commands,
+            [["seek", "0", "absolute+exact"], ["set", "pause", "no"]]
+        );
+    }
+
+    #[test]
+    fn live_text_frame_capture_requires_a_paused_source_and_packs_rgba_rows() {
+        let paused = Playback {
+            phase: Phase::Paused,
+            ..Playback::default()
+        };
+        assert_eq!(
+            Command::CaptureFrame.plan(&paused).unwrap().commands,
+            [["screenshot-raw", "video", "rgba"]]
+        );
+        assert!(Command::CaptureFrame.plan(&Playback::default()).is_err());
+
+        let frame = CapturedFrame::new(
+            2,
+            2,
+            12,
+            &[
+                1, 2, 3, 4, 5, 6, 7, 8, 99, 99, 99, 99, 9, 10, 11, 12, 13, 14, 15, 16, 99, 99, 99,
+                99,
+            ],
+        )
+        .unwrap();
+        assert_eq!(frame.width, 2);
+        assert_eq!(frame.height, 2);
+        assert_eq!(
+            &*frame.rgba,
+            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        );
+        assert!(CapturedFrame::new(2, 2, 4, &[0; 16]).is_err());
+        assert!(CapturedFrame::new(2, 2, 8, &[0; 15]).is_err());
+    }
 
     #[test]
     fn unknown_root_preferences_do_not_block_launch_or_playback() {
@@ -1803,6 +2029,17 @@ mod tests {
     }
 
     #[test]
+    fn hdr_output_preference_defaults_on_and_round_trips() {
+        assert!(Preferences::parse("{}").unwrap().hdr_enabled);
+        let selected = Preferences {
+            hdr_enabled: false,
+            ..Preferences::default()
+        };
+        let saved = serde_json::to_string(&selected).unwrap();
+        assert!(!Preferences::parse(&saved).unwrap().hdr_enabled);
+    }
+
+    #[test]
     fn resume_policy_updates_native_save_and_restore_together() {
         assert_eq!(
             Command::SetResumeLastPosition(false)
@@ -1891,8 +2128,10 @@ mod tests {
         assert_eq!(old.osd_timeout_secs, 1.0);
         assert_eq!(old.osd_text_size, 20.0);
         assert!(!old.display_time_and_battery_in_fullscreen);
+        assert!(!old.live_text_enabled);
         let configured = Preferences {
             enable_osd: false,
+            live_text_enabled: true,
             disable_osd_speed: true,
             disable_osd_seek: true,
             osd_timeout_secs: 0.125,
@@ -1901,6 +2140,7 @@ mod tests {
         let saved = serde_json::to_string(&configured).unwrap();
         let restored = Preferences::parse(&saved).unwrap();
         assert!(!restored.enable_osd);
+        assert!(restored.live_text_enabled);
         assert!(restored.disable_osd_speed);
         assert!(restored.disable_osd_seek);
         assert_eq!(restored.osd_timeout_secs, 0.125);
@@ -2237,6 +2477,7 @@ mod tests {
                 selected: false,
                 main_selection: None,
                 external: false,
+                albumart: false,
                 external_filename: None,
                 is_default: false,
                 channels: None,
@@ -2424,6 +2665,70 @@ mod tests {
     }
 
     #[test]
+    fn hdr_output_intent_requires_recognized_hdr_metadata() {
+        let source = VideoParameters {
+            pixelformat: None,
+            w: 1920,
+            h: 1080,
+            dw: None,
+            dh: None,
+            rotate: None,
+            colormatrix: None,
+            colorlevels: None,
+            primaries: Some("bt.2020".into()),
+            gamma: Some("hlg".into()),
+            max_luma: None,
+            min_luma: None,
+            signal_peak: None,
+        };
+        let state = Playback {
+            phase: Phase::Playing,
+            video: Some(source),
+            ..Playback::default()
+        };
+        let plan = Command::SetHdrEnabled(true).plan(&state).unwrap();
+        assert_eq!(plan.commands[2], ["set", "target-prim", "bt.2020"]);
+        assert_eq!(plan.commands[3], ["set", "target-trc", "pq"]);
+
+        let sdr_state = Playback {
+            video: Some(VideoParameters {
+                gamma: Some("bt.1886".into()),
+                ..state.video.clone().unwrap()
+            }),
+            ..Playback::default()
+        };
+        assert!(Command::SetHdrEnabled(true).plan(&sdr_state).is_err());
+        assert!(Command::SetHdrEnabled(false).plan(&sdr_state).is_ok());
+    }
+
+    #[test]
+    fn source_replacement_clears_current_hdr_target_before_loading() {
+        let load = Command::Load("next.mkv".into())
+            .plan(&Playback::default())
+            .unwrap();
+        assert_eq!(
+            &load.commands[..4],
+            [
+                ["set", "icc-profile-auto", "yes"],
+                ["set", "target-prim", "auto"],
+                ["set", "target-trc", "auto"],
+                ["set", "screenshot-tag-colorspace", "no"],
+            ]
+        );
+        assert_eq!(
+            load.commands.last().unwrap(),
+            &["loadfile", "next.mkv", "replace"]
+        );
+
+        let batch = Command::OpenFiles(vec!["first.mkv".into(), "second.mkv".into()])
+            .plan(&Playback::default())
+            .unwrap();
+        assert_eq!(&batch.commands[..4], &load.commands[..4]);
+        assert_eq!(batch.commands[5], ["loadfile", "first.mkv", "replace"]);
+        assert_eq!(batch.commands[6], ["loadfile", "second.mkv", "append"]);
+    }
+
+    #[test]
     fn unicode_media_stays_one_argument() {
         let path = r"C:\Фильмы\a b.mkv";
         assert_eq!(Command::Load(path.into()).mpv_args().unwrap()[1], path);
@@ -2447,8 +2752,8 @@ mod tests {
             ]
         );
         let plan = command.plan(&Playback::default()).unwrap();
-        assert_eq!(plan.commands[0], ["set", "pause", "no"]);
-        assert_eq!(plan.commands[1][4], "start=42.5");
+        assert_eq!(plan.commands[4], ["set", "pause", "no"]);
+        assert_eq!(plan.commands[5][4], "start=42.5");
         for position in [-1.0, f64::NAN, f64::INFINITY] {
             assert!(
                 Command::LoadAtPosition {

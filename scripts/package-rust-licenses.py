@@ -20,7 +20,7 @@ SPDX_FILENAMES = {
 GPLV3_COMPATIBLE_GRANTS = {
     "0BSD", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "BSL-1.0", "CC0-1.0",
     "ISC", "LicenseRef-Slint-Royalty-free-2.0", "MIT", "MPL-2.0", "Unicode-3.0",
-    "Unlicense", "Zlib",
+    "Unicode-DFS-2016", "Unlicense", "Zlib",
 }
 
 

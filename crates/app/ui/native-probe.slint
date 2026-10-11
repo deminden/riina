@@ -4,6 +4,9 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 // lets native presentation fail without changing the working SDR application.
 export component NativeVideoHost inherits Window {
     callback open-preferences();
+    in property <bool> music-mode-available: false;
+    in property <bool> music-mode: false;
+    callback toggle-music-mode();
     in property <bool> screenshot-available: false;
     in property <bool> screenshot-folder-enabled: true;
     callback take-screenshot();
@@ -31,6 +34,10 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Preferences…"; activated => { root.open-preferences(); } }
         }
         Menu { title: "Playback";
+            MenuItem { title: "Music Mode"; checkable: true; checked: root.music-mode;
+                enabled: root.music-mode-available;
+                activated => { root.toggle-music-mode(); } }
+            MenuSeparator {}
             MenuItem { title: "Take a Screenshot"; enabled: root.screenshot-available;
                 activated => { root.take-screenshot(); } }
             MenuItem { title: "Go to Screenshot Folder"; enabled: root.screenshot-folder-enabled;

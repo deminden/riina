@@ -23,6 +23,9 @@ mod opening_fullscreen;
 mod osd_preferences;
 mod platform;
 mod player_ui;
+mod plugin_packages;
+mod plugin_preferences;
+pub mod plugin_runtime;
 mod screenshot_osd;
 mod screenshot_output;
 mod screenshot_preferences;
@@ -72,6 +75,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .renderer_name("femtovg".into())
         .select()?;
     let app = PlayerWindow::new()?;
+    // This entry point renders video in the Slint window and needs its menu bar.
+    // Native-video mode keeps the transparent surface menu-free at initialization.
+    app.set_native_video(false);
     let welcome = if media.is_none() {
         Some(WelcomeWindow::new()?)
     } else {

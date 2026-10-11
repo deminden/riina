@@ -8,11 +8,14 @@ pub mod video;
 use ffi::{Api, EndFile, Property};
 use riina_core::{Command, Phase, Playback};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ffi::{CStr, CString, c_void},
     path::Path,
     rc::Rc,
-    sync::mpsc::{self, SyncSender},
+    sync::{
+        Arc,
+        mpsc::{self, SyncSender},
+    },
     thread::JoinHandle,
 };
 
@@ -171,7 +174,7 @@ impl Player {
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
-                        ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6),
+                        ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("deinterlace", 1), ("deinterlace-active", 3),
                         ("video-frame-info", 6),
@@ -217,6 +220,7 @@ impl Player {
                 let mut next_id = 0u64;
                 let mut pending = HashMap::new();
                 let mut pending_screenshots = HashMap::new();
+                let mut pending_frame_captures = HashSet::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
                 let mut seek_feedback = seek_feedback::SeekFeedback::default();
@@ -236,7 +240,7 @@ impl Player {
                                     state.video_aspect = aspect.clone();
                                     state.aspect_requests = state.aspect_requests.wrapping_add(1);
                                 }
-                                if matches!(command, Command::TogglePause) { seek_feedback.playback_transition(); }
+                                if matches!(command, Command::TogglePause | Command::SetPaused(_)) { seek_feedback.playback_transition(); }
                                 if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;
                                 // Validate the whole intent before submitting any part. Multi-file
@@ -274,6 +278,8 @@ impl Player {
                                     } else if matches!(command, Command::Screenshot { .. })
                                         && args.first().is_some_and(|name| name == "screenshot") {
                                         pending_screenshots.insert(next_id, None);
+                                    } else if matches!(command, Command::CaptureFrame) {
+                                        pending_frame_captures.insert(next_id);
                                     }
                                 }
                             }
@@ -287,11 +293,27 @@ impl Player {
                             5 => {
                                 seek_feedback.replied(event.userdata, event.error < 0);
                                 let screenshot = pending_screenshots.remove(&event.userdata);
+                                let frame_capture = pending_frame_captures.remove(&event.userdata);
                                 if let Some(generation) = pending.remove(&event.userdata)
                                     && generation == state.generation {
                                     if event.error < 0 {
                                         state.error = worker_api.check(event.error).err();
                                         resume_on_load = false;
+                                    } else if frame_capture {
+                                        if event.data.is_null() {
+                                            state.error = Some("mpv returned no video frame for text recognition".into());
+                                        } else {
+                                            // SAFETY: COMMAND_REPLY keeps this raw frame alive only until
+                                            // the next wait_event, so copy its pixels before continuing.
+                                            let reply = &*event.data.cast::<ffi::CommandReply>();
+                                            match reply.result.copy_rgba_frame() {
+                                                Ok(frame) => {
+                                                    state.captured_frame = Some(Arc::new(frame));
+                                                    state.completed_frame_captures = state.completed_frame_captures.wrapping_add(1);
+                                                }
+                                                Err(error) => state.error = Some(error),
+                                            }
+                                        }
                                     } else if let Some(path) = screenshot {
                                         // Queue acceptance is not capture success. Retire replies
                                         // from replaced sources without replaying old feedback.
@@ -418,6 +440,16 @@ fn decode_audio_devices(
     Ok(devices)
 }
 
+fn metadata_value(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .as_object()?
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(key))?
+        .1
+        .as_str()
+        .map(str::to_owned)
+}
+
 unsafe fn apply_property(state: &mut Playback, property: &Property) {
     // SAFETY: caller processes the event before asking mpv for another one. Format
     // tags are checked before dereferencing; unavailable properties remain unknown.
@@ -435,6 +467,10 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"track-list" => state.tracks.clear(),
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
+            b"metadata" => {
+                state.artist = None;
+                state.album = None;
+            }
             b"audio-device-list" => state.audio_devices.clear(),
             b"sub-text" => state.subtitle_text = None,
             b"secondary-sub-text" => state.secondary_subtitle_text = None,
@@ -504,6 +540,10 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                     state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?
                 }
                 b"audio-device-list" => state.audio_devices = decode_audio_devices(value)?,
+                b"metadata" => {
+                    state.artist = metadata_value(&value, "artist");
+                    state.album = metadata_value(&value, "album");
+                }
                 b"video-frame-info" => {
                     state.video_frame_info =
                         if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
@@ -684,5 +724,26 @@ mod audio_device_property_tests {
             ]))
             .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod metadata_property_tests {
+    use super::metadata_value;
+
+    #[test]
+    fn metadata_fields_are_read_case_insensitively_and_reject_non_text_values() {
+        let metadata = serde_json::json!({
+            "ARTIST": "Björk",
+            "album": "Debut",
+            "track": 7
+        });
+        assert_eq!(
+            metadata_value(&metadata, "artist").as_deref(),
+            Some("Björk")
+        );
+        assert_eq!(metadata_value(&metadata, "ALBUM").as_deref(), Some("Debut"));
+        assert_eq!(metadata_value(&metadata, "track"), None);
+        assert_eq!(metadata_value(&metadata, "title"), None);
     }
 }

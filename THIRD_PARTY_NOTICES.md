@@ -75,6 +75,8 @@ license is retained in the development dependency cache; no system font files
 are bundled or copied into riina. Desktop font resolution and any font packaging
 require separate verification.
 
+RQuickJS 0.14.0, rquickjs-core 0.14.0 and rquickjs-sys 0.14.0 (https://github.com/DelSkayn/rquickjs): MIT. The embedded QuickJS source and its upstream LICENSE are also MIT. The runtime is used only for permission-reviewed plugin scripts; platform, filesystem and network APIs are not enabled by this integration. Cargo.lock pins the Rust crates, and the source package retains their license files.
+
 ttf-parser 0.25.1 (https://github.com/harfbuzz/ttf-parser): selected MIT option
 from MIT OR Apache-2.0, copyright 2018 Yevhenii Reizner. Already present through
 the font dependency graph; now used directly to read face-label metadata.

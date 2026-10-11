@@ -235,6 +235,13 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 2,
         page: "Video",
+        section: "Live Text",
+        title: "Live Text",
+        terms: "recognize OCR selectable frame text accessibility",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
         section: "Color and HDR",
         title: "Tone Mapping",
         terms: "hdr peak nits algorithm clip mobius reinhard hable bt2390 gamma linear parameter",
@@ -601,6 +608,7 @@ fn anchor_y(entry: &Entry) -> i32 {
         (1, "Accessibility", _) => 1035,
         (2, "Decoding", "Number of threads") => 80,
         (2, "Decoding", _) => 145,
+        (2, "Live Text", _) => 378,
         (2, "Color and HDR", _) => 420,
         (3, _, _) => 52,
         (4, "Auto Load", "Subtitle matching mode") => 56,
@@ -863,6 +871,7 @@ mod tests {
         for (query, section, anchor) in [
             ("hardware decoder", "Decoding", 145),
             ("video threads", "Decoding", 80),
+            ("OCR frame", "Live Text", 378),
             ("hdr bt2390", "Color and HDR", 420),
         ] {
             let result = item_results(query);

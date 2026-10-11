@@ -8,6 +8,69 @@ use std::{
 };
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies Play restarts media after EOF"]
+fn play_restarts_media_after_end_of_file() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Ended);
+
+    player.send(Command::TogglePause).unwrap();
+    let restarted = wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && !state.paused && state.position.is_some_and(|p| p < 1.0)
+    });
+    assert_eq!(restarted.error, None);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies paused-frame pixels for Live Text"]
+fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = Player::start(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::SetPaused(true)).unwrap();
+    let paused = wait_for(&receiver, |state| state.phase == Phase::Paused);
+    player.send(Command::CaptureFrame).unwrap();
+    let captured = wait_for(&receiver, |state| {
+        state.completed_frame_captures > paused.completed_frame_captures
+    });
+    let frame = captured.captured_frame.unwrap();
+    assert!(frame.width > 0 && frame.height > 0);
+    assert_eq!(
+        frame.rgba.len(),
+        frame.width as usize * frame.height as usize * 4
+    );
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies live pause-on-open policy without pausing current media"]
 fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_playback() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -3595,8 +3658,23 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
             .iter()
             .any(|track| track.kind == TrackKind::Audio && track.id == audio_id && track.selected)
     });
+    // The transport button dispatches TogglePause, so cover that exact native
+    // command path before exercising the idempotent preference-oriented setter.
     player.send(Command::TogglePause).unwrap();
     let paused = wait_for(&receiver, |state| state.phase == Phase::Paused);
+    let paused_position = paused.position;
+    std::thread::sleep(Duration::from_millis(250));
+    let still_paused = wait_for(&receiver, |state| state.paused);
+    assert!(match (still_paused.position, paused_position) {
+        (Some(current), Some(at_pause)) => (current - at_pause).abs() < 0.05,
+        _ => false,
+    });
+    player.send(Command::TogglePause).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && !state.paused
+    });
+    player.send(Command::SetPaused(true)).unwrap();
+    wait_for(&receiver, |state| state.paused);
     player
         .send(Command::Seek {
             seconds: 2.0,
@@ -3609,6 +3687,14 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
             && state.completed_seeks > paused.completed_seeks
     });
     assert_eq!(paused.generation, seeked.generation);
+    player.send(Command::SetPaused(false)).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && !state.paused
+    });
+    player.send(Command::SetPaused(true)).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Paused && state.paused
+    });
     player.send(Command::Volume(50.0)).unwrap();
     wait_for(&receiver, |state| (state.volume - 50.0).abs() < 0.1);
     for _ in 0..12 {

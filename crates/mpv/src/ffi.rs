@@ -30,6 +30,7 @@ pub union NodeValue {
     pub integer: i64,
     pub double: f64,
     pub list: *const NodeList,
+    pub byte_array: *const NodeByteArray,
 }
 
 #[repr(C)]
@@ -50,11 +51,87 @@ pub struct NodeList {
     pub keys: *const *const c_char,
 }
 
+#[repr(C)]
+pub struct NodeByteArray {
+    pub data: *mut c_void,
+    pub size: usize,
+}
+
 impl Node {
     /// Copy an event-owned node before the next wait_event invalidates its storage.
     /// Unsupported formats fail rather than interpreting an inactive union member.
     pub unsafe fn copy_json(&self) -> Result<serde_json::Value, String> {
         unsafe { self.copy_json_at(0) }
+    }
+
+    /// Copies a screenshot-raw reply while its command event still owns the node.
+    pub unsafe fn copy_rgba_frame(&self) -> Result<riina_core::CapturedFrame, String> {
+        // SAFETY: `format` selects the map arm before the union pointer is read.
+        let list = if self.format == 8 {
+            unsafe { self.value.list }
+        } else {
+            std::ptr::null()
+        };
+        if list.is_null() {
+            return Err("mpv returned an invalid screenshot-raw map".into());
+        }
+        // SAFETY: the caller guarantees this is the live event-owned reply node.
+        let list = unsafe { &*list };
+        if !(0..=64).contains(&list.count)
+            || (list.count > 0 && (list.values.is_null() || list.keys.is_null()))
+        {
+            return Err("mpv returned incomplete screenshot-raw fields".into());
+        }
+
+        let mut width = None;
+        let mut height = None;
+        let mut stride = None;
+        let mut format = None;
+        let mut bytes = None;
+        for index in 0..list.count as usize {
+            // SAFETY: every key/value lies in the validated event-owned node list.
+            let key = unsafe { *list.keys.add(index) };
+            if key.is_null() {
+                return Err("mpv returned a null screenshot-raw key".into());
+            }
+            // SAFETY: mpv node-map keys are NUL-terminated for the event lifetime.
+            let key = unsafe { CStr::from_ptr(key) }.to_bytes();
+            // SAFETY: every listed node is readable until the next wait_event call.
+            let value = unsafe { &*list.values.add(index) };
+            match key {
+                b"w" if value.format == 4 => width = Some(unsafe { value.value.integer }),
+                b"h" if value.format == 4 => height = Some(unsafe { value.value.integer }),
+                b"stride" if value.format == 4 => {
+                    stride = Some(unsafe { value.value.integer });
+                }
+                b"format" if value.format == 1 && !unsafe { value.value.string }.is_null() => {
+                    format = Some(unsafe { CStr::from_ptr(value.value.string) }.to_bytes());
+                }
+                b"data" if value.format == 9 && !unsafe { value.value.byte_array }.is_null() => {
+                    bytes = Some(unsafe { &*value.value.byte_array });
+                }
+                _ => {}
+            }
+        }
+        if format != Some(b"rgba".as_slice()) {
+            return Err("mpv returned an unexpected screenshot pixel format".into());
+        }
+        let width = width
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or("mpv returned an invalid screenshot width")?;
+        let height = height
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or("mpv returned an invalid screenshot height")?;
+        let stride = stride
+            .and_then(|value| usize::try_from(value).ok())
+            .ok_or("mpv returned an invalid screenshot stride")?;
+        let bytes = bytes.ok_or("mpv returned no screenshot pixels")?;
+        if bytes.size > 512 * 1024 * 1024 || bytes.data.is_null() {
+            return Err("mpv returned an invalid screenshot buffer".into());
+        }
+        // SAFETY: screenshot-raw owns `size` readable bytes until the next wait_event.
+        let pixels = unsafe { std::slice::from_raw_parts(bytes.data.cast::<u8>(), bytes.size) };
+        riina_core::CapturedFrame::new(width, height, stride, pixels)
     }
 
     unsafe fn copy_json_at(&self, depth: usize) -> Result<serde_json::Value, String> {
@@ -238,6 +315,64 @@ impl Api {
         Err(unsafe { CStr::from_ptr((self.error)(result)) }
             .to_string_lossy()
             .into_owned())
+    }
+}
+
+#[cfg(test)]
+mod raw_frame_tests {
+    use super::*;
+
+    #[test]
+    fn screenshot_raw_node_copies_typed_rgba_bytes() {
+        let key_strings = ["w", "h", "stride", "format", "data"]
+            .map(|value| std::ffi::CString::new(value).unwrap());
+        let keys = key_strings.each_ref().map(|value| value.as_ptr());
+        let format = std::ffi::CString::new("rgba").unwrap();
+        let pixels = [1, 2, 3, 4, 5, 6, 7, 8];
+        let byte_array = NodeByteArray {
+            data: pixels.as_ptr().cast_mut().cast(),
+            size: pixels.len(),
+        };
+        let values = [
+            Node {
+                value: NodeValue { integer: 2 },
+                format: 4,
+            },
+            Node {
+                value: NodeValue { integer: 1 },
+                format: 4,
+            },
+            Node {
+                value: NodeValue { integer: 8 },
+                format: 4,
+            },
+            Node {
+                value: NodeValue {
+                    string: format.as_ptr(),
+                },
+                format: 1,
+            },
+            Node {
+                value: NodeValue {
+                    byte_array: &byte_array,
+                },
+                format: 9,
+            },
+        ];
+        let list = NodeList {
+            count: values.len() as c_int,
+            values: values.as_ptr(),
+            keys: keys.as_ptr(),
+        };
+        let result = Node {
+            value: NodeValue { list: &list },
+            format: 8,
+        };
+
+        // SAFETY: all map keys, values, and pixel storage outlive the copy.
+        let frame = unsafe { result.copy_rgba_frame() }.unwrap();
+        assert_eq!((frame.width, frame.height), (2, 1));
+        assert_eq!(&*frame.rgba, &pixels);
     }
 }
 

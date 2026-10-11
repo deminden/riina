@@ -84,6 +84,17 @@ prove rendered parity.
 | Auxiliary surfaces | Crop editor, font chooser, screenshot preview, transient OSD, dialogs and their focus/lifecycle |
 | Window modes | Fullscreen, music mode, PiP, ontop, multiple windows, theme and DPI behavior |
 
+HDR switch acceptance is source- and display-dependent. IINA restores the saved
+`enableHdrSupport` default (true) for each newly opened player, then shows the Video
+sidebar switch only when the source is recognized as HDR and the active display can
+present extended range. Enabling requests EDR and matches the renderer target to the
+source; disabling restores the display ICC/SDR path. Riina now detects the active
+HDR10/PQ output for the player window and connects the saved Video-pane switch to
+the source-guarded color policy. Load plans clear source-specific target overrides
+before replacing media. The native renderer still needs live transition evidence,
+and macOS EDR capability discovery remains open. Decoding an HDR fixture or
+enabling HDR in Windows alone does not verify this behavior.
+
 For each surface, record fixture/position, client bounds, scale, theme, selected
 panel and reference release hash. Inspect the actual before/after images. Compare
 geometry, type, original glyphs, colors, materials, stacking, focus and animation

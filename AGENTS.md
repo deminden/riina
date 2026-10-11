@@ -35,6 +35,8 @@ is in flight. Do not start duplicate builds or CI runs just to get another statu
 Monitor free space on C: during large or repeated builds. When space is running low,
 remove stale project-local Cargo build artifacts with `cargo clean` (or a specific
 project target directory), after confirming no active check is using that directory.
+For large Windows builds with a growing incremental cache, set `CARGO_INCREMENTAL=0`
+for the check or build so generated compiler state does not consume the drive.
 Do not routinely erase the shared Cargo registry or Git download caches: they are
 costly to repopulate and are not the project's generated build output.
 

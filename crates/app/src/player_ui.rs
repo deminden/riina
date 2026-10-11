@@ -1,6 +1,6 @@
 use crate::seek_osd::{self, Change, SeekOsd};
 use crate::{
-    CatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
+    CatalogRow, LiveTextRegion, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
@@ -95,6 +95,109 @@ fn recent_document_rows(
     // separate Resume action is enabled.
     let offset = if resume_last_position { 1 } else { 0 };
     recent_media_rows(media.get(offset..).unwrap_or_default())
+}
+
+#[cfg(target_os = "windows")]
+fn install_live_text(
+    app: &PlayerWindow,
+    sender: riina_mpv::CommandSender,
+    latest: Arc<std::sync::Mutex<Playback>>,
+) -> Rc<slint::Timer> {
+    let requested_frame = Rc::new(Cell::new(None::<(u64, u64)>));
+    let recognized_capture = Rc::new(Cell::new(None::<(u64, u64)>));
+    let recognition_running = Arc::new(AtomicBool::new(false));
+    let timer = Rc::new(slint::Timer::default());
+    let weak = app.as_weak();
+    timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(300),
+        move || {
+            let Some(app) = weak.upgrade() else { return };
+            let state = latest.lock().map(|state| state.clone()).unwrap_or_default();
+            if !app.get_live_text_enabled()
+                || !app.get_live_text_available()
+                || !app.get_loaded()
+                || state.phase != Phase::Paused
+            {
+                requested_frame.set(None);
+                recognized_capture.set(None);
+                app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
+                return;
+            }
+
+            // One screenshot request per paused source generation prevents polling
+            // from queueing duplicate frames while mpv completes the command.
+            let frame_key = (
+                state.generation,
+                state.position.unwrap_or_default().to_bits(),
+            );
+            if requested_frame.get() != Some(frame_key) {
+                match sender.send(Command::CaptureFrame) {
+                    Ok(()) => requested_frame.set(Some(frame_key)),
+                    Err(error) => app.set_status(
+                        format!("Could not capture frame for text recognition: {error}").into(),
+                    ),
+                }
+            }
+            let Some(frame) = state.captured_frame.as_deref().cloned() else {
+                return;
+            };
+            let key = (state.generation, state.completed_frame_captures);
+            if recognized_capture.get() == Some(key) || recognition_running.load(Ordering::Acquire)
+            {
+                return;
+            }
+            recognized_capture.set(Some(key));
+            recognition_running.store(true, Ordering::Release);
+            let latest_result = latest.clone();
+            let weak_result = app.as_weak();
+            let running = recognition_running.clone();
+            let width = frame.width as f32;
+            let height = frame.height as f32;
+            if let Err(error) = platform::text_recognition::recognize(frame, move |result| {
+                let _ = slint::invoke_from_event_loop(move || {
+                    running.store(false, Ordering::Release);
+                    let Some(app) = weak_result.upgrade() else {
+                        return;
+                    };
+                    let current = latest_result
+                        .lock()
+                        .map(|state| state.clone())
+                        .unwrap_or_default();
+                    if current.generation != key.0
+                        || current.phase != Phase::Paused
+                        || current.completed_frame_captures != key.1
+                        || !app.get_live_text_enabled()
+                    {
+                        return;
+                    }
+                    match result {
+                        Ok(regions) => {
+                            app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(
+                                regions
+                                    .into_iter()
+                                    .map(|region| LiveTextRegion {
+                                        text: region.text.into(),
+                                        x: region.x / width,
+                                        y: region.y / height,
+                                        width: region.width / width,
+                                        height: region.height / height,
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )))
+                        }
+                        Err(error) => {
+                            app.set_status(format!("Text recognition failed: {error}").into())
+                        }
+                    }
+                });
+            }) {
+                recognition_running.store(false, Ordering::Release);
+                app.set_status(format!("Could not start text recognition: {error}").into());
+            }
+        },
+    );
+    timer
 }
 
 fn refresh_welcome_history(
@@ -553,7 +656,17 @@ fn update_ui(
         }
         .into(),
     );
+    app.set_hdr_source_detected(
+        state
+            .video
+            .as_ref()
+            .or(state.video_target.as_ref())
+            .or(state.video_output.as_ref())
+            .is_some_and(riina_core::VideoParameters::is_hdr),
+    );
     app.set_media_title(state.title.into());
+    app.set_music_artist(state.artist.unwrap_or_default().into());
+    app.set_music_album(state.album.unwrap_or_default().into());
     app.set_position_label(time_label(state.position).into());
     app.set_duration_label(time_label(state.duration).into());
     // Playback state belongs to controls and transient OSD, not permanent text
@@ -566,6 +679,8 @@ pub(crate) struct UiSession {
     // until this sole native player owner has joined its decoder worker.
     pub(crate) player: Option<Player>,
     _presentation: Option<platform::NativePresentation>,
+    _hdr_display_timer: Option<Rc<slint::Timer>>,
+    _live_text_timer: Option<Rc<slint::Timer>>,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
     prefs_path: PathBuf,
@@ -602,6 +717,8 @@ impl UiSession {
                 100.0
             }),
             volume_boost: app.get_volume_boost(),
+            hdr_enabled: app.get_hdr_enabled(),
+            live_text_enabled: app.get_live_text_enabled(),
             always_float_on_top: app.get_always_float_on_top(),
             always_show_on_top_icon: app.get_always_show_on_top_icon(),
             theme_material: Some(
@@ -631,6 +748,9 @@ impl UiSession {
             window_resize: crate::window_resize_preferences::from_player(app)
                 .map_err(std::io::Error::other)?,
             compact_ui: app.get_compact_ui(),
+            auto_switch_to_music_mode: app.get_auto_switch_to_music_mode(),
+            music_mode_show_playlist: app.get_music_mode_show_playlist(),
+            music_mode_show_album_art: app.get_music_mode_show_album_art(),
             osc_position: app.get_osc_position() as u8,
             hardware_decoder: crate::codec_preferences::hardware_decoder(
                 app.get_hardware_decoder_index(),
@@ -736,6 +856,44 @@ pub(crate) fn configure_player(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
         Err(error) => return Err(error.into()),
     };
+    app.set_live_text_enabled(prefs.live_text_enabled);
+    app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
+    app.set_live_text_available(false);
+    #[cfg(target_os = "windows")]
+    {
+        let weak = app.as_weak();
+        let _ = platform::text_recognition::check_availability(move |available| {
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = weak.upgrade() {
+                    app.set_live_text_available(available);
+                    if !available {
+                        app.set_live_text_enabled(false);
+                    }
+                }
+            });
+        });
+    }
+    app.set_hdr_enabled(prefs.hdr_enabled);
+    app.set_hdr_display_active(
+        native
+            .as_ref()
+            .is_some_and(|presentation| presentation.hdr_display_active()),
+    );
+    let hdr_display_timer = native.as_ref().map(|presentation| {
+        let timer = Rc::new(slint::Timer::default());
+        let display = presentation.clone();
+        let weak = app.as_weak();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_secs(2),
+            move || {
+                if let Some(app) = weak.upgrade() {
+                    app.set_hdr_display_active(display.hdr_display_active());
+                }
+            },
+        );
+        timer
+    });
     let recent_media = Rc::new(RefCell::new(prefs.recent_media.clone()));
     let history_cleared = Rc::new(Cell::new(false));
     let watch_later_directory = prefs_path.with_file_name("watch-later");
@@ -762,11 +920,17 @@ pub(crate) fn configure_player(
             .engine_options()
             .map_err(std::io::Error::other)?,
     );
+    if !prefs.hdr_enabled {
+        engine_options.extend(riina_core::hdr_preferences::disabled_output_options());
+    }
     engine_options.extend(
         crate::advanced_preferences::engine_options(&prefs.advanced, &prefs_path)
             .map_err(std::io::Error::other)?,
     );
     app.set_volume_boost(prefs.volume_boost);
+    app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
+    app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
+    app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
     crate::control_preferences::install_player(app, &prefs.controls);
     crate::key_binding_preferences::install_player(app, &prefs.key_bindings);
     app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
@@ -842,6 +1006,41 @@ pub(crate) fn configure_player(
     )));
     let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
     let observed_playback = latest_playback.clone();
+    let music_mode_state = Arc::new(std::sync::Mutex::new(riina_core::music_mode::State::new(
+        prefs.auto_switch_to_music_mode,
+    )));
+    if native.is_none() {
+        let original_size = Rc::new(Cell::new(None::<slint::PhysicalSize>));
+        let saved_size = original_size.clone();
+        let weak = app.as_weak();
+        app.on_music_mode_changed(move || {
+            if let Some(app) = weak.upgrade() {
+                let window = app.window();
+                if app.get_music_mode() {
+                    if saved_size.get().is_none() {
+                        saved_size.set(Some(window.size()));
+                    }
+                    let scale = window.scale_factor();
+                    let height =
+                        72.0 + if app.get_music_mode_show_album_art() {
+                            300.0
+                        } else {
+                            0.0
+                        } + if app.get_music_mode_show_playlist() {
+                            300.0
+                        } else {
+                            0.0
+                        };
+                    window.set_size(slint::PhysicalSize::new(
+                        (300.0 * scale).round() as u32,
+                        (height * scale).round() as u32,
+                    ));
+                } else if let Some(size) = saved_size.take() {
+                    window.set_size(size);
+                }
+            }
+        });
+    }
     let queued = Arc::new(AtomicBool::new(false));
     let displayed = Arc::new(std::sync::Mutex::new(None));
     let crop_editor = crate::crop_editor::Editor::default();
@@ -858,6 +1057,7 @@ pub(crate) fn configure_player(
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(
         crate::opening_fullscreen::OpeningFullscreen::default(),
     ));
+    let notify_music_mode_state = music_mode_state.clone();
     let worker_scratch = screenshot_scratch.clone();
     let notify = move |state: Playback| {
         // This closure remains owned by the engine until native destruction.
@@ -881,6 +1081,7 @@ pub(crate) fn configure_player(
         let last_screenshot = last_screenshot.clone();
         let crop_editor = observed_crop_editor.clone();
         let opening_fullscreen = opening_fullscreen.clone();
+        let music_mode_state = notify_music_mode_state.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
@@ -890,6 +1091,7 @@ pub(crate) fn configure_player(
                 && let Ok(mut last_video) = last_video.lock()
                 && let Ok(mut last_screenshot) = last_screenshot.lock()
             {
+                let audio_status = state.audio_status();
                 let captures = latest.1.take();
                 let enter_fullscreen = opening_fullscreen.lock().is_ok_and(|mut opening| {
                     opening.observe(
@@ -909,6 +1111,11 @@ pub(crate) fn configure_player(
                     &mut last_video,
                     &mut last_screenshot,
                 );
+                if let Ok(mut mode) = music_mode_state.lock()
+                    && let Some(active) = mode.observe(audio_status, app.get_fullscreen())
+                {
+                    app.set_music_mode(active);
+                }
                 crate::screenshot_output::cleanup(&app, &captures);
                 if enter_fullscreen {
                     app.invoke_toggle_fullscreen();
@@ -931,6 +1138,39 @@ pub(crate) fn configure_player(
             return Err(std::io::Error::other(error).into());
         }
     };
+    #[cfg(target_os = "windows")]
+    let live_text_timer = Some(install_live_text(
+        app,
+        player.command_sender(),
+        latest_playback.clone(),
+    ));
+    #[cfg(not(target_os = "windows"))]
+    let live_text_timer = None;
+    let manual_music_mode = music_mode_state.clone();
+    let weak = app.as_weak();
+    let clipboard_parent = weak.clone();
+    app.on_copy_live_text(move |text| {
+        if let Err(error) = crate::platform::clipboard::copy_text(text.as_str())
+            && let Some(app) = clipboard_parent.upgrade()
+        {
+            app.set_status(format!("Could not copy recognized text: {error}").into());
+        }
+    });
+    app.on_toggle_music_mode(move || {
+        if let (Some(app), Ok(mut mode)) = (weak.upgrade(), manual_music_mode.lock()) {
+            let active = mode.toggle_manually();
+            if active && app.get_fullscreen() {
+                app.invoke_toggle_fullscreen();
+            }
+            app.set_music_mode(active);
+        }
+    });
+    let automatic_music_mode = music_mode_state.clone();
+    app.on_auto_switch_music_mode_changed(move |enabled| {
+        if let Ok(mut mode) = automatic_music_mode.lock() {
+            mode.set_auto_switch(enabled);
+        }
+    });
     crate::screenshot_preferences::connect(
         app,
         player.command_sender(),
@@ -1192,8 +1432,36 @@ pub(crate) fn configure_player(
             });
         }};
     }
-    connect!(on_toggle_pause, Command::TogglePause);
+    // Let mpv toggle its own state: the UI property is an asynchronously observed
+    // snapshot and can lag behind the engine when clicks arrive close together.
+    let pause_player = player.command_sender();
+    let pause_app = app.as_weak();
+    app.on_toggle_pause(move || {
+        let Some(app) = pause_app.upgrade() else {
+            return;
+        };
+        app.invoke_activity();
+        if let Err(error) = pause_player.send(Command::TogglePause) {
+            app.set_status(error.into());
+        }
+    });
     connect!(on_toggle_mute, Command::ToggleMute);
+    let hdr_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_set_hdr_enabled(move |enabled| {
+        let Some(app) = weak.upgrade() else { return };
+        if !app.get_hdr_source_detected() || (enabled && !app.get_hdr_display_active()) {
+            app.set_status("HDR needs an HDR source and an HDR-enabled display".into());
+            return;
+        }
+        match hdr_player.send(Command::SetHdrEnabled(enabled)) {
+            Ok(()) => {
+                app.set_hdr_enabled(enabled);
+                app.invoke_activity();
+            }
+            Err(error) => app.set_status(error.into()),
+        }
+    });
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
     connect!(on_frame_back_step, Command::FrameBackStep);
@@ -2077,6 +2345,8 @@ pub(crate) fn configure_player(
         return Ok(UiSession {
             player: Some(player),
             _presentation: native,
+            _hdr_display_timer: hdr_display_timer,
+            _live_text_timer: live_text_timer,
             _appearance_timer: appearance_timer,
             prefs_path,
             prefs,
@@ -2194,6 +2464,8 @@ pub(crate) fn configure_player(
     Ok(UiSession {
         player: Some(player),
         _presentation: None,
+        _hdr_display_timer: None,
+        _live_text_timer: live_text_timer,
         _appearance_timer: appearance_timer,
         prefs_path,
         prefs,

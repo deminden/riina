@@ -45,6 +45,7 @@ original contributions is not a blanket legal certification.
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |
 | Slint 1.18.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b) |
 | ICU4X locale/display-name code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
+| Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native source bundle |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
 | Development libmpv DLL and native dependencies | Existing terms, redistribution audit incomplete |
 
@@ -101,6 +102,13 @@ The release job runs the complete native test suite and a playback test against 
 engine extracted from the final portable ZIP. GitHub only publishes the assets when
 those checks and source packaging succeed. These tests do not certify GUI, HDR
 display, or pixel parity.
+
+The pinned `subrandr` helper also brings in `unicode-ident 1.0.13`, which declares
+the Unicode License Agreement for Data Files and Software (2016). The Free
+Software Foundation classifies that permissive grant as compatible with all GPL
+versions; the build accepts its SPDX identifier only after retaining the
+dependency's copyright and license notice in the corresponding-source bundle
+([GNU license list](https://www.gnu.org/licenses/license-list.html#Unicode)).
 
 Primary references:
 
