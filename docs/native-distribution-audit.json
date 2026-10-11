@@ -29,10 +29,12 @@
     "builder_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
     "openssl_revision": "d8bf6cdd4849925c30e4f1911c7acb49cb34b702",
     "x264_encoder": "Removed by tools/mpv/remove-x264.patch; built-in H.264 decoding is retained",
-    "source_capture": "The release build records each source checkout revision and each non-Git source file hash in SOURCE-MANIFEST.tsv, then packages those sources with the build scripts.",
+    "source_capture": "Capture native repository revisions, file hashes, and vendored subrandr Rust dependency sources before compilation. Restore and verify captured sources before bootstrapping the cross-toolchain on rebuild.",
     "build_container": "Pinned by digest in .github/workflows/release.yml",
     "curl_revision": "01346829096c61b372692f6dc43ffa778c6caccd",
-    "curl_version": "8.22.0; latest stable release verified on 2026-10-11"
+    "curl_version": "8.22.0; latest stable release verified on 2026-10-11",
+    "native_rust_toolchain": "nightly-2026-10-10; required by the upstream subrandr Cargo xtask; official channel manifest verified",
+    "runtime_assembly": "Embed libmpv-2.dll from mpv-dev output and recursively resolve required non-system PE imports from built dependency DLLs. Verify both assembled and extracted Windows ZIP; use static CRT for riina.exe."
   },
   "remaining": [
     "Build and verify the private release candidate before approving distribution; inventory the exact runtime and verify compatible redistribution terms without dropping required playback parity",
@@ -78,7 +80,7 @@
     "commit": "62adaae",
     "failed_dependency": "curl source bootstrap",
     "evidence": "The builder excludes curl and libsixel from its download/update aggregate despite mpv depending on both. CMake creates empty source directories; Git fetch in the empty curl directory discovers the parent builder repository and asks its origin for the curl tag.",
-    "next_candidate": "Include both dependencies in the aggregate; assert curl has its own Git directory, origin and pinned revision before source capture. Preserve the externally configured compiler cache through the builder wrapper. Full native compile and package verification remain pending."
+    "next_candidate": "Bootstrap omitted curl/libsixel sources, preserve the compiler cache, collect the DLL from mpv-dev, verify transitive DLL imports, vendor subrandr dependencies, and restore sources before toolchain compilation. Candidate and static-CRT app verification remain in flight."
   },
   "rust_candidate_audit": {
     "version": "0.2.11",
@@ -87,5 +89,15 @@
     "cargo_lock_sha256": "edb5b5bd5f4a852243d668fb889ecb82442074c645d0453473af7dcf11ff216e",
     "notice_manifest_sha256": "f2462592c8fa447aabd8d4c244e55ecfd3cec4d1a7d4204ba95a5853836748b8",
     "evidence": "scripts/package-rust-licenses.py completed on 2026-10-11; all selected grants passed its reviewed GPLv3-compatible list and notice files were collected. CI must regenerate from this exact lockfile."
+  },
+  "windows_app_candidate_verification": {
+    "version": "0.2.11",
+    "build": "cargo build -p riina --release --locked --target x86_64-pc-windows-msvc with target-feature=+crt-static",
+    "result": "success",
+    "import_check": "All required PE imports are in the Windows 11 system set; no vcruntime/MSVC redistributable dependency",
+    "executable_sha256": "36d668af3b5bb51df704cab58785eec2368687f7f94f0364921f451d87312847",
+    "limits": [
+      "Local app link and import evidence only; release native engine and final package playback remain pending"
+    ]
   }
 }

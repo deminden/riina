@@ -24,16 +24,16 @@ GPLV3_COMPATIBLE_GRANTS = {
 }
 
 
-def dependency_packages(metadata):
+def dependency_packages(metadata, root_name="riina"):
     packages = {package["id"]: package for package in metadata["packages"]}
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     roots = [
         package["id"]
         for package in metadata["packages"]
-        if package["name"] == "riina" and package["id"] in metadata["workspace_members"]
+        if package["name"] == root_name and package["id"] in metadata["workspace_members"]
     ]
     if len(roots) != 1:
-        raise ValueError(f"Expected one workspace binary root named riina; found {len(roots)}")
+        raise ValueError(f"Expected one workspace root named {root_name}; found {len(roots)}")
 
     visited = set()
     pending = roots[:]
@@ -141,12 +141,12 @@ def fetch_pinned_notice_files(package, source_root, target, output):
     return found
 
 
-def collect(metadata, output):
+def collect(metadata, output, root_name="riina", target_platform="x86_64-pc-windows-msvc"):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     records = []
     missing = []
-    for package in dependency_packages(metadata):
+    for package in dependency_packages(metadata, root_name):
         if package.get("source") is None:
             continue
         expression = package.get("license")
@@ -200,8 +200,8 @@ def collect(metadata, output):
             )
 
     manifest = {
-        "target": "x86_64-pc-windows-msvc",
-        "workspace_binary": "riina",
+        "target": target_platform,
+        "workspace_binary": root_name,
         "combined_distribution_license": "GPL-3.0-only",
         "selected_grants_policy": "Select a reviewed GPLv3-compatible option; preserve every package license and notice file.",
         "packages": records,
@@ -216,15 +216,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cargo", default="cargo")
+    parser.add_argument("--manifest-path", type=Path)
+    parser.add_argument("--package", default="riina")
+    parser.add_argument("--target", default="x86_64-pc-windows-msvc")
     args = parser.parse_args()
+    command = [args.cargo, "metadata", "--locked", "--format-version", "1", "--filter-platform", args.target]
+    if args.manifest_path:
+        command.extend(["--manifest-path", str(args.manifest_path)])
     result = subprocess.run(
-        [args.cargo, "metadata", "--locked", "--format-version", "1",
-         "--filter-platform", "x86_64-pc-windows-msvc"],
+        command,
         check=True, capture_output=True, text=True, encoding="utf-8",
     )
     metadata = json.loads(result.stdout)
-    count, missing = collect(metadata, args.output)
-    print(f"Collected declared licenses and notices for {count} Windows application dependencies.")
+    count, missing = collect(metadata, args.output, args.package, args.target)
+    print(f"Collected declared licenses and notices for {count} {args.package} dependencies.")
     if missing:
         print("Packages without packaged license text:", file=sys.stderr)
         print(json.dumps(missing, indent=2, ensure_ascii=False), file=sys.stderr)

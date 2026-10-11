@@ -14,3 +14,13 @@ diff --git a/exec.in b/exec.in
 -export CCACHE_DIR="@MINGW_INSTALL_PREFIX@/ccache"
 +export CCACHE_DIR="${CCACHE_DIR:-@MINGW_INSTALL_PREFIX@/ccache}"
  export LLVM_PROFILE_FILE="/dev/null"
+diff --git a/toolchain/rustup.cmake b/toolchain/rustup.cmake
+--- a/toolchain/rustup.cmake
++++ b/toolchain/rustup.cmake
+@@ -6,4 +6,4 @@
+         curl -sSf https://sh.rustup.rs |
+-        sh -s -- -y --default-toolchain nightly --target aarch64-pc-windows-gnullvm,x86_64-pc-windows-gnullvm,i686-pc-windows-gnullvm,x86_64-pc-windows-gnu,i686-pc-windows-gnu --no-modify-path --profile minimal
+-    BUILD_COMMAND ${EXEC} rustup update
++        sh -s -- -y --default-toolchain nightly-2026-10-10 --target aarch64-pc-windows-gnullvm,x86_64-pc-windows-gnullvm,i686-pc-windows-gnullvm,x86_64-pc-windows-gnu,i686-pc-windows-gnu --no-modify-path --profile minimal
++    BUILD_COMMAND ${EXEC} rustup run nightly-2026-10-10 rustc --version
+     INSTALL_COMMAND ""

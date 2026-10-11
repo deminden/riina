@@ -9,6 +9,8 @@ on:
       - '.github/workflows/release.yml'
       - 'tools/mpv/**'
       - 'scripts/package-rust-licenses.py'
+      - 'scripts/check-windows-runtime.py'
+      - 'scripts/tests/test_windows_runtime.py'
       - 'docs/native-distribution-audit.json'
       - 'LICENSES/**'
   workflow_dispatch:
@@ -50,6 +52,10 @@ jobs:
       CCACHE_MAXSIZE: 4G
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # verified v4.2.2
+      - name: Verify portable runtime checks before compiling native dependencies
+        run: |
+          bash -n tools/mpv/build-windows.sh
+          python -m unittest discover -s scripts/tests -p test_windows_runtime.py
       - name: Restore native compiler cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # verified v4
         with:
@@ -119,11 +125,13 @@ jobs:
       - name: Pinned Rust toolchain
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
           rustup target add x86_64-pc-windows-msvc --toolchain 1.99.0
       - name: Verify source and test fixtures
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           python scripts/check-parity.py
           python scripts/check-settings-navigation.py
           python scripts/check-fixtures.py
@@ -132,18 +140,23 @@ jobs:
       - name: Lint and unit tests
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo clippy --workspace --all-targets --locked -- -D warnings
           cargo test --workspace --locked
       - name: Native playback and lifecycle tests
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path native-runtime/libmpv-2.dll).Path
           $runtimePath = (Resolve-Path native-runtime).Path
           $env:PATH = "$runtimePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1
       - name: Build and assemble portable package
         shell: pwsh
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo build -p riina --release --locked --target x86_64-pc-windows-msvc
           $version = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
           $dist = Join-Path $PWD "dist/riina-$version-windows-x86_64"
@@ -152,6 +165,8 @@ jobs:
           Copy-Item native-runtime/* $dist -Recurse -Force
           Copy-Item LICENSE, LICENSE-GPL-3.0.txt, THIRD_PARTY_NOTICES.md, README.md $dist
           Copy-Item docs/licensing.md $dist/LICENSING.md
+          python scripts/check-windows-runtime.py --package "$dist"
+          if ($LASTEXITCODE -ne 0) { throw 'Portable package has unresolved Windows imports.' }
           python scripts/package-rust-licenses.py --output "$dist/THIRD_PARTY_LICENSES/RUST"
           $slintLicense = Join-Path $env:RUNNER_TEMP 'SLINT-ROYALTY-FREE-2.0.pdf'
           Invoke-WebRequest -Uri 'https://slint.dev/agreements/slint-royalty-free-license.pdf' -OutFile $slintLicense
@@ -170,10 +185,12 @@ jobs:
           Compress-Archive -Path "$dist/*" -DestinationPath "dist/riina-$version-windows-x86_64.zip" -CompressionLevel Optimal
           Get-FileHash "dist/riina-$version-windows-x86_64.zip" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  riina-$version-windows-x86_64.zip" } | Set-Content -Encoding ascii dist/SHA256SUMS.txt
           Expand-Archive "dist/riina-$version-windows-x86_64.zip" -DestinationPath package-smoke
+          python scripts/check-windows-runtime.py --package package-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted package has unresolved Windows imports.' }
           $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path package-smoke/libmpv-2.dll).Path
           $packagePath = (Resolve-Path package-smoke).Path
           $env:PATH = "$packagePath;$env:PATH"
-          cargo test -p riina-mpv --test native --locked playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture
+          cargo test -p riina-mpv --test native --locked --target x86_64-pc-windows-msvc playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # verified v4.6.2
         with:
           name: windows-package

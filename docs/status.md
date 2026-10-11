@@ -1,3 +1,16 @@
+2026-10-11 Broader binary-pipeline audit: collect libmpv from mpv-dev instead of
+the CLI output, assemble required non-system DLL imports recursively from build
+outputs, and verify both the folder and extracted ZIP. The application release
+uses static MSVC CRT to avoid assuming a redistributable is already installed.
+Five portable-runtime regression tests pass. The optimized static-CRT Windows
+app builds locally, and PE inspection finds only system imports (no vcruntime
+redistributable). Rust notices regenerate successfully for all 346 application
+dependencies. Native sources now include vendored
+subrandr crates, and rebuild restores verified sources before toolchain compile;
+the auxiliary native Rust toolchain is pinned to nightly-2026-10-10. PowerShell
+release checks stop on each failed native command. Full candidate build and exact
+package/source verification remain in flight; public binaries are not delivered.
+
 2026-10-11 Binary bootstrap repair: candidate 38127346214 fetched curl refs from
 the parent builder repository because upstream excludes curl from the initial
 download/update aggregate. The native bootstrap patch includes curl and libsixel,

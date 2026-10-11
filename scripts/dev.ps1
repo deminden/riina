@@ -1,5 +1,7 @@
 param([string[]]$CargoArguments)
-if (!$CargoArguments) { $CargoArguments = $args }
+# Positional calls bind the first argument to this array and leave the remainder
+# in $args. Preserve flags such as --release instead of silently building debug.
+$CargoArguments = @($CargoArguments) + @($args)
 if ($CargoArguments.Count -eq 0) { $CargoArguments = @('build','--workspace','--locked') }
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent

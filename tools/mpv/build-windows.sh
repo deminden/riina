@@ -75,21 +75,9 @@ test -d "$BUILDER/src_packages/libsixel/.git"
 test "$(git -C "$BUILDER/src_packages/curl" remote get-url origin)" = 'https://github.com/curl/curl.git'
 test "$(git -C "$BUILDER/src_packages/curl" rev-parse HEAD)" = "$CURL_REVISION"
 
-# The mpv target does not bootstrap the selected cross-toolchain. The pinned
-# builder documents these as explicit build targets; in particular, skipping
-# llvm leaves the clang wrapper pointing at a nonexistent clang executable.
-run_ninja -C build_x86_64 llvm
-run_ninja -C build_x86_64 rustup
-run_ninja -C build_x86_64 llvm-clang
-
-# The GPLv3 package depends on OpenSSL 3's Apache-2.0 terms. Verify both the
-# source revision pinned by the builder recipe and the license shipped with it.
-openssl_source="$BUILDER/src_packages/openssl"
-test "$(git -C "$openssl_source" rev-parse HEAD)" = "$OPENSSL_REVISION"
-grep -q 'Apache License' "$openssl_source/LICENSE.txt"
-
-# x264 is not part of the release engine or its corresponding source set.
-rm -rf "$BUILDER/src_packages/x264"
+# Fetch toolchain sources before restoring a captured source set. Otherwise the
+# rebuild would compile a fresh toolchain before checking its locked revisions.
+run_ninja -C build_x86_64 llvm-download mingw-w64-download cppwinrt-download
 
 if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
   # Rebuilds can restore the captured repositories after CMake's fetch phase,
@@ -110,6 +98,35 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
   done < "$RIINA_NATIVE_SOURCE_ROOT/../SOURCE-MANIFEST.tsv"
 fi
 
+
+# The mpv target does not bootstrap the selected cross-toolchain. The pinned
+# builder documents these as explicit build targets; in particular, skipping
+# llvm leaves the clang wrapper pointing at a nonexistent clang executable.
+run_ninja -C build_x86_64 llvm
+run_ninja -C build_x86_64 rustup
+run_ninja -C build_x86_64 llvm-clang
+
+# The GPLv3 package depends on OpenSSL 3's Apache-2.0 terms. Verify both the
+# source revision pinned by the builder recipe and the license shipped with it.
+openssl_source="$BUILDER/src_packages/openssl"
+test "$(git -C "$openssl_source" rev-parse HEAD)" = "$OPENSSL_REVISION"
+grep -q 'Apache License' "$openssl_source/LICENSE.txt"
+
+# x264 is not part of the release engine or its corresponding source set.
+rm -rf "$BUILDER/src_packages/x264"
+
+
+# subrandr is Rust too: its external crates are corresponding source for the
+# engine and must be captured, rather than left only in rustup's download cache.
+subrandr_source="$BUILDER/src_packages/subrandr"
+if [[ -z "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
+  (cd "$subrandr_source"
+    "$BUILDER/build_x86_64/exec" LD_PRELOAD= cargo vendor --locked riina-vendor > "$WORK_ROOT/subrandr-vendor.toml")
+  cat "$WORK_ROOT/subrandr-vendor.toml" >> "$subrandr_source/.cargo/config.toml"
+fi
+test -s "$subrandr_source/Cargo.lock"
+test -d "$subrandr_source/riina-vendor"
+
 # The manifest is made after upstream's update step and before the build. This
 # records the precise source states that will be archived with the executable.
 mkdir -p "$SOURCE_ARCHIVE_ROOT/buildscripts" "$SOURCE_ARCHIVE_ROOT/native-sources"
@@ -118,9 +135,14 @@ cp -a "$REPO_ROOT/tools/mpv/build-windows.sh" "$SOURCE_ARCHIVE_ROOT/"
 cp -a "$REPO_ROOT/tools/mpv/remove-x264.patch" "$SOURCE_ARCHIVE_ROOT/"
 cp -a "$REPO_ROOT/tools/mpv/pin-curl.patch" "$SOURCE_ARCHIVE_ROOT/"
 cp -a "$REPO_ROOT/tools/mpv/native-bootstrap.patch" "$SOURCE_ARCHIVE_ROOT/"
+"$BUILDER/build_x86_64/exec" LD_PRELOAD= python "$REPO_ROOT/scripts/package-rust-licenses.py" \
+  --manifest-path "$subrandr_source/Cargo.toml" --package subrandr \
+  --target x86_64-pc-windows-gnullvm \
+  --output "$SOURCE_ARCHIVE_ROOT/THIRD_PARTY_LICENSES/NATIVE_RUST"
 {
   printf 'builder_revision\t%s\n' "$BUILDER_REVISION"
   printf 'curl_revision\t%s\n' "$CURL_REVISION"
+  printf 'native_rust_toolchain\t%s\n' 'nightly-2026-10-10'
   printf 'x264_policy\tFFmpeg libx264 encoder disabled; built-in H.264 decoder retained\n'
   printf 'builder_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/remove-x264.patch" | cut -d' ' -f1)"
   printf 'curl_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/pin-curl.patch" | cut -d' ' -f1)"
@@ -137,17 +159,22 @@ cp -a "$REPO_ROOT/tools/mpv/native-bootstrap.patch" "$SOURCE_ARCHIVE_ROOT/"
 } > "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv"
 cp -a "$BUILDER/src_packages/." "$SOURCE_ARCHIVE_ROOT/native-sources/"
 
-# Build mpv first; its separate packaging target only adds the Windows runtime
-# files to a package directory and does not depend on or compile the engine.
+# Build the embedded engine and collect its development DLL output directly.
 run_ninja -C build_x86_64 mpv
-run_ninja -C build_x86_64 mpv-packaging
-runtime_dir="$(find "$BUILDER/build_x86_64" -mindepth 1 -maxdepth 1 -type d -name 'mpv-x86_64-*' ! -name '*debug*' -print -quit)"
-test -n "$runtime_dir"
+# mpv's CLI and development outputs are separate. Riina embeds the DLL; the
+# CLI packager adds unrelated SDK binaries and never supplies libmpv itself.
+mapfile -t runtime_dirs < <(find "$BUILDER/build_x86_64" -mindepth 1 -maxdepth 1 -type d -name 'mpv-dev-x86_64-*' -print)
+test "${#runtime_dirs[@]}" -eq 1
+runtime_dir="${runtime_dirs[0]}"
 test -s "$runtime_dir/libmpv-2.dll"
 mkdir -p "$GITHUB_WORKSPACE/native-runtime"
-cp -a "$runtime_dir/." "$GITHUB_WORKSPACE/native-runtime/"
+python "$REPO_ROOT/scripts/check-windows-runtime.py" \
+  --engine "$runtime_dir/libmpv-2.dll" \
+  --search "$BUILDER/build_x86_64/x86_64-w64-mingw32/bin" \
+  --package "$GITHUB_WORKSPACE/native-runtime"
 cp "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv" "$GITHUB_WORKSPACE/native-runtime/"
 mkdir -p "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES"
+cp -a "$SOURCE_ARCHIVE_ROOT/THIRD_PARTY_LICENSES/NATIVE_RUST" "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/"
 while IFS= read -r -d '' license_file; do
   relative="${license_file#"$BUILDER/src_packages/"}"
   destination="$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/$relative"
