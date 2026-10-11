@@ -62,10 +62,12 @@ pinned native engine and Cargo dependencies.
 The latest published GitHub release is v0.2.2 and contains source archives; it has
 no Windows application binary. The 0.3.0 package candidate fails during native
 shutdown on the hosted Windows runner, despite passing local playback checks
-against the exact release DLL. Selecting a headless audio backend did not resolve
-the crash. The current lifecycle implementation retains the native module for
-the application's lifetime while independently destroying player cores, and
-records shutdown stages to distinguish native destruction from worker teardown.
+against the exact release DLL. A captured mini dump identifies native audio-device
+notification cleanup calling into the unloaded Windows MMDevApi module. Selecting
+a headless audio backend and retaining libmpv did not resolve it. The playback
+worker now owns a Windows MTA initialization through core destruction, while native
+modules remain loaded for the application's lifetime. Shutdown stages and a
+failure-only mini dump distinguish native destruction from worker teardown.
 The release checks exercise independent players and reopening, preserve the full
 playback assertions, and run ahead of the slower application build. Hosted
 verification of this change is pending. A binary remains unavailable until the hosted

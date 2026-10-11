@@ -81,14 +81,14 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38171385062,
-    "commit": "743157f955d74b76b116093b690d0753b1d4a4b3",
+    "run_id": 38173249849,
+    "commit": "09d1bd3a9be82bc13aef95053a02ceb30d341316",
     "stage": "windows-package / native playback and lifecycle tests",
     "failure": "The test ab_repeat_observes_points_and_wraps_playback completed its playback assertions, then the test process exited with 0xc0000005 (STATUS_ACCESS_VIOLATION) during player shutdown. Package assembly and publish were skipped.",
-    "evidence": "The hosted A-B test completed playback assertions but still crashed during shutdown with STATUS_ACCESS_VIOLATION using mpv null audio output. The earlier callback lifetime fix was present; changing the audio backend did not resolve the fault. The exact release DLL passes the native suite locally.",
-    "resolution": "Native modules now remain loaded for the application lifetime while each player independently destroys its core. Shutdown-stage tracing distinguishes request draining, callback removal, native destruction and worker joining. Hosted native checks precede the application build. The full suite and extracted-package check remain mandatory; this change is not a proven hosted fix until those checks pass.",
-    "local_verification": "43 passed against release libmpv SHA-256 1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af with each headless output; full runtime manifest, workspace tests, formatting and strict Clippy passed.",
-    "next_action": "Verify the revised lifecycle locally, then dispatch one candidate reusing the passing native engine and matching captured sources; publish only after hosted playback and the exact source/package audit pass."
+    "evidence": "A hosted mini dump identifies libmpv-2.dll+0xf4a510 calling a COM vtable slot at offset 0x38 into the unloaded MMDevApi.dll range. This matches the engine audio-device notification unregister path. Request draining and callback removal completed before the fault. Neither null audio output nor retaining the native module resolved it.",
+    "resolution": "A Windows-only COM MTA guard now covers playback-worker creation through native core destruction. It balances successful initialization on the same worker thread and cannot move across threads. The full native suite, extracted-package test, and binary/source audit remain required. Hosted verification is pending.",
+    "local_verification": "44 native tests pass against release libmpv SHA-256 1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af with mpv null output. The exact runtime manifest and 15 package regressions pass locally.",
+    "next_action": "Verify the Windows COM lifetime change on the hosted runner; publish only after complete playback and exact binary/source audit pass."
   },
   "historical_candidate_failures": [
     {

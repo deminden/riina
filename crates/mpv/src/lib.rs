@@ -4,6 +4,8 @@ mod demuxer_tests;
 mod ffi;
 mod seek_feedback;
 pub mod video;
+#[cfg(windows)]
+mod windows_apartment;
 
 use ffi::{Api, EndFile, Property};
 use riina_core::{Command, Phase, Playback};
@@ -159,6 +161,11 @@ impl Player {
         let callback_sender = sender.clone();
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         let thread = std::thread::Builder::new().name("mpv-events".into()).spawn(move || {
+            #[cfg(windows)]
+            let _apartment = match windows_apartment::Apartment::initialize() {
+                Ok(apartment) => apartment,
+                Err(error) => { let _ = ready_tx.send(Err(error)); return; }
+            };
             // SAFETY: all ordinary client calls stay on this worker. Only the render API
             // sees the handle on the GUI thread, as permitted by render.h's threading contract.
             unsafe {

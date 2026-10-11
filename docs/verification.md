@@ -1645,8 +1645,14 @@ OpenAL Soft's null device. Workspace tests, formatting and strict Clippy pass lo
 These runs cover the current Windows source changes; they do not certify GUI,
 physical audio hardware, HDR display or macOS runtime behavior.
 
-Hosted candidate 38171385062 still crashed during A-B loop shutdown using mpv's
-null output. Changing the audio backend did not resolve that failure. Native
+Hosted native checks still crashed during A-B loop shutdown using mpv's
+null output. Changing the audio backend and retaining libmpv did not resolve that failure.
+The hosted mini dump identifies `libmpv-2.dll+0xf4a510` making a virtual call at
+`[rax+0x38]` into the unloaded `MMDevApi.dll` range during audio-device notification
+cleanup. This matches the pinned engine's endpoint-notification unregister path.
+The Windows playback worker now owns a COM MTA guard before core creation and
+releases it only after core destruction on that same thread. Hosted verification
+of this guard remains required. Native
 modules now remain loaded for the application lifetime while each player destroys
 its own core; shutdown tracing records request draining, callback removal, native
 destruction and worker joining. The additional native regression closes one of two
