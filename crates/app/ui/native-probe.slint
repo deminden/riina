@@ -4,6 +4,8 @@ import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint"
 export component NativeVideoHost inherits Window {
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     callback open-preferences();
+    callback open-jump-time-dialog();
+    in property <bool> playback-loaded: false;
     callback toggle-picture-in-picture();
     in property <bool> picture-in-picture-active: false;
     in property <bool> picture-in-picture-available: false;
@@ -38,6 +40,9 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Preferences…"; activated => { root.open-preferences(); } }
         }
         Menu { title: "Playback";
+            MenuItem { title: "Jump to…"; enabled: root.playback-loaded;
+                activated => { root.open-jump-time-dialog(); } }
+            MenuSeparator {}
             MenuItem {
                 title: root.picture-in-picture-active ? "Exit Picture in Picture" : "Enter Picture in Picture";
                 enabled: root.picture-in-picture-active || root.picture-in-picture-available;

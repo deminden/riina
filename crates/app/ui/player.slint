@@ -172,6 +172,29 @@ component Tool inherits Rectangle {
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
 }
 
+component JumpDialogButton inherits FocusScope {
+    in property <string> label;
+    in property <bool> dark-theme: true;
+    callback activated();
+    width: 68px; height: 26px;
+    accessible-role: button;
+    accessible-label: label;
+    Rectangle {
+        width: parent.width; height: parent.height; border-radius: 5px;
+        border-width: 1px; border-color: root.has-focus ? #6094dc : (root.dark-theme ? #62626a : #c7c7cc);
+        background: root.has-focus ? (root.dark-theme ? #ffffff1b : #168bff16) :
+            (root.dark-theme ? #3a3a40 : #ffffff);
+        Text { text: root.label; width: parent.width; height: parent.height;
+            color: root.dark-theme ? #f0f0f2 : #29292d; font-size: 12px;
+            horizontal-alignment: center; vertical-alignment: center; }
+    }
+    TouchArea { clicked => { root.focus(); root.activated(); } }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+        return reject;
+    }
+}
+
 component PlaylistSortButton inherits Rectangle {
     in property <bool> dark-theme: true;
     callback sort-requested(int);
@@ -553,6 +576,8 @@ export component PlayerWindow inherits Window {
                 activated => { root.frame-back-step(); } }
             MenuItem { title: "Jump to Beginning"; enabled: root.loaded && !root.crop-editing;
                 activated => { root.seek(0); } }
+            MenuItem { title: "Jump to…"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.open-jump-time-dialog(); } }
             MenuSeparator {}
             MenuItem { title: "Speed Up to 2x"; enabled: root.loaded && !root.crop-editing;
                 activated => { root.speed(2); } }
@@ -694,6 +719,13 @@ export component PlayerWindow inherits Window {
     // Shared-window entry points opt into their opaque menu surface before show().
     in property <bool> native-video: true;
     in-out property <bool> dialog-open: false;
+    in-out property <bool> jump-time-dialog-visible: false;
+    in-out property <string> jump-time-draft: "";
+    in-out property <string> jump-time-error: "";
+    changed jump-time-dialog-visible => {
+        root.dialog-open = jump-time-dialog-visible;
+        if jump-time-dialog-visible { jump-time-input.focus(); }
+    }
     in-out property <int> media-request-generation: 0;
     no-frame: native-video;
     // Native output sits behind this window even while loading or between files.
@@ -1027,6 +1059,8 @@ export component PlayerWindow inherits Window {
     callback stop();
     callback seek(float);
     callback seek-relative(float);
+    callback open-jump-time-dialog();
+    callback jump-to-time(string);
     callback set-volume(float);
     callback adjust-volume(float);
     callback set-volume-boost(bool);
@@ -1848,12 +1882,57 @@ export component PlayerWindow inherits Window {
             move-drag(x,y) => { root.move-crop-drag(x,y); }
             end-drag => { root.end-crop-drag(); }
         }
+        jump-time-dialog := Rectangle {
+            visible: jump-time-dialog-visible;
+            width: parent.width; height: parent.height;
+            background: #00000070;
+            TouchArea { width: parent.width; height: parent.height; }
+            Rectangle {
+                x: (parent.width - 340px) / 2;
+                y: (parent.height - 172px) / 2;
+                width: 340px; height: 172px; border-radius: 9px;
+                background: root.dark-theme ? #29292e : #f5f5f7;
+                border-width: 1px; border-color: root.dark-theme ? #55555d : #d4d4d8;
+                Text { x: 18px; y: 14px; width: parent.width - 36px; height: 22px;
+                    text: "Jump to"; color: root.dark-theme ? #f1f1f3 : #242428;
+                    font-size: 14px; font-weight: 600; }
+                Text { x: 18px; y: 39px; width: parent.width - 36px; height: 32px;
+                    text: "Enter a time such as 20:35 or 1:02:03.500.";
+                    color: root.dark-theme ? #c8c8cd : #55555b; font-size: 12px; }
+                Rectangle {
+                    x: 18px; y: 78px; width: parent.width - 36px; height: 30px;
+                    border-radius: 5px; border-width: 1px;
+                    border-color: jump-time-input.has-focus ? #6094dc : (root.dark-theme ? #5c5c64 : #c8c8cd);
+                    background: root.dark-theme ? #1e1e22 : #ffffff;
+                    jump-time-input := TextInput {
+                        x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
+                        text <=> root.jump-time-draft; single-line: true;
+                        font-size: 13px; color: root.dark-theme ? #f3f3f5 : #202024;
+                        accessible-label: "Playback time";
+                        accepted => { root.jump-to-time(self.text); }
+                    }
+                }
+                Text { x: 18px; y: 111px; width: parent.width - 36px; height: 17px;
+                    text: root.jump-time-error; color: #c43d36; font-size: 11px; }
+                HorizontalLayout {
+                    x: parent.width - 182px; y: 136px; width: 164px; height: 25px; spacing: 8px;
+                    JumpDialogButton { dark-theme: root.dark-theme; label: "Cancel";
+                        activated => { root.jump-time-dialog-visible = false; root.jump-time-error = ""; } }
+                    JumpDialogButton { dark-theme: root.dark-theme; label: "Jump";
+                        activated => { root.jump-to-time(root.jump-time-draft); } }
+                }
+            }
+        }
         key-released(event) => {
             if native-video && !crop-editing && event.text == Key.F10 { root.open-application-menu(); return accept; }
             return reject;
         }
         key-pressed(event) => {
             if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
+            if jump-time-dialog-visible {
+                if event.text == Key.Escape { jump-time-dialog-visible = false; jump-time-error = ""; return accept; }
+                return accept;
+            }
             if native-video && event.text == Key.F10 { return accept; }
             if root.dispatch-key-binding(event.text, event.modifiers.control,
                     event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
@@ -1936,6 +2015,7 @@ export component PlayerWindow inherits Window {
             if event.text == Key.UpArrow { root.adjust-volume(5); return accept; }
             if event.text == Key.DownArrow { root.adjust-volume(-5); return accept; }
             if event.text == "m" { root.toggle-mute(); return accept; }
+            if event.text == "j" && root.loaded { root.open-jump-time-dialog(); return accept; }
             if event.text == "v" { root.toggle-subtitle-visibility(); return accept; }
             if event.text == "r" { root.adjust-subtitle-position(-1); return accept; }
             if event.text == "t" { root.adjust-subtitle-position(1); return accept; }

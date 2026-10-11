@@ -22,6 +22,7 @@ pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
 pub mod subtitle_controls;
+pub mod time_input;
 mod track_labels;
 pub mod video_controls;
 pub mod video_reflection;

@@ -300,6 +300,7 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                         app.get_screenshot_available() && !app.get_crop_editing(),
                     );
                     host.set_screenshot_folder_enabled(!app.get_crop_editing());
+                    host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
                     host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
                     host.set_music_mode(app.get_music_mode());
                     host.set_picture_in_picture_available(
@@ -372,6 +373,12 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
             host.on_open_preferences(move || {
                 if let Some(app) = preferences_app.upgrade() {
                     app.invoke_open_preferences();
+                }
+            });
+            let jump_app = app.as_weak();
+            host.on_open_jump_time_dialog(move || {
+                if let Some(app) = jump_app.upgrade() {
+                    app.invoke_open_jump_time_dialog();
                 }
             });
             let close_host = host.as_weak();
