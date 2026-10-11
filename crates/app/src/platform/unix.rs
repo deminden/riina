@@ -3,19 +3,19 @@ mod dialogs;
 pub(crate) mod services;
 pub(crate) use dialogs::open as open_dialog;
 
-// No constructor exists until a native surface has a verified ownership contract.
-// An uninhabited type makes the shared session shape usable without a dummy handle.
-// Match the Windows adapter's shared ownership shape for the common UI timer.
-#[derive(Clone)]
-pub(crate) enum NativePresentation {}
+// Unix currently uses the shared GL renderer. A real presentation value keeps
+// shared setup closures reachable to rustc while reserving native window APIs
+// for a later adapter with a verified surface lifetime.
+#[derive(Clone, Copy)]
+pub(crate) struct NativePresentation;
 
 impl NativePresentation {
     pub(crate) fn hdr_display_active(&self) -> bool {
-        match *self {}
+        false
     }
 
     pub(crate) fn host(&self) -> slint::Weak<crate::NativeVideoHost> {
-        match *self {}
+        slint::Weak::default()
     }
 
     pub(crate) fn start_engine(
@@ -23,6 +23,6 @@ impl NativePresentation {
         _options: Vec<(String, String)>,
         _notify: impl Fn(riina_core::Playback) + Send + 'static,
     ) -> Result<riina_mpv::Player, String> {
-        match *self {}
+        Err("Native-window playback is unavailable on this platform".into())
     }
 }
