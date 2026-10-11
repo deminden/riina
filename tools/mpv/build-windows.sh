@@ -35,6 +35,14 @@ print_build_failure() {
 }
 trap 'print_build_failure "$?" "$BASH_COMMAND"' ERR
 
+# ExternalProject applies dependency patches in multiple Ninja phases. Git am
+# needs an identity each time it creates the patch commit, including during mpv.
+run_ninja() {
+  GIT_COMMITTER_NAME='Riina native build' \
+    GIT_COMMITTER_EMAIL='native-build@riina.invalid' \
+    ninja "$@"
+}
+
 rm -f "$REPO_ROOT/native-build-failure.log"
 rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
 mkdir -p "$WORK_ROOT"
@@ -53,19 +61,15 @@ cmake \
   -DENABLE_CCACHE=ON \
   -DCLANG_PACKAGES_LTO=ON \
   -G Ninja --fresh -B build_x86_64 -S .
-ninja -C build_x86_64 download
-# Upstream applies some dependency patches with `git am`; the clean CI
-# container has no user identity, so provide one only to that build step.
-GIT_COMMITTER_NAME='Riina native build' \
-  GIT_COMMITTER_EMAIL='native-build@riina.invalid' \
-  ninja -C build_x86_64 update
+run_ninja -C build_x86_64 download
+run_ninja -C build_x86_64 update
 
 # The mpv target does not bootstrap the selected cross-toolchain. The pinned
 # builder documents these as explicit build targets; in particular, skipping
 # llvm leaves the clang wrapper pointing at a nonexistent clang executable.
-ninja -C build_x86_64 llvm
-ninja -C build_x86_64 rustup
-ninja -C build_x86_64 llvm-clang
+run_ninja -C build_x86_64 llvm
+run_ninja -C build_x86_64 rustup
+run_ninja -C build_x86_64 llvm-clang
 
 # The GPLv3 package depends on OpenSSL 3's Apache-2.0 terms. Verify both the
 # source revision pinned by the builder recipe and the license shipped with it.
@@ -118,8 +122,8 @@ cp -a "$BUILDER/src_packages/." "$SOURCE_ARCHIVE_ROOT/native-sources/"
 
 # Build mpv first; its separate packaging target only adds the Windows runtime
 # files to a package directory and does not depend on or compile the engine.
-ninja -C build_x86_64 mpv
-ninja -C build_x86_64 mpv-packaging
+run_ninja -C build_x86_64 mpv
+run_ninja -C build_x86_64 mpv-packaging
 runtime_dir="$(find "$BUILDER/build_x86_64" -mindepth 1 -maxdepth 1 -type d -name 'mpv-x86_64-*' ! -name '*debug*' -print -quit)"
 test -n "$runtime_dir"
 test -s "$runtime_dir/libmpv-2.dll"
