@@ -115,5 +115,12 @@
       "Local app link and import evidence only; release native engine and final package playback remain pending"
     ]
   },
-  "verified_candidate_run_id": null
+  "verified_candidate_run_id": null,
+  "candidate_in_flight": {
+    "run_id": 38144973846,
+    "commit": "6363d92c237a6864b5f9aa5a30f14fe1565e8b91",
+    "url": "https://github.com/deminden/riina/actions/runs/38144973846",
+    "status": "in_progress",
+    "note": "Private candidate only; no release assets exist until native build, package/source creation and playback checks succeed."
+  }
 }

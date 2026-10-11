@@ -59,10 +59,10 @@ by step. Use actual captured Windows and pinned macOS reference surfaces for the
 visual phase. Keep the complete interface scope; do not treat a few corrected
 controls or source dimensions as proof of full pixel parity.
 
-Project maturity: the application is beyond initial feasibility and has real
-Windows playback, extensive player/settings workflows and regression coverage.
-Continue from the current milestone instead of describing or treating riina as an
-early prototype.
+Project maturity: Riina is an established, functioning media-player application
+beyond its initial feasibility milestones, with real Windows playback, extensive
+player/settings workflows and regression coverage. Full IINA behavior and visual
+parity remain active acceptance goals; describe current evidence and gaps precisely.
 
 Develop macOS/Linux application ports alongside Windows work now. Shared feature
 changes must preserve portable boundaries. Require full application builds and

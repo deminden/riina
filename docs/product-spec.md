@@ -1,4 +1,4 @@
-# Build a faithful Rust reimplementation of IINA for Windows
+# Riina product and parity contract
 
 ## Current project state
 
@@ -8,21 +8,17 @@ and preferences workflows, and regression coverage. This document preserves the
 full acceptance contract; the remaining work is closing uncovered behavior and
 measured interface differences, not establishing whether an application can be built.
 
-Start by downloading the official IINA source. Then begin implementing the Windows application. Do not respond with only an architecture proposal, mockup, or roadmap.
+## 1. Pinned reference implementation
 
-## 1. First action: obtain and pin the reference implementation
-
-Inspect the current directory and existing repository instructions without changing unrelated files. Use the current repository if it is intended for this project; otherwise create a clearly named project subdirectory. Preserve existing work.
-
-The initial reference is official IINA v1.5.0, not another Windows port, IINA Advance, or an unpinned development branch. Download it into a separate reference directory:
+The fixed reference is official IINA v1.5.0, not another Windows port, IINA Advance, or an unpinned development branch. Keep its checkout in a separate reference directory:
 
     git clone --branch v1.5.0 --depth 1 https://github.com/iina/iina.git reference/iina-upstream
     git -C reference/iina-upstream rev-parse HEAD
     git -C reference/iina-upstream describe --tags --exact-match
 
-Run these only when the destination does not already contain a checkout. If a checkout exists, inspect its remote, commit, tag, and working-tree state before reusing it. Never discard changes to make these commands succeed.
+The fetch script must reuse an existing checkout only after verifying its remote, commit, tag, and working-tree state. Never discard changes to make reference acquisition succeed.
 
-Record the full commit hash, tag, source URL, acquisition date, and license in `reference/upstream-lock.json`. Keep the downloaded checkout outside the product source tree and excluded from ordinary application commits. Supply a reproducible fetch-reference script. Record hashes for separately downloaded reference assets.
+Record the full commit hash, tag, source URL, acquisition date, and license in `reference/upstream-lock.json`. Keep the downloaded checkout outside the product source tree and excluded from ordinary application commits. The repository supplies a reproducible fetch-reference script. Record hashes for separately downloaded reference assets.
 
 If cloning fails, try the official archive for the same tag and record its SHA-256. Do not substitute another repository. If network access is unavailable, document that limitation and proceed with independently implementable work without claiming to have inspected unavailable source.
 
@@ -104,13 +100,13 @@ Translucent panels must not become flat gray rectangles disguised as â€œglass.â€
 
 Use licensed typography with carefully tuned metrics. Do not promise pixel-identical glyph rasterization across operating systems. Compare geometry and visual hierarchy independently from unavoidable text-rendering differences.
 
-## 6. Default technology and rendering feasibility requirements
+## 6. Default technology and rendering requirements
 
 Start with stable Rust, a pinned toolchain, Cargo workspaces, Slint for a custom retained-mode UI, libmpv for playback, and the `windows` crate for Windows APIs. Use `.slint` components to express the reference interface; do not ship unstyled default controls as the final design.
 
 Verify current crate documentation and feature names before adding dependencies. Pin resolved versions and commit `Cargo.lock`. Keep the GUI compiler/build dependency compatible with its runtime. Use a small, audited FFI boundary or an actively maintained wrapper whose ownership and API coverage you have inspected.
 
-Slint is the default, not an excuse to ignore a hard rendering or accessibility incompatibility. Before building every screen, implement a small Windows feasibility spike proving video composition, interactive overlays, resize, DPI behavior, text input, native accessibility exposure, and a credible HDR presentation route.
+Slint is the default, not an excuse to ignore a hard rendering or accessibility incompatibility. The application has passed its initial Windows feasibility and playback milestones; continue validating video composition, interactive overlays, resize, DPI behavior, text input, native accessibility exposure, and HDR presentation against the production renderer and captured reference surfaces.
 
 An initial composited path may use libmpv's OpenGL render API to render into a GPU texture consumed by the UI. Verify the current Slint rendering hooks and borrowed-texture requirements. This is a candidate to test, not a claim that all required interoperation works automatically.
 
@@ -120,7 +116,7 @@ If the composited OpenGL path cannot meet native HDR requirements, make a bounde
 
 Select the production path based on working evidence. Record the decision in `docs/adr/0001-ui-video-composition.md`, including exact dependency versions, supported output modes, measurements, failures, and alternatives. Keep presentation behind a narrow `VideoSurface` boundary. Do not develop two complete production renderers unnecessarily.
 
-A renderer that decodes an HDR file but tone-maps everything into an ordinary SDR window has not achieved HDR output parity. Validate decoder choice, intermediate formats, output color space, presentation surface, display capability, and SDR UI composition separately. Prove an end-to-end route early; do not postpone this architectural question until every UI screen is complete.
+A renderer that decodes an HDR file but tone-maps everything into an ordinary SDR window has not achieved HDR output parity. Validate decoder choice, intermediate formats, output color space, presentation surface, display capability, and SDR UI composition separately. Continue this end-to-end validation alongside interface-parity work.
 
 When hardware is unavailable, continue implementation but explicitly mark native HDR validation pending. Do not silently downgrade the final requirement. Change the Rust UI/rendering integration, with a written decision and working spike, if the chosen stack demonstrably prevents the target.
 
@@ -146,7 +142,7 @@ Keep the domain state and parsers testable without a GUI, GPU, or installed libm
 
 Use typed commands and events, explicit errors, structured logging, cancellation, and clear ownership. Keep `unsafe` concentrated in FFI/platform modules, with documented invariants. Do not paper over thread-safety problems with unsupported `unsafe impl Send` or `Sync`.
 
-Save this task as `docs/product-spec.md`. Maintain a concise root `AGENTS.md` linking to that specification, the current milestone, build commands, and verification rules. Keep a living `docs/implementation-plan.md` and `docs/status.md`. Update them after meaningful milestones so another session can continue without reconstructing the project from chat history.
+Maintain a concise root `AGENTS.md` linking to this contract, current state, build commands, and verification rules. Keep `docs/implementation-plan.md` and `docs/status.md` concise and current-state focused; do not use the status page as a dated progress diary.
 
 ## 8. Playback ownership, events, and synchronization
 
@@ -355,7 +351,7 @@ Exit when the source baseline is identified, the repository builds its initial e
 
 ### Milestone 1: genuine playback in the intended UI
 
-Complete the renderer feasibility work and select a documented production direction. Open an actual local file through libmpv inside the application, with audible audio and visible moving video. Implement working play/pause, seek, volume, timeline updates, open-file action, resize, fullscreen, and clean shutdown using the real state model.
+The renderer and production direction are established. Preserve real local-file playback through libmpv with audible audio and visible moving video while closing remaining parity gaps in play/pause, seek, volume, timeline updates, file opening, resize, fullscreen, and clean shutdown using the real state model.
 
 Use an IINA-shaped custom UI from the beginning. Prove interactive controls above video, correct aspect ratio, and no disconnected second playback window. Exercise native accessibility and establish the HDR path or a precise unresolved validation/implementation gap.
 

@@ -5,6 +5,8 @@ pub(crate) use dialogs::open as open_dialog;
 
 // No constructor exists until a native surface has a verified ownership contract.
 // An uninhabited type makes the shared session shape usable without a dummy handle.
+// Match the Windows adapter's shared ownership shape for the common UI timer.
+#[derive(Clone)]
 pub(crate) enum NativePresentation {}
 
 impl NativePresentation {

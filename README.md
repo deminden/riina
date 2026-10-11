@@ -2,16 +2,19 @@
 
 An established Rust media-player application targeting official **IINA v1.5.0**.
 Riina 0.2.14 has real libmpv playback, broad player and settings workflows, and
-workspace regression coverage. It is beyond the initial feasibility stage, with
-full behavioral and visual parity still in active development.
+workspace regression coverage. Full behavioral and visual parity remain active
+acceptance goals.
 
 [![Latest release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/latest)
 
 ## Downloads
 
-The [latest GitHub Release](https://github.com/deminden/riina/releases/latest) lists
-published downloads. The Windows x64 package will be attached after the private
-candidate build, package tests and corresponding-source bundle pass.
+The [latest GitHub Release](https://github.com/deminden/riina/releases/latest) is
+v0.2.2 and contains source archives; it has no Windows application binary. The
+current [Windows release candidate](https://github.com/deminden/riina/actions/runs/38144973846)
+has passed release-readiness checks and is still building its native engine.
+Package playback and corresponding-source verification must pass before binaries
+are published.
 
 Windows 11 is the current supported platform. macOS parity work is active now,
 alongside the Linux port; neither port is declared supported until its complete
