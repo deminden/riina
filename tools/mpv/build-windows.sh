@@ -97,7 +97,8 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
   while IFS=$'\t' read -r record first second third; do
     case "$record" in
       source_git)
-        test "$(git -C "$BUILDER/src_packages/$first" rev-parse HEAD)" = "$third"
+        # Manifest paths retain the builder-relative src_packages prefix.
+        test "$(git -C "$BUILDER/$first" rev-parse HEAD)" = "$third"
         ;;
       source_sha256)
         test "$(sha256sum "$BUILDER/src_packages/$first" | cut -d' ' -f1)" = "$second"
