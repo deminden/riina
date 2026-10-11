@@ -61,27 +61,27 @@ open.
 ## Licensing and binary distribution
 
 Riina's original source is MIT. The combined application package is GPL-3.0-only.
-This licensing choice is settled and is not a release blocker. The release package
-must still include exact third-party notices and corresponding sources for its
-pinned native engine and Cargo dependencies.
+The v0.3.0 package includes the exact third-party notices and corresponding
+sources for its pinned native engine and Cargo dependencies.
 
-The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The current v0.3.0 candidate has passed the hosted
-native playback and lifecycle gate using the pinned release DLL. That gate covers
-the previously failing interlaced-video shutdown path, queued paused-frame close,
-independent players, and reopening. The Windows app build, package assembly,
-runtime-import check, and playback test from the extracted ZIP also passed in run
-38174384779. GitHub skipped the corresponding-source audit and publishing jobs
-because its default job condition treated the intentionally skipped native-engine
-reuse as a failure. The workflow now explicitly runs those gates when package and
-source jobs succeed; a corrected candidate is required before any binary is public.
-Earlier native shutdown failures and their resolution remain in
-`docs/native-distribution-audit.json` as release-engineering evidence.
+The latest GitHub release is Riina 0.3.0 and includes a Windows x86_64 portable
+application, its complete corresponding-source archive, checksums, and a release
+verification record. The package passed the extracted-ZIP import and native
+playback/shutdown checks. The audit verified 101,748 native source files across
+88 repositories and confirmed the exact libmpv runtime hash. The [release workflow](https://github.com/deminden/riina/actions/runs/38180094023)
+and full artifact record are in `docs/native-distribution-audit.json`.
+
+Release assets:
+
+- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-windows-x86_64.zip)
+- [Complete source archive](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-source.tar.zst)
+- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.0/SHA256SUMS.txt)
+- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.0/RELEASE-VERIFICATION.json)
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
-decoder remains enabled. The development DLL is not the release runtime. The
-settled license choices and candidate build inputs are recorded in
-`docs/licensing.md` and `docs/native-distribution-audit.json`.
+decoder remains enabled. The development DLL is not the release runtime. License
+terms and package provenance are recorded in `docs/licensing.md` and
+`docs/native-distribution-audit.json`.
 
 ## Verification state
 

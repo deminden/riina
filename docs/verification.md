@@ -456,7 +456,7 @@ PlayerCore.toggleHardwareDecoding and Preference.HardwareDecoderOption. Configur
 hwdec determines switch state independently of hwdec-current. Off sets no;
 on restores the preferred Auto / AutoCopy / Disabled policy. The mode preference
 defaults to Auto, is preserved by legacy settings and round-trips through JSON;
-invalid modes are rejected. The Settings preference picker is not implemented.
+invalid modes are rejected. The Settings picker exposes Disabled, Auto and Auto (Copy); its rendered appearance and live selection behavior remain unverified.
 
 The native policy test observes Disabled → AutoCopy → Auto while paused at volume
 37 without errors, then verifies AutoCopy survives explicit file replacement.

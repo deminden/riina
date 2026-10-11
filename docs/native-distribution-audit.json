@@ -8,7 +8,7 @@
     "unicode_dfs_2016": "Accepted as GPL-compatible; its original notice is required in the source bundle",
     "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
   },
-  "release_artifacts_verified": false,
+  "release_artifacts_verified": true,
   "workflow_run": "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/37862467302",
   "build_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
   "workflow_verification": {
@@ -44,12 +44,7 @@
     "native_rust_toolchain": "nightly-2026-10-10; required by the upstream subrandr Cargo xtask; official channel manifest verified",
     "runtime_assembly": "Embed libmpv-2.dll from mpv-dev output and recursively resolve required non-system PE imports from built dependency DLLs. Verify both assembled and extracted Windows ZIP; use static CRT for riina.exe."
   },
-  "release_verification_remaining": [
-    "Run a new private package candidate against the passing native engine and captured-source artifacts from workflow run 38138622911",
-    "Verify the candidate source manifest, notices, corresponding-source bundle and exact extracted portable ZIP playback/lifecycle tests",
-    "Rebuild from captured sources in the pinned environment and record the result, including toolchain-provided Rust source and notices",
-    "Publish the verified Windows portable ZIP, matching source bundle and SHA-256 checksums as a versioned GitHub Release"
-  ],
+  "release_verification_remaining": [],
   "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
   "build_repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
   "recipe_records": [
@@ -81,14 +76,12 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38173667126,
-    "commit": "41efdabfe5db34e01e00247148691a6840d9bbbc",
-    "stage": "windows-package / native playback and lifecycle tests",
-    "failure": "The guarded Windows candidate passes the original A-B repeat shutdown crash, HTTP and independent-player checks, but stalls at interlaced-video shutdown before the async-request wait returns. The stalled run was canceled; package assembly and publication did not occur.",
-    "evidence": "Live native step output ends after shutdown intent is delivered while joining the event worker, before asynchronous requests drained. The preceding captured fault identified a COM virtual call into unloaded MMDevApi; the MTA guard passes that point in this candidate.",
-    "resolution": "Keep the Windows MTA guard through core destruction. Remove the additional pre-termination async wait so mpv_terminate_destroy can quit pending playback work and join the core. Add queued paused-frame close/reopen coverage, bounded native CI and bounded failure diagnostics with hung-thread dumps. Hosted verification remains required.",
-    "local_verification": "45 native tests pass against release libmpv SHA-256 1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af with mpv null output, including queued frame work at close. Exact runtime manifest and 15 package regressions pass locally.",
-    "next_action": "Verify the Windows COM lifetime change on the hosted runner; publish only after complete playback and exact binary/source audit pass."
+    "run_id": 38179073584,
+    "commit": "039b156b2c4f86b91f0168c1de9dd71651d9be4c",
+    "stage": "package-verification",
+    "failure": "The generated PACKAGE-WINDOWS-IMPORTS.json was included in the engine-only RUNTIME-MANIFEST.tsv. The Linux verification job rewrote its line endings and correctly rejected the changed hash.",
+    "resolution": "Keep the runtime manifest scoped to the original engine files and source-backed native notices. The corrected extracted package passed native playback, package/source/license/hash verification, and publication in run 38180094023.",
+    "evidence": "https://github.com/deminden/riina/actions/runs/38179073584"
   },
   "historical_candidate_failures": [
     {
@@ -116,7 +109,7 @@
       "Local app link and import evidence only; release native engine and final package playback remain pending"
     ]
   },
-  "verified_candidate_run_id": null,
+  "verified_candidate_run_id": 38180094023,
   "candidate_in_flight": null,
   "latest_native_engine_artifact": {
     "run_id": 38138622911,
@@ -125,5 +118,39 @@
     "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
     "runtime_manifest_check": "passed locally; exact downloaded artifact"
   },
-  "verified_native_run_id": null
+  "verified_native_run_id": 38138622911,
+  "published_release": {
+    "tag": "v0.3.0",
+    "title": "Riina 0.3.0",
+    "url": "https://github.com/deminden/riina/releases/tag/v0.3.0",
+    "published_at": "2026-10-11T22:39:29Z",
+    "workflow_run": "https://github.com/deminden/riina/actions/runs/38180094023",
+    "application_source_sha": "687b07540e7e4ca0555a5b4f39c91cef464075ee",
+    "native_engine_run_id": 38138622911,
+    "native_source_files_verified": 101748,
+    "native_repositories_verified": 88,
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "assets": {
+      "riina-0.3.0-windows-x86_64.zip": {
+        "size": 66973453,
+        "sha256": "a544af6e48fb2329627616a964df2b5fa440cd5943f962c44c8435fd0e51390d"
+      },
+      "riina-0.3.0-source.tar.zst": {
+        "size": 1598556419,
+        "sha256": "cb768a125f59b5db25fda19f7974c6bb0476d8a5a5d0e718090820c773b95dea"
+      },
+      "RELEASE-VERIFICATION.json": {
+        "size": 424,
+        "sha256": "72dbcbd38dc956b0b95b2b92311c80bc1768cce8156f8e93184efaddda3388f6"
+      },
+      "SHA256SUMS.txt": {
+        "size": 190,
+        "sha256": "48b8e51d9ac59df448516f869e6d85b6aad0648b093bc7ec24ec6388becda731"
+      },
+      "riina-0.3.0-source.tar.zst.sha256": {
+        "size": 93,
+        "sha256": "6696bdd47dc39eff07f5b70874a032804858ecb3588b744bf1dc6935bf853d1f"
+      }
+    }
+  }
 }
