@@ -162,6 +162,27 @@
       "sha256": "0a19073ee8f651b326b19c518e8770c965c65f01ce4b3b5d79dddd7b47a02c19"
     },
     {
+      "path": "assets/icons/music-mode-back.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "2e43240f1d3f6acc731243458cedef16b5d2a61988ae2540f41b4a33a3141ce9"
+    },
+    {
+      "path": "assets/icons/music-mode-close.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "37a04b34e3a5f3e3389f8835eeb6ad72054b86e3683ac69acbe86fdff3cd2cfe"
+    },
+    {
+      "path": "assets/icons/music-mode-placeholder.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric album-art placeholder authored for riina; no external artwork copied or traced",
+      "sha256": "6dea604eaaf902266d8c9183df6c46999d50041d88c947452aa11ec8f7103532"
+    },
+    {
       "path": "assets/icons/muted.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -181,6 +202,13 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "278b74f3267d2d641b9d65a5b3492e5315fc58e50633b1e85ef6909180f96303"
+    },
+    {
+      "path": "assets/icons/photo.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "1e6806e430fb8756f570e769155df1e610d1b4607b03369b2989fdd1b8976e47"
     },
     {
       "path": "assets/icons/pin-fill.svg",

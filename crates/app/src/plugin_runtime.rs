@@ -58,6 +58,23 @@ impl PluginRuntimeSession {
         )
     }
 
+    pub fn start_package_global_entry(
+        package_root: &Path,
+        manifest: &Manifest,
+        granted_permissions: &[String],
+    ) -> Result<Self, String> {
+        let Some(entry) = manifest.global_entry.as_deref() else {
+            return Err("Plugin does not declare a global entry".into());
+        };
+        let source = read_package_file(package_root, entry)?;
+        Self::start_entry(
+            &source,
+            &format!("{}.global", manifest.identifier),
+            &manifest.permissions,
+            granted_permissions,
+        )
+    }
+
     pub fn start_entry(
         source: &str,
         plugin_identifier: &str,
@@ -162,18 +179,29 @@ pub fn execute_package_entry(
 }
 
 fn read_package_entry(package_root: &Path, manifest: &Manifest) -> Result<String, String> {
+    read_package_file(package_root, &manifest.entry)
+}
+
+/// Revalidate containment after package installation in case its directory was
+/// changed before activation; global and player entries use the same rule.
+fn read_package_file(package_root: &Path, entry_path: &Path) -> Result<String, String> {
     let root = package_root
         .canonicalize()
         .map_err(|error| format!("Could not open plugin package: {error}"))?;
     if !root.is_dir() {
         return Err("Plugin package is not a directory".into());
     }
-    let entry = root
-        .join(&manifest.entry)
-        .canonicalize()
-        .map_err(|error| format!("Could not open plugin entry: {error}"))?;
+    let entry = root.join(entry_path).canonicalize().map_err(|error| {
+        format!(
+            "Could not open plugin entry {}: {error}",
+            entry_path.display()
+        )
+    })?;
     if !entry.starts_with(&root) || !entry.is_file() {
-        return Err("Plugin entry must be a file inside its package".into());
+        return Err(format!(
+            "Plugin entry {} must be a file inside its package",
+            entry_path.display()
+        ));
     }
     let length = fs::metadata(&entry)
         .map_err(|error| format!("Could not inspect plugin entry: {error}"))?

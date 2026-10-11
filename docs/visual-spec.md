@@ -81,10 +81,22 @@ The shared component renders a consistent 17-point box and enabled/disabled tint
 independent of system symbol-font coverage. Remaining repeat/secondary controls
 use provisional glyphs. Vector shapes are not yet measured against macOS goldens.
 
-Music Mode reuses the floating controller geometry but replaces the outer speed
-controls with previous/next media controls, matching the mini-player's navigation
-role. Their original vector symbols and actions are implemented; spacing, symbols,
-and hover/focus states still require a matched macOS mini-player capture.
+Music Mode hides the standard title controls and uses a full-width 300-point
+compact controller. Its previous/next actions and playlist/artwork toggles are
+wired to shared playback and preference state; an original artwork icon is used.
+The hover toolbar has close-player and return-to-player actions.
+The Music Mode playlist keeps single-click selection separate from double-click
+playback.
+The ordinary speed, stop, and fullscreen controls remain in the standard player.
+The compact volume control opens a slider popover, with mute available inside it.
+Music Mode artwork area height follows embedded-art dimensions for audio and
+display aspect ratio for video, defaulting to square when unavailable. The art
+toggle hides or reveals that reserved upper viewport. Audio without
+embedded art or visible subtitles receives an original Riina placeholder. When
+the controls hide, the title and artist/album move into the lower panel while
+the timeline stays visible with a 200 ms cross-fade. Source materials,
+hover/focus states, live transition and popover behavior, native-video viewport
+behavior, and a matched macOS mini-player capture remain open.
 
 The supplied Riina identity is used for the welcome-window mark, README wordmark
 and Windows executable icon. See assets/branding/BRAND_GUIDE.md for capitalization

@@ -752,6 +752,30 @@ fn update_ui(
             )
         });
     app.set_video_display_aspect_ratio(display_aspect.unwrap_or(0.0) as f32);
+    let is_audio = state.audio_status() == riina_core::music_mode::AudioStatus::Audio;
+    let album_art = state
+        .tracks
+        .iter()
+        .find(|track| track.kind == riina_core::TrackKind::Video && track.albumart);
+    let has_visible_subtitles = state.tracks.iter().any(|track| {
+        track.kind == riina_core::TrackKind::Sub
+            && ((state.subtitle_visible && track.is_primary_selected())
+                || (state.secondary_subtitle_visible.unwrap_or(false)
+                    && track.selected
+                    && track.main_selection == Some(1)))
+    });
+    app.set_music_mode_is_audio(is_audio);
+    app.set_music_mode_has_album_art(album_art.is_some());
+    app.set_music_mode_has_visible_subtitles(has_visible_subtitles);
+    let artwork_aspect = if is_audio {
+        album_art
+            .and_then(|track| track.width.zip(track.height))
+            .filter(|(width, height)| *width > 0 && *height > 0)
+            .map(|(width, height)| width as f64 / height as f64)
+    } else {
+        display_aspect
+    };
+    app.set_music_mode_artwork_aspect_ratio(artwork_aspect.unwrap_or(0.0) as f32);
     app.set_video_aspect_index(
         state
             .video_aspect
@@ -883,6 +907,9 @@ pub(crate) struct UiSession {
     // Native callbacks retain senders only. Field order keeps the target alive
     // until this sole native player owner has joined its decoder worker.
     pub(crate) player: Option<Player>,
+    _plugin_host: Option<crate::plugin_host::PluginHost>,
+    _plugin_host_timer: Option<Rc<slint::Timer>>,
+    _plugin_osd_timer: Option<Rc<slint::Timer>>,
     _presentation: Option<platform::NativePresentation>,
     _hdr_display_timer: Option<Rc<slint::Timer>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
@@ -1092,6 +1119,76 @@ pub(crate) fn configure_player(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
         Err(error) => return Err(error.into()),
     };
+    let plugin_host = match crate::plugin_host::PluginHost::start(&prefs_path) {
+        Ok(host) => Some(host),
+        Err(error) => {
+            app.set_status(error.into());
+            None
+        }
+    };
+    let plugin_host_handle = plugin_host
+        .as_ref()
+        .map(crate::plugin_host::PluginHost::handle);
+    let plugin_osd_timer = plugin_host_handle
+        .as_ref()
+        .map(|_| Rc::new(slint::Timer::default()));
+    let plugin_osd_timer_weak = plugin_osd_timer.as_ref().map(Rc::downgrade);
+    let plugin_osd_generation = Rc::new(Cell::new(0_u64));
+    let plugin_host_timer = plugin_host_handle.as_ref().map(|handle| {
+        let timer = Rc::new(slint::Timer::default());
+        let messages = handle.clone();
+        let weak = app.as_weak();
+        let osd_timer = plugin_osd_timer_weak.clone();
+        let osd_generation = plugin_osd_generation.clone();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(100),
+            move || {
+                let Some(app) = weak.upgrade() else { return };
+                let Ok(messages) = messages.drain_messages() else {
+                    return;
+                };
+                for message in messages {
+                    match message {
+                        crate::plugin_host::PluginHostMessage::Log(text)
+                        | crate::plugin_host::PluginHostMessage::Status(text) => {
+                            app.set_status(text.into());
+                        }
+                        crate::plugin_host::PluginHostMessage::ShowOsd(text) => {
+                            let generation = osd_generation.get().wrapping_add(1);
+                            osd_generation.set(generation);
+                            app.set_plugin_osd_message(text.into());
+                            if let Some(timer) =
+                                osd_timer.as_ref().and_then(|timer| timer.upgrade())
+                            {
+                                let weak = app.as_weak();
+                                let current = osd_generation.clone();
+                                timer.start(
+                                    slint::TimerMode::SingleShot,
+                                    Duration::from_secs(3),
+                                    move || {
+                                        if current.get() == generation
+                                            && let Some(app) = weak.upgrade()
+                                        {
+                                            app.set_plugin_osd_message("".into());
+                                        }
+                                    },
+                                );
+                            }
+                        }
+                        crate::plugin_host::PluginHostMessage::ShowAlert(title, text) => {
+                            rfd::MessageDialog::new()
+                                .set_title(title)
+                                .set_description(text)
+                                .set_buttons(rfd::MessageButtons::Ok)
+                                .show();
+                        }
+                    }
+                }
+            },
+        );
+        timer
+    });
     app.set_live_text_enabled(prefs.live_text_enabled);
     app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
     app.set_live_text_available(false);
@@ -1261,19 +1358,14 @@ pub(crate) fn configure_player(
                     if saved_size.get().is_none() {
                         saved_size.set(Some(window.size()));
                     }
-                    let scale = window.scale_factor();
-                    let height =
-                        72.0 + if app.get_music_mode_show_album_art() {
-                            300.0
-                        } else {
-                            0.0
-                        } + if app.get_music_mode_show_playlist() {
-                            300.0
-                        } else {
-                            0.0
-                        };
+                    let scale = f64::from(window.scale_factor());
+                    let height = crate::music_mode_layout::window_height(
+                        app.get_music_mode_show_album_art(),
+                        app.get_music_mode_show_playlist(),
+                        f64::from(app.get_music_mode_artwork_aspect_ratio()),
+                    );
                     window.set_size(slint::PhysicalSize::new(
-                        (300.0 * scale).round() as u32,
+                        (crate::music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
                         (height * scale).round() as u32,
                     ));
                 } else if let Some(size) = saved_size.take() {
@@ -1418,6 +1510,7 @@ pub(crate) fn configure_player(
         prefs_path.clone(),
         prefs.clone(),
         latest_playback.clone(),
+        plugin_host_handle,
         {
             let path = prefs_path.clone();
             let recent_media = recent_media.clone();
@@ -2828,6 +2921,13 @@ pub(crate) fn configure_player(
             slint::CloseRequestResponse::HideWindow
         }
     });
+    let close_player = app.as_weak();
+    app.on_close_player(move || {
+        if let Some(app) = close_player.upgrade() {
+            app.invoke_stop();
+        }
+        let _ = slint::quit_event_loop();
+    });
 
     if let Some(welcome) = welcome {
         let weak = app.as_weak();
@@ -2901,6 +3001,9 @@ pub(crate) fn configure_player(
             _hdr_display_timer: hdr_display_timer,
             _live_text_timer: live_text_timer,
             _appearance_timer: appearance_timer,
+            _plugin_host: plugin_host,
+            _plugin_host_timer: plugin_host_timer,
+            _plugin_osd_timer: plugin_osd_timer,
             prefs_path,
             prefs,
             recent_media,
@@ -3021,6 +3124,9 @@ pub(crate) fn configure_player(
         _hdr_display_timer: None,
         _live_text_timer: live_text_timer,
         _appearance_timer: appearance_timer,
+        _plugin_host: plugin_host,
+        _plugin_host_timer: plugin_host_timer,
+        _plugin_osd_timer: plugin_osd_timer,
         prefs_path,
         prefs,
         recent_media,

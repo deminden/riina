@@ -13,6 +13,7 @@ pub(crate) fn connect(
     path: PathBuf,
     baseline: riina_core::Preferences,
     latest_playback: std::sync::Arc<std::sync::Mutex<riina_core::Playback>>,
+    plugin_host: Option<crate::plugin_host::PluginHostHandle>,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
@@ -48,7 +49,7 @@ pub(crate) fn connect(
             };
             crate::settings_search::connect(&window);
             crate::utilities_preferences::connect(&window, &path, clear_history.clone());
-            crate::plugin_preferences::connect(&window, &app, &path);
+            crate::plugin_preferences::connect(&window, &app, &path, plugin_host.clone());
             crate::advanced_preferences::install_window(&window, &baseline.advanced);
             crate::advanced_preferences::connect_actions(&app, &window, path.clone());
             let available_devices = latest_playback

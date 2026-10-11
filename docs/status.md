@@ -29,7 +29,13 @@ Known substantial gaps include live verification of the new Windows
 Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
 preferences and plugin behavior, live validation of controller fade timing, and
 source-matched menus, sidebars, materials, window
-geometry, and complete interaction captures. The user confirmed that Windows
+geometry, and complete interaction captures. Plugin enable/disable now persists
+state; a background host discovers enabled packages during player startup and owns
+bounded runtime sessions until disable or shutdown. Player and optional global
+entry files run in separate bounded sessions. Granted log, transient OSD and alert
+events reach the UI. Global-to-player API linking,
+timers, module loading, updates, complete host APIs, overlay webview rendering,
+capability-failure feedback in Settings and live GUI behavior remain open. The user confirmed that Windows
 Playback and Video menu clicks now work. The menu is now removed when the native
 host enters fullscreen and restored in windowed mode; that visibility change still
 needs a live check. Other playback interaction remains under verification.
@@ -53,10 +59,26 @@ compile and live selection/removal still need verification, as do drag behavior,
 external file drops, edge autoscroll, and macOS interaction comparison.
 
 Music Mode now replaces its normal speed-adjustment controls with previous/next
-playlist navigation while compact mode is active, retaining speed controls in the
-standard player. The navigation icons are original Riina SVGs. Compact-player
-control styling, album-art behavior, and matched macOS capture comparison remain
-open.
+playlist navigation while compact mode is active, with direct playlist and
+album-art visibility toggles. The compact controller spans the 300-point window
+and hides the normal title controls; standard playback retains speed, stop, and
+fullscreen actions. Music Mode has hover-revealed close-player and return-to-player
+buttons. The volume slider now opens from the compact volume control
+and closes when the pointer leaves the controller. Its playlist selects on a
+single click and starts the selected entry on a double click. When controls hide, the
+transport row gives way to centered title and artist/album metadata while the
+timeline remains visible. Embedded art uses a reserved upper viewport, the
+visibility toggle covers or reveals that surface, and an original Riina
+placeholder appears for audio without embedded art or visible subtitles. Music
+Mode artwork height follows embedded artwork dimensions for audio and the
+display aspect ratio for video, falling back to square artwork when dimensions
+are unknown. The new navigation and artwork graphics are original Riina SVGs.
+Artwork sizing has unit coverage for portrait, wide, square and unknown
+dimensions, along with optional artwork and playlist height combinations.
+Source-matched materials, live transition and popover behavior, native-video
+viewport behavior, and macOS capture comparison remain open. The metadata and
+transport cross-fade uses IINA's 200 ms interval; its live appearance remains
+unverified.
 
 ## Licensing and binary distribution
 

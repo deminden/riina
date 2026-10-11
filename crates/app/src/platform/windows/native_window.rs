@@ -184,19 +184,14 @@ pub fn run(media: Vec<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                         if saved_music_size.get().is_none() {
                             saved_music_size.set(Some(window.inner_size()));
                         }
-                        let height =
-                            72.0 + if app.get_music_mode_show_album_art() {
-                                300.0
-                            } else {
-                                0.0
-                            } + if app.get_music_mode_show_playlist() {
-                                300.0
-                            } else {
-                                0.0
-                            };
+                        let height = crate::music_mode_layout::window_height(
+                            app.get_music_mode_show_album_art(),
+                            app.get_music_mode_show_playlist(),
+                            f64::from(app.get_music_mode_artwork_aspect_ratio()),
+                        );
                         window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(260.0, 72.0)));
                         winit::dpi::PhysicalSize::new(
-                            (300.0 * scale).round() as u32,
+                            (crate::music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
                             (height * scale).round() as u32,
                         )
                     } else if let Some(size) = saved_music_size.take() {
@@ -490,6 +485,18 @@ pub fn run(media: Vec<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     let _ = host.hide();
                 }
                 slint::CloseRequestResponse::HideWindow
+            });
+            let close_button_chrome = app.as_weak();
+            let close_button_host = host.as_weak();
+            let close_button_session = startup_session.clone();
+            let close_button_pip = startup_pip.clone();
+            app.on_close_player(move || {
+                let chrome = close_button_chrome.upgrade();
+                close(&close_button_session, &close_button_pip, chrome.as_ref());
+                if let Some(host) = close_button_host.upgrade() {
+                    let _ = host.hide();
+                }
+                let _ = slint::quit_event_loop();
             });
             app.show()?;
             if action_after_launch.open_file_panel(supplied_media_argument) {

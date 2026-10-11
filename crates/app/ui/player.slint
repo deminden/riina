@@ -732,6 +732,7 @@ export component PlayerWindow inherits Window {
     background: native-video ? transparent : #111111;
     in property <image> video-frame;
     in property <bool> loaded: false;
+    in-out property <string> plugin-osd-message: "";
     in-out property <bool> hdr-enabled: true;
     in property <bool> hdr-display-active: false;
     in property <bool> hdr-source-detected: false;
@@ -746,13 +747,23 @@ export component PlayerWindow inherits Window {
     in-out property <bool> auto-switch-to-music-mode: true;
     in-out property <bool> music-mode-show-playlist: false;
     in-out property <bool> music-mode-show-album-art: true;
+    in-out property <float> music-mode-artwork-aspect-ratio: 0;
+    in-out property <bool> music-mode-is-audio: false;
+    in-out property <bool> music-mode-has-album-art: false;
+    in-out property <bool> music-mode-has-visible-subtitles: false;
+    private property <bool> music-mode-volume-open: false;
     callback toggle-music-mode();
+    callback close-player();
     callback music-mode-changed();
     callback auto-switch-music-mode-changed(bool);
-    changed music-mode => { root.music-mode-changed(); root.video-menu-changed(); }
+    changed music-mode => {
+        if !root.music-mode { root.music-mode-volume-open = false; }
+        root.music-mode-changed(); root.video-menu-changed();
+    }
     changed auto-switch-to-music-mode => { root.auto-switch-music-mode-changed(root.auto-switch-to-music-mode); }
     changed music-mode-show-playlist => { if root.music-mode { root.music-mode-changed(); } }
     changed music-mode-show-album-art => { if root.music-mode { root.music-mode-changed(); } }
+    changed music-mode-artwork-aspect-ratio => { if root.music-mode { root.music-mode-changed(); } }
     callback renderer-ready();
     changed engine-ready => { if root.engine-ready { root.renderer-ready(); } }
     callback media-opened();
@@ -1041,7 +1052,9 @@ export component PlayerWindow inherits Window {
     private property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
     private property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
     private property <length> video-inset-top: root.edge-to-edge-video || !root.docked-controls ? 0px : (root.compact-ui ? 30px : 34px);
-    private property <length> video-inset-bottom: root.edge-to-edge-video || !root.docked-controls ? 0px : (root.compact-ui ? 59px : 67px);
+    private property <length> video-inset-bottom: root.music-mode
+        ? 72px + (root.music-mode-show-playlist ? 300px : 0px)
+        : root.edge-to-edge-video || !root.docked-controls ? 0px : (root.compact-ui ? 59px : 67px);
     out property <length> window-width: root.width;
     out property <length> window-height: root.height;
     out property <length> video-origin-x: video-inset-leading;
@@ -1058,7 +1071,9 @@ export component PlayerWindow inherits Window {
     changed video-height => { root.crop-viewport-changed(); }
     changed edge-to-edge-video => { root.crop-viewport-changed(); root.window-aspect-changed(); }
     changed unlock-window-aspect-ratio => { root.window-aspect-changed(); }
-    changed video-display-aspect-ratio => { root.window-aspect-changed(); }
+    changed video-display-aspect-ratio => {
+        root.window-aspect-changed();
+    }
     changed docked-controls => { root.crop-viewport-changed(); }
     changed sidebar => { root.crop-viewport-changed(); }
     changed leading-sidebar => { root.crop-viewport-changed(); }
@@ -1149,11 +1164,24 @@ export component PlayerWindow inherits Window {
             drop-shadow-color: #00000080;
             drop-shadow-offset-x: 0px; drop-shadow-offset-y: 0px;
         }
+        if root.music-mode && !root.music-mode-show-album-art : Rectangle {
+            x: video-inset-leading; y: video-inset-top;
+            width: video-width; height: video-height; background: #111111;
+        }
         Image {
+            visible: !root.music-mode || root.music-mode-show-album-art;
             source: video-frame;
             x: video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
             y: video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
             width: root.render-width; height: root.render-height; image-fit: contain;
+        }
+        if root.music-mode && root.music-mode-show-album-art
+            && root.music-mode-is-audio && !root.music-mode-has-album-art
+            && !root.music-mode-has-visible-subtitles : Image {
+            x: video-inset-leading; y: video-inset-top;
+            width: video-width; height: video-height;
+            source: @image-url("../../../assets/icons/music-mode-placeholder.svg");
+            image-fit: contain;
         }
         for region in (root.live-text-enabled && root.paused ? root.live-text-regions : []) : Rectangle {
             x: video-inset-leading + region.x * root.render-width;
@@ -1209,7 +1237,7 @@ export component PlayerWindow inherits Window {
             }
         }
 
-        if controls-rendered && loaded && !crop-editing : Rectangle {
+        if controls-rendered && loaded && !crop-editing && !music-mode : Rectangle {
             x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px;
             opacity: root.controls-visible ? 1 : 0;
             animate opacity { duration: root.disable-animations ? 0ms : 250ms; }
@@ -1777,17 +1805,20 @@ export component PlayerWindow inherits Window {
             }
         }
         if controls-rendered && loaded && !crop-editing : Rectangle {
-            width: root.osc-position == 0 ? min(460px, parent.width - 24px) : parent.width;
-            height: root.compact-ui ? 59px : 67px;
-            x: root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
+            width: root.music-mode ? parent.width :
+                root.osc-position == 0 ? min(460px, parent.width - 24px) : parent.width;
+            height: root.music-mode ? 72px : root.compact-ui ? 59px : 67px;
+            x: root.music-mode ? 0px :
+                root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
             // Keep the transport row outside the playlist's hit-test surface
             // in the compact music layout so Play/Pause remains directly usable.
-            y: root.music-mode && root.music-mode-show-playlist ? parent.height - 300px - self.height :
+            y: root.music-mode ? parent.height -
+                    (root.music-mode-show-playlist ? 300px : 0px) - self.height :
                 root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
                 root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
-            opacity: root.controls-visible ? 1 : 0;
+            opacity: root.music-mode || root.controls-visible ? 1 : 0;
             animate opacity { duration: root.disable-animations ? 0ms : 250ms; }
-            border-radius: root.osc-position == 0 ? 12px : 4px;
+            border-radius: root.music-mode ? 0px : root.osc-position == 0 ? 12px : 4px;
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #202025e8 : #f2f2f2ed)
                 : (root.dark-theme ? #202025 : #f2f2f2);
@@ -1798,12 +1829,27 @@ export component PlayerWindow inherits Window {
             // panel with spacious 14/8 insets and an 8-point row separation.
             TouchArea {
                 width: parent.width; height: parent.height;
-                changed has-hover => { root.control-bar-hovered = self.has-hover; }
+                changed has-hover => {
+                    root.control-bar-hovered = self.has-hover;
+                    if root.music-mode && !self.has-hover { root.music-mode-volume-open = false; }
+                }
                 VerticalLayout { width: parent.width; height: parent.height;
-                padding-top: root.compact-ui ? 10px : 14px;
-                padding-bottom: root.compact-ui ? 6px : 8px;
-                spacing: root.compact-ui ? 6px : 8px;
-                HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
+                padding-top: root.music-mode ? 8px : root.compact-ui ? 10px : 14px;
+                padding-bottom: root.music-mode ? 8px : root.compact-ui ? 6px : 8px;
+                spacing: root.music-mode ? 6px : root.compact-ui ? 6px : 8px;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: root.music-mode ? 27px : 17px;
+                    background: transparent;
+                    HorizontalLayout {
+                    x: 0px; y: root.music-mode ? 5px : 0px;
+                    width: parent.width; height: 17px;
+                    opacity: root.controls-visible ? 1 : 0;
+                    animate opacity { duration: root.disable-animations ? 0ms : 200ms; }
+                    padding-left: root.music-mode ? 8px : 12px;
+                    padding-right: root.music-mode ? 8px : 12px;
+                    spacing: root.music-mode ? 2px : 4px;
+                    if root.music-mode : Rectangle { horizontal-stretch: 1; background: transparent; }
                     Tool {
                         dark-theme: root.dark-theme; height: 17px;
                         icon: root.music-mode
@@ -1828,13 +1874,66 @@ export component PlayerWindow inherits Window {
                             else { root.speed(2); }
                         }
                     }
-                    Rectangle { horizontal-stretch: 1; background: transparent; }
-                    Tool { dark-theme: root.dark-theme; height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Mute"; activated => { root.toggle-mute(); } }
-                    PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
+                    if !root.music-mode : Rectangle { horizontal-stretch: 1; background: transparent; }
+                    Tool { dark-theme: root.dark-theme; height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: root.music-mode ? "Volume" : "Mute"; activated => {
+                        if root.music-mode && !root.music-mode-volume-open { root.music-mode-volume-open = true; }
+                        else { root.toggle-mute(); }
+                    } }
+                    if !root.music-mode : PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
                         changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
                         changed(value) => { root.set-volume(value); } }
-                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/stop.svg"); hint: "Stop"; activated => { root.stop(); } }
-                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+                    Tool {
+                        dark-theme: root.dark-theme; height: 17px;
+                        icon: root.music-mode
+                            ? @image-url("../../../assets/icons/playlist.svg")
+                            : @image-url("../../../assets/icons/stop.svg");
+                        hint: root.music-mode
+                            ? (root.music-mode-show-playlist ? "Hide playlist" : "Show playlist")
+                            : "Stop";
+                        selected: root.music-mode && root.music-mode-show-playlist;
+                        activated => {
+                            if root.music-mode { root.music-mode-show-playlist = !root.music-mode-show-playlist; }
+                            else { root.stop(); }
+                        }
+                    }
+                    Tool {
+                        dark-theme: root.dark-theme; height: 17px;
+                        icon: root.music-mode
+                            ? @image-url("../../../assets/icons/photo.svg")
+                            : @image-url("../../../assets/icons/fullscreen.svg");
+                        hint: root.music-mode
+                            ? (root.music-mode-show-album-art ? "Hide album art" : "Show album art")
+                            : "Fullscreen";
+                        selected: root.music-mode && root.music-mode-show-album-art;
+                        activated => {
+                            if root.music-mode { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
+                            else { root.toggle-fullscreen(); }
+                        }
+                    }
+                }
+                    if root.music-mode : HorizontalLayout {
+                    x: 0px; y: 0px; width: parent.width; height: 27px;
+                    opacity: root.controls-visible ? 0 : 1;
+                    animate opacity { duration: root.disable-animations ? 0ms : 200ms; }
+                    padding-left: 16px; padding-right: 16px;
+                    VerticalLayout {
+                        spacing: 0px;
+                        Text { text: root.media-title; color: root.dark-theme ? #ffffff : #202024;
+                            font-size: 13px; font-weight: 600; horizontal-alignment: center;
+                            overflow: elide; }
+                        Text {
+                            text: root.music-artist + (root.music-artist != "" && root.music-album != "" ? " · " : "") + root.music-album;
+                            visible: root.music-artist != "" || root.music-album != "";
+                            color: root.dark-theme ? #d0d0d4 : #505056; font-size: 11px;
+                            horizontal-alignment: center; overflow: elide;
+                        }
+                    }
+                }
+                    if root.music-mode && !root.controls-visible : TouchArea {
+                        width: parent.width; height: parent.height;
+                        moved => { root.controls-visible = true; root.activity(); }
+                        clicked => { root.activity(); }
+                    }
                 }
                 HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
                     Text { text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
@@ -1849,6 +1948,43 @@ export component PlayerWindow inherits Window {
                         loop-b-moved(value) => { root.set-ab-loop-point(1, value); } }
                     Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                 }
+                }
+            }
+            if root.music-mode && root.music-mode-volume-open : Rectangle {
+                x: parent.width - 156px; y: 2px; width: 148px; height: 36px;
+                border-radius: 18px;
+                background: root.liquid-glass-osc
+                    ? (root.dark-theme ? #25252beF : #f5f5f7f0)
+                    : (root.dark-theme ? #303036 : #eeeeF2);
+                border-width: 1px; border-color: #ffffff30;
+                HorizontalLayout {
+                    x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px; spacing: 6px;
+                    Tool { dark-theme: root.dark-theme; width: 24px; height: 24px;
+                        icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
+                        hint: "Mute"; activated => { root.toggle-mute(); } }
+                    PlayerSlider { dark-theme: root.dark-theme; horizontal-stretch: 1; height: 17px;
+                        minimum: 0; maximum: root.volume-limit; value: root.volume; hint: "Volume";
+                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
+                        changed(value) => { root.set-volume(value); } }
+                }
+            }
+            if root.music-mode && loaded : Rectangle {
+                x: 8px; y: 6px; width: 28px; height: 54px;
+                border-radius: 10px;
+                background: root.liquid-glass-osc
+                    ? (root.dark-theme ? #25252beF : #f5f5f7f0)
+                    : (root.dark-theme ? #303036 : #eeeeF2);
+                border-width: 1px; border-color: #ffffff30;
+                opacity: root.controls-visible ? 1 : 0;
+                animate opacity { duration: root.disable-animations ? 0ms : 200ms; }
+                VerticalLayout {
+                    x: 3px; y: 3px; width: 22px; height: 48px; spacing: 4px;
+                    Tool { dark-theme: root.dark-theme; width: 22px; height: 22px;
+                        icon: @image-url("../../../assets/icons/music-mode-close.svg");
+                        hint: "Close player"; activated => { root.close-player(); } }
+                    Tool { dark-theme: root.dark-theme; width: 22px; height: 22px;
+                        icon: @image-url("../../../assets/icons/music-mode-back.svg");
+                        hint: "Return to player"; activated => { root.toggle-music-mode(); } }
                 }
             }
         }
@@ -1868,26 +2004,21 @@ export component PlayerWindow inherits Window {
                 width: (parent.width - 32px) * clamp(position / max(0.001, duration), 0, 1);
                 background: #168bff; border-radius: 1px; }
         }
-        if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
-            text: status; color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
-        if music-mode && music-mode-show-album-art && !music-mode-show-playlist && loaded : Rectangle {
-            // Reserve the transport row; otherwise the metadata card can cover
-            // the pause glyph in the compact window's default floating layout.
-            x: 12px;
-            y: root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) + (root.compact-ui ? 59px : 67px) + 8px :
-                root.osc-position == 2 ? parent.height - (root.compact-ui ? 59px : 67px) - 56px :
-                parent.height * 0.9 - (root.compact-ui ? 59px : 67px) - 56px;
-            width: parent.width - 24px; height: 48px; border-radius: 8px;
-            background: root.dark-theme ? #101014b8 : #f6f6f7dc;
-            VerticalLayout {
-                x: 10px; y: 5px; width: parent.width - 20px; height: parent.height - 10px;
-                spacing: 1px;
-                Text { text: root.media-title; color: root.dark-theme ? #ffffff : #202024;
-                    font-size: 13px; font-weight: 600; overflow: elide; }
-                Text { text: root.music-artist + (root.music-album != "" ? " · " + root.music-album : "");
-                    color: root.dark-theme ? #d0d0d4 : #505056; font-size: 11px; overflow: elide; }
+        if !root.plugin-osd-message.is-empty && !crop-editing : Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: max(8px,
+                parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
+            width: min(420px, parent.width - 32px); height: 40px;
+            border-radius: 8px; background: #17171be8;
+            border-width: 1px; border-color: #ffffff24;
+            Text {
+                x: 14px; y: 5px; width: parent.width - 28px; height: parent.height - 10px;
+                text: root.plugin-osd-message; color: #ffffff; font-size: 13px;
+                vertical-alignment: center; overflow: elide;
             }
         }
+        if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
+            text: status; color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
         if music-mode && music-mode-show-playlist : Rectangle {
             x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
             background: root.dark-theme ? #17171b : #f0f0f2;
@@ -1897,12 +2028,29 @@ export component PlayerWindow inherits Window {
                     spacing: 1px;
                     for row in root.playlist : Rectangle {
                         height: 30px; horizontal-stretch: 1;
-                        background: row.selected ? (root.dark-theme ? #ffffff1c : #168bff24) :
+                        background: row.selected || root.selected-playlist-token == row.token
+                            ? (root.dark-theme ? #ffffff1c : #168bff24) :
                             music-row-touch.has-hover ? (root.dark-theme ? #ffffff10 : #0000000a) : transparent;
-                        Text { x: 10px; width: parent.width - 20px; text: row.label;
+                        if row.playing : Image {
+                            x: 8px; y: 8px; width: 14px; height: 14px;
+                            source: @image-url("../../../assets/icons/play.svg");
+                            image-fit: contain; colorize: #168bff;
+                        }
+                        Text { x: row.playing ? 28px : 10px;
+                            width: parent.width - (row.playing ? 38px : 20px); text: row.label;
                             color: root.dark-theme ? #eeeeee : #29292d; font-size: 12px;
                             vertical-alignment: center; overflow: elide; }
-                        music-row-touch := TouchArea { clicked => { root.select-item(4, row.token); } }
+                        music-row-touch := TouchArea {
+                            clicked => {
+                                root.selected-playlist-token = row.token;
+                                root.selected-playlist-tokens = [row.token];
+                            }
+                            double-clicked => {
+                                root.selected-playlist-token = "";
+                                root.selected-playlist-tokens = [];
+                                root.select-item(4, row.token);
+                            }
+                        }
                     }
                 }
             }
