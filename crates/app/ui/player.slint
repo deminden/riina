@@ -1637,7 +1637,8 @@ export component PlayerWindow inherits Window {
                 }
                 HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
                     Text { text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
-                    PlayerSlider { dark-theme: root.dark-theme; minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
+                    PlayerSlider { dark-theme: root.dark-theme; knob-width: 3px; knob-height: 15px; knob-radius: 1px;
+                        minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
                         changed(value) => { root.seek(value); } }
                     Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                 }

@@ -9,6 +9,9 @@ export component PlayerSlider inherits Rectangle {
     in property <string> hint;
     in property <bool> neutral-mark: false;
     in property <bool> dark-theme: true;
+    in property <length> knob-width: 6px;
+    in property <length> knob-height: 8px;
+    in property <length> knob-radius: 2px;
     callback changed(float);
     height: 20px;
     horizontal-stretch: 1;
@@ -32,8 +35,14 @@ export component PlayerSlider inherits Rectangle {
         width: 1px; height: 8px; background: #ffffff60; }
     Rectangle { x: 3px; y: 9px; width: (parent.width - 6px) * fraction; height: 2px;
         background: enabled ? #dddde5 : #666666; border-radius: 1px; }
-    Rectangle { x: (parent.width - 6px) * fraction; y: 6px; width: 6px; height: 8px;
-        border-radius: 2px; background: enabled ? (root.dark-theme ? #f4f4f7 : #3b3b40) : #777777; }
+    Rectangle {
+        x: clamp(3px + (parent.width - 6px) * fraction - root.knob-width / 2,
+            0px, parent.width - root.knob-width);
+        y: (parent.height - root.knob-height) / 2;
+        width: root.knob-width; height: root.knob-height;
+        border-radius: root.knob-radius;
+        background: enabled ? (root.dark-theme ? #f4f4f7 : #3b3b40) : #777777;
+    }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
     touch := TouchArea {
         enabled: root.enabled;

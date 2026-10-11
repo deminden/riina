@@ -2827,3 +2827,9 @@ workspace checks pass locally. A repeat native playback test with the local DLL
 timed out before its first playback event, so this does not verify the pause
 button in the live app. No binary release has been published; the full runtime
 and corresponding-source audit is still open.
+
+2026-10-11 Playback timeline geometry increment: the shared slider now accepts
+per-instance handle dimensions, and the playback timeline uses IINA's 3 x 15 px
+handle with a 1 px radius; volume and Preferences sliders retain their existing
+shape. This is source geometry matching, not a visual-parity claim: captured
+Windows/macOS surface comparison and timeline color/track geometry remain open.
