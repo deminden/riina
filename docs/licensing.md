@@ -4,7 +4,7 @@ Riina's independently written source remains MIT licensed by the root LICENSE
 and package metadata. The combined application package uses GPLv3 terms; the
 complete text is in LICENSE-GPL-3.0.txt. This does not change third-party
 component licenses or grant permission to relicense them. The distribution choice
-is settled. The private release workflow verifies that the
+is settled. The release candidate workflow verifies that the
 exact candidate includes its notices and corresponding source and passes package
 and playback checks before publication.
 
@@ -101,6 +101,11 @@ The release job runs the complete native test suite and a playback test against 
 engine extracted from the final portable ZIP. GitHub only publishes the assets when
 those checks and source packaging succeed. These tests do not certify GUI, HDR
 display, or pixel parity.
+
+Before loading the downloaded engine, release packaging verifies every file against
+its runtime hash manifest. It also checks the native source archive's checksum
+before extraction and both final asset checksums before publication. Application
+import checks produce a separate report so the recorded engine report stays intact.
 
 The pinned `subrandr` helper also brings in `unicode-ident 1.0.13`, which declares
 the Unicode License Agreement for Data Files and Software (2016). The Free

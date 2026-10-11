@@ -133,7 +133,10 @@ def main():
     if (args.package / "riina.exe").is_file():
         roots.append(args.package / "riina.exe")
     report = check_runtime(args.package, roots, args.search)
-    (args.package / "WINDOWS-IMPORTS.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    # Package validation must not overwrite the engine report whose hash belongs
+    # to the downloaded native artifact's manifest.
+    report_name = "PACKAGE-WINDOWS-IMPORTS.json" if (args.package / "riina.exe").is_file() else "WINDOWS-IMPORTS.json"
+    (args.package / report_name).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"Verified Windows x64 imports for {len(report)} packaged binaries")
 
 

@@ -2,6 +2,8 @@
 import importlib.util
 from pathlib import Path
 import struct
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -79,6 +81,16 @@ class WindowsRuntimeTests(unittest.TestCase):
         root.write_bytes(b"MZ")
         with self.assertRaisesRegex(ValueError, "Truncated PE"):
             runtime.imports(root)
+
+    def test_package_check_preserves_hash_recorded_native_import_report(self):
+        executable(self.package / "libmpv-2.dll", ["kernel32.dll"])
+        executable(self.package / "riina.exe", ["user32.dll"])
+        native_report = self.package / "WINDOWS-IMPORTS.json"
+        native_report.write_bytes(b"native report captured before application assembly")
+        subprocess.run([sys.executable, str(Path(__file__).parents[1] / "check-windows-runtime.py"),
+                        "--package", str(self.package)], check=True, capture_output=True)
+        self.assertEqual(native_report.read_bytes(), b"native report captured before application assembly")
+        self.assertTrue((self.package / "PACKAGE-WINDOWS-IMPORTS.json").is_file())
 
 
 if __name__ == "__main__":

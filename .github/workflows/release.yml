@@ -10,7 +10,9 @@ on:
       - 'tools/mpv/**'
       - 'scripts/package-rust-licenses.py'
       - 'scripts/check-windows-runtime.py'
+      - 'scripts/check-release-artifacts.py'
       - 'scripts/tests/test_windows_runtime.py'
+      - 'scripts/tests/test_release_artifacts.py'
       - 'docs/native-distribution-audit.json'
       - 'LICENSES/**'
   workflow_dispatch:
@@ -35,10 +37,7 @@ jobs:
         id: readiness
         shell: bash
         run: |
-          release_ready="$(python -c 'import json; print(str(json.load(open("docs/native-distribution-audit.json"))["release_artifacts_verified"]).lower())')"
-          native_run_id="$(python -c 'import json; print(json.load(open("docs/native-distribution-audit.json")).get("verified_candidate_run_id", ""))')"
-          echo "release_ready=$release_ready" >> "$GITHUB_OUTPUT"
-          echo "native_run_id=$native_run_id" >> "$GITHUB_OUTPUT"
+          python scripts/check-release-artifacts.py readiness >> "$GITHUB_OUTPUT"
 
   native-engine:
     if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true' && needs.release-readiness.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
@@ -122,6 +121,8 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ needs.release-readiness.outputs.native_run_id }}
           github-token: ${{ github.token }}
+      - name: Verify downloaded native runtime hashes
+        run: python scripts/check-release-artifacts.py runtime --directory native-runtime
       - name: Pinned Rust toolchain
         shell: pwsh
         run: |
@@ -220,6 +221,8 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ needs.release-readiness.outputs.native_run_id }}
           github-token: ${{ github.token }}
+      - name: Verify downloaded corresponding-source archive
+        run: python scripts/check-release-artifacts.py checksum --file native-source-artifact/riina-native-source.tar.zst --manifest native-source-artifact/riina-native-source.tar.zst.sha256
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal
       - name: Vendor locked Rust sources
@@ -279,6 +282,7 @@ jobs:
           test -f "release-assets/riina-$version-windows-x86_64.zip"
           test -f "release-assets/riina-$version-source.tar.zst"
           cat "release-assets/riina-$version-source.tar.zst.sha256" >> release-assets/SHA256SUMS.txt
+          (cd release-assets && sha256sum --check SHA256SUMS.txt)
       - name: Publish release with visible binary and source assets
         env:
           GH_TOKEN: ${{ github.token }}

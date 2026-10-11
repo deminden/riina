@@ -39,7 +39,7 @@ pinned native engine and Cargo dependencies.
 The latest published GitHub release is v0.2.2 and contains source archives; it has
 no Windows application binary. The current Windows release candidate is
 [workflow run 38144973846](https://github.com/deminden/riina/actions/runs/38144973846).
-Its release-readiness job passed. The native-engine job is still running, so package
+Its metadata job succeeded, but artifact verification is still false. The native-engine job is still running, so package
 assembly, extracted-package playback, and final corresponding-source verification
 have not yet completed. No binary is available to download until those checks pass
 and the release workflow publishes the assets.
@@ -52,14 +52,10 @@ settled license choices and candidate build inputs are recorded in
 ## Verification state
 
 The parity traceability check accepts all 191 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. The candidate's
-release-readiness checks pass; its native engine build is pending. The current
-[macOS/Linux application workflow](https://github.com/deminden/riina/actions/runs/38144973703)
-fails during lint on `NativePresentation` ownership in `crates/app/src/player_ui.rs`;
-tests and application builds are skipped. The local
-working tree now derives `Clone` for the empty Unix presentation marker to match the
-Windows adapter's shared timer ownership. Cross-target verification of this fix is
-pending. Windows compilation/domain and portable playback workflows are separate
+while explicitly reporting that the inventory is incomplete. Candidate artifact
+verification and native engine completion are pending. The Unix presentation marker
+derives `Clone` to match the Windows adapter's shared timer ownership; full
+macOS/Linux application verification remains pending. Windows compilation/domain and portable playback workflows are separate
 checks; consult their linked Actions runs for live conclusions.
 
 Local verification evidence and exact limitations are recorded in
