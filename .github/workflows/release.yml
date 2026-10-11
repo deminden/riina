@@ -193,12 +193,46 @@ jobs:
           $env:PATH = "$runtimePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked -- --ignored --nocapture --test-threads=1 2>&1 | Tee-Object -FilePath native-playback-tests.log
           if ($LASTEXITCODE -ne 0) { throw "Native playback and lifecycle tests failed with exit code $LASTEXITCODE." }
+      - name: Capture the hosted native shutdown fault
+        if: failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'Procdump.zip'
+          Invoke-WebRequest 'https://download.sysinternals.com/files/Procdump.zip' -OutFile $archive
+          $tools = Join-Path $env:RUNNER_TEMP 'riina-crash-tools'
+          Expand-Archive $archive $tools
+          $procdump = Join-Path $tools 'procdump64.exe'
+          $signature = Get-AuthenticodeSignature $procdump
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw 'Native diagnostic utility is not a verified Microsoft executable.'
+          }
+          $env:RIINA_TEST_MPV_LIBRARY = (Resolve-Path native-runtime/libmpv-2.dll).Path
+          $env:RIINA_TEST_MPV_AUDIO_OUTPUT = 'null'
+          $env:RIINA_TEST_TRACE_SHUTDOWN = '1'
+          $runtimePath = (Resolve-Path native-runtime).Path
+          $env:PATH = "$runtimePath;$env:PATH"
+          $test = Get-ChildItem target/debug/deps/native-*.exe | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (!$test) { throw 'No compiled native test executable is available.' }
+          New-Item -ItemType Directory native-fault -Force | Out-Null
+          # A failed runner gets one focused reproduction with a mini dump; its
+          # stack and module addresses distinguish engine faults from FFI misuse.
+          # Diagnostic artifacts are never copied into public release assets.
+          & $procdump -accepteula -mm -e -x native-fault $test.FullName ab_repeat_observes_points_and_wraps_playback --ignored --exact --nocapture 2>&1 | Tee-Object native-fault/procdump.log
+          $debugger = Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($debugger) {
+            Get-ChildItem native-fault/*.dmp | ForEach-Object {
+              & $debugger.FullName -z $_.FullName -c '.symfix;.reload;.ecxr;k;!analyze -v;q' 2>&1 | Tee-Object native-fault/stack.log
+            }
+          }
       - name: Preserve native test output after failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
         with:
           name: native-playback-failure-logs
-          path: native-playback-tests.log
+          path: |
+            native-playback-tests.log
+            native-fault/
           if-no-files-found: warn
           retention-days: 7
       - name: Lint and unit tests
