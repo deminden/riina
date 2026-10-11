@@ -261,6 +261,13 @@ const ENTRIES: &[Entry] = &[
         terms: "pip minimize audio only video",
     },
     Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Accessibility",
+        title: "Disable animations",
+        terms: "accessibility reduce motion animation vestibular",
+    },
+    Entry {
         page_index: 2,
         page: "Video",
         section: "Decoding",
