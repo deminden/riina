@@ -104,8 +104,15 @@ fn control_hide_is_allowed(
     crop_editing: bool,
     title_bar_hovered: bool,
     control_bar_hovered: bool,
+    control_bar_dragging: bool,
 ) -> bool {
-    enabled && loaded && !dialog_open && !crop_editing && !title_bar_hovered && !control_bar_hovered
+    enabled
+        && loaded
+        && !dialog_open
+        && !crop_editing
+        && !title_bar_hovered
+        && !control_bar_hovered
+        && !control_bar_dragging
 }
 
 fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
@@ -131,6 +138,7 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
                 app.get_crop_editing(),
                 app.get_title_bar_hovered(),
                 app.get_control_bar_hovered(),
+                app.get_control_bar_dragging(),
             )
         {
             app.set_controls_visible(false);
@@ -1588,7 +1596,10 @@ pub(crate) fn configure_player(
         let Some(app) = auto_hide_parent.upgrade() else {
             return;
         };
-        if app.get_title_bar_hovered() || app.get_control_bar_hovered() {
+        if app.get_title_bar_hovered()
+            || app.get_control_bar_hovered()
+            || app.get_control_bar_dragging()
+        {
             auto_hide_timer.stop();
             app.set_controls_visible(true);
         } else if app.get_control_auto_hide_enabled() {
@@ -1606,7 +1617,10 @@ pub(crate) fn configure_player(
         let Some(app) = hover_parent.upgrade() else {
             return;
         };
-        if app.get_title_bar_hovered() || app.get_control_bar_hovered() {
+        if app.get_title_bar_hovered()
+            || app.get_control_bar_hovered()
+            || app.get_control_bar_dragging()
+        {
             hover_timer.stop();
             app.set_controls_visible(true);
         } else {
@@ -1661,6 +1675,9 @@ pub(crate) fn configure_player(
         let Some(app) = scroll_app.upgrade() else {
             return false;
         };
+        if app.get_scroll_input_suppressed() {
+            return true;
+        }
         let horizontal = delta_x.abs() > delta_y.abs();
         let delta = if horizontal { delta_x } else { delta_y };
         if delta == 0.0 {
@@ -2434,6 +2451,9 @@ pub(crate) fn configure_player(
             app.invoke_activity();
             let fullscreen = !app.get_fullscreen();
             if let Some(host) = fullscreen_host.as_ref().and_then(slint::Weak::upgrade) {
+                // The native host owns the Windows menu bar; remove it before
+                // borderless fullscreen and restore it when returning to windowed mode.
+                host.set_fullscreen_mode(fullscreen);
                 host.window().set_fullscreen(fullscreen);
             } else {
                 app.window().set_fullscreen(fullscreen);
@@ -2794,19 +2814,20 @@ mod control_auto_hide_tests {
     #[test]
     fn deadline_hides_only_an_idle_loaded_controller() {
         assert!(control_hide_is_allowed(
-            true, true, false, false, false, false
+            true, true, false, false, false, false, false
         ));
         let blocked_states = [
-            (false, true, false, false, false, false),
-            (true, false, false, false, false, false),
-            (true, true, true, false, false, false),
-            (true, true, false, true, false, false),
-            (true, true, false, false, true, false),
-            (true, true, false, false, false, true),
+            (false, true, false, false, false, false, false),
+            (true, false, false, false, false, false, false),
+            (true, true, true, false, false, false, false),
+            (true, true, false, true, false, false, false),
+            (true, true, false, false, true, false, false),
+            (true, true, false, false, false, true, false),
+            (true, true, false, false, false, false, true),
         ];
-        for (enabled, loaded, dialog, crop, title, controller) in blocked_states {
+        for (enabled, loaded, dialog, crop, title, controller, dragging) in blocked_states {
             assert!(!control_hide_is_allowed(
-                enabled, loaded, dialog, crop, title, controller
+                enabled, loaded, dialog, crop, title, controller, dragging
             ));
         }
     }

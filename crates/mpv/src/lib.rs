@@ -248,7 +248,7 @@ impl Player {
                     ..Default::default()
                 };
                 let mut next_id = 0u64;
-                let mut pending = HashMap::new();
+                let mut pending: HashMap<u64, PendingCommand> = HashMap::new();
                 let mut pending_screenshots = HashMap::new();
                 let mut pending_frame_captures = HashSet::new();
                 let mut resume_on_load = false;
@@ -324,10 +324,12 @@ impl Player {
                                 seek_feedback.replied(event.userdata, event.error < 0);
                                 let screenshot = pending_screenshots.remove(&event.userdata);
                                 let frame_capture = pending_frame_captures.remove(&event.userdata);
-                                if let Some(generation) = pending.remove(&event.userdata)
-                                    && generation == state.generation {
+                                if let Some(pending_command) = pending.remove(&event.userdata)
+                                    && pending_command.generation == state.generation {
                                     if event.error < 0 {
-                                        state.error = worker_api.check(event.error).err();
+                                        state.error = worker_api.check(event.error).err().map(|error| {
+                                            format!("mpv {}: {error}", pending_command.label)
+                                        });
                                         resume_on_load = false;
                                     } else if frame_capture {
                                         if event.data.is_null() {
@@ -407,8 +409,10 @@ impl Player {
                     notify(state.clone());
                 }
                 (worker_api.wakeup)(handle, None, std::ptr::null_mut());
-                drop(callback);
+                // Keep the callback context alive through destroy: unregistering prevents
+                // future wakeups, but an mpv worker may already have entered the callback.
                 (worker_api.destroy)(handle);
+                drop(callback);
             }
         }).map_err(|e| e.to_string())?;
         let handle = ready_rx.recv().map_err(|e| e.to_string())??;
@@ -439,7 +443,7 @@ unsafe fn issue(
     handle: *mut c_void,
     args: &[String],
     next_id: &mut u64,
-    pending: &mut HashMap<u64, u64>,
+    pending: &mut HashMap<u64, PendingCommand>,
     generation: u64,
 ) -> Result<(), String> {
     let args: Vec<_> = args
@@ -450,11 +454,33 @@ unsafe fn issue(
     let mut pointers: Vec<_> = args.iter().map(|arg| arg.as_ptr()).collect();
     pointers.push(std::ptr::null());
     *next_id += 1;
+    let label = command_label(&args);
     // SAFETY: worker owns the live handle; command_async copies these strings
     // before returning, as specified by client.h. Reply ownership stays with mpv.
-    api.check(unsafe { (api.command)(handle, *next_id, pointers.as_ptr()) })?;
-    pending.insert(*next_id, generation);
+    api.check(unsafe { (api.command)(handle, *next_id, pointers.as_ptr()) })
+        .map_err(|error| format!("mpv {label}: {error}"))?;
+    pending.insert(*next_id, PendingCommand { generation, label });
     Ok(())
+}
+
+struct PendingCommand {
+    generation: u64,
+    label: String,
+}
+
+// Keep diagnostics actionable without exposing media paths or arbitrary option values.
+fn command_label(args: &[CString]) -> String {
+    let command = args
+        .first()
+        .and_then(|arg| arg.to_str().ok())
+        .unwrap_or("command");
+    let target = (command == "set")
+        .then(|| args.get(1).and_then(|arg| arg.to_str().ok()))
+        .flatten();
+    target.map_or_else(
+        || command.to_owned(),
+        |target| format!("{command} {target}"),
+    )
 }
 
 fn decode_audio_devices(

@@ -10,38 +10,19 @@ use slint::{
 use std::{cell::Cell, rc::Rc};
 use windows::{
     Win32::{
-        Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM},
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM},
         UI::{
             Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
-                GetCursorPos, GetForegroundWindow, GetMenuBarInfo, IsWindow, MENUBARINFO,
-                OBJID_MENU, PostMessageW, RegisterWindowMessageW, SC_KEYMENU, WM_ENTERMENULOOP,
-                WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
+                GetForegroundWindow, IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
+                WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND,
+                WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
     core::w,
 };
-
-/// Native menu activation focuses the owner before `WM_ENTERMENULOOP` arrives.
-/// The caller uses the pointer location to avoid redirecting that activation.
-pub(super) fn cursor_is_over_menu(handle: isize) -> bool {
-    let hwnd = HWND(handle as *mut _);
-    let mut menu = MENUBARINFO {
-        cbSize: std::mem::size_of::<MENUBARINFO>() as u32,
-        ..Default::default()
-    };
-    let mut cursor = POINT::default();
-    // SAFETY: both APIs synchronously fill their caller-owned structures for a live HWND.
-    if unsafe { GetMenuBarInfo(hwnd, OBJID_MENU, 0, &mut menu) }.is_err()
-        || unsafe { GetCursorPos(&mut cursor) }.is_err()
-    {
-        return false;
-    }
-    let rect = menu.rcBar;
-    cursor.x >= rect.left && cursor.x < rect.right && cursor.y >= rect.top && cursor.y < rect.bottom
-}
 
 struct MenuContext {
     app: slint::Weak<PlayerWindow>,
@@ -55,6 +36,7 @@ pub(super) struct MenuFocus {
     hwnd: HWND,
     context: Option<Box<MenuContext>>,
 }
+
 impl MenuFocus {
     pub(super) fn install(
         handle: isize,

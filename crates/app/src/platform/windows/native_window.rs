@@ -150,11 +150,10 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
         None::<crate::window_aspect::WindowEventFilter>,
     ));
     let startup_resize_filter = resize_filter.clone();
-    let menu_lifecycle = Rc::new(RefCell::new(None));
+    let menu_lifecycle = Rc::new(RefCell::new(None::<super::menu_focus::MenuFocus>));
     let startup_menu_lifecycle = menu_lifecycle.clone();
     let menu_focus = Rc::new(Cell::new(false));
     let startup_menu_focus = menu_focus.clone();
-    let menu_owner = owner.clone();
     host.show()?;
     slint::spawn_local(async move {
         let Some(host) = weak_host.upgrade() else {
@@ -426,20 +425,34 @@ pub fn run(media: Option<OsString>) -> Result<(), Box<dyn std::error::Error>> {
         }
     })?;
     let event_chrome = chrome.clone();
+    let scroll_transition = Rc::new(Cell::new(0_u64));
+    let event_scroll_transition = scroll_transition.clone();
     host.window().on_winit_window_event(move |host, event| {
         let result = resize_filter
             .borrow()
             .as_ref()
             .map_or(EventResult::Propagate, |filter| filter(host, event));
-        if matches!(event, winit::event::WindowEvent::Focused(true))
-            && !menu_focus.get()
-            && !super::menu_focus::cursor_is_over_menu(menu_owner.load(Ordering::Relaxed))
-            && let Some(app) = event_chrome.borrow().as_ref()
-            && !app.get_dialog_open()
+        if matches!(
+            event,
+            winit::event::WindowEvent::Focused(_)
+                | winit::event::WindowEvent::CursorEntered { .. }
+                | winit::event::WindowEvent::CursorLeft { .. }
+        ) && let Some(app) = event_chrome.borrow().as_ref()
         {
-            // Fullscreen and taskbar activation focus the owner. Keyboard commands
-            // belong to the shared chrome, not mpv's otherwise inactive host.
-            super::menu_focus::focus_chrome(app.window());
+            // Switching between the aligned video and chrome HWNDs can produce
+            // a stale wheel delta. Keep that transition from becoming a seek.
+            app.set_scroll_input_suppressed(true);
+            let generation = event_scroll_transition.get().wrapping_add(1);
+            event_scroll_transition.set(generation);
+            let scroll_transition = event_scroll_transition.clone();
+            let weak_app = app.as_weak();
+            let _ = slint::Timer::single_shot(std::time::Duration::from_millis(220), move || {
+                if scroll_transition.get() == generation
+                    && let Some(app) = weak_app.upgrade()
+                {
+                    app.set_scroll_input_suppressed(false);
+                }
+            });
         }
         if matches!(
             event,

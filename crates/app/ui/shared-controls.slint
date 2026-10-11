@@ -18,6 +18,7 @@ export component PlayerSlider inherits Rectangle {
     in property <float> loop-b-value: 0;
     in property <bool> show-chapter-positions: false;
     in property <[float]> chapter-times: [];
+    out property <bool> is-dragging: false;
     callback changed(float);
     callback loop-a-moved(float);
     callback loop-b-moved(float);
@@ -84,8 +85,11 @@ export component PlayerSlider inherits Rectangle {
         enabled: root.enabled;
         pointer-event(event) => {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.is-dragging = true;
                 focus.focus();
                 root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                root.is-dragging = false;
             }
         }
         moved => { if self.pressed {

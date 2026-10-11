@@ -1,6 +1,7 @@
 import { Button, HorizontalBox } from "std-widgets.slint";
 
 export component PictureInPictureWindow inherits Window {
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     in property <string> media-title: "riina";
     in property <bool> paused: false;
     callback play-pause();

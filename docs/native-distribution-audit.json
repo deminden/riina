@@ -81,12 +81,14 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38152037885,
-    "commit": "ed0e1cf",
+    "run_id": 38158114361,
+    "commit": "5fc88f3",
     "stage": "windows-package / native playback and lifecycle tests",
-    "failure": "The hosted Windows test process exited with STATUS_ACCESS_VIOLATION at the first test, ab_repeat_observes_points_and_wraps_playback. The native runtime and source artifacts downloaded successfully; source and dependency notice packaging passed.",
-    "evidence": "The exact windows-native-engine artifact from run 38138622911 passed the runtime manifest verifier, the isolated A-B repeat test, and all 42 native playback/lifecycle tests serially on the local Windows host. The hosted-only access violation is not reproduced locally; the A-B test now emits stage markers for a fresh hosted run. The long-seek test allows one audio packet interval while still detecting clamping.",
-    "next_action": "Run a fresh private 0.3.0 package candidate reusing native engine and captured-source artifacts from run 38138622911; inspect the Windows package result and stage markers before publishing."
+    "failure": "The test ab_repeat_observes_points_and_wraps_playback completed its playback assertions, then the test process exited with 0xc0000005 (STATUS_ACCESS_VIOLATION) during player shutdown. Package assembly and publish were skipped.",
+    "evidence": "The authenticated job log shows the last message was 'loop cleared; shutting down player'; no post-drop message appeared. The worker unregistered the mpv wakeup callback and freed its callback context before mpv_terminate_destroy returned. An mpv worker could still be executing that callback during teardown. The code now retains the callback context through destroy; all 42 native playback/lifecycle tests passed serially on the local Windows host against the available DLL. The original hosted run used the native engine artifact from run 38138622911.",
+    "resolution": "Keep the mpv wakeup callback context alive until mpv_terminate_destroy returns, so an in-flight native callback cannot access freed Rust state.",
+    "local_verification": "42 native playback/lifecycle tests passed after the teardown fix; this is not evidence for the release candidate DLL or extracted ZIP.",
+    "next_action": "Verify the callback-lifetime fix with the full native test suite, then trigger one new candidate build and inspect the exact extracted package before publishing."
   },
   "historical_candidate_failures": [
     {

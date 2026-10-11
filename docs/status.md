@@ -24,11 +24,12 @@ captured reference surfaces to choose and verify work.
 
 Known substantial gaps include live verification of the new Windows
 Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
-preferences and plugin behavior, controller-drag auto-hide suppression and live
-validation of its source-matched fade, and source-matched menus, sidebars, materials, window
-geometry, and complete interaction captures. Windows native-menu activation now
-keeps focus on the menu owner during the initial click; live playback interaction
-still needs verification.
+preferences and plugin behavior, live validation of controller fade timing, and
+source-matched menus, sidebars, materials, window
+geometry, and complete interaction captures. The user confirmed that Windows
+Playback and Video menu clicks now work. The menu is now removed when the native
+host enters fullscreen and restored in windowed mode; that visibility change still
+needs a live check. Other playback interaction remains under verification.
 Windows HDR and native-window work has runtime evidence, but calibrated end-to-end
 HDR parity and broad hardware coverage remain unverified. Consult the parity
 inventory for the exact state of each requirement.
@@ -41,17 +42,21 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. Candidate
-[workflow run 38152037885](https://github.com/deminden/riina/actions/runs/38152037885)
-reused the native engine and corresponding-source artifacts from run 38138622911.
-Source packaging and dependency notices passed, but the Windows package job stopped
-in its native playback gate when the serial native test process hit a Windows access
-violation while running `ab_repeat_observes_points_and_wraps_playback`. The exact
-candidate engine artifact passes its runtime-manifest check and all 42 native tests
-in a local serial Windows run; the hosted-runner crash remains unresolved. No binary
-is available until the Windows package gate,
-exact package checks, and corresponding-source audit pass and a versioned release
-publishes its assets.
+no Windows application binary. The 0.3.0 candidate
+[workflow run 38158114361](https://github.com/deminden/riina/actions/runs/38158114361)
+passed source packaging and dependency notices but failed in the Windows package
+job's native playback and lifecycle test step. The authenticated log identifies
+`ab_repeat_observes_points_and_wraps_playback`: its assertions passed, then the
+process crashed with `STATUS_ACCESS_VIOLATION` during player shutdown. Teardown
+freed libmpv's wakeup-callback context before `mpv_terminate_destroy` had finished
+joining native worker threads. The context now remains alive until destroy returns.
+All 42 native playback/lifecycle tests pass serially on the local Windows host
+against the available native DLL. The fix still needs a fresh hosted candidate
+run using the release DLL and an extracted-package playback check. The failed run produced a
+complete-source artifact but no portable application ZIP, and nothing was
+published. A binary remains unavailable until the hosted playback gate, exact
+extracted-package checks, and corresponding-source audit pass and a versioned
+release publishes its assets.
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. The

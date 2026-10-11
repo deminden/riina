@@ -378,6 +378,7 @@ component ResumeMediaEntry inherits Rectangle {
 
 export component WelcomeWindow inherits Window {
     title: "Riina";
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     // Match IINA v1.5.0's fixed 560 x 440 point welcome window.
     preferred-width: 560px; preferred-height: 440px;
     min-width: 560px; min-height: 440px;
@@ -501,6 +502,7 @@ export component WelcomeWindow inherits Window {
 }
 
 export component PlayerWindow inherits Window {
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     in property <bool> reflection-known: false;
     in property <bool> deinterlace-known: false;
     in property <bool> deinterlace-enabled: false;
@@ -512,6 +514,7 @@ export component PlayerWindow inherits Window {
     changed deinterlace-known => { root.video-menu-changed(); }
     changed deinterlace-enabled => { root.video-menu-changed(); }
     in-out property <bool> video-osd-request-feedback: false;
+    in-out property <bool> scroll-input-suppressed: false;
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
     callback toggle-video-reflection(bool);
@@ -981,6 +984,7 @@ export component PlayerWindow inherits Window {
     in-out property <float> control-auto-hide-timeout-secs: 2.5;
     in-out property <bool> title-bar-hovered: false;
     in-out property <bool> control-bar-hovered: false;
+    in-out property <bool> control-bar-dragging: false;
     callback control-bar-settings-changed();
     callback control-bar-hover-changed();
     callback controls-visibility-changed(bool);
@@ -988,6 +992,7 @@ export component PlayerWindow inherits Window {
     changed control-auto-hide-timeout-secs => { root.control-bar-settings-changed(); }
     changed title-bar-hovered => { root.control-bar-hover-changed(); }
     changed control-bar-hovered => { root.control-bar-hover-changed(); }
+    changed control-bar-dragging => { root.control-bar-hover-changed(); }
     // One logical-point viewport drives both GL texture size and native mpv margins.
     private property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
     private property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
@@ -1697,6 +1702,7 @@ export component PlayerWindow inherits Window {
                     Rectangle { horizontal-stretch: 1; background: transparent; }
                     Tool { dark-theme: root.dark-theme; height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Mute"; activated => { root.toggle-mute(); } }
                     PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
+                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
                         changed(value) => { root.set-volume(value); } }
                     Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/stop.svg"); hint: "Stop"; activated => { root.stop(); } }
                     Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
@@ -1708,6 +1714,7 @@ export component PlayerWindow inherits Window {
                         loop-b-visible: root.ab-loop-b-known; loop-b-value: root.ab-loop-b;
                         show-chapter-positions: root.show-chapter-pos; chapter-times: root.chapter-times;
                         minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
+                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
                         changed(value) => { root.seek(value); }
                         loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
                         loop-b-moved(value) => { root.set-ab-loop-point(1, value); } }
