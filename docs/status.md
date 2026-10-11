@@ -10,6 +10,14 @@ The media path is passed as one argument, preserving spaces and Unicode. This
 provides independent playback while the pinned always-open-new-window default
 and same-process multi-window lifecycle remain to be implemented and verified.
 
+2026-10-11 The next fully missing feature audit is Music mode. The pinned source
+transfers the active video and playlist views between windows, auto-switches on
+audio-only track lists when enabled (except fullscreen), and lets a manual switch
+override that policy. Its defaults show artwork and hide the playlist. The
+current project has no shared Music mode state or window lifecycle yet. Full
+macOS IINA v1.5.0 feature and visual parity remains the active goal; nothing in
+this audit establishes macOS runtime support.
+
 2026-10-11 Independent port build repair while the binary candidate runs:
 macOS/Linux CI failed strict lint because the Windows native-host aspect hook
 was compiled on every platform. Gate its import, binding, enum variant and match

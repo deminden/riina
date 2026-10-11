@@ -39,19 +39,23 @@ Do not routinely erase the shared Cargo registry or Git download caches: they ar
 costly to repopulate and are not the project's generated build output.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
-is the current target; macOS and Linux ports are near-term work, not supported. Pixel-perfect
-interface parity and full behavioral/feature parity with IINA v1.5.0 are primary
-acceptance goals. Preserve its elegant interface; do not substitute a redesign.
+remains the current supported target. The user has made full macOS-version parity
+an active goal now, alongside continued portable architecture work; do not claim
+macOS support until the full app, playback, rendering and lifecycle are built and
+verified there. Pixel-perfect interface parity and full behavioral/feature parity
+with IINA v1.5.0 are acceptance goals. Preserve its elegant interface; do not
+substitute a redesign.
 The requested extension is opt-in volume boost up to 200%; the default volume
 range remains 0–100%. Default behavior and appearance target exact IINA parity. No Vim
 controls are requested. Historical wiina evidence remains under its original name.
 
-Current user priority: complete interface parity first. Use actual captured
-Windows and pinned macOS reference surfaces to guide layout work before expanding
-features. Keep the complete interface scope; do not treat a few corrected controls
-or source dimensions as proof of full pixel parity.
+Current user priority: implement the fully missing IINA behaviors first, then
+make the interface visually indistinguishable from the pinned macOS version step
+by step. Use actual captured Windows and pinned macOS reference surfaces for the
+visual phase. Keep the complete interface scope; do not treat a few corrected
+controls or source dimensions as proof of full pixel parity.
 
-Develop macOS/Linux application ports alongside Windows parity work now; do not
-defer them until Windows parity is complete. Shared feature changes must preserve
-portable boundaries. Require full application builds and playback/lifecycle
-evidence before declaring either port supported; library-only CI is insufficient.
+Develop macOS/Linux application ports alongside Windows work now. Shared feature
+changes must preserve portable boundaries. Require full application builds and
+playback/lifecycle evidence before declaring either port supported; library-only
+CI is insufficient.

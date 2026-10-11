@@ -9,10 +9,12 @@ and mixed-monitor resizing before closing the wider lifecycle gate.
 Property-triggered native window updates now defer until
 accessibility tree reads unwind.
 
-Current priority is full interface parity before further feature expansion. The
-Preferences sidebar now follows all 11 pages in IINA v1.5.0's default new Settings
-window. Continue page bodies, search/navigation behavior, source-matched geometry,
-and capture comparison; this increment is structural, not visual-parity evidence.
+Current order from the user is to address the fully missing IINA behaviors first,
+then make the interface visually indistinguishable from the pinned macOS version
+step by step. The Preferences sidebar now follows all 11 pages in IINA v1.5.0's
+default new Settings window. Continue page bodies, search/navigation behavior,
+source-matched geometry and capture comparison after the outstanding behavior
+gaps; this increment is structural, not visual-parity evidence.
 Windows capture succeeds again. Follow docs/interface-parity-plan.md: obtain
 visible-control/sidebar/menu/preferences reference states and compare complete
 surfaces. General chooser rendering and path spacing plus macOS 26 floating

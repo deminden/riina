@@ -32,6 +32,11 @@ Use `riina` as the product name for this independent Rust IINA reimplementation.
 
 Target Windows 11 x64 first using the MSVC Rust target. Keep architecture-specific assumptions isolated so Windows ARM64 can be added later. Do not claim support for another Windows version or architecture until it has been built and tested there.
 
+The user has set full parity with the macOS IINA v1.5.0 application as an active
+project goal. Develop and verify the macOS application alongside Windows; do not
+describe macOS as supported until its complete application build, playback,
+rendering and lifecycle have been verified on macOS hardware.
+
 Write application logic, Windows integration, state management, and UI behavior in Rust. Declarative `.slint` files, shaders, resource manifests, and build scripts are acceptable. Existing native dependencies such as libmpv are acceptable; do not rewrite video decoding just to claim an entirely Rust dependency graph.
 
 JavaScript execution and web content are permitted specifically where necessary to reproduce IINA's plugin system. They must not become the application's main UI implementation. Do not use Electron, a Tauri web frontend, React, a C# application, or a Qt/QML application as a shortcut.
