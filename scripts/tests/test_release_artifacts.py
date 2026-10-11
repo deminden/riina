@@ -9,6 +9,10 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location("release", Path(__file__).parents[1] / "check-release-artifacts.py")
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
+prepare_spec = importlib.util.spec_from_file_location(
+    "prepare_release_package", Path(__file__).parents[1] / "prepare-release-package.py")
+prepare = importlib.util.module_from_spec(prepare_spec)
+prepare_spec.loader.exec_module(prepare)
 
 
 class ReleaseArtifactTests(unittest.TestCase):
@@ -108,6 +112,47 @@ class ReleaseArtifactTests(unittest.TestCase):
             for name in ("../outside", "/outside", "C:/outside", "codec\\outside"):
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     release.source_path(root, name)
+
+    def test_package_notice_set_comes_from_captured_source_without_changing_runtime_binaries(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            native = root / "source/native-build/native-source"
+            source_license = native / "native-sources/highway/LICENSE.txt"
+            source_license.parent.mkdir(parents=True)
+            source_license.write_bytes(b"captured license")
+            (native / "SOURCE-MANIFEST.tsv").write_text(
+                f"source_sha256\thighway/LICENSE.txt\t{prepare.sha256(source_license)}\n",
+                encoding="utf-8")
+            binary = root / "binary"
+            notices = binary / "THIRD_PARTY_LICENSES"
+            stale_notice = notices / "highway/subprojects/googletest-1.17.0/LICENSE.build"
+            rust_notice = notices / "RUST/LICENSES.json"
+            slint_license = notices / "SLINT-ROYALTY-FREE-2.0.pdf"
+            stale_notice.parent.mkdir(parents=True)
+            rust_notice.parent.mkdir(parents=True)
+            stale_notice.write_bytes(b"generated build notice")
+            rust_notice.write_bytes(b"Rust inventory")
+            slint_license.write_bytes(b"Slint terms")
+            engine = binary / "libmpv-2.dll"
+            engine.write_bytes(b"exact engine")
+            (binary / "SOURCE-MANIFEST.tsv").write_text("native source revision\n", encoding="utf-8")
+            runtime_manifest = binary / "RUNTIME-MANIFEST.tsv"
+            runtime_manifest.write_text("old manifest\n", encoding="utf-8")
+            before = prepare.sha256(engine)
+
+            self.assertEqual(prepare.prepare(binary, native), 1)
+            self.assertEqual(prepare.sha256(engine), before)
+            self.assertFalse(stale_notice.exists())
+            self.assertEqual(rust_notice.read_bytes(), b"Rust inventory")
+            self.assertEqual(slint_license.read_bytes(), b"Slint terms")
+            self.assertEqual((notices / "highway/LICENSE.txt").read_bytes(), b"captured license")
+            release.verify_runtime(binary, application=True)
+            archive = root / "riina.zip"
+            prepare.write_portable_zip(binary, archive)
+            with prepare.zipfile.ZipFile(archive) as zipped:
+                self.assertIn("libmpv-2.dll", zipped.namelist())
+                self.assertIn("THIRD_PARTY_LICENSES/highway/LICENSE.txt", zipped.namelist())
+                self.assertNotIn(stale_notice.relative_to(binary).as_posix(), zipped.namelist())
 
 
 if __name__ == "__main__":

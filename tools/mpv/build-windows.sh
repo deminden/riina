@@ -181,12 +181,15 @@ python "$REPO_ROOT/scripts/check-windows-runtime.py" \
 cp "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv" "$GITHUB_WORKSPACE/native-runtime/"
 mkdir -p "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES"
 cp -a "$SOURCE_ARCHIVE_ROOT/THIRD_PARTY_LICENSES/NATIVE_RUST" "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/"
+captured_source_root="$SOURCE_ARCHIVE_ROOT/native-sources"
 while IFS= read -r -d '' license_file; do
-  relative="${license_file#"$BUILDER/src_packages/"}"
+  # Build steps can generate test-subproject license files inside a checkout;
+  # package notices from the immutable source snapshot used by the audit.
+  relative="${license_file#"$captured_source_root/"}"
   destination="$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/$relative"
   mkdir -p "$(dirname "$destination")"
   cp "$license_file" "$destination"
-done < <(find "$BUILDER/src_packages" -type f \
+done < <(find "$captured_source_root" -type f \
   \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' \) \
   ! -path '*/.git/*' -print0 | sort -z)
 {

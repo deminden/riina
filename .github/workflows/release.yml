@@ -406,6 +406,18 @@ jobs:
           unzip -q "release-assets/riina-$version-windows-x86_64.zip" -d binary-source-check
           tar --zstd -xf "release-assets/riina-$version-source.tar.zst" -C source-check
           test "$(cat "source-check/riina-$version/SOURCE-COMMIT.txt")" = "$GITHUB_SHA"
+          # Native dependency builds can create extra build-only license files
+          # after the corresponding source snapshot is captured. Construct the
+          # final portable ZIP from notices whose exact bytes exist in that
+          # snapshot; the following audit still verifies every source hash.
+          python scripts/prepare-release-package.py --binary binary-source-check \
+            --native-source "source-check/riina-$version/native-build/native-source" \
+            --portable-zip "release-assets/riina-$version-windows-x86_64.zip"
+          (cd release-assets && sha256sum "riina-$version-windows-x86_64.zip" > SHA256SUMS.txt \
+            && sha256sum "riina-$version-source.tar.zst" >> SHA256SUMS.txt)
+          rm -rf binary-source-check
+          mkdir binary-source-check
+          unzip -q "release-assets/riina-$version-windows-x86_64.zip" -d binary-source-check
           python scripts/check-windows-runtime.py --package binary-source-check
           python scripts/check-release-artifacts.py package --binary binary-source-check \
             --source "source-check/riina-$version" --version "$version" \
