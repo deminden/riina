@@ -2841,3 +2841,13 @@ The A/B timeline change now passes cargo test --workspace --locked on the Window
 Strict cargo clippy --workspace --all-targets --locked -- -D warnings also passes for the A/B loop timeline increment.
 
 2026-10-11 Cross-platform application matrix audit: run 38138622903 failed on commit d05ef8a. The Linux lint log exposed an import used only by the Windows Live Text path and missing HDR-display query on the uninhabited Unix presentation adapter. The import is now Windows-gated and the Unix adapter supplies the unreachable query required by shared code. Windows workspace check, strict Clippy, and all workspace tests pass locally. Remote macOS/Linux verification remains pending; this does not establish either port as supported.
+
+2026-10-11 Pause button live-click verification: launched the Windows player with
+`moving-square.avi`, started playback from the accessible Play action, then sent
+real mouse down/up events at the transport button's measured screen bounds. The
+observed accessible label changed Pause → Play; a second mouse click changed it
+back to Pause. This verifies both pause and resume through the visible overlay
+button on this Windows run. The native automation test separately timed out
+before its first playback callback, so that test provides no additional evidence.
+The layered-window screenshot path returned black and could not support a visual
+comparison; video-mode boundary behavior and macOS input remain open.
