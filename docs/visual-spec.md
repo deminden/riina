@@ -81,6 +81,11 @@ The shared component renders a consistent 17-point box and enabled/disabled tint
 independent of system symbol-font coverage. Remaining repeat/secondary controls
 use provisional glyphs. Vector shapes are not yet measured against macOS goldens.
 
+Music Mode reuses the floating controller geometry but replaces the outer speed
+controls with previous/next media controls, matching the mini-player's navigation
+role. Their original vector symbols and actions are implemented; spacing, symbols,
+and hover/focus states still require a matched macOS mini-player capture.
+
 The supplied Riina identity is used for the welcome-window mark, README wordmark
 and Windows executable icon. See assets/branding/BRAND_GUIDE.md for capitalization
 and asset rules. Branding does not recolor or reshape playback controls, whose

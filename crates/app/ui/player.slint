@@ -1804,10 +1804,30 @@ export component PlayerWindow inherits Window {
                 padding-bottom: root.compact-ui ? 6px : 8px;
                 spacing: root.compact-ui ? 6px : 8px;
                 HorizontalLayout { height: 17px; vertical-stretch: 0; padding-left: 12px; padding-right: 12px; spacing: 4px;
-                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/backward.svg"); hint: "Half playback speed"; activated => { root.speed(0.5); } }
+                    Tool {
+                        dark-theme: root.dark-theme; height: 17px;
+                        icon: root.music-mode
+                            ? @image-url("../../../assets/icons/skip-previous.svg")
+                            : @image-url("../../../assets/icons/backward.svg");
+                        hint: root.music-mode ? "Previous media" : "Half playback speed";
+                        activated => {
+                            if root.music-mode { root.playlist-previous(); }
+                            else { root.speed(0.5); }
+                        }
+                    }
                     Tool { dark-theme: root.dark-theme; height: 17px; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";
                         activated => { root.toggle-pause(); } }
-                    Tool { dark-theme: root.dark-theme; height: 17px; icon: @image-url("../../../assets/icons/forward.svg"); hint: "Double playback speed"; activated => { root.speed(2); } }
+                    Tool {
+                        dark-theme: root.dark-theme; height: 17px;
+                        icon: root.music-mode
+                            ? @image-url("../../../assets/icons/skip-next.svg")
+                            : @image-url("../../../assets/icons/forward.svg");
+                        hint: root.music-mode ? "Next media" : "Double playback speed";
+                        activated => {
+                            if root.music-mode { root.playlist-next(); }
+                            else { root.speed(2); }
+                        }
+                    }
                     Rectangle { horizontal-stretch: 1; background: transparent; }
                     Tool { dark-theme: root.dark-theme; height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Mute"; activated => { root.toggle-mute(); } }
                     PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";

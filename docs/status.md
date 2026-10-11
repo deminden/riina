@@ -52,6 +52,12 @@ rows are removed; core tests cover order and stale selections. The Windows app
 compile and live selection/removal still need verification, as do drag behavior,
 external file drops, edge autoscroll, and macOS interaction comparison.
 
+Music Mode now replaces its normal speed-adjustment controls with previous/next
+playlist navigation while compact mode is active, retaining speed controls in the
+standard player. The navigation icons are original Riina SVGs. Compact-player
+control styling, album-art behavior, and matched macOS capture comparison remain
+open.
+
 ## Licensing and binary distribution
 
 Riina's original source is MIT. The combined application package is GPL-3.0-only.
@@ -60,25 +66,17 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The 0.3.0 package candidate is blocked by native
-shutdown on the hosted Windows runner, despite passing local playback checks
-against the exact release DLL. A captured mini dump identifies native audio-device
-notification cleanup calling into the unloaded Windows MMDevApi module. Selecting
-a headless audio backend and retaining libmpv did not resolve it. The playback
-worker now owns a Windows MTA initialization through core destruction, while native
-modules remain loaded for the application's lifetime. Shutdown stages and a
-failure-only mini dump distinguish native destruction from worker teardown.
-The hosted MTA candidate passes the original crash point, but stalls in the
-interlaced-video test before native termination, while waiting for async requests.
-Shutdown now delegates pending-work cancellation and joining to native termination
-instead of blocking its start with a separate async wait. A queued paused-frame
-close/reopen regression covers this path. The native CI step and diagnostic
-reproduction are bounded; failed diagnostics capture hung-thread stacks as well as
-exception dumps. The release checks exercise independent players and reopening, preserve the full
-playback assertions, and run ahead of the slower application build. Hosted
-verification of this change is pending. A binary remains unavailable until the hosted
-playback gate, exact extracted-package checks, and corresponding-source audit
-pass and a versioned release publishes its assets.
+no Windows application binary. The current v0.3.0 candidate has passed the hosted
+native playback and lifecycle gate using the pinned release DLL. That gate covers
+the previously failing interlaced-video shutdown path, queued paused-frame close,
+independent players, and reopening. The Windows app build, package assembly,
+runtime-import check, and playback test from the extracted ZIP also passed in run
+38174384779. GitHub skipped the corresponding-source audit and publishing jobs
+because its default job condition treated the intentionally skipped native-engine
+reuse as a failure. The workflow now explicitly runs those gates when package and
+source jobs succeed; a corrected candidate is required before any binary is public.
+Earlier native shutdown failures and their resolution remain in
+`docs/native-distribution-audit.json` as release-engineering evidence.
 
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. The
@@ -88,9 +86,9 @@ settled license choices and candidate build inputs are recorded in
 ## Verification state
 
 The parity traceability check accepts all 192 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. The previous
-candidate's native engine and source artifacts are available to reuse for the next
-package check. The Unix presentation marker
+while explicitly reporting that the inventory is incomplete. The 0.3.0 candidate
+workflow reuses the verified native engine and corresponding-source artifacts
+from run 38138622911. The Unix presentation marker
 derives `Clone` to match the Windows adapter's shared timer ownership. The full
 macOS/Linux application workflow passed Clippy, workspace tests, and application
 builds for both matrix hosts at commit `007e410` in

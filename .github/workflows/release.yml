@@ -373,6 +373,9 @@ jobs:
           retention-days: 7
 
   package-verification:
+    # A reused native-engine job is intentionally skipped. Keep package/source
+    # verification runnable after successful dependent jobs in that candidate.
+    if: always() && needs.windows-package.result == 'success' && needs.source-package.result == 'success'
     runs-on: ubuntu-24.04
     needs: [windows-package, source-package]
     outputs:
@@ -417,7 +420,7 @@ jobs:
           retention-days: 7
 
   publish:
-    if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.publish_release)
+    if: always() && needs.release-readiness.result == 'success' && needs.windows-package.result == 'success' && needs.source-package.result == 'success' && needs.package-verification.result == 'success' && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.publish_release))
     runs-on: ubuntu-24.04
     needs: [release-readiness, windows-package, source-package, package-verification]
     steps:

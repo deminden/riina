@@ -1636,6 +1636,16 @@ Startup now retains every positional media argument, including paths containing 
 
 ## Current binary candidate verification
 
+Candidate run [38174384779](https://github.com/deminden/riina/actions/runs/38174384779)
+at source commit `eae179b` has passed its hosted native playback and lifecycle
+gate against this DLL, including the queued-frame shutdown regression. The app
+build, runtime import audit, and playback/lifecycle test from the exact extracted
+ZIP also passed. Its Windows package and complete-source artifacts are available.
+GitHub skipped the final cross-archive audit and publisher because this run reused
+the native artifact, leaving that dependency intentionally skipped. The workflow
+conditions now explicitly gate those jobs on successful package and source jobs;
+the corrected candidate still must pass the complete audit before publication.
+
 The exact release DLL from native-engine run 38138622911 has SHA-256
 `1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`.
 Its complete runtime manifest passes locally. All 45 current native playback/lifecycle
