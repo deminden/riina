@@ -81,14 +81,14 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
   ],
   "latest_candidate_failure": {
-    "run_id": 38158114361,
-    "commit": "5fc88f3",
+    "run_id": 38171385062,
+    "commit": "743157f955d74b76b116093b690d0753b1d4a4b3",
     "stage": "windows-package / native playback and lifecycle tests",
     "failure": "The test ab_repeat_observes_points_and_wraps_playback completed its playback assertions, then the test process exited with 0xc0000005 (STATUS_ACCESS_VIOLATION) during player shutdown. Package assembly and publish were skipped.",
-    "evidence": "The authenticated job log shows the last message was 'loop cleared; shutting down player'; no post-drop message appeared. The worker unregistered the mpv wakeup callback and freed its callback context before mpv_terminate_destroy returned. An mpv worker could still be executing that callback during teardown. The code now retains the callback context through destroy; all 42 native playback/lifecycle tests passed serially on the local Windows host against the available DLL. The original hosted run used the native engine artifact from run 38138622911.",
-    "resolution": "Keep the mpv wakeup callback context alive until mpv_terminate_destroy returns, so an in-flight native callback cannot access freed Rust state.",
-    "local_verification": "42 native playback/lifecycle tests passed after the teardown fix; this is not evidence for the release candidate DLL or extracted ZIP.",
-    "next_action": "Verify the callback-lifetime fix with the full native test suite, then trigger one new candidate build and inspect the exact extracted package before publishing."
+    "evidence": "The hosted A-B test completed playback assertions but still crashed during shutdown with STATUS_ACCESS_VIOLATION using mpv null audio output. The earlier callback lifetime fix was present; changing the audio backend did not resolve the fault. The exact release DLL passes the native suite locally.",
+    "resolution": "Native modules now remain loaded for the application lifetime while each player independently destroys its core. Shutdown-stage tracing distinguishes request draining, callback removal, native destruction and worker joining. Hosted native checks precede the application build. The full suite and extracted-package check remain mandatory; this change is not a proven hosted fix until those checks pass.",
+    "local_verification": "43 passed against release libmpv SHA-256 1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af with each headless output; full runtime manifest, workspace tests, formatting and strict Clippy passed.",
+    "next_action": "Verify the revised lifecycle locally, then dispatch one candidate reusing the passing native engine and matching captured sources; publish only after hosted playback and the exact source/package audit pass."
   },
   "historical_candidate_failures": [
     {
@@ -124,5 +124,6 @@
     "artifact_sha256": "6e44bf0250959ca383a0b7a494b7c53b6fc1fbf4e6739c59a9fdbaad133d9613",
     "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
     "runtime_manifest_check": "passed locally; exact downloaded artifact"
-  }
+  },
+  "verified_native_run_id": null
 }

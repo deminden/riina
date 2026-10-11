@@ -90,7 +90,9 @@ def notice_files(package):
             stem = path.name.casefold().split(".", 1)[0]
             if any(stem == name or stem.startswith(name + "-") for name in LICENSE_NAMES):
                 files.add(path.resolve())
-    return root.resolve(), sorted(files)
+    # Both package jobs must emit identical inventories from the same registry
+    # bytes, independent of the host's path ordering and newline conventions.
+    return root.resolve(), sorted(files, key=lambda path: path.relative_to(root.resolve()).as_posix())
 
 
 def fetch_pinned_notice_files(package, source_root, target, output):
@@ -261,7 +263,7 @@ def collect(metadata, output, root_name="riina", target_platform="x86_64-pc-wind
         "packages": records,
     }
     (output / "RUST-LICENSES.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
     )
     return len(records), missing
 

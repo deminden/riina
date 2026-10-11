@@ -13,11 +13,16 @@ def readiness(audit):
     ready = audit["release_artifacts_verified"]
     if type(ready) is not bool:
         raise ValueError("release_artifacts_verified must be a JSON boolean")
-    run_id = audit.get("verified_candidate_run_id")
-    if run_id is not None and (type(run_id) is not int or run_id <= 0):
-        raise ValueError("verified_candidate_run_id must be a positive integer or null")
-    # JSON null denotes a fresh build, not an artifact run named 'None'.
-    return f"release_ready={str(ready).lower()}\nnative_run_id={run_id or ''}\n"
+    candidate_id = audit.get("verified_candidate_run_id")
+    native_id = audit.get("verified_native_run_id")
+    for name, value in (("verified_candidate_run_id", candidate_id), ("verified_native_run_id", native_id)):
+        if value is not None and (type(value) is not int or value <= 0):
+            raise ValueError(f"{name} must be a positive integer or null")
+    if ready and (candidate_id is None or native_id is None):
+        raise ValueError("Verified release needs separate package and native artifact run IDs")
+    # A candidate that reuses an engine does not upload that engine again. Its
+    # verification run and the run supplying matching DLL/source artifacts differ.
+    return f"release_ready={str(ready).lower()}\nnative_run_id={native_id if ready else ''}\n"
 
 
 def digest(path):

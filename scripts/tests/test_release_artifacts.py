@@ -12,13 +12,18 @@ spec.loader.exec_module(release)
 
 
 class ReleaseArtifactTests(unittest.TestCase):
-    def test_null_run_id_selects_fresh_build_and_numeric_id_selects_reuse(self):
+    def test_unverified_release_never_selects_artifacts_and_verified_release_uses_engine_run(self):
         self.assertEqual(release.readiness({"release_artifacts_verified": False, "verified_candidate_run_id": None}),
                          "release_ready=false\nnative_run_id=\n")
-        self.assertEqual(release.readiness({"release_artifacts_verified": True, "verified_candidate_run_id": None}),
-                         "release_ready=true\nnative_run_id=\n")
-        self.assertEqual(release.readiness({"release_artifacts_verified": True, "verified_candidate_run_id": 123}),
-                         "release_ready=true\nnative_run_id=123\n")
+        self.assertEqual(release.readiness({"release_artifacts_verified": True, "verified_candidate_run_id": 123,
+                                            "verified_native_run_id": 456}),
+                         "release_ready=true\nnative_run_id=456\n")
+        for missing in ("verified_candidate_run_id", "verified_native_run_id"):
+            audit = {"release_artifacts_verified": True, "verified_candidate_run_id": 123,
+                     "verified_native_run_id": 456}
+            del audit[missing]
+            with self.subTest(missing=missing), self.assertRaises(ValueError):
+                release.readiness(audit)
 
     def test_invalid_readiness_types_cannot_select_release_or_artifact_download(self):
         with self.assertRaises(ValueError):

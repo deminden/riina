@@ -2,6 +2,7 @@
 use std::path::Path;
 
 use crate::PlaylistEntry;
+mod file_reference;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlaylistSort {
@@ -76,37 +77,16 @@ pub fn clipboard_references(text: &str) -> Vec<String> {
         .map(|line| line.strip_suffix('\r').unwrap_or(line))
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
         .filter_map(|line| {
-            if let Some(path) = line.strip_prefix("file://") {
-                let path = decode_uri_path(path)?;
-                #[cfg(windows)]
-                let path = path
-                    .strip_prefix('/')
-                    .filter(|value| value.as_bytes().get(1) == Some(&b':'))
-                    .unwrap_or(&path)
-                    .to_owned();
-                Some(path)
+            if line
+                .split_once(':')
+                .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+            {
+                file_reference::clipboard_path(line)
             } else {
                 Some(line.to_owned())
             }
         })
         .collect()
-}
-
-fn decode_uri_path(path: &str) -> Option<String> {
-    let bytes = path.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%' {
-            let hex = std::str::from_utf8(bytes.get(index + 1..index + 3)?).ok()?;
-            decoded.push(u8::from_str_radix(hex, 16).ok()?);
-            index += 3;
-        } else {
-            decoded.push(bytes[index]);
-            index += 1;
-        }
-    }
-    String::from_utf8(decoded).ok()
 }
 
 impl PlaylistSort {

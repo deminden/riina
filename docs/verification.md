@@ -1638,16 +1638,31 @@ Startup now retains every positional media argument, including paths containing 
 
 The exact release DLL from native-engine run 38138622911 has SHA-256
 `1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`.
-Its complete runtime manifest passes locally. All 43 native playback/lifecycle
-tests pass against it with both OpenAL Soft's null device and mpv's clocked null
-audio output. Workspace tests, formatting and strict Clippy also pass locally.
+Its complete runtime manifest passes locally. All 44 current native playback/lifecycle
+tests pass against it with mpv's clocked null audio output, including independent
+players and the HTTP range fixture. The preceding 43-test suite also passed with
+OpenAL Soft's null device. Workspace tests, formatting and strict Clippy pass locally.
 These runs cover the current Windows source changes; they do not certify GUI,
 physical audio hardware, HDR display or macOS runtime behavior.
 
-Hosted candidate 38163947662 still crashed during A-B loop shutdown using OpenAL.
-The release tests now select mpv's null audio output for runners without speakers;
-the application keeps its normal Windows audio selection. The native test count
-and assertions are retained. A hosted run must pass the full suite and a separate
+Hosted candidate 38171385062 still crashed during A-B loop shutdown using mpv's
+null output. Changing the audio backend did not resolve that failure. Native
+modules now remain loaded for the application lifetime while each player destroys
+its own core; shutdown tracing records request draining, callback removal, native
+destruction and worker joining. The additional native regression closes one of two
+players, verifies the survivor can seek while paused, then reopens playback after
+both earlier cores have been destroyed. The HTTP fixture server now handles
+reopened connections and byte-range requests during decoder probing and seeking.
+These locally verified changes still require hosted verification before being reported as the
+release fix. The application keeps its normal Windows audio selection. The full
+native assertions are retained and run before the slower application checks and
+build. A hosted run must pass the full suite and a separate
 playback check against the final extracted ZIP. Publication additionally requires
 the exact source hashes, native repository revisions, notice contents, application
 commit and final asset checksums to match.
+
+Clipboard file references preserve their authority: Windows network file URLs
+become UNC paths, local file URLs decode spaces and Unicode, and POSIX adapters
+reject remote authorities without a supported mapping. Three platform-independent
+parser regressions cover those cases and reject malformed percent encodings,
+embedded NULs, and relative file URLs. Live clipboard interaction is unverified.

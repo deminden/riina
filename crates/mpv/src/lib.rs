@@ -33,9 +33,20 @@ impl Drop for Owner {
     fn drop(&mut self) {
         // Renderers retain the owner, so this runs only after render contexts are freed.
         let _ = self.sender.send(Message::Intent(Command::Shutdown));
+        trace_shutdown("shutdown intent delivered; joining event worker");
         if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+            if thread.join().is_ok() {
+                trace_shutdown("event worker joined");
+            } else {
+                eprintln!("The native player event worker panicked during shutdown");
+            }
         }
+    }
+}
+
+fn trace_shutdown(stage: &str) {
+    if std::env::var_os("RIINA_TEST_TRACE_SHUTDOWN").is_some() {
+        eprintln!("mpv shutdown: {stage}");
     }
 }
 
@@ -88,7 +99,8 @@ impl CommandSender {
 }
 
 unsafe extern "C" fn wakeup(context: *mut c_void) {
-    // SAFETY: worker retains this boxed sender until the callback is unregistered.
+    // SAFETY: the worker retains this boxed sender through native core destruction,
+    // including callbacks already in flight when it unregisters the wakeup callback.
     let sender = unsafe { &*(context.cast::<SyncSender<Message>>()) };
     // Wakeups coalesce: every intent also causes the worker to drain the entire event queue.
     let _ = sender.try_send(Message::Wake);
@@ -260,6 +272,7 @@ impl Player {
                             // Property notifications can arrive before the async command
                             // reply; drain requests before destroying the native client.
                             (worker_api.wait_async_requests)(handle);
+                            trace_shutdown("asynchronous requests drained");
                             break;
                         }
                         match command.plan(&state) {
@@ -415,10 +428,13 @@ impl Player {
                     notify(state.clone());
                 }
                 (worker_api.wakeup)(handle, None, std::ptr::null_mut());
+                trace_shutdown("wakeup callback unregistered; terminating native core");
                 // Keep the callback context alive through destroy: unregistering prevents
                 // future wakeups, but an mpv worker may already have entered the callback.
                 (worker_api.destroy)(handle);
+                trace_shutdown("native core terminated");
                 drop(callback);
+                trace_shutdown("callback context released");
             }
         }).map_err(|e| e.to_string())?;
         let handle = ready_rx.recv().map_err(|e| e.to_string())??;

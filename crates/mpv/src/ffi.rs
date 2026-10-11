@@ -260,6 +260,27 @@ impl Api {
                 path.display()
             ));
         }
+        // IINA links the engine for the application's lifetime. Retain the same
+        // ownership boundary here: closing a player destroys its core, while
+        // module-level codec state and foreign thread-local destructors remain
+        // backed by a loaded library until process exit.
+        static LOADED: std::sync::OnceLock<
+            std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, Api>>,
+        > = std::sync::OnceLock::new();
+        let path = path.canonicalize().map_err(|error| error.to_string())?;
+        let mut loaded = LOADED
+            .get_or_init(Default::default)
+            .lock()
+            .map_err(|_| "The native engine library registry is unavailable".to_owned())?;
+        if let Some(api) = loaded.get(&path) {
+            return Ok(api.clone());
+        }
+        let api = Self::load_uncached(&path)?;
+        loaded.insert(path, api.clone());
+        Ok(api)
+    }
+
+    fn load_uncached(path: &Path) -> Result<Self, String> {
         // SAFETY: explicit absolute installation path; never search a media directory.
         // The selected binary's ABI is checked before any player handle is created.
         unsafe {

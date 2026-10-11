@@ -60,20 +60,15 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The latest 0.3.0 candidate
-[workflow run 38163947662](https://github.com/deminden/riina/actions/runs/38163947662)
-passed source packaging but failed in the Windows package job's native playback
-and lifecycle step. The authenticated log ends after the A-B repeat test's
-shutdown marker and reports `0xc0000005` before the test harness prints success.
-The release DLL hash matches the locally tested candidate DLL. Twenty-five local
-runs of that shutdown test and the full 42-test native suite passed with the same
-OpenAL null-output environment as CI, so the hosted-only failure has not yet been
-reproduced. The worker now calls libmpv's `mpv_wait_async_requests` at shutdown
-before unregistering the wakeup callback and destroying the handle. The full
-candidate-DLL suite passes locally with that barrier; a fresh hosted candidate
-and extracted-package playback check are still required. The failed run produced
-a complete-source artifact and native failure log, but no portable application
-ZIP, and nothing was published. A binary remains unavailable until the hosted
+no Windows application binary. The 0.3.0 package candidate fails during native
+shutdown on the hosted Windows runner, despite passing local playback checks
+against the exact release DLL. Selecting a headless audio backend did not resolve
+the crash. The current lifecycle implementation retains the native module for
+the application's lifetime while independently destroying player cores, and
+records shutdown stages to distinguish native destruction from worker teardown.
+The release checks exercise independent players and reopening, preserve the full
+playback assertions, and run ahead of the slower application build. Hosted
+verification of this change is pending. A binary remains unavailable until the hosted
 playback gate, exact extracted-package checks, and corresponding-source audit
 pass and a versioned release publishes its assets.
 

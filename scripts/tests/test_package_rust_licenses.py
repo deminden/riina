@@ -13,6 +13,35 @@ SPEC.loader.exec_module(LICENSES)
 
 
 class LicenseSelectionTests(unittest.TestCase):
+    def test_inventory_is_identical_across_host_newline_and_path_ordering(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package = root / "dependency"
+            package.mkdir()
+            (package / "LICENSE-MIT").write_bytes(b"MIT notice\n")
+            (package / "license-APACHE").write_bytes(b"Apache notice\n")
+            metadata = {
+                "workspace_members": ["app"],
+                "packages": [
+                    {"id": "app", "name": "riina", "source": None},
+                    {"id": "dep", "name": "example", "version": "1.0.0",
+                     "source": "registry", "license": "MIT OR Apache-2.0",
+                     "manifest_path": str(package / "Cargo.toml")},
+                ],
+                "resolve": {"nodes": [{"id": "app", "deps": [{"pkg": "dep"}]}]},
+            }
+            output = root / "output"
+            self.assertEqual(LICENSES.collect(metadata, output), (1, []))
+            payload = (output / "RUST-LICENSES.json").read_bytes()
+            self.assertNotIn(b"\r", payload)
+            inventory = json.loads(payload)
+            files = inventory["packages"][0]["license_files"]
+            self.assertEqual([Path(file["path"]).name for file in files],
+                             ["LICENSE-MIT", "license-APACHE"])
+            for file in files:
+                self.assertEqual((output / file["path"]).read_bytes(),
+                                 (package / Path(file["path"]).name).read_bytes())
+
     def test_unicode_data_and_software_license_is_accepted_with_notice(self):
         selected = LICENSES.choose_license("Unicode-DFS-2016")
 
