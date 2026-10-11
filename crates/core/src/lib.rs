@@ -121,6 +121,10 @@ pub enum Command {
         direction: i32,
     },
     AppendFiles(Vec<String>),
+    InsertPlaylistFiles {
+        paths: Vec<String>,
+        index: usize,
+    },
     RemovePlaylistEntry(usize),
     MovePlaylistEntry {
         from: usize,
@@ -456,6 +460,7 @@ impl Command {
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
+            | Self::InsertPlaylistFiles { .. }
             | Self::SubtitleLetterboxMargins(_)
             | Self::SubtitleEncoding(_)
             | Self::SubtitleAutoLoad(_)
@@ -727,6 +732,29 @@ impl Command {
                             if state.pause_when_open { "yes" } else { "no" }.into(),
                         ],
                     );
+                }
+                commands
+            }
+            Self::InsertPlaylistFiles { paths, index } => {
+                if paths.is_empty()
+                    || paths.iter().any(|path| !valid_path(path))
+                    || *index > state.playlist.len()
+                {
+                    return Err("Playlist items or insertion position are invalid".into());
+                }
+                let first_new = state.playlist.len();
+                let mut commands = Vec::with_capacity(paths.len() * 2);
+                for (offset, path) in paths.iter().enumerate() {
+                    commands.push(vec!["loadfile".into(), path.clone(), "append".into()]);
+                    let appended_index = first_new + offset;
+                    let destination = index + offset;
+                    if appended_index != destination {
+                        commands.push(vec![
+                            "playlist-move".into(),
+                            appended_index.to_string(),
+                            destination.to_string(),
+                        ]);
+                    }
                 }
                 commands
             }

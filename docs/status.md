@@ -1,3 +1,10 @@
+2026-10-11 Playlist clipboard behavior is now implemented for a selected entry:
+copy/cut retain its media reference, and paste inserts newline-separated paths or
+file URLs at the selected row (or at the top with no selection). Cut removes the
+entry only after the clipboard write succeeds. The current single-row UI and text
+clipboard do not yet match IINA's multi-selection and native file-reference
+pasteboard formats; no playback or cross-platform GUI verification was run.
+
 2026-10-11 Independent port build repair while the binary candidate runs:
 macOS/Linux CI failed strict lint because the Windows native-host aspect hook
 was compiled on every platform. Gate its import, binding, enum variant and match

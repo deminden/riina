@@ -24,6 +24,34 @@ pub(crate) fn copy_image(image: &slint::Image) -> Result<(), String> {
     })
 }
 
+pub(crate) fn copy_text(text: &str) -> Result<(), String> {
+    CLIPBOARD.with(|provider| {
+        let mut provider = provider.borrow_mut();
+        if provider.is_none() {
+            *provider = Some(arboard::Clipboard::new().map_err(|error| error.to_string())?);
+        }
+        provider
+            .as_mut()
+            .ok_or("Clipboard is unavailable")?
+            .set_text(text.to_owned())
+            .map_err(|error| error.to_string())
+    })
+}
+
+pub(crate) fn read_text() -> Result<String, String> {
+    CLIPBOARD.with(|provider| {
+        let mut provider = provider.borrow_mut();
+        if provider.is_none() {
+            *provider = Some(arboard::Clipboard::new().map_err(|error| error.to_string())?);
+        }
+        provider
+            .as_mut()
+            .ok_or("Clipboard is unavailable")?
+            .get_text()
+            .map_err(|error| error.to_string())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

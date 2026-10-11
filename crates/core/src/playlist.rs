@@ -11,6 +11,45 @@ pub enum PlaylistSort {
     PathDescending,
 }
 
+/// Decode newline-separated clipboard references without splitting spaces inside paths.
+pub fn clipboard_references(text: &str) -> Vec<String> {
+    text.lines()
+        .map(|line| line.strip_suffix('\r').unwrap_or(line))
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| {
+            if let Some(path) = line.strip_prefix("file://") {
+                let path = decode_uri_path(path)?;
+                #[cfg(windows)]
+                let path = path
+                    .strip_prefix('/')
+                    .filter(|value| value.as_bytes().get(1) == Some(&b':'))
+                    .unwrap_or(&path)
+                    .to_owned();
+                Some(path)
+            } else {
+                Some(line.to_owned())
+            }
+        })
+        .collect()
+}
+
+fn decode_uri_path(path: &str) -> Option<String> {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(index + 1..index + 3)?).ok()?;
+            decoded.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
 impl PlaylistSort {
     fn descending(self) -> bool {
         matches!(self, Self::FilenameDescending | Self::PathDescending)

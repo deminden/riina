@@ -1405,6 +1405,12 @@ export component PlayerWindow inherits Window {
                         selected: root.playlist-shuffled; activated => { root.toggle-playlist-shuffle(); } }
                     PlaylistSortButton { dark-theme: root.dark-theme; sort-requested(index) => { root.sort-playlist(index); } }
                     Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist"; activated => { root.browse-files(4); } }
+                    Tool { dark-theme: root.dark-theme; label: "Copy"; hint: "Copy selected playlist item"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(6, root.selected-playlist-token); } }
+                    Tool { dark-theme: root.dark-theme; label: "Cut"; hint: "Cut selected playlist item"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(7, root.selected-playlist-token); } }
+                    Tool { dark-theme: root.dark-theme; label: "Paste"; hint: "Paste playlist items at the selected position";
+                        activated => { root.playlist-action(8, root.selected-playlist-token); } }
                     Tool { dark-theme: root.dark-theme; label: "−"; hint: "Remove selected playlist entry"; enabled: root.selected-playlist-token != "";
                         activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
                     Tool { dark-theme: root.dark-theme; label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";

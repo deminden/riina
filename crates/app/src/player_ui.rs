@@ -5,7 +5,7 @@ use crate::{
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
 use riina_mpv::{Player, video::VideoSurface};
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
@@ -1654,6 +1654,49 @@ pub(crate) fn configure_player(
     let playlist_player = player.command_sender();
     let weak = app.as_weak();
     app.on_playlist_action(move |action, token| {
+        if matches!(action, 6..=8) {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            app.invoke_activity();
+            let rows = app.get_playlist();
+            let selected_index = (0..rows.row_count()).find(|index| {
+                rows.row_data(*index)
+                    .is_some_and(|row| row.token.as_str() == token.as_str())
+            });
+            let result = match action {
+                6 | 7 => selected_index
+                    .and_then(|index| rows.row_data(index))
+                    .ok_or_else(|| "Select a playlist item first".to_owned())
+                    .and_then(|row| crate::platform::clipboard::copy_text(row.path.as_str()))
+                    .and_then(|()| {
+                        if action == 7 {
+                            token
+                                .parse::<i64>()
+                                .map(Command::RemovePlaylistId)
+                                .map_err(|error| error.to_string())
+                                .and_then(|command| playlist_player.send(command))
+                        } else {
+                            Ok(())
+                        }
+                    }),
+                8 => crate::platform::clipboard::read_text().and_then(|text| {
+                    let paths = riina_core::playlist::clipboard_references(&text);
+                    if paths.is_empty() {
+                        return Err("Clipboard contains no playlist references".into());
+                    }
+                    let index = selected_index.unwrap_or(0);
+                    playlist_player.send(Command::InsertPlaylistFiles { paths, index })
+                }),
+                _ => unreachable!(),
+            };
+            if let Err(error) = result {
+                app.set_status(error.into());
+            } else if action == 7 {
+                app.set_selected_playlist_token("".into());
+            }
+            return;
+        }
         let command = match action {
             1 => token
                 .parse()
