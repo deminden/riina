@@ -1,3 +1,11 @@
+2026-10-11 Binary bootstrap repair: candidate 38127346214 fetched curl refs from
+the parent builder repository because upstream excludes curl from the initial
+download/update aggregate. The native bootstrap patch includes curl and libsixel,
+checks curl owns its checkout and matches the pinned release revision, and lets
+the compiler wrapper use the persistent CI cache. Both dependencies are now
+captured before compiling. Full native build, extracted-package playback, exact
+source/license verification and public binary publication remain pending.
+
 2026-10-11 Binary candidate 38127030555 stopped before native compilation because
 GitHub rejected fetching curl's pinned commit SHA as an unadvertised ref. Its
 official curl-8_22_0 tag resolves to the expected 01346829096c61b372692f6dc43ffa778c6caccd

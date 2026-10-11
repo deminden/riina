@@ -51,6 +51,7 @@ git clone --filter=blob:none https://github.com/shinchiro/mpv-winbuild-cmake.git
 git -C "$BUILDER" checkout --detach "$BUILDER_REVISION"
 git -C "$BUILDER" apply "$PWD/tools/mpv/remove-x264.patch"
 git -C "$BUILDER" apply "$PWD/tools/mpv/pin-curl.patch"
+git -C "$BUILDER" apply "$PWD/tools/mpv/native-bootstrap.patch"
 
 cd "$BUILDER"
 cmake \
@@ -66,10 +67,12 @@ cmake \
 run_ninja -C build_x86_64 download
 run_ninja -C build_x86_64 update
 
-# A fixed builder still fetches curl's development branch. Use the current
-# stable release so its changing APIs cannot silently alter a binary candidate.
-git -C "$BUILDER/src_packages/curl" fetch origin tag curl-8_22_0
-git -C "$BUILDER/src_packages/curl" checkout --detach "$CURL_REVISION"
+# Both dependencies are used by mpv but omitted from upstream's download/update
+# aggregate. The bootstrap patch fetches them before source capture. Require a
+# real curl checkout: otherwise Git searches upward and uses the builder's origin.
+test -d "$BUILDER/src_packages/curl/.git"
+test -d "$BUILDER/src_packages/libsixel/.git"
+test "$(git -C "$BUILDER/src_packages/curl" remote get-url origin)" = 'https://github.com/curl/curl.git'
 test "$(git -C "$BUILDER/src_packages/curl" rev-parse HEAD)" = "$CURL_REVISION"
 
 # The mpv target does not bootstrap the selected cross-toolchain. The pinned
@@ -114,12 +117,14 @@ git -C "$BUILDER" archive "$BUILDER_REVISION" | tar -xf - -C "$SOURCE_ARCHIVE_RO
 cp -a "$REPO_ROOT/tools/mpv/build-windows.sh" "$SOURCE_ARCHIVE_ROOT/"
 cp -a "$REPO_ROOT/tools/mpv/remove-x264.patch" "$SOURCE_ARCHIVE_ROOT/"
 cp -a "$REPO_ROOT/tools/mpv/pin-curl.patch" "$SOURCE_ARCHIVE_ROOT/"
+cp -a "$REPO_ROOT/tools/mpv/native-bootstrap.patch" "$SOURCE_ARCHIVE_ROOT/"
 {
   printf 'builder_revision\t%s\n' "$BUILDER_REVISION"
   printf 'curl_revision\t%s\n' "$CURL_REVISION"
   printf 'x264_policy\tFFmpeg libx264 encoder disabled; built-in H.264 decoder retained\n'
   printf 'builder_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/remove-x264.patch" | cut -d' ' -f1)"
   printf 'curl_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/pin-curl.patch" | cut -d' ' -f1)"
+  printf 'bootstrap_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/native-bootstrap.patch" | cut -d' ' -f1)"
   printf 'container_image\t%s\n' "${RIINA_BUILD_IMAGE:-ghcr.io/shinchiro/archlinux:latest}"
   while IFS= read -r -d '' gitdir; do
     repo="${gitdir%/.git}"

@@ -37,7 +37,7 @@
   "remaining": [
     "Build and verify the private release candidate before approving distribution; inventory the exact runtime and verify compatible redistribution terms without dropping required playback parity",
     "Review the native source manifest and verify that the package includes every required native license, copyright notice and corresponding source for the exact candidate",
-    "Audit all 344 Windows-targeted Rust dependencies, select compatible license grants, and include required license and copyright notices in the portable package",
+    "Regenerate and verify the reviewed notices for all 346 Windows-targeted external Rust dependencies in the candidate portable package",
     "Verify and include the selected Slint Royalty-free 2.0 attribution and terms in the portable package",
     "Run the complete native playback and lifecycle suite plus playback against the final extracted portable package",
     "Rebuild the complete package from its captured sources in the pinned build environment and record verification results"
@@ -73,12 +73,12 @@
     "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields, but selected alternatives and notices still need package-level review"
   ],
   "latest_candidate_failure": {
-    "run_id": 38119383913,
-    "job_id": 114410787436,
-    "commit": "068536d83a50ba64c1aa8154566fc535b8f9c135",
-    "failed_dependency": "curl",
-    "evidence": "GitHub native-engine log reports curl-build exit 1 at 846/886; inner build logs were lost because ERR was not inherited by run_ninja.",
-    "next_candidate": "Fetch the official curl-8_22_0 tag and verify its dereferenced commit before compiling. The previous direct SHA fetch was rejected by the server as an unadvertised ref; full build is pending."
+    "run_id": 38127346214,
+    "job_id": 114434375205,
+    "commit": "62adaae",
+    "failed_dependency": "curl source bootstrap",
+    "evidence": "The builder excludes curl and libsixel from its download/update aggregate despite mpv depending on both. CMake creates empty source directories; Git fetch in the empty curl directory discovers the parent builder repository and asks its origin for the curl tag.",
+    "next_candidate": "Include both dependencies in the aggregate; assert curl has its own Git directory, origin and pinned revision before source capture. Preserve the externally configured compiler cache through the builder wrapper. Full native compile and package verification remain pending."
   },
   "rust_candidate_audit": {
     "version": "0.2.11",

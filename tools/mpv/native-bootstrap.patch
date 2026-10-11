@@ -1,0 +1,16 @@
+diff --git a/packages/CMakeLists.txt b/packages/CMakeLists.txt
+--- a/packages/CMakeLists.txt
++++ b/packages/CMakeLists.txt
+@@ -126,3 +126,3 @@
+ # Exclude packages which dont depend on mpv when update
+-list(APPEND removed "flac" "opusfile" "libopusenc" "opus-tools" "termcap" "readline" "cryptopp" "sqlite" "libuv" "libsodium" "megasdk" "libsixel" "curl" "libressl" "mbedtls" "nettle" "gmp")
++list(APPEND removed "flac" "opusfile" "libopusenc" "opus-tools" "termcap" "readline" "cryptopp" "sqlite" "libuv" "libsodium" "megasdk" "libressl" "mbedtls" "nettle" "gmp")
+ list(REMOVE_ITEM repo ${removed})
+diff --git a/exec.in b/exec.in
+--- a/exec.in
++++ b/exec.in
+@@ -8,3 +8,3 @@
+ export LD_PRELOAD="@MALLOC@"
+-export CCACHE_DIR="@MINGW_INSTALL_PREFIX@/ccache"
++export CCACHE_DIR="${CCACHE_DIR:-@MINGW_INSTALL_PREFIX@/ccache}"
+ export LLVM_PROFILE_FILE="/dev/null"

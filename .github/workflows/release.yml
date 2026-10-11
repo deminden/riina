@@ -7,7 +7,7 @@ on:
       - 'v*'
     paths:
       - '.github/workflows/release.yml'
-      - 'tools/mpv/build-windows.sh'
+      - 'tools/mpv/**'
       - 'scripts/package-rust-licenses.py'
       - 'docs/native-distribution-audit.json'
       - 'LICENSES/**'
