@@ -83,7 +83,7 @@ def verify_native_source_index(binary, source):
             if len(fields) != 2 or kind in records:
                 raise ValueError(f"Invalid or duplicate native source index field: {kind}")
             records[kind] = fields[1]
-        elif kind == "source_revision":
+        elif kind in {"source_revision", "source_git"}:
             if (len(fields) != 4 or not fields[1].startswith("src_packages/")
                     or fields[1] in records or not fields[2].startswith("https://")
                     or not re.fullmatch(r"[0-9a-f]{40,64}", fields[3])):

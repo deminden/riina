@@ -162,7 +162,7 @@ class ReleaseArtifactTests(unittest.TestCase):
                 f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
                 f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
                 "container_image\tghcr.io/example/image@sha256:abc",
-                f"source_revision\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
+                f"source_git\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
                 f"source_sha256\tcodec/LICENSE\t{release.digest(notice)}",
             ]
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
