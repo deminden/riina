@@ -130,6 +130,45 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Packaged native notice differs"):
                 release.verify_native_source_index(binary, source)
 
+    def test_native_source_index_accepts_reused_legacy_manifest_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source"
+            tools = source / "tools/mpv"
+            tools.mkdir(parents=True)
+            builder_revision = "a" * 40
+            curl_revision = "b" * 40
+            (tools / "build-windows.sh").write_text(
+                f"readonly BUILDER_REVISION='{builder_revision}'\n"
+                f"readonly CURL_REVISION='{curl_revision}'\n",
+                encoding="utf-8")
+            patches = {
+                "remove-x264.patch": "x264 exclusion",
+                "pin-curl.patch": "curl source pin",
+                "native-bootstrap.patch": "native source bootstrap",
+            }
+            for name, content in patches.items():
+                (tools / name).write_text(content, encoding="utf-8")
+            binary = root / "binary"
+            notice = binary / "THIRD_PARTY_LICENSES/codec/LICENSE"
+            notice.parent.mkdir(parents=True)
+            notice.write_bytes(b"legacy notice\n")
+            rows = [
+                f"builder_revision\t{builder_revision}",
+                f"curl_revision\t{curl_revision}",
+                "native_rust_toolchain\tnightly-2026-10-10",
+                "x264_policy\tencoder removed",
+                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
+                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
+                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
+                "container_image\tghcr.io/example/image@sha256:abc",
+                f"source_revision\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
+                f"source_sha256\tcodec/LICENSE\t{release.digest(notice)}",
+            ]
+            (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+            self.assertEqual(release.verify_native_source_index(binary, source), (1, 1))
+
     def test_native_source_index_rejects_source_path_traversal(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

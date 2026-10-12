@@ -62,6 +62,18 @@ def verify_native_source_index(binary, source):
     manifest = binary / "SOURCE-MANIFEST.tsv"
     records = {}
     source_files = set()
+
+    def source_path(value):
+        relative = PurePosixPath(value)
+        if (relative.is_absolute() or ".." in relative.parts or "\\" in value
+                or ":" in value or str(relative) != value or not relative.parts):
+            raise ValueError(f"Unsafe native source index path: {value!r}")
+        # Earlier successful native-engine artifacts used paths relative to
+        # src_packages; accept those when reusing their runtime and manifest.
+        if relative.parts[0] != "src_packages":
+            relative = PurePosixPath("src_packages", *relative.parts)
+        return relative
+
     for fields in csv.reader(manifest.read_text(encoding="utf-8").splitlines(), delimiter="\t"):
         if not fields:
             raise ValueError("Empty native source index record")
@@ -81,13 +93,11 @@ def verify_native_source_index(binary, source):
             if (len(fields) != 3 or fields[1] in source_files
                     or not re.fullmatch(r"[0-9a-f]{64}", fields[2])):
                 raise ValueError("Invalid or duplicate native source file hash")
-            relative = PurePosixPath(fields[1])
-            if (relative.is_absolute() or ".." in relative.parts or "\\" in fields[1]
-                    or ":" in fields[1] or str(relative) != fields[1]
-                    or len(relative.parts) < 3 or relative.parts[0] != "src_packages"):
+            relative = source_path(fields[1])
+            if len(relative.parts) < 2:
                 raise ValueError(f"Unsafe native source index path: {fields[1]!r}")
             source_files.add(fields[1])
-            if Path(fields[1]).name.casefold().startswith(("license", "licence", "copying", "notice")):
+            if relative.name.casefold().startswith(("license", "licence", "copying", "notice")):
                 notice_relative = relative.parts[1:]
                 notice = binary / "THIRD_PARTY_LICENSES" / Path(*notice_relative)
                 if not notice.is_file() or digest(notice) != fields[2]:
@@ -95,10 +105,8 @@ def verify_native_source_index(binary, source):
         elif kind == "source_symlink":
             if len(fields) != 3 or fields[1] in source_files or not fields[2]:
                 raise ValueError("Invalid or duplicate native source symlink")
-            relative = PurePosixPath(fields[1])
-            if (relative.is_absolute() or ".." in relative.parts or "\\" in fields[1]
-                    or ":" in fields[1] or str(relative) != fields[1]
-                    or len(relative.parts) < 3 or relative.parts[0] != "src_packages"):
+            relative = source_path(fields[1])
+            if len(relative.parts) < 2:
                 raise ValueError(f"Unsafe native source index symlink: {fields[1]!r}")
             source_files.add(fields[1])
         else:
