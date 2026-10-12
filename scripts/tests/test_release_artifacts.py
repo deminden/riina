@@ -167,7 +167,14 @@ class ReleaseArtifactTests(unittest.TestCase):
             ]
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
 
+            vendor_notices = binary / "THIRD_PARTY_LICENSES/subrandr/riina-vendor/example-crate"
+            vendor_notices.mkdir(parents=True)
+            (vendor_notices / "LICENSE-MIT").write_text("license only\n", encoding="utf-8")
             self.assertEqual(release.verify_native_source_index(binary, source), (1, 1))
+
+            (vendor_notices / "src.rs").write_text("bundled source\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicated source trees"):
+                release.verify_native_source_index(binary, source)
 
     def test_native_source_index_rejects_source_path_traversal(self):
         with tempfile.TemporaryDirectory() as temp:

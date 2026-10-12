@@ -131,7 +131,15 @@ def verify_native_source_index(binary, source):
         if digest(source / "tools/mpv" / filename) != records[field]:
             raise ValueError(f"Native source index patch hash does not match {filename}")
     duplicated_sources = {"cargo-vendor", "riina-vendor", "native-sources"}
-    if any(path.name in duplicated_sources for path in binary.rglob("*")):
+    for path in binary.rglob("*"):
+        if path.name not in duplicated_sources:
+            continue
+        relative = path.relative_to(binary)
+        if path.is_dir() and relative.parts[0] == "THIRD_PARTY_LICENSES":
+            files = [entry for entry in path.rglob("*") if entry.is_file()]
+            if files and all(entry.name.casefold().startswith(
+                    ("license", "licence", "copying", "notice")) for entry in files):
+                continue
         raise ValueError("Release binary unexpectedly contains duplicated source trees")
     return len(source_files), sum(name.startswith("src_packages/") for name in records)
 
