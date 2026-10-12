@@ -372,23 +372,14 @@ jobs:
           fi
           (cd release-assets && sha256sum --check SHA256SUMS.txt)
           cat > release-notes.md <<EOF
-          Riina $version for Windows x86_64.
+          **[Download Riina $version for Windows]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip)**
 
-          The portable ZIP contains the application and full media runtime. The
-          exact Riina source is available from this release's Git tag. Cargo.lock
-          pins Rust dependencies; SOURCE-MANIFEST.tsv records native source
-          repositories, revisions and hashes. See SOURCE-ACCESS.md in the package
-          for source retrieval and rebuild instructions. SHA-256 checksums are
-          included. Extract the ZIP and run riina.exe.
+          For Windows 11 (64-bit). Everything needed to play video and audio is
+          included, and no installation is required.
 
-          [Download Windows x64]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip) · [Riina source at this tag]($repo/archive/refs/tags/$tag.tar.gz) · [SHA-256 checksums]($repo/releases/download/$tag/SHA256SUMS.txt)
-
-          [![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.18.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
-
-          The combined application is distributed under GPLv3 terms. Riina's
-          independently written source remains MIT-licensed; third-party terms
-          and notices are included in the package. Native sources remain available
-          at the immutable upstream revisions identified by SOURCE-MANIFEST.tsv.
+          1. Download the Windows ZIP above.
+          2. Extract it to a folder of your choice.
+          3. Open riina.exe and choose a video or audio file.
           EOF
           gh release create "$tag" \
             "release-assets/riina-$version-windows-x86_64.zip" \
