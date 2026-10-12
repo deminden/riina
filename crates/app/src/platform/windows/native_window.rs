@@ -107,7 +107,10 @@ fn align(host: &slint::Window, chrome: &slint::Window) {
     });
 }
 
-pub fn run(media: Vec<OsString>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(
+    media: Vec<OsString>,
+    resume_position: Option<f64>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let action_after_launch = crate::player_ui::action_after_launch()?;
     let supplied_media_argument = !media.is_empty();
     let owner = Arc::new(AtomicIsize::new(0));
@@ -317,7 +320,13 @@ pub fn run(media: Vec<OsString>) -> Result<(), Box<dyn std::error::Error>> {
                     app.invoke_toggle_video_reflection(horizontal);
                 }
             });
-            let configured = configure_player(&app, Some(presentation), media, welcome.as_ref())?;
+            let configured = configure_player(
+                &app,
+                Some(presentation),
+                media,
+                welcome.as_ref(),
+                resume_position,
+            )?;
             let commands = configured
                 .player
                 .as_ref()

@@ -121,6 +121,44 @@ impl VideoSurface {
     pub unsafe fn render(&mut self, width: u32, height: u32) -> Result<(), String> {
         let width = width.clamp(1, 8192);
         let height = height.clamp(1, 8192);
+        unsafe { self.render_into(self.fbo, width, height, glow::RGBA8 as i32) }
+    }
+
+    /// Render the current decoded frame into a caller-owned framebuffer.
+    ///
+    /// # Safety
+    /// The framebuffer must belong to the current context used to create this
+    /// surface, remain alive for the call, and have a complete color attachment
+    /// sized to `width` x `height` with a format matching `format`. Call only
+    /// from that same current GL context.
+    pub unsafe fn render_to_framebuffer(
+        &mut self,
+        framebuffer: NonZeroU32,
+        width: u32,
+        height: u32,
+        format: i32,
+    ) -> Result<(), String> {
+        let width = width.clamp(1, 8192);
+        let height = height.clamp(1, 8192);
+        let framebuffer = glow::NativeFramebuffer(framebuffer);
+        unsafe { self.render_into(framebuffer, width, height, format) }
+    }
+
+    /// Report that Slint submitted the composed frame for presentation.
+    ///
+    /// # Safety
+    /// Call on the render thread for this live context after composing the frame.
+    pub unsafe fn report_swap(&self) {
+        unsafe { (self.player.api.render_report_swap)(self.context) };
+    }
+
+    unsafe fn render_into(
+        &mut self,
+        framebuffer: glow::NativeFramebuffer,
+        width: u32,
+        height: u32,
+        format: i32,
+    ) -> Result<(), String> {
         let gl = &self.gl;
         // mpv documents the state it does not restore in render_gl.h. Preserve it
         // together with bindings affected by our texture allocation.
@@ -144,8 +182,8 @@ impl VideoSurface {
                 gl.get_parameter_i32(glow::BLEND_DST_ALPHA),
             ];
             let result = (|| {
-                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.fbo));
-                if self.size != (width, height) {
+                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+                if framebuffer == self.fbo && self.size != (width, height) {
                     gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
                     gl.tex_image_2d(
                         glow::TEXTURE_2D,
@@ -192,10 +230,10 @@ impl VideoSurface {
                     self.size = (width, height);
                 }
                 let mut fbo = Fbo {
-                    fbo: self.fbo.0.get() as i32,
+                    fbo: framebuffer.0.get() as i32,
                     width: width as i32,
                     height: height as i32,
-                    format: glow::RGBA8 as i32,
+                    format,
                 };
                 // Slint samples borrowed textures with a top-left origin. mpv's
                 // default FBO orientation already matches it; flipping twice inverts video.

@@ -109,17 +109,23 @@ impl ProfileStore {
     }
 
     pub fn create(&self, name: &str) -> Result<(), ProfileError> {
+        self.create_with_mappings(name, &[])
+    }
+
+    pub fn create_with_mappings(
+        &self,
+        name: &str,
+        mappings: &[Mapping],
+    ) -> Result<(), ProfileError> {
         let path = self.profile_path(name)?;
-        let contents = key_bindings::serialize(&[])?;
+        let contents = key_bindings::serialize(mappings)?;
         write_new(&path, contents.as_bytes())?;
         Ok(())
     }
 
     pub fn duplicate(&self, source: &str, target: &str) -> Result<(), ProfileError> {
         let mappings = self.load(source)?;
-        let path = self.profile_path(target)?;
-        write_new(&path, key_bindings::serialize(&mappings)?.as_bytes())?;
-        Ok(())
+        self.create_with_mappings(target, &mappings)
     }
 
     pub fn import(&self, source: &Path) -> Result<String, ProfileError> {

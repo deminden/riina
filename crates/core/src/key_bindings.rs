@@ -171,6 +171,173 @@ pub fn serialize(mappings: &[Mapping]) -> Result<String, ParseError> {
     Ok(output)
 }
 
+/// Convert one user profile action to the argument vector passed to libmpv.
+/// Input flags describe mpv's input layer rather than a command and are removed
+/// here; shell parsing is deliberately avoided so profile text is never executed
+/// by the operating system.
+pub fn mpv_action_args(action: &str) -> Result<Vec<String>, String> {
+    if action.is_empty() || action.len() > 8192 || action.contains('\0') {
+        return Err("Key binding action is empty, oversized, or contains a NUL byte".into());
+    }
+
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut quote = None;
+    let mut escaped = false;
+    let mut token_started = false;
+    for character in action.chars() {
+        if escaped {
+            current.push(character);
+            escaped = false;
+            token_started = true;
+            continue;
+        }
+        if character == '\\' {
+            escaped = true;
+            token_started = true;
+            continue;
+        }
+        if let Some(delimiter) = quote {
+            if character == delimiter {
+                quote = None;
+            } else {
+                current.push(character);
+            }
+            token_started = true;
+            continue;
+        }
+        match character {
+            '"' | '\'' => {
+                quote = Some(character);
+                token_started = true;
+            }
+            value if value.is_whitespace() => {
+                if token_started {
+                    args.push(std::mem::take(&mut current));
+                    token_started = false;
+                    if args.len() > 64 {
+                        return Err("Key binding action exceeds the 64 argument limit".into());
+                    }
+                }
+            }
+            value => {
+                current.push(value);
+                token_started = true;
+            }
+        }
+        if current.len() > 4096 {
+            return Err("Key binding argument exceeds the 4 KiB limit".into());
+        }
+    }
+    if escaped || quote.is_some() {
+        return Err("Key binding action has an unfinished escape or quote".into());
+    }
+    if token_started {
+        args.push(current);
+    }
+    if args.len() > 64 {
+        return Err("Key binding action exceeds the 64 argument limit".into());
+    }
+    if args.iter().any(|argument| argument.len() > 4096) {
+        return Err("Key binding argument exceeds the 4 KiB limit".into());
+    }
+
+    while args.first().is_some_and(|argument| {
+        matches!(
+            argument.as_str(),
+            "{default}"
+                | "no-osd"
+                | "osd-bar"
+                | "osd-msg"
+                | "osd-auto"
+                | "repeatable"
+                | "raw"
+                | "async"
+        )
+    }) {
+        args.remove(0);
+    }
+    if args
+        .first()
+        .is_some_and(|argument| argument.starts_with('{') && argument.ends_with('}'))
+    {
+        return Err("Key binding uses an unsupported input section".into());
+    }
+    if args.is_empty() {
+        return Err("Key binding action contains no mpv command".into());
+    }
+    if matches!(args[0].as_str(), "run" | "subprocess") {
+        return Err("Key binding actions cannot launch external processes".into());
+    }
+    Ok(args)
+}
+
+/// Convert an input mapping that chains commands with semicolons into separate
+/// libmpv command argument lists. A semicolon inside a quoted or escaped token
+/// remains data, matching input.conf's command separator behavior.
+pub fn mpv_action_commands(action: &str) -> Result<Vec<Vec<String>>, String> {
+    if action.is_empty() || action.len() > 8192 || action.contains('\0') {
+        return Err("Key binding action is empty, oversized, or contains a NUL byte".into());
+    }
+
+    let mut commands = Vec::new();
+    let mut current = String::new();
+    let mut quote = None;
+    let mut escaped = false;
+    for character in action.chars() {
+        if escaped {
+            current.push(character);
+            escaped = false;
+            continue;
+        }
+        if character == '\\' {
+            current.push(character);
+            escaped = true;
+            continue;
+        }
+        if let Some(delimiter) = quote {
+            current.push(character);
+            if character == delimiter {
+                quote = None;
+            }
+            continue;
+        }
+        match character {
+            '"' | '\'' => {
+                quote = Some(character);
+                current.push(character);
+            }
+            ';' => {
+                push_mpv_action_command(&mut commands, &mut current)?;
+            }
+            _ => current.push(character),
+        }
+    }
+    if escaped || quote.is_some() {
+        return Err("Key binding action has an unfinished escape or quote".into());
+    }
+    push_mpv_action_command(&mut commands, &mut current)?;
+    if commands.is_empty() {
+        return Err("Key binding action contains no mpv command".into());
+    }
+    Ok(commands)
+}
+
+fn push_mpv_action_command(
+    commands: &mut Vec<Vec<String>>,
+    current: &mut String,
+) -> Result<(), String> {
+    if current.trim().is_empty() {
+        return Err("Key binding action contains an empty command".into());
+    }
+    if commands.len() >= 32 {
+        return Err("Key binding action exceeds the 32 command limit".into());
+    }
+    commands.push(mpv_action_args(current.trim())?);
+    current.clear();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,6 +401,16 @@ mod tests {
             }
             .validate()
             .is_err()
+        );
+    }
+
+    #[test]
+    fn key_binding_commands_cannot_launch_external_processes() {
+        assert!(mpv_action_commands("run calc.exe").is_err());
+        assert!(mpv_action_commands("subprocess calc.exe").is_err());
+        assert_eq!(
+            mpv_action_commands("seek 5; show-text 'safe; value'").unwrap(),
+            [vec!["seek", "5"], vec!["show-text", "safe; value"],]
         );
     }
 }

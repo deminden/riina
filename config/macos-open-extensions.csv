@@ -1,0 +1,5 @@
+# IINA v1.5.0 CFBundleDocumentTypes filename-extension coverage, grouped by role.
+# category|comma-separated extensions
+video|mkv,mka,mk3d,mks,rm,rmvb,ra,asf,aac,flv,f4v,f4p,f4a,f4b,gif,webm,3gp,3g2,mp3,ogg,oga,ogm,ogv,ts,mts,m2ts,avi,wav,m4a,m4b,wmv,wma,qt,mov,flac,mpg,mpeg,mp4,m4v,dat,divx,vob,amv,mxf,mcf,swf,xvid,yuv,dv,wv,*
+audio|mka,ra,aac,mp3,ogg,oga,wav,m4a,m4b,wma,flac,aa3,ac3,acm,aif,aiff,ape,caf,pcm,vox,tta,tak,opus,cue
+playlist|m3u8,m3u,pls

@@ -8,9 +8,8 @@ use slint::{
 };
 use std::{cell::Cell, rc::Rc, time::Duration};
 
-/// Apply explicit themes on choice changes, and refresh the native override while
-/// following the system because Winit's Windows theme value is a snapshot. Some
-/// window systems expose no theme value.
+/// Apply explicit themes on choice changes, and refresh native appearance and
+/// motion preferences while following system changes.
 pub(crate) fn connect(app: &PlayerWindow) -> Rc<slint::Timer> {
     let last_mode = Rc::new(Cell::new(None::<ThemeMaterial>));
     let observed_mode = last_mode.clone();
@@ -21,6 +20,10 @@ pub(crate) fn connect(app: &PlayerWindow) -> Rc<slint::Timer> {
         Duration::from_millis(500),
         move || {
             let Some(app) = weak.upgrade() else { return };
+            let reduce_motion = crate::platform::system_reduce_motion_enabled();
+            if app.get_system_reduce_motion() != reduce_motion {
+                app.set_system_reduce_motion(reduce_motion);
+            }
             let Some(mode) = ThemeMaterial::from_index(app.get_appearance_mode()) else {
                 return;
             };

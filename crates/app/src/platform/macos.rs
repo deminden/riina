@@ -1,1 +1,10 @@
+mod gesture_events;
+mod pip;
+mod pip_frame;
+mod scroll_events;
+mod system_media;
 pub(crate) mod text_recognition;
+pub(crate) use gesture_events::{ControlGesture, GesturePhase, install_control_gestures};
+pub(crate) use pip::MacPictureInPicture;
+pub(crate) use scroll_events::{MacScrollEventMonitor, NativeScrollEvent};
+pub(crate) use system_media::{RemoteMediaAction, SystemMediaControls};

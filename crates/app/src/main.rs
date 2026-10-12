@@ -3,10 +3,12 @@
 mod advanced_preferences;
 mod appearance_preferences;
 mod audio_preferences;
+mod auto_playlist;
 mod codec_preferences;
 mod control_preferences;
 mod crop_editor;
 mod file_selection;
+mod file_types;
 mod font_catalog;
 mod font_picker;
 mod fullscreen_info;
@@ -20,12 +22,17 @@ mod music_mode_layout;
 mod network_cache_preferences;
 mod network_connection_preferences;
 mod network_ytdl_preferences;
+mod online_subtitles_credentials;
+mod online_subtitles_preferences;
+mod open_subtitles;
 mod opening_fullscreen;
 mod osc_preferences;
 mod osd_preferences;
 mod pip_preferences;
 mod platform;
+mod player_manager;
 mod player_ui;
+mod plugin_github;
 mod plugin_host;
 mod plugin_packages;
 mod plugin_preferences;
@@ -37,9 +44,14 @@ mod seek_osd;
 mod settings_search;
 mod sidebar_preferences;
 mod subtitle_auto_load_preferences;
+mod subtitle_discovery;
 mod subtitle_other_preferences;
 mod subtitle_position_preferences;
 mod subtitle_preferences;
+mod subtitle_priority;
+mod thumbnail_cache;
+mod thumbnail_preferences;
+mod thumbnail_preview;
 mod tone_mapping_preferences;
 mod ui_dialogs;
 mod utilities_preferences;
@@ -56,23 +68,34 @@ slint::include_modules!();
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     prepare_online_video_path()?;
     let action_after_launch = player_ui::action_after_launch()?;
-    let (_shared_gl, _native_video, media) = startup_arguments(std::env::args_os().skip(1));
+    let (arguments, resume_position) = take_resume_argument(std::env::args_os().skip(1))?;
+    let (_shared_gl, _native_video, media) = startup_arguments(arguments.into_iter());
     let supplied_media_argument = !media.is_empty();
     #[cfg(target_os = "windows")]
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
     if !_shared_gl {
-        return platform::native_window::run(media);
+        return platform::native_window::run(media, resume_position);
     }
     #[cfg(not(target_os = "windows"))]
     if _native_video {
         return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
     }
-    slint::BackendSelector::new()
+    let backend = slint::BackendSelector::new()
         .backend_name("winit".into())
-        .renderer_name("femtovg".into())
-        .select()?;
+        .renderer_name("femtovg".into());
+    #[cfg(target_os = "macos")]
+    let backend = {
+        use slint::winit_030::winit::platform::macos::WindowAttributesExtMacOS;
+
+        let accepts_first_mouse = player_ui::accepts_first_mouse_at_launch()?;
+        backend.with_winit_window_attributes_hook(move |attributes| {
+            attributes.with_accepts_first_mouse(accepts_first_mouse)
+        })
+    };
+    backend.select()?;
     let app = PlayerWindow::new()?;
+    let player_manager = player_manager::PlayerManager::new();
     // This entry point renders video in the Slint window and needs its menu bar.
     // Native-video mode keeps the transparent surface menu-free at initialization.
     app.set_native_video(false);
@@ -81,7 +104,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
-    let session = configure_player(&app, None, media, welcome.as_ref())?;
+    let session = configure_player(&app, None, media, welcome.as_ref(), resume_position)?;
+    player_manager.attach(
+        &app,
+        welcome.as_ref().map(|window| window.clone_strong()),
+        session,
+    );
     window_aspect::connect(&app);
     if let Some(welcome) = &welcome {
         welcome.show()?;
@@ -92,7 +120,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     slint::run_event_loop()?;
-    session.save(&app)
+    player_manager.save_all()
+}
+
+fn take_resume_argument(
+    args: impl Iterator<Item = std::ffi::OsString>,
+) -> Result<(Vec<std::ffi::OsString>, Option<f64>), Box<dyn std::error::Error>> {
+    // Keep the resume position separate from the media reference passed to a new player.
+    let mut args = args.peekable();
+    let mut media = Vec::new();
+    let mut resume_position = None;
+    while let Some(argument) = args.next() {
+        if argument == "--riina-resume-at" {
+            let value = args.next().ok_or("Missing resume position")?;
+            let value = value
+                .to_str()
+                .ok_or("Resume position is not valid Unicode")?
+                .parse::<f64>()?;
+            if !value.is_finite() || value < 0.0 {
+                return Err("Resume position must be a finite non-negative number".into());
+            }
+            resume_position = Some(value);
+        } else {
+            media.push(argument);
+        }
+    }
+    Ok((media, resume_position))
 }
 
 fn startup_arguments(

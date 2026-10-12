@@ -25,6 +25,15 @@ SDR UI luminance checks and faithful clipping/blur/sidebar integration. Source H
 classification follows IINA; per-player HDR toggle and tone-mapping preferences
 are tracked as missing. Live OS HDR mode changes during playback remain unverified.
 
+The macOS package now carries the app-bundle and imported UTI metadata needed for
+Launch Services to recognize media files, and Utilities registers selected file
+categories. The implementation follows the pinned IINA bulk association action
+through Launch Services' deprecated setter; Apple's current `NSWorkspace`
+replacement is asynchronous and may require user consent. A current-macOS run is
+still needed to verify its behavior. Linux now installs a user-scoped desktop
+entry and applies selected MIME associations through `xdg-mime` on a worker; desktop-session
+integration and launch behavior remain unverified.
+
 AppKit material blur, Apple font metrics, SF Symbols and macOS OS services are not
 redistributed. Current colors and exact icon geometry remain estimates; original MIT vector
 controls render on GL/native routes. Sampled-video blur is absent. Accessibility
@@ -32,7 +41,7 @@ inspection covers selected controls and keyboard workflows at 300% DPI. Text
 entry, other DPI values and multi-display coverage remain incomplete.
 
 Full playlist, track, chapter and subtitle parity, history, multiple windows, music/PiP, screenshots,
-OCR, plugins/webviews, helpers, localization, shell associations and media controls
+OCR, plugins/webviews, helpers, localization, other shell associations and media controls
 are outstanding parity work, not removed scope. Preferences persist volume and opt-in volume boost
 (default off, cap 100%; enabled cap 200%); dark/compact fields reserve validated defaults without claiming UI switches.
 

@@ -68,8 +68,8 @@ impl AutoLoadPreferences {
     }
 
     /// Map the preference intent onto mpv's portable sidecar matching modes.
-    /// Priority-keyword ranking is applied by the app-level matcher in a later
-    /// parity increment; mpv owns directory traversal and external-track loading.
+    /// Priority-keyword selection is applied after native sidecar discovery;
+    /// mpv still owns directory traversal and external-track loading.
     pub const fn mpv_matching_mode(&self) -> &'static str {
         match self.mode {
             AutoLoadMode::Disabled => "no",
@@ -78,9 +78,9 @@ impl AutoLoadPreferences {
         }
     }
 
-    /// mpv accepts directory lists, while IINA's default path is a glob.
-    /// Leave glob expansion to the future portable matcher instead of passing
-    /// an unsupported pattern through as if it were an ordinary directory.
+    /// mpv accepts literal directories, while IINA's default path is a glob.
+    /// The player-side discovery worker expands trailing child-directory globs
+    /// after the current media path is known.
     pub fn mpv_search_paths(&self) -> Option<String> {
         let paths = std::env::split_paths(&self.search_paths).collect::<Vec<_>>();
         if paths.iter().any(|path| {

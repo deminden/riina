@@ -1,4 +1,3 @@
-#[cfg(target_os = "windows")]
 use crate::LiveTextRegion;
 use crate::seek_osd::{self, Change, SeekOsd};
 use crate::{
@@ -7,14 +6,19 @@ use crate::{
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
 use riina_mpv::{Player, video::VideoSurface};
-use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
+use slint::{
+    ComponentHandle, Model,
+    winit_030::{EventResult, WinitWindowAccessor, winit},
+};
+#[cfg(target_os = "macos")]
+use std::time::Instant;
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -23,6 +27,20 @@ fn clear_screenshot_preview(app: &PlayerWindow) {
     app.set_screenshot_preview_visible(false);
     app.set_screenshot_preview_path("".into());
     app.set_screenshot_preview_image(slint::Image::default());
+}
+
+pub(crate) fn show_osd_message(
+    app: &PlayerWindow,
+    text: impl Into<slint::SharedString>,
+    keep_stopped: bool,
+) {
+    if !app.get_osd_enabled() || app.get_crop_editing() {
+        return;
+    }
+    app.set_video_osd_request_feedback(keep_stopped);
+    app.set_video_osd_text(text.into());
+    app.set_video_osd_progress(-1.0);
+    app.invoke_show_video_osd();
 }
 
 fn dispatch_control_mouse_action(
@@ -410,6 +428,27 @@ fn selected_playlist_ids(app: &PlayerWindow, clicked_token: &str) -> Result<Vec<
         .collect()
 }
 
+fn playlist_paste_index(app: &PlayerWindow, clicked_token: &str) -> usize {
+    let selected = app
+        .get_selected_playlist_tokens()
+        .iter()
+        .map(|token| token.to_string())
+        .collect::<Vec<_>>();
+    let rows = app.get_playlist();
+    (0..rows.row_count())
+        .find(|index| {
+            rows.row_data(*index)
+                .is_some_and(|row| selected.iter().any(|token| token == row.token.as_str()))
+        })
+        .or_else(|| {
+            (0..rows.row_count()).find(|index| {
+                rows.row_data(*index)
+                    .is_some_and(|row| row.token.as_str() == clicked_token)
+            })
+        })
+        .unwrap_or(0)
+}
+
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
     let languages = crate::language_names::LanguageNames::current();
     for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
@@ -425,6 +464,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             language: "".into(),
             selected: !tracks.iter().any(|track| track.is_primary_selected()),
             playing: false,
+            network: false,
         }];
         rows.extend(tracks.into_iter().map(|track| CatalogRow {
             token: track.id.to_string().into(),
@@ -433,6 +473,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             language: languages.display_name(track.lang.as_deref()).into(),
             selected: track.is_primary_selected(),
             playing: false,
+            network: false,
         }));
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
         match kind {
@@ -455,6 +496,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
         language: "".into(),
         selected: !subtitle_tracks.iter().any(secondary_selected),
         playing: false,
+        network: false,
     }];
     secondary_rows.extend(subtitle_tracks.into_iter().map(|track| CatalogRow {
         token: track.id.to_string().into(),
@@ -463,6 +505,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
         language: languages.display_name(track.lang.as_deref()).into(),
         selected: track.selected && track.main_selection == Some(1),
         playing: false,
+        network: false,
     }));
     app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
     app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
@@ -491,6 +534,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
                             .is_none_or(|next| position < next.time)
                 }),
                 playing: false,
+                network: false,
             })
             .collect::<Vec<_>>(),
     )));
@@ -533,6 +577,7 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
                         .iter()
                         .any(|selected| selected.as_str() == token),
                     playing: entry.current,
+                    network: crate::platform::is_http_url(entry.filename.as_str()),
                 }
             })
             .collect::<Vec<_>>(),
@@ -574,6 +619,123 @@ fn current_chapter(state: &Playback) -> Option<usize> {
     })
 }
 
+#[cfg(target_os = "macos")]
+fn resize_for_trackpad_pinch(window: &slint::Window, delta: f64) {
+    use slint::winit_030::winit::dpi::{PhysicalPosition, PhysicalSize};
+
+    if !delta.is_finite() || delta <= -1.0 {
+        return;
+    }
+    let _ = window.with_winit_window(|native| {
+        if native.fullscreen().is_some() || native.is_maximized() {
+            return;
+        }
+        let current = native.inner_size();
+        if current.width == 0 || current.height == 0 {
+            return;
+        }
+        let scale = native.scale_factor();
+        let monitor = native.current_monitor().map(|monitor| monitor.size());
+        let min_width = (285.0 * scale).round().max(1.0) as u32;
+        let min_height = (120.0 * scale).round().max(1.0) as u32;
+        let (max_width, max_height) = monitor.map_or((u32::MAX, u32::MAX), |size| {
+            (
+                (f64::from(size.width) * 0.98).round() as u32,
+                (f64::from(size.height) * 0.94).round() as u32,
+            )
+        });
+        let lower = (f64::from(min_width) / f64::from(current.width))
+            .max(f64::from(min_height) / f64::from(current.height));
+        let upper = (f64::from(max_width) / f64::from(current.width))
+            .min(f64::from(max_height) / f64::from(current.height));
+        if !upper.is_finite() || upper < lower {
+            return;
+        }
+        let factor = (1.0 + delta).clamp(lower, upper);
+        let size = PhysicalSize::new(
+            (f64::from(current.width) * factor).round() as u32,
+            (f64::from(current.height) * factor).round() as u32,
+        );
+        let position = native.outer_position().ok();
+        if let Some(position) = position {
+            let width_change = i64::from(size.width) - i64::from(current.width);
+            let height_change = i64::from(size.height) - i64::from(current.height);
+            native.set_outer_position(PhysicalPosition::new(
+                position.x - width_change / 2,
+                position.y - height_change / 2,
+            ));
+        }
+        let _ = native.request_inner_size(size);
+    });
+}
+
+#[cfg(target_os = "macos")]
+fn install_macos_control_gestures(app: &PlayerWindow, player: riina_mpv::CommandSender) {
+    let weak = app.as_weak();
+    let force_touch_active = Cell::new(false);
+    let mut pinch_fullscreen_direction = None::<bool>;
+    platform::install_control_gestures(&app.window(), move |gesture| {
+        let Some(app) = weak.upgrade() else { return };
+        match gesture {
+            platform::ControlGesture::Pressure { stage } => {
+                if stage < 2 {
+                    force_touch_active.set(false);
+                } else if stage == 2 && !force_touch_active.replace(true) {
+                    dispatch_control_mouse_action(
+                        &app,
+                        &player,
+                        app.get_control_force_touch_index(),
+                    );
+                }
+            }
+            platform::ControlGesture::Pinch { delta, phase } => {
+                use platform::GesturePhase;
+                use riina_core::control_preferences::PinchAction;
+
+                if app.get_crop_editing() || app.get_dialog_open() {
+                    return;
+                }
+                let Ok(settings) = crate::control_preferences::current_player(&app) else {
+                    return;
+                };
+                match settings.pinch_action {
+                    PinchAction::None => {}
+                    PinchAction::Fullscreen => {
+                        if phase == GesturePhase::Started {
+                            pinch_fullscreen_direction = None;
+                        }
+                        if matches!(phase, GesturePhase::Started | GesturePhase::Moved)
+                            && delta.is_finite()
+                            && delta != 0.0
+                        {
+                            let wants_fullscreen = delta > 0.0;
+                            if pinch_fullscreen_direction.is_none()
+                                && wants_fullscreen != app.get_fullscreen()
+                            {
+                                app.invoke_toggle_fullscreen();
+                            }
+                            pinch_fullscreen_direction = Some(wants_fullscreen);
+                        }
+                        if matches!(phase, GesturePhase::Ended | GesturePhase::Cancelled) {
+                            pinch_fullscreen_direction = None;
+                        }
+                    }
+                    PinchAction::AdjustWindowSize => {
+                        if app.get_fullscreen() {
+                            return;
+                        }
+                        if matches!(phase, GesturePhase::Started | GesturePhase::Moved) {
+                            resize_for_trackpad_pinch(&app.window(), delta);
+                        } else if matches!(phase, GesturePhase::Ended | GesturePhase::Cancelled) {
+                            app.invoke_window_aspect_changed();
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 fn update_ui(
     app: &PlayerWindow,
     state: Playback,
@@ -605,22 +767,29 @@ fn update_ui(
             .observed(state.video_filters.as_deref())
             .unwrap_or(false),
     );
+    let keep_stopped_feedback = app.get_video_osd_request_feedback();
     if displayed
         .as_ref()
         .is_none_or(|old| old.generation != state.generation)
-        || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
-        || (state.error.is_some() && !app.get_video_osd_request_feedback())
+        || matches!(state.phase, Phase::Loading | Phase::Failed)
+        || (state.phase == Phase::Stopped && !keep_stopped_feedback)
+        || (state.error.is_some() && !keep_stopped_feedback)
     {
         app.set_video_osd_visible(false);
+        app.set_video_osd_request_feedback(false);
     }
     match last_seek.observe_with_suppression(&state, app.get_disable_osd_seek()) {
         Change::Hide => app.set_seek_osd_visible(false),
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
     }
+    last_video.set_volume_limit(if app.get_volume_boost() { 200.0 } else { 100.0 });
     last_video.set_disable_speed(app.get_disable_osd_speed());
     last_video.set_disable_pause_resume(app.get_disable_osd_pause_resume());
-    if let Some(message) = last_video.observe(&state) {
+    let video_message = last_video.observe(&state);
+    if !app.get_osd_enabled() {
+        last_video.clear_pending();
+    } else if let Some(message) = video_message {
         app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
         app.set_video_osd_text(message.text.into());
         app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
@@ -907,6 +1076,18 @@ pub(crate) struct UiSession {
     // Native callbacks retain senders only. Field order keeps the target alive
     // until this sole native player owner has joined its decoder worker.
     pub(crate) player: Option<Player>,
+    #[cfg(target_os = "windows")]
+    _plugin_overlay_presenter: Rc<RefCell<platform::PluginOverlayPresenter>>,
+    #[cfg(target_os = "macos")]
+    _system_media_controls: Rc<RefCell<platform::SystemMediaControls>>,
+    #[cfg(target_os = "macos")]
+    _system_media_controls_timer: Rc<slint::Timer>,
+    #[cfg(target_os = "macos")]
+    _picture_in_picture: Rc<RefCell<Option<platform::MacPictureInPicture>>>,
+    #[cfg(target_os = "macos")]
+    _picture_in_picture_timer: Rc<slint::Timer>,
+    #[cfg(target_os = "macos")]
+    _mac_scroll_event_monitor: Option<platform::MacScrollEventMonitor>,
     _plugin_host: Option<crate::plugin_host::PluginHost>,
     _plugin_host_timer: Option<Rc<slint::Timer>>,
     _plugin_osd_timer: Option<Rc<slint::Timer>>,
@@ -915,6 +1096,13 @@ pub(crate) struct UiSession {
     _live_text_timer: Option<Rc<slint::Timer>>,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
+    _pause_resume_timer: Rc<slint::Timer>,
+    _thumbnail_preview_timer: Rc<slint::Timer>,
+    _subtitle_priority_timer: Rc<slint::Timer>,
+    _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
+    _online_subtitles_timer: Rc<slint::Timer>,
+    _file_drop_timer: Rc<slint::Timer>,
+    _player_window_focus: PlayerWindowFocusRegistration,
     prefs_path: PathBuf,
     prefs: Preferences,
     recent_media: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
@@ -927,6 +1115,281 @@ enum PendingWelcomeOpen {
     Recent(riina_core::RecentMedia, bool),
 }
 
+#[cfg(target_os = "macos")]
+thread_local! {
+    static FOCUSED_PLAYER_WINDOW_COUNT: Cell<usize> = const { Cell::new(0) };
+}
+
+struct PlayerWindowFocusRegistration {
+    focused: Rc<Cell<bool>>,
+}
+
+#[derive(Clone, Copy, Default)]
+struct ScrollInputState {
+    axis: Option<bool>,
+    precise: Option<bool>,
+    natural_direction: Option<bool>,
+    phase_empty: bool,
+    phase_began: bool,
+    phase_ended: bool,
+    momentum_allowed: bool,
+    mouse_in_window: bool,
+    suppress_current: bool,
+    appkit: bool,
+}
+
+impl Drop for PlayerWindowFocusRegistration {
+    fn drop(&mut self) {
+        set_player_window_focus(&self.focused, false);
+    }
+}
+
+fn set_player_window_focus(focused: &Cell<bool>, now_focused: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let was_focused = focused.replace(now_focused);
+        if was_focused != now_focused {
+            FOCUSED_PLAYER_WINDOW_COUNT.with(|count| {
+                count.set(if now_focused {
+                    count.get().saturating_add(1)
+                } else {
+                    count.get().saturating_sub(1)
+                });
+            });
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = focused.replace(now_focused);
+}
+
+#[cfg(target_os = "macos")]
+fn some_player_window_is_focused() -> bool {
+    FOCUSED_PLAYER_WINDOW_COUNT.with(|count| count.get() > 0)
+}
+
+fn install_file_drop(
+    app: &PlayerWindow,
+    player: riina_mpv::CommandSender,
+    playback: Arc<std::sync::Mutex<Playback>>,
+    trackpad_pause_generation: Rc<Cell<Option<u64>>>,
+    _scroll_input: Rc<Cell<ScrollInputState>>,
+) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
+    let pending_paths = Rc::new(RefCell::new(Vec::<std::ffi::OsString>::new()));
+    let flush_paths = pending_paths.clone();
+    let weak_app = app.as_weak();
+    let timer_player = player.clone();
+    let timer = Rc::new(slint::Timer::default());
+    timer.start(
+        slint::TimerMode::SingleShot,
+        Duration::from_millis(80),
+        move || {
+            let paths = std::mem::take(&mut *flush_paths.borrow_mut());
+            if !paths.is_empty()
+                && let Some(app) = weak_app.upgrade()
+            {
+                media_open::dropped(&app, paths, timer_player.clone());
+            }
+        },
+    );
+    let event_paths = pending_paths;
+    let event_timer = timer.clone();
+    let focused = Rc::new(Cell::new(
+        app.window()
+            .with_winit_window(|window| window.has_focus())
+            .unwrap_or(false),
+    ));
+    let event_scroll_input = _scroll_input;
+    let event_player = player;
+    let event_playback = playback;
+    let event_app = app.as_weak();
+    let event_trackpad_pause_generation = trackpad_pause_generation;
+    #[cfg(target_os = "macos")]
+    FOCUSED_PLAYER_WINDOW_COUNT.with(|count| {
+        if focused.get() {
+            count.set(count.get().saturating_add(1));
+        }
+    });
+    let event_focused = Rc::downgrade(&focused);
+    app.window().on_winit_window_event(move |_window, event| {
+        if let winit::event::WindowEvent::DroppedFile(path) = event {
+            event_paths.borrow_mut().push(path.clone().into_os_string());
+            event_timer.restart();
+        }
+        if let winit::event::WindowEvent::Focused(now_focused) = event
+            && let Some(focused) = event_focused.upgrade()
+        {
+            set_player_window_focus(&focused, *now_focused);
+        }
+        if matches!(event, winit::event::WindowEvent::CursorEntered { .. }) {
+            let mut input = event_scroll_input.get();
+            input.mouse_in_window = true;
+            event_scroll_input.set(input);
+        } else if matches!(event, winit::event::WindowEvent::CursorLeft { .. }) {
+            let mut input = event_scroll_input.get();
+            input.mouse_in_window = false;
+            input.momentum_allowed = false;
+            event_scroll_input.set(input);
+        }
+        #[cfg(not(target_os = "macos"))]
+        if let winit::event::WindowEvent::MouseWheel { delta, phase, .. } = event {
+            use winit::event::{MouseScrollDelta, TouchPhase};
+            let (delta_x, delta_y, precise) = match delta {
+                MouseScrollDelta::LineDelta(x, y) => (f64::from(*x), f64::from(*y), false),
+                MouseScrollDelta::PixelDelta(position) => (position.x, position.y, true),
+            };
+            let mut input = event_scroll_input.get();
+            input.appkit = false;
+            input.precise = Some(precise);
+            input.natural_direction = None;
+            input.phase_empty = !precise;
+            input.phase_began = *phase == TouchPhase::Started;
+            input.phase_ended = matches!(phase, TouchPhase::Ended | TouchPhase::Cancelled);
+            if !precise {
+                // Mouse-wheel events are independent. IINA prioritizes horizontal
+                // whenever an event contains a horizontal delta.
+                input.axis = (delta_x != 0.0 || delta_y != 0.0).then_some(delta_x != 0.0);
+            } else {
+                match phase {
+                    TouchPhase::Started => {
+                        // IINA chooses the first non-zero axis when a gesture begins,
+                        // then keeps it through diagonal trackpad motion.
+                        let axis = if delta_x != 0.0 {
+                            Some(true)
+                        } else if delta_y != 0.0 {
+                            Some(false)
+                        } else {
+                            None
+                        };
+                        input.axis = axis;
+                    }
+                    TouchPhase::Ended | TouchPhase::Cancelled => {
+                        input.axis = None;
+                    }
+                    TouchPhase::Moved if input.axis.is_none() => {
+                        if delta_x != 0.0 || delta_y != 0.0 {
+                            input.axis = Some(delta_x != 0.0);
+                        }
+                    }
+                    TouchPhase::Moved => {}
+                }
+            }
+            event_scroll_input.set(input);
+        }
+        if matches!(event, winit::event::WindowEvent::MouseWheel { .. }) {
+            let input = event_scroll_input.get();
+            if input.suppress_current {
+                return EventResult::PreventDefault;
+            }
+            if !input.phase_empty
+                && input.phase_ended
+                && let Some(generation) = event_trackpad_pause_generation.replace(None)
+                && event_playback
+                    .lock()
+                    .is_ok_and(|state| state.generation == generation)
+                && let Err(error) = event_player.set_paused(false)
+                && let Some(app) = event_app.upgrade()
+            {
+                app.set_status(error.into());
+            }
+        }
+        EventResult::Propagate
+    });
+    (timer, PlayerWindowFocusRegistration { focused })
+}
+
+fn scroll_action_handler(
+    app: slint::Weak<PlayerWindow>,
+    player: riina_mpv::CommandSender,
+    playback: Arc<std::sync::Mutex<Playback>>,
+    scroll_input: Rc<Cell<ScrollInputState>>,
+    trackpad_pause_generation: Rc<Cell<Option<u64>>>,
+    override_action: Option<riina_core::control_preferences::ScrollAction>,
+) -> impl FnMut(f32, f32) -> bool + 'static {
+    move |delta_x, delta_y| {
+        let Some(app) = app.upgrade() else {
+            return false;
+        };
+        if app.get_scroll_input_suppressed() {
+            return true;
+        }
+        let input = scroll_input.get();
+        let horizontal = if input.appkit {
+            input.axis.unwrap_or(false)
+        } else {
+            input.axis.unwrap_or_else(|| delta_x.abs() > delta_y.abs())
+        };
+        let mut delta_x = delta_x;
+        let mut delta_y = delta_y;
+        if input.appkit {
+            if input.natural_direction == Some(true) {
+                delta_y = -delta_y;
+            } else {
+                delta_x = -delta_x;
+            }
+        }
+        let delta = if horizontal { delta_x } else { delta_y };
+        if delta == 0.0 {
+            return false;
+        }
+        let Ok(settings) = crate::control_preferences::current_player(&app) else {
+            return false;
+        };
+        let precise = input.precise.unwrap_or_else(|| delta.abs() < 60.0);
+        let effect = match override_action {
+            Some(action) => riina_core::control_preferences::scroll_effect_for_action(
+                &settings,
+                action,
+                horizontal,
+                f64::from(delta),
+                precise,
+            ),
+            None => riina_core::control_preferences::scroll_effect(
+                &settings,
+                horizontal,
+                f64::from(delta),
+                precise,
+            ),
+        };
+        let command = match effect {
+            riina_core::control_preferences::ScrollEffect::None => return false,
+            riina_core::control_preferences::ScrollEffect::AdjustVolume(delta) => {
+                Command::AdjustVolume {
+                    delta,
+                    boost: app.get_volume_boost(),
+                }
+            }
+            riina_core::control_preferences::ScrollEffect::Seek(seconds) => {
+                if !input.phase_empty
+                    && input.phase_began
+                    && trackpad_pause_generation.get().is_none()
+                    && let Some(state) = playback.lock().ok().map(|state| state.clone())
+                    && state.phase == Phase::Playing
+                    && !state.paused
+                {
+                    match player.set_paused(true) {
+                        Ok(()) => trackpad_pause_generation.set(Some(state.generation)),
+                        Err(error) => app.set_status(error.into()),
+                    }
+                }
+                Command::SeekWithType {
+                    seconds,
+                    seek_type: settings.seek_type,
+                }
+            }
+            riina_core::control_preferences::ScrollEffect::MultiplySpeed(factor) => {
+                let current = f64::from(app.get_speed_value()).clamp(0.05, 4.0);
+                let target = (current * factor).clamp(0.05, 4.0);
+                Command::MultiplySpeed(target / current)
+            }
+        };
+        app.invoke_activity();
+        if let Err(error) = player.send(command) {
+            app.set_status(error.into());
+        }
+        true
+    }
+}
+
 fn dispatch_welcome_open(
     app: &PlayerWindow,
     request: PendingWelcomeOpen,
@@ -937,6 +1400,175 @@ fn dispatch_welcome_open(
         PendingWelcomeOpen::Recent(media, resume) => {
             media_open::open_recent(app, media, resume, sender.clone());
         }
+    }
+}
+
+fn install_pause_on_minimize(
+    app: &PlayerWindow,
+    playback: Arc<std::sync::Mutex<Playback>>,
+) -> Rc<slint::Timer> {
+    let timer = Rc::new(slint::Timer::default());
+    let weak_app = app.as_weak();
+    let mut minimized = false;
+    let mut paused_generation = None;
+    timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(50),
+        move || {
+            let Some(app) = weak_app.upgrade() else {
+                return;
+            };
+            let now_minimized = app.window().is_minimized();
+            if now_minimized && !minimized && app.get_pause_when_minimized() {
+                let state = playback.lock().ok().map(|state| state.clone());
+                if let Some(state) =
+                    state.filter(|state| state.phase == Phase::Playing && !state.paused)
+                {
+                    paused_generation = Some(state.generation);
+                    app.invoke_set_paused(true);
+                }
+            } else if !now_minimized
+                && minimized
+                && let Some(generation) = paused_generation.take()
+                && playback.lock().is_ok_and(|state| {
+                    state.generation == generation && state.phase == Phase::Playing && state.paused
+                })
+            {
+                app.invoke_set_paused(false);
+            }
+            minimized = now_minimized;
+        },
+    );
+    timer
+}
+
+#[cfg(target_os = "macos")]
+fn dispatch_system_media_action(
+    app: &PlayerWindow,
+    action: platform::RemoteMediaAction,
+    latest_playback: &Arc<std::sync::Mutex<Playback>>,
+    player: &riina_mpv::CommandSender,
+    paused_by_inactive: &mut Option<u64>,
+    application_active: &mut bool,
+    player_window_was_focused: bool,
+) {
+    use platform::RemoteMediaAction as Action;
+
+    match action {
+        Action::Play => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "PLAYONLY",
+                latest_playback,
+            ) {
+                app.invoke_set_paused(false);
+            }
+        }
+        Action::Pause => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "PAUSEONLY",
+                latest_playback,
+            ) {
+                app.invoke_set_paused(true);
+            }
+        }
+        Action::Toggle => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "PLAYPAUSE",
+                latest_playback,
+            ) {
+                app.invoke_toggle_pause();
+            }
+        }
+        Action::Stop => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "STOP",
+                latest_playback,
+            ) {
+                app.invoke_stop();
+            }
+        }
+        Action::Next => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "NEXT",
+                latest_playback,
+            ) {
+                app.invoke_playlist_next();
+            }
+        }
+        Action::Previous => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "PREV",
+                latest_playback,
+            ) {
+                app.invoke_playlist_previous();
+            }
+        }
+        Action::Forward(seconds) => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "FORWARD",
+                latest_playback,
+            ) && seconds.is_finite()
+                && seconds > 0.0
+            {
+                app.invoke_execute_mpv_input_action(format!("seek {seconds} exact").into());
+            }
+        }
+        Action::Backward(seconds) => {
+            if !crate::key_binding_preferences::dispatch_system_media_key(
+                app,
+                "REWIND",
+                latest_playback,
+            ) && seconds.is_finite()
+                && seconds > 0.0
+            {
+                app.invoke_execute_mpv_input_action(format!("seek -{seconds} exact").into());
+            }
+        }
+        Action::Position(seconds) if seconds.is_finite() && seconds >= 0.0 => {
+            app.invoke_seek(seconds as f32);
+        }
+        Action::Position(_) => {}
+        Action::Rate(rate) if rate.is_finite() && rate > 0.0 => {
+            let _ = app.invoke_set_speed_text(rate.to_string().into());
+        }
+        Action::Rate(_) => {}
+        Action::Repeat => {
+            if let Err(error) = player.send(Command::CycleLoop) {
+                app.set_status(error.into());
+            }
+        }
+        Action::Inactive => {
+            *application_active = false;
+            if app.get_pause_when_inactive()
+                && (player_window_was_focused || some_player_window_is_focused())
+                && paused_by_inactive.is_none()
+            {
+                let state = latest_playback.lock().ok().map(|state| state.clone());
+                if let Some(state) =
+                    state.filter(|state| state.phase == Phase::Playing && !state.paused)
+                {
+                    *paused_by_inactive = Some(state.generation);
+                    app.invoke_set_paused(true);
+                }
+            }
+        }
+        Action::Active => *application_active = true,
+        Action::Sleep if app.get_pause_when_goes_to_sleep() => {
+            if latest_playback
+                .lock()
+                .is_ok_and(|state| state.phase == Phase::Playing && !state.paused)
+            {
+                app.invoke_set_paused(true);
+            }
+        }
+        Action::Sleep => {}
     }
 }
 
@@ -965,6 +1597,14 @@ impl UiSession {
                     .ok_or_else(|| std::io::Error::other("Invalid appearance selection"))?,
             ),
             pause_when_open: app.get_pause_when_open(),
+            play_when_entering_fullscreen: app.get_play_when_entering_fullscreen(),
+            pause_when_leaving_fullscreen: app.get_pause_when_leaving_fullscreen(),
+            pause_when_inactive: app.get_pause_when_inactive(),
+            pause_when_minimized: app.get_pause_when_minimized(),
+            pause_when_goes_to_sleep: app.get_pause_when_goes_to_sleep(),
+            quit_when_no_opened_window: app.get_quit_when_no_opened_window(),
+            keep_open_on_file_end: app.get_keep_open_on_file_end(),
+            playlist_auto_add: app.get_playlist_auto_add(),
             fullscreen_when_open: app.get_fullscreen_when_open(),
             resume_last_position: app.get_resume_last_position(),
             enable_osd: app.get_osd_enabled(),
@@ -1011,11 +1651,15 @@ impl UiSession {
                 .map_err(std::io::Error::other)?,
             subtitle_auto_load: crate::subtitle_auto_load_preferences::current_player(app)
                 .map_err(std::io::Error::other)?,
+            online_subtitles: crate::online_subtitles_preferences::current_player(app)
+                .map_err(std::io::Error::other)?,
             subtitle_font: app.get_subtitle_font().to_string(),
             subtitle_font_size: crate::subtitle_preferences::current_font_size(app),
             subtitle_text_style: crate::subtitle_preferences::current_style(app)
                 .map_err(std::io::Error::other)?,
             screenshot: crate::screenshot_preferences::current(app)
+                .map_err(std::io::Error::other)?,
+            thumbnail_preview: crate::thumbnail_preferences::current_player(app)
                 .map_err(std::io::Error::other)?,
             dark: app.get_dark_theme(),
             network_cache: crate::network_cache_preferences::current_player(app)
@@ -1032,6 +1676,27 @@ impl UiSession {
         {
             prefs.audio = saved.audio;
             prefs.advanced = saved.advanced;
+            prefs.allow_multiple_windows = saved.allow_multiple_windows;
+            prefs.group_simultaneous_opens_in_playlist = saved.group_simultaneous_opens_in_playlist;
+            prefs.allow_duplicate_players = saved.allow_duplicate_players;
+            prefs.quit_when_no_opened_window = saved.quit_when_no_opened_window;
+            prefs.keep_open_on_file_end = saved.keep_open_on_file_end;
+            prefs.playlist_auto_add = saved.playlist_auto_add;
+            prefs.play_when_entering_fullscreen = saved.play_when_entering_fullscreen;
+            prefs.pause_when_leaving_fullscreen = saved.pause_when_leaving_fullscreen;
+            prefs.pause_when_inactive = saved.pause_when_inactive;
+            prefs.pause_when_minimized = saved.pause_when_minimized;
+            prefs.pause_when_goes_to_sleep = saved.pause_when_goes_to_sleep;
+            for recent in saved.recent_media {
+                if !prefs
+                    .recent_media
+                    .iter()
+                    .any(|current| current.path == recent.path)
+                {
+                    prefs.recent_media.push(recent);
+                }
+            }
+            prefs.recent_media.truncate(10);
         }
         if !self.history_cleared.get()
             && let Ok(state) = self.latest_playback.lock()
@@ -1078,6 +1743,10 @@ impl UiSession {
 
 impl Drop for UiSession {
     fn drop(&mut self) {
+        #[cfg(target_os = "macos")]
+        self._system_media_controls
+            .borrow_mut()
+            .synchronize(false, "", None, None);
         // Release session ownership before its presentation on every platform.
         // Native playback joins here; GL callbacks retain their player until the
         // renderer has released its surface during RenderingTeardown.
@@ -1096,13 +1765,25 @@ pub(crate) fn action_after_launch()
     Ok(preferences.action_after_launch)
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) fn accepts_first_mouse_at_launch() -> Result<bool, Box<dyn std::error::Error>> {
+    let path = platform::preferences_path()?;
+    let preferences = match std::fs::read_to_string(path) {
+        Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
+        Err(error) => return Err(error.into()),
+    };
+    Ok(preferences.controls.accepts_first_mouse)
+}
+
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
     media: Vec<std::ffi::OsString>,
     welcome: Option<&WelcomeWindow>,
+    startup_resume_position: Option<f64>,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
     {
         let weak = app.as_weak();
         app.on_toggle_picture_in_picture(move || {
@@ -1114,11 +1795,22 @@ pub(crate) fn configure_player(
         });
     }
     let prefs_path = platform::preferences_path()?;
-    let prefs = match std::fs::read_to_string(&prefs_path) {
-        Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
+    let saved_preferences = match std::fs::read_to_string(&prefs_path) {
+        Ok(text) => Some(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => return Err(error.into()),
     };
+    let mut prefs = match saved_preferences.as_deref() {
+        Some(text) => Preferences::parse(text).map_err(std::io::Error::other)?,
+        None => Preferences::default(),
+    };
+    if let Err(error) = crate::online_subtitles_credentials::restore_preferences(
+        &mut prefs,
+        saved_preferences.as_deref(),
+        &prefs_path,
+    ) {
+        app.set_status(format!("OpenSubtitles credential storage: {error}").into());
+    }
     let plugin_host = match crate::plugin_host::PluginHost::start(&prefs_path) {
         Ok(host) => Some(host),
         Err(error) => {
@@ -1129,6 +1821,13 @@ pub(crate) fn configure_player(
     let plugin_host_handle = plugin_host
         .as_ref()
         .map(crate::plugin_host::PluginHost::handle);
+    #[cfg(target_os = "windows")]
+    let plugin_overlay_presenter =
+        Rc::new(RefCell::new(platform::PluginOverlayPresenter::default()));
+    #[cfg(target_os = "windows")]
+    let plugin_overlay_parent = native
+        .as_ref()
+        .map(platform::NativePresentation::webview_parent_window);
     let plugin_osd_timer = plugin_host_handle
         .as_ref()
         .map(|_| Rc::new(slint::Timer::default()));
@@ -1140,9 +1839,15 @@ pub(crate) fn configure_player(
         let weak = app.as_weak();
         let osd_timer = plugin_osd_timer_weak.clone();
         let osd_generation = plugin_osd_generation.clone();
+        #[cfg(target_os = "windows")]
+        let overlay = plugin_overlay_presenter.clone();
+        #[cfg(target_os = "windows")]
+        let overlay_host = handle.clone();
+        #[cfg(target_os = "windows")]
+        let overlay_parent = plugin_overlay_parent.clone();
         timer.start(
             slint::TimerMode::Repeated,
-            Duration::from_millis(100),
+            Duration::from_millis(25),
             move || {
                 let Some(app) = weak.upgrade() else { return };
                 let Ok(messages) = messages.drain_messages() else {
@@ -1183,8 +1888,42 @@ pub(crate) fn configure_player(
                                 .set_buttons(rfd::MessageButtons::Ok)
                                 .show();
                         }
+                        #[cfg(target_os = "windows")]
+                        message @ crate::plugin_host::PluginHostMessage::Overlay { .. } => {
+                            let result = if let Some(parent) = overlay_parent.as_ref() {
+                                overlay.borrow_mut().apply_host_message(
+                                    parent,
+                                    &overlay_host,
+                                    message,
+                                )
+                            } else {
+                                Err("Plugin video overlays require native video presentation"
+                                    .into())
+                            };
+                            if let Err(error) = result {
+                                app.set_status(error.into());
+                            }
+                        }
+                        #[cfg(target_os = "windows")]
+                        crate::plugin_host::PluginHostMessage::RemoveOverlay(identifier) => {
+                            overlay.borrow_mut().remove(&identifier);
+                        }
+                        #[cfg(not(target_os = "windows"))]
+                        crate::plugin_host::PluginHostMessage::Overlay { .. } => {
+                            app.set_status(
+                                "Plugin video overlays are unavailable on this platform".into(),
+                            );
+                        }
+                        #[cfg(not(target_os = "windows"))]
+                        crate::plugin_host::PluginHostMessage::RemoveOverlay(_) => {}
                     }
                 }
+                #[cfg(target_os = "windows")]
+                overlay.borrow_mut().update(
+                    app.get_window_width(),
+                    app.get_window_height(),
+                    f64::from(app.window().scale_factor()),
+                );
             },
         );
         timer
@@ -1231,15 +1970,30 @@ pub(crate) fn configure_player(
     let history_cleared = Rc::new(Cell::new(false));
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
+    let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(&prefs_path, "io.iina.ytdl");
+    app.set_network_ytdl_plugin_active(ytdl_plugin_active);
+    let mut network_online_videos = prefs.network_online_videos.clone();
+    if ytdl_plugin_active {
+        network_online_videos.enabled = false;
+    }
     let mut engine_options = resume_engine_options(
         &watch_later_directory,
         prefs.resume_last_position,
         &prefs.subtitle_auto_load,
         &prefs.network,
         &prefs.network_cache,
-        &prefs.network_online_videos,
+        &network_online_videos,
     )
     .map_err(std::io::Error::other)?;
+    engine_options.push((
+        "keep-open".into(),
+        if prefs.keep_open_on_file_end {
+            "yes"
+        } else {
+            "no"
+        }
+        .into(),
+    ));
     engine_options.extend(
         prefs
             .audio
@@ -1263,10 +2017,121 @@ pub(crate) fn configure_player(
     app.set_volume_boost(prefs.volume_boost);
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.set_disable_animations(prefs.disable_animations);
+    app.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
     app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
+    let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
+    let pause_resume_timer = install_pause_on_minimize(app, latest_playback.clone());
     crate::control_preferences::install_player(app, &prefs.controls);
-    crate::key_binding_preferences::install_player(app, &prefs.key_bindings);
+    crate::key_binding_preferences::install_player(
+        app,
+        &prefs.key_bindings,
+        latest_playback.clone(),
+    );
+    #[cfg(target_os = "macos")]
+    let system_media_sender = Rc::new(RefCell::new(None::<riina_mpv::CommandSender>));
+    #[cfg(target_os = "macos")]
+    let (system_media_controls, system_media_controls_timer) = {
+        let controls = Rc::new(RefCell::new(platform::SystemMediaControls::new(
+            platform::playback_library(),
+        )));
+        let timer = Rc::new(slint::Timer::default());
+        let controls_tick = controls.clone();
+        let weak = app.as_weak();
+        let playback = latest_playback.clone();
+        let player = system_media_sender.clone();
+        let mut skip_intervals = None::<(String, Option<f64>, Option<f64>)>;
+        let mut paused_by_inactive = None;
+        let mut application_active = true;
+        let mut player_window_was_focused = app
+            .window()
+            .with_winit_window(|window| window.has_focus())
+            .unwrap_or(false);
+        let mut refresh_skip_intervals_at = Instant::now();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(50),
+            move || {
+                let Some(app) = weak.upgrade() else { return };
+                let profile = app.get_key_binding_current_profile().to_string();
+                let active = app.get_loaded() && app.get_key_binding_use_system_media_controls();
+                if active
+                    && (skip_intervals
+                        .as_ref()
+                        .is_none_or(|(cached_profile, _, _)| cached_profile != &profile)
+                        || Instant::now() >= refresh_skip_intervals_at)
+                {
+                    let (forward, backward) =
+                        crate::key_binding_preferences::system_skip_intervals_for_profile(&profile);
+                    skip_intervals = Some((profile.clone(), forward, backward));
+                    refresh_skip_intervals_at = Instant::now() + Duration::from_secs(1);
+                }
+                let (forward, backward) = if active {
+                    let (_, forward, backward) = skip_intervals
+                        .as_ref()
+                        .expect("the active key profile's skip intervals are initialized");
+                    (*forward, *backward)
+                } else {
+                    (None, None)
+                };
+                controls_tick
+                    .borrow_mut()
+                    .synchronize(active, &profile, forward, backward);
+                let current = playback.lock().ok().map(|state| state.clone());
+                if active && let Some(current) = current.as_ref() {
+                    controls_tick
+                        .borrow_mut()
+                        .publish_playback(current, app.get_thumbnail_preview_enabled());
+                }
+                let actions = controls_tick.borrow().drain_actions().collect::<Vec<_>>();
+                for action in actions {
+                    if let Some(player) = player.borrow().as_ref() {
+                        dispatch_system_media_action(
+                            &app,
+                            action,
+                            &playback,
+                            player,
+                            &mut paused_by_inactive,
+                            &mut application_active,
+                            player_window_was_focused,
+                        );
+                    }
+                }
+                let focused = app
+                    .window()
+                    .with_winit_window(|window| window.has_focus())
+                    .unwrap_or(false);
+                if app.get_pause_when_inactive() {
+                    if application_active
+                        && !focused
+                        && some_player_window_is_focused()
+                        && paused_by_inactive.is_none()
+                    {
+                        let state = playback.lock().ok().map(|state| state.clone());
+                        if let Some(state) =
+                            state.filter(|state| state.phase == Phase::Playing && !state.paused)
+                        {
+                            paused_by_inactive = Some(state.generation);
+                            app.invoke_set_paused(true);
+                        }
+                    } else if application_active
+                        && focused
+                        && let Some(generation) = paused_by_inactive
+                        && playback.lock().is_ok_and(|state| {
+                            state.generation == generation
+                                && state.phase == Phase::Playing
+                                && state.paused
+                        })
+                    {
+                        app.invoke_set_paused(false);
+                        paused_by_inactive = None;
+                    }
+                }
+                player_window_was_focused = focused;
+            },
+        );
+        (controls, timer)
+    };
     app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
     app.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.subtitle_ass_override,
@@ -1277,6 +2142,7 @@ pub(crate) fn configure_player(
     crate::subtitle_position_preferences::install_player(app, prefs.subtitle_position);
     crate::subtitle_other_preferences::install_player(app, &prefs.subtitle_other);
     crate::subtitle_auto_load_preferences::install_player(app, &prefs.subtitle_auto_load);
+    crate::online_subtitles_preferences::install_player(app, &prefs.online_subtitles);
     crate::network_cache_preferences::install_player(app, &prefs.network_cache);
     crate::network_ytdl_preferences::install_player(app, &prefs.network_online_videos);
     app.set_subtitle_font(prefs.subtitle_font.clone().into());
@@ -1301,7 +2167,16 @@ pub(crate) fn configure_player(
     app.set_display_time_and_battery_in_fullscreen(prefs.display_time_and_battery_in_fullscreen);
     crate::osc_preferences::install_player(app, prefs.control_bar);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
+    crate::thumbnail_preferences::install_player(app, &prefs.thumbnail_preview);
     app.set_pause_when_open(prefs.pause_when_open);
+    app.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
+    app.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
+    app.set_pause_when_inactive(prefs.pause_when_inactive);
+    app.set_pause_when_minimized(prefs.pause_when_minimized);
+    app.set_pause_when_goes_to_sleep(prefs.pause_when_goes_to_sleep);
+    app.set_quit_when_no_opened_window(prefs.quit_when_no_opened_window);
+    app.set_keep_open_on_file_end(prefs.keep_open_on_file_end);
+    app.set_playlist_auto_add(prefs.playlist_auto_add);
     app.set_fullscreen_when_open(prefs.fullscreen_when_open);
     app.set_resume_last_position(prefs.resume_last_position);
     app.set_launch_action_index(prefs.action_after_launch.index());
@@ -1342,7 +2217,6 @@ pub(crate) fn configure_player(
         None,
         crate::screenshot_output::Completions::default(),
     )));
-    let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
     let observed_playback = latest_playback.clone();
     let music_mode_state = Arc::new(std::sync::Mutex::new(riina_core::music_mode::State::new(
         prefs.auto_switch_to_music_mode,
@@ -1379,10 +2253,12 @@ pub(crate) fn configure_player(
     let crop_editor = crate::crop_editor::Editor::default();
     let observed_crop_editor = crop_editor.clone();
     let last_seek = Arc::new(std::sync::Mutex::new(SeekOsd::default()));
-    let last_video = Arc::new(std::sync::Mutex::new(crate::video_osd::VideoOsd::new(
-        prefs.disable_osd_speed,
-        prefs.disable_osd_pause_resume,
-    )));
+    let mut video_osd =
+        crate::video_osd::VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
+    video_osd.set_volume_limit(prefs.volume_limit());
+    let last_video = Arc::new(std::sync::Mutex::new(video_osd));
+    let disable_video_osd = last_video.clone();
+    let pending_video_osd = last_video.clone();
     let last_screenshot = Arc::new(std::sync::Mutex::new(
         crate::screenshot_osd::ScreenshotOsd::default(),
     ));
@@ -1390,14 +2266,22 @@ pub(crate) fn configure_player(
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(
         crate::opening_fullscreen::OpeningFullscreen::default(),
     ));
+    #[cfg(target_os = "macos")]
+    let picture_in_picture = Rc::new(RefCell::new(None::<platform::MacPictureInPicture>));
+    #[cfg(target_os = "macos")]
+    let picture_in_picture_state_dirty = Arc::new(AtomicBool::new(false));
     let notify_music_mode_state = music_mode_state.clone();
     let worker_scratch = screenshot_scratch.clone();
+    #[cfg(target_os = "macos")]
+    let notify_picture_in_picture_state_dirty = picture_in_picture_state_dirty.clone();
     let notify = move |state: Playback| {
         // This closure remains owned by the engine until native destruction.
         let _retain_until_native_teardown = &worker_scratch;
         if let Ok(mut latest_playback) = observed_playback.lock() {
             *latest_playback = state.clone();
         }
+        #[cfg(target_os = "macos")]
+        notify_picture_in_picture_state_dirty.store(true, Ordering::Release);
         if let Ok(mut latest) = latest.lock() {
             latest.1.observe(&state);
             latest.0 = Some(state);
@@ -1471,6 +2355,273 @@ pub(crate) fn configure_player(
             return Err(std::io::Error::other(error).into());
         }
     };
+    let subtitle_priority_timer = Rc::new(slint::Timer::default());
+    let subtitle_discovery_ready = Arc::new(AtomicU64::new(u64::MAX));
+    let (online_subtitles_window, online_subtitles_timer) = crate::open_subtitles::connect_player(
+        app,
+        player.command_sender(),
+        latest_playback.clone(),
+        subtitle_discovery_ready.clone(),
+    );
+    let priority_player = player.command_sender();
+    let priority_playback = latest_playback.clone();
+    let priority_state = Rc::new(RefCell::new(
+        crate::subtitle_priority::AutoPriority::default(),
+    ));
+    let subtitle_discovery = Rc::new(RefCell::new(
+        crate::subtitle_discovery::AutoDiscovery::default(),
+    ));
+    let auto_folder_discovery = Rc::new(RefCell::new(
+        crate::auto_playlist::AutoFolderAdder::default(),
+    ));
+    let auto_folder_state = auto_folder_discovery.clone();
+    let auto_folder_player = player.command_sender();
+    let auto_folder_playback = latest_playback.clone();
+    let subtitle_discovery_state = subtitle_discovery.clone();
+    let subtitle_discovery_player = player.command_sender();
+    let subtitle_discovery_playback = latest_playback.clone();
+    let subtitle_discovery_ready_controller = subtitle_discovery_ready.clone();
+    let priority_controller = priority_state.clone();
+    let priority_app = app.as_weak();
+    subtitle_priority_timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(120),
+        move || {
+            let Some(app) = priority_app.upgrade() else {
+                return;
+            };
+            let Ok(preferences) = crate::subtitle_auto_load_preferences::current_player(&app)
+            else {
+                return;
+            };
+            let Ok(state) = priority_playback.lock().map(|state| state.clone()) else {
+                return;
+            };
+            if preferences.mode == riina_core::subtitle_controls::AutoLoadMode::Disabled {
+                subtitle_discovery_ready_controller.store(state.generation, Ordering::Release);
+            }
+            if let Some(request) = auto_folder_state
+                .borrow_mut()
+                .observe(&state, app.get_playlist_auto_add())
+            {
+                let snapshot = state.clone();
+                let request_check = request.clone();
+                let playback = auto_folder_playback.clone();
+                let sender = auto_folder_player.clone();
+                let weak_app = app.as_weak();
+                std::thread::spawn(move || {
+                    let Some(command) = crate::auto_playlist::prepare(&request, &snapshot) else {
+                        return;
+                    };
+                    let still_current = playback.lock().ok().is_some_and(|state| {
+                        crate::auto_playlist::request_is_current(&request_check, &state)
+                    });
+                    if still_current && let Err(error) = sender.send(command) {
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(app) = weak_app.upgrade() {
+                                app.set_status(error.into());
+                            }
+                        });
+                    }
+                });
+            }
+            if let Some((generation, media_path)) = subtitle_discovery_state
+                .borrow_mut()
+                .observe(&state, &preferences)
+            {
+                subtitle_discovery_ready_controller.store(u64::MAX, Ordering::Release);
+                let preferences = preferences.clone();
+                let playback = subtitle_discovery_playback.clone();
+                let sender = subtitle_discovery_player.clone();
+                let weak_app = app.as_weak();
+                let ready = subtitle_discovery_ready_controller.clone();
+                std::thread::spawn(move || {
+                    let files =
+                        crate::subtitle_discovery::find_matching_files(&media_path, &preferences);
+                    let expected_path = media_path.to_string_lossy().into_owned();
+                    let current = playback.lock().ok().is_some_and(|state| {
+                        state.generation == generation
+                            && matches!(
+                                state.phase,
+                                Phase::Playing | Phase::Paused | Phase::Buffering
+                            )
+                            && state
+                                .playlist
+                                .iter()
+                                .find(|entry| entry.current)
+                                .is_some_and(|entry| entry.filename == expected_path)
+                    });
+                    if current
+                        && !files.is_empty()
+                        && let Err(error) = sender.send(Command::AddSubtitlesWithoutSelection(
+                            files
+                                .into_iter()
+                                .map(|path| path.to_string_lossy().into_owned())
+                                .collect(),
+                        ))
+                    {
+                        let weak_app = weak_app.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(app) = weak_app.upgrade() {
+                                app.set_status(error.into());
+                            }
+                        });
+                    }
+                    ready.store(generation, Ordering::Release);
+                });
+            }
+            let selected = priority_controller
+                .borrow_mut()
+                .observe(&state, &preferences);
+            if let Some(id) = selected
+                && let Err(error) = priority_player.send(Command::SelectTrack {
+                    kind: TrackKind::Sub,
+                    id: Some(id),
+                })
+            {
+                app.set_status(error.into());
+            }
+        },
+    );
+    #[cfg(target_os = "macos")]
+    let picture_in_picture = {
+        let manager = objc2::MainThreadMarker::new()
+            .ok_or_else(|| std::io::Error::other("PiP setup must run on the macOS main thread"))
+            .and_then(|mtm| {
+                platform::MacPictureInPicture::new(
+                    player.command_sender(),
+                    latest_playback.clone(),
+                    mtm,
+                )
+                .map_err(std::io::Error::other)
+            });
+        let manager = match manager {
+            Ok(manager) => Some(manager),
+            Err(error) => {
+                app.set_status(format!("macOS PiP unavailable: {error}").into());
+                None
+            }
+        };
+        *picture_in_picture.borrow_mut() = manager;
+        let weak_app = app.as_weak();
+        let toggle_manager = picture_in_picture.clone();
+        app.on_toggle_picture_in_picture(move || {
+            let result = toggle_manager
+                .borrow_mut()
+                .as_mut()
+                .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
+                .and_then(platform::MacPictureInPicture::toggle);
+            if let Err(error) = result
+                && let Some(app) = weak_app.upgrade()
+            {
+                app.set_status(error.into());
+            }
+        });
+        picture_in_picture.clone()
+    };
+    #[cfg(target_os = "macos")]
+    let picture_in_picture_timer = {
+        let manager = picture_in_picture.clone();
+        let dirty = picture_in_picture_state_dirty.clone();
+        let timer = slint::Timer::default();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(100),
+            move || {
+                if dirty.swap(false, Ordering::AcqRel)
+                    && let Some(manager) = manager.borrow_mut().as_mut()
+                {
+                    manager.synchronize_playback();
+                }
+            },
+        );
+        Rc::new(timer)
+    };
+    let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
+    #[cfg(target_os = "macos")]
+    let mac_scroll_event_monitor = {
+        let native_input = scroll_input.clone();
+        match platform::MacScrollEventMonitor::new(move |event| {
+            let mut input = native_input.get();
+            input.appkit = true;
+            input.precise = Some(event.precise);
+            input.natural_direction = Some(event.natural_direction);
+            input.phase_empty = event.phase_empty;
+            input.phase_began = event.phase_began;
+            input.phase_ended = event.phase_ended;
+            if !event.momentum_phase_empty && !input.momentum_allowed {
+                input.suppress_current = true;
+                native_input.set(input);
+                return;
+            }
+            input.suppress_current = false;
+            input.momentum_allowed = event.phase_ended || input.mouse_in_window;
+            if event.phase_empty || event.phase_began {
+                input.axis = if event.delta_x != 0.0 {
+                    Some(true)
+                } else if event.delta_y != 0.0 {
+                    Some(false)
+                } else {
+                    None
+                };
+            } else if event.phase_ended {
+                input.axis = None;
+            }
+            native_input.set(input);
+        }) {
+            Ok(monitor) => Some(monitor),
+            Err(error) => {
+                app.set_status(format!("Native trackpad input unavailable: {error}").into());
+                None
+            }
+        }
+    };
+    let trackpad_pause_generation = Rc::new(Cell::new(None));
+    #[cfg(target_os = "macos")]
+    install_macos_control_gestures(app, player.command_sender());
+    let (file_drop_timer, player_window_focus) = install_file_drop(
+        app,
+        player.command_sender(),
+        latest_playback.clone(),
+        trackpad_pause_generation.clone(),
+        scroll_input.clone(),
+    );
+    let thumbnail_preview_timer = Rc::new(slint::Timer::default());
+    let thumbnail_controller =
+        Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
+    let thumbnail_hover = thumbnail_controller.clone();
+    let thumbnail_weak = app.as_weak();
+    app.on_timeline_hovered(move |seconds| {
+        if let Some(app) = thumbnail_weak.upgrade() {
+            thumbnail_hover.borrow_mut().hover(&app, f64::from(seconds));
+        }
+    });
+    let thumbnail_weak = app.as_weak();
+    let thumbnail_playback = latest_playback.clone();
+    let thumbnail_tick = thumbnail_controller.clone();
+    let thumbnail_library = platform::playback_library();
+    thumbnail_preview_timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(80),
+        move || {
+            let Some(app) = thumbnail_weak.upgrade() else {
+                return;
+            };
+            let Ok(settings) = crate::thumbnail_preferences::current_player(&app) else {
+                return;
+            };
+            let Ok(state) = thumbnail_playback.lock().map(|state| state.clone()) else {
+                return;
+            };
+            thumbnail_tick
+                .borrow_mut()
+                .observe(&app, &state, &settings, &thumbnail_library);
+        },
+    );
+    #[cfg(target_os = "macos")]
+    {
+        *system_media_sender.borrow_mut() = Some(player.command_sender());
+    }
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     let live_text_timer = Some(install_live_text(
         app,
@@ -1487,6 +2638,47 @@ pub(crate) fn configure_player(
             && let Some(app) = clipboard_parent.upgrade()
         {
             app.set_status(format!("Could not copy recognized text: {error}").into());
+        }
+    });
+    let live_text_parent = weak.clone();
+    let live_text_path = prefs_path.clone();
+    app.on_toggle_live_text(move || {
+        let Some(app) = live_text_parent.upgrade() else {
+            return;
+        };
+        if !app.get_live_text_available() {
+            app.set_status("Live Text is unavailable on this system".into());
+            return;
+        }
+        let mut preferences = match std::fs::read_to_string(&live_text_path) {
+            Ok(text) => match Preferences::parse(&text) {
+                Ok(preferences) => preferences,
+                Err(error) => {
+                    app.set_status(
+                        format!("Could not update Live Text preference: {error}").into(),
+                    );
+                    return;
+                }
+            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
+            Err(error) => {
+                app.set_status(format!("Could not read Live Text preference: {error}").into());
+                return;
+            }
+        };
+        let enabled = !app.get_live_text_enabled();
+        preferences.live_text_enabled = enabled;
+        let result = serde_json::to_string_pretty(&preferences)
+            .map_err(|error| error.to_string())
+            .and_then(|text| {
+                platform::save_preferences(&live_text_path, &text)
+                    .map_err(|error| error.to_string())
+            });
+        match result {
+            Ok(()) => app.set_live_text_enabled(enabled),
+            Err(error) => {
+                app.set_status(format!("Could not save Live Text preference: {error}").into())
+            }
         }
     });
     app.on_toggle_music_mode(move || {
@@ -1539,7 +2731,7 @@ pub(crate) fn configure_player(
         };
         if visible {
             app.set_controls_rendered(true);
-        } else if app.get_disable_animations() {
+        } else if app.get_disable_animations() || app.get_system_reduce_motion() {
             app.set_controls_rendered(false);
         } else {
             let weak = app.as_weak();
@@ -1620,8 +2812,12 @@ pub(crate) fn configure_player(
         disable_seek_timer.stop();
         disable_video_timer.stop();
         disable_screenshot_timer.stop();
+        if let Ok(mut video_osd) = disable_video_osd.lock() {
+            video_osd.clear_pending();
+        }
         app.set_seek_osd_visible(false);
         app.set_video_osd_visible(false);
+        app.set_video_osd_request_feedback(false);
         clear_screenshot_preview(&app);
     });
     let screenshot_player = player.command_sender();
@@ -1761,12 +2957,34 @@ pub(crate) fn configure_player(
         clear_screenshot_preview(&app);
         app.set_video_osd_visible(true);
         let weak = weak.clone();
+        let pending_video_osd = pending_video_osd.clone();
         video_timer.start(
             slint::TimerMode::SingleShot,
             configured_osd_timeout(&app),
             move || {
-                if let Some(app) = weak.upgrade() {
+                let Some(app) = weak.upgrade() else { return };
+                if !app.get_osd_enabled() {
+                    if let Ok(mut video_osd) = pending_video_osd.lock() {
+                        video_osd.clear_pending();
+                    }
                     app.set_video_osd_visible(false);
+                    app.set_video_osd_request_feedback(false);
+                    return;
+                }
+                let next = pending_video_osd
+                    .lock()
+                    .ok()
+                    .and_then(|mut video_osd| video_osd.take_pending());
+                if let Some(message) = next {
+                    app.set_video_osd_request_feedback(
+                        message.kind == crate::video_osd::Kind::Aspect,
+                    );
+                    app.set_video_osd_text(message.text.into());
+                    app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+                    app.invoke_show_video_osd();
+                } else {
+                    app.set_video_osd_visible(false);
+                    app.set_video_osd_request_feedback(false);
                 }
             },
         );
@@ -1859,71 +3077,57 @@ pub(crate) fn configure_player(
         }
     });
     let scroll_player = player.command_sender();
-    let scroll_app = app.as_weak();
-    app.on_scroll_action_request(move |delta_x, delta_y| {
-        let Some(app) = scroll_app.upgrade() else {
-            return false;
-        };
-        if app.get_scroll_input_suppressed() {
-            return true;
-        }
-        let horizontal = delta_x.abs() > delta_y.abs();
-        let delta = if horizontal { delta_x } else { delta_y };
-        if delta == 0.0 {
-            return false;
-        }
-        let Ok(settings) = crate::control_preferences::current_player(&app) else {
-            return false;
-        };
-        // Slint/winit reports line-wheel steps as 60 logical pixels; smaller
-        // deltas retain trackpad precision for the source sensitivity curves.
-        let precise = delta.abs() < 60.0;
-        let effect = riina_core::control_preferences::scroll_effect(
-            &settings,
-            horizontal,
-            f64::from(delta),
-            precise,
-        );
-        let command = match effect {
-            riina_core::control_preferences::ScrollEffect::None => return false,
-            riina_core::control_preferences::ScrollEffect::AdjustVolume(delta) => {
-                Command::AdjustVolume {
-                    delta,
-                    boost: app.get_volume_boost(),
-                }
-            }
-            riina_core::control_preferences::ScrollEffect::Seek(seconds) => Command::SeekWithType {
-                seconds,
-                seek_type: settings.seek_type,
-            },
-            riina_core::control_preferences::ScrollEffect::MultiplySpeed(factor) => {
-                let current = f64::from(app.get_speed_value()).clamp(0.05, 4.0);
-                let target = (current * factor).clamp(0.05, 4.0);
-                Command::MultiplySpeed(target / current)
-            }
-        };
-        app.invoke_activity();
-        if let Err(error) = scroll_player.send(command) {
-            app.set_status(error.into());
-        }
-        true
-    });
+    let scroll_playback = latest_playback.clone();
+    let scroll_pause_generation = trackpad_pause_generation.clone();
+    app.on_scroll_action_request(scroll_action_handler(
+        app.as_weak(),
+        scroll_player.clone(),
+        scroll_playback.clone(),
+        scroll_input.clone(),
+        scroll_pause_generation.clone(),
+        None,
+    ));
+    app.on_seek_scroll_action_request(scroll_action_handler(
+        app.as_weak(),
+        scroll_player.clone(),
+        scroll_playback.clone(),
+        scroll_input.clone(),
+        scroll_pause_generation.clone(),
+        Some(riina_core::control_preferences::ScrollAction::Seek),
+    ));
+    app.on_volume_scroll_action_request(scroll_action_handler(
+        app.as_weak(),
+        scroll_player,
+        scroll_playback,
+        scroll_input,
+        scroll_pause_generation,
+        Some(riina_core::control_preferences::ScrollAction::Volume),
+    ));
     macro_rules! connect {
         ($method:ident, $command:expr) => {{
             let player = player.command_sender();
             let weak = app.as_weak();
             app.$method(move || {
                 let command = $command;
+                let show_stop = matches!(&command, Command::Stop);
                 if let Some(app) = weak.upgrade() {
                     app.invoke_activity();
                     if matches!(command, Command::Stop) {
                         media_open::invalidate(&app);
                     }
                 }
-                if let Err(error) = player.send(command) {
-                    if let Some(app) = weak.upgrade() {
-                        app.set_status(error.into());
+                match player.send(command) {
+                    Err(error) => {
+                        if let Some(app) = weak.upgrade() {
+                            app.set_status(error.into());
+                        }
                     }
+                    Ok(()) if show_stop => {
+                        if let Some(app) = weak.upgrade() {
+                            show_osd_message(&app, "Stop", true);
+                        }
+                    }
+                    Ok(()) => {}
                 }
             });
         }};
@@ -1938,6 +3142,28 @@ pub(crate) fn configure_player(
         };
         app.invoke_activity();
         if let Err(error) = pause_player.toggle_pause() {
+            app.set_status(error.into());
+        }
+    });
+    let set_pause_player = player.command_sender();
+    let set_pause_app = app.as_weak();
+    app.on_set_paused(move |paused| {
+        let Some(app) = set_pause_app.upgrade() else {
+            return;
+        };
+        app.invoke_activity();
+        if let Err(error) = set_pause_player.send(Command::SetPaused(paused)) {
+            app.set_status(error.into());
+        }
+    });
+    let input_action_player = player.command_sender();
+    let input_action_app = app.as_weak();
+    app.on_execute_mpv_input_action(move |action| {
+        let Some(app) = input_action_app.upgrade() else {
+            return;
+        };
+        app.invoke_activity();
+        if let Err(error) = input_action_player.send(Command::MpvInputAction(action.to_string())) {
             app.set_status(error.into());
         }
     });
@@ -2377,6 +3603,7 @@ pub(crate) fn configure_player(
         Command::ToggleSubtitleVisibility
     );
     let selection_player = player.command_sender();
+    let selection_state = latest_playback.clone();
     let weak = app.as_weak();
     app.on_select_item(move |category, token| {
         // IDs stay strings in the UI: Slint's float numbers cannot preserve every i64.
@@ -2412,10 +3639,24 @@ pub(crate) fn configure_player(
                 .map_err(|error| error.to_string()),
             _ => Err("Unknown selection category".into()),
         };
+        let chapter_title = if category == 3 {
+            token
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| selection_state.lock().ok()?.chapters.get(index).cloned())
+                .and_then(|chapter| chapter.title)
+        } else {
+            None
+        };
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
-            if let Err(error) = command.and_then(|command| selection_player.send(command)) {
-                app.set_status(error.into());
+            match command.and_then(|command| selection_player.send(command)) {
+                Err(error) => app.set_status(error.into()),
+                Ok(()) => {
+                    if let Some(title) = chapter_title {
+                        show_osd_message(&app, format!("Chapter: {title}"), false);
+                    }
+                }
             }
         }
     });
@@ -2443,7 +3684,7 @@ pub(crate) fn configure_player(
         let Some(window) = weak.upgrade() else {
             return;
         };
-        if matches!(action, 6..=9) {
+        if matches!(action, 6..=11) {
             window.invoke_activity();
             let rows = window.get_playlist();
             let selected_index = (0..rows.row_count()).find(|index| {
@@ -2456,29 +3697,66 @@ pub(crate) fn configure_player(
                     if paths.is_empty() {
                         Err("Select a playlist item first".into())
                     } else {
-                        crate::platform::clipboard::copy_text(&paths.join("\n")).and_then(|()| {
-                            if action == 7 {
-                                selected_playlist_ids(&window, token.as_str()).and_then(|ids| {
-                                    playlist_player.send(Command::RemovePlaylistIds(ids))
-                                })
-                            } else {
-                                Ok(())
-                            }
-                        })
+                        crate::platform::clipboard::copy_playlist_references(&paths).and_then(
+                            |()| {
+                                if action == 7 {
+                                    selected_playlist_ids(&window, token.as_str()).and_then(|ids| {
+                                        playlist_player.send(Command::RemovePlaylistIds(ids))
+                                    })
+                                } else {
+                                    Ok(())
+                                }
+                            },
+                        )
                     }
                 }
-                8 => crate::platform::clipboard::read_text().and_then(|text| {
-                    let paths = riina_core::playlist::clipboard_references(&text);
+                8 => crate::platform::clipboard::read_playlist_references().and_then(|paths| {
                     if paths.is_empty() {
                         return Err("Clipboard contains no playlist references".into());
                     }
-                    let index = selected_index.unwrap_or(0);
-                    playlist_player.send(Command::InsertPlaylistFiles { paths, index })
+                    let index = playlist_paste_index(&window, token.as_str());
+                    let count = paths.len();
+                    playlist_player
+                        .send(Command::InsertPlaylistFiles { paths, index })
+                        .map(|()| {
+                            show_osd_message(
+                                &window,
+                                format!("Added {count} Files to Playlist"),
+                                false,
+                            );
+                        })
                 }),
                 9 => selected_index
                     .and_then(|index| rows.row_data(index))
                     .ok_or_else(|| "Select a playlist item first".to_owned())
-                    .and_then(|row| crate::media_open::open_in_new_player(row.path.as_str())),
+                    .and_then(|row| {
+                        crate::media_open::open_in_new_player(&window, row.path.as_str())
+                    }),
+                10 => {
+                    let urls = selected_playlist_paths(&window, token.as_str())
+                        .into_iter()
+                        .filter(|path| crate::platform::is_http_url(path))
+                        .collect::<Vec<_>>();
+                    if urls.is_empty() {
+                        Err("Select an HTTP or HTTPS playlist entry first".into())
+                    } else {
+                        urls.iter().try_for_each(|url| {
+                            crate::platform::open_http_url_in_browser(url)
+                                .map_err(|error| error.to_string())
+                        })
+                    }
+                }
+                11 => {
+                    let urls = selected_playlist_paths(&window, token.as_str())
+                        .into_iter()
+                        .filter(|path| crate::platform::is_http_url(path))
+                        .collect::<Vec<_>>();
+                    if urls.is_empty() {
+                        Err("Select an HTTP or HTTPS playlist entry first".into())
+                    } else {
+                        crate::platform::clipboard::copy_text(&urls.join("\n"))
+                    }
+                }
                 _ => unreachable!(),
             };
             if let Err(error) = result {
@@ -2506,6 +3784,8 @@ pub(crate) fn configure_player(
         window.invoke_activity();
         if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
             window.set_status(error.into());
+        } else if action == 4 {
+            show_osd_message(&window, "Cleared Playlist", false);
         } else if action == 1 {
             window.set_selected_playlist_token("".into());
             window.set_selected_playlist_tokens(slint::ModelRc::default());
@@ -2764,6 +4044,19 @@ pub(crate) fn configure_player(
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
             let fullscreen = !app.get_fullscreen();
+            if fullscreen
+                && app.get_loaded()
+                && app.get_paused()
+                && app.get_play_when_entering_fullscreen()
+            {
+                app.invoke_set_paused(false);
+            } else if !fullscreen
+                && app.get_loaded()
+                && !app.get_paused()
+                && app.get_pause_when_leaving_fullscreen()
+            {
+                app.invoke_set_paused(true);
+            }
             if let Some(host) = fullscreen_host.as_ref().and_then(slint::Weak::upgrade) {
                 // The native host owns the Windows menu bar; remove it before
                 // borderless fullscreen and restore it when returning to windowed mode.
@@ -2917,6 +4210,7 @@ pub(crate) fn configure_player(
                 // safely dirty a property that schedules another redraw.
                 app.set_video_frame(slint::Image::default());
                 app.set_engine_ready(false);
+                app.invoke_close_player();
             }
             slint::CloseRequestResponse::HideWindow
         }
@@ -2993,14 +4287,33 @@ pub(crate) fn configure_player(
             .send(Command::Volume(prefs.volume))
             .map_err(std::io::Error::other)?;
         if !media.is_empty() {
-            media_open::startup(app, media, player.command_sender());
+            media_open::startup_at(app, media, startup_resume_position, player.command_sender());
         }
         return Ok(UiSession {
             player: Some(player),
+            #[cfg(target_os = "windows")]
+            _plugin_overlay_presenter: plugin_overlay_presenter,
+            #[cfg(target_os = "macos")]
+            _system_media_controls: system_media_controls,
+            #[cfg(target_os = "macos")]
+            _system_media_controls_timer: system_media_controls_timer,
+            #[cfg(target_os = "macos")]
+            _picture_in_picture: picture_in_picture,
+            #[cfg(target_os = "macos")]
+            _picture_in_picture_timer: picture_in_picture_timer,
+            #[cfg(target_os = "macos")]
+            _mac_scroll_event_monitor: mac_scroll_event_monitor,
             _presentation: native,
             _hdr_display_timer: hdr_display_timer,
             _live_text_timer: live_text_timer,
             _appearance_timer: appearance_timer,
+            _pause_resume_timer: pause_resume_timer,
+            _thumbnail_preview_timer: thumbnail_preview_timer,
+            _subtitle_priority_timer: subtitle_priority_timer.clone(),
+            _online_subtitles_window: online_subtitles_window,
+            _online_subtitles_timer: online_subtitles_timer,
+            _file_drop_timer: file_drop_timer,
+            _player_window_focus: player_window_focus,
             _plugin_host: plugin_host,
             _plugin_host_timer: plugin_host_timer,
             _plugin_osd_timer: plugin_osd_timer,
@@ -3012,13 +4325,17 @@ pub(crate) fn configure_player(
         });
     }
     let pending_media = Rc::new(RefCell::new(media));
+    let pending_resume_position = Rc::new(Cell::new(startup_resume_position));
     let render_weak = app.as_weak();
     let render_player = player.clone();
+    let render_resume_position = pending_resume_position.clone();
     let mut surface: Option<VideoSurface> = None;
     let render_generation = Rc::new(Cell::new(0_u64));
     let mut started = false;
     let repaint_pending = Arc::new(AtomicBool::new(false));
     let volume = prefs.volume;
+    #[cfg(target_os = "macos")]
+    let render_picture_in_picture = picture_in_picture.clone();
     app.window()
         .set_rendering_notifier(move |state, graphics_api| {
             match state {
@@ -3048,6 +4365,18 @@ pub(crate) fn configure_player(
                             )
                         } {
                             Ok(video) => {
+                                #[cfg(target_os = "macos")]
+                                if let Some(manager) =
+                                    render_picture_in_picture.borrow_mut().as_mut()
+                                    && let Err(error) =
+                                        unsafe { manager.configure_rendering(&get_proc_address) }
+                                    && let Some(app) = render_weak.upgrade()
+                                {
+                                    app.set_status(
+                                        format!("PiP renderer initialization failed: {error}")
+                                            .into(),
+                                    );
+                                }
                                 surface = Some(video);
                                 if let Some(app) = render_weak.upgrade() {
                                     app.set_engine_ready(true);
@@ -3079,14 +4408,24 @@ pub(crate) fn configure_player(
                                     .build()
                                 };
                                 app.set_video_frame(image);
+                                #[cfg(target_os = "macos")]
+                                if let Some(manager) =
+                                    render_picture_in_picture.borrow_mut().as_mut()
+                                    && let Err(error) = unsafe { manager.render_frame(video) }
+                                {
+                                    app.set_status(
+                                        format!("PiP frame rendering failed: {error}").into(),
+                                    );
+                                }
                                 if !started {
                                     started = true;
                                     let _ = render_player.send(Command::Volume(volume));
                                     let paths = std::mem::take(&mut *pending_media.borrow_mut());
                                     if !paths.is_empty() {
-                                        media_open::startup(
+                                        media_open::startup_at(
                                             &app,
                                             paths,
+                                            render_resume_position.take(),
                                             render_player.command_sender(),
                                         );
                                     }
@@ -3098,7 +4437,20 @@ pub(crate) fn configure_player(
                         }
                     }
                 }
+                slint::RenderingState::AfterRendering => {
+                    if let Some(video) = surface.as_ref() {
+                        // Slint presents immediately after this notifier; report at its
+                        // submission boundary so libmpv can pace the next video frame.
+                        // SAFETY: same live renderer and context as the composed frame.
+                        unsafe { video.report_swap() };
+                    }
+                }
                 slint::RenderingState::RenderingTeardown => {
+                    #[cfg(target_os = "macos")]
+                    if let Some(manager) = render_picture_in_picture.borrow_mut().as_mut() {
+                        // SAFETY: RenderingTeardown runs before Slint releases its GL context.
+                        unsafe { manager.teardown_rendering() };
+                    }
                     drop(surface.take());
                     // Context loss also needs UI invalidation, but only after
                     // the backend releases its mutable window borrow. A later
@@ -3120,10 +4472,29 @@ pub(crate) fn configure_player(
         })?;
     Ok(UiSession {
         player: Some(player),
+        #[cfg(target_os = "windows")]
+        _plugin_overlay_presenter: plugin_overlay_presenter,
+        #[cfg(target_os = "macos")]
+        _system_media_controls: system_media_controls,
+        #[cfg(target_os = "macos")]
+        _system_media_controls_timer: system_media_controls_timer,
+        #[cfg(target_os = "macos")]
+        _picture_in_picture: picture_in_picture,
+        #[cfg(target_os = "macos")]
+        _picture_in_picture_timer: picture_in_picture_timer,
+        #[cfg(target_os = "macos")]
+        _mac_scroll_event_monitor: mac_scroll_event_monitor,
         _presentation: None,
         _hdr_display_timer: None,
         _live_text_timer: live_text_timer,
         _appearance_timer: appearance_timer,
+        _pause_resume_timer: pause_resume_timer,
+        _thumbnail_preview_timer: thumbnail_preview_timer,
+        _subtitle_priority_timer: subtitle_priority_timer,
+        _online_subtitles_window: online_subtitles_window,
+        _online_subtitles_timer: online_subtitles_timer,
+        _file_drop_timer: file_drop_timer,
+        _player_window_focus: player_window_focus,
         _plugin_host: plugin_host,
         _plugin_host_timer: plugin_host_timer,
         _plugin_osd_timer: plugin_osd_timer,

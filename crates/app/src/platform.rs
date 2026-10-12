@@ -4,6 +4,56 @@ pub(crate) mod folder_dialog;
 pub(crate) mod language;
 pub(crate) mod settings_file;
 
+/// Uses each operating system's mounted-volume metadata for IINA's remote-drive policy.
+pub(crate) fn is_remote_volume(path: &std::path::Path) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        windows::services::is_remote_volume(path)
+    }
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        unix::services::is_remote_volume(path)
+    }
+}
+
+/// Resolves native path aliases before shared media discovery.
+pub(crate) fn resolve_alias_path(path: &str) -> String {
+    #[cfg(target_os = "macos")]
+    {
+        unix::services::resolve_alias_path(path)
+    }
+    #[cfg(target_os = "windows")]
+    {
+        windows::services::resolve_shortcut_path(std::path::Path::new(path))
+            .map(|resolved| resolved.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.to_owned())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        path.to_owned()
+    }
+}
+
+/// Registers the checked media groups with the current platform's default-app service.
+pub(crate) fn register_default_file_types(
+    video: bool,
+    audio: bool,
+    playlists: bool,
+) -> std::io::Result<usize> {
+    #[cfg(target_os = "windows")]
+    {
+        windows::services::register_default_file_types(video, audio, playlists)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unix::services::register_default_file_types(video, audio, playlists)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        unix::services::register_default_file_types(video, audio, playlists)
+    }
+}
+
 /// Respect the Windows client-area motion accessibility switch without
 /// mutating a user preference or making calls into the OS from a render callback.
 pub(crate) fn system_reduce_motion_enabled() -> bool {
@@ -39,9 +89,131 @@ pub(crate) fn system_reduce_motion_enabled() -> bool {
         NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
     }
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
+    {
+        unix::accessibility::system_reduce_motion_enabled()
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         false
+    }
+}
+
+pub fn is_http_url(value: &str) -> bool {
+    validate_browser_url(value).is_ok()
+}
+
+pub fn open_http_url_in_browser(value: &str) -> std::io::Result<()> {
+    let url = validate_browser_url(value)?;
+    #[cfg(target_os = "windows")]
+    {
+        use ::windows::{
+            Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
+            core::{PCWSTR, w},
+        };
+        use std::os::windows::ffi::OsStrExt;
+        let url: Vec<u16> = std::ffi::OsStr::new(url.as_str())
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        // SAFETY: the normalized URL is valid UTF-16 and remains live through
+        // this call; one URL argument avoids shell interpretation.
+        let result = unsafe {
+            ShellExecuteW(
+                None,
+                w!("open"),
+                PCWSTR(url.as_ptr()),
+                None,
+                None,
+                SW_SHOWNORMAL,
+            )
+        };
+        if result.0 as isize <= 32 {
+            return Err(std::io::Error::other("Could not open the URL in a browser"));
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url.as_str())
+            .spawn()?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url.as_str())
+            .spawn()?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = url;
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "Opening browser URLs is unsupported on this platform",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_browser_url(value: &str) -> std::io::Result<url::Url> {
+    let Some((scheme, remainder)) = value.split_once(':') else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Only absolute HTTP and HTTPS URLs can open in a browser",
+        ));
+    };
+    if !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https") {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Only HTTP and HTTPS playlist entries can open in a browser",
+        ));
+    }
+    let has_authority = remainder
+        .strip_prefix("//")
+        .and_then(|value| value.split(['/', '?', '#']).next())
+        .is_some_and(|host| !host.is_empty());
+    if !has_authority || value.trim() != value {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Only absolute HTTP and HTTPS URLs can open in a browser",
+        ));
+    }
+    let url = url::Url::parse(value)
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Only HTTP and HTTPS playlist entries can open in a browser",
+        ));
+    }
+    Ok(url)
+}
+
+#[cfg(test)]
+mod browser_url_tests {
+    use super::{is_http_url, validate_browser_url};
+
+    #[test]
+    fn browser_action_accepts_only_absolute_http_urls() {
+        for value in [
+            "https://example.com/watch?v=1",
+            "http://localhost:8080/video",
+            "HTTPS://EXAMPLE.COM/VIDEO",
+        ] {
+            assert!(is_http_url(value));
+            assert!(validate_browser_url(value).is_ok());
+        }
+        for value in [
+            "file:///C:/movie.mkv",
+            "ftp://example.com/movie.mkv",
+            "javascript:alert(1)",
+            "https:///missing-host",
+            "relative/path",
+        ] {
+            assert!(!is_http_url(value));
+            assert!(validate_browser_url(value).is_err());
+        }
     }
 }
 
@@ -201,13 +373,19 @@ mod windows;
 pub(crate) use windows::text_recognition;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
-    NativePresentation, file_dialog, native_window, open_dialog, services::*,
+    NativePresentation, PluginOverlayPresenter, file_dialog, native_window, open_dialog,
+    services::*,
 };
 
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::text_recognition;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::{
+    ControlGesture, GesturePhase, MacPictureInPicture, MacScrollEventMonitor, NativeScrollEvent,
+    RemoteMediaAction, SystemMediaControls, install_control_gestures,
+};
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod unix;

@@ -1,19 +1,21 @@
 //! Local-file selection rules from the pinned PlayerCore/DraggingDetect workflow.
 use std::{cmp::Ordering, collections::HashSet, fs, path::Path};
 
-// Utility.blacklistExt: explicitly selected unknown formats remain eligible.
-const BLACKLIST: &[&str] = &[
+// Utility.blacklistExt also excludes multi-file playlists from directory scans.
+const MULTI_FILE_PLAYLIST_EXTENSIONS: &[&str] = &["m3u", "m3u8", "pls"];
+pub const SUPPORTED_SUBTITLE_EXTENSIONS: &[&str] = &[
     "utf", "utf8", "utf-8", "idx", "sub", "srt", "smi", "rt", "ssa", "aqt", "jss", "js", "ass",
-    "mks", "vtt", "sup", "scc", "lrc", "m3u", "m3u8", "pls",
+    "mks", "vtt", "sup", "scc", "lrc",
 ];
 
-// Compatibility data, not a decoder capability claim. Folder discovery uses a
-// positive list; explicit file selection deliberately permits unknown formats.
-const DISCOVERABLE: &[&str] = &[
+// IINA's supportedFileExt sets drive folder scans and same-folder playlist adds.
+pub const SUPPORTED_VIDEO_EXTENSIONS: &[&str] = &[
     "mkv", "mp4", "avi", "m4v", "mov", "3gp", "ts", "mts", "m2ts", "wmv", "flv", "f4v", "asf",
-    "webm", "rm", "rmvb", "qt", "dv", "mpg", "mpeg", "mxf", "vob", "gif", "ogv", "ogm", "mp3",
-    "aac", "mka", "dts", "flac", "ogg", "oga", "mogg", "m4a", "ac3", "opus", "wav", "wv", "aiff",
-    "aif", "ape", "tta", "tak",
+    "webm", "rm", "rmvb", "qt", "dv", "mpg", "mpeg", "mxf", "vob", "gif", "ogv", "ogm",
+];
+pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[
+    "mp3", "aac", "mka", "dts", "flac", "ogg", "oga", "mogg", "m4a", "ac3", "opus", "wav", "wv",
+    "aiff", "aif", "ape", "tta", "tak",
 ];
 
 pub fn prepare(
@@ -26,6 +28,14 @@ pub fn prepare(
         .any(|path| path.is_empty() || path.contains('\0'))
     {
         return Err("The media path is empty or contains a NUL byte".into());
+    }
+    if open_media && paths.len() == 1 && crate::media_reference::is_network_url_candidate(&paths[0])
+    {
+        return Ok(vec![
+            crate::media_reference::validate_network_url(&paths[0])
+                .map_err(str::to_owned)?
+                .to_owned(),
+        ]);
     }
     // PlayerCore.openURLs lets mpv expand a single playlist before applying the
     // regular blacklist. Playlist additions deliberately use the regular rules.
@@ -40,16 +50,55 @@ pub fn prepare(
         return Ok(paths);
     }
     let mut files = Vec::new();
+    let mut local_files = Vec::new();
+    let mut seen = HashSet::new();
     for path in paths {
+        if open_media && crate::media_reference::is_network_url_candidate(&path) {
+            // URLs are already explicit playlist entries; never treat their
+            // slashes as directories or reorder them with local selections.
+            flush_local_files(&mut local_files, &mut files, &mut seen, &compare_names);
+            let url = crate::media_reference::validate_network_url(&path)
+                .map_err(str::to_owned)?
+                .to_owned();
+            if seen.insert(url.clone()) {
+                files.push(url);
+            }
+            continue;
+        }
         if Path::new(&path).is_dir() {
-            discover(Path::new(&path), &mut files)?;
-        } else if !BLACKLIST.contains(&extension(&path).as_str()) {
-            files.push(path);
+            discover(Path::new(&path), &mut local_files)?;
+        } else if !is_supported_subtitle(&path)
+            && !MULTI_FILE_PLAYLIST_EXTENSIONS.contains(&extension(&path).as_str())
+        {
+            local_files.push(path);
         }
     }
-    let mut seen = HashSet::new();
-    files.retain(|path| seen.insert(path.clone()));
-    files.sort_by(|left, right| {
+    flush_local_files(&mut local_files, &mut files, &mut seen, &compare_names);
+    Ok(files)
+}
+
+/// Recognize the subtitle formats accepted by IINA's file-drop fallback.
+pub fn is_supported_subtitle(path: &str) -> bool {
+    !Path::new(path).is_dir() && SUPPORTED_SUBTITLE_EXTENSIONS.contains(&extension(path).as_str())
+}
+
+pub fn is_supported_media(path: &str) -> bool {
+    let extension = extension(path);
+    SUPPORTED_VIDEO_EXTENSIONS.contains(&extension.as_str())
+        || SUPPORTED_AUDIO_EXTENSIONS.contains(&extension.as_str())
+}
+
+pub fn is_supported_video(path: &str) -> bool {
+    SUPPORTED_VIDEO_EXTENSIONS.contains(&extension(path).as_str())
+}
+
+fn flush_local_files(
+    local_files: &mut Vec<String>,
+    files: &mut Vec<String>,
+    seen: &mut HashSet<String>,
+    compare_names: &impl Fn(&str, &str) -> Ordering,
+) {
+    local_files.sort_by(|left, right| {
         let left_path = Path::new(left);
         let right_path = Path::new(right);
         match left_path.parent().cmp(&right_path.parent()) {
@@ -61,7 +110,11 @@ pub fn prepare(
             order => order,
         }
     });
-    Ok(files)
+    files.extend(
+        local_files
+            .drain(..)
+            .filter(|path| seen.insert(path.clone())),
+    );
 }
 
 fn is_bluray_folder(path: &Path) -> bool {
@@ -95,7 +148,7 @@ fn discover(root: &Path, files: &mut Vec<String>) -> Result<(), String> {
                     .into_os_string()
                     .into_string()
                     .map_err(|_| "The path contains invalid Unicode")?;
-                if DISCOVERABLE.contains(&extension(&path).as_str()) {
+                if is_supported_media(&path) {
                     files.push(path);
                 }
             }

@@ -31,6 +31,9 @@ pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &OnlineVide
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &OnlineVideos) {
     window.set_network_ytdl_enabled(preferences.enabled);
+    window.set_network_ytdl_ui_enabled(
+        preferences.enabled && !window.get_network_ytdl_plugin_active(),
+    );
     window.set_network_ytdl_search_path(preferences.search_path.clone().into());
     window.set_network_ytdl_raw_options(preferences.raw_options.clone().into());
 }
@@ -42,12 +45,30 @@ pub(crate) fn apply(
     selected: &OnlineVideos,
 ) -> Result<(), String> {
     if previous != selected {
+        let mut effective = selected.clone();
+        if app.get_network_ytdl_plugin_active() {
+            effective.enabled = false;
+        }
         player
-            .send(riina_core::Command::NetworkOnlineVideos(selected.clone()))
+            .send(riina_core::Command::NetworkOnlineVideos(effective))
             .map_err(|error| error.to_string())?;
         install_player(app, selected);
     }
     Ok(())
+}
+
+pub(crate) fn apply_plugin_override(
+    player: &riina_mpv::CommandSender,
+    app: &crate::PlayerWindow,
+    plugin_active: bool,
+) -> Result<(), String> {
+    let mut effective = current_player(app)?;
+    if plugin_active {
+        effective.enabled = false;
+    }
+    player
+        .send(riina_core::Command::NetworkOnlineVideos(effective))
+        .map_err(|error| error.to_string())
 }
 
 pub(crate) fn restore(
@@ -57,7 +78,11 @@ pub(crate) fn restore(
     selected: &OnlineVideos,
 ) {
     if previous != selected {
-        let _ = player.send(riina_core::Command::NetworkOnlineVideos(previous.clone()));
+        let mut effective = previous.clone();
+        if app.get_network_ytdl_plugin_active() {
+            effective.enabled = false;
+        }
+        let _ = player.send(riina_core::Command::NetworkOnlineVideos(effective));
         install_player(app, previous);
     }
 }

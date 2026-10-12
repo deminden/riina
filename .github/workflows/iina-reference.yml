@@ -5,10 +5,19 @@ permissions:
   contents: read
 jobs:
   reference:
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+      - name: Require the current macOS reference version
+        shell: bash
+        run: |
+          version="$(sw_vers -productVersion)"
+          sw_vers
+          if [[ "$version" != '27.0.1' ]]; then
+            echo "::error::Reference capture requires macOS 27.0.1; this runner has macOS $version."
+            exit 1
+          fi
       - name: Obtain exact official reference release
         shell: bash
         run: |

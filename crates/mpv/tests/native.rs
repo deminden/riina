@@ -305,6 +305,56 @@ fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; decodes IINA-count thumbnail samples in an isolated player"]
+fn thumbnail_generator_extracts_one_hundred_and_one_isolated_frames() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let media = root.join("tests/fixtures/moving-square.avi");
+    let generator = riina_mpv::thumbnail_generator::Generator::start(
+        &test_library(&root),
+        media.to_str().unwrap(),
+        64,
+    )
+    .unwrap();
+    let mut samples = Vec::new();
+    let deadline = Instant::now() + Duration::from_secs(90);
+    loop {
+        assert!(Instant::now() < deadline, "thumbnail generation timed out");
+        let event = match generator.try_recv() {
+            Ok(event) => event,
+            Err(mpsc::TryRecvError::Empty) => {
+                std::thread::sleep(Duration::from_millis(10));
+                continue;
+            }
+            Err(mpsc::TryRecvError::Disconnected) => panic!("thumbnail worker stopped"),
+        };
+        match event {
+            riina_mpv::thumbnail_generator::Event::Sample(sample) => {
+                assert_eq!((sample.frame.width, sample.frame.height), (64, 36));
+                samples.push(sample);
+            }
+            riina_mpv::thumbnail_generator::Event::Finished(Ok(())) => break,
+            riina_mpv::thumbnail_generator::Event::Finished(Err(error)) => panic!("{error}"),
+        }
+    }
+    assert_eq!(samples.len(), 101);
+    assert_eq!(samples.first().unwrap().index, 0);
+    assert_eq!(samples.last().unwrap().index, 100);
+    assert!(
+        samples
+            .windows(2)
+            .all(|pair| pair[1].timestamp >= pair[0].timestamp)
+    );
+    assert!(
+        samples
+            .windows(2)
+            .any(|pair| pair[0].frame.rgba != pair[1].frame.rgba)
+    );
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies live pause-on-open policy without pausing current media"]
 fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_playback() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

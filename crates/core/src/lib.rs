@@ -11,8 +11,10 @@ pub mod file_selection;
 pub mod hdr_preferences;
 pub mod key_bindings;
 pub mod liquid_glass;
+pub mod media_reference;
 pub mod music_mode;
 pub mod network_preferences;
+pub mod online_subtitles;
 pub mod osc_preferences;
 pub mod pip_lifecycle;
 pub mod pip_preferences;
@@ -22,6 +24,7 @@ pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
 pub mod subtitle_controls;
+pub mod thumbnail_preferences;
 pub mod time_input;
 mod track_labels;
 pub mod video_controls;
@@ -42,9 +45,12 @@ pub enum Command {
     },
     OpenFiles(Vec<String>),
     SetPauseWhenOpen(bool),
+    SetKeepOpenOnFileEnd(bool),
     SetResumeLastPosition(bool),
     SetPaused(bool),
     TogglePause,
+    /// A validated mpv input.conf action from the active key binding profile.
+    MpvInputAction(String),
     Stop,
     Seek {
         seconds: f64,
@@ -140,6 +146,10 @@ pub enum Command {
         paths: Vec<String>,
         index: usize,
     },
+    InsertPlaylistFilesAroundCurrent {
+        before: Vec<String>,
+        after: Vec<String>,
+    },
     RemovePlaylistEntry(usize),
     MovePlaylistEntry {
         from: usize,
@@ -147,6 +157,7 @@ pub enum Command {
     },
     ClearPlaylist,
     AddSubtitle(String),
+    AddSubtitlesWithoutSelection(Vec<String>),
     AddAudio(String),
     AudioDelay(f64),
     AdjustAudioDelay(f64),
@@ -219,6 +230,12 @@ impl Command {
                 if *paused { "yes" } else { "no" }.into(),
             ],
             Self::TogglePause => vec!["cycle".into(), "pause".into()],
+            Self::SetKeepOpenOnFileEnd(enabled) => vec![
+                "set".into(),
+                "keep-open".into(),
+                if *enabled { "yes" } else { "no" }.into(),
+            ],
+            Self::MpvInputAction(action) => key_bindings::mpv_action_args(action)?,
             Self::Stop => vec!["stop".into()],
             Self::Seek { seconds, absolute } if seconds.is_finite() => vec![
                 "seek".into(),
@@ -334,15 +351,18 @@ impl Command {
                 vec!["playlist-move".into(), from.to_string(), to.to_string()]
             }
             Self::ClearPlaylist => vec!["playlist-clear".into()],
-            Self::AddSubtitle(path) | Self::AddAudio(path) if valid_path(path) => vec![
-                if matches!(self, Self::AddSubtitle(_)) {
-                    "sub-add"
-                } else {
-                    "audio-add"
-                }
-                .into(),
-                path.clone(),
-            ],
+            Self::AddSubtitle(path) | Self::AddAudio(path) if valid_path(path) => {
+                let args = vec![
+                    if matches!(self, Self::AddAudio(_)) {
+                        "audio-add"
+                    } else {
+                        "sub-add"
+                    }
+                    .into(),
+                    path.clone(),
+                ];
+                args
+            }
             Self::AudioDelay(value) | Self::SubtitleDelay(value) if value.is_finite() => vec![
                 "set".into(),
                 if matches!(self, Self::AudioDelay(_)) {
@@ -501,6 +521,7 @@ impl Command {
             | Self::AdjustVolume { .. }
             | Self::SetVolumeBoost(_)
             | Self::AppendFiles(_)
+            | Self::AddSubtitlesWithoutSelection(_)
             | Self::InsertPlaylistFiles { .. }
             | Self::SubtitleLetterboxMargins(_)
             | Self::SubtitleEncoding(_)
@@ -529,6 +550,7 @@ impl Command {
             return Err("Text recognition is available only while video is paused".into());
         }
         let commands = match self {
+            Self::MpvInputAction(action) => key_bindings::mpv_action_commands(action)?,
             Self::SubtitleLetterboxMargins(enabled) => {
                 let value = if *enabled { "yes" } else { "no" };
                 vec![
@@ -876,6 +898,38 @@ impl Command {
                 }
                 commands
             }
+            Self::InsertPlaylistFilesAroundCurrent { before, after } => {
+                if before.is_empty() && after.is_empty()
+                    || before.iter().chain(after).any(|path| !valid_path(path))
+                {
+                    return Err("No valid folder media files were supplied".into());
+                }
+                let current_index = state
+                    .playlist
+                    .iter()
+                    .position(|entry| entry.current)
+                    .ok_or_else(|| "The current playlist item is no longer available".to_owned())?;
+                let first_new = state.playlist.len();
+                let mut commands = Vec::with_capacity(before.len() * 2 + after.len());
+                for (offset, path) in before.iter().enumerate() {
+                    commands.push(vec!["loadfile".into(), path.clone(), "append".into()]);
+                    let appended_index = first_new + offset;
+                    let destination = current_index + offset;
+                    if appended_index != destination {
+                        commands.push(vec![
+                            "playlist-move".into(),
+                            appended_index.to_string(),
+                            destination.to_string(),
+                        ]);
+                    }
+                }
+                commands.extend(
+                    after
+                        .iter()
+                        .map(|path| vec!["loadfile".into(), path.clone(), "append".into()]),
+                );
+                commands
+            }
             Self::Load(_) | Self::LoadAtPosition { .. } => {
                 let mut commands = hdr_preferences::output_commands(false, None)?;
                 commands.extend([
@@ -946,6 +1000,33 @@ impl Command {
                 } else {
                     vec![self.mpv_args()?]
                 }
+            }
+            Self::AddSubtitlesWithoutSelection(paths) => {
+                const MAX_SUBTITLES_PER_SCAN: usize = 64;
+                if paths.len() > MAX_SUBTITLES_PER_SCAN {
+                    return Err("Subtitle search returned too many matching files".into());
+                }
+                let mut added = Vec::<&str>::new();
+                let mut commands = Vec::new();
+                for path in paths {
+                    if !valid_path(path) {
+                        return Err("Invalid subtitle path".into());
+                    }
+                    let exists = state.tracks.iter().any(|track| {
+                        track.kind == TrackKind::Sub
+                            && track
+                                .external_filename
+                                .as_deref()
+                                .is_some_and(|existing| same_external_path(existing, path))
+                    }) || added
+                        .iter()
+                        .any(|existing| same_external_path(existing, path));
+                    if !exists {
+                        added.push(path);
+                        commands.push(vec!["sub-add".into(), path.clone(), "auto".into()]);
+                    }
+                }
+                commands
             }
             Self::CycleLoop => match state.loop_mode().next() {
                 LoopMode::Off => vec![
@@ -1510,7 +1591,18 @@ pub struct Preferences {
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
     pub action_after_launch: ActionAfterLaunch,
+    pub allow_multiple_windows: bool,
+    pub group_simultaneous_opens_in_playlist: bool,
+    pub allow_duplicate_players: bool,
+    pub playlist_auto_add: bool,
+    pub quit_when_no_opened_window: bool,
+    pub keep_open_on_file_end: bool,
     pub pause_when_open: bool,
+    pub play_when_entering_fullscreen: bool,
+    pub pause_when_leaving_fullscreen: bool,
+    pub pause_when_inactive: bool,
+    pub pause_when_minimized: bool,
+    pub pause_when_goes_to_sleep: bool,
     pub fullscreen_when_open: bool,
     pub resume_last_position: bool,
     pub auto_switch_to_music_mode: bool,
@@ -1535,6 +1627,7 @@ pub struct Preferences {
     pub subtitle_position: subtitle_controls::PositionPreferences,
     pub subtitle_other: subtitle_controls::OtherPreferences,
     pub subtitle_auto_load: subtitle_controls::AutoLoadPreferences,
+    pub online_subtitles: online_subtitles::Preferences,
     pub subtitle_font: String,
     pub subtitle_font_size: f64,
     pub subtitle_text_style: subtitle_controls::TextStylePreferences,
@@ -1558,6 +1651,7 @@ pub struct Preferences {
     pub network: network_preferences::Connection,
     pub network_cache: network_preferences::Cache,
     pub network_online_videos: network_preferences::OnlineVideos,
+    pub thumbnail_preview: thumbnail_preferences::Settings,
     pub recent_media: Vec<RecentMedia>,
 }
 
@@ -1662,7 +1756,18 @@ impl Default for Preferences {
             always_float_on_top: false,
             always_show_on_top_icon: false,
             action_after_launch: ActionAfterLaunch::default(),
+            allow_multiple_windows: true,
+            group_simultaneous_opens_in_playlist: false,
+            allow_duplicate_players: false,
+            playlist_auto_add: true,
+            quit_when_no_opened_window: false,
+            keep_open_on_file_end: true,
             pause_when_open: false,
+            play_when_entering_fullscreen: false,
+            pause_when_leaving_fullscreen: false,
+            pause_when_inactive: false,
+            pause_when_minimized: false,
+            pause_when_goes_to_sleep: true,
             fullscreen_when_open: false,
             resume_last_position: true,
             auto_switch_to_music_mode: true,
@@ -1687,6 +1792,7 @@ impl Default for Preferences {
             subtitle_position: subtitle_controls::PositionPreferences::default(),
             subtitle_other: subtitle_controls::OtherPreferences::default(),
             subtitle_auto_load: subtitle_controls::AutoLoadPreferences::default(),
+            online_subtitles: online_subtitles::Preferences::default(),
             subtitle_font: subtitle_controls::DEFAULT_SUBTITLE_FONT.into(),
             subtitle_font_size: 55.0,
             subtitle_text_style: subtitle_controls::TextStylePreferences::default(),
@@ -1707,6 +1813,7 @@ impl Default for Preferences {
             network: network_preferences::Connection::default(),
             network_cache: network_preferences::Cache::default(),
             network_online_videos: network_preferences::OnlineVideos::default(),
+            thumbnail_preview: thumbnail_preferences::Settings::default(),
             recent_media: Vec::new(),
         }
     }
@@ -1750,6 +1857,7 @@ impl Preferences {
             .map_err(str::to_owned)?;
         prefs.subtitle_position.validate().map_err(str::to_owned)?;
         prefs.network_cache.validate().map_err(str::to_owned)?;
+        prefs.thumbnail_preview.validate().map_err(str::to_owned)?;
         prefs.network.validate().map_err(str::to_owned)?;
         prefs
             .network_online_videos
@@ -1763,6 +1871,7 @@ impl Preferences {
         prefs.key_bindings.validate().map_err(str::to_owned)?;
         prefs.subtitle_other.validate().map_err(str::to_owned)?;
         prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
+        prefs.online_subtitles.validate().map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
         prefs.volume = prefs.volume.min(prefs.volume_limit());
         prefs.leading_sidebar_width = prefs.leading_sidebar_width.clamp(300, 500);
@@ -1919,6 +2028,33 @@ mod tests {
         assert!(
             Preferences::parse(r#"{"hdr_tone_mapping":{"enabled":true,"param":1e999}}"#).is_err()
         );
+    }
+
+    #[test]
+    fn thumbnail_preferences_default_and_round_trip_with_root_settings() {
+        let legacy = Preferences::parse("{}").unwrap();
+        assert_eq!(
+            legacy.thumbnail_preview,
+            thumbnail_preferences::Settings::default()
+        );
+        let selected = Preferences {
+            thumbnail_preview: thumbnail_preferences::Settings {
+                enabled: false,
+                maximum_cache_size_mb: 0,
+                enable_for_remote_files: true,
+                width: 320,
+            },
+            ..legacy
+        };
+        let encoded = serde_json::to_string(&selected).unwrap();
+        assert_eq!(
+            Preferences::parse(&encoded).unwrap().thumbnail_preview,
+            selected.thumbnail_preview
+        );
+        assert!(Preferences::parse(
+            r#"{"thumbnail_preview":{"enabled":true,"maximum_cache_size_mb":500,"enable_for_remote_files":false,"width":0}}"#
+        )
+        .is_err());
     }
 
     #[test]
@@ -2890,6 +3026,28 @@ mod tests {
                 "sub-add"
             );
         }
+    }
+
+    #[test]
+    fn discovered_subtitles_use_auto_selection_and_skip_existing_files() {
+        let path = "C:/media/subs/Movie.en.srt";
+        let command = Command::AddSubtitlesWithoutSelection(vec![path.into()]);
+        assert!(command.mpv_args().is_err());
+        assert_eq!(
+            command.plan(&Playback::default()).unwrap().commands,
+            vec![vec!["sub-add", path, "auto"]]
+        );
+
+        let track: Track = serde_json::from_value(serde_json::json!({
+            "id": 7, "type": "sub", "external": true,
+            "external-filename": path,
+        }))
+        .unwrap();
+        let state = Playback {
+            tracks: vec![track],
+            ..Playback::default()
+        };
+        assert!(command.plan(&state).unwrap().commands.is_empty());
     }
 
     #[test]

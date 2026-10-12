@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-24.04]
+        os: [macos-26, xcode-27, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
@@ -27,5 +27,10 @@ jobs:
         run: cargo test --workspace --locked
       - name: Full application build
         run: cargo build -p riina --locked
+      - name: Assemble and validate the macOS app bundle
+        if: runner.os == 'macOS'
+        run: |
+          python3 scripts/package-macos-app.py target/debug/riina "$RUNNER_TEMP/Riina.app"
+          plutil -lint "$RUNNER_TEMP/Riina.app/Contents/Info.plist"
       # A linked application is necessary but insufficient: native dialogs,
       # playback, fullscreen, accessibility and rendering require runtime evidence.

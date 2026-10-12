@@ -1,5 +1,10 @@
 # Source-derived visual specification
 
+Current OS target: macOS 27.0.1, Apple's latest release as of 2026-10-12.
+Existing accepted IINA 1.5.0 captures in this document are from macOS 26.6.2 and
+remain evidence for that captured state only. A matched 27.0.1 reference capture
+and Riina comparison are required before claiming latest-version visual parity.
+
 The user prioritizes full interface parity first. Windows captures now work again;
 an actual General Preferences before/after review exposed a blank 24px folder
 button and touching Save to/path text. The original chooser now draws its own
@@ -209,6 +214,16 @@ colors while retaining its rounded, bordered cards. This source-pixel correction
 has not been validated in a live Windows render. See
 `IINA-1.5.0-SETTINGS-SURFACES-001` in the reference-capture manifest before
 changing those layouts.
+
+The pinned General capture shows compact disclosure rows between At launch and the
+Opening media card. Riina's General Behavior page now uses the same 40-point row
+rhythm; When media is opened and Pause/resume when collapse by default, and the
+Opening media card uses right-aligned 36 × 18-point switches in the captured row
+order. Fullscreen entry/exit preferences now apply at the fullscreen action. The
+retained Windows `interface-after-preferences-0.jpg` predates the current 600 × 480
+Settings window, and this host has no desktop app surface for a fresh capture. These
+source-measured changes remain unverified against a current Windows render; the
+608 × 500 pinned macOS capture remains the reference.
 
 Interface > Window uses four separate rounded lists after Appearance: expandable
 Initial window size and Initial window position switches; resize mode and its

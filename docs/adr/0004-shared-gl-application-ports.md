@@ -40,6 +40,20 @@ Portal absence/failure reporting, modal input routing, focus restoration and
 native panel cancellation need runtime checks. rfd's optional result does not
 distinguish every backend failure from user cancellation.
 
+Utilities default-app selection shares `config/default-file-types.csv` with the
+Windows per-user registration path. The macOS packager builds a `.app` bundle
+whose document declarations and imported UTIs come from that manifest. The
+full Finder-open extension list is separately retained in
+`config/macos-open-extensions.csv`, based on the pinned document-type list. The
+macOS action registers the bundle and resolves every Launch Services UTI for the
+selected filename extensions before setting the app as handler. It follows the
+pinned v1.5.0 bulk behavior through deprecated `LSSetDefaultRoleHandlerForContentType`;
+Apple documents `NSWorkspace.setDefaultApplication` as the current consent-aware
+replacement. Native consent, handler results and packaged playback still need a
+Mac run. [Apple Launch Services registration](https://developer.apple.com/documentation/coreservices/launch_services),
+[UTI declarations](https://developer.apple.com/documentation/bundleresources/information-property-list/utimportedtypedeclarations),
+[current NSWorkspace setter](https://developer.apple.com/documentation/appkit/nsworkspace/setdefaultapplication%28at%3Atoopen%3Acompletion%3A).
+
 Application CI now lints all targets, runs workspace unit tests and links the full
 application on macOS/Linux. This must succeed before claiming build portability.
 Playback, dialogs, fullscreen, GL surface lifecycle, accessibility, DPI, graceful

@@ -1,5 +1,132 @@
 # Verification record · native Windows · 2026-10-09
 
+# OpenSubtitles workflow and current macOS target · 2026-10-12
+
+The app now has a manually opened OpenSubtitles search window, user-provided API
+key setting, hash-aware local-media search, preferred-language filtering, result
+selection, bounded download, cache storage and loading into the active player.
+The key is wired to the platform credential store (Windows Credential Manager,
+macOS Keychain or Linux Secret Service), is masked in Settings, and is excluded
+from preferences JSON. Startup migrates an older saved key out of JSON after the
+secure store accepts it. Automatic search is disabled by default and waits for
+subtitle discovery before offering a search on eligible local media. The final
+`cargo test --workspace --locked` passes the app, core and mpv test suites; 50
+native/environment-dependent tests are ignored by default.
+Rustfmt and `git diff --check` pass; the final strict all-target Clippy rerun passed.
+`cargo build --workspace --locked` could not replace
+`target/debug/riina.exe` because a Riina player process already running from that
+path held the file open; it was left undisturbed. A uniquely named Windows
+Credential Manager entry round-tripped and was deleted by the focused test; the
+settings migration was exercised with an isolated in-memory store and save stub.
+Migration against a real settings file, provider network calls and GUI playback
+have not been verified at runtime.
+
+Subtitle Auto Load resolves relative and absolute paths, home-directory paths, and
+IINA's trailing `/*` child-directory pattern after a local file starts. A bounded
+background scan filters supported subtitle extensions and media-name matches, then
+submits one batch with mpv's non-selecting `auto` flag. The online-subtitle
+auto-search timer waits for this scan to finish before its own 500 ms no-track
+window. The workspace suite covers path expansion, filtering, matching modes,
+preference/generation changes, track-priority selection, episode grouping,
+episode-number conflict rejection, reciprocal closest-name matching, the pairing
+work bound and batch command planning. Live playback, matching GUI captures and
+IINA's full grouping and prefix/suffix distance behavior remain unverified.
+Apple's latest-version target update is recorded below.
+
+Apple's current version table lists macOS 27.0.1 as latest on this date, while the
+captured IINA 1.5.0 UI surfaces are from 26.6.2. The 27.0.1 target and the need for
+matching reference captures are recorded in `docs/status.md` and
+`docs/interface-parity-plan.md`. [Apple's macOS version table](https://support.apple.com/en-gb/109033)
+and [Tahoe update history](https://support.apple.com/en-us/122868) provide the
+current release context. No latest-macOS visual parity or application support is
+claimed.
+
+The full application build matrix and native playback integration job now target
+macOS 26 and the macOS 27/Xcode 27 preview runner. IINA reference capture is
+pinned to that preview. It rejects captures unless `sw_vers` reports exactly
+27.0.1, preventing older hosted images from being recorded as current goldens.
+GitHub currently documents `xcode-27` as
+a public-preview label and its published runner image as macOS 27.0, so the
+27.0.1 capture remains unavailable on the documented hosted image at this point.
+See [GitHub's runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+and [runner image release notes](https://github.com/actions/runner-images/releases).
+
+# macOS app bundle and default file associations · 2026-10-12
+
+The shared IINA v1.5.0 imported-type manifest now drives Windows associations,
+macOS `UTImportedTypeDeclarations` and the Launch Services registration path.
+`config/macos-open-extensions.csv` retains the wider Finder-open coverage from
+the pinned `CFBundleDocumentTypes`. `scripts/package-macos-app.py` assembles a
+`.app` bundle from the built executable; the macOS/Linux application workflow now invokes the
+packager and `plutil` validation on its macOS runner.
+
+Windows-hosted `cargo check --workspace --locked` and strict all-target Clippy
+passed, as did workspace formatting, the parity inventory check and Python
+syntax compilation of the packager. The x86_64 Apple-target check stopped in
+`ring` before Rust type-checking because this Windows host has no Apple-target C
+compiler (`cc`). No tests or GUI were run. Bundle launch, playback, Launch
+Services consent/handler behavior and current-macOS rendering still need a Mac
+run; this does not establish macOS support.
+
+## Subtitle auto-load priority · 2026-10-12
+
+The player now promotes the external subtitle track whose filename has the most
+matches among the configured comma-separated priority keywords, after libmpv
+reports its discovered tracks. `cargo check --workspace --locked`, direct Rust
+1.99 formatting checks and `git diff --check` passed. No playback or GUI check was
+run; selection timing and matched macOS pixels remain unverified. Series-level
+grouping and fuzzy matching remain open; path expansion and candidate loading are
+covered by the later subtitle discovery verification above.
+
+## macOS PiP frame-bridge API audit · 2026-10-12
+
+Apple's current Core Video documentation marks `CVOpenGLTextureCache` deprecated
+and documents IOSurface-backed `CVPixelBuffer` allocation through
+`kCVPixelBufferIOSurfacePropertiesKey`. The PiP bridge investigation therefore
+selects direct rendering into IOSurface-backed buffers in the existing CGL
+context, with a bounded buffer pool, rather than adopting the deprecated texture
+cache. `pip_frame.rs` now implements that source path, while the AVKit controller
+and Slint rendering notifier produce and enqueue samples from the existing
+libmpv context. `cargo check -p riina --target x86_64-apple-darwin --locked`
+and `cargo check --workspace --target x86_64-apple-darwin --locked` pass,
+including the macOS-gated producer and integration. Strict Apple-target Clippy
+for `riina` and strict all-target workspace Clippy on Windows also pass. This is a source
+check only: the Windows host cannot link against the Apple SDK or verify CGL/AVKit
+runtime behavior, GPU synchronization, color/HDR, pacing, window policy, or GUI
+pixels. The BGRA8 producer does not preserve HDR metadata. See Apple's [texture-cache status](https://developer.apple.com/documentation/corevideo/cvopengltexturecache-780)
+and [IOSurface pixel-buffer attributes](https://developer.apple.com/documentation/CoreVideo/kCVPixelBufferIOSurfacePropertiesKey).
+
+## Player-window file drops · 2026-10-12
+
+The shared player window now batches adjacent native dropped-file events for 80 ms,
+then sends all paths through the existing ordered media-discovery/open path. This
+keeps a multi-file drop as one selection instead of starting competing discovery
+requests. The behavior follows the pinned IINA main-window drop path in
+`DraggingDetect.swift` and `InitialWindowController.swift`. No GUI, native drag,
+playlist-row insertion, URL/text, or subtitle-only drop behavior has been verified.
+The Windows `cargo check --workspace --locked` and Windows-hosted
+`cargo check --workspace --target x86_64-apple-darwin --locked` both pass. The
+edited Rust file passes direct Rust 1.99 rustfmt checking, parity traceability
+accepts all 195 inventoried rows, and `git diff --check` passes. The Apple target
+check type-checks source only; it does not link against an Apple SDK. No tests were
+run.
+
+## macOS source cross-check · 2026-10-12
+
+`cargo check --workspace --target x86_64-apple-darwin --locked` passes with the
+Rust 1.99.0 Apple standard library and Zig 0.15.2 compiling target C code. This
+type-checks the macOS-gated application source, including System Media Controls.
+It does not link the app against an Apple SDK or exercise macOS playback, PiP,
+rendering, window lifecycle, or UI pixels. Full macOS build and runtime evidence
+still require a Mac runner. The check exposed and this increment fixed macOS-only
+type and ownership errors, and gated Windows plugin-overlay IPC out of other
+platform builds. It also compiles the AVKit PiP content source and playback
+delegate, live-duration handling, and playback-state invalidation path. No
+An IOSurface/sample-buffer producer is now connected and type-checks, but no Mac
+link, PiP display, seeking, pacing, HDR, or window-lifecycle runtime verification
+has been done, so PiP usability is not established. The Windows workspace `cargo check --workspace
+--locked` also passes. No tests or GUI checks were run for this increment.
+
 ## Crop edge pointer anchoring · 2026-10-10
 
 Pinned CropBoxView changes resize boundaries by mouse-position delta. Source
@@ -456,7 +583,7 @@ PlayerCore.toggleHardwareDecoding and Preference.HardwareDecoderOption. Configur
 hwdec determines switch state independently of hwdec-current. Off sets no;
 on restores the preferred Auto / AutoCopy / Disabled policy. The mode preference
 defaults to Auto, is preserved by legacy settings and round-trips through JSON;
-invalid modes are rejected. The Settings preference picker is not implemented.
+invalid modes are rejected. The Settings picker now exposes Disabled, Auto and Auto (Copy); its rendered appearance and live selection behavior remain unverified.
 
 The native policy test observes Disabled → AutoCopy → Auto while paused at volume
 37 without errors, then verifies AutoCopy survives explicit file replacement.
@@ -1632,7 +1759,7 @@ unverified.
 
 ## Multiple command-line media paths
 
-Startup now retains every positional media argument, including paths containing spaces, and submits the batch through the same directory expansion and natural ordering used by file selection. The internal renderer switch remains a first-argument control and is not treated as media. Two startup parser regressions pass. Windows GUI acceptance, command-line network URLs, and the wider IINA CLI option grammar remain unverified.
+Startup now retains every positional media argument, including paths containing spaces, and submits the batch through the same directory expansion and natural ordering used by file selection. HTTP, HTTPS, RTSP, and RTSPS arguments now pass shared URL validation and remain in order among local file selections instead of being interpreted as filesystem paths. The internal renderer switch remains a first-argument control and is not treated as media. Windows and `x86_64-apple-darwin` workspace source checks pass; strict all-target Windows Clippy and strict Apple-target app Clippy pass. No URL playback or GUI run was performed. The wider IINA CLI option grammar remains unimplemented.
 
 ## Current binary candidate verification
 
@@ -1690,3 +1817,504 @@ become UNC paths, local file URLs decode spaces and Unicode, and POSIX adapters
 reject remote authorities without a supported mapping. Three platform-independent
 parser regressions cover those cases and reject malformed percent encodings,
 embedded NULs, and relative file URLs. Live clipboard interaction is unverified.
+
+## Plugin runtime parity increment · 2026-10-11
+
+Package plugin entries now expose a bounded CommonJS `require()` path for
+package-local modules, resolved relative to the active entry/module file. Module
+loads enforce canonical package containment, per-file size, total byte, module
+count, and nesting limits; the wrapper returns `module.exports` and caches paths.
+The same runtime increment adds bounded timers and message relay between paired
+global/player plugin sessions. The MIT license notices name Denis Demin as
+requested.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, strict
+workspace Clippy, `scripts/check-parity.py`, and `git diff --check` pass on
+Windows. The build used the isolated `target/verify-portable` directory. No tests
+were run for this increment. CommonJS resolution and caching, timer delivery,
+message relay, plugin UI behavior, and playback lifecycle remain unverified at
+runtime.
+
+## System media controls · 2026-10-12
+
+The IINA default key map now includes the pinned system media actions for play,
+pause, toggle, stop, next/previous, fast-forward/rewind, volume and mute. These
+commands enter the same typed playback callbacks as ordinary key bindings.
+Windows `WM_APPCOMMAND` events route through the active profile and honor the
+Use System Media Controls preference; set-pause actions preserve play/pause
+intent, and next/previous use the app's playlist callbacks.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, and strict
+workspace Clippy pass on Windows. The build used `target/verify-portable`.
+Parity inventory validation and `git diff --check` are recorded after this
+implementation update. No tests or hardware-key GUI checks were run. Hardware
+delivery, playlist boundary behavior, macOS remote-command integration and
+matched interface behavior remain unverified.
+
+The macOS source path now registers IINA-matched remote transport, custom forward
+and backward skips, position and rate changes, and repeat-mode cycling. It queues
+MediaPlayer callbacks onto the Slint UI thread, tracks the configured repeat state,
+and publishes media type, title, audio artist/album, duration, queue and chapter
+positions, elapsed time and playback rate to Now Playing while system controls are
+enabled. Key-profile changes refresh the remote targets after IINA's one-second
+settling interval. The feature clears its Now Playing entry and removes command
+targets when disabled. Its conditional macOS code could not be compiled or
+exercised on this Windows host; Control Center, hardware-key delivery and target
+lifecycle remain unverified on macOS. Windows compilation does not validate this
+code path.
+
+The Windows `cargo fmt --all -- --check`, workspace build, strict workspace Clippy,
+and `cargo test --workspace --locked` all passed using `target/verify-portable`.
+The app test binary reports 104 passed and two clipboard tests ignored. The 45
+libmpv integration tests were ignored because they require the pinned native DLL.
+These shared checks do not compile the conditional macOS source or verify macOS
+playback and UI behavior.
+
+## Utilities thumbnail cache · 2026-10-12
+
+The Utilities page now displays the size of Riina's app-owned thumbnail cache and
+confirms before clearing it. Cleanup only removes regular entries within the
+expected `riina/thumb_cache` directory, preserves the directory, and skips
+symlinks. The locked Windows workspace build and strict Clippy pass. Both
+cache-clear unit tests pass within `cargo test --workspace --locked`; the app test
+binary reports 106 passed and two clipboard tests ignored. The 45 libmpv integration
+tests remain ignored because they require the pinned DLL. Rendered Settings
+interaction remains unverified. The feature does not provide thumbnail generation
+or preview rendering.
+
+## Key binding profile and action coverage · 2026-10-12
+
+All five selectable built-in profiles now have original starter maps instead of
+empty mapping lists. Generic mpv profile actions are parsed into bounded argument
+vectors and sent through libmpv without shell execution; external process-launch
+commands are rejected. Quotes, escapes and input flags are handled;
+profile-specific section actions are rejected. Semicolon-chained
+commands are split with quoted and escaped semicolons preserved, then submitted as
+separate libmpv commands. Screenshot, fullscreen, A–B loop and shuffle actions use
+Riina's existing typed callbacks. The IINA Default also binds playlist and chapter
+panels, fit-to-video, Music Mode and Picture-in-Picture actions. Its reveal-file
+action reads the current playlist item and delegates local paths to the platform
+file manager. Its maps remain partial and do not reproduce the full upstream
+profiles. The `live-text` action checks native availability, persists the toggled
+preference and updates the paused-frame recognition overlay. PiP surfaces remain
+unimplemented on macOS and Linux.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, and strict
+workspace Clippy pass on Windows. The build used `target/verify-portable`.
+Parity traceability and `git diff --check` are recorded after the inventory
+update. No tests or GUI checks were run. Full profile coverage, action-builder
+editing, input capture, mpv OSD flag behavior, and live shortcut dispatch remain
+unverified.
+
+The chained-command parser/planner change is also formatted and compile-checked
+with the same workspace build and Clippy run; runtime action submission and GUI
+behavior are not verified.
+
+## Key-binding profile lifecycle · 2026-10-12
+
+The Settings profile menu now offers empty-set creation, duplication of the
+selected built-in or user set, renaming a selected user set, `.conf` import through
+an asynchronous native file chooser, and profile-file reveal. Successful create,
+duplicate, rename and import actions select the resulting user profile and persist
+it as the active profile. Built-in sets remain read-only, and deleting a user set
+requires confirmation. Live Settings interaction and matched page pixels remain
+open. Final source passes
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, strict workspace
+Clippy, parity traceability, and `git diff --check`. The parity checker reports 192
+initial atomic requirements with valid traceability and an incomplete inventory.
+No tests or GUI verification were run.
+
+## Windows plugin video overlay · 2026-10-12
+
+The Windows native-video presentation now hosts permission-gated plugin overlays
+in Wry/WebView2 child views. Package resources are canonicalized under the plugin
+root and served through a network-restricted local protocol. The adapter keeps the
+IINA simple-mode document semantics, carries bounded two-way messages, preserves
+opacity across document navigation, and passes pointer input through except where
+the DOM element has `data-clickable`. Shared-renderer windows report that native
+video presentation is required instead of placing the child over the controller.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, strict
+`cargo clippy --workspace --all-targets --locked -- -D warnings`, parity
+traceability, and `git diff --check` pass on Windows. `cargo test --workspace
+--locked` passes; 45 provisioned-libmpv tests and two clipboard-environment tests
+are ignored by default. Build artifacts use `target/verify-portable`. No live
+WebView2, media playback, or visual comparison was performed. macOS/Linux overlay
+adapters, multiple player instances, complete host APIs, permission failure
+feedback, and plugin lifecycle behavior at runtime remain open.
+
+## Playlist network browser action · 2026-10-12
+
+Selected HTTP/HTTPS playlist entries now expose an Open in Browser action. The
+shared URL validator checks the original authority form before parsing, accepts
+case-insensitive HTTP schemes, and rejects parser-repaired malformed URLs. The
+platform adapters dispatch through ShellExecuteW on Windows, `open` on macOS, and
+`xdg-open` on Linux.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, strict workspace
+Clippy, `cargo test --workspace --locked`, parity traceability, and `git diff
+--check` pass on Windows. Browser delivery and playlist interaction were not
+tested in the GUI; macOS/Linux builds and runtime behavior remain unverified.
+Selected playlist rows use Slint context menus for Open in Browser and Copy URL.
+IINA's network section header and matched native menu appearance remain open parity
+work.
+
+## Thumbnail Preview preference controls · 2026-10-12
+
+The Interface > Thumbnail Preview section now exposes enablement, maximum cache
+size, remote-volume generation, and width. Defaults match the pinned reference:
+enabled, 500 MB, remote volumes disabled, and 120 pt. Values are validated and
+stored in the root preferences schema, and older files inherit the defaults.
+
+Windows formatting, locked workspace build, strict Clippy, workspace tests, parity
+traceability, settings-navigation check, and diff check pass. The 46
+provisioned-libmpv native tests and two clipboard-environment tests remain ignored
+by default. No Settings GUI capture was made. The extractor also passes against the
+pinned DLL and the player now feeds frames to its seek-bar hover preview. Cache
+reuse and eviction and platform volume detection are implemented; cache-hit/live
+playback interaction, Settings GUI capture, and matched macOS/Windows rendering
+remain open.
+
+## Accessibility motion preference · 2026-10-12
+
+The player's on-screen control, title-bar, compact-mode, and OSD fades now use
+zero duration when either Riina's saved Disable Animations preference is enabled
+or the Windows/macOS system Reduce Motion preference is active when the player
+window is initialized. The system preference remains a launch-time snapshot;
+live OS preference notifications, Linux detection, a full animation audit, and
+matched GUI captures are still open.
+
+## Isolated thumbnail extraction · 2026-10-12
+
+`riina-mpv` now exposes a cancellable thumbnail worker that opens a second silent,
+paused libmpv instance, samples 101 evenly spaced positions, copies RGBA frames,
+and downsizes them while preserving aspect ratio. This leaves the visible player's
+clock, pause state, and audio path outside the extraction worker. Its native test
+passed against the pinned Windows DLL and the moving-square fixture: all 101 frames
+arrived at 64×36, timestamps were ordered, and neighboring samples included changed
+pixels (4.70 seconds). Pure resize tests cover downscaling, avoiding upscaling, and
+the output dimension bound. The player starts this worker for local video sources
+and cancels it asynchronously when the source or thumbnail settings change. Cache
+read/write and budget eviction plus Windows/macOS/Linux mounted-volume checks are
+implemented. Live playback/source-switching, cache-hit and eviction interaction,
+macOS/Linux engine tests, and rendered GUI parity remain open.
+
+## Timeline hover preview integration · 2026-10-12
+
+The player polls its latest playback snapshot and starts a worker for local video
+sources. The worker performs mounted-volume inspection, cache reads, JPEG encoding,
+and decoding on a separate silent libmpv instance; the UI drains a bounded stream of
+frames. Hovering the seek bar updates the time label and shows the nearest available
+earlier frame. Replacing the source or changing thumbnail preferences cancels the
+old worker asynchronously. Network URLs are skipped. Source metadata and preview
+width key cached frame sets; older entries are evicted to the configured byte limit.
+Windows, macOS and Linux mounted-volume metadata gates generation when remote-file
+previews are disabled. Cache reuse now has an app-worker test; visual placement, live
+pointer/source-switch interaction and native macOS/Linux execution remain unverified.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`,
+`cargo test --workspace --locked`, and strict all-target workspace Clippy pass on
+Windows using `target/verify-motion`. The test suite reports 117 app unit tests
+passing; 46 provisioned-libmpv native tests and two clipboard-environment tests are
+ignored by default. The standalone extractor's native test was run explicitly
+against the pinned DLL in the prior verification pass. No GUI or macOS check was
+run for this integration.
+
+## GitHub plugin installation and version checks · 2026-10-12
+
+The Plugins preference now opens a repository installer with the three official IINA
+plugins and accepts either `owner/repo` or a GitHub repository URL. A background
+worker checks the latest release for an `.iinaplgz` asset and falls back to the
+repository's `main` source archive if the asset is missing or invalid. Downloaded
+archives are size-bounded and use the same path, manifest and package validation as
+local imports. Requested permissions are reviewed before installation, and installed
+plugins remain disabled until enabled. Refresh compares installed `ghVersion` values
+with each repository's current `main/Info.json` metadata. Update prompts can stage a
+repository package, require the same plugin identifier, review only added permissions,
+preserve existing grants and enablement, and roll back the package if the updated
+runtime does not start.
+
+Windows strict all-target Clippy passes with warnings denied; the standalone workspace
+check also passed before the update-application path was added. Direct Rust 1.99
+rustfmt formatting was applied. The Apple-target source check could not complete
+because this Windows host lacks the `cc` cross-compiler required by `rquickjs-sys`.
+No tests or GUI install,
+update, playback, lifecycle or matched-pixel checks were run. Live update prompts,
+active-plugin restart, and native macOS execution remain unverified.
+
+## Online Media plugin and built-in extractor coordination · 2026-10-12
+
+The official `io.iina.ytdl` plugin now disables mpv's built-in extractor during
+startup and immediately after live enable/disable. Riina keeps the user's saved
+built-in setting intact while showing IINA's disabled control state and guidance
+when the plugin is enabled. The parity inventory still marks this requirement
+partial: plugin-provided quality selection and downloads, real-site playback,
+captured Windows and pinned macOS settings surfaces, and runtime lifecycle remain
+open.
+
+The Windows `cargo check --workspace --locked`, direct Rust 1.99 rustfmt check,
+parity inventory check and `git diff --check` passed. This toolchain has no Cargo
+fmt or Clippy components installed. No tests, GUI, playback, or macOS check were run
+for this change.
+
+## Multiple player opening policy · 2026-10-12
+
+General settings now save IINA's allow-multiple-player preference (default on),
+simultaneous-open grouping (default off), and duplicate-player policy (default off).
+After one media item is loaded, later file, URL, and recent-media requests can launch
+separate players; grouped file selections share one player process. Resume requests
+carry their saved position into the new player. With multiple players disabled, the
+existing player continues to handle the request. Duplicate filtering covers the
+current player's playlist and each incoming batch unless the multi-item grouped-open
+preference routes the whole batch to one player; grouped batches bypass the filters.
+
+The shared-renderer path now owns secondary `PlayerWindow` and `UiSession` instances
+in one process, matching IINA's independent-player lifecycle more closely. The
+Windows native-video path still uses the process launcher. Windows `cargo check
+--workspace --locked`, direct Rust 1.99 rustfmt, the 197-row parity inventory check,
+Settings navigation check, and `git diff --check` passed before this in-process
+manager change. No tests, GUI, playback, or macOS checks were run for the manager.
+Sharing plugin state and history across players, cross-process duplicate detection and
+focus, directory/playlist grouping semantics, the Windows native-video manager, and
+matched Settings/player captures remain open.
+
+## Keep window open after playback · 2026-10-12
+
+General settings now expose and persist IINA's `keepOpenOnFileEnd` behavior, enabled
+by default. The value is passed into each new libmpv session and changes the active
+session through a typed command. The Windows workspace check passed for the source
+revision including this setting, as did direct Rust 1.99 formatting, the 198-row
+parity check, and `git diff --check`. No tests, GUI, playback, or macOS checks were
+run for this preference; EOF replay and playlist-boundary behavior remain
+unverified.
+
+## App lifetime after closing the last window · 2026-10-12
+
+General settings now persist IINA's `quitWhenNoOpenedWindow` preference, default
+off. The shared-renderer manager restores a Welcome window when the final player is
+closed with quitting disabled; closing Welcome leaves the application event loop
+available, while enabling the preference quits after the last managed window closes.
+Windows native-video still uses its existing process lifecycle, and application
+reopen via the macOS Dock or Windows activation is not implemented. The Windows
+workspace check passed for this source revision. No tests, GUI, close/reopen, or
+macOS runtime checks were run.
+
+## Duplicate media across managed players · 2026-10-12
+
+When duplicate players are disabled, the shared-renderer manager now compares each
+incoming item against the playlists of every managed player. Already-open media is
+skipped and its existing player is shown for separate opens; repeated entries in a
+separate-player batch are also removed. A grouped simultaneous-open request bypasses
+both duplicate filters, matching IINA's batch policy. `media_open` regression tests
+cover preserving a grouped batch and filtering an ungrouped batch. Cross-process
+Windows native-video behavior and live focus/open verification remain unverified.
+
+## Grouped opens and duplicate filtering · 2026-10-12
+
+When simultaneous multi-item opens are grouped into one player, the entire batch
+now bypasses duplicate-player filtering, even when the saved allow-duplicates option
+is off. This matches IINA's grouped branch, which routes the batch before applying
+the separate-window duplicate check. The same grouped-request predicate is used by
+selection preparation and the in-process player manager so accepted paths are not
+filtered a second time. Separate-player batches continue to skip already-open media
+and repeated entries. `cargo test --workspace --locked`, strict all-target Clippy,
+Rust formatting, `git diff --check`, and the 214-row parity check passed. The active
+Riina process still holds `target/debug/riina.exe`; no replacement build, GUI, or
+playback check was performed.
+
+## General settings and fullscreen pause behavior · 2026-10-12
+
+General > Behavior now presents the captured IINA disclosure rows collapsed by
+default and right-aligned switches in the Opening media card. Expanding the rows
+retains existing media-open options and exposes new fullscreen entry/exit policies.
+The saved defaults are both off. Entering fullscreen resumes only when configured
+and currently paused; leaving fullscreen pauses only when configured and currently
+playing. The 608 × 500 pinned macOS General capture informed the row order, 40-point
+disclosure rhythm and 36 × 18-point switch geometry; those pixels are source-measured,
+not a verified Windows comparison. The retained Windows Preferences image predates
+the current 600 × 480 window, and no desktop UI surface was available for a fresh
+capture.
+
+Windows `cargo check --workspace --locked`, direct Rust 1.99 formatting, parity
+traceability (199 rows), and `git diff --check` passed. No GUI, fullscreen playback,
+or macOS runtime check was run; minimize/inactive/sleep pause behavior remains open.
+
+## Additional confirmed-state OSD messages · 2026-10-12
+
+The shared playback observer now routes confirmed volume and mute changes, audio delay,
+primary/secondary subtitle delay and position, subtitle visibility, and selected track
+changes to the transient video OSD. Volume progress follows the active 100% or opt-in
+200% ceiling. Evidence for this slice is a Windows workspace compile and direct
+rustfmt checks of the changed Rust files. No behavior-specific tests were added or run;
+message ordering/coalescing, native GUI timing, matched pixels, and macOS/Linux runtime
+remain unverified.
+## OSD change queue · 2026-10-12
+
+The UI retains multiple distinct feedback changes observed in one coalesced playback
+snapshot and presents them one at a time using the configured OSD timeout. Pending
+messages are discarded when OSD is disabled or the media generation changes. Windows
+workspace compilation and direct Rust formatting checks pass. Behavior tests and live
+validation of ordering, timer progression, matching pixels, and macOS/Linux rendering
+remain outstanding; the deterministic comparison order is not proven to match native
+property callback order.
+## Additional confirmed-state OSD feedback · 2026-10-12
+
+The shared observer now reports crop selection, video rotation, subtitle scale, effective
+file/playlist loop mode, and A/B loop endpoint changes. It waits for an already-active
+media phase before treating observed values as user feedback, avoiding startup-option
+changes being presented as interactive actions. The Windows workspace compile and Rust
+format check pass. No behavior tests were added or run; endpoint coalescing, exact IINA
+wording/order, timer rendering, matched pixels, and macOS/Linux runtime remain unverified.
+## Explicit-action OSD feedback · 2026-10-12
+
+Stop now retains its message across the stopped-state update, and accepted chapter
+selection, playlist append/paste, and playlist-clear actions show their source-style
+transient feedback. File append counts are taken after media discovery; failed or empty
+actions produce no success message. Workspace compilation, formatting, and parity
+traceability pass. No behavior tests or GUI checks were run; timing, menu/pointer parity,
+matched pixels, and other-platform behavior remain unverified.
+
+## Linux user media associations · 2026-10-12
+
+Utilities now installs a user-scoped `org.riina.player.desktop` entry and maps all
+66 extensions in the shared media-type manifest to MIME types before applying the
+selected defaults with `xdg-mime`. The command work runs off the UI thread and
+reports partial failures. Rust formatting, whitespace checks, a locked Windows
+workspace build, and strict all-target Windows Clippy passed. Those Windows checks
+exclude the Linux-only implementation; this host has only the Windows Rust target
+installed. Linux compilation, desktop-session
+integration, and opening media from the file manager remain unverified.
+
+## macOS Finder alias selection · 2026-10-12
+
+Shared selection now resolves input paths through Foundation's alias-file URL API
+before directory expansion, matching IINA's `Utility.resolveURLs` pass. Network
+URLs and malformed paths bypass that file-URL conversion, and resolver errors keep
+the original path as IINA does. Rust formatting and the Windows workspace checks
+pass for the shared wrapper. The Windows build excludes the Foundation implementation;
+Apple-target compilation, alias fixtures, file selection, and playback on current
+macOS remain unverified.
+
+## macOS Now Playing asset URL · 2026-10-12
+
+The Mac media-controls snapshot now publishes the current playlist item as a local
+file URL or preserves its validated network URL in
+`MPNowPlayingInfoPropertyAssetURL`, matching IINA's Now Playing metadata. Rust
+formatting and the Windows workspace build/Clippy cover the shared compilation
+surface. Apple-target compilation and Control Center/Now Playing runtime behavior
+remain unverified; external artwork behavior is recorded below.
+
+## macOS Now Playing cover artwork · 2026-10-12
+
+Now Playing metadata supplies `MPMediaItemPropertyArtwork` for external album-art
+files, and an independent paused libmpv decoder captures the selected embedded
+album-art video track without seeking the active player. The external image is
+decoded by ImageIO directly to an orientation-correct thumbnail with a 768-pixel
+maximum; embedded pixels are encoded to a bounded JPEG before delivery to
+MediaPlayer. Quick Look/timeline-thumbnail fallbacks and IINA's internal
+default-on artwork opt-out are implemented below.
+Formatting, the locked Windows workspace check, strict Clippy and the focused
+Apple API binding check pass, but the Windows checks exclude macOS-gated code. The
+full Apple-target check stops in `ring` before application sources because this
+host lacks an Apple-target C compiler. Control Center rendering remains
+unverified. No tests or GUI checks were run.
+
+When no album-art track exists and timeline preview is enabled, the macOS system
+media controller now captures the timeline frame before IINA's 60-second artwork
+position, or before the midpoint for videos shorter than two minutes, using the
+independent paused decoder. Embedded track-cover capture requests only its first
+frame instead of generating the full 101-frame timeline set.
+
+## macOS Now Playing Quick Look fallback · 2026-10-12
+
+Artwork selection now follows IINA's front-cover, Quick Look, then timeline
+thumbnail order. Quick Look uses a 2000-pixel request, scale 1 and the low-quality
+representation, retrying up to three times before falling back to the timeline
+sample. It runs away from the UI thread, and its returned CGImage is encoded to
+JPEG before passing bytes to MediaPlayer. Network resources skip Quick Look and
+timeline fallback. The hidden `enableNowPlayingArtwork` key defaults to true and
+is checked during playback, so changing it removes or restores the artwork entry.
+Rust formatting, the locked Windows workspace check, strict
+all-target Clippy, and the workspace build's compilation phase pass. A focused
+Apple-target API check also passes. The complete Apple-target workspace check
+stops in `ring` before the app because this Windows host lacks an Apple-target C
+compiler; the build could not replace `target/debug/riina.exe` because a running
+Riina process holds it open. These host checks do not verify macOS playback,
+Control Center rendering, or the full app build. No tests or GUI checks were run.
+
+## Pause and resume when inactive · 2026-10-12
+
+The default-off preference is saved and shown on macOS only. AppKit activation
+notifications enqueue per-player actions, and Winit focus events maintain the
+set of focused Riina player windows. Each player remembers the generation it
+paused and resumes only after both the app and its own window are active, if the
+preference remains enabled and playback is still paused. Focus moving to a
+non-player window such as Preferences does not trigger the policy. A focused
+Apple-target API check passed for both AppKit notifications and the Slint/Winit
+focus accessor. The full Apple-target app build is blocked before app sources by
+`ring` requiring a missing Apple-target C compiler; native focus timing remains
+unverified. No tests or GUI checks were run.
+
+## Pause and resume on minimize · 2026-10-12
+
+The General disclosure now includes the default-off minimize preference. A
+50 ms UI timer observes Slint's minimized state. It pauses only a currently
+playing generation and resumes only that same generation when the window is
+restored and that playback remains paused. This preserves user pause state and
+does not resume a stopped item or a replacement item. The shared Windows
+workspace check and Clippy cover the wiring, but native minimize/restore timing
+and GUI appearance have not been verified. No tests or GUI checks were run.
+
+## Playlist clipboard interoperability · 2026-10-12
+
+Playlist copy/cut use every selected row in playlist order. Paste now inserts at
+the first selected row, falling back to the clicked row and then the start. The
+macOS clipboard writes IINA's native filename property-list representation and
+plain text, and also publishes each selection as an NSURL object through AppKit's
+`writeObjects` API. Paste reads IINA filename lists first, then all file-URL and
+URL items, then plain text. A focused x86_64 Apple-target API compile check passed
+with warnings denied. The full app Apple-target check stops in `ring` because no
+Apple-target C compiler is installed on this Windows host. The locked Windows
+workspace check, strict all-target Clippy, formatting check, parity traceability
+check and diff whitespace check pass. Native pasteboard interoperability and GUI
+behavior were not tested.
+
+## Live system Reduce Motion · 2026-10-12
+
+The existing 500 ms appearance refresh now also updates the player window from
+Windows or macOS system motion preferences while it remains open. A retained
+timer applies changes to the reusable Preferences window as well. The stored
+Riina preference remains independent and combines with the system setting. The
+Windows workspace check and strict all-target Clippy pass; the full Apple-target
+check remains blocked in `ring` by the missing Apple-target C compiler. Linux now
+reads `org.freedesktop.appearance/reduced-motion` from the XDG Settings portal and
+applies later `SettingChanged` signals on the next UI refresh. The Linux portal
+module passed a focused x86_64 Apple-target API compile check with warnings denied;
+this checks the Unix D-Bus source without proving a Linux application build or
+portal runtime. Portal runtime, complete animation inventory, and native GUI
+behavior remain open. No tests or GUI checks were run.
+
+## macOS pause on system sleep · 2026-10-12
+
+General preferences now store the default-on IINA `pauseWhenGoesToSleep` policy.
+The macOS player observes `NSWorkspaceWillSleepNotification` and sends a queued
+pause action to the UI, which pauses only loaded, actively playing media and
+honors the saved toggle. Rust formatting, the locked Windows workspace check,
+strict all-target Clippy cover the shared property and persistence wiring. A
+focused Apple-target binding check passed for the observer and notification
+types. The full Apple-target workspace check stops in `ring` because this
+Windows host lacks an Apple-target C compiler, and native sleep/wake playback
+remains pending. No tests or GUI checks were run.
+
+## macOS Now Playing profile commands · 2026-10-12
+
+MediaPlayer play, pause, toggle, stop, next, previous, skip-forward and
+skip-backward actions resolve against the current profile and dispatch its last
+matching binding on the UI thread, retaining the reference fallback when no
+binding exists. Forward and rewind preferred intervals are loaded from the same
+profile snapshot and refreshed at most once per second while system controls are
+active, avoiding repeated profile-directory/file reads on the 50 ms UI timer.
+The locked Windows workspace check, strict Clippy and formatting pass, but do not
+compile the macOS dispatch. The Apple-target workspace check is blocked in
+`ring` by the missing Apple-target C compiler; hardware-key and Control Center
+behavior remain unverified. No tests or GUI checks were run.

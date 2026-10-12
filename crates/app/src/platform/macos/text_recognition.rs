@@ -162,7 +162,7 @@ fn from_vision_box(
     let right = ((x + width) * frame_width).clamp(left, frame_width);
     let top = ((1.0 - y - height) * frame_height).clamp(0.0, frame_height);
     let bottom = ((1.0 - y) * frame_height).clamp(top, frame_height);
-    (right > left && bottom > top).then(|| Region {
+    (right > left && bottom > top).then_some(Region {
         text,
         x: left as f32,
         y: top as f32,

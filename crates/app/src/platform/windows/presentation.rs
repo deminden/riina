@@ -58,6 +58,10 @@ impl NativePresentation {
         self.hwnd
     }
 
+    pub(crate) fn webview_parent_window(&self) -> Arc<Window> {
+        self._window.clone()
+    }
+
     pub(crate) fn host(&self) -> slint::Weak<NativeVideoHost> {
         self.host.clone()
     }

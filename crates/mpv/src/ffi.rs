@@ -248,6 +248,7 @@ pub struct Api {
     pub render: unsafe extern "C" fn(*mut c_void, *mut Param) -> c_int,
     pub render_callback:
         unsafe extern "C" fn(*mut c_void, Option<unsafe extern "C" fn(*mut c_void)>, *mut c_void),
+    pub render_report_swap: unsafe extern "C" fn(*mut c_void),
     pub render_free: unsafe extern "C" fn(*mut c_void),
 }
 
@@ -322,6 +323,7 @@ impl Api {
                 render_create: symbol!("mpv_render_context_create"),
                 render: symbol!("mpv_render_context_render"),
                 render_callback: symbol!("mpv_render_context_set_update_callback"),
+                render_report_swap: symbol!("mpv_render_context_report_swap"),
                 render_free: symbol!("mpv_render_context_free"),
                 _library: library,
             })

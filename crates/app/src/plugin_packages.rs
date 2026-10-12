@@ -3,7 +3,7 @@
 use riina_core::plugin::Manifest;
 use std::{
     fs::{self, File, OpenOptions},
-    io::{self, Write},
+    io::{self, Read, Seek, Write},
     path::{Component, Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
@@ -36,6 +36,72 @@ impl StagedPackage {
             .map_err(|error| format!("Could not install plugin package: {error}"))?;
         Ok(destination)
     }
+
+    pub fn replace(self, plugins_directory: &Path) -> Result<PackageReplacement, String> {
+        fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
+        let destination =
+            plugins_directory.join(format!("{}.iinaplugin", self.manifest.identifier));
+        let metadata = fs::symlink_metadata(&destination)
+            .map_err(|error| format!("Could not locate the installed plugin: {error}"))?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("The installed plugin path is not a regular directory".into());
+        }
+        let backup =
+            plugins_directory.join(unique_stage_name().replace("plugin-stage", "plugin-backup"));
+        fs::rename(&destination, &backup)
+            .map_err(|error| format!("Could not preserve the installed plugin: {error}"))?;
+        if let Err(error) = fs::rename(&self.package_directory, &destination) {
+            return match fs::rename(&backup, &destination) {
+                Ok(()) => Err(format!("Could not install the plugin update: {error}")),
+                Err(restore_error) => Err(format!(
+                    "Could not install the plugin update: {error}. The previous package remains at {}; restore failed: {restore_error}",
+                    backup.display()
+                )),
+            };
+        }
+        Ok(PackageReplacement {
+            destination,
+            backup: Some(backup),
+        })
+    }
+}
+
+pub(crate) struct PackageReplacement {
+    destination: PathBuf,
+    backup: Option<PathBuf>,
+}
+
+impl PackageReplacement {
+    pub fn commit(mut self) -> Result<(), String> {
+        let Some(backup) = self.backup.take() else {
+            return Ok(());
+        };
+        fs::remove_dir_all(&backup)
+            .map_err(|error| format!("Could not remove the previous plugin version: {error}"))?;
+        Ok(())
+    }
+
+    pub fn rollback(mut self) -> Result<(), String> {
+        let Some(backup) = self.backup.as_ref() else {
+            return Ok(());
+        };
+        fs::remove_dir_all(&self.destination).map_err(|error| {
+            format!("Could not remove the updated plugin during rollback: {error}")
+        })?;
+        fs::rename(backup, &self.destination)
+            .map_err(|error| format!("Could not restore the previous plugin version: {error}"))?;
+        self.backup = None;
+        Ok(())
+    }
+}
+
+impl Drop for PackageReplacement {
+    fn drop(&mut self) {
+        if let Some(backup) = self.backup.take() {
+            let _ = fs::remove_dir_all(&self.destination);
+            let _ = fs::rename(backup, &self.destination);
+        }
+    }
 }
 
 impl Drop for StagedPackage {
@@ -53,10 +119,11 @@ pub(crate) fn stage_archive(
     if !metadata.is_file() {
         return Err("The plugin package must be a file".into());
     }
+    let archive = File::open(path).map_err(|error| format!("Could not read package: {error}"))?;
     fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
     let stage_directory = plugins_directory.join(unique_stage_name());
     fs::create_dir(&stage_directory).map_err(|error| error.to_string())?;
-    let result = extract_validate(path, &stage_directory).and_then(|package_directory| {
+    let result = extract_validate(archive, &stage_directory).and_then(|package_directory| {
         Manifest::load_from_directory(&package_directory)
             .map(|manifest| (package_directory, manifest))
     });
@@ -73,10 +140,35 @@ pub(crate) fn stage_archive(
     }
 }
 
-fn extract_validate(archive_path: &Path, stage: &Path) -> Result<PathBuf, String> {
-    let file = File::open(archive_path).map_err(|error| error.to_string())?;
+pub(crate) fn stage_archive_bytes(
+    bytes: Vec<u8>,
+    plugins_directory: &Path,
+) -> Result<StagedPackage, String> {
+    fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
+    let stage_directory = plugins_directory.join(unique_stage_name());
+    fs::create_dir(&stage_directory).map_err(|error| error.to_string())?;
+    let result = extract_validate(std::io::Cursor::new(bytes), &stage_directory).and_then(
+        |package_directory| {
+            Manifest::load_from_directory(&package_directory)
+                .map(|manifest| (package_directory, manifest))
+        },
+    );
+    match result {
+        Ok((package_directory, manifest)) => Ok(StagedPackage {
+            stage_directory,
+            package_directory,
+            manifest,
+        }),
+        Err(error) => {
+            let _ = fs::remove_dir_all(&stage_directory);
+            Err(error)
+        }
+    }
+}
+
+fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, String> {
     let mut archive =
-        ZipArchive::new(file).map_err(|error| format!("Invalid plugin archive: {error}"))?;
+        ZipArchive::new(source).map_err(|error| format!("Invalid plugin archive: {error}"))?;
     if archive.is_empty() || archive.len() > MAX_ENTRIES {
         return Err("Plugin archive has an invalid number of entries".into());
     }

@@ -6,6 +6,11 @@ IINA behaviors first, then close visual differences against the pinned IINA
 artwork. Keep subsequent development local until a substantial verified public
 milestone.
 
+The current OS-version target is macOS 27.0.1, Apple's latest release as of
+2026-10-12. The captured IINA 1.5.0 reference surfaces below were taken on 26.6.2;
+they remain pinned-app evidence, not 27.0.1 visual goldens. Capture matching IINA
+and Riina surfaces on 27.0.1 before accepting current visual parity.
+
 Windows capture now succeeds through the computer-use tool. Earlier captures did
 not distinguish capture failure from native-overlay opacity. The 2026-10-11 live
 repair identifies an opaque Slint chrome HWND over correctly decoded native video;
@@ -74,7 +79,7 @@ prove rendered parity.
 | Surface | Current gap and required comparison |
 |---|---|
 | Main window | Native title/menu strip, in-player title/buttons, rounded window shape, aspect fit, startup, separate welcome window and empty state |
-| Floating controls | 12pt macOS 26 corners, complete button groups, glyph weight, sliders, spacing, video-sampled material, compact/spacious layouts, hide animation |
+| Floating controls | macOS 27.0.1 corner behavior, complete button groups, glyph weight, sliders, spacing, video-sampled material, compact/spacious layouts, hide animation |
 | Other control layouts | Top/bottom layouts and their exact allocation, visibility and resize behavior |
 | Video settings | Pixel-accurate tab, card and scroll layout; decoder threads, hardware decoder choices and nested tone-mapping controls; ICC/HDR switches and a matched macOS comparison |
 | Audio/subtitles | Shared reference tab organization, row styles, selections, editable fields, warnings and secondary subtitle controls |
@@ -147,8 +152,15 @@ geometry, live save/restart and matched rendering remain open. Auto Load control
 persist and configure mpv's disabled/fuzzy/exact sidecar modes on startup and live
 preference saves. Literal directory lists are passed to mpv; IINA's default `./*`
 glob is retained but not misinterpreted as a literal directory. Priority keyword
-ranking and full directory/glob matching remain unimplemented; Online Subtitles is
-not implemented.
+selection now promotes the best matching external track after native discovery.
+IINA's broader series matching and full directory/glob matching remain open.
+Online Subtitles now supports a user-keyed OpenSubtitles title/hash search, language
+filtering, selection, download and loading into the active media. Automatic search
+is opt-in, one attempt per playback generation, and requires local media above the
+configured duration threshold with no subtitle tracks after discovery settles. The API key uses
+the operating system's secure credential store and migrates out of earlier plain
+settings JSON. Provider response
+edge cases, live playback and source-matched window geometry remain unverified.
 Network's Cache section now follows the captured reference layout and uses the
 pinned defaults for live and startup mpv configuration. The Network subsection
 now exposes the source's user-agent, HTTP-proxy and RTSP-transport controls, persists
@@ -256,12 +268,24 @@ mapping operations, not the new Settings page geometry. Riina now follows the
 captured one-column hierarchy, includes the first seven visible IINA defaults, and
 filters rows by readable labels or raw values. Its profile store supports list,
 create, duplicate, import, save, rename and delete, with reveal/delete wired to the
-page. Active-profile dispatch now covers the shipped IINA Default mappings through
-a bounded supported-action set; unsupported custom actions are consumed with a
-status message. Action-builder parity, the remaining built-in maps, key recording,
-selection-aware removal, system media-session behavior and matched pixels remain
-incomplete. Runtime GUI interaction and the Windows page have not yet been
-captured against the macOS reference.
+page. Active-profile dispatch routes playlist/chapter panels, fit-to-video, Music
+Mode and Picture-in-Picture to their existing app callbacks; the IINA Default
+profile binds these application actions. The reveal-file action uses the active
+playlist entry and delegates local-file selection to the native file manager.
+The Live Text binding toggles and persists the existing availability-gated
+recognition preference. The profile-set menu now creates an empty set, duplicates
+the selected built-in or user set, imports an input.conf file and reveals the
+active profile. The native import chooser is asynchronous. Profile rename, delete
+confirmation, and the remaining full-map/action coverage remain open.
+Unsupported custom actions are consumed with a status message. Windows
+`WM_APPCOMMAND` is wired through the active mapping and system-control preference;
+hardware input remains unverified. Action-builder
+parity, full mapping coverage for the five built-in profiles, key recording,
+selection-aware removal, macOS remote-command integration and matched pixels
+remain incomplete. Each selectable built-in profile now has an original starter
+map, and supported mpv actions route through a bounded argument parser. Runtime
+GUI interaction and the Windows page have not yet been captured against the
+macOS reference.
 
 ### Utilities page
 
@@ -273,16 +297,22 @@ application action opens Windows Default Apps; Restore Alerts reports the curren
 source-equivalent empty state. Clear Playback History confirms and removes Riina's
 persisted recent-media entries, refreshes the live welcome list, and prevents the
 current item from being re-added at shutdown until another media item opens. Riina
-does not yet have IINA's separate playback-history database or a thumbnail cache;
-thumbnail deletion stays disabled. Browser extensions remain absent. The latest
+does not yet have IINA's separate playback-history database. Thumbnail previews now
+have source-matched disk entries and budget eviction under the Riina cache directory.
+Browser extensions remain absent. The latest
 Windows render, focus treatment and matched pixel comparison remain unverified.
 
 The Plugins page now uses the captured overview card, GitHub/local-package actions,
 update status, refresh affordance and 60-point installed-plugin rows. Its row model
 is data-driven, so an empty installation is represented honestly instead of showing
-the reference machine's installed plugins as if they were present. Wiring these
-actions to the portable plugin manager, permission and update states, and a matched
-Windows capture remain open; this layout increment does not close plugin parity.
+the reference machine's installed plugins as if they were present. GitHub installs
+now resolve the latest release package or the repository's main-branch source archive,
+validate it through the shared package staging path and review requested permissions
+before install. Refresh now checks installed GitHub plugins' `ghVersion` metadata in
+the background. Updates can be confirmed from the plugin information action and
+replace the package while preserving enabled state. Live update behavior, exact store
+behavior, permission and update-state appearance, and a matched Windows capture
+remain open; this layout increment does not close plugin parity.
 The row columns now follow the capture: a bounded plugin-name field, version and
 overflow action grouped together, with the information control aligned at the far
 edge. Disabled switches also reject Space/Enter, matching their disabled pointer

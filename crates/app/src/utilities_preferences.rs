@@ -16,17 +16,65 @@ pub(crate) fn connect(
             .unwrap_or_else(|_| "—".into())
             .into(),
     );
+    match thumbnail_cache_directory() {
+        Ok(directory) => {
+            let size = fs::create_dir_all(&directory)
+                .and_then(|()| directory_size(&directory))
+                .map(format_size)
+                .unwrap_or_else(|_| "—".into());
+            window.set_utilities_thumbnail_size(size.into());
+        }
+        Err(_) => window.set_utilities_thumbnail_size("—".into()),
+    }
 
     let weak = window.as_weak();
     window.on_utilities_open_default_apps(move || {
+        if let Some(window) = weak.upgrade() {
+            window.set_utilities_default_app_sheet_open(true);
+        }
+    });
+
+    let weak = window.as_weak();
+    window.on_utilities_default_apps_requested(move |video, audio, playlists| {
         let Some(window) = weak.upgrade() else {
             return;
         };
-        match open_default_apps() {
-            Ok(()) => window.set_utilities_status(
-                "Choose Riina in Windows Default Apps. File associations appear after installation."
-                    .into(),
-            ),
+        if !video && !audio && !playlists {
+            window.set_utilities_status("Select at least one media type.".into());
+            return;
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let weak_window = window.as_weak();
+            window.set_utilities_status("Updating file associations…".into());
+            let worker = std::thread::Builder::new()
+                .name("riina-file-associations".into())
+                .spawn(move || {
+                    let message = match register_default_file_types(video, audio, playlists) {
+                        Ok(count) => default_app_status(count),
+                        Err(error) => error,
+                    };
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(window) = weak_window.upgrade() {
+                            window.set_utilities_status(message.into());
+                        }
+                    });
+                });
+            if let Err(error) = worker {
+                window.set_utilities_status(
+                    format!("Could not start file-association update: {error}").into(),
+                );
+            }
+            return;
+        }
+        #[cfg(not(target_os = "linux"))]
+        match register_default_file_types(video, audio, playlists) {
+            Ok(count) => match open_default_apps() {
+                Ok(()) => window.set_utilities_status(default_app_status(count).into()),
+                Err(error) => window.set_utilities_status(
+                    format!("Registered {count} file types, but could not open Windows Default Apps: {error}").into(),
+                ),
+            },
             Err(error) => window.set_utilities_status(error.into()),
         }
     });
@@ -94,6 +142,52 @@ pub(crate) fn connect(
                 .set_utilities_status(format!("Could not clear playback history: {error}").into()),
         }
     });
+
+    let weak = window.as_weak();
+    window.on_utilities_clear_thumbnail_cache(move || {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let directory = match thumbnail_cache_directory() {
+            Ok(directory) => directory,
+            Err(error) => {
+                window.set_utilities_status(error.into());
+                return;
+            }
+        };
+        let size = directory_size(&directory)
+            .map(format_size)
+            .unwrap_or_else(|_| "—".into());
+        let response = MessageDialog::new()
+            .set_title("Clear Thumbnail Cache")
+            .set_description(format!(
+                "Delete all cached thumbnails? Current size: {size}."
+            ))
+            .set_buttons(MessageButtons::YesNo)
+            .show();
+        if response != MessageDialogResult::Yes {
+            return;
+        }
+        match clear_thumbnail_cache(&directory) {
+            Ok(removed_bytes) => {
+                window.set_utilities_thumbnail_size(format_size(0).into());
+                window.set_utilities_status(
+                    format!(
+                        "Thumbnail cache cleared ({} removed).",
+                        format_size(removed_bytes)
+                    )
+                    .into(),
+                );
+            }
+            Err(error) => window
+                .set_utilities_status(format!("Could not clear thumbnail cache: {error}").into()),
+        }
+    });
+}
+
+pub(crate) fn thumbnail_cache_directory() -> Result<std::path::PathBuf, String> {
+    let cache = dirs::cache_dir().ok_or("The user cache directory is unavailable")?;
+    Ok(cache.join("riina").join("thumb_cache"))
 }
 
 pub(crate) fn clear_recent_history(preferences_path: &Path) -> Result<usize, String> {
@@ -118,6 +212,7 @@ pub(crate) fn preserve_saved_history(preferences: &mut riina_core::Preferences, 
     }
 }
 
+#[cfg(not(target_os = "linux"))]
 fn open_default_apps() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -127,9 +222,44 @@ fn open_default_apps() -> Result<(), String> {
             .map(|_| ())
             .map_err(|error| format!("Could not open Windows Default Apps: {error}"))
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     {
-        Err("Default-app registration is not available on this platform yet.".into())
+        Ok(())
+    }
+}
+
+fn register_default_file_types(video: bool, audio: bool, playlists: bool) -> Result<usize, String> {
+    #[cfg(target_os = "windows")]
+    {
+        crate::platform::register_default_file_types(video, audio, playlists)
+            .map_err(|error| format!("Could not register Riina file types: {error}"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        crate::platform::register_default_file_types(video, audio, playlists)
+            .map_err(|error| format!("Could not register Riina file types: {error}"))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        crate::platform::register_default_file_types(video, audio, playlists)
+            .map_err(|error| format!("Could not register Riina file types: {error}"))
+    }
+}
+
+fn default_app_status(count: usize) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        format!(
+            "Registered {count} file types. Choose Riina for the selected types in Windows Default Apps."
+        )
+    }
+    #[cfg(target_os = "macos")]
+    {
+        format!("Launch Services set Riina as the default for {count} media types.")
+    }
+    #[cfg(target_os = "linux")]
+    {
+        format!("Riina is now the default for {count} selected media types.")
     }
 }
 
@@ -171,6 +301,52 @@ fn clear_watch_later(directory: &Path) -> io::Result<u64> {
             fs::remove_dir_all(entry.path())?;
         } else {
             removed_bytes += metadata.len();
+            fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(removed_bytes)
+}
+
+fn clear_thumbnail_cache(directory: &Path) -> io::Result<u64> {
+    if directory
+        .file_name()
+        .is_none_or(|name| name != "thumb_cache")
+        || directory
+            .parent()
+            .and_then(Path::file_name)
+            .is_none_or(|name| name != "riina")
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the thumbnail cache must be inside the Riina cache directory",
+        ));
+    }
+    let metadata = match fs::symlink_metadata(directory) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            fs::create_dir_all(directory)?;
+            return Ok(0);
+        }
+        Err(error) => return Err(error),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the thumbnail cache path is not a regular directory",
+        ));
+    }
+
+    let mut removed_bytes = 0u64;
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?;
+        let metadata = fs::symlink_metadata(entry.path())?;
+        if metadata.file_type().is_symlink() {
+            continue;
+        } else if metadata.is_dir() {
+            removed_bytes = removed_bytes.saturating_add(directory_size(&entry.path())?);
+            fs::remove_dir_all(entry.path())?;
+        } else {
+            removed_bytes = removed_bytes.saturating_add(metadata.len());
             fs::remove_file(entry.path())?;
         }
     }
@@ -241,6 +417,29 @@ mod tests {
         let path = temporary_directory().join("documents");
         assert_eq!(
             clear_watch_later(&path).unwrap_err().kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
+    fn clear_thumbnail_cache_removes_entries_and_preserves_its_directory() {
+        let root = temporary_directory().join("riina");
+        let cache = root.join("thumb_cache");
+        fs::create_dir_all(cache.join("nested")).unwrap();
+        fs::write(cache.join("one.jpg"), b"image").unwrap();
+        fs::write(cache.join("nested").join("two.jpg"), b"more").unwrap();
+
+        assert_eq!(clear_thumbnail_cache(&cache).unwrap(), 9);
+        assert!(cache.is_dir());
+        assert_eq!(fs::read_dir(&cache).unwrap().count(), 0);
+        fs::remove_dir_all(root.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn clear_thumbnail_cache_refuses_a_directory_outside_its_owned_path() {
+        let path = temporary_directory().join("documents").join("thumb_cache");
+        assert_eq!(
+            clear_thumbnail_cache(&path).unwrap_err().kind(),
             io::ErrorKind::InvalidInput
         );
     }

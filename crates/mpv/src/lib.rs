@@ -3,6 +3,7 @@
 mod demuxer_tests;
 mod ffi;
 mod seek_feedback;
+pub mod thumbnail_generator;
 pub mod video;
 #[cfg(windows)]
 mod windows_apartment;
@@ -19,6 +20,7 @@ use std::{
         mpsc::{self, SyncSender},
     },
     thread::JoinHandle,
+    time::{Duration, Instant},
 };
 
 enum Message {
@@ -273,6 +275,10 @@ impl Player {
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
                 let mut seek_feedback = seek_feedback::SeekFeedback::default();
+                let mut auto_seek_exact = true;
+                let mut auto_seek_measurement_armed = false;
+                let mut auto_seek_measurement_started = None;
+                let mut auto_seek_decided = false;
                 while let Ok(message) = receiver.recv() {
                     if let Message::Intent(command) = message {
                         if command == Command::Shutdown {
@@ -299,9 +305,29 @@ impl Player {
                                 if matches!(command, Command::TogglePause | Command::SetPaused(_)) { seek_feedback.playback_transition(); }
                                 if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;
+                                let is_auto_seek = matches!(
+                                    &command,
+                                    Command::SeekWithType {
+                                        seek_type: riina_core::control_preferences::SeekType::Auto,
+                                        ..
+                                    }
+                                );
                                 // Validate the whole intent before submitting any part. Multi-file
                                 // additions consume one queue slot and cannot be partially dropped.
-                                for args in plan.commands {
+                                for mut args in plan.commands {
+                                    if is_auto_seek && !auto_seek_decided
+                                        && args.first().is_some_and(|argument| argument == "seek")
+                                        && args.len() >= 3
+                                    {
+                                        // IINA starts Auto seeking exactly, then chooses one mode
+                                        // for the remainder of this media after measuring its
+                                        // first SEEK-to-PLAYBACK_RESTART interval.
+                                        args[2] = if auto_seek_exact {
+                                            "relative+exact".into()
+                                        } else {
+                                            "relative".into()
+                                        };
+                                    }
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
@@ -312,6 +338,9 @@ impl Player {
                                         state.error = Some(error);
                                         resume_on_load = false;
                                         break;
+                                    }
+                                    if is_auto_seek && !auto_seek_decided {
+                                        auto_seek_measurement_armed = true;
                                     }
                                     if matches!(command, Command::TogglePlaylistShuffle) {
                                         state.playlist_shuffled = !state.playlist_shuffled;
@@ -393,11 +422,21 @@ impl Player {
                                     }
                                 }
                             }
-                            6 => { seek_pending = false; seek_feedback.clear(); state.begin_load(); },
+                            6 => {
+                                seek_pending = false;
+                                seek_feedback.clear();
+                                auto_seek_exact = true;
+                                auto_seek_measurement_armed = false;
+                                auto_seek_measurement_started = None;
+                                auto_seek_decided = false;
+                                state.begin_load();
+                            },
                             7 if !event.data.is_null() => {
                                 let end = &*event.data.cast::<EndFile>();
                                 seek_pending = false;
                                 seek_feedback.clear();
+                                auto_seek_measurement_armed = false;
+                                auto_seek_measurement_started = None;
                                 state.phase = match end.reason { 0 => Phase::Ended, 4 => Phase::Failed, _ => Phase::Stopped };
                                 if matches!(state.phase, Phase::Stopped | Phase::Failed) {
                                     state.ab_loop_a = None;
@@ -414,12 +453,25 @@ impl Player {
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) { state.error = Some(error); }
                                 }
                             },
-                            20 => { seek_pending = true; seek_feedback.started(); },
+                            20 => {
+                                seek_pending = true;
+                                seek_feedback.started();
+                                if auto_seek_measurement_armed
+                                    && auto_seek_measurement_started.is_none()
+                                {
+                                    auto_seek_measurement_armed = false;
+                                    auto_seek_measurement_started = Some(Instant::now());
+                                }
+                            },
                             21 if seek_pending => {
                                 // Restart also occurs on initial load. Only a preceding
                                 // native SEEK establishes a completed seek notification.
                                 seek_pending = false;
                                 state.completed_seeks = state.completed_seeks.wrapping_add(1);
+                                if let Some(started) = auto_seek_measurement_started.take() {
+                                    auto_seek_exact = started.elapsed() < Duration::from_millis(50);
+                                    auto_seek_decided = true;
+                                }
                                 if seek_feedback.completed() {
                                     state.completed_navigation_seeks = state.completed_navigation_seeks.wrapping_add(1);
                                 }

@@ -92,15 +92,25 @@ pub fn scroll_effect(
     delta: f64,
     precise: bool,
 ) -> ScrollEffect {
-    if !delta.is_finite() || delta == 0.0 || settings.validate().is_err() {
-        return ScrollEffect::None;
-    }
-
     let action = if horizontal {
         settings.horizontal_scroll_action
     } else {
         settings.vertical_scroll_action
     };
+    scroll_effect_for_action(settings, action, horizontal, delta, precise)
+}
+
+/// Apply a scroll override supplied by a control such as the timeline or volume slider.
+pub fn scroll_effect_for_action(
+    settings: &Settings,
+    action: ScrollAction,
+    horizontal: bool,
+    delta: f64,
+    precise: bool,
+) -> ScrollEffect {
+    if !delta.is_finite() || delta == 0.0 || settings.validate().is_err() {
+        return ScrollEffect::None;
+    }
     let direction = if precise {
         delta
     } else {
@@ -213,6 +223,8 @@ pub struct Settings {
     pub accepts_first_mouse: bool,
     pub vertical_scroll_action: ScrollAction,
     pub horizontal_scroll_action: ScrollAction,
+    pub disable_play_slider_scrolling: bool,
+    pub disable_volume_slider_scrolling: bool,
     pub seek_type: SeekType,
     pub seek_sensitivity: u8,
     pub volume_sensitivity: u8,
@@ -231,6 +243,8 @@ impl Default for Settings {
             accepts_first_mouse: false,
             vertical_scroll_action: ScrollAction::Volume,
             horizontal_scroll_action: ScrollAction::Seek,
+            disable_play_slider_scrolling: false,
+            disable_volume_slider_scrolling: false,
             seek_type: SeekType::Keyframe,
             seek_sensitivity: 3,
             volume_sensitivity: 3,

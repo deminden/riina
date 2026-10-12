@@ -1,4 +1,6 @@
 //! macOS/Linux use the shared GL surface; native HDR presentation is still pending.
+#[cfg(target_os = "linux")]
+pub(crate) mod accessibility;
 mod dialogs;
 pub(crate) mod services;
 pub(crate) use dialogs::open as open_dialog;

@@ -408,6 +408,20 @@ const ENTRIES: &[Entry] = &[
         terms: "charset text",
     },
     Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Online Subtitles",
+        title: "OpenSubtitles API key",
+        terms: "online subtitle search download provider account key",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Online Subtitles",
+        title: "Automatic subtitle search",
+        terms: "online automatically duration threshold minutes",
+    },
+    Entry {
         page_index: 5,
         page: "Network",
         section: "Cache",
@@ -678,6 +692,7 @@ fn anchor_y(entry: &Entry) -> i32 {
         (4, "Position", _) => 772,
         (4, "Other", "Default encoding") => 1000,
         (4, "Other", _) => 950,
+        (4, "Online Subtitles", _) => 1040,
         (5, "Cache", _) | (5, "Network", _) => 80,
         _ => 0,
     }
@@ -867,7 +882,7 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         if title == "Shadow and other styles" {
             window.set_subtitle_text_advanced_expanded(true);
         }
-        window.set_subtitle_scroll_position((52 - anchor).max(-570) as f32);
+        window.set_subtitle_scroll_position((52 - anchor).max(-740) as f32);
     }
     if page == 5 {
         window.set_selected_network_section(match section {
@@ -1042,13 +1057,21 @@ mod tests {
     }
 
     #[test]
-    fn subtitle_results_keep_reference_section_order() {
+    fn subtitle_results_include_online_controls_in_section_order() {
         let subtitle_items = results_for_query("subtitle")
             .into_iter()
             .filter(|result| !result.is_header && result.page_index == 4)
             .map(|result| result.title.to_string())
             .collect::<Vec<_>>();
-        assert_eq!(subtitle_items, ["Search paths", "Subtitle matching mode"]);
+        assert_eq!(
+            subtitle_items,
+            [
+                "Search paths",
+                "Subtitle matching mode",
+                "Automatic subtitle search",
+                "OpenSubtitles API key",
+            ]
+        );
     }
 
     #[test]

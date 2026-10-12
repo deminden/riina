@@ -35,7 +35,7 @@ coding tools as contributors.
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.3.0.
+the minor digit for major milestones. The current development version is 0.3.1.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
@@ -62,6 +62,11 @@ For large Windows builds with a growing incremental cache, set `CARGO_INCREMENTA
 for the check or build so generated compiler state does not consume the drive.
 Do not routinely erase the shared Cargo registry or Git download caches: they are
 costly to repopulate and are not the project's generated build output.
+Periodically review the project-local `target` directory and clean stale Cargo
+build artifacts when they are no longer useful. Before cleaning, confirm no active
+build, test, or application process is using the target directory; use `cargo clean`
+or a specific target directory and preserve logs, release evidence, and other
+non-generated project artifacts.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 remains the current supported target. The user has made full macOS-version parity

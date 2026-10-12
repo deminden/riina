@@ -3,13 +3,107 @@
 ## Application state
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.0. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.1. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
 native HTTP playback check that serves the repository's moving-square fixture over
 localhost and verifies advancing playback, duration, and the selected audio track.
 This does not verify physical audio hardware, public network streams, or macOS playback.
+The stored Disable Animations preference combines with live Windows, macOS, and
+Linux desktop Reduce Motion settings while the player or reusable Preferences
+window is open. Linux reads the standardized XDG Settings value and follows its
+change signal; native portal behavior and the complete animation inventory
+remain open.
+Command-line HTTP, HTTPS, RTSP and RTSPS media references now share URL validation
+with the Open URL workflow and retain their position among local paths; live URL
+playback and the wider IINA command-line option grammar remain open.
+Shared selection resolves macOS Finder aliases before folder expansion; the native
+alias API is source-implemented but awaits an Apple-target build and Mac runtime
+verification. Windows Shell `.lnk` shortcuts now resolve on the file-discovery
+worker before directory expansion; the Windows workspace compiles this path, but
+native shortcut interaction remains unverified.
+The General settings now preserve IINA's allow-multiple-player, simultaneous-open
+grouping, and duplicate-player defaults. Grouped batches bypass duplicate filtering
+as in IINA; separate-player batches still filter already-open and repeated media.
+General > Playlist now saves IINA's default-on Add files in the same folder
+automatically option. A worker scans direct playable siblings, sorts videos and
+audio in separate native-natural order groups, and inserts only missing files on
+the correct side of the current playlist entry. The Windows workspace compiles the
+path; live playlist ordering and the macOS capture remain unverified.
+Later local, URL, and recent-media opens use in-process player windows on the
+shared-renderer path, including macOS. The Windows native-video path still launches
+separate processes; shared plugin/history state, cross-process duplicate focus, and
+live lifecycle verification remain open.
+General settings now persist IINA's quit-after-all-windows-close preference
+(default off) and keep-window-open-after-playback preference (default on). On the
+shared-renderer path, closing the last player restores Welcome when quitting is off;
+the Windows native-video lifecycle and live close/reopen behavior remain open. The
+keep-open setting reaches new and active libmpv sessions; EOF replay and playlist
+boundaries still need native playback verification. General > Pause/resume when now
+stores fullscreen entry/exit settings and applies their pause intent when fullscreen
+changes; the default-off minimize policy now pauses only active playback and
+resumes only the same media generation when restored. Its 50 ms state sampling
+still needs native lifecycle verification. The default-off macOS inactive policy
+now tracks registered player windows, pauses only when focus moves away from
+player playback, and restores only the media generation it paused; its native
+timing still needs verification. The default-on macOS sleep policy is implemented
+but still needs a native build and playback verification. Timed
+OSD now also reports observed volume/mute, audio delay,
+subtitle timing/visibility and selected track changes; exact rendering and
+remaining OSD event families remain open; state-based rotation, crop, subtitle
+scale, loop mode and A/B loop feedback plus stop/chapter/playlist-action messages
+are implemented. Track-selection feedback now includes the selected track ID and
+localized language name, with IINA's synthetic `#0 <None>` entry when a track is
+cleared; matched OSD rendering and live locale changes remain open.
+Wheel Auto seek now starts with exact seeking and measures the first native
+seek-to-playback-restart interval for each media file; later Auto seeks use exact
+mode below 50 ms and keyframe mode otherwise. The render path reports composed
+frames to libmpv immediately before Slint presents them. Scroll gestures now keep
+the first non-zero native axis through diagonal motion. A retained AppKit event
+monitor supplies native macOS phase, precision, natural-direction, and momentum
+values to the shared scroll action. Trackpad seeking now pauses at gesture start
+and resumes only the same media generation if it was playing before the gesture;
+abrupt momentum after the pointer leaves is filtered. By default the timeline
+forces seek and the volume sliders force volume, independent of the configured
+scroll action. The two IINA slider-scroll opt-outs now persist under Control
+preferences and appear in Interface > On Screen Controller; when enabled they
+swallow wheel input over their slider while preserving click and drag. AppKit
+integration, native event timing, paused-seek progress, live wheel behavior, and
+matched settings visuals remain unverified.
+macOS pinch gestures now route through each player's Winit event filter: the
+default action resizes around the window center within monitor and minimum-size
+bounds, while the alternate action toggles fullscreen in the pinch direction.
+Second-stage trackpad pressure dispatches the saved Force Touch action once per
+press. Target compilation, real hardware interaction, and matched captures remain
+unverified; Pinch and Force Touch are macOS-specific input capabilities.
+The saved Accept First Mouse preference now configures Winit's macOS window
+attribute at app startup. Winit does not expose a runtime setter, so changes apply
+after restarting Riina; the setting currently affects the whole Slint surface,
+while IINA scopes it to video and loop-slider views. Dynamic, view-scoped behavior,
+macOS compilation, and first-click interaction remain open.
+
+Subtitle Auto Load applies comma-separated priority keywords to external tracks
+and now expands the default `./*` and configured subtitle search directories on a
+background worker for each local playback generation. It filters IINA-supported
+subtitle extensions, matches media filename prefixes or containment according to
+the selected mode, and loads matches with mpv's non-stealing automatic-selection
+flag. In intelligent mode it also recognizes numbered episode groups from three
+or more sibling media files and uses a bounded reciprocal nearest-name fallback
+when direct and episode matching find nothing. Episode grouping preserves stable
+filename tokens while matching multiple varying numeric identifiers, such as season
+and episode numbers, across three or more sibling media files. Explicit episode-number
+conflicts and subtitles already matched to neighboring media are excluded from that fallback.
+Configured priority keywords can then choose the preferred external track.
+Riina now includes manual OpenSubtitles search and download, stores
+the user's key in the platform credential store, migrates any saved plain-text key,
+and can open a search for local media above the configured duration threshold when
+no subtitle tracks are found after discovery settles.
+Search uses preferred subtitle languages and an OpenSubtitles media hash when
+available. The Auto Load matcher now measures bounded prefix and suffix distances
+for numeric-pattern groups; its group thresholds and assignment rules still differ
+from IINA's recursive matcher. Live provider playback, captured UI comparison, and
+matched macOS visual behavior remain open.
 
 Windows 11 x64 is the supported application target. macOS and Linux application
 ports are in development and are not supported yet. Full application builds, visible
@@ -19,11 +113,14 @@ support.
 ## Parity state
 
 The pinned baseline is official IINA v1.5.0. The parity inventory currently traces
-192 atomic requirements, and the inventory is still incomplete. Many requirements
+224 atomic requirements, and the inventory is still incomplete. Many requirements
 remain partial or unverified. There is no defensible overall parity percentage.
 Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
 captured reference surfaces to choose and verify work.
+As of 2026-10-12, the current macOS target is 27.0.1; all accepted IINA
+captures currently on file were taken on macOS 26.6.2 and need a 27.0.1 recapture
+before they can serve as latest-version visual references.
 
 Known substantial gaps include live verification of the new Windows
 Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
@@ -33,30 +130,121 @@ geometry, and complete interaction captures. Plugin enable/disable now persists
 state; a background host discovers enabled packages during player startup and owns
 bounded runtime sessions until disable or shutdown. Player and optional global
 entry files run in separate bounded sessions. Granted log, transient OSD and alert
-events reach the UI. Global-to-player API linking,
-timers, module loading, updates, complete host APIs, overlay webview rendering,
-capability-failure feedback in Settings and live GUI behavior remain open. The user confirmed that Windows
-Playback and Video menu clicks now work. The menu is now removed when the native
-host enters fullscreen and restored in windowed mode; that visibility change still
-needs a live check. Other playback interaction remains under verification.
+events reach the UI. Bounded JavaScript timers run on each isolated runtime. The
+host continuously drains plugin events and relays bounded JSON messages between
+paired global and player contexts. Package plugins can load bounded CommonJS
+modules with require(), resolved relative to the active package file and
+confined to that package. GitHub plugin installation now accepts a repository URL,
+prefers the latest `.iinaplgz` release asset, falls back to the main-branch source
+archive, validates the package, and reviews requested permissions before install.
+GitHub latest-version checks now compare each installed repository's `ghVersion`
+against its `main/Info.json` metadata on a worker. Available updates can be confirmed
+from the plugin information action; updates validate the repository identity, review
+only additional permissions, preserve earlier grants and replace the package with
+rollback while restarting enabled sessions through the plugin host. Live update and
+restart behavior remains unverified. Plugin-created player instances, complete host
+APIs, capability-failure feedback in Settings, macOS/Linux overlay presentation and
+live GUI validation remain open. When the official `io.iina.ytdl` plugin is enabled,
+Riina now disables mpv's built-in extractor at startup and on live plugin toggles,
+greys out its Network settings, and preserves the saved built-in-extractor choice.
+The plugin's quality-selection and download flows, public-site playback, and matched
+Network-settings captures remain open. Windows overlays now use a
+package-confined WebView2 child over the native video host with plugin messaging
+and marked-element hit testing; runtime behavior and matched pixels remain
+unverified. Thumbnail extraction and timeline hover preview are now wired into the
+player for local videos; disk cache reuse/eviction and mounted-volume policy are
+implemented, while live interaction and matched captures remain open. Windows Playback and Video menu clicks have been confirmed by the
+user.
+The menu is now removed when the native host enters fullscreen and restored in
+windowed mode; that visibility change still needs a live check. Other playback
+interaction remains under verification.
 Windows HDR and native-window work has runtime evidence, but calibrated end-to-end
 HDR parity and broad hardware coverage remain unverified. Consult the parity
 inventory for the exact state of each requirement.
 
 The PiP lifecycle now follows IINA's distinction between closing and stopping:
 closing restores the main-window state without changing playback, while the
-explicit Stop control pauses playback. Shared lifecycle tests and the Windows
-application compile pass. The macOS surface is still not implemented, and the
-Windows projection and interaction still need live GUI verification. The Mac
-rendering constraint and required surface experiment are recorded in
+explicit Stop control pauses playback. The macOS source owns a public AVKit
+sample-buffer controller and playback delegate, with an IOSurface-backed
+three-buffer sample producer fed by the existing libmpv render context. The
+previous Windows-hosted Apple-target check covered the macOS-gated source, but
+the latest workspace check stops in `ring` before Rust type-checking because no
+Apple-target C compiler is installed on this host. The app has not been linked or
+run on a Mac, so PiP behavior and support are not established.
+The BGRA8 producer does not preserve HDR metadata. Window policy/restoration,
+live display, seek and pacing behavior, color handling, and matched visual
+verification remain open. The Windows projection and interaction still need
+live GUI verification. The Mac rendering constraint and remaining surface
+experiment are recorded in
 `docs/adr/0005-macos-picture-in-picture.md`.
+
+macOS system media controls now have source implementations for remote transport,
+custom skip intervals, seeking, playback rate and repeat mode. Now Playing
+publishes media, audio metadata, queue/chapter position, current asset URL and
+timing while the preference is active. External artwork tracks are published as
+MediaPlayer artwork, and embedded covers are captured from the selected album-art
+track using a separate paused decoder. When no cover track exists and timeline
+previews are enabled, Now Playing captures the timeline frame immediately before
+IINA's 60-second artwork position, or before the midpoint for media shorter than
+two minutes. The independent decoder does not seek the active player. Missing or
+invalid cover art now falls back to Quick Look, with up to three attempts, followed
+by the timeline frame when enabled; network resources skip those fallbacks.
+The hidden `enableNowPlayingArtwork` macOS default mirrors IINA's default-on
+opt-out and is observed during playback so disabling it removes current artwork.
+macOS play, pause, toggle, stop, next, previous, forward and rewind commands use
+the active key profile, and skip-button intervals are reloaded at most once per
+second while controls are active. Native command delivery remains unverified.
+External cover files are decoded through ImageIO's orientation-correct thumbnail
+path at a 768-pixel maximum, reducing memory use for large source images.
+The Windows workspace build and strict Clippy pass. The focused Apple API binding
+check passes, but a full x86_64-apple-darwin workspace check stops in `ring` because
+this Windows host has no Apple-target C compiler. The macOS target build, Control
+Center and hardware-key behavior still require a Mac runner and live verification;
+these sources do not establish macOS support.
+
+The Utilities page now reports cache size from Riina's OS cache directory and can
+clear its thumbnail cache after confirmation. Its default-application action now
+offers IINA's Video, Audio, and Playlist category picker. Windows registers
+selected types in the current user's application capabilities and opens Windows
+Default Apps, where Windows 11 retains control of the final choice. macOS packages
+the app's document declarations and registers selected Launch Services handlers.
+Linux writes the current user's `org.riina.player.desktop` entry and applies the
+selected MIME associations with `xdg-mime` on a worker so the settings window
+stays responsive. macOS consent behavior, Linux desktop
+runtime, bundled playback/lifecycle, and live Windows dialog/association
+verification remain open. Thumbnail Preview settings now
+expose the source defaults and save their enablement, cache limit, remote-volume
+policy, and width. A separate paused, silent libmpv worker can extract and scale
+the 101 evenly spaced frames used by the pinned reference without seeking the
+audible player. Its lifecycle now feeds a timeline hover preview, persists
+source-and-size-matched JPEG sets under Riina's cache directory, evicts older sets
+to the configured limit, and applies the remote-mounted-volume preference through
+platform volume metadata. Live player interaction, macOS native verification and
+matched GUI comparison remain open; browser extensions remain open.
+
+Player-window file drops now coalesce adjacent Winit drop events into one ordered
+media-selection request, matching IINA's batch-open behavior for files dropped on
+the main window. When no playable media is present, supported dropped subtitle files
+are added as external tracks through the existing player command path. URL/text
+drops, subtitle drops mixed with playable media, dropping onto playlist rows, and
+live macOS/Windows/Linux drag-and-drop behavior remain open.
 
 The playlist sidebar now supports additive and range selection, stable-order
 multi-row drag reordering, and multi-entry Copy, Cut, and Remove actions. Removal
 resolves stable native IDs against one playlist snapshot and adjusts indices as
 rows are removed; core tests cover order and stale selections. The Windows app
-compile and live selection/removal still need verification, as do drag behavior,
-external file drops, edge autoscroll, and macOS interaction comparison.
+builds successfully; live selection/removal still need verification, as do drag
+behavior, external file drops, edge autoscroll, and macOS interaction comparison.
+Selected HTTP and HTTPS playlist entries now have Open in Browser and Copy URL
+context actions. URL validation and platform dispatch are implemented; native
+browser delivery and the playlist interaction still need runtime verification.
+
+Playlist copy and cut preserve all selected references in playlist order, and
+paste inserts before the first selected row. macOS writes individual file URL
+objects for current applications and retains IINA's filename-list and plain-text
+representations. Paste reads native filename lists and every file-URL or URL
+pasteboard item before its text fallback. Native Finder interoperability and full
+GUI comparison remain unverified.
 
 Music Mode now replaces its normal speed-adjustment controls with previous/next
 playlist navigation while compact mode is active, with direct playlist and
@@ -88,15 +276,16 @@ must still include exact third-party notices and corresponding sources for its
 pinned native engine and Cargo dependencies.
 
 The latest published GitHub release is v0.2.2 and contains source archives; it has
-no Windows application binary. The current v0.3.0 candidate has passed the hosted
-native playback and lifecycle gate using the pinned release DLL. That gate covers
+no Windows application binary. The v0.3.0 candidate passed the hosted native
+playback and lifecycle gate using the pinned release DLL. That gate covers
 the previously failing interlaced-video shutdown path, queued paused-frame close,
 independent players, and reopening. The Windows app build, package assembly,
 runtime-import check, and playback test from the extracted ZIP also passed in run
 38174384779. GitHub skipped the corresponding-source audit and publishing jobs
 because its default job condition treated the intentionally skipped native-engine
 reuse as a failure. The workflow now explicitly runs those gates when package and
-source jobs succeed; a corrected candidate is required before any binary is public.
+source jobs succeed. The v0.3.1 candidate must pass the exact package, corresponding
+source, and playback gates before a Windows binary is public.
 Earlier native shutdown failures and their resolution remain in
 `docs/native-distribution-audit.json` as release-engineering evidence.
 
@@ -107,10 +296,9 @@ settled license choices and candidate build inputs are recorded in
 
 ## Verification state
 
-The parity traceability check accepts all 192 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. The 0.3.0 candidate
-workflow reuses the verified native engine and corresponding-source artifacts
-from run 38138622911. The Unix presentation marker
+The parity inventory contains 224 currently inventoried requirements,
+while explicitly reporting that the inventory is incomplete. The 0.3.1 candidate
+must run the complete package, corresponding-source, and playback gates. The Unix presentation marker
 derives `Clone` to match the Windows adapter's shared timer ownership. The full
 macOS/Linux application workflow passed Clippy, workspace tests, and application
 builds for both matrix hosts at commit `007e410` in

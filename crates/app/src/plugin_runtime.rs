@@ -1,12 +1,15 @@
 //! Bounded JavaScript entry evaluation for permission-reviewed plugins.
 
 use riina_core::plugin::{Manifest, OverlayEffect, OverlayIntent, OverlayState};
-use rquickjs::{Context, Object, Runtime, Value, function::Func};
+use rquickjs::{Context, Ctx, Function, Object, Runtime, Value, function::Func};
 use std::{
+    collections::BTreeMap,
     fs,
-    path::Path,
+    io::Read,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
+        atomic::{AtomicU32, Ordering},
         mpsc::{self, Receiver, SyncSender},
     },
     thread::JoinHandle,
@@ -20,7 +23,13 @@ const MAX_STACK_BYTES: usize = 256 * 1024;
 const MAX_HOST_EVENTS: usize = 128;
 const MAX_MESSAGE_CHARS: usize = 2048;
 const MAX_OVERLAY_INTENT_BYTES: usize = 1024 * 1024;
+const MAX_PLUGIN_MESSAGE_BYTES: usize = 1024 * 1024;
 const MAX_HOST_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_ACTIVE_TIMERS: usize = 256;
+const MAX_TIMER_DELAY: Duration = Duration::from_secs(24 * 60 * 60);
+const MAX_REQUIRED_MODULES: usize = 256;
+const MAX_REQUIRED_MODULE_BYTES: usize = 16 * 1024 * 1024;
+const MAX_REQUIRE_DEPTH: usize = 64;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostEvent {
@@ -28,11 +37,94 @@ pub enum HostEvent {
     ShowOsd(String),
     ShowAlert(String),
     Overlay(OverlayEffect),
+    PluginMessage(String, serde_json::Value),
 }
 
 enum RuntimeCommand {
     DeliverOverlayMessage(String, serde_json::Value),
+    DeliverPluginMessage(String, serde_json::Value),
     Shutdown,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GlobalApiMode {
+    None,
+    Controller,
+    Child,
+}
+
+#[derive(Default)]
+struct PluginTimers {
+    next_id: AtomicU32,
+    deadlines: Mutex<BTreeMap<u32, Instant>>,
+}
+
+#[derive(Clone)]
+struct PluginModuleContext {
+    root: PathBuf,
+    entry: PathBuf,
+    current_files: Arc<Mutex<Vec<PathBuf>>>,
+    budget: Arc<Mutex<ModuleLoadBudget>>,
+}
+
+#[derive(Default)]
+struct ModuleLoadBudget {
+    modules: usize,
+    bytes: usize,
+}
+
+struct PluginWorkerHost {
+    global_api_mode: GlobalApiMode,
+    module_context: Option<PluginModuleContext>,
+    events: Arc<Mutex<Vec<HostEvent>>>,
+}
+
+impl PluginTimers {
+    fn schedule(&self, delay_ms: f64) -> Result<u32, String> {
+        if !delay_ms.is_finite() || !(0.0..=MAX_TIMER_DELAY.as_millis() as f64).contains(&delay_ms)
+        {
+            return Err("Plugin timer delay must be between 0 and 86400000 milliseconds".into());
+        }
+        let delay = Duration::from_secs_f64(delay_ms / 1000.0);
+        let mut deadlines = self
+            .deadlines
+            .lock()
+            .map_err(|_| "Plugin timer queue was poisoned".to_owned())?;
+        if deadlines.len() >= MAX_ACTIVE_TIMERS {
+            return Err("Plugin has reached the 256 active timer limit".into());
+        }
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+        deadlines.insert(id, Instant::now() + delay);
+        Ok(id)
+    }
+
+    fn cancel(&self, id: u32) {
+        if let Ok(mut deadlines) = self.deadlines.lock() {
+            deadlines.remove(&id);
+        }
+    }
+
+    fn next_wait(&self) -> Option<Duration> {
+        self.deadlines
+            .lock()
+            .ok()?
+            .values()
+            .copied()
+            .min()
+            .map(|deadline| deadline.saturating_duration_since(Instant::now()))
+    }
+
+    fn take_due(&self) -> Option<u32> {
+        let mut deadlines = self.deadlines.lock().ok()?;
+        let now = Instant::now();
+        let id = deadlines
+            .iter()
+            .filter(|(_, deadline)| **deadline <= now)
+            .min_by_key(|(_, deadline)| **deadline)
+            .map(|(id, _)| *id)?;
+        deadlines.remove(&id);
+        Some(id)
+    }
 }
 
 /// Owns a persistent QuickJS realm on its worker so plugin callbacks never run
@@ -49,12 +141,18 @@ impl PluginRuntimeSession {
         manifest: &Manifest,
         granted_permissions: &[String],
     ) -> Result<Self, String> {
-        let source = read_package_entry(package_root, manifest)?;
-        Self::start_entry(
+        let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
+        Self::start_entry_with_context(
             &source,
             &manifest.identifier,
             &manifest.permissions,
             granted_permissions,
+            if manifest.global_entry.is_some() {
+                GlobalApiMode::Child
+            } else {
+                GlobalApiMode::None
+            },
+            Some(module_context),
         )
     }
 
@@ -66,12 +164,14 @@ impl PluginRuntimeSession {
         let Some(entry) = manifest.global_entry.as_deref() else {
             return Err("Plugin does not declare a global entry".into());
         };
-        let source = read_package_file(package_root, entry)?;
-        Self::start_entry(
+        let (source, module_context) = read_package_script(package_root, entry)?;
+        Self::start_entry_with_context(
             &source,
             &format!("{}.global", manifest.identifier),
             &manifest.permissions,
             granted_permissions,
+            GlobalApiMode::Controller,
+            Some(module_context),
         )
     }
 
@@ -80,6 +180,24 @@ impl PluginRuntimeSession {
         plugin_identifier: &str,
         requested_permissions: &[String],
         granted_permissions: &[String],
+    ) -> Result<Self, String> {
+        Self::start_entry_with_context(
+            source,
+            plugin_identifier,
+            requested_permissions,
+            granted_permissions,
+            GlobalApiMode::None,
+            None,
+        )
+    }
+
+    fn start_entry_with_context(
+        source: &str,
+        plugin_identifier: &str,
+        requested_permissions: &[String],
+        granted_permissions: &[String],
+        global_api_mode: GlobalApiMode,
+        module_context: Option<PluginModuleContext>,
     ) -> Result<Self, String> {
         if source.len() > MAX_ENTRY_BYTES {
             return Err("Plugin entry exceeds the 1 MiB execution limit".into());
@@ -101,7 +219,11 @@ impl PluginRuntimeSession {
                     source,
                     plugin_identifier,
                     permissions,
-                    worker_events,
+                    PluginWorkerHost {
+                        global_api_mode,
+                        module_context,
+                        events: worker_events,
+                    },
                     receiver,
                     ready_sender,
                 );
@@ -148,6 +270,20 @@ impl PluginRuntimeSession {
             })
     }
 
+    pub fn deliver_plugin_message(
+        &self,
+        name: String,
+        data: serde_json::Value,
+    ) -> Result<(), String> {
+        validate_plugin_message(&name, &data)?;
+        self.commands
+            .try_send(RuntimeCommand::DeliverPluginMessage(name, data))
+            .map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => "Plugin message queue is busy".into(),
+                mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
+            })
+    }
+
     pub fn drain_events(&self) -> Result<Vec<HostEvent>, String> {
         let mut events = self
             .events
@@ -178,44 +314,152 @@ pub fn execute_package_entry(
     session.drain_events()
 }
 
-fn read_package_entry(package_root: &Path, manifest: &Manifest) -> Result<String, String> {
-    read_package_file(package_root, &manifest.entry)
-}
-
-/// Revalidate containment after package installation in case its directory was
-/// changed before activation; global and player entries use the same rule.
-fn read_package_file(package_root: &Path, entry_path: &Path) -> Result<String, String> {
+fn read_package_script(
+    package_root: &Path,
+    entry_path: &Path,
+) -> Result<(String, PluginModuleContext), String> {
     let root = package_root
         .canonicalize()
         .map_err(|error| format!("Could not open plugin package: {error}"))?;
     if !root.is_dir() {
         return Err("Plugin package is not a directory".into());
     }
-    let entry = root.join(entry_path).canonicalize().map_err(|error| {
+    let entry = resolve_package_file(&root, entry_path).map_err(|error| {
         format!(
             "Could not open plugin entry {}: {error}",
             entry_path.display()
         )
     })?;
-    if !entry.starts_with(&root) || !entry.is_file() {
+    let source = read_plugin_script(&entry)?;
+    Ok((
+        source,
+        PluginModuleContext {
+            root,
+            entry,
+            current_files: Arc::new(Mutex::new(Vec::new())),
+            budget: Arc::new(Mutex::new(ModuleLoadBudget::default())),
+        },
+    ))
+}
+
+/// Revalidate containment after installation and before each module load.
+fn resolve_package_file(root: &Path, entry_path: &Path) -> Result<PathBuf, String> {
+    let entry = root
+        .join(entry_path)
+        .canonicalize()
+        .map_err(|error| error.to_string())?;
+    if !entry.starts_with(root) || !entry.is_file() {
         return Err(format!(
             "Plugin entry {} must be a file inside its package",
             entry_path.display()
         ));
     }
-    let length = fs::metadata(&entry)
+    Ok(entry)
+}
+
+fn read_plugin_script(entry: &Path) -> Result<String, String> {
+    let length = fs::metadata(entry)
         .map_err(|error| format!("Could not inspect plugin entry: {error}"))?
         .len();
     if length > MAX_ENTRY_BYTES as u64 {
         return Err("Plugin entry exceeds the 1 MiB execution limit".into());
     }
-    let bytes = fs::read(entry).map_err(|error| format!("Could not read plugin entry: {error}"))?;
-    if bytes.len() > MAX_ENTRY_BYTES {
-        return Err("Plugin entry exceeds the 1 MiB execution limit".into());
-    }
+    let bytes = read_bounded_plugin_file(entry, "Plugin entry")?;
     let source =
         std::str::from_utf8(&bytes).map_err(|_| "Plugin entry is not valid UTF-8".to_owned())?;
     Ok(source.to_owned())
+}
+
+fn read_bounded_plugin_file(path: &Path, label: &str) -> Result<Vec<u8>, String> {
+    let file = fs::File::open(path).map_err(|error| format!("Could not read {label}: {error}"))?;
+    let mut bytes = Vec::new();
+    file.take((MAX_ENTRY_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Could not read {label}: {error}"))?;
+    if bytes.len() > MAX_ENTRY_BYTES {
+        return Err(format!("{label} exceeds the 1 MiB file limit"));
+    }
+    Ok(bytes)
+}
+
+fn load_plugin_module<'js>(
+    ctx: Ctx<'js>,
+    package: &PluginModuleContext,
+    requested_path: &str,
+) -> Result<Option<(String, Value<'js>)>, String> {
+    if requested_path.is_empty() || requested_path.len() > 4096 {
+        return Ok(None);
+    }
+    let (base_file, depth) = {
+        let current_files = package
+            .current_files
+            .lock()
+            .map_err(|_| "Plugin module path stack was poisoned".to_owned())?;
+        let Some(base_file) = current_files.last().cloned() else {
+            return Ok(None);
+        };
+        (base_file, current_files.len())
+    };
+    if depth >= MAX_REQUIRE_DEPTH {
+        return Err("Plugin module nesting exceeds the 64-file limit".into());
+    }
+    let Some(parent) = base_file.parent() else {
+        return Ok(None);
+    };
+    let requested = Path::new(requested_path);
+    let Ok(module_path) = parent.join(requested).canonicalize() else {
+        return Ok(None);
+    };
+    if !module_path.starts_with(&package.root) || !module_path.is_file() {
+        return Ok(None);
+    }
+    let metadata = fs::metadata(&module_path).map_err(|error| error.to_string())?;
+    if metadata.len() > MAX_ENTRY_BYTES as u64 {
+        return Err("Plugin module exceeds the 1 MiB file limit".into());
+    }
+    let bytes = read_bounded_plugin_file(&module_path, "Plugin module")?;
+    let source =
+        std::str::from_utf8(&bytes).map_err(|_| "Plugin module is not valid UTF-8".to_owned())?;
+    {
+        let mut budget = package
+            .budget
+            .lock()
+            .map_err(|_| "Plugin module load budget was poisoned".to_owned())?;
+        if budget.modules >= MAX_REQUIRED_MODULES
+            || budget.bytes.saturating_add(bytes.len()) > MAX_REQUIRED_MODULE_BYTES
+        {
+            return Err("Plugin module load budget exceeded".into());
+        }
+        budget.modules += 1;
+        budget.bytes += bytes.len();
+    }
+    let canonical_path = fs::canonicalize(&module_path).map_err(|error| error.to_string())?;
+    if !canonical_path.starts_with(&package.root) {
+        return Ok(None);
+    }
+
+    let mut current_files = package
+        .current_files
+        .lock()
+        .map_err(|_| "Plugin module path stack was poisoned".to_owned())?;
+    current_files.push(canonical_path.clone());
+    drop(current_files);
+
+    let wrapped_source = format!("(function(module) {{\n{source}\nreturn module.exports;\n}})");
+    let evaluated = (|| -> rquickjs::Result<Value<'js>> {
+        let function: Function<'js> = ctx.eval(wrapped_source.as_str())?;
+        let module = Object::new(ctx.clone())?;
+        function.call((module,))
+    })();
+
+    if let Ok(mut current_files) = package.current_files.lock() {
+        current_files.pop();
+    }
+    let exports = evaluated.map_err(|error| error.to_string())?;
+    Ok(Some((
+        canonical_path.to_string_lossy().into_owned(),
+        exports,
+    )))
 }
 
 /// Evaluate an entry with only its granted host calls and collect startup events.
@@ -239,10 +483,15 @@ fn run_entry_worker(
     source: String,
     plugin_identifier: String,
     permissions: AvailablePermissions,
-    events: Arc<Mutex<Vec<HostEvent>>>,
+    host: PluginWorkerHost,
     commands: Receiver<RuntimeCommand>,
     ready: SyncSender<Result<(), String>>,
 ) {
+    let PluginWorkerHost {
+        global_api_mode,
+        module_context,
+        events,
+    } = host;
     let deadline = Arc::new(Mutex::new(Instant::now() + MAX_EXECUTION_TIME));
     let interrupt_deadline = deadline.clone();
     let runtime = match Runtime::new() {
@@ -275,6 +524,9 @@ fn run_entry_worker(
     };
     let overlay_state = Arc::new(Mutex::new(OverlayState::default()));
     let worker_overlay_state = overlay_state.clone();
+    let timers = Arc::new(PluginTimers::default());
+    let worker_timers = timers.clone();
+    let module_context_for_require = module_context.clone();
     let initialized = context.with(|ctx| {
             let globals = ctx.globals();
             let api = Object::new(ctx.clone())?;
@@ -304,7 +556,190 @@ fn run_entry_worker(
                     }),
                 )?;
             }
-            globals.set("iina", api)?;
+            globals.set("iina", api.clone())?;
+            if let Some(module_context) = module_context_for_require.clone() {
+                globals.set(
+                    "__riinaRequire",
+                    Func::from(
+                        move |ctx: Ctx, path: String| -> rquickjs::Result<Option<String>> {
+                            let Some((canonical_path, exports)) =
+                                load_plugin_module(ctx.clone(), &module_context, &path).map_err(
+                                    |error| {
+                                        rquickjs::Error::new_from_js_message(
+                                            "require",
+                                            "package-local module",
+                                            error,
+                                        )
+                                    },
+                                )?
+                            else {
+                                return Ok(None);
+                            };
+                            ctx.globals().set("__riinaRequiredModule", exports)?;
+                            Ok(Some(canonical_path))
+                        },
+                    ),
+                )?;
+                ctx.eval::<(), _>(
+                    r#"(() => {
+                        const cache = new Map();
+                        globalThis.require = path => {
+                            const requestedPath = String(path);
+                            if (cache.has(requestedPath)) return cache.get(requestedPath);
+                            const modulePath = __riinaRequire(requestedPath);
+                            if (modulePath == null) return undefined;
+                            const module = globalThis.__riinaRequiredModule;
+                            delete globalThis.__riinaRequiredModule;
+                            cache.set(modulePath, module);
+                            cache.set(requestedPath, module);
+                            return module;
+                        };
+                        delete globalThis.__riinaRequire;
+                    })();"#,
+                )?;
+            }
+            if global_api_mode != GlobalApiMode::None {
+                let global_api = Object::new(ctx.clone())?;
+                match global_api_mode {
+                    GlobalApiMode::Controller => {
+                        let message_events = events.clone();
+                        global_api.set(
+                            "__postMessage",
+                            Func::from(
+                                move |target: String, name: String, data: String| -> rquickjs::Result<()> {
+                                    let target: serde_json::Value =
+                                        decode_plugin_json(&target).map_err(plugin_message_js_error)?;
+                                    if !target.is_null() {
+                                        return Err(plugin_message_js_error(
+                                            "Only broadcast messages are available without plugin-created player instances".into(),
+                                        ));
+                                    }
+                                    let data: serde_json::Value =
+                                        decode_plugin_json(&data).map_err(plugin_message_js_error)?;
+                                    record_plugin_message(&message_events, name, data)
+                                        .map_err(plugin_message_js_error)
+                                },
+                            ),
+                        )?;
+                    }
+                    GlobalApiMode::Child => {
+                        let message_events = events.clone();
+                        global_api.set(
+                            "__postMessage",
+                            Func::from(
+                                move |name: String, data: String| -> rquickjs::Result<()> {
+                                    let data: serde_json::Value =
+                                        decode_plugin_json(&data).map_err(plugin_message_js_error)?;
+                                    record_plugin_message(&message_events, name, data)
+                                        .map_err(plugin_message_js_error)
+                                },
+                            ),
+                        )?;
+                    }
+                    GlobalApiMode::None => unreachable!(),
+                }
+                api.set("global", global_api)?;
+                let wrapper = match global_api_mode {
+                    GlobalApiMode::Controller => {
+                        r#"(() => {
+                            const api = iina.global;
+                            const postMessage = api.__postMessage;
+                            const listeners = new Map();
+                            api.postMessage = (target, name, data) => postMessage(JSON.stringify(target), name, JSON.stringify(data));
+                            api.onMessage = (name, callback) => {
+                                if (typeof name !== 'string' || name.length === 0) throw new TypeError('message name must be a non-empty string');
+                                if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+                                listeners.set(name, [callback]);
+                            };
+                            api.__deliverMessage = (name, data) => {
+                                for (const callback of listeners.get(name) || []) callback(data, null);
+                            };
+                            delete api.__postMessage;
+                        })();"#
+                    }
+                    GlobalApiMode::Child => {
+                        r#"(() => {
+                            const api = iina.global;
+                            const postMessage = api.__postMessage;
+                            const listeners = new Map();
+                            api.postMessage = (name, data) => postMessage(name, JSON.stringify(data));
+                            api.onMessage = (name, callback) => {
+                                if (typeof name !== 'string' || name.length === 0) throw new TypeError('message name must be a non-empty string');
+                                if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+                                listeners.set(name, [callback]);
+                            };
+                            api.getLabel = () => null;
+                            api.__deliverMessage = (name, data) => {
+                                for (const callback of listeners.get(name) || []) callback(data, null);
+                            };
+                            delete api.__postMessage;
+                        })();"#
+                    }
+                    GlobalApiMode::None => unreachable!(),
+                };
+                ctx.eval::<(), _>(wrapper)?;
+            }
+            let timer_queue = timers.clone();
+            globals.set(
+                "__riinaScheduleTimer",
+                Func::from(move |delay_ms: f64| -> rquickjs::Result<u32> {
+                    timer_queue.schedule(delay_ms).map_err(timer_js_error)
+                }),
+            )?;
+            let timer_queue = timers.clone();
+            globals.set(
+                "__riinaCancelTimer",
+                Func::from(move |id: u32| {
+                    timer_queue.cancel(id);
+                }),
+            )?;
+            ctx.eval::<(), _>(
+                r#"(() => {
+                    const scheduleNative = __riinaScheduleTimer;
+                    const cancelNative = __riinaCancelTimer;
+                    const active = new Map();
+                    const callbacks = new Map();
+                    let nextHandle = 1;
+                    const schedule = handle => {
+                        const timer = active.get(handle);
+                        if (!timer) return;
+                        const nativeId = scheduleNative(timer.delay);
+                        timer.nativeId = nativeId;
+                        callbacks.set(nativeId, () => {
+                            if (!active.has(handle)) return;
+                            if (!timer.interval) active.delete(handle);
+                            try { timer.callback.call(globalThis); }
+                            finally { if (timer.interval && active.has(handle)) schedule(handle); }
+                        });
+                    };
+                    const createTimer = (callback, delay, interval) => {
+                        if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+                        const milliseconds = Number(delay);
+                        const normalized = Number.isFinite(milliseconds) ? Math.max(interval ? 1 : 0, milliseconds) : 0;
+                        const handle = 'riina-timer-' + (nextHandle++).toString(36);
+                        active.set(handle, { callback, delay: normalized, interval, nativeId: 0 });
+                        try { schedule(handle); } catch (error) { active.delete(handle); throw error; }
+                        return handle;
+                    };
+                    const clearTimer = handle => {
+                        const key = String(handle);
+                        const timer = active.get(key);
+                        if (!timer) return;
+                        active.delete(key);
+                        callbacks.delete(timer.nativeId);
+                        cancelNative(timer.nativeId);
+                    };
+                    globalThis.setTimeout = (callback, delay) => createTimer(callback, delay, false);
+                    globalThis.setInterval = (callback, delay) => createTimer(callback, delay, true);
+                    globalThis.clearTimeout = clearTimer;
+                    globalThis.clearInterval = clearTimer;
+                    globalThis.__riinaTimers = { fire: id => {
+                        const callback = callbacks.get(id);
+                        callbacks.delete(id);
+                        if (callback) callback();
+                    }};
+                })();"#,
+            )?;
             let overlay = Object::new(ctx.clone())?;
             let overlay_state = overlay_state.clone();
             let overlay_events = events.clone();
@@ -497,9 +932,22 @@ fn run_entry_worker(
             }
             globals.set("console", console)?;
 
-            // Evaluate as a script, discarding its completion value; normal plugin
-            // entries may end in expressions that are not part of their API.
-            ctx.eval::<Value, _>(source.as_str()).map(|_| ())
+            // Keep the entry's path on the stack only while it is being evaluated:
+            // nested CommonJS loads resolve relative to that file.
+            if let Some(module_context) = module_context.as_ref() {
+                module_context
+                    .current_files
+                    .lock()
+                    .map_err(|_| rquickjs::Error::new_from_js_message("require", "entry path", "module path stack was poisoned"))?
+                    .push(module_context.entry.clone());
+            }
+            let evaluated = ctx.eval::<Value, _>(source.as_str()).map(|_| ());
+            if let Some(module_context) = module_context.as_ref()
+                && let Ok(mut current_files) = module_context.current_files.lock()
+            {
+                current_files.pop();
+            }
+            evaluated
         });
     if let Err(error) = initialized {
         let _ = ready.send(Err(format!(
@@ -512,7 +960,34 @@ fn run_entry_worker(
         return;
     }
 
-    while let Ok(command) = commands.recv() {
+    loop {
+        let command = match worker_timers.next_wait() {
+            Some(timeout) => match commands.recv_timeout(timeout) {
+                Ok(command) => Some(command),
+                Err(mpsc::RecvTimeoutError::Timeout) => None,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            },
+            None => match commands.recv() {
+                Ok(command) => Some(command),
+                Err(_) => break,
+            },
+        };
+        let Some(command) = command else {
+            let Some(id) = worker_timers.take_due() else {
+                continue;
+            };
+            if let Ok(mut deadline) = deadline.lock() {
+                *deadline = Instant::now() + MAX_EXECUTION_TIME;
+            }
+            let script = format!("__riinaTimers.fire({id})");
+            if let Err(error) = context.with(|ctx| ctx.eval::<Value, _>(script).map(|_| ())) {
+                record(
+                    &events,
+                    HostEvent::Log(format!("Plugin timer callback failed: {error}")),
+                );
+            }
+            continue;
+        };
         match command {
             RuntimeCommand::Shutdown => break,
             RuntimeCommand::DeliverOverlayMessage(name, data) => {
@@ -543,8 +1018,80 @@ fn run_entry_worker(
                     );
                 }
             }
+            RuntimeCommand::DeliverPluginMessage(name, data) => {
+                let script = match serde_json::to_string(&name)
+                    .and_then(|name| serde_json::to_string(&data).map(|data| (name, data)))
+                {
+                    Ok((name, data)) => {
+                        format!("iina.global.__deliverMessage({name}, {data})")
+                    }
+                    Err(error) => {
+                        record(
+                            &events,
+                            HostEvent::Log(format!("Plugin message encoding failed: {error}")),
+                        );
+                        continue;
+                    }
+                };
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| ctx.eval::<Value, _>(script).map(|_| ())) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("Plugin message callback failed: {error}")),
+                    );
+                }
+            }
         }
     }
+}
+
+fn timer_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("timer delay", "finite delay up to one day", message)
+}
+
+fn validate_plugin_message(name: &str, data: &serde_json::Value) -> Result<(), String> {
+    if name.is_empty() || name.len() > 256 || name.chars().any(char::is_control) {
+        return Err("Plugin message name is invalid or exceeds 256 bytes".into());
+    }
+    let data_bytes = serde_json::to_vec(data)
+        .map_err(|error| format!("Plugin message is not valid JSON: {error}"))?;
+    if data_bytes.len() > MAX_PLUGIN_MESSAGE_BYTES {
+        return Err("Plugin message exceeds the 1 MiB limit".into());
+    }
+    Ok(())
+}
+
+fn decode_plugin_json(text: &str) -> Result<serde_json::Value, String> {
+    serde_json::from_str(text).map_err(|error| format!("Plugin message is not valid JSON: {error}"))
+}
+
+fn record_plugin_message(
+    events: &Mutex<Vec<HostEvent>>,
+    name: String,
+    data: serde_json::Value,
+) -> Result<(), String> {
+    validate_plugin_message(&name, &data)?;
+    let mut events = events
+        .lock()
+        .map_err(|_| "Plugin event queue was poisoned".to_owned())?;
+    if events.len() >= MAX_HOST_EVENTS {
+        return Err("Plugin event queue is full".into());
+    }
+    let message_size = name
+        .len()
+        .saturating_add(serde_json::to_vec(&data).map_or(usize::MAX, |bytes| bytes.len()));
+    let pending_size = events.iter().map(host_event_size).sum::<usize>();
+    if pending_size.saturating_add(message_size) > MAX_HOST_OUTPUT_BYTES {
+        return Err("Plugin event output exceeded the 4 MiB queue limit".into());
+    }
+    events.push(HostEvent::PluginMessage(name, data));
+    Ok(())
+}
+
+fn plugin_message_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("plugin message", "valid bounded message", message)
 }
 
 #[derive(Default)]
@@ -592,13 +1139,7 @@ fn record_overlay(
     let Ok(mut events) = events.lock() else {
         return Err("Plugin event queue was poisoned".into());
     };
-    let current_bytes = events
-        .iter()
-        .filter_map(|event| match event {
-            HostEvent::Overlay(effect) => Some(overlay_effect_size(effect)),
-            _ => None,
-        })
-        .sum::<usize>();
+    let current_bytes = events.iter().map(host_event_size).sum::<usize>();
     let requested_bytes = effects.iter().map(overlay_effect_size).sum::<usize>();
     if effects
         .iter()
@@ -632,6 +1173,18 @@ fn overlay_effect_size(effect: &OverlayEffect) -> usize {
     }
 }
 
+fn host_event_size(event: &HostEvent) -> usize {
+    match event {
+        HostEvent::Log(message) | HostEvent::ShowOsd(message) | HostEvent::ShowAlert(message) => {
+            message.len()
+        }
+        HostEvent::Overlay(effect) => overlay_effect_size(effect),
+        HostEvent::PluginMessage(name, data) => name
+            .len()
+            .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
+    }
+}
+
 fn overlay_js_error(message: String) -> rquickjs::Error {
     rquickjs::Error::new_from_js_message("overlay request", "valid overlay effect", message)
 }
@@ -647,7 +1200,7 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
         HostEvent::Log(message) | HostEvent::ShowOsd(message) | HostEvent::ShowAlert(message) => {
             message
         }
-        HostEvent::Overlay(_) => return,
+        HostEvent::Overlay(_) | HostEvent::PluginMessage(_, _) => return,
     };
     let bounded = message.chars().take(MAX_MESSAGE_CHARS).collect::<String>();
     let event = match event {
@@ -655,6 +1208,7 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
         HostEvent::ShowOsd(_) => HostEvent::ShowOsd(bounded),
         HostEvent::ShowAlert(_) => HostEvent::ShowAlert(bounded),
         HostEvent::Overlay(effect) => HostEvent::Overlay(effect),
+        HostEvent::PluginMessage(_, _) => unreachable!("plugin messages use their bounded path"),
     };
     events.push(event);
 }

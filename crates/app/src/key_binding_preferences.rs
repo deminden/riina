@@ -1,6 +1,7 @@
 use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use std::sync::Arc;
 
 const BUILTIN_PROFILES: [&str; 5] = [
     "IINA Default",
@@ -10,7 +11,7 @@ const BUILTIN_PROFILES: [&str; 5] = [
     "Movist v2 Default",
 ];
 
-const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 22] = [
+const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 29] = [
     ("Shift+Meta+v", "video-panel", ActionKind::Riina),
     ("Shift+Meta+a", "audio-panel", ActionKind::Riina),
     ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
@@ -33,14 +34,147 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 22] = [
     (".", "frame-step", ActionKind::Mpv),
     (",", "frame-back-step", ActionKind::Mpv),
     ("f", "cycle fullscreen", ActionKind::Mpv),
+    ("Shift+Meta+p", "playlist-panel", ActionKind::Riina),
+    ("Shift+Meta+c", "chapter-panel", ActionKind::Riina),
+    ("Meta+3", "fit-to-screen", ActionKind::Riina),
+    ("Ctrl+Meta+p", "toggle-pip", ActionKind::Riina),
+    ("Alt+Meta+m", "toggle-music-mode", ActionKind::Riina),
+    (
+        "Shift+Meta+r",
+        "show-current-file-in-finder",
+        ActionKind::Riina,
+    ),
+    ("Shift+Meta+t", "live-text", ActionKind::Riina),
+];
+
+const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 26] = [
+    ("RIGHT", "seek 5", ActionKind::Mpv),
+    ("LEFT", "seek -5", ActionKind::Mpv),
+    ("UP", "seek 60", ActionKind::Mpv),
+    ("DOWN", "seek -60", ActionKind::Mpv),
+    ("Shift+RIGHT", "seek 1 exact", ActionKind::Mpv),
+    ("Shift+LEFT", "seek -1 exact", ActionKind::Mpv),
+    ("Shift+UP", "seek 5 exact", ActionKind::Mpv),
+    ("Shift+DOWN", "seek -5 exact", ActionKind::Mpv),
+    ("Ctrl+LEFT", "sub-seek -1", ActionKind::Mpv),
+    ("Ctrl+RIGHT", "sub-seek 1", ActionKind::Mpv),
+    ("SPACE", "cycle pause", ActionKind::Mpv),
+    ("p", "cycle pause", ActionKind::Mpv),
+    ("f", "cycle fullscreen", ActionKind::Mpv),
+    ("m", "cycle mute", ActionKind::Mpv),
+    ("v", "cycle sub-visibility", ActionKind::Mpv),
+    ("j", "cycle sub", ActionKind::Mpv),
+    ("Alt+RIGHT", "frame-step", ActionKind::Mpv),
+    ("Alt+LEFT", "frame-back-step", ActionKind::Mpv),
+    (".", "frame-step", ActionKind::Mpv),
+    (",", "frame-back-step", ActionKind::Mpv),
+    ("9", "add volume -2", ActionKind::Mpv),
+    ("0", "add volume 2", ActionKind::Mpv),
+    ("[", "multiply speed 0.9091", ActionKind::Mpv),
+    ("]", "multiply speed 1.1", ActionKind::Mpv),
+    ("{", "multiply speed 0.5", ActionKind::Mpv),
+    ("}", "multiply speed 2", ActionKind::Mpv),
+];
+
+const VLC_DEFAULT_ROWS: [(&str, &str, ActionKind); 19] = [
+    ("Meta+f", "cycle fullscreen", ActionKind::Mpv),
+    ("ESC", "set fullscreen no", ActionKind::Mpv),
+    ("SPACE", "cycle pause", ActionKind::Mpv),
+    ("Meta+=", "multiply speed 1.5", ActionKind::Mpv),
+    ("Meta+-", "multiply speed 0.6667", ActionKind::Mpv),
+    ("Meta+RIGHT", "playlist-next", ActionKind::Mpv),
+    ("Meta+LEFT", "playlist-prev", ActionKind::Mpv),
+    ("Meta+.", "stop", ActionKind::Mpv),
+    ("Ctrl+Meta+LEFT", "seek -3", ActionKind::Mpv),
+    ("Ctrl+Meta+RIGHT", "seek 3", ActionKind::Mpv),
+    ("Alt+Meta+LEFT", "seek -10", ActionKind::Mpv),
+    ("Alt+Meta+RIGHT", "seek 10", ActionKind::Mpv),
+    ("Shift+Meta+LEFT", "seek -60", ActionKind::Mpv),
+    ("Shift+Meta+RIGHT", "seek 60", ActionKind::Mpv),
+    ("Shift+Alt+Meta+LEFT", "seek -300", ActionKind::Mpv),
+    ("Shift+Alt+Meta+RIGHT", "seek 300", ActionKind::Mpv),
+    ("e", "frame-step", ActionKind::Mpv),
+    ("Meta+l", "ab-loop", ActionKind::Mpv),
+    ("m", "cycle mute", ActionKind::Mpv),
+];
+
+const MOVIST_DEFAULT_ROWS: [(&str, &str, ActionKind); 21] = [
+    ("Alt+Meta+RIGHT", "playlist-next", ActionKind::Mpv),
+    ("Alt+Meta+LEFT", "playlist-prev", ActionKind::Mpv),
+    ("Alt+Meta+s", "playlist-shuffle", ActionKind::Mpv),
+    ("SPACE", "cycle pause", ActionKind::Mpv),
+    ("LEFT", "seek -10", ActionKind::Mpv),
+    ("Alt+LEFT", "seek -60", ActionKind::Mpv),
+    ("Shift+Alt+LEFT", "seek -300", ActionKind::Mpv),
+    ("RIGHT", "seek 10", ActionKind::Mpv),
+    ("Alt+RIGHT", "seek 60", ActionKind::Mpv),
+    ("Shift+Alt+RIGHT", "seek 300", ActionKind::Mpv),
+    ("Ctrl+Alt+LEFT", "cycle sub down", ActionKind::Mpv),
+    ("Ctrl+Alt+RIGHT", "cycle sub up", ActionKind::Mpv),
+    ("Meta+|", "set speed 1", ActionKind::Mpv),
+    ("Shift+Meta+LEFT", "multiply speed 0.9", ActionKind::Mpv),
+    ("Shift+Meta+RIGHT", "multiply speed 1.1", ActionKind::Mpv),
+    ("z", "set speed 1", ActionKind::Mpv),
+    ("x", "multiply speed 0.9", ActionKind::Mpv),
+    ("c", "multiply speed 1.1", ActionKind::Mpv),
+    ("f", "cycle fullscreen", ActionKind::Mpv),
+    ("m", "cycle mute", ActionKind::Mpv),
+    ("Meta+.", "stop", ActionKind::Mpv),
+];
+
+const MOVIST_V2_DEFAULT_ROWS: [(&str, &str, ActionKind); 24] = [
+    ("Meta+RIGHT", "playlist-next", ActionKind::Mpv),
+    ("Meta+LEFT", "playlist-prev", ActionKind::Mpv),
+    ("Alt+Meta+s", "playlist-shuffle", ActionKind::Mpv),
+    ("Alt+Meta+r", "cycle-values loop inf no", ActionKind::Mpv),
+    ("Ctrl+Meta+v", "cycle video up", ActionKind::Mpv),
+    ("Ctrl+Meta+V", "cycle video down", ActionKind::Mpv),
+    ("SPACE", "cycle pause", ActionKind::Mpv),
+    ("LEFT", "seek -5", ActionKind::Mpv),
+    ("Alt+LEFT", "seek -30", ActionKind::Mpv),
+    ("Shift+Alt+LEFT", "seek -300", ActionKind::Mpv),
+    ("RIGHT", "seek 5", ActionKind::Mpv),
+    ("Alt+RIGHT", "seek 30", ActionKind::Mpv),
+    ("Shift+Alt+RIGHT", "seek 300", ActionKind::Mpv),
+    (",", "frame-back-step", ActionKind::Mpv),
+    (".", "frame-step", ActionKind::Mpv),
+    ("Alt+1", "set speed 1", ActionKind::Mpv),
+    ("Alt+2", "set speed 2", ActionKind::Mpv),
+    ("Alt+4", "set speed 4", ActionKind::Mpv),
+    ("m", "cycle mute", ActionKind::Mpv),
+    ("f", "cycle fullscreen", ActionKind::Mpv),
+    ("v", "cycle sub-visibility", ActionKind::Mpv),
+    ("j", "cycle sub", ActionKind::Mpv),
+    ("Meta+.", "stop", ActionKind::Mpv),
+    ("Meta+s", "screenshot", ActionKind::Mpv),
+];
+
+const SYSTEM_MEDIA_ROWS: [(&str, &str); 13] = [
+    ("PLAY", "cycle pause"),
+    ("PAUSE", "cycle pause"),
+    ("PLAYPAUSE", "cycle pause"),
+    ("PLAYONLY", "set pause no"),
+    ("PAUSEONLY", "set pause yes"),
+    ("STOP", "stop"),
+    ("FORWARD", "seek 15"),
+    ("REWIND", "seek -15"),
+    ("NEXT", "playlist-next"),
+    ("PREV", "playlist-prev"),
+    ("VOLUME_UP", "add volume 2"),
+    ("VOLUME_DOWN", "add volume -2"),
+    ("MUTE", "cycle mute"),
 ];
 
 fn builtin_mappings(name: &str) -> Vec<Mapping> {
-    if name != "IINA Default" {
-        return Vec::new();
-    }
-    IINA_DEFAULT_ROWS
-        .iter()
+    let rows = match name {
+        "IINA Default" => &IINA_DEFAULT_ROWS[..],
+        "mpv Default" => &MPV_DEFAULT_ROWS[..],
+        "VLC Default" => &VLC_DEFAULT_ROWS[..],
+        "Movist Default" => &MOVIST_DEFAULT_ROWS[..],
+        "Movist v2 Default" => &MOVIST_V2_DEFAULT_ROWS[..],
+        _ => return Vec::new(),
+    };
+    rows.iter()
         .map(|(key, action, kind)| Mapping {
             key: (*key).into(),
             action: (*action).into(),
@@ -50,13 +184,28 @@ fn builtin_mappings(name: &str) -> Vec<Mapping> {
         .collect()
 }
 
-fn mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
-    if BUILTIN_PROFILES.contains(&name) {
-        return Ok(builtin_mappings(name));
+pub(crate) fn mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
+    let mut mappings = if BUILTIN_PROFILES.contains(&name) {
+        builtin_mappings(name)
+    } else {
+        crate::key_binding_profiles::ProfileStore::for_current_user()
+            .and_then(|store| store.load(name))
+            .map_err(|error| error.to_string())?
+    };
+    for (key, action) in SYSTEM_MEDIA_ROWS {
+        if !mappings
+            .iter()
+            .any(|mapping| normalize_profile_key(&mapping.key) == key)
+        {
+            mappings.push(Mapping {
+                key: key.into(),
+                action: action.into(),
+                kind: ActionKind::Mpv,
+                comment: None,
+            });
+        }
     }
-    crate::key_binding_profiles::ProfileStore::for_current_user()
-        .and_then(|store| store.load(name))
-        .map_err(|error| error.to_string())
+    Ok(mappings)
 }
 
 fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
@@ -94,6 +243,13 @@ fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
             "video-panel" => "Video panel".into(),
             "audio-panel" => "Audio panel".into(),
             "sub-panel" => "Subtitle panel".into(),
+            "playlist-panel" => "Playlist panel".into(),
+            "chapter-panel" => "Chapter panel".into(),
+            "fit-to-screen" => "Fit window to video".into(),
+            "toggle-pip" => "Toggle Picture-in-Picture".into(),
+            "toggle-music-mode" => "Toggle Music Mode".into(),
+            "show-current-file-in-finder" => "Show current file in file manager".into(),
+            "live-text" => "Toggle Live Text".into(),
             "cycle video" => "Cycle Video track".into(),
             "cycle sub" => "Cycle Subtitle track".into(),
             "cycle audio" => "Cycle Audio track".into(),
@@ -320,7 +476,11 @@ fn profile_names(settings: &Settings) -> Result<Vec<String>, String> {
     Ok(names)
 }
 
-pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
+pub(crate) fn install_player(
+    app: &PlayerWindow,
+    settings: &Settings,
+    latest_playback: Arc<std::sync::Mutex<riina_core::Playback>>,
+) {
     app.set_key_binding_current_profile(settings.current_profile.clone().into());
     app.set_key_binding_use_system_media_controls(settings.use_system_media_controls);
     app.set_key_binding_display_raw_values(settings.display_raw_values);
@@ -332,6 +492,7 @@ pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
         }
     };
     let player = app.as_weak();
+    let observed_playback = latest_playback;
     app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
         let Some(key) = recorded_key(text.as_str(), control, alt, shift, meta) else {
             return false;
@@ -346,7 +507,10 @@ pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
         let Some(app) = player.upgrade() else {
             return true;
         };
-        dispatch_mapping(&app, mapping);
+        if is_system_media_key(&key) && !app.get_key_binding_use_system_media_controls() {
+            return false;
+        }
+        dispatch_mapping(&app, mapping, &observed_playback);
         true
     });
 }
@@ -403,12 +567,13 @@ fn normalize_profile_key(value: &str) -> String {
 
 enum RuntimeAction {
     TogglePause,
+    SetPaused(bool),
     Stop,
     Seek(f32),
     Volume(f32),
     Mute,
     SubtitleVisibility,
-    Fullscreen,
+    Fullscreen(Option<bool>),
     CycleAudio,
     CycleSubtitle,
     CycleVideo,
@@ -417,6 +582,38 @@ enum RuntimeAction {
     SubtitlePosition(f32),
     OpenPreferences,
     SettingsPane(i32),
+    PlaylistNext,
+    PlaylistPrevious,
+    PlaylistShuffle,
+    TogglePlaylistPane(i32),
+    ToggleMusicMode,
+    TogglePictureInPicture,
+    FitWindowToVideo,
+    RevealCurrentMedia,
+    ToggleLiveText,
+    AbLoop,
+    Screenshot,
+    MpvInputAction(String),
+    Ignore,
+}
+
+fn is_system_media_key(key: &str) -> bool {
+    matches!(
+        key,
+        "PLAY"
+            | "PAUSE"
+            | "PLAYPAUSE"
+            | "PLAYONLY"
+            | "PAUSEONLY"
+            | "STOP"
+            | "FORWARD"
+            | "REWIND"
+            | "NEXT"
+            | "PREV"
+            | "VOLUME_UP"
+            | "VOLUME_DOWN"
+            | "MUTE"
+    )
 }
 
 fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
@@ -427,21 +624,38 @@ fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             "audio-panel" => Some(RuntimeAction::SettingsPane(1)),
             "sub-panel" => Some(RuntimeAction::SettingsPane(2)),
             "preferences" => Some(RuntimeAction::OpenPreferences),
+            "playlist-panel" => Some(RuntimeAction::TogglePlaylistPane(4)),
+            "chapter-panel" => Some(RuntimeAction::TogglePlaylistPane(3)),
+            "fit-to-screen" => Some(RuntimeAction::FitWindowToVideo),
+            "toggle-pip" => Some(RuntimeAction::TogglePictureInPicture),
+            "toggle-music-mode" => Some(RuntimeAction::ToggleMusicMode),
+            "show-current-file-in-finder" => Some(RuntimeAction::RevealCurrentMedia),
+            "live-text" => Some(RuntimeAction::ToggleLiveText),
             _ => None,
         };
     }
     let words = action.split_whitespace().collect::<Vec<_>>();
     match words.as_slice() {
+        ["ignore"] => Some(RuntimeAction::Ignore),
         ["cycle", "pause"] => Some(RuntimeAction::TogglePause),
+        ["set", "pause", "yes"] => Some(RuntimeAction::SetPaused(true)),
+        ["set", "pause", "no"] => Some(RuntimeAction::SetPaused(false)),
         ["stop"] => Some(RuntimeAction::Stop),
         ["cycle", "mute"] => Some(RuntimeAction::Mute),
         ["cycle", "sub-visibility"] => Some(RuntimeAction::SubtitleVisibility),
-        ["cycle", "fullscreen"] => Some(RuntimeAction::Fullscreen),
+        ["cycle", "fullscreen"] => Some(RuntimeAction::Fullscreen(None)),
+        ["set", "fullscreen", "yes"] => Some(RuntimeAction::Fullscreen(Some(true))),
+        ["set", "fullscreen", "no"] => Some(RuntimeAction::Fullscreen(Some(false))),
         ["cycle", "audio"] => Some(RuntimeAction::CycleAudio),
         ["cycle", "sub"] => Some(RuntimeAction::CycleSubtitle),
         ["cycle", "video"] => Some(RuntimeAction::CycleVideo),
         ["frame-step"] => Some(RuntimeAction::FrameStep),
         ["frame-back-step"] => Some(RuntimeAction::FrameBackStep),
+        ["playlist-next"] => Some(RuntimeAction::PlaylistNext),
+        ["playlist-prev"] => Some(RuntimeAction::PlaylistPrevious),
+        ["playlist-shuffle"] => Some(RuntimeAction::PlaylistShuffle),
+        ["ab-loop"] => Some(RuntimeAction::AbLoop),
+        ["screenshot"] => Some(RuntimeAction::Screenshot),
         ["seek", seconds] => seconds
             .parse::<f32>()
             .ok()
@@ -457,23 +671,100 @@ fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             .ok()
             .filter(|value| value.is_finite())
             .map(RuntimeAction::SubtitlePosition),
+        _ if riina_core::key_bindings::mpv_action_commands(action).is_ok() => {
+            Some(RuntimeAction::MpvInputAction(action.to_owned()))
+        }
         _ => None,
     }
 }
 
-fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping) {
+#[cfg(target_os = "macos")]
+pub(crate) fn dispatch_system_media_key(
+    app: &PlayerWindow,
+    key: &str,
+    latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
+) -> bool {
+    if !app.get_key_binding_use_system_media_controls() {
+        return false;
+    }
+    let Ok(mappings) = mappings_for(&app.get_key_binding_current_profile()) else {
+        return false;
+    };
+    let Some(mapping) = mappings
+        .iter()
+        .rev()
+        .find(|mapping| normalize_profile_key(&mapping.key) == key)
+    else {
+        return false;
+    };
+    dispatch_mapping(app, mapping, latest_playback);
+    true
+}
+
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn preferred_system_skip_interval(mapping: Option<&Mapping>) -> Option<f64> {
+    let Some(mapping) = mapping else {
+        return Some(15.0);
+    };
+    if mapping.kind != ActionKind::Mpv {
+        return None;
+    }
+    let commands = riina_core::key_bindings::mpv_action_commands(&mapping.action).ok()?;
+    if commands.len() != 1 || commands[0].first().map(String::as_str) != Some("seek") {
+        return None;
+    }
+    let command = &commands[0];
+    let target = command.get(1)?.parse::<f64>().ok()?;
+    if !target.is_finite() {
+        return None;
+    }
+    if command.get(2).is_some_and(|flags| {
+        !flags
+            .split('+')
+            .all(|flag| matches!(flag, "exact" | "keyframes" | "relative"))
+    }) {
+        return None;
+    }
+    Some(target.abs())
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn system_skip_intervals_for_profile(profile: &str) -> (Option<f64>, Option<f64>) {
+    let Ok(mappings) = mappings_for(profile) else {
+        return (None, None);
+    };
+    let interval_for = |key| {
+        let mapping = mappings
+            .iter()
+            .rev()
+            .find(|mapping| normalize_profile_key(&mapping.key) == key);
+        preferred_system_skip_interval(mapping)
+    };
+    (interval_for("FORWARD"), interval_for("REWIND"))
+}
+
+fn dispatch_mapping(
+    app: &PlayerWindow,
+    mapping: &Mapping,
+    latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
+) {
     let Some(action) = runtime_action(mapping) else {
         app.set_status(format!("Input action is not supported yet: {}", mapping.action).into());
         return;
     };
     match action {
         RuntimeAction::TogglePause => app.invoke_toggle_pause(),
+        RuntimeAction::SetPaused(paused) => app.invoke_set_paused(paused),
         RuntimeAction::Stop => app.invoke_stop(),
         RuntimeAction::Seek(seconds) => app.invoke_seek_relative(seconds),
         RuntimeAction::Volume(amount) => app.invoke_adjust_volume(amount),
         RuntimeAction::Mute => app.invoke_toggle_mute(),
         RuntimeAction::SubtitleVisibility => app.invoke_toggle_subtitle_visibility(),
-        RuntimeAction::Fullscreen => app.invoke_toggle_fullscreen(),
+        RuntimeAction::Fullscreen(desired) => {
+            if desired.is_none_or(|desired| desired != app.get_fullscreen()) {
+                app.invoke_toggle_fullscreen();
+            }
+        }
         RuntimeAction::CycleAudio => app.invoke_cycle_audio_track(),
         RuntimeAction::CycleSubtitle => app.invoke_cycle_subtitle_track(),
         RuntimeAction::CycleVideo => app.invoke_cycle_video_track(),
@@ -482,6 +773,57 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping) {
         RuntimeAction::SubtitlePosition(amount) => app.invoke_adjust_subtitle_position(amount),
         RuntimeAction::OpenPreferences => app.invoke_open_preferences(),
         RuntimeAction::SettingsPane(index) => app.invoke_toggle_settings_pane(index),
+        RuntimeAction::PlaylistNext => app.invoke_playlist_next(),
+        RuntimeAction::PlaylistPrevious => app.invoke_playlist_previous(),
+        RuntimeAction::PlaylistShuffle => app.invoke_toggle_playlist_shuffle(),
+        RuntimeAction::TogglePlaylistPane(kind) => app.invoke_toggle_playlist_pane(kind),
+        RuntimeAction::ToggleMusicMode => app.invoke_toggle_music_mode(),
+        RuntimeAction::TogglePictureInPicture => app.invoke_toggle_picture_in_picture(),
+        RuntimeAction::FitWindowToVideo => app.invoke_fit_window_to_video(),
+        RuntimeAction::ToggleLiveText => app.invoke_toggle_live_text(),
+        RuntimeAction::RevealCurrentMedia => {
+            let filename = latest_playback.lock().ok().and_then(|playback| {
+                playback
+                    .playlist
+                    .iter()
+                    .find(|entry| entry.playing)
+                    .or_else(|| playback.playlist.iter().find(|entry| entry.current))
+                    .map(|entry| entry.filename.clone())
+            });
+            let Some(filename) = filename else {
+                app.set_status("There is no current media file to reveal".into());
+                return;
+            };
+            let filename = if filename
+                .split_once(':')
+                .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+            {
+                riina_core::playlist::clipboard_references(&filename)
+                    .into_iter()
+                    .next()
+            } else if filename.contains("://") {
+                None
+            } else {
+                Some(filename)
+            };
+            let Some(path) = filename.map(std::path::PathBuf::from) else {
+                app.set_status("Only local media files can be revealed".into());
+                return;
+            };
+            if !path.is_file() {
+                app.set_status(
+                    "The current media file is not available in the file manager".into(),
+                );
+                return;
+            }
+            if let Err(error) = crate::platform::reveal_file(&path) {
+                app.set_status(format!("Could not reveal the current media file: {error}").into());
+            }
+        }
+        RuntimeAction::AbLoop => app.invoke_cycle_ab_loop(),
+        RuntimeAction::Screenshot => app.invoke_take_screenshot(),
+        RuntimeAction::MpvInputAction(action) => app.invoke_execute_mpv_input_action(action.into()),
+        RuntimeAction::Ignore => {}
     }
 }
 
@@ -562,6 +904,14 @@ pub(crate) fn search(window: &PreferencesWindow, query: &str) -> Result<(), Stri
 
 pub(crate) fn refresh(window: &PreferencesWindow, settings: &Settings) -> Result<(), String> {
     install_window(window, settings)
+}
+
+pub(crate) fn activate_profile(window: &PreferencesWindow, name: &str) -> Result<(), String> {
+    let mut settings = current_window(window)?;
+    settings.current_profile = name.to_owned();
+    refresh(window, &settings)?;
+    window.invoke_settings_changed();
+    Ok(())
 }
 
 #[cfg(test)]
@@ -658,5 +1008,32 @@ mod tests {
         ));
         assert!(runtime_action(&mapping("run calc.exe", ActionKind::Mpv)).is_none());
         assert!(runtime_action(&mapping("seek NaN", ActionKind::Mpv)).is_none());
+    }
+
+    #[test]
+    fn system_skip_intervals_follow_only_supported_seek_bindings() {
+        let mapping = |action: &str, kind| Mapping {
+            key: "FORWARD".into(),
+            action: action.into(),
+            kind,
+            comment: None,
+        };
+        assert_eq!(preferred_system_skip_interval(None), Some(15.0));
+        assert_eq!(
+            preferred_system_skip_interval(Some(&mapping("seek -7 exact", ActionKind::Mpv))),
+            Some(7.0)
+        );
+        assert_eq!(
+            preferred_system_skip_interval(Some(&mapping("seek 7 absolute", ActionKind::Mpv))),
+            None
+        );
+        assert_eq!(
+            preferred_system_skip_interval(Some(&mapping("next", ActionKind::Riina))),
+            None
+        );
+        assert_eq!(
+            preferred_system_skip_interval(Some(&mapping("seek NaN", ActionKind::Mpv))),
+            None
+        );
     }
 }

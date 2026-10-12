@@ -1,0 +1,37 @@
+# IINA v1.5.0 imported media UTI identifiers used by the Utilities default-app picker.
+# category|uniform type identifier|comma-separated filename extensions
+video|io.iina.flash|flv,f4v,f4p,f4a,f4b
+audio|io.iina.ape|ape
+audio|io.iina.flac|flac
+audio|io.iina.wv|wv
+video|io.iina.realmedia|rm,ram,rmvb
+audio|io.iina.xm|xm
+audio|io.iina.aiff|aiff,aif
+audio|io.iina.wav|wav
+audio|io.iina.ac3|ac3,a52
+audio|io.iina.aac|aac
+audio|io.iina.opus|opus
+audio|io.iina.ogg-audio|ogg,oga
+video|io.iina.avi|avi
+video|io.iina.quicktime|mov,moov,qt
+video|io.iina.divx|divx
+video|io.iina.dv|dv
+video|io.iina.asf|asf
+audio|io.iina.wma|wma
+video|io.iina.wmv|wmv
+video|io.iina.wtv|wtv
+video|io.iina.mpeg-video|mpg,mpeg,mpeg1,mpeg2,m1v,m2v,mpv
+video|io.iina.mpeg4-video|mp4,mpeg4,m4v
+audio|io.iina.mpeg-audio|m2a,mp1,mp2,mpa
+audio|io.iina.mpeg4-audio|m4a
+audio|io.iina.mpeg3-audio|mp3,mpg3
+video|io.iina.mpeg-stream|m2p,ps,ts,m2ts,mts,mt2s
+video|io.iina.3gpp|3gp,3gpp
+video|io.iina.3gpp2|3g2,3gp2
+audio|io.iina.mka|mka
+video|io.iina.mkv|mkv
+video|io.iina.webm|webm
+playlist|io.iina.cue|cue
+playlist|io.iina.playlist|m3u8,m3u
+audio|io.iina.dsf|dsf
+audio|io.iina.dff|dff

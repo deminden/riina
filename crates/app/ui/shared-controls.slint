@@ -18,10 +18,21 @@ export component PlayerSlider inherits Rectangle {
     in property <float> loop-b-value: 0;
     in property <bool> show-chapter-positions: false;
     in property <[float]> chapter-times: [];
+    in property <bool> preview-enabled: false;
+    in property <image> preview-image;
+    in property <string> preview-label;
+    in property <float> preview-width: 120;
+    in property <float> preview-aspect-ratio: 16 / 9;
+    in property <bool> preview-above: true;
+    in property <bool> scroll-override-enabled: false;
+    in property <bool> scroll-disabled: false;
     out property <bool> is-dragging: false;
     callback changed(float);
     callback loop-a-moved(float);
     callback loop-b-moved(float);
+    callback preview-requested(float);
+    callback preview-dismissed();
+    callback scroll-request(float, float) -> bool;
     height: 20px;
     horizontal-stretch: 1;
     background: transparent;
@@ -40,6 +51,8 @@ export component PlayerSlider inherits Rectangle {
     private property <float> fraction: clamp((value - minimum) / max(0.001, maximum - minimum), 0, 1);
     private property <float> loop-a-fraction: clamp((loop-a-value - minimum) / max(0.001, maximum - minimum), 0, 1);
     private property <float> loop-b-fraction: clamp((loop-b-value - minimum) / max(0.001, maximum - minimum), 0, 1);
+    private property <float> pointer-value: root.minimum + clamp((touch.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
+    private property <length> preview-height: root.preview-width * 1px / max(0.001, root.preview-aspect-ratio);
     private property <length> play-knob-x: clamp(3px + (root.width - 6px) * fraction - knob-width / 2,
         0px, root.width - knob-width);
     private property <length> loop-a-x: clamp(3px + (root.width - 6px) * loop-a-fraction - knob-width / 2,
@@ -83,6 +96,10 @@ export component PlayerSlider inherits Rectangle {
     if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
     touch := TouchArea {
         enabled: root.enabled;
+        changed has-hover => {
+            if self.has-hover { root.preview-requested(pointer-value); }
+            else { root.preview-dismissed(); }
+        }
         pointer-event(event) => {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 root.is-dragging = true;
@@ -92,9 +109,20 @@ export component PlayerSlider inherits Rectangle {
                 root.is-dragging = false;
             }
         }
-        moved => { if self.pressed {
-            root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
-        } }
+        scroll-event(event) => {
+            if root.enabled && root.scroll-disabled { return accept; }
+            if root.enabled && root.scroll-override-enabled
+                && root.scroll-request(event.delta-x / 1px, event.delta-y / 1px) {
+                return accept;
+            }
+            return reject;
+        }
+        moved => {
+            if self.pressed {
+                root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+            }
+            if root.preview-enabled { root.preview-requested(pointer-value); }
+        }
     }
     focus := FocusScope {
         enabled: root.enabled;
@@ -104,6 +132,21 @@ export component PlayerSlider inherits Rectangle {
             if event.text == Key.LeftArrow { root.changed(max(root.minimum, root.value - root.step)); return accept; }
             return reject;
         }
+    }
+    if root.preview-enabled && touch.has-hover : Rectangle {
+        x: clamp(touch.mouse-x - root.preview-width * 1px / 2, 0px, max(0px, root.width - root.preview-width * 1px));
+        y: root.preview-above ? 0px - preview-height - 8px : 24px;
+        width: min(root.preview-width * 1px, root.width);
+        height: preview-height + 20px;
+        border-radius: 5px;
+        border-width: 1px;
+        border-color: root.dark-theme ? #ffffff4a : #00000038;
+        background: root.dark-theme ? #17171bf2 : #f7f7f9f5;
+        Image { x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 21px;
+            source: root.preview-image; image-fit: contain; }
+        Text { x: 5px; y: parent.height - 19px; width: parent.width - 10px; height: 15px;
+            text: root.preview-label; color: root.dark-theme ? #eeeeee : #29292d;
+            font-size: 10px; horizontal-alignment: center; vertical-alignment: center; }
     }
     loop-a-touch := TouchArea {
         enabled: root.enabled && root.loop-a-visible

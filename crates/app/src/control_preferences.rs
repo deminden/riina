@@ -43,6 +43,8 @@ pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
     app.set_control_accepts_first_mouse(settings.accepts_first_mouse);
     app.set_control_vertical_scroll_index(settings.vertical_scroll_action.index());
     app.set_control_horizontal_scroll_index(settings.horizontal_scroll_action.index());
+    app.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
+    app.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
     app.set_control_seek_type_index(settings.seek_type.index());
     app.set_control_seek_sensitivity(i32::from(settings.seek_sensitivity));
     app.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
@@ -70,6 +72,8 @@ pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
             app.get_control_horizontal_scroll_index(),
         )
         .ok_or_else(|| "Invalid horizontal-scroll action".to_owned())?,
+        disable_play_slider_scrolling: app.get_control_disable_play_slider_scrolling(),
+        disable_volume_slider_scrolling: app.get_control_disable_volume_slider_scrolling(),
         seek_type: SeekType::from_index(app.get_control_seek_type_index())
             .ok_or_else(|| "Invalid seek type".to_owned())?,
         seek_sensitivity: u8::try_from(app.get_control_seek_sensitivity())
@@ -102,6 +106,8 @@ pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
     window.set_control_accepts_first_mouse(settings.accepts_first_mouse);
     window.set_control_vertical_scroll_index(settings.vertical_scroll_action.index());
     window.set_control_horizontal_scroll_index(settings.horizontal_scroll_action.index());
+    window.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
+    window.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
     window.set_control_seek_type_index(settings.seek_type.index());
     window.set_control_seek_sensitivity(i32::from(settings.seek_sensitivity));
     window.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
@@ -140,6 +146,8 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
             window.get_control_horizontal_scroll_index(),
         )
         .ok_or_else(|| "Invalid horizontal-scroll action".to_owned())?,
+        disable_play_slider_scrolling: window.get_control_disable_play_slider_scrolling(),
+        disable_volume_slider_scrolling: window.get_control_disable_volume_slider_scrolling(),
         seek_type: SeekType::from_index(window.get_control_seek_type_index())
             .ok_or_else(|| "Invalid seek type".to_owned())?,
         seek_sensitivity: u8::try_from(window.get_control_seek_sensitivity())

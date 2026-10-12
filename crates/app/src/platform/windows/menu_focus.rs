@@ -11,13 +11,19 @@ use std::{cell::Cell, rc::Rc};
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+        System::SystemServices::{
+            APPCOMMAND_MEDIA_FAST_FORWARD, APPCOMMAND_MEDIA_NEXTTRACK, APPCOMMAND_MEDIA_PAUSE,
+            APPCOMMAND_MEDIA_PLAY, APPCOMMAND_MEDIA_PLAY_PAUSE, APPCOMMAND_MEDIA_PREVIOUSTRACK,
+            APPCOMMAND_MEDIA_REWIND, APPCOMMAND_MEDIA_STOP, APPCOMMAND_VOLUME_DOWN,
+            APPCOMMAND_VOLUME_MUTE, APPCOMMAND_VOLUME_UP,
+        },
         UI::{
             Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
                 GetForegroundWindow, IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
-                WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND,
-                WM_SYSKEYDOWN, WM_SYSKEYUP,
+                WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP,
+                WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
@@ -121,6 +127,14 @@ unsafe extern "system" fn menu_proc(
 ) -> LRESULT {
     // SAFETY: MenuFocus retains the stable box until subclass removal.
     let context = unsafe { &*(refdata as *const MenuContext) };
+    if message == WM_APPCOMMAND
+        && let Some(app) = context.app.upgrade()
+        && app.get_key_binding_use_system_media_controls()
+        && let Some(key) = system_media_key(((lparam.0 as u32) >> 16) & 0x7ff)
+        && app.invoke_dispatch_key_binding(key.into(), false, false, false, false)
+    {
+        return LRESULT(1);
+    }
     if wparam.0 == VK_F10.0 as usize && !context.active.get() {
         if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {
             return LRESULT(0);
@@ -229,4 +243,32 @@ unsafe extern "system" fn menu_proc(
     }
     // SAFETY: preserve the original subclass chain for all other messages.
     unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+}
+
+fn system_media_key(command: u32) -> Option<&'static str> {
+    if command == APPCOMMAND_MEDIA_PLAY.0 {
+        Some("PLAY")
+    } else if command == APPCOMMAND_MEDIA_PAUSE.0 {
+        Some("PAUSE")
+    } else if command == APPCOMMAND_MEDIA_PLAY_PAUSE.0 {
+        Some("PLAYPAUSE")
+    } else if command == APPCOMMAND_MEDIA_STOP.0 {
+        Some("STOP")
+    } else if command == APPCOMMAND_MEDIA_NEXTTRACK.0 {
+        Some("NEXT")
+    } else if command == APPCOMMAND_MEDIA_PREVIOUSTRACK.0 {
+        Some("PREV")
+    } else if command == APPCOMMAND_MEDIA_FAST_FORWARD.0 {
+        Some("FORWARD")
+    } else if command == APPCOMMAND_MEDIA_REWIND.0 {
+        Some("REWIND")
+    } else if command == APPCOMMAND_VOLUME_UP.0 {
+        Some("VOLUME_UP")
+    } else if command == APPCOMMAND_VOLUME_DOWN.0 {
+        Some("VOLUME_DOWN")
+    } else if command == APPCOMMAND_VOLUME_MUTE.0 {
+        Some("MUTE")
+    } else {
+        None
+    }
 }

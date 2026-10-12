@@ -7,7 +7,8 @@ export { NativeVideoHost, NativeProbeOverlay } from "native-probe.slint";
 export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
-export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool, playing: bool }
+export { OnlineSubtitlesWindow } from "online-subtitles.slint";
+export struct CatalogRow { token: string, label: string, path: string, language: string, selected: bool, playing: bool, network: bool }
 export struct RecentMediaRow { title: string, position-label: string }
 export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
 component SidebarTab inherits FocusScope {
@@ -544,6 +545,7 @@ export component PlayerWindow inherits Window {
     callback video-menu-changed();
     callback open-application-menu();
     callback open-preferences();
+    callback find-online-subtitles();
     changed reflection-known => { root.video-menu-changed(); }
     changed video-mirrored => { root.video-menu-changed(); }
     changed video-flipped => { root.video-menu-changed(); }
@@ -696,6 +698,8 @@ export component PlayerWindow inherits Window {
                 activated => { root.toggle-subtitle-visibility(); } }
             MenuItem { title: "Load Subtitle…"; enabled: root.loaded && !root.crop-editing;
                 activated => { root.browse-files(2); } }
+            MenuItem { title: "Find Online Subtitles…"; enabled: root.loaded && !root.crop-editing;
+                activated => { root.find-online-subtitles(); } }
             MenuSeparator {}
             for row in root.subtitle-tracks : MenuItem {
                 title: row.label; checkable: true; checked: row.selected;
@@ -732,6 +736,10 @@ export component PlayerWindow inherits Window {
     background: native-video ? transparent : #111111;
     in property <image> video-frame;
     in property <bool> loaded: false;
+    in property <image> timeline-thumbnail-image;
+    in property <string> timeline-preview-label: "";
+    in property <float> thumbnail-preview-width: 120;
+    callback timeline-hovered(float);
     in-out property <string> plugin-osd-message: "";
     in-out property <bool> hdr-enabled: true;
     in property <bool> hdr-display-active: false;
@@ -739,9 +747,12 @@ export component PlayerWindow inherits Window {
     in-out property <bool> live-text-enabled: false;
     in-out property <bool> live-text-available: false;
     in-out property <bool> disable-animations: false;
-    in property <duration> osd-fade-duration: disable-animations || !osd-enabled ? 0ms : 500ms;
+    in property <bool> system-reduce-motion: false;
+    private property <bool> animations-disabled: root.disable-animations || root.system-reduce-motion;
+    in property <duration> osd-fade-duration: animations-disabled || !osd-enabled ? 0ms : 500ms;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
+    callback toggle-live-text();
     callback set-hdr-enabled(bool);
     in-out property <bool> music-mode: false;
     in-out property <bool> auto-switch-to-music-mode: true;
@@ -754,6 +765,8 @@ export component PlayerWindow inherits Window {
     private property <bool> music-mode-volume-open: false;
     callback toggle-music-mode();
     callback close-player();
+    in-out property <bool> in-process-player-manager: false;
+    callback open-player-requested([string], float);
     callback music-mode-changed();
     callback auto-switch-music-mode-changed(bool);
     changed music-mode => {
@@ -826,7 +839,19 @@ export component PlayerWindow inherits Window {
     in-out property <bool> screenshot-show-preview: true;
     in-out property <bool> screenshot-save-to-file: true;
     in-out property <int> launch-action-index: 0;
+    in-out property <bool> thumbnail-preview-enabled: true;
+    in-out property <string> thumbnail-cache-size-text: "500";
+    in-out property <bool> thumbnail-remote-enabled: false;
+    in-out property <string> thumbnail-width-text: "120";
     in-out property <bool> pause-when-open: false;
+    in-out property <bool> play-when-entering-fullscreen: false;
+    in-out property <bool> pause-when-leaving-fullscreen: false;
+    in-out property <bool> pause-when-inactive: false;
+    in-out property <bool> pause-when-minimized: false;
+    in-out property <bool> pause-when-goes-to-sleep: true;
+    in-out property <bool> quit-when-no-opened-window: false;
+    in-out property <bool> keep-open-on-file-end: true;
+    in-out property <bool> playlist-auto-add: true;
     in-out property <bool> fullscreen-when-open: false;
     in-out property <bool> resume-last-position: true;
     callback pause-when-open-changed(bool);
@@ -856,6 +881,8 @@ export component PlayerWindow inherits Window {
     in-out property <bool> control-accepts-first-mouse: false;
     in-out property <int> control-vertical-scroll-index: 0;
     in-out property <int> control-horizontal-scroll-index: 1;
+    in-out property <bool> control-disable-play-slider-scrolling: false;
+    in-out property <bool> control-disable-volume-slider-scrolling: false;
     in-out property <int> control-seek-type-index: 0;
     in-out property <int> control-seek-sensitivity: 3;
     in-out property <int> control-volume-sensitivity: 3;
@@ -870,6 +897,7 @@ export component PlayerWindow inherits Window {
     in-out property <string> network-cache-prefetch-secs-text: "36000";
     in-out property <string> network-cache-size-kib-text: "153600";
     in-out property <bool> network-ytdl-enabled: true;
+    in-out property <bool> network-ytdl-plugin-active: false;
     in-out property <string> network-ytdl-search-path: "";
     in-out property <string> network-ytdl-raw-options: "";
     in-out property <bool> network-show-buffering-throbber: true;
@@ -881,6 +909,9 @@ export component PlayerWindow inherits Window {
     in-out property <int> subtitle-align-y-index: 2;
     in-out property <string> subtitle-position-text: "100";
     in-out property <string> subtitle-preferred-languages: "";
+    in-out property <string> open-subtitles-api-key: "";
+    in-out property <bool> open-subtitles-auto-search: false;
+    in-out property <string> open-subtitles-threshold-text: "20";
     in-out property <string> subtitle-default-encoding: "auto";
     in-out property <int> subtitle-auto-load-mode-index: 2;
     in-out property <string> subtitle-auto-load-priority;
@@ -1083,6 +1114,8 @@ export component PlayerWindow inherits Window {
     callback open-url(string);
     callback open-recent(int);
     callback toggle-pause();
+    callback set-paused(bool);
+    callback execute-mpv-input-action(string);
     callback stop();
     callback seek(float);
     callback seek-relative(float);
@@ -1131,6 +1164,8 @@ export component PlayerWindow inherits Window {
     callback double-click-action(int);
     callback mouse-button-action(int);
     callback scroll-action-request(float, float) -> bool;
+    callback seek-scroll-action-request(float, float) -> bool;
+    callback volume-scroll-action-request(float, float) -> bool;
     callback refresh-fullscreen-info();
     callback show-seek-osd();
     callback show-video-osd();
@@ -1240,7 +1275,7 @@ export component PlayerWindow inherits Window {
         if controls-rendered && loaded && !crop-editing && !music-mode : Rectangle {
             x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px;
             opacity: root.controls-visible ? 1 : 0;
-            animate opacity { duration: root.disable-animations ? 0ms : 250ms; }
+            animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
                 : (root.dark-theme ? #151519 : #f2f2f2);
@@ -1498,6 +1533,19 @@ export component PlayerWindow inherits Window {
                                             let content-y = (parent.y + self.mouse-y) / 31px;
                                             root.playlist-drop-index = clamp(floor(content-y), 0, root.playlist.length);
                                         }
+                                    }
+                                }
+                            }
+                            if pane-kind == 4 : ContextMenuArea {
+                                enabled: row.network;
+                                Menu {
+                                    if row.network : MenuItem {
+                                        title: "Open in Browser";
+                                        activated => { root.playlist-action(10, row.token); }
+                                    }
+                                    if row.network : MenuItem {
+                                        title: "Copy URL";
+                                        activated => { root.playlist-action(11, row.token); }
                                     }
                                 }
                             }
@@ -1817,7 +1865,7 @@ export component PlayerWindow inherits Window {
                 root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
                 root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
             opacity: root.music-mode || root.controls-visible ? 1 : 0;
-            animate opacity { duration: root.disable-animations ? 0ms : 250ms; }
+            animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
             border-radius: root.music-mode ? 0px : root.osc-position == 0 ? 12px : 4px;
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #202025e8 : #f2f2f2ed)
@@ -1845,7 +1893,7 @@ export component PlayerWindow inherits Window {
                     x: 0px; y: root.music-mode ? 5px : 0px;
                     width: parent.width; height: 17px;
                     opacity: root.controls-visible ? 1 : 0;
-                    animate opacity { duration: root.disable-animations ? 0ms : 200ms; }
+                    animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
                     padding-left: root.music-mode ? 8px : 12px;
                     padding-right: root.music-mode ? 8px : 12px;
                     spacing: root.music-mode ? 2px : 4px;
@@ -1880,6 +1928,9 @@ export component PlayerWindow inherits Window {
                         else { root.toggle-mute(); }
                     } }
                     if !root.music-mode : PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px; minimum: 0; maximum: root.volume-limit; value: volume; hint: "Volume";
+                        scroll-override-enabled: !root.control-disable-volume-slider-scrolling;
+                        scroll-disabled: root.control-disable-volume-slider-scrolling;
+                        scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
                         changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
                         changed(value) => { root.set-volume(value); } }
                     Tool {
@@ -1914,7 +1965,7 @@ export component PlayerWindow inherits Window {
                     if root.music-mode : HorizontalLayout {
                     x: 0px; y: 0px; width: parent.width; height: 27px;
                     opacity: root.controls-visible ? 0 : 1;
-                    animate opacity { duration: root.disable-animations ? 0ms : 200ms; }
+                    animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
                     padding-left: 16px; padding-right: 16px;
                     VerticalLayout {
                         spacing: 0px;
@@ -1938,14 +1989,24 @@ export component PlayerWindow inherits Window {
                 HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
                     Text { text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                     PlayerSlider { dark-theme: root.dark-theme; knob-width: 3px; knob-height: 15px; knob-radius: 1px;
+                        scroll-override-enabled: seekable && !root.control-disable-play-slider-scrolling;
+                        scroll-disabled: root.control-disable-play-slider-scrolling;
+                        scroll-request(delta-x, delta-y) => { root.seek-scroll-action-request(delta-x, delta-y); }
                         loop-a-visible: root.ab-loop-a-known; loop-a-value: root.ab-loop-a;
                         loop-b-visible: root.ab-loop-b-known; loop-b-value: root.ab-loop-b;
                         show-chapter-positions: root.show-chapter-pos; chapter-times: root.chapter-times;
+                        preview-enabled: root.seekable && root.thumbnail-preview-enabled;
+                        preview-image: root.timeline-thumbnail-image;
+                        preview-label: root.timeline-preview-label; preview-width: root.thumbnail-preview-width;
+                        preview-aspect-ratio: root.video-display-aspect-ratio > 0 ? root.video-display-aspect-ratio : 16 / 9;
+                        preview-above: root.osc-position != 1;
                         minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
                         changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
                         changed(value) => { root.seek(value); }
                         loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
-                        loop-b-moved(value) => { root.set-ab-loop-point(1, value); } }
+                        loop-b-moved(value) => { root.set-ab-loop-point(1, value); }
+                        preview-requested(value) => { root.timeline-hovered(value); }
+                        preview-dismissed => { root.timeline-hovered(-1); } }
                     Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
                 }
                 }
@@ -1964,6 +2025,9 @@ export component PlayerWindow inherits Window {
                         hint: "Mute"; activated => { root.toggle-mute(); } }
                     PlayerSlider { dark-theme: root.dark-theme; horizontal-stretch: 1; height: 17px;
                         minimum: 0; maximum: root.volume-limit; value: root.volume; hint: "Volume";
+                        scroll-override-enabled: !root.control-disable-volume-slider-scrolling;
+                        scroll-disabled: root.control-disable-volume-slider-scrolling;
+                        scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
                         changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
                         changed(value) => { root.set-volume(value); } }
                 }
@@ -1976,7 +2040,7 @@ export component PlayerWindow inherits Window {
                     : (root.dark-theme ? #303036 : #eeeeF2);
                 border-width: 1px; border-color: #ffffff30;
                 opacity: root.controls-visible ? 1 : 0;
-                animate opacity { duration: root.disable-animations ? 0ms : 200ms; }
+                animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
                 VerticalLayout {
                     x: 3px; y: 3px; width: 22px; height: 48px; spacing: 4px;
                     Tool { dark-theme: root.dark-theme; width: 22px; height: 22px;

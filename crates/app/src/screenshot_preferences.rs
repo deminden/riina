@@ -17,6 +17,7 @@ pub(crate) fn connect(
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
+    let reduce_motion_refresh = Rc::new(RefCell::new(None::<Rc<slint::Timer>>));
     let audio_device_refresh = Rc::new(slint::Timer::default());
     let observed_audio_devices = Rc::new(RefCell::new(Vec::new()));
     let preferences_window = current.clone();
@@ -49,7 +50,13 @@ pub(crate) fn connect(
             };
             crate::settings_search::connect(&window);
             crate::utilities_preferences::connect(&window, &path, clear_history.clone());
-            crate::plugin_preferences::connect(&window, &app, &path, plugin_host.clone());
+            crate::plugin_preferences::connect(
+                &window,
+                &app,
+                &path,
+                plugin_host.clone(),
+                decoder_player.clone(),
+            );
             crate::advanced_preferences::install_window(&window, &baseline.advanced);
             crate::advanced_preferences::connect_actions(&app, &window, path.clone());
             let available_devices = latest_playback
@@ -72,11 +79,28 @@ pub(crate) fn connect(
                 &baseline.network_online_videos,
             );
             crate::pip_preferences::install_preferences(&window, baseline.picture_in_picture);
+            crate::thumbnail_preferences::install_window(&window, &baseline.thumbnail_preview);
+            crate::online_subtitles_preferences::install_window(
+                &window,
+                &baseline.online_subtitles,
+            );
             crate::window_resize_preferences::install_preferences(&window, baseline.window_resize);
+            window.set_allow_multiple_windows(baseline.allow_multiple_windows);
+            window.set_group_simultaneous_opens_in_playlist(
+                baseline.group_simultaneous_opens_in_playlist,
+            );
+            window.set_allow_duplicate_players(baseline.allow_duplicate_players);
+            window.set_playlist_auto_add(baseline.playlist_auto_add);
             let parent = app.as_weak();
             let weak = window.as_weak();
             let path = path.clone();
             let baseline = baseline.clone();
+            let saved_open_policy = Rc::new(RefCell::new((
+                baseline.allow_multiple_windows,
+                baseline.group_simultaneous_opens_in_playlist,
+                baseline.allow_duplicate_players,
+            )));
+            let saved_open_policy_for_change = saved_open_policy.clone();
             let saved_tone_mapping = Rc::new(RefCell::new(baseline.hdr_tone_mapping.clone()));
             let saved_tone_mapping_for_change = saved_tone_mapping.clone();
             let saved_video_threads = Rc::new(RefCell::new(baseline.video_threads));
@@ -119,6 +143,110 @@ pub(crate) fn connect(
                     && let Some(app) = search_parent.upgrade()
                 {
                     app.set_status(error.into());
+                }
+            });
+            let profile_action_window = window.as_weak();
+            let profile_action_parent = app.as_weak();
+            window.on_key_binding_profile_created(move |name, mode| {
+                let Some(window) = profile_action_window.upgrade() else {
+                    return;
+                };
+                let name = name.to_string();
+                let source = window.get_key_binding_current_profile().to_string();
+                let result = (|| {
+                    let store = crate::key_binding_profiles::ProfileStore::for_current_user()
+                        .map_err(|error| error.to_string())?;
+                    match mode {
+                        0 => store.create(&name).map_err(|error| error.to_string())?,
+                        1 => {
+                            let mappings = crate::key_binding_preferences::mappings_for(&source)?;
+                            store
+                                .create_with_mappings(&name, &mappings)
+                                .map_err(|error| error.to_string())?;
+                        }
+                        2 => store
+                            .rename(&source, &name)
+                            .map_err(|error| error.to_string())?,
+                        _ => return Err("Choose a valid profile operation".to_owned()),
+                    }
+                    crate::key_binding_preferences::activate_profile(&window, &name)
+                })();
+                match result {
+                    Ok(()) => window.set_key_binding_profile_editor_open(false),
+                    Err(error) => {
+                        if let Some(app) = profile_action_parent.upgrade() {
+                            app.set_status(error.into());
+                        }
+                    }
+                }
+            });
+            let cancel_profile_window = window.as_weak();
+            window.on_key_binding_profile_editor_cancelled(move || {
+                if let Some(window) = cancel_profile_window.upgrade() {
+                    window.set_key_binding_profile_editor_open(false);
+                }
+            });
+            let import_window = window.as_weak();
+            let import_parent = app.as_weak();
+            window.on_key_binding_import_profile_requested(move || {
+                let (Some(window), Some(app)) = (import_window.upgrade(), import_parent.upgrade())
+                else {
+                    return;
+                };
+                if app.get_dialog_open() {
+                    return;
+                }
+                app.set_dialog_open(true);
+                app.invoke_activity();
+                let weak_window = window.as_weak();
+                let weak_app = app.as_weak();
+                let started = slint::spawn_local(async move {
+                    let result = async {
+                        let Some(window) = weak_window.upgrade() else {
+                            return Ok(None);
+                        };
+                        let owner = window
+                            .window()
+                            .winit_window()
+                            .await
+                            .map_err(|error| error.to_string())?;
+                        let file = rfd::AsyncFileDialog::new()
+                            .set_title("Import key binding configuration")
+                            .add_filter("mpv input.conf", &["conf"])
+                            .set_parent(owner.as_ref())
+                            .pick_file()
+                            .await;
+                        let Some(file) = file else {
+                            return Ok(None);
+                        };
+                        crate::key_binding_profiles::ProfileStore::for_current_user()
+                            .and_then(|store| store.import(file.path()))
+                            .map(Some)
+                            .map_err(|error| error.to_string())
+                    }
+                    .await;
+                    let Some(app) = weak_app.upgrade() else {
+                        return;
+                    };
+                    app.set_dialog_open(false);
+                    app.invoke_activity();
+                    match result {
+                        Ok(Some(name)) => {
+                            if let Some(window) = weak_window.upgrade()
+                                && let Err(error) =
+                                    crate::key_binding_preferences::activate_profile(&window, &name)
+                            {
+                                app.set_status(error.into());
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(error) => app.set_status(error.into()),
+                    }
+                });
+                if let Err(error) = started {
+                    app.set_dialog_open(false);
+                    app.invoke_activity();
+                    app.set_status(error.to_string().into());
                 }
             });
             let delete_window = window.as_weak();
@@ -300,6 +428,7 @@ pub(crate) fn connect(
                     app.invoke_choose_subtitle_font();
                 }
             });
+            let key_binding_playback = latest_playback.clone();
             window.on_settings_changed(move || {
                 let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
                     return;
@@ -312,8 +441,29 @@ pub(crate) fn connect(
                     }
                 };
                 let previous_pause = app.get_pause_when_open();
+                let previous_play_when_entering_fullscreen =
+                    app.get_play_when_entering_fullscreen();
+                let previous_pause_when_leaving_fullscreen =
+                    app.get_pause_when_leaving_fullscreen();
+                let previous_pause_when_inactive = app.get_pause_when_inactive();
+                let previous_pause_when_minimized = app.get_pause_when_minimized();
+                let previous_pause_when_goes_to_sleep = app.get_pause_when_goes_to_sleep();
+                let previous_quit_when_no_windows = app.get_quit_when_no_opened_window();
+                let previous_keep_open = app.get_keep_open_on_file_end();
+                let previous_playlist_auto_add = app.get_playlist_auto_add();
+                let selected_quit_when_no_windows = window.get_quit_when_no_opened_window();
+                let selected_play_when_entering_fullscreen =
+                    window.get_play_when_entering_fullscreen();
+                let selected_pause_when_leaving_fullscreen =
+                    window.get_pause_when_leaving_fullscreen();
+                let selected_pause_when_inactive = window.get_pause_when_inactive();
+                let selected_pause_when_minimized = window.get_pause_when_minimized();
+                let selected_pause_when_goes_to_sleep = window.get_pause_when_goes_to_sleep();
+                let selected_keep_open = window.get_keep_open_on_file_end();
+                let selected_playlist_auto_add = window.get_playlist_auto_add();
                 let previous_fullscreen = app.get_fullscreen_when_open();
                 let previous_resume = app.get_resume_last_position();
+                let previous_open_policy = *saved_open_policy_for_change.borrow();
                 let previous_launch_action = app.get_launch_action_index();
                 let previous_osd = crate::osd_preferences::current_player(&app);
                 let selected_osd = match crate::osd_preferences::current_preferences(&window) {
@@ -335,6 +485,15 @@ pub(crate) fn connect(
                     };
                 let selected_picture_in_picture =
                     match crate::pip_preferences::current_preferences(&window) {
+                        Ok(settings) => settings,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let selected_thumbnail_preview =
+                    match crate::thumbnail_preferences::current_window(&window) {
                         Ok(settings) => settings,
                         Err(error) => {
                             app.set_status(error.into());
@@ -441,6 +600,15 @@ pub(crate) fn connect(
                     };
                 let selected_auto_load =
                     match crate::subtitle_auto_load_preferences::current_window(&window) {
+                        Ok(preferences) => preferences,
+                        Err(error) => {
+                            app.set_status(error.into());
+                            refresh(&window, &app);
+                            return;
+                        }
+                    };
+                let selected_online_subtitles =
+                    match crate::online_subtitles_preferences::current_window(&window) {
                         Ok(preferences) => preferences,
                         Err(error) => {
                             app.set_status(error.into());
@@ -773,6 +941,7 @@ pub(crate) fn connect(
                 }
                 let mut tone_mapping_applied = false;
                 let mut video_threads_applied = false;
+                let mut keep_open_applied = false;
                 let result = crate::subtitle_position_preferences::apply(
                     &decoder_player,
                     previous_position,
@@ -805,6 +974,10 @@ pub(crate) fn connect(
                     )
                 })
                 .and_then(|()| {
+                    if selected_keep_open != previous_keep_open {
+                        decoder_player.send(Command::SetKeepOpenOnFileEnd(selected_keep_open))?;
+                        keep_open_applied = true;
+                    }
                     if tone_mapping_changed {
                         decoder_player
                             .send(Command::SetToneMapping(selected_tone_mapping.clone()))?;
@@ -828,6 +1001,7 @@ pub(crate) fn connect(
                 .and_then(|screenshot| {
                     let mut preferences = riina_core::Preferences {
                         screenshot,
+                        thumbnail_preview: selected_thumbnail_preview.clone(),
                         volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
                             200.0
                         } else {
@@ -840,6 +1014,18 @@ pub(crate) fn connect(
                             window.get_launch_action_index(),
                         )
                         .ok_or_else(|| "Choose a valid launch action".to_owned())?,
+                        allow_multiple_windows: window.get_allow_multiple_windows(),
+                        group_simultaneous_opens_in_playlist: window
+                            .get_group_simultaneous_opens_in_playlist(),
+                        allow_duplicate_players: window.get_allow_duplicate_players(),
+                        playlist_auto_add: selected_playlist_auto_add,
+                        play_when_entering_fullscreen: selected_play_when_entering_fullscreen,
+                        pause_when_leaving_fullscreen: selected_pause_when_leaving_fullscreen,
+                        pause_when_inactive: selected_pause_when_inactive,
+                        pause_when_minimized: selected_pause_when_minimized,
+                        pause_when_goes_to_sleep: selected_pause_when_goes_to_sleep,
+                        quit_when_no_opened_window: selected_quit_when_no_windows,
+                        keep_open_on_file_end: selected_keep_open,
                         live_text_enabled: window.get_live_text_enabled(),
                         disable_animations: window.get_disable_animations(),
                         theme_material: Some(selected_theme),
@@ -875,6 +1061,7 @@ pub(crate) fn connect(
                         subtitle_position: selected_position,
                         subtitle_other: selected_subtitle_other.clone(),
                         subtitle_auto_load: selected_auto_load.clone(),
+                        online_subtitles: selected_online_subtitles.clone(),
                         subtitle_font: subtitle_font.clone(),
                         subtitle_font_size,
                         subtitle_text_style: desired_text_style,
@@ -900,7 +1087,54 @@ pub(crate) fn connect(
                 });
                 match result {
                     Ok(()) => {
+                        *saved_open_policy_for_change.borrow_mut() = (
+                            window.get_allow_multiple_windows(),
+                            window.get_group_simultaneous_opens_in_playlist(),
+                            window.get_allow_duplicate_players(),
+                        );
                         app.set_show_chapter_pos(window.get_show_chapter_pos());
+                        app.set_play_when_entering_fullscreen(
+                            selected_play_when_entering_fullscreen,
+                        );
+                        app.set_pause_when_leaving_fullscreen(
+                            selected_pause_when_leaving_fullscreen,
+                        );
+                        app.set_pause_when_inactive(selected_pause_when_inactive);
+                        app.set_pause_when_minimized(selected_pause_when_minimized);
+                        app.set_pause_when_goes_to_sleep(selected_pause_when_goes_to_sleep);
+                        app.set_quit_when_no_opened_window(selected_quit_when_no_windows);
+                        app.set_keep_open_on_file_end(selected_keep_open);
+                        app.set_playlist_auto_add(selected_playlist_auto_add);
+                        crate::thumbnail_preferences::install_player(
+                            &app,
+                            &selected_thumbnail_preview,
+                        );
+                        if selected_online_subtitles.api_key
+                            == app.get_open_subtitles_api_key().as_str()
+                        {
+                            crate::online_subtitles_preferences::install_player(
+                                &app,
+                                &selected_online_subtitles,
+                            );
+                        } else {
+                            match crate::online_subtitles_credentials::store(
+                                &selected_online_subtitles.api_key,
+                            ) {
+                                Ok(()) => crate::online_subtitles_preferences::install_player(
+                                    &app,
+                                    &selected_online_subtitles,
+                                ),
+                                Err(error) => {
+                                    let mut retained = selected_online_subtitles.clone();
+                                    retained.api_key = app.get_open_subtitles_api_key().to_string();
+                                    crate::online_subtitles_preferences::install_player(
+                                        &app, &retained,
+                                    );
+                                    window.set_open_subtitles_api_key(retained.api_key.into());
+                                    app.set_status(error.into());
+                                }
+                            }
+                        }
                         crate::pip_preferences::install_player(&app, selected_picture_in_picture);
                         app.set_live_text_enabled(window.get_live_text_enabled());
                         app.set_disable_animations(window.get_disable_animations());
@@ -920,6 +1154,7 @@ pub(crate) fn connect(
                         crate::key_binding_preferences::install_player(
                             &app,
                             &selected_key_bindings,
+                            key_binding_playback.clone(),
                         );
                         if advanced_changed {
                             app.set_status("Advanced settings apply after restarting Riina".into());
@@ -936,6 +1171,13 @@ pub(crate) fn connect(
                         }
                     }
                     Err(error) => {
+                        window.set_allow_multiple_windows(previous_open_policy.0);
+                        window.set_group_simultaneous_opens_in_playlist(previous_open_policy.1);
+                        window.set_allow_duplicate_players(previous_open_policy.2);
+                        if keep_open_applied {
+                            let _ = decoder_player
+                                .send(Command::SetKeepOpenOnFileEnd(previous_keep_open));
+                        }
                         if video_threads_applied {
                             let _ =
                                 decoder_player.send(Command::VideoThreads(previous_video_threads));
@@ -1007,6 +1249,18 @@ pub(crate) fn connect(
                             previous_decoder,
                         );
                         app.set_pause_when_open(previous_pause);
+                        app.set_play_when_entering_fullscreen(
+                            previous_play_when_entering_fullscreen,
+                        );
+                        app.set_pause_when_leaving_fullscreen(
+                            previous_pause_when_leaving_fullscreen,
+                        );
+                        app.set_pause_when_inactive(previous_pause_when_inactive);
+                        app.set_pause_when_minimized(previous_pause_when_minimized);
+                        app.set_pause_when_goes_to_sleep(previous_pause_when_goes_to_sleep);
+                        app.set_quit_when_no_opened_window(previous_quit_when_no_windows);
+                        app.set_keep_open_on_file_end(previous_keep_open);
+                        app.set_playlist_auto_add(previous_playlist_auto_add);
                         app.set_fullscreen_when_open(previous_fullscreen);
                         app.set_resume_last_position(previous_resume);
                         app.set_launch_action_index(previous_launch_action);
@@ -1105,6 +1359,21 @@ pub(crate) fn connect(
                 }
                 slint::CloseRequestResponse::KeepWindowShown
             });
+            let weak = window.as_weak();
+            let timer = Rc::new(slint::Timer::default());
+            timer.start(
+                slint::TimerMode::Repeated,
+                Duration::from_millis(500),
+                move || {
+                    if let Some(window) = weak.upgrade() {
+                        let reduce_motion = crate::platform::system_reduce_motion_enabled();
+                        if window.get_system_reduce_motion() != reduce_motion {
+                            window.set_system_reduce_motion(reduce_motion);
+                        }
+                    }
+                },
+            );
+            *reduce_motion_refresh.borrow_mut() = Some(timer);
             *current.borrow_mut() = Some(window.clone_strong());
             window
         };
@@ -1178,6 +1447,9 @@ pub(crate) fn connect(
 }
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
+    if let Ok(settings) = crate::online_subtitles_preferences::current_player(app) {
+        crate::online_subtitles_preferences::install_window(window, &settings);
+    }
     crate::osd_preferences::current_player(app).install_preferences(window);
     crate::osc_preferences::install_preferences(
         window,
@@ -1189,6 +1461,9 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     );
     crate::network_cache_preferences::refresh_window(window, app);
     crate::network_ytdl_preferences::refresh_window(window, app);
+    if let Ok(settings) = crate::thumbnail_preferences::current_player(app) {
+        crate::thumbnail_preferences::install_window(window, &settings);
+    }
     window.set_live_text_enabled(app.get_live_text_enabled());
     window.set_disable_animations(app.get_disable_animations());
     window.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
@@ -1210,6 +1485,15 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::subtitle_preferences::install_window_style(window, style);
     }
     window.set_pause_when_open(app.get_pause_when_open());
+    window.set_play_when_entering_fullscreen(app.get_play_when_entering_fullscreen());
+    window.set_pause_when_leaving_fullscreen(app.get_pause_when_leaving_fullscreen());
+    window.set_pause_when_inactive(app.get_pause_when_inactive());
+    window.set_pause_when_minimized(app.get_pause_when_minimized());
+    window.set_pause_when_goes_to_sleep(app.get_pause_when_goes_to_sleep());
+    window.set_pause_policies_available(cfg!(target_os = "macos"));
+    window.set_quit_when_no_opened_window(app.get_quit_when_no_opened_window());
+    window.set_keep_open_on_file_end(app.get_keep_open_on_file_end());
+    window.set_playlist_auto_add(app.get_playlist_auto_add());
     window.set_fullscreen_when_open(app.get_fullscreen_when_open());
     window.set_resume_last_position(app.get_resume_last_position());
     window.set_launch_action_index(app.get_launch_action_index());
