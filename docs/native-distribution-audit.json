@@ -37,7 +37,7 @@
     "builder_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
     "openssl_revision": "d8bf6cdd4849925c30e4f1911c7acb49cb34b702",
     "x264_encoder": "Removed by tools/mpv/remove-x264.patch; built-in H.264 decoding is retained",
-    "source_capture": "Capture native repository revisions, file hashes, and vendored subrandr Rust dependency sources before compilation. Restore and verify captured sources before bootstrapping the cross-toolchain on rebuild.",
+    "source_capture": "Capture native repository revisions, file hashes, symlink targets, and vendored subrandr Rust dependency sources before compilation. Omit redundant Git object history; restore exact source snapshots and recreate local Git repositories for patch steps before bootstrapping the cross-toolchain on rebuild.",
     "build_container": "Pinned by digest in .github/workflows/release.yml",
     "curl_revision": "01346829096c61b372692f6dc43ffa778c6caccd",
     "curl_version": "8.22.0; latest stable release verified on 2026-10-11",

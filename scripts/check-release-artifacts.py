@@ -3,6 +3,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -82,24 +83,40 @@ def verify_native_sources(native, runtime):
     manifest = native / "SOURCE-MANIFEST.tsv"
     if manifest.read_bytes() != (runtime / manifest.name).read_bytes():
         raise ValueError("Native sources do not belong to the packaged engine")
-    files, repositories = set(), set()
+    files, repositories, captured_paths = set(), set(), set()
+    compact_snapshot = False
     for fields in csv.reader(manifest.read_text(encoding="utf-8").splitlines(), delimiter="\t"):
         if fields[0] == "source_sha256":
-            if len(fields) != 3 or fields[1] in files:
+            if len(fields) != 3 or fields[1] in captured_paths:
                 raise ValueError("Invalid or duplicate native source hash record")
             path = source_path(native / "native-sources", fields[1])
             if not path.is_file() or digest(path) != fields[2]:
                 raise ValueError(f"Native source hash mismatch: {fields[1]}")
             files.add(fields[1])
-        elif fields[0] == "source_git":
-            if len(fields) != 4 or not fields[1].startswith("src_packages/"):
+            captured_paths.add(fields[1])
+        elif fields[0] == "source_symlink":
+            if len(fields) != 3 or fields[1] in captured_paths:
+                raise ValueError("Invalid or duplicate native source symlink record")
+            path = source_path(native / "native-sources", fields[1])
+            if not path.is_symlink() or os.readlink(path) != fields[2]:
+                raise ValueError(f"Native source symlink mismatch: {fields[1]}")
+            captured_paths.add(fields[1])
+        elif fields[0] in {"source_revision", "source_git"}:
+            if (len(fields) != 4 or not fields[1].startswith("src_packages/")
+                    or not re.fullmatch(r"[0-9a-f]{40,64}", fields[3])):
                 raise ValueError("Invalid native repository record")
             path = source_path(native / "native-sources", fields[1].removeprefix("src_packages/"))
-            revision = subprocess.check_output(
-                ["git", "-c", f"safe.directory={path.resolve()}", "-C", str(path), "rev-parse", "HEAD"],
-                text=True).strip()
-            if revision != fields[3] or fields[1] in repositories:
-                raise ValueError(f"Native repository revision mismatch: {fields[1]}")
+            if not path.is_dir() or fields[1] in repositories:
+                raise ValueError(f"Missing or duplicate native source repository: {fields[1]}")
+            if fields[0] == "source_git":
+                revision = subprocess.check_output(
+                    ["git", "-c", f"safe.directory={path.resolve()}", "-C", str(path), "rev-parse", "HEAD"],
+                    text=True).strip()
+                if revision != fields[3]:
+                    raise ValueError(f"Native repository revision mismatch: {fields[1]}")
+            elif (path / ".git").exists():
+                raise ValueError(f"Redundant Git history in corresponding sources: {fields[1]}")
+            compact_snapshot |= fields[0] == "source_revision"
             repositories.add(fields[1])
         elif fields[0] in {"builder_patch_sha256", "curl_patch_sha256", "bootstrap_patch_sha256"}:
             name = {"builder_patch_sha256": "remove-x264.patch", "curl_patch_sha256": "pin-curl.patch",
@@ -108,6 +125,16 @@ def verify_native_sources(native, runtime):
                 raise ValueError(f"Native build patch mismatch: {name}")
     if not files or not repositories or (native / "native-sources/x264").exists():
         raise ValueError("Incomplete native sources or excluded x264 source present")
+    if compact_snapshot:
+        source_root = native / "native-sources"
+        if next(source_root.rglob(".git"), None):
+            raise ValueError("Redundant Git history in corresponding sources")
+        actual_paths = {
+            path.relative_to(source_root).as_posix()
+            for path in source_root.rglob("*") if path.is_file() or path.is_symlink()
+        }
+        if actual_paths != captured_paths:
+            raise ValueError("Native source files and symlinks do not match their manifest")
     for notice in (runtime / "THIRD_PARTY_LICENSES").rglob("*"):
         if not notice.is_file():
             continue

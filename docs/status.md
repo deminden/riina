@@ -118,9 +118,10 @@ remain partial or unverified. There is no defensible overall parity percentage.
 Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
 captured reference surfaces to choose and verify work.
-As of 2026-10-12, the current macOS target is 27.0.1; all accepted IINA
-captures currently on file were taken on macOS 26.6.2 and need a 27.0.1 recapture
-before they can serve as latest-version visual references.
+As of 2026-10-12, the current macOS target is Golden Gate 27.0.1 ([Apple's release
+list](https://support.apple.com/en-us/100100)). All accepted IINA captures currently
+on file were taken on macOS 26.6.2 and need a 27.0.1 recapture before they can serve
+as latest-version visual references.
 
 Known substantial gaps include live verification of the new Windows
 Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
@@ -280,6 +281,17 @@ release verification record. The package passed the extracted-ZIP import and nat
 playback/shutdown checks. The audit verified 101,748 native source files across 88
 repositories and confirmed the exact libmpv runtime hash. The [release workflow](https://github.com/deminden/riina/actions/runs/38180094023)
 and full artifact record are in `docs/native-distribution-audit.json`.
+
+The v0.3.0 source archive measured 1.60 GB compressed and 2.57 GB expanded.
+Its native-source snapshot included 1.01 GB of Git object metadata across 5,568
+entries, while the manifest verifies the source files separately. New source
+bundles omit that redundant history, retain every manifest-hashed source and
+license file, and recreate local Git snapshots during native rebuilds. The
+published v0.3.0 archive remains unchanged; the smaller layout will appear in a
+later release after its complete-source and package checks pass.
+The audit also found a 166 MB Opus DNN model archive among the build inputs.
+It stays in corresponding source: [upstream Opus documents that its large model
+is downloaded during Git builds](https://github.com/xiph/opus/blob/main/dnn/README.md#using-the-existing-software).
 
 Release assets:
 

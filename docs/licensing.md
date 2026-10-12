@@ -95,7 +95,8 @@ The release workflow does not use that development DLL. It rebuilds the engine f
 the pinned builder revision, removes the optional x264 encoder dependency and
 configuration flag, retains FFmpeg's built-in H.264 decoder, and verifies the
 OpenSSL 3 source revision and Apache-2.0 license used by the GPLv3 build. The native
-build preserves each fetched source checkout and its license files; the source
+build preserves every fetched source file and license file, and records the original
+repository URL and commit, SHA-256 for each file, and each symlink target. The source
 archive also vendors every crate pinned by Cargo.lock.
 The release job runs the complete native test suite and a playback test against the
 engine extracted from the final portable ZIP. GitHub only publishes the assets when
@@ -108,9 +109,12 @@ before extraction and both final asset checksums before publication. Application
 import checks produce a separate report so the recorded engine report stays intact.
 
 The final package audit compares the engine's source manifest with the distributed
-native source tree, checks each captured source hash and repository revision, and
-matches packaged notices to those sources. The source archive also records the
-application commit. An explicitly requested release dispatch publishes only after
+native source tree, checks each captured source hash, records its origin revision,
+and matches packaged notices to those sources. Native-source Git object history is omitted from
+new bundles because the captured files and their hashes provide the exact build
+snapshot; the rebuild script creates local snapshot repositories for patch steps.
+The source archive also records the application commit. An explicitly requested
+release dispatch publishes only after
 the complete native suite, extracted-package playback, source packaging and this
 audit succeed in the same run. The verification report is a release asset.
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Build from a fixed recipe revision, then preserve every fetched source checkout
-# used by the binary so the release source archive matches the native engine.
+# Build from a fixed recipe revision, then preserve exact source snapshots used by
+# the binary so the release source archive matches the native engine.
 readonly BUILDER_REVISION='b2856ee6deed6957380b32465f359e67f67fafd8'
 readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
 readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
@@ -93,12 +93,25 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
   cp -a "$RIINA_NATIVE_SOURCE_ROOT/." "$BUILDER/src_packages/"
   while IFS=$'\t' read -r record first second third; do
     case "$record" in
-      source_git)
-        # Manifest paths retain the builder-relative src_packages prefix.
-        test "$(git -C "$BUILDER/$first" rev-parse HEAD)" = "$third"
+      source_revision)
+        # The archive records the original revision but omits redundant Git
+        # history. Recreate a local snapshot repo so pinned patch steps work.
+        repository="$BUILDER/${first#src_packages/}"
+        test -d "$repository"
+        if [[ "$first" == 'src_packages/curl' ]]; then test "$third" = "$CURL_REVISION"; fi
+        if [[ "$first" == 'src_packages/openssl' ]]; then test "$third" = "$OPENSSL_REVISION"; fi
+        git init -q "$repository"
+        git -C "$repository" config user.name 'Riina source snapshot'
+        git -C "$repository" config user.email 'source-snapshot@riina.invalid'
+        git -C "$repository" add --all --force
+        git -C "$repository" commit --allow-empty -q -m "Captured source snapshot $third"
         ;;
       source_sha256)
         test "$(sha256sum "$BUILDER/src_packages/$first" | cut -d' ' -f1)" = "$second"
+        ;;
+      source_symlink)
+        test -L "$BUILDER/src_packages/$first"
+        test "$(readlink "$BUILDER/src_packages/$first")" = "$second"
         ;;
     esac
   done < "$RIINA_NATIVE_SOURCE_ROOT/../SOURCE-MANIFEST.tsv"
@@ -115,7 +128,13 @@ run_ninja -C build_x86_64 llvm-clang
 # The GPLv3 package depends on OpenSSL 3's Apache-2.0 terms. Verify both the
 # source revision pinned by the builder recipe and the license shipped with it.
 openssl_source="$BUILDER/src_packages/openssl"
-test "$(git -C "$openssl_source" rev-parse HEAD)" = "$OPENSSL_REVISION"
+if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
+  captured_openssl_revision="$(awk -F '\t' '$1 == "source_revision" && $2 == "src_packages/openssl" { print $4 }' \
+    "$RIINA_NATIVE_SOURCE_ROOT/../SOURCE-MANIFEST.tsv")"
+  test "$captured_openssl_revision" = "$OPENSSL_REVISION"
+else
+  test "$(git -C "$openssl_source" rev-parse HEAD)" = "$OPENSSL_REVISION"
+fi
 grep -q 'Apache License' "$openssl_source/LICENSE.txt"
 
 # x264 is not part of the release engine or its corresponding source set.
@@ -157,13 +176,24 @@ cp -a "$REPO_ROOT/tools/mpv/native-bootstrap.patch" "$SOURCE_ARCHIVE_ROOT/"
   while IFS= read -r -d '' gitdir; do
     repo="${gitdir%/.git}"
     rel="${repo#"$BUILDER/"}"
-    printf 'source_git\t%s\t%s\t%s\n' "$rel" "$(git -C "$repo" remote get-url origin 2>/dev/null || true)" "$(git -C "$repo" rev-parse HEAD)"
+    printf 'source_revision\t%s\t%s\t%s\n' "$rel" "$(git -C "$repo" remote get-url origin 2>/dev/null || true)" "$(git -C "$repo" rev-parse HEAD)"
   done < <(find "$BUILDER/src_packages" -mindepth 2 -type d -name .git -print0 | sort -z)
   while IFS= read -r -d '' source; do
-    printf 'source_sha256\t%s\t%s\n' "${source#"$BUILDER/src_packages/"}" "$(sha256sum "$source" | cut -d' ' -f1)"
+    relative="${source#"$BUILDER/src_packages/"}"
+    case "$relative" in *$'\t'*|*$'\n'*) echo "Source path contains an unsupported tab or newline: $relative" >&2; exit 1;; esac
+    printf 'source_sha256\t%s\t%s\n' "$relative" "$(sha256sum "$source" | cut -d' ' -f1)"
   done < <(find "$BUILDER/src_packages" -type f ! -path '*/.git/*' -print0 | sort -z)
+  while IFS= read -r -d '' source; do
+    relative="${source#"$BUILDER/src_packages/"}"
+    target="$(readlink "$source")"
+    case "$relative$target" in *$'\t'*|*$'\n'*) echo "Source symlink contains an unsupported tab or newline: $relative" >&2; exit 1;; esac
+    printf 'source_symlink\t%s\t%s\n' "$relative" "$target"
+  done < <(find "$BUILDER/src_packages" -type l ! -path '*/.git/*' -print0 | sort -z)
 } > "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv"
 cp -a "$BUILDER/src_packages/." "$SOURCE_ARCHIVE_ROOT/native-sources/"
+# File hashes and original revision IDs make the source snapshot verifiable;
+# Git object databases duplicate historical sources and are not build inputs.
+find "$SOURCE_ARCHIVE_ROOT/native-sources" -name .git -prune -exec rm -rf -- {} +
 
 # Build the embedded engine and collect its development DLL output directly.
 run_ninja -C build_x86_64 mpv

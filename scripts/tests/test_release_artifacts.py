@@ -88,23 +88,124 @@ class ReleaseArtifactTests(unittest.TestCase):
             (source / "decode.c").write_bytes(b"original source")
             (source / "LICENSE").write_bytes(b"original notice")
             (notices / "LICENSE").write_bytes(b"original notice")
-            manifest = ("source_git\tsrc_packages/codec\thttps://example.org/codec\trevision\n"
+            revision = "a" * 40
+            manifest = (f"source_revision\tsrc_packages/codec\thttps://example.org/codec\t{revision}\n"
+                        f"source_sha256\tcodec/decode.c\t{release.digest(source / 'decode.c')}\n"
+                        f"source_sha256\tcodec/LICENSE\t{release.digest(source / 'LICENSE')}\n")
+            (native / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            (runtime / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            self.assertEqual(release.verify_native_sources(native, runtime), (2, 1))
+            (source / "decode.c").write_bytes(b"different source")
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                release.verify_native_sources(native, runtime)
+            (source / "decode.c").write_bytes(b"original source")
+            (notices / "LICENSE").write_bytes(b"different notice")
+            with self.assertRaisesRegex(ValueError, "notice differs"):
+                release.verify_native_sources(native, runtime)
+            (notices / "LICENSE").write_bytes(b"original notice")
+            (runtime / "SOURCE-MANIFEST.tsv").write_text("different engine", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "do not belong"):
+                release.verify_native_sources(native, runtime)
+
+    def test_corresponding_sources_reject_redundant_git_history(self):
+        with tempfile.TemporaryDirectory() as temp:
+            native = Path(temp) / "native"
+            runtime = Path(temp) / "runtime"
+            source = native / "native-sources/codec"
+            source.mkdir(parents=True)
+            runtime.mkdir(parents=True)
+            (source / "nested/.git/objects/pack").mkdir(parents=True)
+            (source / "decode.c").write_bytes(b"source")
+            revision = "a" * 40
+            manifest = (f"source_revision\tsrc_packages/codec\thttps://example.org/codec\t{revision}\n"
                         f"source_sha256\tcodec/decode.c\t{release.digest(source / 'decode.c')}\n")
             (native / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
             (runtime / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
-            with patch.object(release.subprocess, "check_output", return_value="revision\n"):
+            with self.assertRaisesRegex(ValueError, "Redundant Git history"):
+                release.verify_native_sources(native, runtime)
+
+    def test_corresponding_source_manifest_keeps_symlink_targets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            native = Path(temp) / "native"
+            runtime = Path(temp) / "runtime"
+            source = native / "native-sources/codec"
+            source.mkdir(parents=True)
+            runtime.mkdir(parents=True)
+            (source / "target.c").write_bytes(b"source")
+            link = source / "alias.c"
+            link.write_bytes(b"Windows test placeholder for symlink")
+            revision = "a" * 40
+            manifest = (
+                f"source_revision\tsrc_packages/codec\thttps://example.org/codec\t{revision}\n"
+                f"source_sha256\tcodec/target.c\t{release.digest(source / 'target.c')}\n"
+                "source_symlink\tcodec/alias.c\ttarget.c\n"
+            )
+            (native / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            (runtime / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            with (patch.object(release.Path, "is_symlink", autospec=True,
+                               side_effect=lambda path: path == link),
+                  patch.object(release.os, "readlink", return_value="target.c")):
                 self.assertEqual(release.verify_native_sources(native, runtime), (1, 1))
-                (source / "decode.c").write_bytes(b"different source")
-                with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                (source / "extra.c").write_bytes(b"not in the capture manifest")
+                with self.assertRaisesRegex(ValueError, "do not match their manifest"):
                     release.verify_native_sources(native, runtime)
-                (source / "decode.c").write_bytes(b"original source")
-                (notices / "LICENSE").write_bytes(b"different notice")
-                with self.assertRaisesRegex(ValueError, "notice differs"):
-                    release.verify_native_sources(native, runtime)
-                (notices / "LICENSE").write_bytes(b"original notice")
-                (runtime / "SOURCE-MANIFEST.tsv").write_text("different engine", encoding="utf-8")
-                with self.assertRaisesRegex(ValueError, "do not belong"):
-                    release.verify_native_sources(native, runtime)
+                (source / "extra.c").unlink()
+            with (patch.object(release.Path, "is_symlink", autospec=True,
+                               side_effect=lambda path: path == link),
+                  patch.object(release.os, "readlink", return_value="wrong.c"),
+                  self.assertRaisesRegex(ValueError, "symlink mismatch")):
+                release.verify_native_sources(native, runtime)
+
+    def test_legacy_source_git_manifest_still_checks_its_revision(self):
+        with tempfile.TemporaryDirectory() as temp:
+            native = Path(temp) / "native"
+            runtime = Path(temp) / "runtime"
+            source = native / "native-sources/codec"
+            (source / ".git").mkdir(parents=True)
+            runtime.mkdir(parents=True)
+            (source / "decode.c").write_bytes(b"source")
+            revision = "b" * 40
+            manifest = (f"source_git\tsrc_packages/codec\thttps://example.org/codec\t{revision}\n"
+                        f"source_sha256\tcodec/decode.c\t{release.digest(source / 'decode.c')}\n")
+            (native / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            (runtime / "SOURCE-MANIFEST.tsv").write_text(manifest, encoding="utf-8")
+            with patch.object(release.subprocess, "check_output", return_value=f"{revision}\n"):
+                self.assertEqual(release.verify_native_sources(native, runtime), (1, 1))
+
+    def test_source_snapshot_repository_accepts_pinned_git_am_patch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            upstream = root / "upstream"
+            snapshot = root / "snapshot"
+            upstream.mkdir()
+            snapshot.mkdir()
+
+            def git(directory, *args, **kwargs):
+                return release.subprocess.run(
+                    ["git", "-C", str(directory), *args], check=True, capture_output=True,
+                    **kwargs)
+
+            git(upstream, "init", "-q")
+            git(upstream, "config", "core.autocrlf", "false")
+            git(upstream, "config", "user.name", "Source test")
+            git(upstream, "config", "user.email", "source-test@riina.invalid")
+            source = upstream / "codec.c"
+            source.write_bytes(b"int decode(void) { return 1; }\n")
+            git(upstream, "add", "codec.c")
+            git(upstream, "commit", "-q", "-m", "base")
+            source.write_bytes(b"int decode(void) { return 2; }\n")
+            git(upstream, "commit", "-q", "-am", "pinned patch")
+            patch_file = git(upstream, "format-patch", "--stdout", "-1").stdout
+
+            (snapshot / "codec.c").write_bytes(b"int decode(void) { return 1; }\n")
+            git(snapshot, "init", "-q")
+            git(snapshot, "config", "core.autocrlf", "false")
+            git(snapshot, "config", "user.name", "Snapshot")
+            git(snapshot, "config", "user.email", "snapshot@riina.invalid")
+            git(snapshot, "add", "--all", "--force")
+            git(snapshot, "commit", "--allow-empty", "-q", "-m", "source snapshot")
+            git(snapshot, "am", input=patch_file)
+            self.assertEqual((snapshot / "codec.c").read_bytes(), b"int decode(void) { return 2; }\n")
 
     def test_source_paths_reject_traversal_and_absolute_paths(self):
         with tempfile.TemporaryDirectory() as temp:
