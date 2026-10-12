@@ -48,6 +48,64 @@ class LicenseSelectionTests(unittest.TestCase):
         self.assertEqual(selected, "Unicode-DFS-2016")
         self.assertIn(selected, LICENSES.GPLV3_COMPATIBLE_GRANTS)
 
+    def test_webpki_roots_cdla_is_a_scoped_data_exception_with_both_notices(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package = root / "webpki-roots"
+            package.mkdir()
+            license_text = (
+                "# Community Data License Agreement - Permissive - Version 2.0\n"
+                "2.1. A Data Recipient may share Data with the agreement.\n"
+            )
+            (package / "LICENSE").write_text(license_text, encoding="utf-8")
+            metadata = {
+                "workspace_members": ["app"],
+                "packages": [
+                    {"id": "app", "name": "riina", "source": None},
+                    {"id": "roots", "name": "webpki-roots", "version": "1.0.9",
+                     "source": "registry", "license": "CDLA-Permissive-2.0",
+                     "manifest_path": str(package / "Cargo.toml")},
+                ],
+                "resolve": {"nodes": [{"id": "app", "deps": [{"pkg": "roots"}]}]},
+            }
+            output = root / "output"
+
+            self.assertEqual(LICENSES.collect(metadata, output), (1, []))
+            inventory = json.loads((output / "RUST-LICENSES.json").read_text(encoding="utf-8"))
+            record = inventory["packages"][0]
+            self.assertEqual(record["selected_license"], "CDLA-Permissive-2.0")
+            self.assertNotIn("CDLA-Permissive-2.0", LICENSES.GPLV3_COMPATIBLE_GRANTS)
+            exception = record["reviewed_data_license_exception"]
+            attribution = output / exception["required_attribution_file"]
+            self.assertIn("Common CA Database (CCADB)", attribution.read_text(encoding="utf-8"))
+            self.assertEqual(
+                (output / record["license_files"][0]["path"]).read_text(encoding="utf-8"),
+                license_text,
+            )
+
+    def test_webpki_data_exception_does_not_apply_to_other_versions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package = root / "webpki-roots"
+            package.mkdir()
+            (package / "LICENSE").write_text(
+                "# Community Data License Agreement - Permissive - Version 2.0\n",
+                encoding="utf-8",
+            )
+            metadata = {
+                "workspace_members": ["app"],
+                "packages": [
+                    {"id": "app", "name": "riina", "source": None},
+                    {"id": "roots", "name": "webpki-roots", "version": "1.0.10",
+                     "source": "registry", "license": "CDLA-Permissive-2.0",
+                     "manifest_path": str(package / "Cargo.toml")},
+                ],
+                "resolve": {"nodes": [{"id": "app", "deps": [{"pkg": "roots"}]}]},
+            }
+
+            with self.assertRaisesRegex(ValueError, "No reviewed GPLv3-compatible grant"):
+                LICENSES.collect(metadata, root / "output")
+
     def test_license_is_shared_from_a_sibling_crate_at_the_same_git_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

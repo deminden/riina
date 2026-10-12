@@ -223,7 +223,7 @@ impl Player {
                     worker_api.check((worker_api.initialize)(handle))?;
                     for (name, format) in [("time-pos", 5), ("duration", 5), ("pause", 3),
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
-                        ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("eof-reached", 3),
+                        ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("mpv-version", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
                         ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
@@ -602,6 +602,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
         match name {
             b"time-pos" => state.position = None,
             b"duration" => state.duration = None,
+            b"mpv-version" => state.mpv_version = None,
             b"track-list" => state.tracks.clear(),
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
@@ -796,6 +797,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 .into_owned();
             match name {
                 b"media-title" => state.title = value,
+                b"mpv-version" => state.mpv_version = Some(value),
                 b"current-ao" => state.audio_output = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
                 b"hwdec" => state.hardware_decoding = Some(value),
@@ -829,6 +831,40 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 _ => {}
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod version_property_tests {
+    use super::*;
+    use std::ffi::CString;
+
+    #[test]
+    fn loaded_engine_version_is_observed_and_can_become_unavailable() {
+        let name = CString::new("mpv-version").unwrap();
+        let version = CString::new("mpv 0.40.0-123-gabcdef").unwrap();
+        let mut data = version.as_ptr();
+        let property = Property {
+            name: name.as_ptr(),
+            format: 1,
+            data: (&mut data as *mut *const std::ffi::c_char).cast(),
+        };
+        let mut playback = Playback::default();
+        // SAFETY: both pointers remain valid for the complete property copy.
+        unsafe { apply_property(&mut playback, &property) };
+        assert_eq!(
+            playback.mpv_version.as_deref(),
+            Some("mpv 0.40.0-123-gabcdef")
+        );
+
+        let unavailable = Property {
+            name: name.as_ptr(),
+            format: 1,
+            data: std::ptr::null_mut(),
+        };
+        // SAFETY: the null event is valid and does not dereference data.
+        unsafe { apply_property(&mut playback, &unavailable) };
+        assert_eq!(playback.mpv_version, None);
     }
 }
 

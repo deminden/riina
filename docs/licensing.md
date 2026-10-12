@@ -4,9 +4,9 @@ Riina's independently written source remains MIT licensed by the root LICENSE
 and package metadata. The combined application package uses GPLv3 terms; the
 complete text is in LICENSE-GPL-3.0.txt. This does not change third-party
 component licenses or grant permission to relicense them. The distribution choice
-is settled. The release candidate workflow verifies that the
-exact candidate includes its notices and corresponding source and passes package
-and playback checks before publication.
+is settled. The release workflow verifies exact package notices and corresponding
+source access through the immutable application tag, locked crate sources and
+pinned native source repositories before publication.
 
 The source license and combined-package terms describe different scopes: the
 former grants rights to Riina's original source; the latter governs redistribution
@@ -45,9 +45,24 @@ and GPLv3 application package terms.
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |
 | Slint 1.18.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b) |
 | ICU4X locale/display-name code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
-| Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native source bundle |
+| Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native license inventory |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
+| `webpki-roots` 1.0.9 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |
 | Development libmpv DLL and native dependencies | Local development input; release workflow rebuilds a separate engine |
+
+`webpki-roots` 1.0.9 is an exact, package-scoped data-license exception in the
+Rust license collector. The crate describes its root-certificate data as derived
+from the Common CA Database (CCADB); its Cargo license expression identifies
+CDLA-Permissive-2.0 for that data. This does not add CDLA to the general
+GPL-compatible software-grant list or relicense the Riina application. The
+collector requires the crate's original CDLA `LICENSE` text and generates a
+CCADB attribution notice into the Windows package and corresponding-source
+inventory. The exception is tied to this exact crate name, version and license
+expression; other CDLA packages or versions still require review.
+
+References: [webpki-roots](https://github.com/rustls/webpki-roots),
+[CDLA-Permissive-2.0](https://cdla.dev/permissive-2-0/), and
+[CCADB Data Usage Terms](https://www.ccadb.org/rootstores/usage).
 
 Slint itself has not been relicensed. Its royalty-free license permits desktop
 applications with attribution. The public README displays the official badge
@@ -72,8 +87,8 @@ optional x264 encoder and its source dependency, while retaining FFmpeg's built-
 H.264 decoder. Riina's current player does not expose encoding. The candidate
 engine preserves built-in H.264 decoding. This license selection is recorded in
 the release recipe; the development DLL remains development-only. CI must still
-build the candidate and verify its exact native inventory, notices, source archive
-and final portable package before publication.
+build the candidate and verify its exact native inventory, notices, source access
+references and final portable package before publication.
 
 The first reproducible native inspection is recorded in
 [native-distribution-audit.json](native-distribution-audit.json). Run
@@ -95,34 +110,35 @@ The release workflow does not use that development DLL. It rebuilds the engine f
 the pinned builder revision, removes the optional x264 encoder dependency and
 configuration flag, retains FFmpeg's built-in H.264 decoder, and verifies the
 OpenSSL 3 source revision and Apache-2.0 license used by the GPLv3 build. The native
-build preserves every fetched source file and license file, and records the original
-repository URL and commit, SHA-256 for each file, and each symlink target. The source
-archive also vendors every crate pinned by Cargo.lock.
+build records public repository URLs and immutable revisions for each fetched
+source, plus SHA-256 hashes for used files and symlink targets. It retains required
+native license notices in the package. Native and vendored Rust source trees are
+not duplicated into release assets: `SOURCE-MANIFEST.tsv` and the release-tagged
+build recipe provide retrieval instructions, while Cargo.lock pins Rust crate
+sources and checksums.
 The release job runs the complete native test suite and a playback test against the
 engine extracted from the final portable ZIP. GitHub only publishes the assets when
-those checks and source packaging succeed. These tests do not certify GUI, HDR
-display, or pixel parity.
+those checks and the source-access audit succeed. These tests do not certify GUI,
+HDR display, or pixel parity.
 
 Before loading the downloaded engine, release packaging verifies every file against
-its runtime hash manifest. It also checks the native source archive's checksum
-before extraction and both final asset checksums before publication. Application
-import checks produce a separate report so the recorded engine report stays intact.
+its runtime hash manifest, validates the native source index and packaged notices,
+and checks the final asset checksums before publication. Application import checks
+produce a separate report so the recorded engine report stays intact.
 
-The final package audit compares the engine's source manifest with the distributed
-native source tree, checks each captured source hash, records its origin revision,
-and matches packaged notices to those sources. Native-source Git object history is omitted from
-new bundles because the captured files and their hashes provide the exact build
-snapshot; the rebuild script creates local snapshot repositories for patch steps.
-The source archive also records the application commit. An explicitly requested
-release dispatch publishes only after
-the complete native suite, extracted-package playback, source packaging and this
-audit succeed in the same run. The verification report is a release asset.
+The final package audit validates the engine's native source manifest against its
+pinned build recipe, matches packaged native notices to recorded source hashes,
+and records the exact application commit. Native code remains available from the
+immutable public revisions named in the manifest. An explicitly requested release
+dispatch publishes only after the complete native suite, extracted-package
+playback, source-access check and package audit succeed in the same run. The
+verification report is a release asset.
 
 The pinned `subrandr` helper also brings in `unicode-ident 1.0.13`, which declares
 the Unicode License Agreement for Data Files and Software (2016). The Free
 Software Foundation classifies that permissive grant as compatible with all GPL
 versions; the build accepts its SPDX identifier only after retaining the
-dependency's copyright and license notice in the corresponding-source bundle
+dependency's copyright and license notice in the release package
 ([GNU license list](https://www.gnu.org/licenses/license-list.html#Unicode)).
 
 Primary references:

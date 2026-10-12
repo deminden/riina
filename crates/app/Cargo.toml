@@ -32,6 +32,7 @@ riina-core = { path = "../core" }
 riina-mpv = { path = "../mpv" }
 zip.workspace = true
 rquickjs = { version = "=0.14.0", default-features = false, features = ["std"] }
+encoding_rs = "=0.8.42"
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
 keyring = "=4.2.0"
 

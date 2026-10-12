@@ -32,9 +32,9 @@ HDR color calibration, video blur, and full window and DPI coverage remain
 unverified.
 
 The [latest GitHub Release](https://github.com/deminden/riina/releases/latest)
-currently contains source archives. A Windows portable binary will be attached
-after its playback, dependency notices, and corresponding-source bundle pass
-release checks.
+contains the Windows portable binary. Its corresponding Riina source is available
+from the exact release tag; `SOURCE-MANIFEST.tsv` and `SOURCE-ACCESS.md` in the
+package identify the pinned native sources and rebuild instructions.
 
 ## Contributors
 

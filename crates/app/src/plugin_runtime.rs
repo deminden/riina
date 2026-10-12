@@ -1,6 +1,10 @@
 //! Bounded JavaScript entry evaluation for permission-reviewed plugins.
 
-use riina_core::plugin::{Manifest, OverlayEffect, OverlayIntent, OverlayState};
+use crate::plugin_files::{PluginFileHandle, PluginFiles, PluginPlayerFileContext};
+use riina_core::plugin::{
+    Manifest, OverlayEffect, OverlayIntent, OverlayState, network_url_allowed,
+};
+use riina_core::{Command, control_preferences::SeekType};
 use rquickjs::{Context, Ctx, Function, Object, Runtime, Value, function::Func};
 use std::{
     collections::BTreeMap,
@@ -9,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicU32, AtomicUsize, Ordering},
         mpsc::{self, Receiver, SyncSender},
     },
     thread::JoinHandle,
@@ -30,6 +34,10 @@ const MAX_TIMER_DELAY: Duration = Duration::from_secs(24 * 60 * 60);
 const MAX_REQUIRED_MODULES: usize = 256;
 const MAX_REQUIRED_MODULE_BYTES: usize = 16 * 1024 * 1024;
 const MAX_REQUIRE_DEPTH: usize = 64;
+const MAX_ACTIVE_NETWORK_REQUESTS: usize = 8;
+const MAX_NETWORK_REQUEST_BYTES: usize = 1024 * 1024;
+const MAX_OPEN_FILE_HANDLES: usize = 64;
+const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostEvent {
@@ -38,11 +46,14 @@ pub enum HostEvent {
     ShowAlert(String),
     Overlay(OverlayEffect),
     PluginMessage(String, serde_json::Value),
+    CoreCommand(Command),
+    SetUiVisibility(bool),
 }
 
 enum RuntimeCommand {
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverPluginMessage(String, serde_json::Value),
+    DeliverNetworkResult(u32, Result<serde_json::Value, String>),
     Shutdown,
 }
 
@@ -76,7 +87,19 @@ struct ModuleLoadBudget {
 struct PluginWorkerHost {
     global_api_mode: GlobalApiMode,
     module_context: Option<PluginModuleContext>,
+    file_system: PluginFiles,
     events: Arc<Mutex<Vec<HostEvent>>>,
+}
+
+struct PluginStorageContext {
+    file_system: PluginFiles,
+    allowed_domains: Vec<String>,
+}
+
+struct NetworkWorkerContext {
+    commands: SyncSender<RuntimeCommand>,
+    allowed_domains: Vec<String>,
+    active: Arc<AtomicUsize>,
 }
 
 impl PluginTimers {
@@ -132,6 +155,7 @@ impl PluginTimers {
 pub struct PluginRuntimeSession {
     commands: SyncSender<RuntimeCommand>,
     events: Arc<Mutex<Vec<HostEvent>>>,
+    file_system: PluginFiles,
     worker: Option<JoinHandle<()>>,
 }
 
@@ -141,7 +165,23 @@ impl PluginRuntimeSession {
         manifest: &Manifest,
         granted_permissions: &[String],
     ) -> Result<Self, String> {
+        Self::start_package_entry_with_player_context(
+            package_root,
+            manifest,
+            granted_permissions,
+            PluginPlayerFileContext::default(),
+        )
+    }
+
+    pub(crate) fn start_package_entry_with_player_context(
+        package_root: &Path,
+        manifest: &Manifest,
+        granted_permissions: &[String],
+        player_context: PluginPlayerFileContext,
+    ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
+        let file_system = PluginFiles::for_package(package_root, &manifest.identifier);
+        file_system.set_player_context(player_context);
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -153,6 +193,10 @@ impl PluginRuntimeSession {
                 GlobalApiMode::None
             },
             Some(module_context),
+            PluginStorageContext {
+                file_system,
+                allowed_domains: manifest.allowed_domains.clone(),
+            },
         )
     }
 
@@ -172,6 +216,10 @@ impl PluginRuntimeSession {
             granted_permissions,
             GlobalApiMode::Controller,
             Some(module_context),
+            PluginStorageContext {
+                file_system: PluginFiles::for_package(package_root, &manifest.identifier),
+                allowed_domains: manifest.allowed_domains.clone(),
+            },
         )
     }
 
@@ -188,6 +236,10 @@ impl PluginRuntimeSession {
             granted_permissions,
             GlobalApiMode::None,
             None,
+            PluginStorageContext {
+                file_system: PluginFiles::temporary(plugin_identifier),
+                allowed_domains: Vec::new(),
+            },
         )
     }
 
@@ -198,6 +250,7 @@ impl PluginRuntimeSession {
         granted_permissions: &[String],
         global_api_mode: GlobalApiMode,
         module_context: Option<PluginModuleContext>,
+        storage: PluginStorageContext,
     ) -> Result<Self, String> {
         if source.len() > MAX_ENTRY_BYTES {
             return Err("Plugin entry exceeds the 1 MiB execution limit".into());
@@ -206,7 +259,15 @@ impl PluginRuntimeSession {
         let (commands, receiver) = mpsc::sync_channel(32);
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
         let events = Arc::new(Mutex::new(Vec::new()));
+        let session_file_system = storage.file_system.clone();
         let worker_events = events.clone();
+        let network_active = Arc::new(AtomicUsize::new(0));
+        let network_commands = commands.clone();
+        let network_context = NetworkWorkerContext {
+            commands: network_commands,
+            allowed_domains: storage.allowed_domains,
+            active: network_active,
+        };
         let source = source.to_owned();
         let plugin_identifier = plugin_identifier.to_owned();
         let worker = std::thread::Builder::new()
@@ -222,10 +283,12 @@ impl PluginRuntimeSession {
                     PluginWorkerHost {
                         global_api_mode,
                         module_context,
+                        file_system: storage.file_system,
                         events: worker_events,
                     },
                     receiver,
                     ready_sender,
+                    network_context,
                 );
             })
             .map_err(|error| format!("Could not start plugin worker: {error}"))?;
@@ -233,6 +296,7 @@ impl PluginRuntimeSession {
             Ok(Ok(())) => Ok(Self {
                 commands,
                 events,
+                file_system: session_file_system,
                 worker: Some(worker),
             }),
             Ok(Err(error)) => {
@@ -245,6 +309,10 @@ impl PluginRuntimeSession {
                 Err(format!("Plugin worker did not initialize: {error}"))
             }
         }
+    }
+
+    pub(crate) fn update_player_file_context(&self, context: PluginPlayerFileContext) {
+        self.file_system.set_player_context(context);
     }
 
     pub fn deliver_overlay_message(
@@ -486,10 +554,17 @@ fn run_entry_worker(
     host: PluginWorkerHost,
     commands: Receiver<RuntimeCommand>,
     ready: SyncSender<Result<(), String>>,
+    network: NetworkWorkerContext,
 ) {
+    let NetworkWorkerContext {
+        commands: network_commands,
+        allowed_domains,
+        active: network_active,
+    } = network;
     let PluginWorkerHost {
         global_api_mode,
         module_context,
+        file_system,
         events,
     } = host;
     let deadline = Arc::new(Mutex::new(Instant::now() + MAX_EXECUTION_TIME));
@@ -526,6 +601,10 @@ fn run_entry_worker(
     let worker_overlay_state = overlay_state.clone();
     let timers = Arc::new(PluginTimers::default());
     let worker_timers = timers.clone();
+    let network_request_allowed = permissions.network_request;
+    let network_sender_for_api = network_commands.clone();
+    let network_active_for_api = network_active.clone();
+    let allowed_domains_for_api = allowed_domains.clone();
     let module_context_for_require = module_context.clone();
     let initialized = context.with(|ctx| {
             let globals = ctx.globals();
@@ -557,6 +636,107 @@ fn run_entry_worker(
                 )?;
             }
             globals.set("iina", api.clone())?;
+            install_plugin_file_api(
+                ctx.clone(),
+                globals.clone(),
+                file_system.clone(),
+                permissions.file_system,
+            )?;
+            install_plugin_core_api(
+                ctx.clone(),
+                api.clone(),
+                events.clone(),
+                file_system.clone(),
+                permissions,
+                allowed_domains.clone(),
+            )?;
+            if network_request_allowed {
+                let http = Object::new(ctx.clone())?;
+                let network_sender = network_sender_for_api.clone();
+                let active_requests = network_active_for_api.clone();
+                let domains = allowed_domains_for_api.clone();
+                http.set(
+                    "__request",
+                    Func::from(
+                        move |id: u32, method: String, url: String, options: String| -> rquickjs::Result<()> {
+                            let options: serde_json::Value = serde_json::from_str(&options)
+                                .map_err(|error| http_js_error(error.to_string()))?;
+                            if !network_url_allowed(&url, &domains) {
+                                return Err(http_js_error(
+                                    "Plugin is not allowed to access this URL".into(),
+                                ));
+                            }
+                            if options.to_string().len() > MAX_NETWORK_REQUEST_BYTES {
+                                return Err(http_js_error(
+                                    "HTTP request options exceed the 1 MiB limit".into(),
+                                ));
+                            }
+                            if !acquire_network_request_slot(&active_requests) {
+                                return Err(http_js_error(
+                                    "Plugin has reached the 8 active HTTP request limit".into(),
+                                ));
+                            }
+                            let sender = network_sender.clone();
+                            let active_for_thread = active_requests.clone();
+                            let domains = domains.clone();
+                            let worker = std::thread::Builder::new()
+                                .name("plugin-http".into())
+                                .spawn(move || {
+                                    let result = perform_http_request(
+                                        &method,
+                                        &url,
+                                        &options,
+                                        &domains,
+                                    );
+                                    active_for_thread.fetch_sub(1, Ordering::AcqRel);
+                                    let _ = sender.send(RuntimeCommand::DeliverNetworkResult(id, result));
+                                });
+                            if let Err(error) = worker {
+                                active_requests.fetch_sub(1, Ordering::AcqRel);
+                                return Err(http_js_error(format!(
+                                    "Could not start HTTP request: {error}"
+                                )));
+                            }
+                            Ok(())
+                        },
+                    ),
+                )?;
+                globals.set("__riinaHttp", http)?;
+                ctx.eval::<(), _>(
+                    r#"(() => {
+                        const nativeRequest = __riinaHttp.__request;
+                        const pending = new Map();
+                        let nextId = 0;
+                        const request = (method, url, options = {}) => new Promise((resolve, reject) => {
+                            nextId = (nextId + 1) >>> 0;
+                            const id = nextId;
+                            pending.set(id, { resolve, reject });
+                            try {
+                                nativeRequest(id, method, String(url), JSON.stringify(options));
+                            } catch (error) {
+                                pending.delete(id);
+                                reject(error);
+                            }
+                        });
+                        iina.http = {
+                            get: (url, options) => request('GET', url, options),
+                            post: (url, options) => request('POST', url, options),
+                            put: (url, options) => request('PUT', url, options),
+                            patch: (url, options) => request('PATCH', url, options),
+                            delete: (url, options) => request('DELETE', url, options)
+                        };
+                        globalThis.__riinaDeliverHttp = (id, response, error) => {
+                            const callbacks = pending.get(id);
+                            if (!callbacks) return;
+                            pending.delete(id);
+                            if (error !== null) callbacks.reject(new Error(error));
+                            else if (response.statusCode < 400 || response.statusCode >= 600) callbacks.resolve(response);
+                            else callbacks.reject(response);
+                        };
+                        globalThis.__riinaHttp = undefined;
+                    })();"#,
+                )?;
+            }
             if let Some(module_context) = module_context_for_require.clone() {
                 globals.set(
                     "__riinaRequire",
@@ -1043,6 +1223,868 @@ fn run_entry_worker(
                     );
                 }
             }
+            RuntimeCommand::DeliverNetworkResult(id, result) => {
+                let (response, error) = match result {
+                    Ok(response) => (response.to_string(), "null".to_owned()),
+                    Err(error) => match serde_json::to_string(&error) {
+                        Ok(error) => ("null".to_owned(), error),
+                        Err(_) => continue,
+                    },
+                };
+                let script = format!("__riinaDeliverHttp({id}, {response}, {error})");
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| {
+                    ctx.eval::<Value, _>(script).map(|_| ())?;
+                    drain_pending_jobs(ctx);
+                    Ok::<(), rquickjs::Error>(())
+                }) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("HTTP response callback failed: {error}")),
+                    );
+                }
+            }
+        }
+    }
+}
+
+fn drain_pending_jobs(ctx: Ctx<'_>) {
+    for _ in 0..256 {
+        if !ctx.execute_pending_job() {
+            break;
+        }
+    }
+}
+
+fn install_plugin_file_api<'js>(
+    ctx: Ctx<'js>,
+    globals: Object<'js>,
+    file_system: PluginFiles,
+    file_system_granted: bool,
+) -> rquickjs::Result<()> {
+    let native = Object::new(ctx.clone())?;
+    let handles = Arc::new(Mutex::new(BTreeMap::<u32, PluginFileHandle>::new()));
+    let next_handle = Arc::new(AtomicU32::new(1));
+    let files = file_system.clone();
+    let handles_for_open = handles.clone();
+    let next_handle_for_open = next_handle.clone();
+    native.set(
+        "__open",
+        Func::from(move |path: String, mode: String| -> rquickjs::Result<u32> {
+            let handle = files
+                .open_handle(&path, &mode, file_system_granted)
+                .map_err(plugin_file_js_error)?;
+            let id = next_handle_for_open.fetch_add(1, Ordering::Relaxed);
+            let mut handles = handles_for_open
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?;
+            if handles.len() >= MAX_OPEN_FILE_HANDLES {
+                return Err(plugin_file_js_error(
+                    "Plugin file handle limit reached".into(),
+                ));
+            }
+            handles.insert(id, handle);
+            Ok(id)
+        }),
+    )?;
+    let handles_for_offset = handles.clone();
+    native.set(
+        "__offset",
+        Func::from(move |id: u32| -> rquickjs::Result<u64> {
+            handles_for_offset
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .get_mut(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                .offset()
+                .map_err(plugin_file_js_error)
+        }),
+    )?;
+    let handles_for_seek = handles.clone();
+    native.set(
+        "__seek",
+        Func::from(move |id: u32, offset: u64| -> rquickjs::Result<()> {
+            handles_for_seek
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .get_mut(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                .seek_to(offset)
+                .map_err(plugin_file_js_error)
+        }),
+    )?;
+    let handles_for_seek_end = handles.clone();
+    native.set(
+        "__seekEnd",
+        Func::from(move |id: u32| -> rquickjs::Result<()> {
+            handles_for_seek_end
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .get_mut(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                .seek_to_end()
+                .map_err(plugin_file_js_error)
+        }),
+    )?;
+    let handles_for_read = handles.clone();
+    native.set(
+        "__readHandle",
+        Func::from(move |id: u32, length: i64| -> rquickjs::Result<String> {
+            let length = usize::try_from(length)
+                .map_err(|_| plugin_file_js_error("Read length must be non-negative".into()))?;
+            let bytes = handles_for_read
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .get_mut(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                .read(length)
+                .map_err(plugin_file_js_error)?;
+            serde_json::to_string(&bytes).map_err(|error| plugin_file_js_error(error.to_string()))
+        }),
+    )?;
+    let handles_for_read_end = handles.clone();
+    native.set(
+        "__readHandleEnd",
+        Func::from(move |id: u32| -> rquickjs::Result<String> {
+            let bytes = handles_for_read_end
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .get_mut(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                .read_to_end()
+                .map_err(plugin_file_js_error)?;
+            serde_json::to_string(&bytes).map_err(|error| plugin_file_js_error(error.to_string()))
+        }),
+    )?;
+    let handles_for_write = handles.clone();
+    native.set(
+        "__writeHandle",
+        Func::from(
+            move |id: u32, encoded_bytes: String| -> rquickjs::Result<()> {
+                let bytes: Vec<u8> = serde_json::from_str(&encoded_bytes)
+                    .map_err(|error| plugin_file_js_error(error.to_string()))?;
+                handles_for_write
+                    .lock()
+                    .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                    .get_mut(&id)
+                    .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                    .write(&bytes)
+                    .map_err(plugin_file_js_error)
+            },
+        ),
+    )?;
+    let handles_for_write_text = handles.clone();
+    native.set(
+        "__writeHandleText",
+        Func::from(move |id: u32, content: String| -> rquickjs::Result<()> {
+            handles_for_write_text
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .get_mut(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?
+                .write(content.as_bytes())
+                .map_err(plugin_file_js_error)
+        }),
+    )?;
+    let handles_for_close = handles.clone();
+    native.set(
+        "__close",
+        Func::from(move |id: u32| -> rquickjs::Result<()> {
+            handles_for_close
+                .lock()
+                .map_err(|_| plugin_file_js_error("File handle table is unavailable".into()))?
+                .remove(&id)
+                .ok_or_else(|| plugin_file_js_error("File handle is closed".into()))?;
+            Ok(())
+        }),
+    )?;
+    let files = file_system.clone();
+    native.set(
+        "__exists",
+        Func::from(move |path: String| -> rquickjs::Result<bool> {
+            files
+                .exists(&path, file_system_granted)
+                .map_err(plugin_file_js_error)
+        }),
+    )?;
+    let files = file_system.clone();
+    native.set(
+        "__showInFinder",
+        Func::from(move |path: String| -> rquickjs::Result<()> {
+            let path = files
+                .existing_path(&path, file_system_granted)
+                .map_err(plugin_file_js_error)?;
+            crate::platform::reveal_file(&path)
+                .map_err(|error| plugin_file_js_error(format!("Could not reveal file: {error}")))
+        }),
+    )?;
+    let files = file_system.clone();
+    native.set(
+        "__read",
+        Func::from(
+            move |path: String, options: String| -> rquickjs::Result<String> {
+                files
+                    .read_text(&path, &options, file_system_granted)
+                    .map_err(plugin_file_js_error)
+            },
+        ),
+    )?;
+    let files = file_system.clone();
+    native.set(
+        "__write",
+        Func::from(
+            move |path: String, content: String| -> rquickjs::Result<()> {
+                files
+                    .write_text(&path, &content, file_system_granted)
+                    .map_err(plugin_file_js_error)
+            },
+        ),
+    )?;
+    let files = file_system.clone();
+    native.set(
+        "__delete",
+        Func::from(move |path: String| -> rquickjs::Result<()> {
+            files.delete(&path).map_err(plugin_file_js_error)
+        }),
+    )?;
+    let files = file_system.clone();
+    native.set(
+        "__move",
+        Func::from(
+            move |source: String, destination: String| -> rquickjs::Result<()> {
+                files
+                    .move_path(&source, &destination, file_system_granted)
+                    .map_err(plugin_file_js_error)
+            },
+        ),
+    )?;
+    native.set(
+        "__list",
+        Func::from(
+            move |path: String, options: String| -> rquickjs::Result<String> {
+                file_system
+                    .list(&path, &options, file_system_granted)
+                    .map_err(plugin_file_js_error)
+            },
+        ),
+    )?;
+    globals.set("__riinaFile", native)?;
+    ctx.eval::<(), _>(
+        r#"(() => {
+            const native = __riinaFile;
+            iina.file = {
+                exists: path => native.__exists(String(path)),
+                showInFinder: path => native.__showInFinder(String(path)),
+                read: (path, options = {}) => native.__read(String(path), JSON.stringify(options)),
+                write: (path, content) => native.__write(String(path), String(content)),
+                delete: path => native.__delete(String(path)),
+                move: (source, destination) => native.__move(String(source), String(destination)),
+                list: (path, options = {}) => JSON.parse(native.__list(String(path), JSON.stringify(options))),
+                handle: (path, mode) => {
+                    const id = native.__open(String(path), String(mode));
+                    return {
+                        offset: () => native.__offset(id),
+                        seekTo: offset => native.__seek(id, Number(offset)),
+                        seekToEnd: () => native.__seekEnd(id),
+                        read: length => new Uint8Array(JSON.parse(native.__readHandle(id, Number(length)))),
+                        readToEnd: () => new Uint8Array(JSON.parse(native.__readHandleEnd(id))),
+                        write: data => {
+                            if (typeof data === 'string') return native.__writeHandleText(id, data);
+                            if (data && data.length > 4194304) throw new Error('Handle writes are limited to 4 MiB per call');
+                            const bytes = Array.from(data);
+                            if (bytes.length > 4194304) throw new Error('Handle writes are limited to 4 MiB per call');
+                            return native.__writeHandle(id, JSON.stringify(bytes));
+                        },
+                        close: () => native.__close(id)
+                    };
+                }
+            };
+            globalThis.__riinaFile = undefined;
+        })();"#,
+    )?;
+    Ok(())
+}
+
+fn plugin_file_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("plugin file", "an allowed plugin path", message)
+}
+
+fn install_plugin_core_api<'js>(
+    ctx: Ctx<'js>,
+    iina_api: Object<'js>,
+    events: Arc<Mutex<Vec<HostEvent>>>,
+    files: PluginFiles,
+    permissions: AvailablePermissions,
+    allowed_domains: Vec<String>,
+) -> rquickjs::Result<()> {
+    let core_api = Object::new(ctx.clone())?;
+    let open_events = events.clone();
+    let open_files = files.clone();
+    let open_domains = allowed_domains.clone();
+    core_api.set(
+        "open",
+        Func::from(move |value: String| -> rquickjs::Result<()> {
+            if value.len() > 16 * 1024 || value.contains('\0') {
+                return Err(core_js_error("Media reference is invalid".into()));
+            }
+            let path = plugin_media_reference(
+                &value,
+                &open_files,
+                permissions.file_system,
+                permissions.network_request,
+                &open_domains,
+            )
+            .map_err(core_js_error)?;
+            record(&open_events, HostEvent::CoreCommand(Command::Load(path)));
+            Ok(())
+        }),
+    )?;
+    let osd_events = events.clone();
+    let osd_permitted = permissions.show_osd;
+    core_api.set(
+        "osd",
+        Func::from(move |message: String| {
+            if osd_permitted {
+                record(&osd_events, HostEvent::ShowOsd(message));
+            }
+        }),
+    )?;
+    for (name, command) in [
+        ("pause", Command::SetPaused(true)),
+        ("resume", Command::SetPaused(false)),
+        ("stop", Command::Stop),
+    ] {
+        let command_events = events.clone();
+        core_api.set(
+            name,
+            Func::from(move || record(&command_events, HostEvent::CoreCommand(command.clone()))),
+        )?;
+    }
+    let seek_events = events.clone();
+    core_api.set(
+        "seek",
+        Func::from(move |seconds: f64, exact: bool| -> rquickjs::Result<()> {
+            if !seconds.is_finite() {
+                return Err(core_js_error("Seek must be a finite number".into()));
+            }
+            let seek_type = if exact {
+                SeekType::Exact
+            } else {
+                SeekType::Keyframe
+            };
+            record(
+                &seek_events,
+                HostEvent::CoreCommand(Command::SeekWithType { seconds, seek_type }),
+            );
+            Ok(())
+        }),
+    )?;
+    let seek_events = events.clone();
+    core_api.set(
+        "seekTo",
+        Func::from(move |seconds: f64| -> rquickjs::Result<()> {
+            if !seconds.is_finite() || seconds < 0.0 {
+                return Err(core_js_error(
+                    "Absolute seek must be a finite non-negative number".into(),
+                ));
+            }
+            record(
+                &seek_events,
+                HostEvent::CoreCommand(Command::Seek {
+                    seconds,
+                    absolute: true,
+                }),
+            );
+            Ok(())
+        }),
+    )?;
+    let speed_events = events.clone();
+    core_api.set(
+        "setSpeed",
+        Func::from(move |speed: f64| -> rquickjs::Result<()> {
+            if !speed.is_finite() || speed < 0.01 {
+                return Err(core_js_error(
+                    "Speed must be finite and at least 0.01".into(),
+                ));
+            }
+            record(&speed_events, HostEvent::CoreCommand(Command::Speed(speed)));
+            Ok(())
+        }),
+    )?;
+    let ui_events = events.clone();
+    core_api.set(
+        "setUIVisibility",
+        Func::from(move |visible: bool| {
+            record(&ui_events, HostEvent::SetUiVisibility(visible));
+        }),
+    )?;
+    let chapter_events = events.clone();
+    core_api.set(
+        "playChapter",
+        Func::from(move |index: i32| -> rquickjs::Result<()> {
+            let index = usize::try_from(index)
+                .map_err(|_| core_js_error("Chapter index must be non-negative".into()))?;
+            record(
+                &chapter_events,
+                HostEvent::CoreCommand(Command::SelectChapter(index)),
+            );
+            Ok(())
+        }),
+    )?;
+    let status_files = files.clone();
+    core_api.set(
+        "__readStatus",
+        Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
+            status_files
+                .core_status_property(&name)
+                .map(|value| value.map(|value| value.to_string()))
+                .map_err(core_js_error)
+        }),
+    )?;
+    let track_read_files = files.clone();
+    core_api.set(
+        "__readCoreProperty",
+        Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
+            track_read_files
+                .core_status_property(&name)
+                .map(|value| value.map(|value| value.to_string()))
+                .map_err(core_js_error)
+        }),
+    )?;
+    let track_write_events = events.clone();
+    core_api.set(
+        "__writeCoreProperty",
+        Func::from(
+            move |name: String, serialized: String| -> rquickjs::Result<()> {
+                let value: serde_json::Value = serde_json::from_str(&serialized)
+                    .map_err(|_| core_js_error("Track property value is not valid JSON".into()))?;
+                let command = match (name.as_str(), value) {
+                    ("audio.id", serde_json::Value::Null) => None,
+                    ("audio.id", value) => Some(Command::SelectTrack {
+                        kind: riina_core::TrackKind::Audio,
+                        id: json_track_id(value)?,
+                    }),
+                    ("audio.delay", value) => Some(Command::AudioDelay(json_finite_number(
+                        value,
+                        "Audio delay",
+                    )?)),
+                    ("audio.volume", value) => {
+                        let volume = json_finite_number(value, "Volume")?;
+                        if !(0.0..=200.0).contains(&volume) {
+                            return Err(core_js_error("Volume must be between 0 and 200".into()));
+                        }
+                        Some(Command::Volume(volume))
+                    }
+                    ("audio.muted", serde_json::Value::Bool(muted)) => {
+                        Some(Command::SetMuted(muted))
+                    }
+                    ("audio.muted", _) => {
+                        return Err(core_js_error("Muted must be a boolean".into()));
+                    }
+                    ("subtitle.id", serde_json::Value::Null) => None,
+                    ("subtitle.id", value) => Some(Command::SelectTrack {
+                        kind: riina_core::TrackKind::Sub,
+                        id: json_track_id(value)?,
+                    }),
+                    ("subtitle.secondID", serde_json::Value::Null) => None,
+                    ("subtitle.secondID", value) => Some(Command::SelectSecondarySubtitle(Some(
+                        json_track_id(value)?.ok_or_else(|| {
+                            core_js_error("Subtitle track id must be an integer".into())
+                        })?,
+                    ))),
+                    ("subtitle.delay", value) => Some(Command::SubtitleDelay(json_finite_number(
+                        value,
+                        "Subtitle delay",
+                    )?)),
+                    ("video.id", serde_json::Value::Null) => None,
+                    ("video.id", value) => Some(Command::SelectTrack {
+                        kind: riina_core::TrackKind::Video,
+                        id: json_track_id(value)?,
+                    }),
+                    _ => None,
+                };
+                if let Some(command) = command {
+                    record(&track_write_events, HostEvent::CoreCommand(command));
+                }
+                Ok(())
+            },
+        ),
+    )?;
+    let track_load_events = events.clone();
+    let track_load_files = files.clone();
+    let track_load_domains = allowed_domains.clone();
+    core_api.set(
+        "__loadTrack",
+        Func::from(move |kind: String, value: String| -> rquickjs::Result<()> {
+            if value.len() > 16 * 1024 || value.contains('\0') {
+                return Err(core_js_error("Track media reference is invalid".into()));
+            }
+            let path = plugin_media_reference(
+                &value,
+                &track_load_files,
+                permissions.file_system,
+                permissions.network_request,
+                &track_load_domains,
+            )
+            .map_err(core_js_error)?;
+            let command = match kind.as_str() {
+                "audio" => Command::AddAudio(path),
+                "subtitle" => Command::AddSubtitle(path),
+                "video" => Command::AddVideo(path),
+                _ => return Err(core_js_error("Unknown track type".into())),
+            };
+            record(&track_load_events, HostEvent::CoreCommand(command));
+            Ok(())
+        }),
+    )?;
+    let chapter_files = files.clone();
+    core_api.set(
+        "__readChapters",
+        Func::from(move || -> rquickjs::Result<String> {
+            chapter_files
+                .core_chapters()
+                .and_then(|chapters| {
+                    serde_json::to_string(&chapters).map_err(|error| error.to_string())
+                })
+                .map_err(core_js_error)
+        }),
+    )?;
+    let recent_document_files = files.clone();
+    core_api.set(
+        "__readRecentDocuments",
+        Func::from(move || -> rquickjs::Result<String> {
+            recent_document_files
+                .core_recent_documents()
+                .and_then(|documents| {
+                    serde_json::to_string(&documents).map_err(|error| error.to_string())
+                })
+                .map_err(core_js_error)
+        }),
+    )?;
+    let version_files = files.clone();
+    core_api.set(
+        "__readVersion",
+        Func::from(move || -> rquickjs::Result<String> {
+            version_files
+                .core_version()
+                .and_then(|version| {
+                    serde_json::to_string(&version).map_err(|error| error.to_string())
+                })
+                .map_err(core_js_error)
+        }),
+    )?;
+    iina_api.set("core", core_api)?;
+    ctx.eval::<(), _>(
+        r#"(() => {
+            const core = iina.core;
+            const readStatus = core.__readStatus;
+            const readChapters = core.__readChapters;
+            const readRecentDocuments = core.__readRecentDocuments;
+            const readVersion = core.__readVersion;
+            const readCoreProperty = core.__readCoreProperty;
+            const writeCoreProperty = core.__writeCoreProperty;
+            const loadTrack = core.__loadTrack;
+            core.status = new Proxy(Object.create(null), {
+                get(_target, property) {
+                    if (typeof property !== 'string') return undefined;
+                    const serialized = readStatus(property);
+                    return serialized == null ? undefined : JSON.parse(serialized);
+                },
+                set() { return false; }
+            });
+            core.getChapters = () => JSON.parse(readChapters());
+            core.getRecentDocuments = () => JSON.parse(readRecentDocuments());
+            core.getVersion = () => JSON.parse(readVersion());
+            for (const namespace of ['audio', 'subtitle', 'video']) {
+                const api = new Proxy(Object.create(null), {
+                    get(_target, property) {
+                        if (property === 'loadTrack') return url => loadTrack(namespace, url);
+                        if (typeof property !== 'string') return undefined;
+                        const serialized = readCoreProperty(`${namespace}.${property}`);
+                        return serialized == null ? undefined : JSON.parse(serialized);
+                    },
+                    set(_target, property, value) {
+                        if (typeof property === 'string') writeCoreProperty(`${namespace}.${property}`, JSON.stringify(value));
+                        return true;
+                    }
+                });
+                core[namespace] = api;
+            }
+            delete core.__readStatus;
+            delete core.__readChapters;
+            delete core.__readRecentDocuments;
+            delete core.__readVersion;
+            delete core.__readCoreProperty;
+            delete core.__writeCoreProperty;
+            delete core.__loadTrack;
+        })();"#,
+    )?;
+    Ok(())
+}
+
+fn json_track_id(value: serde_json::Value) -> rquickjs::Result<Option<i64>> {
+    value
+        .as_i64()
+        .filter(|id| *id > 0)
+        .map(Some)
+        .ok_or_else(|| core_js_error("Track id must be a positive integer".into()))
+}
+
+fn json_finite_number(value: serde_json::Value, label: &str) -> rquickjs::Result<f64> {
+    value
+        .as_f64()
+        .filter(|number| number.is_finite())
+        .ok_or_else(|| core_js_error(format!("{label} must be a finite number")))
+}
+
+fn plugin_media_reference(
+    value: &str,
+    files: &PluginFiles,
+    file_system_granted: bool,
+    network_granted: bool,
+    allowed_domains: &[String],
+) -> Result<String, String> {
+    if let Ok(url) = url::Url::parse(value) {
+        match url.scheme() {
+            "http" | "https" => {
+                riina_core::media_reference::validate_network_url(value).map_err(str::to_owned)?;
+                if !network_granted || !plugin_media_url_allowed(value, allowed_domains) {
+                    return Err("Network permission and an allowed domain are required".into());
+                }
+                return Ok(value.to_owned());
+            }
+            "smb" => {
+                if url.host_str().is_none_or(str::is_empty)
+                    || value.chars().any(char::is_whitespace)
+                    || !network_granted
+                    || !plugin_media_url_allowed(value, allowed_domains)
+                {
+                    return Err("Network permission and an allowed domain are required".into());
+                }
+                return Ok(value.to_owned());
+            }
+            "file" => {
+                let path = url
+                    .to_file_path()
+                    .map_err(|_| "File URL is invalid".to_owned())?;
+                return files
+                    .existing_path(&path.to_string_lossy(), file_system_granted)
+                    .map(|path| path.to_string_lossy().into_owned());
+            }
+            "data" | "memory" => return Ok(value.to_owned()),
+            _ if !file_system_granted => {
+                return Err("The file-system permission is required for this URL scheme".into());
+            }
+            _ => return Ok(value.to_owned()),
+        }
+    }
+    files
+        .existing_path(value, file_system_granted)
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+fn plugin_media_url_allowed(value: &str, allowed_domains: &[String]) -> bool {
+    let Ok(url) = url::Url::parse(value) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https" | "smb")
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return false;
+    }
+    let Some(host) = url.host_str().map(str::to_ascii_lowercase) else {
+        return false;
+    };
+    allowed_domains.iter().any(|pattern| {
+        if pattern == "*" {
+            return true;
+        }
+        if let Some(domain) = pattern.strip_prefix("*.") {
+            let domain = domain.to_ascii_lowercase();
+            host.len() > domain.len()
+                && host
+                    .strip_suffix(&domain)
+                    .is_some_and(|prefix| prefix.ends_with('.'))
+        } else {
+            host == pattern.to_ascii_lowercase()
+        }
+    })
+}
+
+fn core_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("iina.core", "a valid permitted player command", message)
+}
+
+fn http_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("HTTP request", "valid allowed request", message)
+}
+
+fn perform_http_request(
+    method: &str,
+    raw_url: &str,
+    options: &serde_json::Value,
+    allowed_domains: &[String],
+) -> Result<serde_json::Value, String> {
+    let mut current_url = url::Url::parse(raw_url).map_err(|error| error.to_string())?;
+    if let Some(params) = options.get("params") {
+        let params = params
+            .as_object()
+            .ok_or_else(|| "HTTP params must be an object".to_owned())?;
+        let mut query = current_url.query_pairs_mut();
+        for (key, value) in params {
+            query.append_pair(key, &http_option_string(value));
+        }
+    }
+
+    let mut method = ureq::http::Method::from_bytes(method.as_bytes())
+        .map_err(|error| format!("Invalid HTTP method: {error}"))?;
+    let mut body = Vec::new();
+    let data = options.get("data").filter(|value| !value.is_null());
+    if let Some(data) = data {
+        let fields = data
+            .as_object()
+            .ok_or_else(|| "HTTP data must be an object".to_owned())?;
+        let mut form = url::form_urlencoded::Serializer::new(String::new());
+        for (key, value) in fields {
+            form.append_pair(key, &http_option_string(value));
+        }
+        body = form.finish().into_bytes();
+    }
+    if body.len() > MAX_NETWORK_REQUEST_BYTES {
+        return Err("HTTP request body exceeds the 1 MiB limit".into());
+    }
+
+    let headers = options
+        .get("headers")
+        .map(|value| {
+            value
+                .as_object()
+                .ok_or_else(|| "HTTP headers must be an object".to_owned())
+        })
+        .transpose()?;
+    let mut has_content_type = false;
+    let mut headers_out = ureq::http::HeaderMap::new();
+    if let Some(headers) = headers {
+        for (name, value) in headers {
+            let name = ureq::http::HeaderName::from_bytes(name.as_bytes())
+                .map_err(|error| format!("Invalid HTTP header name: {error}"))?;
+            let value = ureq::http::HeaderValue::from_str(&http_option_string(value))
+                .map_err(|error| format!("Invalid HTTP header value: {error}"))?;
+            has_content_type |= name == ureq::http::header::CONTENT_TYPE;
+            headers_out.insert(name, value);
+        }
+    }
+    if data.is_some() && !has_content_type {
+        headers_out.insert(
+            ureq::http::header::CONTENT_TYPE,
+            ureq::http::HeaderValue::from_static("application/x-www-form-urlencoded"),
+        );
+    }
+
+    let mut response = None;
+    let request_started = Instant::now();
+    for redirect_count in 0..=10 {
+        let mut request = ureq::http::Request::builder()
+            .method(method.clone())
+            .uri(current_url.as_str())
+            .body(body.clone())
+            .map_err(|error| format!("Could not construct HTTP request: {error}"))?;
+        *request.headers_mut() = headers_out.clone();
+        let remaining = NETWORK_TIMEOUT.saturating_sub(request_started.elapsed());
+        if remaining.is_zero() {
+            return Err("HTTP request exceeded the 30 second timeout".into());
+        }
+        let agent = ureq::Agent::new_with_config(
+            ureq::Agent::config_builder()
+                .timeout_global(Some(remaining))
+                .max_redirects(0)
+                .http_status_as_error(false)
+                .build(),
+        );
+        let current_response = agent
+            .run(request)
+            .map_err(|error| format!("HTTP request failed: {error}"))?;
+        let status = current_response.status();
+        let is_redirect = matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308);
+        let next_url = if is_redirect {
+            current_response
+                .headers()
+                .get(ureq::http::header::LOCATION)
+                .and_then(|location| location.to_str().ok())
+                .map(|location| current_url.join(location))
+                .transpose()
+                .map_err(|error| format!("Invalid HTTP redirect URL: {error}"))?
+        } else {
+            None
+        };
+        let Some(next_url) = next_url.filter(|_| redirect_count < 10) else {
+            response = Some(current_response);
+            break;
+        };
+        if !network_url_allowed(next_url.as_str(), allowed_domains) {
+            return Err("HTTP redirect target is not in the plugin's allowed domains".into());
+        }
+        if !current_url
+            .host_str()
+            .zip(next_url.host_str())
+            .is_some_and(|(current, next)| current.eq_ignore_ascii_case(next))
+        {
+            headers_out.remove(ureq::http::header::AUTHORIZATION);
+            headers_out.remove(ureq::http::header::COOKIE);
+        }
+        if status.as_u16() == 303
+            || (matches!(status.as_u16(), 301 | 302) && method == ureq::http::Method::POST)
+        {
+            method = ureq::http::Method::GET;
+            body.clear();
+            headers_out.remove(ureq::http::header::CONTENT_TYPE);
+        }
+        current_url = next_url;
+        // Dropping a redirect response before following it keeps its body out
+        // of memory; the global request deadline still applies to every hop.
+        drop(current_response);
+    }
+    let mut response = response.ok_or_else(|| "HTTP redirect limit was exceeded".to_owned())?;
+    let status = response.status();
+    let text = response
+        .body_mut()
+        .with_config()
+        .limit(4 * 1024 * 1024)
+        .read_to_string()
+        .map_err(|error| format!("Could not read HTTP response: {error}"))?;
+    let data = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+    Ok(serde_json::json!({
+        "statusCode": status.as_u16(),
+        "reason": status.canonical_reason().unwrap_or(""),
+        "data": data,
+        "text": text,
+    }))
+}
+
+fn http_option_string(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(value) => value.clone(),
+        value => value.to_string(),
+    }
+}
+
+fn acquire_network_request_slot(active: &AtomicUsize) -> bool {
+    let mut current = active.load(Ordering::Acquire);
+    loop {
+        if current >= MAX_ACTIVE_NETWORK_REQUESTS {
+            return false;
+        }
+        match active.compare_exchange_weak(
+            current,
+            current + 1,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        ) {
+            Ok(_) => return true,
+            Err(updated) => current = updated,
         }
     }
 }
@@ -1094,11 +2136,13 @@ fn plugin_message_js_error(message: String) -> rquickjs::Error {
     rquickjs::Error::new_from_js_message("plugin message", "valid bounded message", message)
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct AvailablePermissions {
     show_osd: bool,
     show_alert: bool,
     video_overlay: bool,
+    network_request: bool,
+    file_system: bool,
 }
 
 fn reviewed_permissions(
@@ -1116,11 +2160,8 @@ fn reviewed_permissions(
             "show-osd" => available.show_osd = true,
             "show-alert" => available.show_alert = true,
             "video-overlay" => available.video_overlay = true,
-            "network-request" | "file-system" => {
-                return Err(format!(
-                    "Plugin permission {permission} is not available yet"
-                ));
-            }
+            "network-request" => available.network_request = true,
+            "file-system" => available.file_system = true,
             _ => return Err(format!("Unknown plugin permission {permission}")),
         }
     }
@@ -1182,6 +2223,8 @@ fn host_event_size(event: &HostEvent) -> usize {
         HostEvent::PluginMessage(name, data) => name
             .len()
             .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
+        HostEvent::CoreCommand(command) => format!("{command:?}").len(),
+        HostEvent::SetUiVisibility(_) => 1,
     }
 }
 
@@ -1196,11 +2239,23 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
     if events.len() >= MAX_HOST_EVENTS {
         return;
     }
+    if matches!(
+        &event,
+        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_)
+    ) {
+        events.push(event);
+        return;
+    }
     let message = match &event {
         HostEvent::Log(message) | HostEvent::ShowOsd(message) | HostEvent::ShowAlert(message) => {
             message
         }
-        HostEvent::Overlay(_) | HostEvent::PluginMessage(_, _) => return,
+        HostEvent::Overlay(_)
+        | HostEvent::PluginMessage(_, _)
+        | HostEvent::CoreCommand(_)
+        | HostEvent::SetUiVisibility(_) => {
+            return;
+        }
     };
     let bounded = message.chars().take(MAX_MESSAGE_CHARS).collect::<String>();
     let event = match event {
@@ -1209,6 +2264,9 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
         HostEvent::ShowAlert(_) => HostEvent::ShowAlert(bounded),
         HostEvent::Overlay(effect) => HostEvent::Overlay(effect),
         HostEvent::PluginMessage(_, _) => unreachable!("plugin messages use their bounded path"),
+        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) => {
+            unreachable!("player commands retain typed payloads")
+        }
     };
     events.push(event);
 }
@@ -1286,19 +2344,7 @@ mod tests {
     }
 
     #[test]
-    fn refuses_unimplemented_or_ungranted_capabilities_before_execution() {
-        for permission in ["network-request", "file-system"] {
-            let requested = vec![permission.to_owned()];
-            assert!(
-                execute_entry(
-                    "throw new Error('must not run')",
-                    "org.example.player-tools",
-                    &requested,
-                    &requested,
-                )
-                .is_err()
-            );
-        }
+    fn refuses_ungranted_or_unsupported_capabilities_before_execution() {
         let requested = vec!["show-osd".to_owned()];
         assert!(
             execute_entry(
@@ -1368,6 +2414,372 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
+        let identifier = format!("org.example.files-{}", std::process::id());
+        let data_root = std::env::temp_dir()
+            .join("riina-plugin-storage")
+            .join(".data")
+            .join(&identifier);
+        let _ = std::fs::remove_dir_all(&data_root);
+        let requested = vec!["file-system".to_owned()];
+        let source = r#"
+            iina.file.write('@data/state.txt', 'saved');
+            iina.file.move('@data/state.txt', '@data/moved.txt');
+            if (iina.file.exists('@data/state.txt')) throw new Error('source remains after move');
+            if (!iina.file.exists('@data/moved.txt')) throw new Error('missing moved file');
+            if (iina.file.read('@data/moved.txt') !== 'saved') throw new Error('read mismatch');
+            if (!iina.file.list('@data/').some(entry => entry.filename === 'moved.txt')) {
+                throw new Error('listing mismatch');
+            }
+            iina.log(iina.file.read('@data/moved.txt'));
+            iina.file.delete('@data/moved.txt');
+        "#;
+        let events = execute_entry(source, &identifier, &requested, &requested).unwrap();
+        assert_eq!(events, [HostEvent::Log("saved".into())]);
+        let _ = std::fs::remove_dir_all(data_root);
+
+        assert!(
+            execute_entry(
+                "iina.file.read('C:/Windows/win.ini')",
+                &identifier,
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+        assert!(
+            execute_entry(
+                "iina.file.showInFinder('C:/Windows/win.ini')",
+                &identifier,
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn plugin_file_handles_expose_binary_seek_read_write_and_close() {
+        let identifier = format!("org.example.file-handles-{}", std::process::id());
+        let data_root = std::env::temp_dir()
+            .join("riina-plugin-storage")
+            .join(".data")
+            .join(&identifier);
+        let _ = std::fs::remove_dir_all(&data_root);
+        let requested = vec!["file-system".to_owned()];
+        let source = r#"
+            iina.file.write('@data/binary.dat', 'abcd');
+            const writer = iina.file.handle('@data/binary.dat', 'write');
+            writer.write(new Uint8Array([0, 255]));
+            if (writer.offset() !== 2) throw new Error('write offset mismatch');
+            writer.close();
+            const reader = iina.file.handle('@data/binary.dat', 'read');
+            const prefix = reader.read(2);
+            if (prefix[0] !== 0 || prefix[1] !== 255) throw new Error('binary read mismatch');
+            if (reader.offset() !== 2) throw new Error('read offset mismatch');
+            reader.seekToEnd();
+            if (reader.offset() !== 4) throw new Error('seek-to-end mismatch');
+            reader.seekTo(0);
+            const content = reader.readToEnd();
+            if (content.length !== 4 || content[2] !== 99 || content[3] !== 100) {
+                throw new Error('read-to-end mismatch');
+            }
+            reader.close();
+        "#;
+        execute_entry(source, &identifier, &requested, &requested).unwrap();
+        assert_eq!(
+            std::fs::read(data_root.join("binary.dat")).unwrap(),
+            [0, 255, b'c', b'd']
+        );
+        let _ = std::fs::remove_dir_all(data_root);
+    }
+
+    #[test]
+    fn core_playback_methods_emit_typed_player_commands() {
+        let events = execute_entry(
+            "iina.core.pause(); iina.core.resume(); iina.core.stop(); iina.core.seek(-4.5, true); iina.core.seekTo(12); iina.core.setSpeed(1.25); iina.core.playChapter(2);",
+            "org.example.core-api",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            events,
+            [
+                HostEvent::CoreCommand(Command::SetPaused(true)),
+                HostEvent::CoreCommand(Command::SetPaused(false)),
+                HostEvent::CoreCommand(Command::Stop),
+                HostEvent::CoreCommand(Command::SeekWithType {
+                    seconds: -4.5,
+                    seek_type: SeekType::Exact,
+                }),
+                HostEvent::CoreCommand(Command::Seek {
+                    seconds: 12.0,
+                    absolute: true,
+                }),
+                HostEvent::CoreCommand(Command::Speed(1.25)),
+                HostEvent::CoreCommand(Command::SelectChapter(2)),
+            ]
+        );
+        assert!(
+            execute_entry(
+                "iina.core.seek(NaN, false)",
+                "org.example.core-api",
+                &[],
+                &[]
+            )
+            .is_err()
+        );
+        assert!(execute_entry("iina.core.setSpeed(0)", "org.example.core-api", &[], &[]).is_err());
+    }
+
+    #[test]
+    fn core_ui_visibility_emits_the_iina_disable_ui_flag() {
+        let events = execute_entry(
+            "iina.core.setUIVisibility(true); iina.core.setUIVisibility(false);",
+            "org.example.core-ui-visibility",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            events,
+            [
+                HostEvent::SetUiVisibility(true),
+                HostEvent::SetUiVisibility(false),
+            ]
+        );
+    }
+
+    #[test]
+    fn core_track_apis_emit_typed_commands() {
+        let events = execute_entry(
+            "iina.core.audio.id = 4; iina.core.audio.id = null; iina.core.audio.delay = 0.25; iina.core.audio.volume = 125; iina.core.audio.muted = true; iina.core.subtitle.id = 5; iina.core.subtitle.secondID = 6; iina.core.subtitle.secondID = null; iina.core.subtitle.delay = -0.5; iina.core.video.id = 7;",
+            "org.example.core-track-api",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            events,
+            [
+                HostEvent::CoreCommand(Command::SelectTrack {
+                    kind: riina_core::TrackKind::Audio,
+                    id: Some(4),
+                }),
+                HostEvent::CoreCommand(Command::AudioDelay(0.25)),
+                HostEvent::CoreCommand(Command::Volume(125.0)),
+                HostEvent::CoreCommand(Command::SetMuted(true)),
+                HostEvent::CoreCommand(Command::SelectTrack {
+                    kind: riina_core::TrackKind::Sub,
+                    id: Some(5),
+                }),
+                HostEvent::CoreCommand(Command::SelectSecondarySubtitle(Some(6))),
+                HostEvent::CoreCommand(Command::SubtitleDelay(-0.5)),
+                HostEvent::CoreCommand(Command::SelectTrack {
+                    kind: riina_core::TrackKind::Video,
+                    id: Some(7),
+                }),
+            ]
+        );
+        assert!(
+            execute_entry(
+                "iina.core.audio.volume = 201;",
+                "org.example.core-track-api",
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+        assert!(
+            execute_entry(
+                "iina.core.audio.loadTrack('https://media.example/commentary.m4a');",
+                "org.example.core-track-api",
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn core_status_chapter_recent_document_and_version_reads_follow_playback_context() {
+        let identifier = "org.example.core-snapshot";
+        let files = PluginFiles::temporary(identifier);
+        files.set_player_context(
+            PluginPlayerFileContext::new(None, BTreeMap::new())
+                .with_core_snapshot(
+                    BTreeMap::from([
+                        ("paused".into(), serde_json::json!(true)),
+                        ("position".into(), serde_json::json!(17.25)),
+                        ("title".into(), serde_json::json!("Sample")),
+                    ]),
+                    vec![serde_json::json!({"title":"Opening", "start":0.0})],
+                )
+                .with_core_version(serde_json::json!({
+                    "iina": "0.3.1",
+                    "build": "1234",
+                    "mpv": "mpv 0.41.0-git"
+                }))
+                .with_recent_documents(vec![serde_json::json!({
+                    "name": "sample.mp4",
+                    "url": "file:///Media/sample.mp4"
+                })]),
+        );
+        let script = r#"
+            if (iina.core.status.paused !== true) throw new Error('pause status mismatch');
+            if (iina.core.status.position !== 17.25) throw new Error('position mismatch');
+            if (iina.core.status.title !== 'Sample') throw new Error('title mismatch');
+            if (iina.core.status.unknown !== undefined) throw new Error('unknown status should be undefined');
+            const chapters = iina.core.getChapters();
+            if (chapters.length !== 1 || chapters[0].title !== 'Opening' || chapters[0].start !== 0) {
+                throw new Error('chapter snapshot mismatch');
+            }
+            const recent = iina.core.getRecentDocuments();
+            if (recent.length !== 1 || recent[0].name !== 'sample.mp4' || recent[0].url !== 'file:///Media/sample.mp4') {
+                throw new Error('recent-document snapshot mismatch');
+            }
+            const version = iina.core.getVersion();
+            if (version.iina !== '0.3.1' || version.build !== '1234' || version.mpv !== 'mpv 0.41.0-git') {
+                throw new Error('version snapshot mismatch');
+            }
+        "#;
+        let session = PluginRuntimeSession::start_entry_with_context(
+            script,
+            identifier,
+            &[],
+            &[],
+            GlobalApiMode::None,
+            None,
+            PluginStorageContext {
+                file_system: files,
+                allowed_domains: Vec::new(),
+            },
+        )
+        .unwrap();
+        assert!(session.drain_events().unwrap().is_empty());
+    }
+
+    #[test]
+    fn core_open_requires_the_matching_network_or_filesystem_grant() {
+        let identifier = format!("org.example.core-open-{}", std::process::id());
+        let files = PluginFiles::temporary(&identifier);
+        files
+            .write_text("@data/clip.mkv", "fixture", false)
+            .unwrap();
+        let path = files
+            .existing_path("@data/clip.mkv", false)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            execute_entry("iina.core.open('@data/clip.mkv')", &identifier, &[], &[],).unwrap(),
+            [HostEvent::CoreCommand(Command::Load(path))]
+        );
+        let _ = std::fs::remove_dir_all(
+            std::env::temp_dir()
+                .join("riina-plugin-storage")
+                .join(".data")
+                .join(&identifier),
+        );
+        let files = PluginFiles::temporary("org.example.core-open-policy");
+        assert!(
+            plugin_media_reference(
+                "https://media.example/video.mp4",
+                &files,
+                false,
+                false,
+                &["media.example".into()],
+            )
+            .is_err()
+        );
+        assert_eq!(
+            plugin_media_reference(
+                "https://media.example/video.mp4",
+                &files,
+                false,
+                true,
+                &["media.example".into()],
+            )
+            .unwrap(),
+            "https://media.example/video.mp4"
+        );
+        assert_eq!(
+            plugin_media_reference(
+                "smb://media.example/share/video.mkv",
+                &files,
+                false,
+                true,
+                &["media.example".into()],
+            )
+            .unwrap(),
+            "smb://media.example/share/video.mkv"
+        );
+        assert!(
+            plugin_media_reference(
+                "rtsp://media.example/live",
+                &files,
+                false,
+                true,
+                &["media.example".into()],
+            )
+            .is_err()
+        );
+        assert_eq!(
+            plugin_media_reference("rtsp://media.example/live", &files, true, false, &[],).unwrap(),
+            "rtsp://media.example/live"
+        );
+        assert!(
+            plugin_media_reference(
+                "https://media.example/video.mp4",
+                &files,
+                false,
+                true,
+                &["elsewhere.example".into()],
+            )
+            .is_err()
+        );
+        assert!(
+            plugin_media_reference("C:/private/video.mp4", &files, false, false, &[],).is_err()
+        );
+    }
+
+    #[test]
+    fn permission_gated_http_transport_returns_json_from_an_allowed_host() {
+        use std::{io::Write, net::TcpListener};
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut request = [0; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            let body = r#"{"ready":true}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+        });
+        let result = perform_http_request(
+            "GET",
+            &format!("http://{address}/health"),
+            &serde_json::json!({}),
+            &["127.0.0.1".into()],
+        )
+        .unwrap();
+        server.join().unwrap();
+        assert_eq!(result["statusCode"], 200);
+        assert_eq!(result["data"]["ready"], true);
+        assert_eq!(result["text"], r#"{"ready":true}"#);
     }
 
     #[test]

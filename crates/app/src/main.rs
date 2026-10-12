@@ -32,6 +32,7 @@ mod pip_preferences;
 mod platform;
 mod player_manager;
 mod player_ui;
+mod plugin_files;
 mod plugin_github;
 mod plugin_host;
 mod plugin_packages;

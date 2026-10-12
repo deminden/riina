@@ -22,6 +22,25 @@ GPLV3_COMPATIBLE_GRANTS = {
     "ISC", "LicenseRef-Slint-Royalty-free-2.0", "MIT", "MPL-2.0", "Unicode-3.0",
     "Unicode-DFS-2016", "Unlicense", "Zlib",
 }
+REVIEWED_DATA_GRANTS = {
+    ("webpki-roots", "1.0.9", "CDLA-Permissive-2.0"): {
+        "classification": "third-party data license",
+        "rationale": (
+            "This crate distributes derived Mozilla CA root certificate data from CCADB. "
+            "The selected CDLA grant applies to that data, not as a software-license option "
+            "for the combined application. Keep the crate's CDLA text and CCADB attribution."
+        ),
+        "source": "https://github.com/rustls/webpki-roots",
+        "license_url": "https://cdla.dev/permissive-2-0/",
+        "data_source": "https://www.ccadb.org/rootstores/usage",
+        "attribution": (
+            "The certificate data in webpki-roots is derived from the Common CA Database "
+            "(CCADB). It is distributed under the Community Data License Agreement - "
+            "Permissive, Version 2.0. See the accompanying LICENSE file and "
+            "https://www.ccadb.org/rootstores/usage."
+        ),
+    },
+}
 
 
 def dependency_packages(metadata, root_name="riina"):
@@ -250,16 +269,47 @@ def collect(metadata, output, root_name="riina", target_platform="x86_64-pc-wind
         chosen = set(record["selected_license"].split(" AND "))
         unsupported = chosen - GPLV3_COMPATIBLE_GRANTS
         if unsupported:
-            raise ValueError(
-                f"No reviewed GPLv3-compatible grant selected for "
-                f"{record['name']} {record['version']}: {sorted(unsupported)}"
-            )
+            exception = REVIEWED_DATA_GRANTS.get((
+                record["name"], record["version"], record["selected_license"]
+            ))
+            if exception is None or unsupported != {"CDLA-Permissive-2.0"}:
+                raise ValueError(
+                    f"No reviewed GPLv3-compatible grant or scoped data grant for "
+                    f"{record['name']} {record['version']}: {sorted(unsupported)}"
+                )
+            license_names = {Path(item["path"]).name.casefold() for item in record["license_files"]}
+            license_paths = [output / item["path"] for item in record["license_files"]]
+            if not any(name == "license" or name.startswith("license.") for name in license_names):
+                raise ValueError("webpki-roots CDLA data grant requires its original LICENSE file")
+            if not any(
+                path.is_file()
+                and "Community Data License Agreement - Permissive - Version 2.0"
+                in path.read_text(encoding="utf-8")
+                for path in license_paths
+            ):
+                raise ValueError("webpki-roots LICENSE does not contain the reviewed CDLA text")
+
+            notice_path = output / "packages" / "webpki-roots-1.0.9" / "CCADB-ATTRIBUTION.txt"
+            notice_path.parent.mkdir(parents=True, exist_ok=True)
+            notice_path.write_text(exception["attribution"] + "\n", encoding="utf-8", newline="\n")
+            record["reviewed_data_license_exception"] = {
+                "classification": exception["classification"],
+                "rationale": exception["rationale"],
+                "source": exception["source"],
+                "license_url": exception["license_url"],
+                "data_source": exception["data_source"],
+                "required_attribution_file": str(notice_path.relative_to(output)).replace(os.sep, "/"),
+            }
 
     manifest = {
         "target": target_platform,
         "workspace_binary": root_name,
         "combined_distribution_license": "GPL-3.0-only",
-        "selected_grants_policy": "Select a reviewed GPLv3-compatible option; preserve every package license and notice file.",
+        "selected_grants_policy": (
+            "Select a reviewed GPLv3-compatible software grant and preserve every package "
+            "license and notice. Only exact, documented third-party data-grant exceptions "
+            "may be included; these do not classify the grant as GPL-compatible software."
+        ),
         "packages": records,
     }
     (output / "RUST-LICENSES.json").write_text(

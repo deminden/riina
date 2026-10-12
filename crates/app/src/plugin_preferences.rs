@@ -893,7 +893,7 @@ fn confirm_permissions(manifest: &Manifest) -> bool {
     MessageDialog::new()
         .set_title(format!("Permissions requested by {}", manifest.name))
         .set_description(format!(
-            "Review these permissions before installing:\n\n{permissions}\n\nOverlay content is displayed over the video on Windows. Network requests and unrestricted file access are not available."
+            "Review these permissions before installing:\n\n{permissions}\n\nNetwork requests are limited to the domains declared by the plugin. The file-system permission can read or change paths outside the plugin's private storage."
         ))
         .set_buttons(MessageButtons::YesNo)
         .show()
@@ -912,11 +912,11 @@ fn permission_name(permission: Permission) -> &'static str {
 
 fn permission_description(permission: Permission) -> &'static str {
     match permission {
-        Permission::NetworkRequest => "Network requests (sensitive)",
+        Permission::NetworkRequest => "Network requests to allowed domains (sensitive)",
         Permission::ShowOsd => "Show on-screen messages",
         Permission::ShowAlert => "Show alerts",
         Permission::VideoOverlay => "Display content over video",
-        Permission::FileSystem => "Access plugin files (sensitive)",
+        Permission::FileSystem => "Read and modify files on this device (sensitive)",
     }
 }
 
@@ -1037,8 +1037,28 @@ fn save_enabled(path: &Path, enabled: &BTreeSet<String>) -> Result<(), String> {
 }
 
 pub(crate) fn current_runtime_supports(manifest: &Manifest) -> bool {
-    manifest.permissions.iter().all(|permission| {
-        matches!(permission.as_str(), "show-osd" | "show-alert")
-            || (cfg!(target_os = "windows") && permission == "video-overlay")
-    }) && manifest.unknown_permissions().next().is_none()
+    manifest
+        .permissions
+        .iter()
+        .all(|permission| runtime_supports_permission(permission.as_str()))
+        && manifest.unknown_permissions().next().is_none()
+}
+
+fn runtime_supports_permission(permission: &str) -> bool {
+    matches!(
+        permission,
+        "show-osd" | "show-alert" | "network-request" | "file-system"
+    ) || (cfg!(target_os = "windows") && permission == "video-overlay")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::runtime_supports_permission;
+
+    #[test]
+    fn plugin_runtime_advertises_supported_network_and_file_permissions() {
+        assert!(runtime_supports_permission("network-request"));
+        assert!(runtime_supports_permission("file-system"));
+        assert!(!runtime_supports_permission("unknown-permission"));
+    }
 }

@@ -6,9 +6,11 @@ LICENSE-GPL-3.0.txt. The riina-mpv ABI declarations retain the ISC grant below.
 Third-party components retain their own licenses and notices. The Windows release
 package includes the licenses collected from the exact native source checkouts in
 THIRD_PARTY_LICENSES/, the locked Windows Rust dependency licenses and notices,
-and the Slint Royalty-free 2.0 agreement; the corresponding source archive
-includes those materials, the native source checkouts, locked Rust crate sources
-and build recipes.
+and the Slint Royalty-free 2.0 agreement. The exact application source is served
+from the release tag; Cargo.lock and SOURCE-MANIFEST.tsv identify the immutable
+Rust crate archives and native source revisions. SOURCE-ACCESS.md explains how
+to retrieve and rebuild these inputs. Release assets do not duplicate native or
+vendored Rust source trees.
 
 The Riina identity assets in `assets/branding/` retain the pack's MIT license.
 The vector wordmark includes letter outlines based on Inter; its OFL 1.1 notice is
@@ -50,9 +52,10 @@ renderer implementation is independently written with mpv ABI declarations.
 glow 0.18.0: MIT/Apache-2.0/Zlib; libloading 0.9.0: ISC;
 serde/serde_json: MIT/Apache-2.0; windows 0.62.2: MIT/Apache-2.0.
 The Windows resource build helper `winresource` 0.1.31 is MIT.
-Cargo.lock pins the complete dependency graph. The source archive vendors the
-locked crates with their original license files, alongside this notice and the
-Unicode notice under third-party-licenses/.
+Cargo.lock pins the complete dependency graph. Cargo retrieves locked crate
+sources from crates.io and verifies their checksums. The release package retains
+the collected original license files and this notice; it does not vendor the
+crate source trees.
 
 regex 1.13.1 (https://github.com/rust-lang/regex): selected MIT option from
 MIT OR Apache-2.0, Rust Project Developers. Already present in the dependency
@@ -152,3 +155,10 @@ under licenses/ and versions/features/hashes are recorded in
 docs/clipboard-dependencies.json. tree_magic_mini loads the desktop MIME database
 at runtime; its optional GPL database embedding feature is not enabled. Combined
 distribution and non-Windows runtime remain subject to the existing audit gates.
+
+webpki-roots 1.0.9 contains Mozilla CA root-certificate data derived from the
+Common CA Database (CCADB), under CDLA-Permissive-2.0. This is a scoped data
+license, not a general GPL-compatible software grant. The Windows package and
+corresponding-source license inventory retain the crate's LICENSE text and a
+generated CCADB-ATTRIBUTION.txt; see docs/licensing.md and
+https://www.ccadb.org/rootstores/usage.

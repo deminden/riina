@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Build from a fixed recipe revision, then preserve exact source snapshots used by
-# the binary so the release source archive matches the native engine.
+# Build from a fixed recipe revision and record exact source references for the
+# binary. Source remains available from the pinned public repositories.
 readonly BUILDER_REVISION='b2856ee6deed6957380b32465f359e67f67fafd8'
 readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
 readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
@@ -10,7 +10,7 @@ readonly REPO_ROOT="$PWD"
 readonly WORK_ROOT="${RUNNER_TEMP:-$PWD}/riina-native-build"
 readonly BUILDER="$WORK_ROOT/mpv-winbuild-cmake"
 readonly BUILD_GIT_CONFIG="$WORK_ROOT/gitconfig"
-readonly SOURCE_ARCHIVE_ROOT="$PWD/native-source"
+readonly SOURCE_INDEX_ROOT="$WORK_ROOT/source-index"
 
 print_build_failure() {
   local status="$1"
@@ -46,7 +46,7 @@ run_ninja() {
 }
 
 rm -f "$REPO_ROOT/native-build-failure.log"
-rm -rf "$WORK_ROOT" "$SOURCE_ARCHIVE_ROOT"
+rm -rf "$WORK_ROOT" "$SOURCE_INDEX_ROOT"
 mkdir -p "$WORK_ROOT"
 # Git am runs inside nested ExternalProject subprocesses. Persist this identity
 # only for this CI build so those processes do not depend on runner user settings.
@@ -141,8 +141,8 @@ grep -q 'Apache License' "$openssl_source/LICENSE.txt"
 rm -rf "$BUILDER/src_packages/x264"
 
 
-# subrandr is Rust too: its external crates are corresponding source for the
-# engine and must be captured, rather than left only in rustup's download cache.
+# subrandr is Rust too: fetch its locked external crates before collecting its
+# native license inventory and recording their source hashes.
 subrandr_source="$BUILDER/src_packages/subrandr"
 if [[ -z "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
   (cd "$subrandr_source"
@@ -152,18 +152,13 @@ fi
 test -s "$subrandr_source/Cargo.lock"
 test -d "$subrandr_source/riina-vendor"
 
-# The manifest is made after upstream's update step and before the build. This
-# records the precise source states that will be archived with the executable.
-mkdir -p "$SOURCE_ARCHIVE_ROOT/buildscripts" "$SOURCE_ARCHIVE_ROOT/native-sources"
-git -C "$BUILDER" archive "$BUILDER_REVISION" | tar -xf - -C "$SOURCE_ARCHIVE_ROOT/buildscripts/"
-cp -a "$REPO_ROOT/tools/mpv/build-windows.sh" "$SOURCE_ARCHIVE_ROOT/"
-cp -a "$REPO_ROOT/tools/mpv/remove-x264.patch" "$SOURCE_ARCHIVE_ROOT/"
-cp -a "$REPO_ROOT/tools/mpv/pin-curl.patch" "$SOURCE_ARCHIVE_ROOT/"
-cp -a "$REPO_ROOT/tools/mpv/native-bootstrap.patch" "$SOURCE_ARCHIVE_ROOT/"
+# The manifest is made after upstream's update step and before the build. It
+# records the precise source states and hashes retrievable from public origins.
+mkdir -p "$SOURCE_INDEX_ROOT/THIRD_PARTY_LICENSES"
 "$BUILDER/build_x86_64/exec" LD_PRELOAD= python "$REPO_ROOT/scripts/package-rust-licenses.py" \
   --manifest-path "$subrandr_source/Cargo.toml" --package subrandr \
   --target x86_64-pc-windows-gnullvm \
-  --output "$SOURCE_ARCHIVE_ROOT/THIRD_PARTY_LICENSES/NATIVE_RUST"
+  --output "$SOURCE_INDEX_ROOT/THIRD_PARTY_LICENSES/NATIVE_RUST"
 {
   printf 'builder_revision\t%s\n' "$BUILDER_REVISION"
   printf 'curl_revision\t%s\n' "$CURL_REVISION"
@@ -181,19 +176,26 @@ cp -a "$REPO_ROOT/tools/mpv/native-bootstrap.patch" "$SOURCE_ARCHIVE_ROOT/"
   while IFS= read -r -d '' source; do
     relative="${source#"$BUILDER/src_packages/"}"
     case "$relative" in *$'\t'*|*$'\n'*) echo "Source path contains an unsupported tab or newline: $relative" >&2; exit 1;; esac
-    printf 'source_sha256\t%s\t%s\n' "$relative" "$(sha256sum "$source" | cut -d' ' -f1)"
+    printf 'source_sha256\tsrc_packages/%s\t%s\n' "$relative" "$(sha256sum "$source" | cut -d' ' -f1)"
   done < <(find "$BUILDER/src_packages" -type f ! -path '*/.git/*' -print0 | sort -z)
   while IFS= read -r -d '' source; do
     relative="${source#"$BUILDER/src_packages/"}"
     target="$(readlink "$source")"
     case "$relative$target" in *$'\t'*|*$'\n'*) echo "Source symlink contains an unsupported tab or newline: $relative" >&2; exit 1;; esac
-    printf 'source_symlink\t%s\t%s\n' "$relative" "$target"
+    printf 'source_symlink\tsrc_packages/%s\t%s\n' "$relative" "$target"
   done < <(find "$BUILDER/src_packages" -type l ! -path '*/.git/*' -print0 | sort -z)
-} > "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv"
-cp -a "$BUILDER/src_packages/." "$SOURCE_ARCHIVE_ROOT/native-sources/"
-# File hashes and original revision IDs make the source snapshot verifiable;
-# Git object databases duplicate historical sources and are not build inputs.
-find "$SOURCE_ARCHIVE_ROOT/native-sources" -name .git -prune -exec rm -rf -- {} +
+} > "$SOURCE_INDEX_ROOT/SOURCE-MANIFEST.tsv"
+
+# Keep only the native notices with the runtime. Complete code is available at
+# the immutable upstream revisions recorded in SOURCE-MANIFEST.tsv.
+while IFS= read -r -d '' license_file; do
+  relative="${license_file#"$BUILDER/src_packages/"}"
+  destination="$SOURCE_INDEX_ROOT/THIRD_PARTY_LICENSES/$relative"
+  mkdir -p "$(dirname "$destination")"
+  cp "$license_file" "$destination"
+done < <(find "$BUILDER/src_packages" -type f \
+  \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' \) \
+  ! -path '*/.git/*' -print0 | sort -z)
 
 # Build the embedded engine and collect its development DLL output directly.
 run_ninja -C build_x86_64 mpv
@@ -208,26 +210,12 @@ python "$REPO_ROOT/scripts/check-windows-runtime.py" \
   --engine "$runtime_dir/libmpv-2.dll" \
   --search "$BUILDER/build_x86_64/x86_64-w64-mingw32/bin" \
   --package "$GITHUB_WORKSPACE/native-runtime"
-cp "$SOURCE_ARCHIVE_ROOT/SOURCE-MANIFEST.tsv" "$GITHUB_WORKSPACE/native-runtime/"
+cp "$SOURCE_INDEX_ROOT/SOURCE-MANIFEST.tsv" "$GITHUB_WORKSPACE/native-runtime/"
 mkdir -p "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES"
-cp -a "$SOURCE_ARCHIVE_ROOT/THIRD_PARTY_LICENSES/NATIVE_RUST" "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/"
-captured_source_root="$SOURCE_ARCHIVE_ROOT/native-sources"
-while IFS= read -r -d '' license_file; do
-  # Build steps can generate test-subproject license files inside a checkout;
-  # package notices from the immutable source snapshot used by the audit.
-  relative="${license_file#"$captured_source_root/"}"
-  destination="$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/$relative"
-  mkdir -p "$(dirname "$destination")"
-  cp "$license_file" "$destination"
-done < <(find "$captured_source_root" -type f \
-  \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' \) \
-  ! -path '*/.git/*' -print0 | sort -z)
+cp -a "$SOURCE_INDEX_ROOT/THIRD_PARTY_LICENSES/." "$GITHUB_WORKSPACE/native-runtime/THIRD_PARTY_LICENSES/"
 {
   printf 'path\tsha256\n'
   while IFS= read -r -d '' runtime_file; do
     printf '%s\t%s\n' "${runtime_file#"$GITHUB_WORKSPACE/native-runtime/"}" "$(sha256sum "$runtime_file" | cut -d' ' -f1)"
   done < <(find "$GITHUB_WORKSPACE/native-runtime" -type f ! -name 'RUNTIME-MANIFEST.tsv' -print0 | sort -z)
 } > "$GITHUB_WORKSPACE/native-runtime/RUNTIME-MANIFEST.tsv"
-
-tar --zstd -cf "$GITHUB_WORKSPACE/riina-native-source.tar.zst" -C "$(dirname "$SOURCE_ARCHIVE_ROOT")" "$(basename "$SOURCE_ARCHIVE_ROOT")"
-sha256sum "$GITHUB_WORKSPACE/riina-native-source.tar.zst" > "$GITHUB_WORKSPACE/riina-native-source.tar.zst.sha256"

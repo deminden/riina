@@ -3,7 +3,7 @@
 ## Application state
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.1. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.2. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
@@ -113,7 +113,7 @@ support.
 ## Parity state
 
 The pinned baseline is official IINA v1.5.0. The parity inventory currently traces
-224 atomic requirements, and the inventory is still incomplete. Many requirements
+228 atomic requirements, and the inventory is still incomplete. Many requirements
 remain partial or unverified. There is no defensible overall parity percentage.
 Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
@@ -284,24 +284,24 @@ and full artifact record are in `docs/native-distribution-audit.json`.
 
 The v0.3.0 source archive measured 1.60 GB compressed and 2.57 GB expanded.
 Its native-source snapshot included 1.01 GB of Git object metadata across 5,568
-entries, while the manifest verifies the source files separately. New source
-bundles omit that redundant history, retain every manifest-hashed source and
-license file, and recreate local Git snapshots during native rebuilds. The
-published v0.3.0 archive remains unchanged; the smaller layout will appear in a
-later release after its complete-source and package checks pass.
-The audit also found a 166 MB Opus DNN model archive among the build inputs.
-It stays in corresponding source: [upstream Opus documents that its large model
-is downloaded during Git builds](https://github.com/xiph/opus/blob/main/dnn/README.md#using-the-existing-software).
+entries. That published archive remains unchanged. Future releases will not attach
+duplicate native or vendored Rust source trees: the exact application source is
+served from the release tag, Cargo.lock pins Rust sources by checksum, and the
+package's `SOURCE-MANIFEST.tsv` identifies each public native repository, revision
+and source-file hash. `SOURCE-ACCESS.md` provides retrieval and rebuild directions.
+The audit also found a 166 MB Opus DNN model archive among the native build inputs;
+the pinned builder recipe retrieves it from its upstream source.
 
 Release assets:
 
 - [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-windows-x86_64.zip)
-- [Complete source archive](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-source.tar.zst)
+- [v0.3.0 complete source archive](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-source.tar.zst)
+- [GitHub source code at v0.3.0](https://github.com/deminden/riina/archive/refs/tags/v0.3.0.tar.gz)
 - [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.0/SHA256SUMS.txt)
 - [Verification record](https://github.com/deminden/riina/releases/download/v0.3.0/RELEASE-VERIFICATION.json)
 
-The v0.3.1 candidate must pass the exact package, corresponding-source, and
-playback gates before its Windows binary is public. Earlier native shutdown failures
+The v0.3.2 candidate must pass the exact package, source-access, and playback
+gates before its Windows binary is public. Earlier native shutdown failures
 and their resolution remain in `docs/native-distribution-audit.json` as
 release-engineering evidence.
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
@@ -311,8 +311,8 @@ terms and package provenance are recorded in `docs/licensing.md` and
 
 ## Verification state
 
-The parity inventory contains 224 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. The 0.3.1 candidate
+The parity inventory contains 228 currently inventoried requirements,
+while explicitly reporting that the inventory is incomplete. The 0.3.2 candidate
 must run the complete package, corresponding-source, and playback gates. The Unix presentation marker
 derives `Clone` to match the Windows adapter's shared timer ownership. The full
 macOS/Linux application workflow passed Clippy, workspace tests, and application
@@ -327,3 +327,41 @@ Local verification evidence and exact limitations are recorded in
 `docs/verification.md` and the requirement rows in `docs/parity.csv`. GUI, HDR,
 platform, or release-package behavior is not considered verified unless its evidence
 is recorded for that exact surface or artifact.
+
+Plugin HTTP requests now have a permission-gated QuickJS promise bridge for GET, POST, PUT, PATCH and DELETE. Exact and wildcard manifest-domain checks run before sending. Redirects are followed only after rechecking each target against the manifest; authorization and cookie headers are stripped across hosts. Request count, timeout, payload, and response limits are enforced. A localhost response test passes; the JavaScript Promise bridge, external-network behavior, downloads, and XML-RPC APIs remain open.
+The plugin core API now exposes audio, subtitle, and video track snapshots, serialized current tracks, typed track selection, audio/subtitle delay, volume, mute, permission-checked external track loading, `setUIVisibility`, `getRecentDocuments`, and `getVersion`. Recent-document entries use the app's persisted recent-media list and update from playback snapshots. Version results use the app package version, the release workflow run number (or `development` for local builds), and the loaded libmpv `mpv-version` property. The visibility method mirrors IINA's `disableUI` behavior: setting it true blocks later control reveals, while existing controls remain until their normal hide transition. `formattedTitle` preserves IINA track IDs, metadata, and localized language names; full playback history, the window proxy, and live player-session verification remain open.
+
+The plugin host now starts plugins requesting the network permission used by the
+HTTP API; the previous capability check rejected them before JavaScript execution.
+The permission gate and a localhost HTTP JSON response are covered by tests;
+JavaScript Promise and external-network behavior remain unverified. The file API
+supports exists, list, named text encodings for reads, UTF-8 writes, delete, move,
+and binary handles with seek/read/write/close operations bounded to 4 MiB each.
+UTF-8/16/32, strict ASCII, Latin-1, and common WHATWG labels are decoded; Foundation
+encodings absent from or mapped differently by the portable decoder remain open.
+Move accepts the reviewed absolute-path permission for either endpoint;
+overwriting external files through text `write` is denied to match the plugin API
+behavior.
+`@data` and `@tmp` are plugin-scoped; `.` and in-root `..` segments are normalized,
+root escapes and storage symlinks are rejected, and absolute paths require the
+reviewed file-system permission. `@current/<path>` now expands against the current
+media directory and requires that grant; `@video/<id>`, `@audio/<id>`, and `@sub/<id>`
+resolve the current external track paths from playback context. Trash, unsupported
+Foundation encodings, cross-volume move behavior, and exact IINA path semantics
+remain open. `showInFinder` now resolves a plugin path and delegates to
+the platform file-manager adapter; its external path requires the same explicit
+file-system permission. Workspace tests cover its permission gate, but not the OS
+file-manager interaction. Handle tests cover binary reads and writes, seeking,
+offsets, closing, and per-call limits; separate path tests cover private and granted
+external locations. The Rust notice collector still stops at the pre-existing
+`webpki-roots` CDLA data license, so the full release notice audit needs review.
+
+`iina.core` now exposes permission-aware media opening, OSD, pause/resume/stop,
+relative and absolute seek, playback speed, chapter selection, a playback-status
+proxy, chapter snapshots, recent-document and version snapshots, and the
+`setUIVisibility` disable-UI state. Calls become
+typed events sent through the player's host; local paths require filesystem
+permission and network URLs require network permission plus a manifest-allowed
+domain for HTTP(S) and SMB. Other URL schemes, including RTSP, follow IINA's
+filesystem-permission branch. The full playback-history getter and window proxy
+remain unimplemented.

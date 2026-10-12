@@ -67,6 +67,7 @@ pub enum Command {
     },
     SetVolumeBoost(bool),
     ToggleMute,
+    SetMuted(bool),
     Speed(f64),
     MultiplySpeed(f64),
     FrameStep,
@@ -159,6 +160,7 @@ pub enum Command {
     AddSubtitle(String),
     AddSubtitlesWithoutSelection(Vec<String>),
     AddAudio(String),
+    AddVideo(String),
     AudioDelay(f64),
     AdjustAudioDelay(f64),
     SubtitleDelay(f64),
@@ -270,6 +272,11 @@ impl Command {
                 vec!["multiply".into(), "speed".into(), factor.to_string()]
             }
             Self::ToggleMute => vec!["cycle".into(), "mute".into()],
+            Self::SetMuted(muted) => vec![
+                "set".into(),
+                "mute".into(),
+                if *muted { "yes" } else { "no" }.into(),
+            ],
             Self::FrameStep => vec!["frame-step".into()],
             Self::FrameBackStep => vec!["frame-back-step".into()],
             Self::CaptureFrame => vec!["screenshot-raw".into(), "video".into(), "rgba".into()],
@@ -351,12 +358,14 @@ impl Command {
                 vec!["playlist-move".into(), from.to_string(), to.to_string()]
             }
             Self::ClearPlaylist => vec!["playlist-clear".into()],
-            Self::AddSubtitle(path) | Self::AddAudio(path) if valid_path(path) => {
+            Self::AddSubtitle(path) | Self::AddAudio(path) | Self::AddVideo(path)
+                if valid_path(path) =>
+            {
                 let args = vec![
-                    if matches!(self, Self::AddAudio(_)) {
-                        "audio-add"
-                    } else {
-                        "sub-add"
+                    match self {
+                        Self::AddAudio(_) => "audio-add",
+                        Self::AddVideo(_) => "video-add",
+                        _ => "sub-add",
                     }
                     .into(),
                     path.clone(),
@@ -1152,8 +1161,12 @@ pub struct Track {
     pub external_filename: Option<String>,
     #[serde(default, rename = "default")]
     pub is_default: bool,
+    #[serde(default)]
+    pub forced: bool,
     #[serde(default, rename = "demux-channel-count")]
     pub channels: Option<i64>,
+    #[serde(default, rename = "demux-channels")]
+    pub channel_layout: Option<String>,
     #[serde(default, rename = "demux-samplerate")]
     pub sample_rate: Option<i64>,
     #[serde(default, rename = "demux-w")]
@@ -1323,6 +1336,8 @@ pub struct Playback {
     pub pause_when_open: bool,
     pub generation: u64,
     pub phase: Phase,
+    /// Version string from the loaded libmpv runtime, when that property is available.
+    pub mpv_version: Option<String>,
     pub position: Option<f64>,
     pub duration: Option<f64>,
     pub paused: bool,
@@ -2860,7 +2875,9 @@ mod tests {
                 albumart: false,
                 external_filename: None,
                 is_default: false,
+                forced: false,
                 channels: None,
+                channel_layout: None,
                 sample_rate: None,
                 width: None,
                 height: None,

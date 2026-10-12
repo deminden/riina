@@ -1,10 +1,10 @@
 surface,upstream_file,implementation_status,verification_status,remaining_difference
-core,iina/JavascriptAPICore.swift,missing,pending,Public methods and event ordering not transcribed
+core,iina/JavascriptAPICore.swift,partial,core-playback-status-chapter-recent-document-version-track-and-ui-visibility-APIs-unit-tested; workspace-tested,"Core playback methods emit typed commands; status, chapter and audio/subtitle/video track proxies read playback snapshots. Media opens and external track loads use reviewed filesystem/network permissions and manifest-domain checks. setUIVisibility now blocks future control reveals when enabled, matching IINA's disable-UI state. History getter, the window proxy, exact window semantics, GUI command execution and native platform validation remain open"
 mpv,iina/JavascriptAPIMpv.swift,missing,pending,Property and hook semantics not implemented
 events,iina/JavascriptAPIEvent.swift,missing,pending,Event ordering and callbacks not implemented
-console,iina/JavascriptAPIConsole.swift,missing,pending,Logging API not implemented
-files,iina/JavascriptAPIFile.swift,missing,pending,Permissions and filesystem semantics not implemented
-http,iina/JavascriptAPIHttp.swift,missing,pending,Network permission and promise semantics not implemented
+console,iina/JavascriptAPIConsole.swift,partial,basic-console-runtime-tested,QuickJS console log/info/warn/error accept a single string; variadic values; object formatting and severity parity remain open
+files,iina/JavascriptAPIFile.swift,partial,plugin-file-api-unit-tested,"Plugin-scoped @data and @tmp list/read/write/delete/move plus binary handle seek/read/write/close and showInFinder operations are bounded or permission-gated; @current paths use the current media directory and reviewed filesystem grant; @video/@audio/@sub aliases resolve current external track paths. Trash, Foundation encodings missing from or mapped differently by the WHATWG decoder, exact IINA path semantics, and native file-manager reveal verification remain open"
+http,iina/JavascriptAPIHttp.swift,partial,network-permission-gate-unit-tested,"GET/POST/PUT/PATCH/DELETE use permission-gated promises with manifest-domain checks; downloads, XML-RPC and HTTP transport runtime verification remain open"
 websocket,iina/JavascriptAPIWebSocket.swift,missing,pending,Network lifecycle not implemented
 input,iina/JavascriptAPIInput.swift,missing,pending,Keybinding contribution not implemented
 menus,iina/JavascriptAPIMenu.swift,missing,pending,Menu contributions not implemented

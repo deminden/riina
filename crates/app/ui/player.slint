@@ -1066,6 +1066,7 @@ export component PlayerWindow inherits Window {
     changed loop-label => { root.video-menu-changed(); }
     in-out property <bool> controls-visible: true;
     in-out property <bool> controls-rendered: true;
+    in property <bool> plugin-ui-disabled: false;
     in-out property <bool> control-auto-hide-enabled: true;
     in-out property <float> control-auto-hide-timeout-secs: 2.5;
     in-out property <bool> title-bar-hovered: false;
@@ -2338,6 +2339,10 @@ export component PlayerWindow inherits Window {
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
     changed loaded => { root.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
     changed controls-visible => {
+        if root.plugin-ui-disabled && root.controls-visible {
+            root.controls-visible = false;
+            return;
+        }
         if !root.controls-visible { keys.focus(); }
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(root.controls-visible);

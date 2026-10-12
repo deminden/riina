@@ -35,7 +35,7 @@ coding tools as contributors.
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.3.1.
+the minor digit for major milestones. The current development version is 0.3.2.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
@@ -56,17 +56,24 @@ verification; do not poll repeatedly or let a running check pause development. I
 check fails, inspect the failure, fix it, and resume independent work while any rerun
 is in flight. Do not start duplicate builds or CI runs just to get another status update.
 Monitor free space on C: during large or repeated builds. When space is running low,
-remove stale project-local Cargo build artifacts with `cargo clean` (or a specific
-project target directory), after confirming no active check is using that directory.
-For large Windows builds with a growing incremental cache, set `CARGO_INCREMENTAL=0`
-for the check or build so generated compiler state does not consume the drive.
+keep Cargo incremental compilation enabled. Measure the project-local
+`target\debug` directory and clean its generated build artifacts only when it grows
+above 50 GB, after confirming no active check or application is using that directory.
+Prefer cleaning the specific oversized project cache or package outputs; preserve
+logs, release evidence, and other non-generated project artifacts.
 Do not routinely erase the shared Cargo registry or Git download caches: they are
 costly to repopulate and are not the project's generated build output.
 Periodically review the project-local `target` directory and clean stale Cargo
-build artifacts when they are no longer useful. Before cleaning, confirm no active
-build, test, or application process is using the target directory; use `cargo clean`
-or a specific target directory and preserve logs, release evidence, and other
-non-generated project artifacts.
+build artifacts when they are no longer useful and the size threshold is exceeded.
+For release workflows, reuse a successful native-engine artifact from an earlier
+run when the workflow supports it, to avoid repeating multi-hour native builds.
+Verify the artifact is successful and matches the exact native source revisions,
+patches, build scripts, target architecture, and package provenance for the
+candidate; never reuse an artifact with a mismatched or unverifiable build
+identity. Do not duplicate full native or vendored Rust source trees in release
+assets. Keep source access clear through the immutable Riina release tag,
+Cargo.lock, pinned native repository/revision manifest, public upstream sources,
+and build instructions alongside the binary.
 
 Current product direction: riina is a Rust IINA reimplementation. Windows 11 x64
 remains the current supported target. The user has made full macOS-version parity

@@ -1811,7 +1811,8 @@ pub(crate) fn configure_player(
     ) {
         app.set_status(format!("OpenSubtitles credential storage: {error}").into());
     }
-    let plugin_host = match crate::plugin_host::PluginHost::start(&prefs_path) {
+    let plugin_host = match crate::plugin_host::PluginHost::start(&prefs_path, &prefs.recent_media)
+    {
         Ok(host) => Some(host),
         Err(error) => {
             app.set_status(error.into());
@@ -1821,6 +1822,7 @@ pub(crate) fn configure_player(
     let plugin_host_handle = plugin_host
         .as_ref()
         .map(crate::plugin_host::PluginHost::handle);
+    let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     #[cfg(target_os = "windows")]
     let plugin_overlay_presenter =
         Rc::new(RefCell::new(platform::PluginOverlayPresenter::default()));
@@ -1836,6 +1838,7 @@ pub(crate) fn configure_player(
     let plugin_host_timer = plugin_host_handle.as_ref().map(|handle| {
         let timer = Rc::new(slint::Timer::default());
         let messages = handle.clone();
+        let player_commands = plugin_command_sender.clone();
         let weak = app.as_weak();
         let osd_timer = plugin_osd_timer_weak.clone();
         let osd_generation = plugin_osd_generation.clone();
@@ -1858,6 +1861,19 @@ pub(crate) fn configure_player(
                         crate::plugin_host::PluginHostMessage::Log(text)
                         | crate::plugin_host::PluginHostMessage::Status(text) => {
                             app.set_status(text.into());
+                        }
+                        crate::plugin_host::PluginHostMessage::PlayerCommand(command) => {
+                            let result = player_commands.lock().ok().and_then(|sender| {
+                                sender.as_ref().map(|sender| sender.send(command))
+                            });
+                            if let Some(Err(error)) = result {
+                                app.set_status(
+                                    format!("Plugin player command failed: {error}").into(),
+                                );
+                            }
+                        }
+                        crate::plugin_host::PluginHostMessage::SetUiVisibility(disabled) => {
+                            app.set_plugin_ui_disabled(disabled);
                         }
                         crate::plugin_host::PluginHostMessage::ShowOsd(text) => {
                             let generation = osd_generation.get().wrapping_add(1);
@@ -1967,6 +1983,7 @@ pub(crate) fn configure_player(
         timer
     });
     let recent_media = Rc::new(RefCell::new(prefs.recent_media.clone()));
+    let plugin_recent_media = Arc::new(std::sync::Mutex::new(prefs.recent_media.clone()));
     let history_cleared = Rc::new(Cell::new(false));
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
@@ -2272,6 +2289,12 @@ pub(crate) fn configure_player(
     let picture_in_picture_state_dirty = Arc::new(AtomicBool::new(false));
     let notify_music_mode_state = music_mode_state.clone();
     let worker_scratch = screenshot_scratch.clone();
+    let notify_plugin_host = plugin_host_handle.clone();
+    let notify_plugin_recent_media = plugin_recent_media.clone();
+    let notified_plugin_file_context = Arc::new(std::sync::Mutex::new(
+        crate::plugin_files::PluginPlayerFileContext::default(),
+    ));
+    let last_notified_plugin_file_context = notified_plugin_file_context.clone();
     #[cfg(target_os = "macos")]
     let notify_picture_in_picture_state_dirty = picture_in_picture_state_dirty.clone();
     let notify = move |state: Playback| {
@@ -2279,6 +2302,21 @@ pub(crate) fn configure_player(
         let _retain_until_native_teardown = &worker_scratch;
         if let Ok(mut latest_playback) = observed_playback.lock() {
             *latest_playback = state.clone();
+        }
+        let plugin_context = crate::plugin_host::player_file_context(
+            &state,
+            &mut notify_plugin_recent_media
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        );
+        if let Ok(mut last_context) = last_notified_plugin_file_context.lock()
+            && *last_context != plugin_context
+            && let Some(host) = &notify_plugin_host
+            && host
+                .update_player_file_context(plugin_context.clone())
+                .is_ok()
+        {
+            *last_context = plugin_context;
         }
         #[cfg(target_os = "macos")]
         notify_picture_in_picture_state_dirty.store(true, Ordering::Release);
@@ -2355,6 +2393,9 @@ pub(crate) fn configure_player(
             return Err(std::io::Error::other(error).into());
         }
     };
+    if let Ok(mut sender) = plugin_command_sender.lock() {
+        *sender = Some(player.command_sender());
+    }
     let subtitle_priority_timer = Rc::new(slint::Timer::default());
     let subtitle_discovery_ready = Arc::new(AtomicU64::new(u64::MAX));
     let (online_subtitles_window, online_subtitles_timer) = crate::open_subtitles::connect_player(
@@ -2706,12 +2747,16 @@ pub(crate) fn configure_player(
         {
             let path = prefs_path.clone();
             let recent_media = recent_media.clone();
+            let plugin_recent_media = plugin_recent_media.clone();
             let history_cleared = history_cleared.clone();
             let welcome = welcome.map(WelcomeWindow::as_weak);
             let resume_last_position = prefs.resume_last_position;
             move || {
                 let removed = crate::utilities_preferences::clear_recent_history(&path)?;
                 recent_media.borrow_mut().clear();
+                if let Ok(mut recent) = plugin_recent_media.lock() {
+                    recent.clear();
+                }
                 history_cleared.set(true);
                 if let Some(welcome) = welcome.as_ref().and_then(slint::Weak::upgrade) {
                     refresh_welcome_history(&welcome, &[], resume_last_position);
@@ -2992,7 +3037,9 @@ pub(crate) fn configure_player(
     let weak = app.as_weak();
     let activity_timer = idle_timer.clone();
     app.on_activity(move || {
-        if let Some(app) = weak.upgrade() {
+        if let Some(app) = weak.upgrade()
+            && !app.get_plugin_ui_disabled()
+        {
             app.set_controls_visible(true);
             schedule_control_hide(&app, &activity_timer);
         }

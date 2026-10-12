@@ -13,6 +13,7 @@ on:
       - 'scripts/check-release-artifacts.py'
       - 'scripts/tests/test_windows_runtime.py'
       - 'scripts/tests/test_release_artifacts.py'
+      - 'docs/SOURCE-ACCESS.md'
       - 'docs/native-distribution-audit.json'
       - 'LICENSES/**'
   workflow_dispatch:
@@ -89,7 +90,7 @@ jobs:
           key: native-clang-x64-b2856ee-${{ hashFiles('tools/mpv/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             native-clang-x64-b2856ee-
-      - name: Build pinned native engine and corresponding source
+      - name: Build pinned native engine and source index
         shell: bash
         env:
           RIINA_BUILD_IMAGE: ghcr.io/shinchiro/archlinux@sha256:c7dffe77b57d98b10e327dde12d3977faf4cb90aa7cb4f5eeac4e9d68d724239
@@ -119,15 +120,6 @@ jobs:
           path: native-runtime/
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
-        with:
-          name: windows-native-source
-          path: |
-            riina-native-source.tar.zst
-            riina-native-source.tar.zst.sha256
-          if-no-files-found: error
-          retention-days: 7
-
   windows-package:
     if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.release-readiness.outputs.native_run_id != ''))
     runs-on: windows-latest
@@ -135,6 +127,7 @@ jobs:
     timeout-minutes: 90
     env:
       CARGO_INCREMENTAL: '0'
+      RIINA_BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
@@ -272,6 +265,8 @@ jobs:
           Copy-Item native-runtime/* $dist -Recurse -Force
           Copy-Item LICENSE, LICENSE-GPL-3.0.txt, THIRD_PARTY_NOTICES.md, README.md $dist
           Copy-Item docs/licensing.md $dist/LICENSING.md
+          Copy-Item docs/SOURCE-ACCESS.md $dist/SOURCE-ACCESS.md
+          $env:GITHUB_SHA | Set-Content -NoNewline (Join-Path $dist 'SOURCE-COMMIT.txt')
           python scripts/check-windows-runtime.py --package "$dist"
           if ($LASTEXITCODE -ne 0) { throw 'Portable package has unresolved Windows imports.' }
           python scripts/package-rust-licenses.py --output "$dist/THIRD_PARTY_LICENSES/RUST"
@@ -283,9 +278,9 @@ jobs:
           Riina $version for Windows x86_64
 
           This portable package contains the Windows application and its complete
-          mpv runtime. The corresponding application and native dependency sources,
-          build recipe, patches, and source manifest are provided in the release's
-          riina-$version-source.tar.zst asset.
+          mpv runtime. The corresponding application source is linked from the
+          release's exact source tag. Native source repositories and revisions are
+          listed in SOURCE-MANIFEST.tsv; rebuild instructions are in SOURCE-ACCESS.md.
 
           Extract this folder and run riina.exe. No installer is required.
           "@ | Set-Content -Encoding utf8 (Join-Path $dist 'README.txt')
@@ -309,75 +304,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  source-package:
-    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.release-readiness.outputs.native_run_id != ''))
-    runs-on: ubuntu-24.04
-    needs: [release-readiness, native-engine]
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
-        if: needs.native-engine.result == 'success'
-        with:
-          name: windows-native-source
-          path: native-source-artifact
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
-        if: needs.native-engine.result == 'skipped'
-        with:
-          name: windows-native-source
-          path: native-source-artifact
-          repository: ${{ github.repository }}
-          run-id: ${{ needs.release-readiness.outputs.native_run_id }}
-          github-token: ${{ github.token }}
-      - name: Verify downloaded corresponding-source archive
-        run: python scripts/check-release-artifacts.py checksum --file native-source-artifact/riina-native-source.tar.zst --manifest native-source-artifact/riina-native-source.tar.zst.sha256
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.99.0 --profile minimal
-      - name: Vendor locked Rust sources
-        run: cargo vendor --locked --versioned-dirs cargo-vendor > "$RUNNER_TEMP/cargo-vendor-config.toml"
-      - name: Collect Windows dependency terms and notices
-        run: |
-          set -euo pipefail
-          python scripts/package-rust-licenses.py --output "$RUNNER_TEMP/rust-license-bundle"
-          curl --fail --location https://slint.dev/agreements/slint-royalty-free-license.pdf \
-            --output "$RUNNER_TEMP/SLINT-ROYALTY-FREE-2.0.pdf"
-          echo "934FBCBCCBDA12C24AE04869128DD6CB89FDCA45B93E437176AB667DA437B60D  $RUNNER_TEMP/SLINT-ROYALTY-FREE-2.0.pdf" \
-            | sha256sum --check
-      - name: Assemble complete source and build bundle
-        run: |
-          set -euo pipefail
-          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)"
-          source_dir="$RUNNER_TEMP/riina-source-$version"
-          mkdir -p "$source_dir/.cargo" "$source_dir/native-build"
-          git archive "$GITHUB_SHA" | tar -xf - -C "$source_dir"
-          printf '%s\n' "$GITHUB_SHA" > "$source_dir/SOURCE-COMMIT.txt"
-          mkdir -p "$source_dir/THIRD_PARTY_LICENSES"
-          cp -a "$RUNNER_TEMP/rust-license-bundle" "$source_dir/THIRD_PARTY_LICENSES/RUST"
-          cp "$RUNNER_TEMP/SLINT-ROYALTY-FREE-2.0.pdf" "$source_dir/THIRD_PARTY_LICENSES/"
-          cp -a cargo-vendor "$source_dir/cargo-vendor"
-          cp "$RUNNER_TEMP/cargo-vendor-config.toml" "$source_dir/.cargo/config.toml"
-          tar --zstd -xf native-source-artifact/riina-native-source.tar.zst -C "$source_dir/native-build"
-          cp native-source-artifact/riina-native-source.tar.zst.sha256 "$source_dir/native-build/"
-          printf '\nThe complete corresponding source for the release executable and native runtime is in native-build/native-source and cargo-vendor/. The exact native source states and patch hash are in native-build/native-source/SOURCE-MANIFEST.tsv. The app uses Cargo.lock and Rust 1.99.0; .cargo/config.toml enables offline builds from cargo-vendor/. Git object history is omitted because every captured source file and symlink target is recorded, every file is SHA-256 verified, and the manifest records each original revision. To rebuild the engine, use the same Arch Linux build image with RIINA_NATIVE_SOURCE_ROOT set to native-build/native-source/native-sources, then run bash tools/mpv/build-windows.sh. The script verifies every recorded file hash and recreates local snapshot repositories for the pinned patch steps.\n' >> "$source_dir/README.md"
-          mkdir -p source
-          mv "$source_dir" "source/riina-$version"
-          tar --zstd -cf "riina-$version-source.tar.zst" -C source "riina-$version"
-          sha256sum "riina-$version-source.tar.zst" > "riina-$version-source.tar.zst.sha256"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
-        with:
-          name: complete-source
-          path: |
-            riina-*-source.tar.zst
-            riina-*-source.tar.zst.sha256
-          if-no-files-found: error
-          retention-days: 7
-
   package-verification:
-    # A reused native-engine job is intentionally skipped. Keep package/source
-    # verification runnable after successful dependent jobs in that candidate.
-    if: always() && needs.windows-package.result == 'success' && needs.source-package.result == 'success'
+    if: always() && needs.windows-package.result == 'success'
     runs-on: ubuntu-24.04
-    needs: [windows-package, source-package]
+    needs: [windows-package]
     outputs:
       version: ${{ steps.package.outputs.version }}
     steps:
@@ -385,10 +315,6 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
         with:
           name: windows-package
-          path: release-assets
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
-        with:
-          name: complete-source
           path: release-assets
       - name: Audit exact extracted binary and corresponding source
         id: package
@@ -399,28 +325,12 @@ jobs:
             test "$GITHUB_REF_NAME" = "v$version"
           fi
           test -f "release-assets/riina-$version-windows-x86_64.zip"
-          test -f "release-assets/riina-$version-source.tar.zst"
-          cat "release-assets/riina-$version-source.tar.zst.sha256" >> release-assets/SHA256SUMS.txt
           (cd release-assets && sha256sum --check SHA256SUMS.txt)
-          mkdir binary-source-check source-check
-          unzip -q "release-assets/riina-$version-windows-x86_64.zip" -d binary-source-check
-          tar --zstd -xf "release-assets/riina-$version-source.tar.zst" -C source-check
-          test "$(cat "source-check/riina-$version/SOURCE-COMMIT.txt")" = "$GITHUB_SHA"
-          # Native dependency builds can create extra build-only license files
-          # after the corresponding source snapshot is captured. Construct the
-          # final portable ZIP from notices whose exact bytes exist in that
-          # snapshot; the following audit still verifies every source hash.
-          python scripts/prepare-release-package.py --binary binary-source-check \
-            --native-source "source-check/riina-$version/native-build/native-source" \
-            --portable-zip "release-assets/riina-$version-windows-x86_64.zip"
-          (cd release-assets && sha256sum "riina-$version-windows-x86_64.zip" > SHA256SUMS.txt \
-            && sha256sum "riina-$version-source.tar.zst" >> SHA256SUMS.txt)
-          rm -rf binary-source-check
           mkdir binary-source-check
           unzip -q "release-assets/riina-$version-windows-x86_64.zip" -d binary-source-check
           python scripts/check-windows-runtime.py --package binary-source-check
           python scripts/check-release-artifacts.py package --binary binary-source-check \
-            --source "source-check/riina-$version" --version "$version" \
+            --source "$GITHUB_WORKSPACE" --version "$version" \
             > release-assets/RELEASE-VERIFICATION.json
           cat release-assets/RELEASE-VERIFICATION.json
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -432,9 +342,9 @@ jobs:
           retention-days: 7
 
   publish:
-    if: always() && needs.release-readiness.result == 'success' && needs.windows-package.result == 'success' && needs.source-package.result == 'success' && needs.package-verification.result == 'success' && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.publish_release))
+    if: always() && needs.release-readiness.result == 'success' && needs.windows-package.result == 'success' && needs.package-verification.result == 'success' && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.publish_release))
     runs-on: ubuntu-24.04
-    needs: [release-readiness, windows-package, source-package, package-verification]
+    needs: [release-readiness, windows-package, package-verification]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
         with:
@@ -443,7 +353,7 @@ jobs:
         with:
           name: verified-release-assets
           path: release-assets
-      - name: Publish release with visible binary and source assets
+      - name: Publish release with binary and source access information
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.package-verification.outputs.version }}
@@ -465,23 +375,24 @@ jobs:
           Riina $version for Windows x86_64.
 
           The portable ZIP contains the application and full media runtime. The
-          complete corresponding source, vendored Rust dependencies, native source
-          checkouts, build scripts and patch are available in the source archive.
-          SHA-256 checksums are included. Extract the ZIP and run riina.exe.
+          exact Riina source is available from this release's Git tag. Cargo.lock
+          pins Rust dependencies; SOURCE-MANIFEST.tsv records native source
+          repositories, revisions and hashes. See SOURCE-ACCESS.md in the package
+          for source retrieval and rebuild instructions. SHA-256 checksums are
+          included. Extract the ZIP and run riina.exe.
 
-          [Download Windows x64]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip) · [Complete source]($repo/releases/download/$tag/riina-$version-source.tar.zst) · [SHA-256 checksums]($repo/releases/download/$tag/SHA256SUMS.txt)
+          [Download Windows x64]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip) · [Riina source at this tag]($repo/archive/refs/tags/$tag.tar.gz) · [SHA-256 checksums]($repo/releases/download/$tag/SHA256SUMS.txt)
 
           [![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/v1.18.1/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
 
           The combined application is distributed under GPLv3 terms. Riina's
           independently written source remains MIT-licensed; third-party terms
-          and notices are included in the package and source archive.
+          and notices are included in the package. Native sources remain available
+          at the immutable upstream revisions identified by SOURCE-MANIFEST.tsv.
           EOF
           gh release create "$tag" \
             "release-assets/riina-$version-windows-x86_64.zip" \
             "release-assets/SHA256SUMS.txt" \
-            "release-assets/riina-$version-source.tar.zst" \
-            "release-assets/riina-$version-source.tar.zst.sha256" \
             "release-assets/RELEASE-VERIFICATION.json" \
             --verify-tag --latest --title "Riina $version" --notes-file release-notes.md
           release_url="$repo/releases/tag/$tag"

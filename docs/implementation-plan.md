@@ -20,8 +20,8 @@ priorities, not a project timeline. The traceable requirement inventory is
    app build, visible playback, input, dialogs, window lifecycle, and shutdown evidence.
 4. Deliver Windows binaries from the pinned native build. The MIT source and GPLv3
    combined-package terms are settled. A release still requires exact runtime contents,
-   notices, corresponding sources, rebuild evidence, and playback tests from the final
-   extracted package.
+   notices, public source access through the tagged application source and pinned
+   upstream revisions, rebuild evidence, and playback tests from the final package.
 
 ## Current verification gates
 
@@ -31,8 +31,8 @@ priorities, not a project timeline. The traceable requirement inventory is
   source inspection and layout dimensions alone do not establish parity.
 - Platform support requires full application and playback/lifecycle evidence. Library-only
   CI is insufficient.
-- Binary publication requires successful validation of the exact candidate package and
-  its corresponding-source bundle. The license choice itself is not a gate.
+- Binary publication requires successful validation of the exact candidate package,
+  its notices and public corresponding-source access. The license choice itself is not a gate.
 - Run long checks asynchronously and continue independent work while they run. Record
   which revision and components each check covers; do not wait idly or launch duplicates.
 

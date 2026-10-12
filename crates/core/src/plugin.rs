@@ -373,6 +373,45 @@ impl Manifest {
     }
 }
 
+impl Manifest {
+    /// Network access is restricted to HTTP(S) hosts listed by the plugin.
+    /// Wildcard entries match subdomains only, matching IINA's manifest rules.
+    pub fn allows_network_url(&self, value: &str) -> bool {
+        network_url_allowed(value, &self.allowed_domains)
+    }
+}
+
+/// Validate an HTTP(S) URL against manifest exact-host and subdomain patterns.
+pub fn network_url_allowed(value: &str, domains: &[String]) -> bool {
+    let Ok(url) = url::Url::parse(value) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    let host = host.to_ascii_lowercase();
+    domains.iter().any(|pattern| {
+        if pattern == "*" {
+            return true;
+        }
+        if let Some(domain) = pattern.strip_prefix("*.") {
+            let domain = domain.to_ascii_lowercase();
+            host.len() > domain.len()
+                && host
+                    .strip_suffix(&domain)
+                    .is_some_and(|prefix| prefix.ends_with('.'))
+        } else {
+            host == pattern.to_ascii_lowercase()
+        }
+    })
+}
+
 fn nonempty(value: String, field: &str) -> Result<String, String> {
     if value.trim().is_empty() {
         Err(format!("Plugin manifest field {field} cannot be empty"))
@@ -510,6 +549,23 @@ mod tests {
         assert!(valid_domain_pattern("video.example.org"));
         assert!(!valid_domain_pattern("https://example.org"));
         assert!(!valid_domain_pattern("*."));
+    }
+
+    #[test]
+    fn network_urls_match_declared_http_hosts_only() {
+        let domains = vec!["example.org".to_owned(), "*.media.example".to_owned()];
+        assert!(network_url_allowed("https://example.org/watch", &domains));
+        assert!(network_url_allowed(
+            "http://cdn.media.example:8080/watch",
+            &domains
+        ));
+        assert!(!network_url_allowed("https://sub.example.org/", &domains));
+        assert!(!network_url_allowed("https://notexample.org/", &domains));
+        assert!(!network_url_allowed("file:///etc/passwd", &domains));
+        assert!(!network_url_allowed(
+            "https://user@example.org/watch",
+            &domains
+        ));
     }
 
     #[test]

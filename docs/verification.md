@@ -51,6 +51,18 @@ a public-preview label and its published runner image as macOS 27.0, so the
 See [GitHub's runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 and [runner image release notes](https://github.com/actions/runner-images/releases).
 
+## Visible player smoke check · 2026-10-12
+
+On the currently running Windows player executable (`target/debug/riina.exe`,
+last written 2026-10-11 18:50), a paused media window rendered video, bilingual
+subtitles, playback position and status. The Playback menu opened and Music Mode
+could be toggled on and back off; the unchecked state was confirmed after restore.
+The Video menu opened and exposed Aspect Ratio, Crop, Rotation, Flip and
+Deinterlace. An automation click on the Aspect Ratio submenu failed, after which
+a fresh capture showed the player still responsive and unchanged. This is a
+limited smoke check of that existing binary, not verification of the unbuilt
+source changes, full UI parity, dialogs, or the release package.
+
 # macOS app bundle and default file associations · 2026-10-12
 
 The shared IINA v1.5.0 imported-type manifest now drives Windows associations,
@@ -2318,3 +2330,207 @@ The locked Windows workspace check, strict Clippy and formatting pass, but do no
 compile the macOS dispatch. The Apple-target workspace check is blocked in
 `ring` by the missing Apple-target C compiler; hardware-key and Control Center
 behavior remain unverified. No tests or GUI checks were run.
+
+## Incremental Windows interface smoke check · 2026-10-12
+
+Launched the rebuilt 0.3.1 debug application with Cargo's default incremental
+compilation enabled. The home screen showed the version, Open File, Open URL,
+and recent-media list. Opening the `moving-square.avi` sample reached the player
+surface and displayed its synthetic test frame. The playlist then advanced to
+`long-silence.wav`; its playback position advanced from 0:08 to 0:24, and the
+Pause control changed to Play with a Paused status after input. This confirms
+basic recent-media navigation, video rendering, and playback state controls.
+Audio output quality, the full control set, and visual parity with the macOS
+reference remain unverified. The C: drive had about 197 GB free after the build;
+`target\debug` was 19.64 GB, including a 6.41 GB incremental cache.
+
+## Plugin file API and activation gates · 2026-10-12
+
+`cargo test --workspace --locked` passed all 143 application tests and the other
+workspace tests, including plugin file API, manifest-domain, private and granted
+external move, external overwrite-rejection, and local HTTP transport coverage.
+The 46 native libmpv integration tests remain ignored because their pinned runtime
+is not provisioned in this test run.
+`cargo clippy --workspace --all-targets --locked -- -D warnings`,
+`cargo fmt --all -- --check`, `git diff --check`, and the parity traceability
+checker passed. The HTTP transport test exercises an allowed localhost JSON
+response; the JavaScript Promise bridge, external network behavior and redirect
+edge cases remain unverified. The file API currently supports exists, list,
+UTF-8 text read/write, delete, and move. Binary handles, trash, track aliases,
+additional encodings, cross-volume move behavior, and full IINA path semantics
+remain open.
+
+## Live Windows playback-control smoke check · 2026-10-12
+
+The rebuilt 0.3.1 application opened on screen. Play/Pause changed the control
+label and status from playing to paused and back to resumed, and the Open File
+dialog was visible through the Windows computer-use surface. The first capture
+showed `long-silence.wav` after a longer delay than the five-second
+`moving-square.avi` fixture. A separate launch showed the next same-folder
+`external-tone.wav` fixture, and saved recent-media state recorded
+`moving-square.avi` at 4.998 seconds. This confirms that the command-line item
+played to its end before later captures; it was not an argument failure. The latest
+rebuilt app also displayed the 0.3.1 Welcome surface with Open File, Open URL, and
+recent media. This smoke check verifies playback progression and controls, not
+captured video pixels. Full IINA visual parity remains unverified.
+
+## Plugin binary file handles · 2026-10-12
+
+Implemented `iina.file.handle(path, mode)` with IINA-compatible `offset`,
+`seekTo`, `seekToEnd`, `read`, `readToEnd`, `write`, and `close` methods. Handles
+are owned by the plugin runtime and close when explicitly closed or when that
+runtime is dropped. Reads and writes are capped at 4 MiB per call, and each plugin
+runtime is limited to 64 open handles. Absolute paths still require the declared
+file-system permission; private `@data` and `@tmp` paths remain scoped.
+
+`cargo test --workspace --locked` passed, including 145 app tests and the new
+JavaScript-facing binary-handle scenario. The 46 native libmpv tests remain ignored
+because the native test runtime was not provisioned. `cargo clippy --workspace
+--all-targets --locked -- -D warnings`, `cargo fmt --all -- --check`, and
+`git diff --check` passed. This verifies the QuickJS bridge and filesystem behavior;
+it does not verify a third-party plugin package or macOS runtime behavior.
+## Plugin file-manager reveal dispatch · 2026-10-12
+
+Added `iina.file.showInFinder(path)` and routed it through Riina's platform file
+manager adapter. Private plugin paths remain available; absolute paths are resolved
+only with the reviewed file-system permission. Windows selects the item in Explorer,
+macOS uses Finder reveal, and Linux currently opens the containing folder as its
+platform adaptation.
+
+`cargo test --workspace --locked` passed all 146 app tests and the remaining
+workspace tests; the 46 native libmpv tests were ignored because the runtime was not
+provisioned. `cargo fmt --all -- --check`, `git diff --check`,
+`cargo clippy --workspace --all-targets --locked -- -D warnings`, and the parity
+traceability checker passed. Tests verify path existence, private and granted external
+path resolution, and rejection of an ungranted external reveal request. The OS
+file-manager launch was not invoked by the tests, so runtime interaction on Windows,
+macOS, and Linux remains unverified.
+
+## Plugin text encoding support · 2026-10-12
+
+`iina.file.read(path, { encoding })` now accepts UTF-8, UTF-16, UTF-32, strict
+ASCII, Latin-1, and common WHATWG encoding labels, including the IINA names for
+Windows code pages, Shift-JIS, EUC-JP, GBK, and GB18030. Decoding is strict: malformed
+byte sequences and unknown/unsupported labels return errors instead of silently
+substituting text. Foundation encodings absent from or mapped differently by the
+portable decoder remain an explicit parity gap.
+
+Added the pinned `encoding_rs` dependency and tested Windows-1252 and Latin-1
+byte semantics, BOM-selected UTF-16/32, Shift-JIS, malformed UTF-8, and unknown
+labels. `cargo test --workspace --locked` passed all 147 app tests and the remaining
+workspace tests; the 46 native libmpv tests were ignored because the native test
+runtime was not provisioned. `cargo clippy --workspace --all-targets --locked -- -D
+warnings`, formatting, and diff checks passed.
+
+A Rust license packaging smoke run collected `encoding_rs` license and copyright
+files, then stopped at the already-locked `webpki-roots` 1.0.9 package because its
+`CDLA-Permissive-2.0` data license is not in the collector's reviewed grant list.
+That dependency was present in the committed lockfile before this change. I did not
+change the license policy; the complete package notice audit remains open for release.
+## Plugin-private path normalization · 2026-10-12
+
+Private `@data` and `@tmp` paths now normalize `.` and in-root `..` segments, matching
+IINA's standardized path expansion for valid private paths. A parent segment that
+would escape the plugin root, rooted paths, and drive-prefix paths are rejected;
+existing symlink containment checks remain in force.
+
+`cargo test --workspace --locked` passed all 148 app tests and the remaining workspace
+tests; 46 native libmpv tests remain ignored without the pinned native runtime.
+`cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D
+warnings`, `git diff --check`, and the parity traceability check passed.
+
+## Plugin media and external-track file aliases · 2026-10-12
+
+Player plugin sessions now receive the current media directory and external track
+paths from playback snapshots. `@current/<path>` resolves relative to the current
+media directory and requires the reviewed file-system grant. `@video/<id>`,
+`@audio/<id>`, and `@sub/<id>` resolve to the matching external track filename;
+these track aliases follow IINA's direct track resolution before the ordinary
+filesystem permission gate. The global plugin session remains independent of player
+context, and context updates are retried if the bounded host command queue is busy.
+
+The alias resolver test passes for granted current-media access, permission denial,
+external audio-track resolution without the generic filesystem grant, and missing
+track handling. Workspace cargo check and app clippy passed; formatting, diff, and
+parity traceability checks passed. Native path behavior and live plugin-session
+playback changes remain unverified in the GUI.
+
+## Plugin core playback actions · 2026-10-12
+
+`iina.core` now emits typed player commands for open, OSD, pause, resume, stop,
+relative seek, absolute seek, speed, and chapter selection. Local paths are resolved
+through the permission-aware plugin file resolver; network media URLs require the
+network permission and a manifest-allowed domain for HTTP(S) and SMB. Other URL
+schemes, including RTSP, follow IINA's filesystem-permission branch. Commands are
+delivered to the player's engine through the host queue.
+
+Runtime tests verify command shapes and numeric validation, plugin-private media
+opening, and file/network permission boundaries. `cargo test --workspace --locked`
+passed all 153 app tests and remaining workspace tests; 46 native libmpv tests were
+ignored because the pinned runtime is not provisioned. Workspace cargo check, app
+clippy, formatting, diff, and parity traceability checks passed. No GUI playback test
+was run for these actions; history/recent/version getters, UI visibility, and other
+IINA core proxy APIs remain open.
+
+The read side of the core API now exposes the playback status proxy and chapter
+snapshot through player context updates. The proxy covers paused, idle, position,
+duration, speed, video dimensions, network-resource state, URL, and title; unknown
+status names return undefined, while unavailable known values return null. A runtime
+test verifies snapshot shape and chapter serialization; a host adapter test checks playback-to-status mapping. GUI playback updates
+and native/macOS behavior remain unverified.
+
+
+## Plugin audio, subtitle, and video track APIs · 2026-10-12
+
+The core plugin API now reads audio/subtitle/video track snapshots and writes track
+selection, audio/subtitle delay, volume, and mute through typed player commands.
+External audio, subtitle, and video loads share the media resolver, including network
+permission and allowed-domain checks. Serialized tracks include IINA's field names,
+forced/default/selected flags, and demux metadata; formatted titles include track ID,
+title, codec details, and default status. Language labels use Riina’s platform-aware
+display-name adapter to match the active system locale.
+
+Runtime tests cover command mapping, null-selection no-op behavior, value bounds, and
+network-load denial. Host tests cover selected track snapshots and serialized metadata.
+The Windows workspace test suite passed 154 app tests and remaining workspace tests;
+46 native libmpv tests were ignored because the pinned runtime is not provisioned.
+Clippy, formatting, and diff checks passed for this worktree. Live player-session command
+delivery, macOS/Linux runtime behavior, GUI captures and live locale changes remain unverified.
+
+## Plugin core UI visibility · 2026-10-12
+
+The runtime test verifies that `iina.core.setUIVisibility(true/false)` emits the
+matching IINA disable-UI flag, and the host test verifies the flag reaches the player
+UI message queue. `cargo fmt --all -- --check`, parity traceability, and
+`git diff --check` pass. The focused UI visibility tests passed, followed by a passing
+`cargo test --workspace --locked` run (156 application tests; 46 native libmpv tests
+ignored because the pinned runtime is not provisioned). Workspace Clippy with
+`-D warnings` also passed.
+No GUI or macOS/Linux runtime test has been performed for this method.
+
+## Plugin core recent documents · 2026-10-12
+
+`iina.core.getRecentDocuments()` now returns the persisted recent-media entries
+as `{name, url}` objects and adds successful current playback items to the live
+snapshot. The plugin host receives the saved list on startup and updated snapshots
+from the playback callback. Tests verify absolute file URLs, remote URL names and
+ordering, host serialization, and the JavaScript getter. The focused mapping and
+runtime tests passed. `cargo test --workspace --locked` passed with 157 application
+tests; 46 native libmpv tests were ignored because the pinned runtime is not
+provisioned. Workspace Clippy with `-D warnings`, formatting, parity traceability,
+and `git diff --check` passed. No live GUI or macOS/Linux behavior has been verified.
+
+## Plugin core version · 2026-10-12
+
+`iina.core.getVersion()` now exposes the IINA-compatible `{iina, build, mpv}`
+shape using Riina's package version, the release run number (or `development` for
+local builds), and the loaded engine's observed `mpv-version` property. The native
+manual defines that property as the mpv version/copyright string, which may be a
+release version or a Git hash: <https://mpv.io/manual/stable/#property-list>. The
+The property-decoding test verifies both the engine string and its transition to
+unavailable state. The runtime test verifies all three returned fields. The focused
+tests and `cargo test --workspace --locked` passed (157 application tests; 46 native
+libmpv tests skipped because the pinned runtime is not provisioned). Workspace
+Clippy with `-D warnings`, `cargo fmt --all -- --check`, parity traceability, and
+`git diff --check` passed. `cargo build --workspace --locked` passed. No native
+GUI version panel or non-Windows app runtime is being claimed for this API.
