@@ -44,6 +44,21 @@ pub(crate) fn current_window(
 pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &OtherPreferences) {
     app.set_subtitle_preferred_languages(preferences.preferred_languages.clone().into());
     app.set_subtitle_default_encoding(preferences.default_encoding.clone().into());
+    app.set_subtitle_encoding_options(ModelRc::new(VecModel::from(
+        SUBTITLE_ENCODING_CHOICES
+            .iter()
+            .map(|(label, code)| crate::CatalogRow {
+                token: (*code).into(),
+                label: (*label).into(),
+                detail: String::new().into(),
+                path: String::new().into(),
+                language: String::new().into(),
+                selected: *code == preferences.default_encoding,
+                playing: false,
+                network: false,
+            })
+            .collect::<Vec<_>>(),
+    )));
 }
 
 pub(crate) fn install_window(

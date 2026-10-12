@@ -3,7 +3,10 @@
 #[cfg(target_os = "windows")]
 use crate::NativeVideoHost;
 use crate::PlayerWindow;
-use riina_core::window_aspect::{self as policy, PixelSize};
+use riina_core::{
+    window_aspect::{self as policy, PixelSize},
+    window_resize::{ManualSizeCommand, ManualSizeContext, manual_size_target},
+};
 use slint::{
     ComponentHandle, PhysicalPosition, PhysicalSize,
     winit_030::{EventResult, WinitWindowAccessor, winit},
@@ -201,6 +204,66 @@ fn connect_with_target(
                 };
                 resize_centered(window, current, target);
                 fit_state.set(target);
+            });
+        }
+    });
+
+    let menu_size_target = target.clone();
+    let menu_size_state = previous_size.clone();
+    app.on_resize_window_command({
+        let weak = app.as_weak();
+        move |index| {
+            let Some(app) = weak.upgrade() else { return };
+            let Some(command) = ManualSizeCommand::from_index(index) else {
+                return;
+            };
+            with_target_window(&menu_size_target, &app, |window| {
+                let current = pixel_size(window.size());
+                let Some((maximum, can_resize)) = window_limits(window) else {
+                    return;
+                };
+                if !can_resize {
+                    return;
+                }
+                let scale = f64::from(window.scale_factor());
+                let Some(size) = manual_size_target(
+                    command,
+                    ManualSizeContext {
+                        current,
+                        video_width: f64::from(app.get_video_window_width()),
+                        video_height: f64::from(app.get_video_window_height()),
+                        rotation: Some(i64::from(app.get_video_window_rotation())),
+                        display_scale: scale,
+                        use_physical_resolution: app.get_use_physical_resolution(),
+                        maximum,
+                        minimum: PixelSize {
+                            width: (520.0 * scale).round() as u32,
+                            height: (300.0 * scale).round() as u32,
+                        },
+                    },
+                ) else {
+                    return;
+                };
+                if command == ManualSizeCommand::FitScreen {
+                    let Some((origin, bounds)) = screen_bounds(window, maximum) else {
+                        return;
+                    };
+                    window.set_size(PhysicalSize::new(size.width, size.height));
+                    window.set_position(PhysicalPosition::new(
+                        origin.x.saturating_add(
+                            i32::try_from(bounds.width.saturating_sub(size.width) / 2)
+                                .unwrap_or(i32::MAX),
+                        ),
+                        origin.y.saturating_add(
+                            i32::try_from(bounds.height.saturating_sub(size.height) / 2)
+                                .unwrap_or(i32::MAX),
+                        ),
+                    ));
+                    window.request_redraw();
+                } else {
+                    resize_centered(window, current, size);
+                }
+                menu_size_state.set(size);
             });
         }
     });

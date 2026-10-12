@@ -235,6 +235,10 @@ impl MacPictureInPicture {
         Ok(())
     }
 
+    pub(crate) fn is_active(&self) -> bool {
+        unsafe { self.controller.isPictureInPictureActive() }
+    }
+
     pub(crate) fn synchronize_playback(&mut self) {
         let Ok(playback) = self.playback.lock() else {
             return;

@@ -3,7 +3,7 @@
 ## Application state
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.2. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.3. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
@@ -15,6 +15,13 @@ Linux desktop Reduce Motion settings while the player or reusable Preferences
 window is open. Linux reads the standardized XDG Settings value and follows its
 change signal; native portal behavior and the complete animation inventory
 remain open.
+Interface > On-Screen Controller now persists independent visibility choices for
+all nine IINA toolbar action types, including Full Screen, Music Mode, Subtitle
+Track, Screenshot, and Live Text. Each action can be moved up or down in the saved
+order; the default remains Plugins, PiP, Playlist, Quick Settings. Matching
+IINA's drag/drop presentation and grouped GUI interaction review remain open.
+Live Text is removed from the toolbar unless enabled and available, matching its
+source preference gate. The preference list can restore IINA defaults.
 Command-line HTTP, HTTPS, RTSP and RTSPS media references now share URL validation
 with the Open URL workflow and retain their position among local paths; live URL
 playback and the wider IINA command-line option grammar remain open.
@@ -26,6 +33,118 @@ native shortcut interaction remains unverified.
 The General settings now preserve IINA's allow-multiple-player, simultaneous-open
 grouping, and duplicate-player defaults. Grouped batches bypass duplicate filtering
 as in IINA; separate-player batches still filter already-open and repeated media.
+The Settings > General surface now stacks Behavior, History, Playlist, and
+Screenshots in one continuous scroll page, matching IINA's page model; search jumps
+to the matching section. History now has IINA's default-on Open Recent and Track all
+played files switches, persists them independently of playback history, and provides
+an app-owned File > Open Recent menu with reopen and clear actions on the shared and
+Windows native menu surfaces. The menu records file-picker selections and optionally
+records successfully loaded media. File > Open URL now has a focused URL-entry dialog
+and the IINA Shift+Command+O equivalent on macOS (Shift+Control+O on Windows), routed
+through the shared URL validation/open path. Workspace compilation passes; live menu
+and URL-dialog interaction,
+restart behavior, matched visuals, and AppKit's system recent-document integration
+remain unverified. Playlist metadata preferences now default on with metadata shown
+only in Music Mode by default; supported local audio tags are loaded asynchronously
+and rendered as title plus artist in playlist rows. Broader format coverage,
+playlist-settings interaction, and matched macOS row geometry remain unverified.
+Playlist's manual-open repeat preference is persisted and dispatched as file or playlist loop
+intent; live interaction and matched rendering remain unverified.
+The Windows native Video menu exposes video-panel and track selection, PiP,
+fullscreen, Float on Top, aspect lock, Live Text, and Music Mode through the
+existing player actions. The new macOS reference set confirms IINA's Video menu
+also includes Half, Normal, and Double Size, Fit to Screen, Bigger Size, and
+Smaller Size, plus delogo and video-filter menus. Half/Normal/Double, Fit to
+Screen, Bigger, and Smaller now route to the shared window-size policy for both
+the shared player and Windows native-video host. The size policy uses the current
+video display bounds, rotation, physical-resolution setting, monitor bounds, and
+IINA's 25-point Bigger/Smaller step. Fit Window to Video belongs in IINA's Layout
+sidebar and has been removed from Riina's Video menu. Fit to Screen centers a
+shrunk window in the current monitor's usable bounds; the other size commands
+preserve video aspect while resizing around the window center. A moving-square
+fixture debug run started, but the current desktop-control session exposed no
+inspectable application windows, so live menu behavior remains unverified.
+Delogo reuses the source-space interactive selector and playback-pause lifecycle,
+then applies a labeled `lavfi` delogo filter; the checked menu item removes only
+Riina's Delogo filter. Shared and Windows native menus are wired. The Video
+Filters window lists active filters, accepts custom mpv filter strings, and
+offers all eleven IINA presets with parameter forms for crop, expand, sharpen,
+blur, delogo, 3D LUT, and custom mpv/FFmpeg filters. It removes active entries,
+saves and edits named filters persistently, and toggles or deletes saved entries
+from the window and Video menu. Preset controls use the reference's descriptive
+parameter labels. Active filter strings can be edited in place and applied while
+preserving the rest of the observed chain; the pinned IINA filter window has no
+active-chain reorder control, so the observed mpv order is retained.
+Saved filters can record, persist, display, and dispatch modifier-aware shortcuts
+from the player window and menu, with platform-specific modifier labels. The 3D
+LUT form now has a native file picker to populate its path without manual entry.
+The window follows the app's
+live light/dark appearance. Workspace formatting check, `cargo check`, and strict
+Clippy pass. Live filter rendering, window interaction, cancellation,
+and matched visuals remain unverified for grouped GUI review.
+See REF-30 in
+`docs/visual-reference-audit.csv`.
+The top-level menus now follow IINA's app, File, Edit, Playback, Video, Audio,
+Subtitles, Plugin, Window, Help order on both shared and Windows-native surfaces.
+File, Playback, Video, Audio and Subtitles sections now follow the pinned
+`MainMenu.xib` order and separators for implemented entries, including nested
+audio-track choices and the reference's alternate speed, volume and delay steps.
+Shortcut metadata is configured for the menu's right-hand column using Command
+on macOS and Control on Windows. These are static source-defined equivalents;
+matching user-customized IINA key bindings dynamically remains open. Windows
+Audio, Subtitles and Plugin menus route their
+implemented actions to existing player commands. The File menu's Open in New
+Window action is source-wired to the multi-file picker and separate-player
+workflow while preserving the current session; live selection and startup remain
+unverified. Commands without an equivalent yet remain disabled, including
+Edit, Window and Help links and the online-subtitle-provider submenu. The
+Subtitles menu selects primary and secondary tracks,
+toggles primary and secondary visibility, changes subtitle encoding, adjusts or
+resets scale and delay, and opens the reusable font picker through existing
+command paths. The Windows native-video menu forwards the same observed track
+catalogs and actions to the shared player. “Save Downloaded Subtitle…” is enabled
+only for a selected primary subtitle in Riina's online-subtitle cache and copies
+it through the platform save dialog. The provider selector, localization, dynamic keybinding equivalents, native
+Macintosh menus, and live menu interaction remain open for implementation or
+grouped GUI review.
+About Riina now opens a reusable 640×400 window from the shared and Windows-native
+menus. It shows the application, libmpv, and FFmpeg versions, and has License,
+Contributors, and Credits sections with project links. Build/date metadata,
+contributor collection and credits content, native macOS layout/materials, and
+live window behavior remain open.
+Quit Riina now routes from both menu surfaces. The shared-renderer manager saves
+and tears down every player session before exiting; Windows native-video invokes
+its existing full player shutdown. Live quit/restart behavior and macOS lifecycle
+verification remain open.
+Window > Minimize and Zoom route to the active shared or Windows native-video
+window's platform minimize and zoom/maximize operations. Bring All to Front now
+restores and requests focus for every player and welcome window managed by the
+shared-renderer application path. The Windows native-video path still runs players
+in separate processes, so it cannot yet activate all of those windows together. Live
+operating-system behavior and matched macOS menu captures remain open. Workspace
+`cargo check`, formatting, and strict Clippy pass for this change; GUI activation
+remains deferred to grouped visual and interaction review.
+“Show Current File in Finder/Explorer” now invokes the existing
+playback-aware local-file reveal action on both the shared and Windows-native
+menu surfaces. The label names Finder, Explorer, or the generic file manager for
+the current platform. It follows IINA's local-versus-network enablement rule.
+File > Close now dispatches through the same player lifecycle used by the window
+close control, including session save, player teardown, and last-window policy.
+“Save Current Playlist…” writes the ordered current playlist as UTF-8 M3U8 using
+the platform save dialog. File > Delete Current File now moves a local file to
+the operating system Trash/Recycle Bin and removes the matching playlist entry
+after the move succeeds. Live delete, save, reveal, and close-menu behavior remain
+unverified. File > Playback History now opens a reusable 800×600 history window
+with Date or Folder & Website grouping, filename/full-path search, progress and
+played-time columns, reopen/reveal/remove actions, file-to-bin, and confirmed
+clear-history behavior. It refreshes when the recorded history changes and keeps
+selection attached to the media path as newest-played ordering changes. Live
+interaction and matched history-window visuals remain unverified. Native menu interaction and matched
+captures are still incomplete. A live Windows playback-window check confirmed
+all ten headings fit in one row at maximized width and the File menu shows
+Ctrl+O and Ctrl+Shift+H in the trailing shortcut column. At 320 px mini-player
+width the embedded menu bar wraps into two rows; exact macOS rendering and
+matched captures for other menus remain open.
 General > Playlist now saves IINA's default-on Add files in the same folder
 automatically option. A worker scans direct playable siblings, sorts videos and
 audio in separate native-natural order groups, and inserts only missing files on
@@ -33,8 +152,10 @@ the correct side of the current playlist entry. The Windows workspace compiles t
 path; live playlist ordering and the macOS capture remain unverified.
 Later local, URL, and recent-media opens use in-process player windows on the
 shared-renderer path, including macOS. The Windows native-video path still launches
-separate processes; shared plugin/history state, cross-process duplicate focus, and
-live lifecycle verification remain open.
+separate processes. Playback history state is shared by in-process player windows,
+and open history views refresh from the shared revision. Plugin state,
+cross-process history/duplicate synchronization, and live lifecycle verification
+remain open.
 General settings now persist IINA's quit-after-all-windows-close preference
 (default off) and keep-window-open-after-playback preference (default on). On the
 shared-renderer path, closing the last player restores Welcome when quitting is off;
@@ -113,7 +234,7 @@ support.
 ## Parity state
 
 The pinned baseline is official IINA v1.5.0. The parity inventory currently traces
-228 atomic requirements, and the inventory is still incomplete. Many requirements
+243 atomic requirements, and the inventory is still incomplete. Many requirements
 remain partial or unverified. There is no defensible overall parity percentage.
 Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
@@ -122,6 +243,20 @@ As of 2026-10-12, the current macOS target is Golden Gate 27.0.1 ([Apple's relea
 list](https://support.apple.com/en-us/100100)). All accepted IINA captures currently
 on file were taken on macOS 26.6.2 and need a 27.0.1 recapture before they can serve
 as latest-version visual references.
+
+The audio sidebar now has ten adjustable equalizer bands, all pinned built-in
+curves, and persisted named user profiles. Its portable command manages only
+Riina's labeled FFmpeg filter, preserving unrelated audio filters, and observes
+the active gain curve from libmpv. The first implementation is in place; native
+audio output, profile lifecycle interaction, and visual comparison still need
+verification.
+
+The separate Audio Filters window follows IINA's custom mpv and FFmpeg preset
+choices. It lists the observed audio chain, adds, edits and removes active
+filters, stores saved definitions separately from video filters, and exposes
+them through the Audio menu. The `af` observation now retains full filter
+objects while still deriving Riina's equalizer state. Workspace compilation
+and strict Clippy pass; grouped audio playback/menu review remains pending.
 
 Known substantial gaps include live verification of the new Windows
 Picture-in-Picture surface and lifecycle, the macOS PiP surface, unfinished
@@ -213,7 +348,8 @@ Linux writes the current user's `org.riina.player.desktop` entry and applies the
 selected MIME associations with `xdg-mime` on a worker so the settings window
 stays responsive. macOS consent behavior, Linux desktop
 runtime, bundled playback/lifecycle, and live Windows dialog/association
-verification remain open. Thumbnail Preview settings now
+verification remain open. Restore Alerts now follows IINA's confirm-then-acknowledge
+flow; as in IINA v1.5.0, there are no active suppressible alerts to reset. Thumbnail Preview settings now
 expose the source defaults and save their enablement, cache limit, remote-volume
 policy, and width. A separate paused, silent libmpv worker can extract and scale
 the 101 evenly spaced frames used by the pinned reference without seeking the
@@ -225,10 +361,13 @@ matched GUI comparison remain open; browser extensions remain open.
 
 Player-window file drops now coalesce adjacent Winit drop events into one ordered
 media-selection request, matching IINA's batch-open behavior for files dropped on
-the main window. When no playable media is present, supported dropped subtitle files
-are added as external tracks through the existing player command path. URL/text
-drops, subtitle drops mixed with playable media, dropping onto playlist rows, and
-live macOS/Windows/Linux drag-and-drop behavior remain open.
+the main window. Supported dropped subtitle files are retained and added as external
+tracks without changing subtitle selection, whether or not playable media is included.
+Mixed batches attach the dropped subtitles after libmpv reports the new media loaded,
+and a subsequent open cancels a deferred attachment. Small Windows Internet Shortcut
+`.url` files resolve only validated HTTP, HTTPS, RTSP or RTSPS targets before media
+selection. Raw URL/text drops, dropping onto playlist rows, and live
+macOS/Windows/Linux drag-and-drop behavior remain open.
 
 The playlist sidebar now supports additive and range selection, stable-order
 multi-row drag reordering, and multi-entry Copy, Cut, and Remove actions. Removal
@@ -275,16 +414,16 @@ Riina's original source is MIT. The combined application package is GPL-3.0-only
 The v0.3.0 package includes the exact third-party notices and corresponding
 sources for its pinned native engine and Cargo dependencies.
 
-The latest published GitHub release is Riina 0.3.0 and includes a Windows x86_64
-portable application, its complete corresponding-source archive, checksums, and a
-release verification record. The package passed the extracted-ZIP import and native
-playback/shutdown checks. The audit verified 101,748 native source files across 88
-repositories and confirmed the exact libmpv runtime hash. The [release workflow](https://github.com/deminden/riina/actions/runs/38180094023)
-and full artifact record are in `docs/native-distribution-audit.json`.
+The latest published GitHub release is Riina 0.3.2 and includes a Windows x86_64
+portable application, checksums, and a release verification record. Its successful
+candidate run reused a previously built native engine, passed native playback and
+shutdown checks, and verified the package against its tagged application source and
+native source manifest. The [release workflow](https://github.com/deminden/riina/actions/runs/38259354701)
+and artifact record are available online.
 
 The v0.3.0 source archive measured 1.60 GB compressed and 2.57 GB expanded.
 Its native-source snapshot included 1.01 GB of Git object metadata across 5,568
-entries. That published archive remains unchanged. Future releases will not attach
+entries. The v0.3.0 archive remains unchanged. The v0.3.2 release does not attach
 duplicate native or vendored Rust source trees: the exact application source is
 served from the release tag, Cargo.lock pins Rust sources by checksum, and the
 package's `SOURCE-MANIFEST.tsv` identifies each public native repository, revision
@@ -294,13 +433,12 @@ the pinned builder recipe retrieves it from its upstream source.
 
 Release assets:
 
-- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-windows-x86_64.zip)
-- [v0.3.0 complete source archive](https://github.com/deminden/riina/releases/download/v0.3.0/riina-0.3.0-source.tar.zst)
-- [GitHub source code at v0.3.0](https://github.com/deminden/riina/archive/refs/tags/v0.3.0.tar.gz)
-- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.0/SHA256SUMS.txt)
-- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.0/RELEASE-VERIFICATION.json)
+- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.2/riina-0.3.2-windows-x86_64.zip)
+- [Tagged source code at v0.3.2](https://github.com/deminden/riina/archive/refs/tags/v0.3.2.tar.gz)
+- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.2/SHA256SUMS.txt)
+- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.2/RELEASE-VERIFICATION.json)
 
-The v0.3.2 candidate must pass the exact package, source-access, and playback
+The next v0.3.3 candidate must pass the exact package, source-access, and playback
 gates before its Windows binary is public. Earlier native shutdown failures
 and their resolution remain in `docs/native-distribution-audit.json` as
 release-engineering evidence.
@@ -311,8 +449,8 @@ terms and package provenance are recorded in `docs/licensing.md` and
 
 ## Verification state
 
-The parity inventory contains 228 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. The 0.3.2 candidate
+The parity inventory contains 243 currently inventoried requirements,
+while explicitly reporting that the inventory is incomplete. The 0.3.3 candidate
 must run the complete package, corresponding-source, and playback gates. The Unix presentation marker
 derives `Clone` to match the Windows adapter's shared timer ownership. The full
 macOS/Linux application workflow passed Clippy, workspace tests, and application
@@ -328,8 +466,8 @@ Local verification evidence and exact limitations are recorded in
 platform, or release-package behavior is not considered verified unless its evidence
 is recorded for that exact surface or artifact.
 
-Plugin HTTP requests now have a permission-gated QuickJS promise bridge for GET, POST, PUT, PATCH and DELETE. Exact and wildcard manifest-domain checks run before sending. Redirects are followed only after rechecking each target against the manifest; authorization and cookie headers are stripped across hosts. Request count, timeout, payload, and response limits are enforced. A localhost response test passes; the JavaScript Promise bridge, external-network behavior, downloads, and XML-RPC APIs remain open.
-The plugin core API now exposes audio, subtitle, and video track snapshots, serialized current tracks, typed track selection, audio/subtitle delay, volume, mute, permission-checked external track loading, `setUIVisibility`, `getRecentDocuments`, and `getVersion`. Recent-document entries use the app's persisted recent-media list and update from playback snapshots. Version results use the app package version, the release workflow run number (or `development` for local builds), and the loaded libmpv `mpv-version` property. The visibility method mirrors IINA's `disableUI` behavior: setting it true blocks later control reveals, while existing controls remain until their normal hide transition. `formattedTitle` preserves IINA track IDs, metadata, and localized language names; full playback history, the window proxy, and live player-session verification remain open.
+Plugin HTTP requests now have a permission-gated QuickJS promise bridge for GET, POST, PUT, PATCH and DELETE, plus `download(url, destination, options)` and `xmlrpc(location).call(method, args)`. Downloads recheck redirect domains, share the active-request limit and timeout, cap binary data at 64 MiB, and write only through the plugin file-permission path. XML-RPC calls encode and parse the standard scalar, array, struct, date, and base64 value families. Exact and wildcard manifest-domain checks run before sending. Redirects are followed only after rechecking each target against the manifest; request count, timeout, payload, and response limits are enforced. The JavaScript bridge, XML-RPC type mapping, download path permissions, and external-network behavior remain unverified at runtime.
+The plugin core API now exposes audio, subtitle, and video track snapshots, serialized current tracks, typed track selection, audio/subtitle delay, volume, mute, permission-checked external track loading, `setUIVisibility`, `getRecentDocuments`, `getVersion`, and `getHistory`. Its `core.window` proxy now snapshots loaded state, frame, fullscreen, PiP, always-on-top, visible, sidebar, screens, and minimized state; typed writes route frame, fullscreen, PiP, always-on-top, sidebar, and minimized actions through the UI host. Playback history is distinct from the bounded recent-media/resume list, has a default-on recording preference, is returned newest first with IINA's field names and JavaScript `Date` objects, and can be cleared without deleting recent documents. A versioned `playback-history.json` archive is atomically updated when a media generation is first observed, with migration from the prior preferences field; unsupported or invalid archives are preserved rather than overwritten. Restored entries read their saved progress from libmpv's watch-later files using the observed `ignore-path-in-watch-later-config` setting and mpv-compatible filename hashes. New history entries remain without progress until mpv writes a watch-later record. A Windows debug run visibly played the repository's moving-square fixture and exercised the History-page recording checkbox; the stored value was true after restoring its original state. Windows workspace tests and strict Clippy pass with the window proxy changes; 46 native integration tests remain ignored because they require the provisioned libmpv runtime. This is a focused interaction check, not a comparison against IINA's rendered surface. History is shared by in-process player sessions; the history window remains visually and interactively unverified, and full plugin runtime/window parity remains open.
 
 The plugin host now starts plugins requesting the network permission used by the
 HTTP API; the previous capability check rejected them before JavaScript execution.
@@ -363,5 +501,6 @@ proxy, chapter snapshots, recent-document and version snapshots, and the
 typed events sent through the player's host; local paths require filesystem
 permission and network URLs require network permission plus a manifest-allowed
 domain for HTTP(S) and SMB. Other URL schemes, including RTSP, follow IINA's
-filesystem-permission branch. The full playback-history getter and window proxy
-remain unimplemented.
+filesystem-permission branch. The playback-history getter is implemented, and
+the `core.window` proxy is source-wired; plugin command GUI execution and native
+window semantics remain pending live verification.

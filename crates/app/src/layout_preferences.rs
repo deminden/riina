@@ -1,6 +1,6 @@
 //! Save deliberate Layout-pane choices without writing from every animation frame.
 use crate::{PlayerWindow, platform, screenshot_preferences};
-use riina_core::Preferences;
+use riina_core::{Preferences, ThemeMaterial};
 use slint::ComponentHandle;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
@@ -13,6 +13,10 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         baseline.edge_to_edge_video,
         baseline.docked_controls,
         baseline.unlock_window_aspect_ratio,
+        baseline.effective_theme_material().index(),
+        baseline.liquid_glass.osd,
+        baseline.liquid_glass.osc,
+        baseline.liquid_glass.sidebar,
     )));
     let weak = app.as_weak();
     let path_for_window_level = path.clone();
@@ -27,6 +31,10 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.get_edge_to_edge_video(),
             app.get_docked_controls(),
             app.get_unlock_window_aspect_ratio(),
+            app.get_appearance_mode(),
+            app.get_liquid_glass_osd(),
+            app.get_liquid_glass_osc(),
+            app.get_liquid_glass_sidebar(),
         );
         let previous = saved.get();
         let result = screenshot_preferences::current(&app).and_then(|screenshot| {
@@ -38,6 +46,9 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                 edge_to_edge_video: selected.4,
                 docked_controls: selected.5,
                 unlock_window_aspect_ratio: selected.6,
+                theme_material: Some(
+                    ThemeMaterial::from_index(selected.7).ok_or("Invalid theme selection")?,
+                ),
                 window_resize: crate::window_resize_preferences::from_player(&app)?,
                 always_float_on_top: app.get_always_float_on_top(),
                 always_show_on_top_icon: app.get_always_show_on_top_icon(),
@@ -96,6 +107,10 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.set_edge_to_edge_video(previous.4);
             app.set_docked_controls(previous.5);
             app.set_unlock_window_aspect_ratio(previous.6);
+            app.set_appearance_mode(previous.7);
+            app.set_liquid_glass_osd(previous.8);
+            app.set_liquid_glass_osc(previous.9);
+            app.set_liquid_glass_sidebar(previous.10);
             app.set_status(error.into());
         } else {
             // IINA relocates a changed pane and dismisses other open sidebars.

@@ -14,7 +14,7 @@ Broad inventory (not yet a complete atomic feature transcription):
 | Player sessions/commands | iina/PlayerCore.swift | multiple players; play, seek, loops, filters, screenshot workflows |
 | Engine/events | iina/MPVController.swift; PlaybackInfo.swift | property observation; asynchronous replies; borrowed event data |
 | Main window/video | iina/MainWindowController.swift; VideoView.swift | custom layout; fullscreen; renderer lifecycle |
-| OSC | iina/OSCFloatingView.swift; OSCBottomView.swift | floating width 460, minimum 200, position ratios; compact variants |
+| OSC | iina/OSCFloatingView.swift; OSCBottomView.swift; MainWindowController.swift; Preference.swift; OSCToolbarButton.swift | Default center controls are previous, play/pause, next; there is no Stop entry in the toolbar button type or default square Stop control. Four configurable right-side buttons default, in order, to Plugins, PiP, Playlist and Chapters, and Quick Settings. Stop remains a playback command elsewhere. |
 | Quick settings | iina/QuickSettingViewController.swift | video/audio/subtitle panes |
 | Playlist/chapters | iina/PlaylistViewController.swift; SidebarPlaylistPane.swift | sidebar order, selection, chapter workflows |
 | Music | iina/MiniPlayerWindowController.swift | distinct compact audio window |
@@ -36,6 +36,27 @@ Defaults confirmed: floating dark OSC, width 460; bottom ratio 0.1; center ratio
 auto-hide 2.5 seconds; soft volume 100; arrows control speed; keyboard seeks ±5 seconds;
 keyboard volume ±5; compact UI false; keep-open at EOF true; sidebars 360.
 Do not treat this initial inventory as the final parity denominator.
+
+General > History also exposes the default-on `recordRecentFiles` and
+`trackAllFilesInRecentOpenMenu` preferences. IINA sends manually selected files
+to `NSDocumentController` when recent recording is enabled, and notes other
+successfully loaded media when all-played tracking is enabled. Its File > Open
+Recent menu is system-managed. Riina currently implements the portable persisted
+list and menu actions; the native macOS recent-document bridge remains open.
+
+The pinned File > Delete Current File action is enabled only for a current local
+URL. It removes that playlist position and moves the media file to the OS trash;
+the menu reports failures. Riina wires an asynchronous system-trash operation
+and removes the matching stable playlist ID only after the move succeeds. Active-
+playback and platform runtime behavior remains part of grouped GUI verification.
+
+IINA's Playback History menu opens an 800×600 resizable window with a three-column
+outline grouped by date or file location, search by filename or full path, a
+clear-history toolbar action, row progress, and context actions for play, new
+window, reveal, history removal and moving local media to Trash. Riina now has a
+reusable history window with the main grouping, search and row actions. Its native
+outline selection/context menu, toolbar expand/collapse control, multi-selection,
+localized date presentation and matched visual details remain open.
 
 Daily-workflow audit: PlayerCore.playFileInPlaylist deliberately uses
 playlist-play-index rather than playlist-pos to reload the current entry;

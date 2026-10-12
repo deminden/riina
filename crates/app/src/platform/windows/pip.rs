@@ -366,6 +366,9 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                 if let Some(host) = host_weak.upgrade() {
                     host.set_picture_in_picture_active(true);
                 }
+                if let Some(player) = player_weak.upgrade() {
+                    player.set_picture_in_picture_active(true);
+                }
                 *active.borrow_mut() = Some(session);
             }
             Err(error) => {
@@ -403,6 +406,9 @@ fn exit(controller: Rc<RefCell<Controller>>) {
             let _ = window.request_inner_size(session.host_geometry.size);
             window.set_outer_position(session.host_geometry.position);
         });
+    }
+    if let Some(player) = player_weak.upgrade() {
+        player.set_picture_in_picture_active(false);
     }
     if let Some(player) = player_weak.upgrade() {
         player.window().with_winit_window(|window| {

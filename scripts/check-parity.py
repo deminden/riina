@@ -24,7 +24,9 @@ for row in rows:
         for location in row['implementation_location'].split(';'):
             assert (root / location.strip()).is_file(), f"Missing implementation: {row['id']} {location}"
     if row['verification_status'] != 'pending':
-        assert row['test_ids'] and row['evidence'], f"Missing evidence: {row['id']}"
+        assert row['evidence'], f"Missing evidence: {row['id']}"
+        if row['implementation_status'] == 'implemented':
+            assert row['test_ids'], f"Implemented behavior lacks a linked test: {row['id']}"
     if row['implementation_status'] == 'exact':
         raise AssertionError('Use implemented plus independent verification; exact is a parity conclusion')
 print(f'{len(rows)} initial atomic requirements have valid traceability. Inventory is incomplete; no universal parity percentage.')

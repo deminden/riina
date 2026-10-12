@@ -49,6 +49,7 @@ pub(crate) fn connect(
                 }
             };
             crate::settings_search::connect(&window);
+            crate::osc_preferences::connect_preferences(&window);
             crate::utilities_preferences::connect(&window, &path, clear_history.clone());
             crate::plugin_preferences::connect(
                 &window,
@@ -450,7 +451,13 @@ pub(crate) fn connect(
                 let previous_pause_when_goes_to_sleep = app.get_pause_when_goes_to_sleep();
                 let previous_quit_when_no_windows = app.get_quit_when_no_opened_window();
                 let previous_keep_open = app.get_keep_open_on_file_end();
+                let previous_playlist_auto_play_next = app.get_playlist_auto_play_next();
                 let previous_playlist_auto_add = app.get_playlist_auto_add();
+                let previous_playlist_show_metadata = app.get_playlist_show_metadata();
+                let previous_playlist_show_metadata_in_music_mode =
+                    app.get_playlist_show_metadata_in_music_mode();
+                let previous_auto_repeat = app.get_auto_repeat();
+                let previous_default_repeat_mode = app.get_default_repeat_mode_index();
                 let selected_quit_when_no_windows = window.get_quit_when_no_opened_window();
                 let selected_play_when_entering_fullscreen =
                     window.get_play_when_entering_fullscreen();
@@ -460,9 +467,22 @@ pub(crate) fn connect(
                 let selected_pause_when_minimized = window.get_pause_when_minimized();
                 let selected_pause_when_goes_to_sleep = window.get_pause_when_goes_to_sleep();
                 let selected_keep_open = window.get_keep_open_on_file_end();
+                let selected_playlist_auto_play_next = window.get_playlist_auto_play_next();
                 let selected_playlist_auto_add = window.get_playlist_auto_add();
+                let selected_playlist_show_metadata = window.get_playlist_show_metadata();
+                let selected_playlist_show_metadata_in_music_mode =
+                    window.get_playlist_show_metadata_in_music_mode();
+                let selected_auto_repeat = window.get_auto_repeat();
+                let Some(selected_default_repeat_mode) = riina_core::DefaultRepeatMode::from_index(
+                    window.get_default_repeat_mode_index(),
+                ) else {
+                    app.set_status("Choose a valid default repeat mode".into());
+                    refresh(&window, &app);
+                    return;
+                };
                 let previous_fullscreen = app.get_fullscreen_when_open();
                 let previous_resume = app.get_resume_last_position();
+                let previous_record_playback_history = app.get_record_playback_history();
                 let previous_open_policy = *saved_open_policy_for_change.borrow();
                 let previous_launch_action = app.get_launch_action_index();
                 let previous_osd = crate::osd_preferences::current_player(&app);
@@ -925,6 +945,7 @@ pub(crate) fn connect(
                 app.set_pause_when_open(window.get_pause_when_open());
                 app.set_fullscreen_when_open(window.get_fullscreen_when_open());
                 app.set_resume_last_position(window.get_resume_last_position());
+                app.set_record_playback_history(window.get_record_playback_history());
                 app.set_launch_action_index(window.get_launch_action_index().clamp(0, 2));
                 app.set_auto_switch_to_music_mode(window.get_auto_switch_to_music_mode());
                 app.set_music_mode_show_playlist(window.get_music_mode_show_playlist());
@@ -974,8 +995,13 @@ pub(crate) fn connect(
                     )
                 })
                 .and_then(|()| {
-                    if selected_keep_open != previous_keep_open {
-                        decoder_player.send(Command::SetKeepOpenOnFileEnd(selected_keep_open))?;
+                    if selected_keep_open != previous_keep_open
+                        || selected_playlist_auto_play_next != previous_playlist_auto_play_next
+                    {
+                        decoder_player.send(Command::SetPlaybackEndPolicy {
+                            keep_open_on_file_end: selected_keep_open,
+                            playlist_auto_play_next: selected_playlist_auto_play_next,
+                        })?;
                         keep_open_applied = true;
                     }
                     if tone_mapping_changed {
@@ -1019,6 +1045,12 @@ pub(crate) fn connect(
                             .get_group_simultaneous_opens_in_playlist(),
                         allow_duplicate_players: window.get_allow_duplicate_players(),
                         playlist_auto_add: selected_playlist_auto_add,
+                        playlist_auto_play_next: selected_playlist_auto_play_next,
+                        playlist_show_metadata: selected_playlist_show_metadata,
+                        playlist_show_metadata_in_music_mode:
+                            selected_playlist_show_metadata_in_music_mode,
+                        auto_repeat: selected_auto_repeat,
+                        default_repeat_mode: selected_default_repeat_mode,
                         play_when_entering_fullscreen: selected_play_when_entering_fullscreen,
                         pause_when_leaving_fullscreen: selected_pause_when_leaving_fullscreen,
                         pause_when_inactive: selected_pause_when_inactive,
@@ -1035,6 +1067,10 @@ pub(crate) fn connect(
                         pause_when_open: app.get_pause_when_open(),
                         fullscreen_when_open: app.get_fullscreen_when_open(),
                         resume_last_position: app.get_resume_last_position(),
+                        record_playback_history: app.get_record_playback_history(),
+                        record_recent_files: window.get_record_recent_files(),
+                        track_all_files_in_recent_open_menu: window
+                            .get_track_all_files_in_recent_open_menu(),
                         enable_osd: selected_osd.enabled,
                         disable_osd_file_start: selected_osd.disable_file_start,
                         disable_osd_pause_resume: selected_osd.disable_pause_resume,
@@ -1104,7 +1140,18 @@ pub(crate) fn connect(
                         app.set_pause_when_goes_to_sleep(selected_pause_when_goes_to_sleep);
                         app.set_quit_when_no_opened_window(selected_quit_when_no_windows);
                         app.set_keep_open_on_file_end(selected_keep_open);
+                        app.set_record_recent_files(window.get_record_recent_files());
+                        app.set_track_all_files_in_recent_open_menu(
+                            window.get_track_all_files_in_recent_open_menu(),
+                        );
+                        app.set_playlist_auto_play_next(selected_playlist_auto_play_next);
                         app.set_playlist_auto_add(selected_playlist_auto_add);
+                        app.set_playlist_show_metadata(selected_playlist_show_metadata);
+                        app.set_playlist_show_metadata_in_music_mode(
+                            selected_playlist_show_metadata_in_music_mode,
+                        );
+                        app.set_auto_repeat(selected_auto_repeat);
+                        app.set_default_repeat_mode_index(selected_default_repeat_mode.index());
                         crate::thumbnail_preferences::install_player(
                             &app,
                             &selected_thumbnail_preview,
@@ -1169,14 +1216,21 @@ pub(crate) fn connect(
                         if app.get_resume_last_position() != previous_resume {
                             app.invoke_resume_last_position_changed(app.get_resume_last_position());
                         }
+                        if app.get_record_playback_history() != previous_record_playback_history {
+                            app.invoke_record_playback_history_changed(
+                                app.get_record_playback_history(),
+                            );
+                        }
                     }
                     Err(error) => {
                         window.set_allow_multiple_windows(previous_open_policy.0);
                         window.set_group_simultaneous_opens_in_playlist(previous_open_policy.1);
                         window.set_allow_duplicate_players(previous_open_policy.2);
                         if keep_open_applied {
-                            let _ = decoder_player
-                                .send(Command::SetKeepOpenOnFileEnd(previous_keep_open));
+                            let _ = decoder_player.send(Command::SetPlaybackEndPolicy {
+                                keep_open_on_file_end: previous_keep_open,
+                                playlist_auto_play_next: previous_playlist_auto_play_next,
+                            });
                         }
                         if video_threads_applied {
                             let _ =
@@ -1260,9 +1314,17 @@ pub(crate) fn connect(
                         app.set_pause_when_goes_to_sleep(previous_pause_when_goes_to_sleep);
                         app.set_quit_when_no_opened_window(previous_quit_when_no_windows);
                         app.set_keep_open_on_file_end(previous_keep_open);
+                        app.set_playlist_auto_play_next(previous_playlist_auto_play_next);
                         app.set_playlist_auto_add(previous_playlist_auto_add);
+                        app.set_playlist_show_metadata(previous_playlist_show_metadata);
+                        app.set_playlist_show_metadata_in_music_mode(
+                            previous_playlist_show_metadata_in_music_mode,
+                        );
+                        app.set_auto_repeat(previous_auto_repeat);
+                        app.set_default_repeat_mode_index(previous_default_repeat_mode);
                         app.set_fullscreen_when_open(previous_fullscreen);
                         app.set_resume_last_position(previous_resume);
+                        app.set_record_playback_history(previous_record_playback_history);
                         app.set_launch_action_index(previous_launch_action);
                         previous_osd.install_player(&app);
                         app.set_osc_position(previous_layout.0);
@@ -1447,6 +1509,7 @@ pub(crate) fn connect(
 }
 
 fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
+    window.set_surface_material_title(crate::platform::surface_material_title().into());
     if let Ok(settings) = crate::online_subtitles_preferences::current_player(app) {
         crate::online_subtitles_preferences::install_window(window, &settings);
     }
@@ -1493,9 +1556,17 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_pause_policies_available(cfg!(target_os = "macos"));
     window.set_quit_when_no_opened_window(app.get_quit_when_no_opened_window());
     window.set_keep_open_on_file_end(app.get_keep_open_on_file_end());
+    window.set_playlist_auto_play_next(app.get_playlist_auto_play_next());
     window.set_playlist_auto_add(app.get_playlist_auto_add());
+    window.set_playlist_show_metadata(app.get_playlist_show_metadata());
+    window.set_playlist_show_metadata_in_music_mode(app.get_playlist_show_metadata_in_music_mode());
+    window.set_auto_repeat(app.get_auto_repeat());
+    window.set_default_repeat_mode_index(app.get_default_repeat_mode_index());
     window.set_fullscreen_when_open(app.get_fullscreen_when_open());
     window.set_resume_last_position(app.get_resume_last_position());
+    window.set_record_playback_history(app.get_record_playback_history());
+    window.set_record_recent_files(app.get_record_recent_files());
+    window.set_track_all_files_in_recent_open_menu(app.get_track_all_files_in_recent_open_menu());
     window.set_launch_action_index(app.get_launch_action_index());
     window.set_auto_switch_to_music_mode(app.get_auto_switch_to_music_mode());
     window.set_music_mode_show_playlist(app.get_music_mode_show_playlist());

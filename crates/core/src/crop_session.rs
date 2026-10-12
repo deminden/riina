@@ -7,10 +7,19 @@ pub struct Session {
     width: u32,
     height: u32,
     was_paused: bool,
+    delogo: bool,
 }
 
 impl Session {
     pub fn begin(state: &Playback) -> Result<Self, String> {
+        Self::begin_with_tool(state, false)
+    }
+
+    pub fn begin_delogo(state: &Playback) -> Result<Self, String> {
+        Self::begin_with_tool(state, true)
+    }
+
+    fn begin_with_tool(state: &Playback, delogo: bool) -> Result<Self, String> {
         let video = state
             .video
             .as_ref()
@@ -27,6 +36,7 @@ impl Session {
             width: video.w,
             height: video.h,
             was_paused: state.paused,
+            delogo,
         })
     }
 
@@ -53,16 +63,21 @@ impl Session {
     pub fn ready(&self, state: &Playback) -> bool {
         self.validate(state).is_ok()
             && state.paused
-            && state.video_filters.as_ref().is_some_and(|filters| {
-                !filters
-                    .iter()
-                    .any(|filter| filter.label.as_deref() == Some(crate::crop::FILTER_LABEL))
-            })
+            && (self.delogo
+                || state.video_filters.as_ref().is_some_and(|filters| {
+                    !filters
+                        .iter()
+                        .any(|filter| filter.label.as_deref() == Some(crate::crop::FILTER_LABEL))
+                }))
     }
 
     pub fn enter_commands(&self, state: &Playback) -> Result<Vec<Vec<String>>, String> {
         self.validate(state)?;
-        let mut commands = Command::VideoCrop(None).plan(state)?.commands;
+        let mut commands = if self.delogo {
+            Vec::new()
+        } else {
+            Command::VideoCrop(None).plan(state)?.commands
+        };
         commands.push(vec!["set".into(), "pause".into(), "yes".into()]);
         Ok(commands)
     }
@@ -74,6 +89,9 @@ impl Session {
     ) -> Result<Vec<Vec<String>>, String> {
         self.validate(state)?;
         let mut commands = match rectangle {
+            Some(rectangle) if self.delogo => {
+                crate::delogo::rectangle_filter(rectangle, self.width, self.height)?
+            }
             Some(rectangle) => Command::VideoCropRectangle(rectangle).plan(state)?.commands,
             // Entry already cleared the old crop. Cancel must not reapply it.
             None => Vec::new(),

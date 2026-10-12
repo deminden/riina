@@ -18,6 +18,11 @@ pub(crate) fn current_locale_identifier() -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
+pub(crate) fn current_locale_identifier() -> Option<String> {
+    sys_locale::get_locale()
+}
+
+#[cfg(target_os = "macos")]
 pub(crate) fn language_name(identifier: &str) -> Option<String> {
     use objc2_foundation::{NSLocale, NSString};
     objc2::rc::autoreleasepool(|_| {

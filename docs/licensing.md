@@ -48,6 +48,8 @@ and GPLv3 application package terms.
 | Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native license inventory |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
 | `webpki-roots` 1.0.9 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |
+| `trash` 5.2.9 | MIT; the system Trash/Recycle Bin adapter; generated dependency inventory preserves its crate notice |
+| `lofty` 0.25.4 | MIT OR Apache-2.0; reads supported local audio tags for playlist display; generated dependency inventory preserves its crate notice |
 | Development libmpv DLL and native dependencies | Local development input; release workflow rebuilds a separate engine |
 
 `webpki-roots` 1.0.9 is an exact, package-scoped data-license exception in the

@@ -13,6 +13,31 @@ pub enum ResizeOption {
     VideoSize20,
 }
 
+/// Manual Video-menu sizing commands, separate from the automatic open policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ManualSizeCommand {
+    Half,
+    Normal,
+    Double,
+    FitScreen,
+    Bigger,
+    Smaller,
+}
+
+impl ManualSizeCommand {
+    pub const fn from_index(index: i32) -> Option<Self> {
+        match index {
+            0 => Some(Self::Half),
+            1 => Some(Self::Normal),
+            2 => Some(Self::Double),
+            3 => Some(Self::FitScreen),
+            4 => Some(Self::Bigger),
+            5 => Some(Self::Smaller),
+            _ => None,
+        }
+    }
+}
+
 impl ResizeOption {
     pub const ALL: [Self; 5] = [
         Self::FitScreen,
@@ -429,6 +454,120 @@ pub fn target_size(
         target = size_at_aspect(f64::from(target.width) * grow, aspect, maximum);
     }
     target.valid().then_some(target)
+}
+
+/// Current video and window measurements used by a manual resize command.
+pub struct ManualSizeContext {
+    pub current: PixelSize,
+    pub video_width: f64,
+    pub video_height: f64,
+    pub rotation: Option<i64>,
+    pub display_scale: f64,
+    pub use_physical_resolution: bool,
+    pub maximum: Option<PixelSize>,
+    pub minimum: PixelSize,
+}
+
+/// Calculate a user-invoked Video-menu resize without changing the automatic
+/// sizing preference. Sizes use physical pixels; `display_scale` converts
+/// IINA's 25-point Bigger/Smaller increment on the current display.
+pub fn manual_size_target(
+    command: ManualSizeCommand,
+    context: ManualSizeContext,
+) -> Option<PixelSize> {
+    let ManualSizeContext {
+        current,
+        video_width,
+        video_height,
+        rotation,
+        display_scale,
+        use_physical_resolution,
+        maximum,
+        minimum,
+    } = context;
+    if !current.valid() || !display_scale.is_finite() || display_scale <= 0.0 {
+        return None;
+    }
+
+    if command == ManualSizeCommand::FitScreen {
+        return fit_screen(current, maximum);
+    }
+    if !video_width.is_finite()
+        || !video_height.is_finite()
+        || video_width <= 0.0
+        || video_height <= 0.0
+    {
+        return None;
+    }
+
+    let (width, height) = if rotation.is_some_and(|value| value.rem_euclid(180) == 90) {
+        (video_height, video_width)
+    } else {
+        (video_width, video_height)
+    };
+    let scale = if use_physical_resolution {
+        1.0
+    } else {
+        display_scale
+    };
+    let aspect = width / height;
+
+    if matches!(
+        command,
+        ManualSizeCommand::Bigger | ManualSizeCommand::Smaller
+    ) {
+        let direction = if command == ManualSizeCommand::Bigger {
+            1.0
+        } else {
+            -1.0
+        };
+        let requested_width =
+            (f64::from(current.width) + direction * 25.0 * display_scale).max(1.0);
+        return Some(satisfy_minimum(
+            size_at_aspect(requested_width, aspect, None),
+            aspect,
+            minimum,
+        ));
+    }
+
+    let command_scale = match command {
+        ManualSizeCommand::Half => 0.5,
+        ManualSizeCommand::Normal => 1.0,
+        ManualSizeCommand::Double => 2.0,
+        ManualSizeCommand::FitScreen | ManualSizeCommand::Bigger | ManualSizeCommand::Smaller => {
+            return None;
+        }
+    };
+    let requested = size_at_aspect(width * scale * command_scale, aspect, None);
+    let target = if maximum
+        .is_some_and(|bounds| requested.width > bounds.width || requested.height > bounds.height)
+    {
+        fit_screen(current, maximum)?
+    } else {
+        satisfy_minimum(requested, aspect, minimum)
+    };
+    target.valid().then_some(target)
+}
+
+fn fit_screen(current: PixelSize, maximum: Option<PixelSize>) -> Option<PixelSize> {
+    let maximum = maximum.filter(|size| size.valid())?;
+    let scale = (f64::from(maximum.width) / f64::from(current.width))
+        .min(f64::from(maximum.height) / f64::from(current.height))
+        .min(1.0);
+    Some(PixelSize {
+        width: pixels(f64::from(current.width) * scale),
+        height: pixels(f64::from(current.height) * scale),
+    })
+}
+
+fn satisfy_minimum(size: PixelSize, aspect: f64, minimum: PixelSize) -> PixelSize {
+    if !minimum.valid() {
+        return size;
+    }
+    let scale = (f64::from(minimum.width) / f64::from(size.width))
+        .max(f64::from(minimum.height) / f64::from(size.height))
+        .max(1.0);
+    size_at_aspect(f64::from(size.width) * scale, aspect, None)
 }
 
 fn size_at_aspect(width: f64, aspect: f64, maximum: Option<PixelSize>) -> PixelSize {

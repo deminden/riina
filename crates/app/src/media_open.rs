@@ -5,18 +5,98 @@ use riina_mpv::CommandSender;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::ffi::OsString;
 
+fn apply_manual_open_repeat(app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
+    if let Some(command) =
+        manual_open_repeat_command(app.get_auto_repeat(), app.get_default_repeat_mode_index())?
+    {
+        sender.send(command).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn manual_open_repeat_command(enabled: bool, mode_index: i32) -> Result<Option<Command>, String> {
+    if !enabled {
+        return Ok(None);
+    }
+    let mode = riina_core::DefaultRepeatMode::from_index(mode_index)
+        .ok_or_else(|| "The saved default repeat mode is invalid".to_owned())?;
+    Ok(Some(Command::SetLoopMode(mode.loop_mode())))
+}
+
 pub fn open_in_new_player(app: &PlayerWindow, path: &str) -> Result<(), String> {
     if path.is_empty() || path.contains('\0') {
         return Err("The media reference is invalid".into());
     }
-    if app.get_in_process_player_manager() {
-        app.invoke_open_player_requested(
-            ModelRc::new(VecModel::from(vec![SharedString::from(path)])),
-            -1.0,
-        );
+    open_paths_in_new_player(app, &[path.to_owned()])
+}
+
+pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    if paths
+        .iter()
+        .any(|path| path.is_empty() || path.contains('\0'))
+    {
+        app.set_status("The media selection contains an invalid reference".into());
+        return;
+    }
+    app.invoke_activity();
+    app.set_status("Preparing media for a new player…".into());
+    let weak = app.as_weak();
+    let failure = weak.clone();
+    let started = std::thread::Builder::new()
+        .name("new-player-media-discovery".into())
+        .spawn(move || {
+            let result = file_selection::prepare(paths, true);
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = weak.upgrade()
+                    && let Err(error) = result.and_then(|paths| {
+                        if paths.is_empty() {
+                            return Err("No playable files were found".into());
+                        }
+                        open_paths_in_new_player(&app, &paths)
+                    })
+                {
+                    app.set_status(error.into());
+                }
+            });
+        });
+    if let Err(error) = started
+        && let Some(app) = failure.upgrade()
+    {
+        app.set_status(error.to_string().into());
+    }
+}
+
+fn open_paths_in_new_player(app: &PlayerWindow, paths: &[String]) -> Result<(), String> {
+    if paths.is_empty() {
         return Ok(());
     }
-    spawn_player(&[path.to_owned()], None)
+    if app.get_in_process_player_manager() {
+        app.invoke_open_player_requested(
+            ModelRc::new(VecModel::from(
+                paths
+                    .iter()
+                    .cloned()
+                    .map(SharedString::from)
+                    .collect::<Vec<_>>(),
+            )),
+            -1.0,
+        );
+    } else {
+        spawn_player(paths, None)?;
+    }
+    app.set_status(if paths.len() == 1 {
+        "Opened the media in a new player.".into()
+    } else {
+        format!(
+            "Opened {} media files in a new player playlist.",
+            paths.len()
+        )
+        .into()
+    });
+    Ok(())
 }
 
 fn spawn_player(paths: &[String], resume_position: Option<f64>) -> Result<(), String> {
@@ -215,6 +295,8 @@ pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
     app.set_status("Opening…".into());
     if let Err(error) = sender.send(Command::Load(value.to_owned())) {
         app.set_status(error.into());
+    } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
+        app.set_status(error.into());
     }
 }
 
@@ -233,6 +315,8 @@ pub fn resume(app: &PlayerWindow, media: riina_core::RecentMedia, sender: Comman
         path: media.path,
         position: media.position,
     }) {
+        app.set_status(error.into());
+    } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
         app.set_status(error.into());
     }
 }
@@ -258,6 +342,8 @@ pub fn open_recent(
     invalidate(app);
     app.set_status("Opening…".into());
     if let Err(error) = sender.send(Command::Load(media.path)) {
+        app.set_status(error.into());
+    } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
         app.set_status(error.into());
     }
 }
@@ -304,7 +390,13 @@ fn selection_at(
             } else {
                 Vec::new()
             };
-            let result = file_selection::prepare(paths, !append).and_then(|paths| {
+            let result = (if subtitle_fallback {
+                resolve_dropped_url_shortcuts(paths)
+            } else {
+                Ok(paths)
+            })
+            .and_then(|paths| file_selection::prepare(paths, !append))
+            .and_then(|paths| {
                 if paths.is_empty() {
                     if !subtitles.is_empty() {
                         Ok(PreparedSelection::Subtitles(subtitles))
@@ -322,11 +414,24 @@ fn selection_at(
                         position,
                     }))
                 } else {
-                    Ok(PreparedSelection::Command(if append {
+                    let command = if append {
                         Command::AppendFiles(paths)
                     } else {
                         Command::OpenFiles(paths)
-                    }))
+                    };
+                    if !subtitles.is_empty() {
+                        let paths = match command {
+                            Command::OpenFiles(paths) => paths,
+                            _ => {
+                                return Err(
+                                    "Dropped subtitles require an opened media batch".into()
+                                );
+                            }
+                        };
+                        Ok(PreparedSelection::CommandWithSubtitles(paths, subtitles))
+                    } else {
+                        Ok(PreparedSelection::Command(command))
+                    }
                 }
             });
             let _ = slint::invoke_from_event_loop(move || {
@@ -350,8 +455,16 @@ fn selection_at(
                             if open_in_separate_players(&app, &paths, resume_position)? {
                                 Ok(())
                             } else {
-                                sender.send(Command::OpenFiles(paths))
+                                sender.send(Command::OpenFiles(paths))?;
+                                apply_manual_open_repeat(&app, &sender)
                             }
+                        }
+                        PreparedSelection::CommandWithSubtitles(paths, subtitles) => {
+                            // A dropped subtitle belongs to the dropped media batch. Keep
+                            // both in the current player rather than opening media in a
+                            // separate window and attaching subtitles to the wrong player.
+                            sender.send(Command::OpenFilesWithSubtitles { paths, subtitles })?;
+                            apply_manual_open_repeat(&app, &sender)
                         }
                         PreparedSelection::Command(command) => {
                             let added = match &command {
@@ -359,6 +472,9 @@ fn selection_at(
                                 _ => None,
                             };
                             sender.send(command)?;
+                            if added.is_none() && !append {
+                                apply_manual_open_repeat(&app, &sender)?;
+                            }
                             if let Some(count) = added {
                                 crate::player_ui::show_osd_message(
                                     &app,
@@ -384,12 +500,98 @@ fn selection_at(
 
 enum PreparedSelection {
     Command(Command),
+    CommandWithSubtitles(Vec<String>, Vec<String>),
     Subtitles(Vec<String>),
+}
+
+fn resolve_dropped_url_shortcuts(paths: Vec<String>) -> Result<Vec<String>, String> {
+    paths
+        .into_iter()
+        .map(|path| {
+            if riina_core::media_reference::is_network_url_candidate(&path)
+                || !std::path::Path::new(&path)
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("url"))
+            {
+                return Ok(path);
+            }
+            let metadata = std::fs::metadata(&path).map_err(|error| error.to_string())?;
+            if !metadata.is_file() || metadata.len() > 16 * 1024 {
+                return Err("The dropped internet shortcut is not a small regular file".into());
+            }
+            let contents = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            parse_internet_shortcut(&contents).map(str::to_owned)
+        })
+        .collect()
+}
+
+fn parse_internet_shortcut(contents: &str) -> Result<&str, String> {
+    let mut in_internet_shortcut = false;
+    let mut url = None;
+    for line in contents.lines().map(str::trim) {
+        if line.starts_with('[') && line.ends_with(']') {
+            in_internet_shortcut = line.eq_ignore_ascii_case("[InternetShortcut]");
+            continue;
+        }
+        if in_internet_shortcut
+            && let Some((key, value)) = line.split_once('=')
+            && key.trim().eq_ignore_ascii_case("URL")
+        {
+            url = Some(value.trim());
+            break;
+        }
+    }
+    let url = url.ok_or_else(|| "The dropped internet shortcut has no URL".to_owned())?;
+    validate_url(url).map_err(str::to_owned)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{select_open_paths, validate_url};
+    use super::manual_open_repeat_command;
+    use super::{parse_internet_shortcut, select_open_paths, validate_url};
+    use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn manual_open_repeat_is_opt_in() {
+        assert_eq!(manual_open_repeat_command(false, 0), Ok(None));
+    }
+
+    #[test]
+    fn manual_open_repeat_maps_the_selected_loop_mode() {
+        assert_eq!(
+            manual_open_repeat_command(true, 0),
+            Ok(Some(Command::SetLoopMode(LoopMode::Playlist)))
+        );
+        assert_eq!(
+            manual_open_repeat_command(true, 1),
+            Ok(Some(Command::SetLoopMode(LoopMode::File)))
+        );
+    }
+
+    #[test]
+    fn invalid_manual_repeat_mode_is_rejected_only_when_enabled() {
+        assert!(manual_open_repeat_command(false, 99).is_ok());
+        assert!(manual_open_repeat_command(true, 99).is_err());
+    }
+
+    #[test]
+    fn internet_shortcuts_resolve_only_validated_network_urls() {
+        assert_eq!(
+            parse_internet_shortcut(
+                "[Other]\nURL=https://ignored.test/\n[InternetShortcut]\nURL=RTSP://camera.test/live\n"
+            )
+            .unwrap(),
+            "RTSP://camera.test/live"
+        );
+        for contents in [
+            "URL=https://outside-section.test/\n",
+            "[InternetShortcut]\nURL=file:///secret\n",
+            "[InternetShortcut]\nURL=https://bad host/\n",
+            "[InternetShortcut]\nIconFile=shortcut.ico\n",
+        ] {
+            assert!(parse_internet_shortcut(contents).is_err());
+        }
+    }
 
     #[test]
     fn grouped_simultaneous_opens_preserve_items_even_when_duplicates_are_disabled() {

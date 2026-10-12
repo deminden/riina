@@ -15,6 +15,19 @@ priorities, not a project timeline. The traceable requirement inventory is
 2. Measure and close visual gaps against actual pinned macOS captures. Compare complete
    player, menu, sidebar, preferences, dialog, and auxiliary-window surfaces at matched
    states and sizes. Preserve IINA's visual language; do not replace it with a redesign.
+   Implement platform-native materials as a tracked part of this work:
+   - macOS keeps IINA's Liquid Glass setting and uses the current macOS material API.
+   - Windows 11 uses Mica for the persistent window backdrop and Acrylic for transient
+     surfaces; playback overlays must compose against the playing video, using in-app
+     Acrylic when the renderer supports it or a measured video-backed fallback.
+   - Keep labels and fallback behavior platform-aware. Honor Windows transparency and
+     battery-saver fallbacks; do not call Windows materials Liquid Glass.
+   - Linux uses the compositor's native backdrop when available and a documented
+     in-app fallback otherwise.
+   Current state: the shared switches still select RGBA tint/opacity only. Windows
+   Mica/Acrylic composition and macOS 27.0.1 Liquid Glass rendering are open. Inspect
+   Slint/Winit transparency and per-surface compositor boundaries before wiring effects;
+   one window-wide backdrop does not prove parity for OSD, controller and sidebar.
 3. Build macOS and Linux application ports alongside Windows feature and visual work.
    Windows 11 x64 is the only supported application target until each port has a full
    app build, visible playback, input, dialogs, window lifecycle, and shutdown evidence.
@@ -29,6 +42,8 @@ priorities, not a project timeline. The traceable requirement inventory is
   and tests at the layer that owns the behavior.
 - Visual parity claims require Windows captures compared with the pinned macOS reference;
   source inspection and layout dimensions alone do not establish parity.
+- Material parity requires separate runtime checks for window backdrops, transient
+  surfaces and video-backed overlays, including OS transparency and power-saving fallback.
 - Platform support requires full application and playback/lifecycle evidence. Library-only
   CI is insufficient.
 - Binary publication requires successful validation of the exact candidate package,

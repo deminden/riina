@@ -19,6 +19,7 @@ component CropButton inherits Rectangle {
 export component CropEditor inherits Rectangle {
     in property <bool> editing;
     in property <bool> ready;
+    in property <bool> delogo;
     in property <string> description;
     in property <float> box-x;
     in property <float> box-y;
@@ -40,13 +41,22 @@ export component CropEditor inherits Rectangle {
             if event.text == Key.Tab { return reject; }
             return accept;
         }
-        Rectangle { x:0px; y:0px; width:parent.width; height:root.box-y * 1px; background:#00000080; }
-        Rectangle { x:0px; y:root.box-y * 1px; width:root.box-x * 1px; height:root.box-height * 1px; background:#00000080; }
-        Rectangle { x:(root.box-x + root.box-width) * 1px; y:root.box-y * 1px;
-            width:max(0px,parent.width - self.x); height:root.box-height * 1px; background:#00000080; }
-        Rectangle { x:0px; y:(root.box-y + root.box-height) * 1px;
-            width:parent.width; height:max(0px,parent.height - self.y); background:#00000080; }
-        if root.ready : Rectangle { x:root.box-x * 1px; y:root.box-y * 1px;
+        if root.box-width > 0 && root.box-height > 0 : Rectangle {
+            x:0px; y:0px; width:parent.width; height:root.box-y * 1px; background:#00000080;
+        }
+        if root.box-width > 0 && root.box-height > 0 : Rectangle {
+            x:0px; y:root.box-y * 1px; width:root.box-x * 1px;
+            height:root.box-height * 1px; background:#00000080;
+        }
+        if root.box-width > 0 && root.box-height > 0 : Rectangle {
+            x:(root.box-x + root.box-width) * 1px; y:root.box-y * 1px;
+            width:max(0px,parent.width - self.x); height:root.box-height * 1px; background:#00000080;
+        }
+        if root.box-width > 0 && root.box-height > 0 : Rectangle {
+            x:0px; y:(root.box-y + root.box-height) * 1px;
+            width:parent.width; height:max(0px,parent.height - self.y); background:#00000080;
+        }
+        if root.ready && root.box-width > 0 && root.box-height > 0 : Rectangle { x:root.box-x * 1px; y:root.box-y * 1px;
             width:root.box-width * 1px; height:root.box-height * 1px;
             border-width:2px; border-color:#168bff; background:#ffffff0a; }
         free := TouchArea { enabled: root.ready; mouse-cursor:crosshair;
@@ -58,7 +68,8 @@ export component CropEditor inherits Rectangle {
             moved => { if self.pressed { root.move-drag(self.mouse-x / 1px,self.mouse-y / 1px); } }
         }
         for edge[index] in [1,2,3,4] : TouchArea {
-            enabled: root.ready; mouse-cursor: edge <= 2 ? ew-resize : ns-resize;
+            enabled: root.ready && root.box-width > 0 && root.box-height > 0;
+            mouse-cursor: edge <= 2 ? ew-resize : ns-resize;
             x: (edge == 1 ? root.box-x - 2 : edge == 2 ? root.box-x + root.box-width - 2 : root.box-x) * 1px;
             // Standardize the inset strip even below four points: a negative
             // span reverses its endpoints rather than removing the resize target.
@@ -73,15 +84,21 @@ export component CropEditor inherits Rectangle {
         }
         VerticalLayout { x:max(8px,(parent.width - self.width)/2); y:parent.height - self.height - 20px;
             width:min(560px,parent.width - 16px); height:46px; spacing:8px;
-            Text { text:root.description; font-size:11px; color:#cccccc; horizontal-alignment:center; }
+            Text { text:root.delogo && root.box-width == 0 ? "Click and drag to select a logo" : root.description;
+                font-size:11px; color:#cccccc; horizontal-alignment:center; }
             HorizontalLayout { spacing:4px; height:24px;
-                for label[index] in ["4:3","16:9","16:10","21:9","3:2","5:4"] : CropButton {
-                    label:label; selected:root.preset-index == index; enabled:root.ready;
-                    chosen => { root.preset-index = index; root.preset(index); }
+                if !root.delogo : HorizontalLayout {
+                    spacing:4px;
+                    for label[index] in ["4:3","16:9","16:10","21:9","3:2","5:4"] : CropButton {
+                        label:label; selected:root.preset-index == index; enabled:root.ready;
+                        chosen => { root.preset-index = index; root.preset(index); }
+                    }
                 }
                 Rectangle { width:8px; background:transparent; }
                 CropButton { label:"Cancel"; width:72px; chosen => { root.finish(false); } }
-                CropButton { label:"Done"; width:72px; enabled:root.ready; chosen => { root.finish(true); } }
+                CropButton { label:root.delogo ? "Apply" : "Done"; width:72px;
+                    enabled:root.ready && root.box-width > 0 && root.box-height > 0;
+                    chosen => { root.finish(true); } }
             }
         }
     }

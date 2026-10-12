@@ -4201,6 +4201,97 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies live equalizer filter replacement and observation"]
+fn audio_equalizer_applies_updates_and_returns_to_flat() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player_with_options(
+        &test_library(&root),
+        true,
+        vec![("ao".into(), "null".into())],
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/external-tone.wav")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.error.is_some() || (state.phase == Phase::Playing && state.audio_equalizer.is_some())
+    });
+    assert_eq!(loaded.error, None);
+    assert_eq!(loaded.audio_equalizer, Some([0.; 10]));
+
+    let mut gains = [0.; 10];
+    gains[4] = 4.5;
+    player.send(Command::AudioEqualizer(gains)).unwrap();
+    let applied = wait_for(&receiver, |state| {
+        state.error.is_some()
+            || state.audio_equalizer.is_some_and(|observed| {
+                observed
+                    .iter()
+                    .zip(gains)
+                    .all(|(actual, expected)| (actual - expected).abs() < 0.01)
+            })
+    });
+    assert_eq!(applied.error, None);
+
+    player.send(Command::AudioEqualizer([0.; 10])).unwrap();
+    let reset = wait_for(&receiver, |state| {
+        state.error.is_some() || state.audio_equalizer == Some([0.; 10])
+    });
+    assert_eq!(reset.error, None);
+    drop(player);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies dropped subtitles attach after media loads"]
+fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let media = root.join("tests/fixtures/catalog.mkv");
+    let subtitle = root.join("tests/fixtures/manual-captions.srt");
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::OpenFilesWithSubtitles {
+            paths: vec![media.to_string_lossy().into_owned()],
+            subtitles: vec![subtitle.to_string_lossy().into_owned()],
+        })
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.error.is_some()
+            || state.tracks.iter().any(|track| {
+                track.kind == TrackKind::Sub
+                    && track.external
+                    && track.title.as_deref() == Some("manual-captions.srt")
+            })
+    });
+    assert_eq!(loaded.error, None);
+    assert!(loaded.tracks.iter().any(|track| {
+        track.kind == TrackKind::Sub
+            && track.external
+            && track
+                .external_filename
+                .as_deref()
+                .is_some_and(|filename| filename.ends_with("manual-captions.srt"))
+    }));
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; exercises the UI's multi-file open command"]
 fn ui_open_files_command_starts_real_media() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

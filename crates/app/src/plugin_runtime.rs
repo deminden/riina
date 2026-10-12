@@ -2,7 +2,7 @@
 
 use crate::plugin_files::{PluginFileHandle, PluginFiles, PluginPlayerFileContext};
 use riina_core::plugin::{
-    Manifest, OverlayEffect, OverlayIntent, OverlayState, network_url_allowed,
+    Manifest, OverlayEffect, OverlayIntent, OverlayState, WindowAction, network_url_allowed,
 };
 use riina_core::{Command, control_preferences::SeekType};
 use rquickjs::{Context, Ctx, Function, Object, Runtime, Value, function::Func};
@@ -36,6 +36,7 @@ const MAX_REQUIRED_MODULE_BYTES: usize = 16 * 1024 * 1024;
 const MAX_REQUIRE_DEPTH: usize = 64;
 const MAX_ACTIVE_NETWORK_REQUESTS: usize = 8;
 const MAX_NETWORK_REQUEST_BYTES: usize = 1024 * 1024;
+const MAX_PLUGIN_DOWNLOAD_BYTES: usize = 64 * 1024 * 1024;
 const MAX_OPEN_FILE_HANDLES: usize = 64;
 const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -48,12 +49,15 @@ pub enum HostEvent {
     PluginMessage(String, serde_json::Value),
     CoreCommand(Command),
     SetUiVisibility(bool),
+    WindowAction(WindowAction),
 }
 
 enum RuntimeCommand {
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverPluginMessage(String, serde_json::Value),
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
+    DeliverNetworkDownload(u32, Result<(), String>),
+    DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
     Shutdown,
 }
 
@@ -655,6 +659,15 @@ fn run_entry_worker(
                 let network_sender = network_sender_for_api.clone();
                 let active_requests = network_active_for_api.clone();
                 let domains = allowed_domains_for_api.clone();
+                let download_files = file_system.clone();
+                let download_filesystem_granted = permissions.file_system;
+                let xmlrpc_check_domains = allowed_domains_for_api.clone();
+                http.set(
+                    "__xmlrpcAllowed",
+                    Func::from(move |location: String| {
+                        network_url_allowed(&location, &xmlrpc_check_domains)
+                    }),
+                )?;
                 http.set(
                     "__request",
                     Func::from(
@@ -701,10 +714,125 @@ fn run_entry_worker(
                         },
                     ),
                 )?;
+                let download_sender = network_sender_for_api.clone();
+                let download_active = network_active_for_api.clone();
+                let download_domains = allowed_domains_for_api.clone();
+                let download_files = download_files.clone();
+                http.set(
+                    "__download",
+                    Func::from(
+                        move |id: u32, url: String, destination: String, options: String| -> rquickjs::Result<()> {
+                            let options: serde_json::Value = serde_json::from_str(&options)
+                                .map_err(|error| http_js_error(error.to_string()))?;
+                            if !network_url_allowed(&url, &download_domains) {
+                                return Err(http_js_error(
+                                    "Plugin is not allowed to access this URL".into(),
+                                ));
+                            }
+                            if options.to_string().len() > MAX_NETWORK_REQUEST_BYTES {
+                                return Err(http_js_error(
+                                    "HTTP request options exceed the 1 MiB limit".into(),
+                                ));
+                            }
+                            if destination.len() > 16 * 1024 || destination.contains('\0') {
+                                return Err(http_js_error("Download destination is invalid".into()));
+                            }
+                            if !acquire_network_request_slot(&download_active) {
+                                return Err(http_js_error(
+                                    "Plugin has reached the 8 active HTTP request limit".into(),
+                                ));
+                            }
+                            let sender = download_sender.clone();
+                            let active_for_thread = download_active.clone();
+                            let domains = download_domains.clone();
+                            let files = download_files.clone();
+                            let filesystem_granted = download_filesystem_granted;
+                            let worker = std::thread::Builder::new()
+                                .name("plugin-http-download".into())
+                                .spawn(move || {
+                                    let result = perform_http_download(&url, &options, &domains)
+                                        .and_then(|content| {
+                                            files.write_download(
+                                                &destination,
+                                                &content,
+                                                filesystem_granted,
+                                            )
+                                        });
+                                    active_for_thread.fetch_sub(1, Ordering::AcqRel);
+                                    let _ = sender.send(RuntimeCommand::DeliverNetworkDownload(id, result));
+                                });
+                            if let Err(error) = worker {
+                                download_active.fetch_sub(1, Ordering::AcqRel);
+                                return Err(http_js_error(format!(
+                                    "Could not start HTTP download: {error}"
+                                )));
+                            }
+                            Ok(())
+                        },
+                    ),
+                )?;
+                let xmlrpc_sender = network_sender_for_api.clone();
+                let xmlrpc_active = network_active_for_api.clone();
+                let xmlrpc_domains = allowed_domains_for_api.clone();
+                http.set(
+                    "__xmlrpc",
+                    Func::from(
+                        move |id: u32, location: String, method: String, args: String| -> rquickjs::Result<()> {
+                            if !network_url_allowed(&location, &xmlrpc_domains) {
+                                return Err(http_js_error(
+                                    "Plugin is not allowed to access this URL".into(),
+                                ));
+                            }
+                            if method.is_empty()
+                                || method.len() > 1024
+                                || method.chars().any(char::is_control)
+                            {
+                                return Err(http_js_error("XML-RPC method name is invalid".into()));
+                            }
+                            let args: serde_json::Value = serde_json::from_str(&args)
+                                .map_err(|error| http_js_error(error.to_string()))?;
+                            if !args.is_array() || args.to_string().len() > MAX_NETWORK_REQUEST_BYTES {
+                                return Err(http_js_error(
+                                    "XML-RPC arguments must be an array no larger than 1 MiB".into(),
+                                ));
+                            }
+                            if !acquire_network_request_slot(&xmlrpc_active) {
+                                return Err(http_js_error(
+                                    "Plugin has reached the 8 active HTTP request limit".into(),
+                                ));
+                            }
+                            let sender = xmlrpc_sender.clone();
+                            let active_for_thread = xmlrpc_active.clone();
+                            let domains = xmlrpc_domains.clone();
+                            let worker = std::thread::Builder::new()
+                                .name("plugin-xmlrpc".into())
+                                .spawn(move || {
+                                    let result = perform_xmlrpc_call(
+                                        &location,
+                                        &method,
+                                        &args,
+                                        &domains,
+                                    );
+                                    active_for_thread.fetch_sub(1, Ordering::AcqRel);
+                                    let _ = sender.send(RuntimeCommand::DeliverXmlRpcResult(id, result));
+                                });
+                            if let Err(error) = worker {
+                                xmlrpc_active.fetch_sub(1, Ordering::AcqRel);
+                                return Err(http_js_error(format!(
+                                    "Could not start XML-RPC call: {error}"
+                                )));
+                            }
+                            Ok(())
+                        },
+                    ),
+                )?;
                 globals.set("__riinaHttp", http)?;
                 ctx.eval::<(), _>(
                     r#"(() => {
                         const nativeRequest = __riinaHttp.__request;
+                        const nativeDownload = __riinaHttp.__download;
+                        const nativeXmlrpc = __riinaHttp.__xmlrpc;
+                        const xmlrpcAllowed = __riinaHttp.__xmlrpcAllowed;
                         const pending = new Map();
                         let nextId = 0;
                         const request = (method, url, options = {}) => new Promise((resolve, reject) => {
@@ -723,7 +851,41 @@ fn run_entry_worker(
                             post: (url, options) => request('POST', url, options),
                             put: (url, options) => request('PUT', url, options),
                             patch: (url, options) => request('PATCH', url, options),
-                            delete: (url, options) => request('DELETE', url, options)
+                            delete: (url, options) => request('DELETE', url, options),
+                            download: (url, destination, options = {}) => new Promise((resolve, reject) => {
+                                nextId = (nextId + 1) >>> 0;
+                                const id = nextId;
+                                pending.set(id, { resolve, reject });
+                                try {
+                                    nativeDownload(id, String(url), String(destination), JSON.stringify(options));
+                                } catch (error) {
+                                    pending.delete(id);
+                                    reject(error);
+                                }
+                            }),
+                            xmlrpc: location => {
+                                const endpoint = String(location);
+                                if (!xmlrpcAllowed(endpoint)) throw new Error(`URL ${endpoint} is not allowed.`);
+                                return {
+                                    call: (method, args = []) => new Promise((resolve, reject) => {
+                                        nextId = (nextId + 1) >>> 0;
+                                        const id = nextId;
+                                        pending.set(id, { resolve, reject });
+                                        try {
+                                            const json = JSON.stringify(args, function (key, value) {
+                                                const original = this && this[key];
+                                                if (original instanceof Date) return { __riinaXmlrpcDate: original.toISOString() };
+                                                if (ArrayBuffer.isView(original)) return { __riinaXmlrpcBinary: Array.from(original) };
+                                                return value;
+                                            });
+                                            nativeXmlrpc(id, endpoint, String(method), json);
+                                        } catch (error) {
+                                            pending.delete(id);
+                                            reject(error);
+                                        }
+                                    })
+                                };
+                            }
                         };
                         globalThis.__riinaDeliverHttp = (id, response, error) => {
                             const callbacks = pending.get(id);
@@ -732,6 +894,31 @@ fn run_entry_worker(
                             if (error !== null) callbacks.reject(new Error(error));
                             else if (response.statusCode < 400 || response.statusCode >= 600) callbacks.resolve(response);
                             else callbacks.reject(response);
+                        };
+                        globalThis.__riinaDeliverDownload = (id, error) => {
+                            const callbacks = pending.get(id);
+                            if (!callbacks) return;
+                            pending.delete(id);
+                            if (error !== null) callbacks.reject(new Error(error));
+                            else callbacks.resolve();
+                        };
+                        globalThis.__riinaDeliverXmlrpc = (id, response, error) => {
+                            const callbacks = pending.get(id);
+                            if (!callbacks) return;
+                            pending.delete(id);
+                            if (error !== null) callbacks.reject(new Error(error));
+                            else {
+                                const hydrate = value => {
+                                    if (Array.isArray(value)) return value.map(hydrate);
+                                    if (value && typeof value === 'object') {
+                                        if (Array.isArray(value.__riinaXmlrpcBinary)) return new Uint8Array(value.__riinaXmlrpcBinary);
+                                        if (typeof value.__riinaXmlrpcDate === 'string') return new Date(value.__riinaXmlrpcDate);
+                                        for (const key of Object.keys(value)) value[key] = hydrate(value[key]);
+                                    }
+                                    return value;
+                                };
+                                callbacks.resolve(hydrate(response));
+                            }
                         };
                         globalThis.__riinaHttp = undefined;
                     })();"#,
@@ -1243,6 +1430,52 @@ fn run_entry_worker(
                     record(
                         &events,
                         HostEvent::Log(format!("HTTP response callback failed: {error}")),
+                    );
+                }
+            }
+            RuntimeCommand::DeliverNetworkDownload(id, result) => {
+                let error = match result {
+                    Ok(()) => "null".to_owned(),
+                    Err(error) => match serde_json::to_string(&error) {
+                        Ok(error) => error,
+                        Err(_) => continue,
+                    },
+                };
+                let script = format!("__riinaDeliverDownload({id}, {error})");
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| {
+                    ctx.eval::<Value, _>(script).map(|_| ())?;
+                    drain_pending_jobs(ctx);
+                    Ok::<(), rquickjs::Error>(())
+                }) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("HTTP download callback failed: {error}")),
+                    );
+                }
+            }
+            RuntimeCommand::DeliverXmlRpcResult(id, result) => {
+                let (response, error) = match result {
+                    Ok(response) => (response.to_string(), "null".to_owned()),
+                    Err(error) => match serde_json::to_string(&error) {
+                        Ok(error) => ("null".to_owned(), error),
+                        Err(_) => continue,
+                    },
+                };
+                let script = format!("__riinaDeliverXmlrpc({id}, {response}, {error})");
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| {
+                    ctx.eval::<Value, _>(script).map(|_| ())?;
+                    drain_pending_jobs(ctx);
+                    Ok::<(), rquickjs::Error>(())
+                }) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("XML-RPC response callback failed: {error}")),
                     );
                 }
             }
@@ -1763,6 +1996,18 @@ fn install_plugin_core_api<'js>(
                 .map_err(core_js_error)
         }),
     )?;
+    let history_files = files.clone();
+    core_api.set(
+        "__readHistory",
+        Func::from(move || -> rquickjs::Result<String> {
+            history_files
+                .core_playback_history()
+                .and_then(|history| {
+                    serde_json::to_string(&history).map_err(|error| error.to_string())
+                })
+                .map_err(core_js_error)
+        }),
+    )?;
     let version_files = files.clone();
     core_api.set(
         "__readVersion",
@@ -1775,6 +2020,37 @@ fn install_plugin_core_api<'js>(
                 .map_err(core_js_error)
         }),
     )?;
+    let window_files = files.clone();
+    core_api.set(
+        "__readWindowProperty",
+        Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
+            window_files
+                .core_window_property(&name)
+                .and_then(|value| {
+                    value
+                        .map(|value| {
+                            serde_json::to_string(&value).map_err(|error| error.to_string())
+                        })
+                        .transpose()
+                })
+                .map_err(core_js_error)
+        }),
+    )?;
+    let window_events = events.clone();
+    core_api.set(
+        "__writeWindowProperty",
+        Func::from(
+            move |name: String, serialized: String| -> rquickjs::Result<bool> {
+                let value: serde_json::Value = serde_json::from_str(&serialized)
+                    .map_err(|_| core_js_error("Window property value is not valid JSON".into()))?;
+                let Some(action) = plugin_window_action(&name, value)? else {
+                    return Ok(false);
+                };
+                record(&window_events, HostEvent::WindowAction(action));
+                Ok(true)
+            },
+        ),
+    )?;
     iina_api.set("core", core_api)?;
     ctx.eval::<(), _>(
         r#"(() => {
@@ -1782,7 +2058,10 @@ fn install_plugin_core_api<'js>(
             const readStatus = core.__readStatus;
             const readChapters = core.__readChapters;
             const readRecentDocuments = core.__readRecentDocuments;
+            const readHistory = core.__readHistory;
             const readVersion = core.__readVersion;
+            const readWindowProperty = core.__readWindowProperty;
+            const writeWindowProperty = core.__writeWindowProperty;
             const readCoreProperty = core.__readCoreProperty;
             const writeCoreProperty = core.__writeCoreProperty;
             const loadTrack = core.__loadTrack;
@@ -1796,7 +2075,22 @@ fn install_plugin_core_api<'js>(
             });
             core.getChapters = () => JSON.parse(readChapters());
             core.getRecentDocuments = () => JSON.parse(readRecentDocuments());
+            core.getHistory = () => JSON.parse(readHistory()).map(entry => ({
+                ...entry,
+                date: new Date(entry.date)
+            }));
             core.getVersion = () => JSON.parse(readVersion());
+            core.window = new Proxy(Object.create(null), {
+                get(_target, property) {
+                    if (typeof property !== 'string') return undefined;
+                    const serialized = readWindowProperty(property);
+                    return serialized == null ? undefined : JSON.parse(serialized);
+                },
+                set(_target, property, value) {
+                    if (typeof property !== 'string') return false;
+                    return writeWindowProperty(property, JSON.stringify(value));
+                }
+            });
             for (const namespace of ['audio', 'subtitle', 'video']) {
                 const api = new Proxy(Object.create(null), {
                     get(_target, property) {
@@ -1815,7 +2109,10 @@ fn install_plugin_core_api<'js>(
             delete core.__readStatus;
             delete core.__readChapters;
             delete core.__readRecentDocuments;
+            delete core.__readHistory;
             delete core.__readVersion;
+            delete core.__readWindowProperty;
+            delete core.__writeWindowProperty;
             delete core.__readCoreProperty;
             delete core.__writeCoreProperty;
             delete core.__loadTrack;
@@ -1837,6 +2134,60 @@ fn json_finite_number(value: serde_json::Value, label: &str) -> rquickjs::Result
         .as_f64()
         .filter(|number| number.is_finite())
         .ok_or_else(|| core_js_error(format!("{label} must be a finite number")))
+}
+
+fn plugin_window_action(
+    name: &str,
+    value: serde_json::Value,
+) -> rquickjs::Result<Option<WindowAction>> {
+    let invalid = |label: &str| core_js_error(format!("Window {label} has an invalid value"));
+    let action = match name {
+        "frame" => {
+            let object = value.as_object().ok_or_else(|| invalid("frame"))?;
+            let number = |name: &str| {
+                object
+                    .get(name)
+                    .cloned()
+                    .ok_or_else(|| invalid("frame"))
+                    .and_then(|value| json_finite_number(value, "frame"))
+            };
+            let (x, y, width, height) = (
+                number("x")?,
+                number("y")?,
+                number("width")?,
+                number("height")?,
+            );
+            if width <= 0.0 || height <= 0.0 {
+                return Err(invalid("frame"));
+            }
+            WindowAction::SetFrame {
+                x,
+                y,
+                width,
+                height,
+            }
+        }
+        "fullscreen" => {
+            WindowAction::SetFullscreen(value.as_bool().ok_or_else(|| invalid("fullscreen"))?)
+        }
+        "pip" => WindowAction::SetPictureInPicture(value.as_bool().ok_or_else(|| invalid("pip"))?),
+        "ontop" => WindowAction::SetOnTop(value.as_bool().ok_or_else(|| invalid("ontop"))?),
+        "sidebar" => {
+            let name = match value {
+                serde_json::Value::Null => None,
+                serde_json::Value::String(name) if name.len() <= 128 && !name.contains('\0') => {
+                    Some(name)
+                }
+                _ => return Err(invalid("sidebar")),
+            };
+            WindowAction::SetSidebar(name)
+        }
+        "miniaturized" => {
+            WindowAction::SetMiniaturized(value.as_bool().ok_or_else(|| invalid("miniaturized"))?)
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(action))
 }
 
 fn plugin_media_reference(
@@ -2064,6 +2415,475 @@ fn perform_http_request(
     }))
 }
 
+fn perform_http_download(
+    raw_url: &str,
+    options: &serde_json::Value,
+    allowed_domains: &[String],
+) -> Result<Vec<u8>, String> {
+    let mut current_url = url::Url::parse(raw_url).map_err(|error| error.to_string())?;
+    if let Some(params) = options.get("params") {
+        let params = params
+            .as_object()
+            .ok_or_else(|| "HTTP params must be an object".to_owned())?;
+        let mut query = current_url.query_pairs_mut();
+        for (key, value) in params {
+            query.append_pair(key, &http_option_string(value));
+        }
+    }
+    let method = options
+        .get("method")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("GET");
+    let mut method = ureq::http::Method::from_bytes(method.as_bytes())
+        .map_err(|error| format!("Invalid HTTP method: {error}"))?;
+    let data = options.get("data").filter(|value| !value.is_null());
+    let mut body = if let Some(data) = data {
+        let fields = data
+            .as_object()
+            .ok_or_else(|| "HTTP data must be an object".to_owned())?;
+        let mut form = url::form_urlencoded::Serializer::new(String::new());
+        for (key, value) in fields {
+            form.append_pair(key, &http_option_string(value));
+        }
+        form.finish().into_bytes()
+    } else {
+        Vec::new()
+    };
+    if body.len() > MAX_NETWORK_REQUEST_BYTES {
+        return Err("HTTP request body exceeds the 1 MiB limit".into());
+    }
+    let headers = options
+        .get("headers")
+        .map(|value| {
+            value
+                .as_object()
+                .ok_or_else(|| "HTTP headers must be an object".to_owned())
+        })
+        .transpose()?;
+    let mut has_content_type = false;
+    let mut headers_out = ureq::http::HeaderMap::new();
+    if let Some(headers) = headers {
+        for (name, value) in headers {
+            let name = ureq::http::HeaderName::from_bytes(name.as_bytes())
+                .map_err(|error| format!("Invalid HTTP header name: {error}"))?;
+            let value = ureq::http::HeaderValue::from_str(&http_option_string(value))
+                .map_err(|error| format!("Invalid HTTP header value: {error}"))?;
+            has_content_type |= name == ureq::http::header::CONTENT_TYPE;
+            headers_out.insert(name, value);
+        }
+    }
+    if data.is_some() && !has_content_type {
+        headers_out.insert(
+            ureq::http::header::CONTENT_TYPE,
+            ureq::http::HeaderValue::from_static("application/x-www-form-urlencoded"),
+        );
+    }
+
+    let mut response = None;
+    let request_started = Instant::now();
+    for redirect_count in 0..=10 {
+        let mut request = ureq::http::Request::builder()
+            .method(method.clone())
+            .uri(current_url.as_str())
+            .body(body.clone())
+            .map_err(|error| format!("Could not construct HTTP request: {error}"))?;
+        *request.headers_mut() = headers_out.clone();
+        let remaining = NETWORK_TIMEOUT.saturating_sub(request_started.elapsed());
+        if remaining.is_zero() {
+            return Err("HTTP download exceeded the 30 second timeout".into());
+        }
+        let agent = ureq::Agent::new_with_config(
+            ureq::Agent::config_builder()
+                .timeout_global(Some(remaining))
+                .max_redirects(0)
+                .http_status_as_error(false)
+                .build(),
+        );
+        let current_response = agent
+            .run(request)
+            .map_err(|error| format!("HTTP download failed: {error}"))?;
+        let status = current_response.status();
+        let is_redirect = matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308);
+        let next_url = if is_redirect {
+            current_response
+                .headers()
+                .get(ureq::http::header::LOCATION)
+                .and_then(|location| location.to_str().ok())
+                .map(|location| current_url.join(location))
+                .transpose()
+                .map_err(|error| format!("Invalid HTTP redirect URL: {error}"))?
+        } else {
+            None
+        };
+        let Some(next_url) = next_url.filter(|_| redirect_count < 10) else {
+            response = Some(current_response);
+            break;
+        };
+        if !network_url_allowed(next_url.as_str(), allowed_domains) {
+            return Err("HTTP redirect target is not in the plugin's allowed domains".into());
+        }
+        if !current_url
+            .host_str()
+            .zip(next_url.host_str())
+            .is_some_and(|(current, next)| current.eq_ignore_ascii_case(next))
+        {
+            headers_out.remove(ureq::http::header::AUTHORIZATION);
+            headers_out.remove(ureq::http::header::COOKIE);
+        }
+        if status.as_u16() == 303
+            || (matches!(status.as_u16(), 301 | 302) && method == ureq::http::Method::POST)
+        {
+            method = ureq::http::Method::GET;
+            body.clear();
+            headers_out.remove(ureq::http::header::CONTENT_TYPE);
+        }
+        current_url = next_url;
+        drop(current_response);
+    }
+    let mut response = response.ok_or_else(|| "HTTP redirect limit was exceeded".to_owned())?;
+    let status = response.status();
+    if !(200..300).contains(&status.as_u16()) {
+        return Err(format!(
+            "HTTP download failed with status {}",
+            status.as_u16()
+        ));
+    }
+    let content = response
+        .body_mut()
+        .with_config()
+        .limit((MAX_PLUGIN_DOWNLOAD_BYTES + 1) as u64)
+        .read_to_vec()
+        .map_err(|error| format!("Could not read HTTP download: {error}"))?;
+    if content.len() > MAX_PLUGIN_DOWNLOAD_BYTES {
+        return Err("Download exceeds the 64 MiB limit".into());
+    }
+    Ok(content)
+}
+
+fn perform_xmlrpc_call(
+    raw_url: &str,
+    method_name: &str,
+    arguments: &serde_json::Value,
+    allowed_domains: &[String],
+) -> Result<serde_json::Value, String> {
+    let request_body = build_xmlrpc_request(method_name, arguments)?;
+    if request_body.len() > MAX_NETWORK_REQUEST_BYTES {
+        return Err("XML-RPC request exceeds the 1 MiB limit".into());
+    }
+    let mut current_url = url::Url::parse(raw_url).map_err(|error| error.to_string())?;
+    let request_started = Instant::now();
+    let mut response = None;
+    for redirect_count in 0..=10 {
+        let request = ureq::http::Request::builder()
+            .method(ureq::http::Method::POST)
+            .uri(current_url.as_str())
+            .header(ureq::http::header::CONTENT_TYPE, "text/xml; charset=utf-8")
+            .header(ureq::http::header::ACCEPT, "text/xml")
+            .body(request_body.clone())
+            .map_err(|error| format!("Could not construct XML-RPC request: {error}"))?;
+        let remaining = NETWORK_TIMEOUT.saturating_sub(request_started.elapsed());
+        if remaining.is_zero() {
+            return Err("XML-RPC request exceeded the 30 second timeout".into());
+        }
+        let agent = ureq::Agent::new_with_config(
+            ureq::Agent::config_builder()
+                .timeout_global(Some(remaining))
+                .max_redirects(0)
+                .http_status_as_error(false)
+                .build(),
+        );
+        let current_response = agent
+            .run(request)
+            .map_err(|error| format!("XML-RPC request failed: {error}"))?;
+        let status = current_response.status();
+        let is_redirect = matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308);
+        let next_url = if is_redirect {
+            current_response
+                .headers()
+                .get(ureq::http::header::LOCATION)
+                .and_then(|location| location.to_str().ok())
+                .map(|location| current_url.join(location))
+                .transpose()
+                .map_err(|error| format!("Invalid XML-RPC redirect URL: {error}"))?
+        } else {
+            None
+        };
+        let Some(next_url) = next_url.filter(|_| redirect_count < 10) else {
+            response = Some(current_response);
+            break;
+        };
+        if !network_url_allowed(next_url.as_str(), allowed_domains) {
+            return Err("XML-RPC redirect target is not in the plugin's allowed domains".into());
+        }
+        current_url = next_url;
+        drop(current_response);
+    }
+    let mut response = response.ok_or_else(|| "XML-RPC redirect limit was exceeded".to_owned())?;
+    let status = response.status();
+    let body = response
+        .body_mut()
+        .with_config()
+        .limit((MAX_XMLRPC_RESPONSE_BYTES + 1) as u64)
+        .read_to_vec()
+        .map_err(|error| format!("Could not read XML-RPC response: {error}"))?;
+    if body.len() > MAX_XMLRPC_RESPONSE_BYTES {
+        return Err("XML-RPC response exceeds the 4 MiB limit".into());
+    }
+    if !(200..300).contains(&status.as_u16()) {
+        return Err(format!(
+            "XML-RPC request failed with status {}",
+            status.as_u16()
+        ));
+    }
+    let document = roxmltree::Document::parse(
+        std::str::from_utf8(&body)
+            .map_err(|error| format!("XML-RPC response is not UTF-8: {error}"))?,
+    )
+    .map_err(|error| format!("Invalid XML-RPC response: {error}"))?;
+    let root = document.root_element();
+    if let Some(fault) = root.children().find(|node| node.has_tag_name("fault")) {
+        let details = fault
+            .descendants()
+            .find(|node| node.has_tag_name("value"))
+            .map(|value| parse_xmlrpc_value(value, 0))
+            .transpose()?
+            .unwrap_or(serde_json::Value::Null);
+        return Err(format!("XML-RPC fault: {details}"));
+    }
+    let value = root
+        .children()
+        .find(|node| node.has_tag_name("params"))
+        .and_then(|params| params.children().find(|node| node.has_tag_name("param")))
+        .and_then(|param| param.children().find(|node| node.has_tag_name("value")))
+        .ok_or_else(|| "XML-RPC server returned no value".to_owned())?;
+    parse_xmlrpc_value(value, 0)
+}
+
+const MAX_XMLRPC_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
+
+fn build_xmlrpc_request(
+    method_name: &str,
+    arguments: &serde_json::Value,
+) -> Result<Vec<u8>, String> {
+    use quick_xml::Writer;
+
+    let mut writer = Writer::new(Vec::new());
+    xmlrpc_start(&mut writer, "methodCall")?;
+    xmlrpc_text_element(&mut writer, "methodName", method_name)?;
+    xmlrpc_start(&mut writer, "params")?;
+    for argument in arguments
+        .as_array()
+        .ok_or_else(|| "XML-RPC arguments must be an array".to_owned())?
+    {
+        xmlrpc_start(&mut writer, "param")?;
+        write_xmlrpc_value(&mut writer, argument, 0)?;
+        xmlrpc_end(&mut writer, "param")?;
+    }
+    xmlrpc_end(&mut writer, "params")?;
+    xmlrpc_end(&mut writer, "methodCall")?;
+    Ok(writer.into_inner())
+}
+
+fn xmlrpc_start(writer: &mut quick_xml::Writer<Vec<u8>>, name: &str) -> Result<(), String> {
+    writer
+        .write_event(quick_xml::events::Event::Start(
+            quick_xml::events::BytesStart::new(name),
+        ))
+        .map_err(|error| error.to_string())
+}
+
+fn xmlrpc_end(writer: &mut quick_xml::Writer<Vec<u8>>, name: &str) -> Result<(), String> {
+    writer
+        .write_event(quick_xml::events::Event::End(
+            quick_xml::events::BytesEnd::new(name),
+        ))
+        .map_err(|error| error.to_string())
+}
+
+fn xmlrpc_text_element(
+    writer: &mut quick_xml::Writer<Vec<u8>>,
+    name: &str,
+    text: &str,
+) -> Result<(), String> {
+    xmlrpc_start(writer, name)?;
+    writer
+        .write_event(quick_xml::events::Event::Text(
+            quick_xml::events::BytesText::new(text),
+        ))
+        .map_err(|error| error.to_string())?;
+    xmlrpc_end(writer, name)
+}
+
+fn write_xmlrpc_value(
+    writer: &mut quick_xml::Writer<Vec<u8>>,
+    value: &serde_json::Value,
+    depth: usize,
+) -> Result<(), String> {
+    use base64::Engine;
+    use quick_xml::events::{BytesStart, Event};
+
+    if depth > 64 {
+        return Err("XML-RPC value nesting exceeds 64 levels".into());
+    }
+    xmlrpc_start(writer, "value")?;
+    match value {
+        serde_json::Value::Null => {
+            writer
+                .write_event(Event::Empty(BytesStart::new("nil")))
+                .map_err(|error| error.to_string())?;
+        }
+        serde_json::Value::Bool(value) => {
+            xmlrpc_text_element(writer, "boolean", if *value { "1" } else { "0" })?;
+        }
+        serde_json::Value::Number(value) => {
+            if let Some(value) = value.as_i64() {
+                xmlrpc_text_element(writer, "int", &value.to_string())?;
+            } else if let Some(value) = value.as_u64() {
+                xmlrpc_text_element(writer, "i8", &value.to_string())?;
+            } else if let Some(value) = value.as_f64().filter(|value| value.is_finite()) {
+                xmlrpc_text_element(writer, "double", &value.to_string())?;
+            } else {
+                return Err("XML-RPC numbers must be finite".into());
+            }
+        }
+        serde_json::Value::String(value) => xmlrpc_text_element(writer, "string", value)?,
+        serde_json::Value::Array(values) => {
+            xmlrpc_start(writer, "array")?;
+            xmlrpc_start(writer, "data")?;
+            for value in values {
+                write_xmlrpc_value(writer, value, depth + 1)?;
+            }
+            xmlrpc_end(writer, "data")?;
+            xmlrpc_end(writer, "array")?;
+        }
+        serde_json::Value::Object(values) => {
+            if let Some(date) = values
+                .get("__riinaXmlrpcDate")
+                .and_then(serde_json::Value::as_str)
+            {
+                let date = chrono::DateTime::parse_from_rfc3339(date)
+                    .map_err(|error| format!("Invalid XML-RPC date value: {error}"))?
+                    .with_timezone(&chrono::Local)
+                    .format("%Y%m%dT%H:%M:%S")
+                    .to_string();
+                xmlrpc_text_element(writer, "dateTime.iso8601", &date)?;
+            } else if let Some(bytes) = values
+                .get("__riinaXmlrpcBinary")
+                .and_then(serde_json::Value::as_array)
+            {
+                let bytes = bytes
+                    .iter()
+                    .map(|value| {
+                        value
+                            .as_u64()
+                            .filter(|value| *value <= 255)
+                            .map(|value| value as u8)
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or_else(|| "XML-RPC binary data must contain byte values".to_owned())?;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+                xmlrpc_text_element(writer, "base64", &encoded)?;
+            } else {
+                xmlrpc_start(writer, "struct")?;
+                for (name, member) in values {
+                    xmlrpc_start(writer, "member")?;
+                    xmlrpc_text_element(writer, "name", name)?;
+                    write_xmlrpc_value(writer, member, depth + 1)?;
+                    xmlrpc_end(writer, "member")?;
+                }
+                xmlrpc_end(writer, "struct")?;
+            }
+        }
+    }
+    xmlrpc_end(writer, "value")
+}
+
+fn parse_xmlrpc_value(
+    value: roxmltree::Node<'_, '_>,
+    depth: usize,
+) -> Result<serde_json::Value, String> {
+    use base64::Engine;
+
+    if depth > 64 {
+        return Err("XML-RPC value nesting exceeds 64 levels".into());
+    }
+    let Some(typed) = value.children().find(|node| node.is_element()) else {
+        return Ok(serde_json::Value::String(
+            value.text().unwrap_or_default().to_owned(),
+        ));
+    };
+    let text = typed.text().unwrap_or_default().trim();
+    match typed.tag_name().name() {
+        "string" => Ok(serde_json::Value::String(
+            typed.text().unwrap_or_default().to_owned(),
+        )),
+        "int" | "i4" | "i8" => text
+            .parse::<i64>()
+            .map(serde_json::Value::from)
+            .map_err(|error| format!("Invalid XML-RPC integer: {error}")),
+        "double" => text
+            .parse::<f64>()
+            .ok()
+            .filter(|value| value.is_finite())
+            .and_then(serde_json::Number::from_f64)
+            .map(serde_json::Value::Number)
+            .ok_or_else(|| "Invalid XML-RPC double".to_owned()),
+        "boolean" => match text {
+            "1" | "true" => Ok(serde_json::Value::Bool(true)),
+            "0" | "false" => Ok(serde_json::Value::Bool(false)),
+            _ => Err("Invalid XML-RPC boolean".into()),
+        },
+        "dateTime.iso8601" => {
+            use chrono::TimeZone;
+            let date = chrono::NaiveDateTime::parse_from_str(text, "%Y%m%dT%H:%M:%S")
+                .map_err(|error| format!("Invalid XML-RPC date: {error}"))?;
+            let date = match chrono::Local.from_local_datetime(&date) {
+                chrono::LocalResult::Single(date) | chrono::LocalResult::Ambiguous(date, _) => date,
+                chrono::LocalResult::None => {
+                    return Err("XML-RPC date does not exist in the local time zone".into());
+                }
+            }
+            .to_rfc3339();
+            Ok(serde_json::json!({ "__riinaXmlrpcDate": date }))
+        }
+        "base64" => {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(text)
+                .map_err(|error| format!("Invalid XML-RPC base64 data: {error}"))?;
+            Ok(serde_json::json!({ "__riinaXmlrpcBinary": bytes }))
+        }
+        "nil" => Ok(serde_json::Value::Null),
+        "array" => {
+            let data = typed
+                .children()
+                .find(|node| node.has_tag_name("data"))
+                .ok_or_else(|| "XML-RPC array has no data element".to_owned())?;
+            data.children()
+                .filter(|node| node.has_tag_name("value"))
+                .map(|value| parse_xmlrpc_value(value, depth + 1))
+                .collect::<Result<Vec<_>, _>>()
+                .map(serde_json::Value::Array)
+        }
+        "struct" => {
+            let mut members = serde_json::Map::new();
+            for member in typed.children().filter(|node| node.has_tag_name("member")) {
+                let name = member
+                    .children()
+                    .find(|node| node.has_tag_name("name"))
+                    .and_then(|node| node.text())
+                    .ok_or_else(|| "XML-RPC struct member has no name".to_owned())?;
+                let value = member
+                    .children()
+                    .find(|node| node.has_tag_name("value"))
+                    .ok_or_else(|| "XML-RPC struct member has no value".to_owned())?;
+                members.insert(name.to_owned(), parse_xmlrpc_value(value, depth + 1)?);
+            }
+            Ok(serde_json::Value::Object(members))
+        }
+        other => Err(format!("Unsupported XML-RPC value type: {other}")),
+    }
+}
+
 fn http_option_string(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(value) => value.clone(),
@@ -2225,6 +3045,7 @@ fn host_event_size(event: &HostEvent) -> usize {
             .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
         HostEvent::CoreCommand(command) => format!("{command:?}").len(),
         HostEvent::SetUiVisibility(_) => 1,
+        HostEvent::WindowAction(action) => format!("{action:?}").len(),
     }
 }
 
@@ -2241,7 +3062,7 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
     }
     if matches!(
         &event,
-        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_)
+        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) | HostEvent::WindowAction(_)
     ) {
         events.push(event);
         return;
@@ -2253,7 +3074,8 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
         HostEvent::Overlay(_)
         | HostEvent::PluginMessage(_, _)
         | HostEvent::CoreCommand(_)
-        | HostEvent::SetUiVisibility(_) => {
+        | HostEvent::SetUiVisibility(_)
+        | HostEvent::WindowAction(_) => {
             return;
         }
     };
@@ -2264,7 +3086,7 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
         HostEvent::ShowAlert(_) => HostEvent::ShowAlert(bounded),
         HostEvent::Overlay(effect) => HostEvent::Overlay(effect),
         HostEvent::PluginMessage(_, _) => unreachable!("plugin messages use their bounded path"),
-        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) => {
+        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) | HostEvent::WindowAction(_) => {
             unreachable!("player commands retain typed payloads")
         }
     };
@@ -2555,6 +3377,64 @@ mod tests {
     }
 
     #[test]
+    fn core_window_proxy_exposes_window_state_and_typed_mutations() {
+        let events = execute_entry(
+            r#"
+                iina.log(String(iina.core.window.loaded));
+                iina.log(String(iina.core.window.frame));
+                iina.core.window.frame = {x: 12, y: 34, width: 640, height: 360};
+                iina.core.window.fullscreen = true;
+                iina.core.window.pip = false;
+                iina.core.window.ontop = true;
+                iina.core.window.sidebar = 'playlist';
+                iina.core.window.sidebar = null;
+                iina.core.window.miniaturized = false;
+            "#,
+            "org.example.core-window",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            events,
+            [
+                HostEvent::Log("false".into()),
+                HostEvent::Log("null".into()),
+                HostEvent::WindowAction(WindowAction::SetFrame {
+                    x: 12.0,
+                    y: 34.0,
+                    width: 640.0,
+                    height: 360.0,
+                }),
+                HostEvent::WindowAction(WindowAction::SetFullscreen(true)),
+                HostEvent::WindowAction(WindowAction::SetPictureInPicture(false)),
+                HostEvent::WindowAction(WindowAction::SetOnTop(true)),
+                HostEvent::WindowAction(WindowAction::SetSidebar(Some("playlist".into()))),
+                HostEvent::WindowAction(WindowAction::SetSidebar(None)),
+                HostEvent::WindowAction(WindowAction::SetMiniaturized(false)),
+            ]
+        );
+        assert!(
+            execute_entry(
+                "iina.core.window.frame = {x: 0, y: 0, width: Infinity, height: 10};",
+                "org.example.core-window-invalid",
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+        assert!(
+            execute_entry(
+                "iina.core.window.fullscreen = 'yes';",
+                "org.example.core-window-invalid-type",
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn core_track_apis_emit_typed_commands() {
         let events = execute_entry(
             "iina.core.audio.id = 4; iina.core.audio.id = null; iina.core.audio.delay = 0.25; iina.core.audio.volume = 125; iina.core.audio.muted = true; iina.core.subtitle.id = 5; iina.core.subtitle.secondID = 6; iina.core.subtitle.secondID = null; iina.core.subtitle.delay = -0.5; iina.core.video.id = 7;",
@@ -2627,6 +3507,13 @@ mod tests {
                 .with_recent_documents(vec![serde_json::json!({
                     "name": "sample.mp4",
                     "url": "file:///Media/sample.mp4"
+                })])
+                .with_playback_history(vec![serde_json::json!({
+                    "name": "sample.mp4",
+                    "url": "file:///Media/sample.mp4",
+                    "date": 1_750_000_000_000_u64,
+                    "progress": 12.5,
+                    "duration": 80.0
                 })]),
         );
         let script = r#"
@@ -2641,6 +3528,13 @@ mod tests {
             const recent = iina.core.getRecentDocuments();
             if (recent.length !== 1 || recent[0].name !== 'sample.mp4' || recent[0].url !== 'file:///Media/sample.mp4') {
                 throw new Error('recent-document snapshot mismatch');
+            }
+            const history = iina.core.getHistory();
+            if (history.length !== 1 || history[0].name !== 'sample.mp4' ||
+                history[0].url !== 'file:///Media/sample.mp4' ||
+                !(history[0].date instanceof Date) || history[0].date.getTime() !== 1750000000000 ||
+                history[0].progress !== 12.5 || history[0].duration !== 80) {
+                throw new Error('playback-history snapshot mismatch');
             }
             const version = iina.core.getVersion();
             if (version.iina !== '0.3.1' || version.build !== '1234' || version.mpv !== 'mpv 0.41.0-git') {

@@ -121,14 +121,30 @@ pub fn open(
                 .spawn(move || {
                     let result = file_dialog::open_files(
                         &owner,
-                        matches!(purpose, Purpose::Media | Purpose::Playlist),
+                        matches!(
+                            purpose,
+                            Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
+                        ),
                         purpose.title(),
                     );
                     let _ = slint::invoke_from_event_loop(move || {
                         modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
                         if let Some(app) = weak.upgrade() {
                             let result = result.and_then(|paths| {
-                                if matches!(purpose, Purpose::Media | Purpose::Playlist) {
+                                if matches!(
+                                    purpose,
+                                    Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
+                                ) {
+                                    if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer)
+                                    {
+                                        for path in &paths {
+                                            app.invoke_remember_recent_path(path.clone().into());
+                                        }
+                                    }
+                                    if matches!(purpose, Purpose::MediaInNewPlayer) {
+                                        media_open::selection_in_new_player(&app, paths);
+                                        return Ok(());
+                                    }
                                     media_open::selection(
                                         &app,
                                         paths,

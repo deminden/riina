@@ -4,7 +4,7 @@ use crate::{
     player_ui::{UiSession, configure_player},
 };
 use slint::{
-    ComponentHandle,
+    ComponentHandle, Model,
     winit_030::{EventResult, WinitWindowAccessor, winit},
 };
 use std::{
@@ -173,6 +173,14 @@ pub fn run(
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
+            let title_host = host.as_weak();
+            app.on_window_title_changed(move |title| {
+                if let Some(host) = title_host.upgrade() {
+                    host.set_display_title(title.clone());
+                    host.window()
+                        .with_winit_window(|window| window.set_title(title.as_str()));
+                }
+            });
             let music_original_size = Rc::new(Cell::new(None));
             let saved_music_size = music_original_size.clone();
             let music_host = host.as_weak();
@@ -274,6 +282,12 @@ pub fn run(
                     );
                     host.set_video_mirrored(app.get_video_mirrored());
                     host.set_video_flipped(app.get_video_flipped());
+                    host.set_delogo_menu_enabled(
+                        app.get_delogo_enabled() && !app.get_crop_editing(),
+                    );
+                    host.set_delogo_active(app.get_delogo_active());
+                    host.set_saved_video_filter_rows(app.get_saved_video_filter_rows());
+                    host.set_saved_audio_filter_rows(app.get_saved_audio_filter_rows());
                     host.set_crop_menu_enabled(
                         app.get_loaded() && app.get_video_crop_known() && !app.get_crop_editing(),
                     );
@@ -298,14 +312,206 @@ pub fn run(
                         app.get_screenshot_available() && !app.get_crop_editing(),
                     );
                     host.set_screenshot_folder_enabled(!app.get_crop_editing());
+                    host.set_fullscreen_mode(app.get_fullscreen());
+                    host.set_always_float_on_top(app.get_always_float_on_top());
+                    host.set_unlock_window_aspect_ratio(app.get_unlock_window_aspect_ratio());
+                    host.set_live_text_available(app.get_live_text_available());
+                    host.set_live_text_enabled(app.get_live_text_enabled());
+                    host.set_record_recent_files(app.get_record_recent_files());
+                    host.set_recent_open_menu_rows(app.get_recent_open_menu_rows());
                     host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
+                    host.set_reveal_current_media_available(
+                        app.get_reveal_current_media_available(),
+                    );
+                    host.set_delete_current_media_available(
+                        app.get_delete_current_media_available(),
+                    );
+                    host.set_save_current_playlist_available(
+                        app.get_save_current_playlist_available(),
+                    );
+                    host.set_downloaded_subtitle_save_available(
+                        app.get_downloaded_subtitle_save_available(),
+                    );
+                    host.set_current_file_manager_name(app.get_current_file_manager_name());
                     host.set_playback_paused(app.get_paused());
                     host.set_loop_label(app.get_loop_label());
+                    let playlist_rows = app.get_playlist();
+                    host.set_playlist_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+                        (0..playlist_rows.row_count())
+                            .filter_map(|index| playlist_rows.row_data(index))
+                            .map(|row| crate::MenuCatalogRow {
+                                token: row.token,
+                                label: row.label,
+                                selected: row.playing,
+                            })
+                            .collect::<Vec<_>>(),
+                    )));
+                    let chapter_rows = app.get_chapters();
+                    host.set_chapter_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+                        (0..chapter_rows.row_count())
+                            .filter_map(|index| chapter_rows.row_data(index))
+                            .map(|row| crate::MenuCatalogRow {
+                                token: row.token,
+                                label: row.label,
+                                selected: row.selected,
+                            })
+                            .collect::<Vec<_>>(),
+                    )));
+                    let video_rows = app.get_video_tracks();
+                    host.set_video_track_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+                        (0..video_rows.row_count())
+                            .filter_map(|index| video_rows.row_data(index))
+                            .map(|row| crate::MenuCatalogRow {
+                                token: row.token,
+                                label: row.label,
+                                selected: row.selected,
+                            })
+                            .collect::<Vec<_>>(),
+                    )));
+                    host.set_subtitle_visible(app.get_subtitle_visible());
+                    host.set_secondary_subtitle_visible(app.get_secondary_subtitle_visible());
+                    host.set_secondary_subtitle_visibility_known(
+                        app.get_secondary_subtitle_visibility_known(),
+                    );
+                    host.set_subtitle_scale_known(app.get_subtitle_scale_known());
+                    host.set_subtitle_default_encoding(app.get_subtitle_default_encoding());
+                    let subtitle_rows = app.get_subtitle_tracks();
+                    host.set_subtitle_track_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+                        (0..subtitle_rows.row_count())
+                            .filter_map(|index| subtitle_rows.row_data(index))
+                            .map(|row| crate::MenuCatalogRow {
+                                token: row.token,
+                                label: row.label,
+                                selected: row.selected,
+                            })
+                            .collect::<Vec<_>>(),
+                    )));
+                    let secondary_subtitle_rows = app.get_secondary_subtitle_tracks();
+                    host.set_secondary_subtitle_menu_rows(slint::ModelRc::new(
+                        slint::VecModel::from(
+                            (0..secondary_subtitle_rows.row_count())
+                                .filter_map(|index| secondary_subtitle_rows.row_data(index))
+                                .map(|row| crate::MenuCatalogRow {
+                                    token: row.token,
+                                    label: row.label,
+                                    selected: row.selected,
+                                })
+                                .collect::<Vec<_>>(),
+                        ),
+                    ));
+                    let subtitle_encodings = app.get_subtitle_encoding_options();
+                    host.set_subtitle_encoding_menu_rows(slint::ModelRc::new(
+                        slint::VecModel::from(
+                            (0..subtitle_encodings.row_count())
+                                .filter_map(|index| subtitle_encodings.row_data(index))
+                                .map(|row| crate::MenuCatalogRow {
+                                    token: row.token,
+                                    label: row.label,
+                                    selected: row.selected,
+                                })
+                                .collect::<Vec<_>>(),
+                        ),
+                    ));
                     host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
                     host.set_music_mode(app.get_music_mode());
+                    host.set_video_resize_available(
+                        app.get_video_window_width() > 0.0
+                            && app.get_video_window_height() > 0.0
+                            && !app.get_crop_editing(),
+                    );
                     host.set_picture_in_picture_available(
                         app.get_loaded() && app.get_video_width() > 0.0 && !app.get_crop_editing(),
                     );
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_media_file(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_file();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_in_new_window(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_in_new_window();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_reveal_current_media(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_reveal_current_media();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_delete_current_media(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_delete_current_media();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_playback_history(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_show_playback_history();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_save_current_playlist(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_save_current_playlist();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_save_downloaded_subtitle(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_save_downloaded_subtitle();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_about(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_show_about();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_quit_riina(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_quit_riina();
+                }
+            });
+            let menu_host = host.as_weak();
+            host.on_minimize_window(move || {
+                if let Some(host) = menu_host.upgrade() {
+                    crate::platform::minimize_window(host.window());
+                }
+            });
+            let menu_host = host.as_weak();
+            host.on_zoom_window(move || {
+                if let Some(host) = menu_host.upgrade() {
+                    crate::platform::toggle_zoom_window(host.window());
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_close_player(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_close_player();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_url_dialog(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_url_dialog();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_recent_path(move |path| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_recent_path(path);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_clear_open_recent(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_clear_open_recent();
                 }
             });
             let menu_app = app.as_weak();
@@ -318,6 +524,198 @@ pub fn run(
             host.on_toggle_video_reflection(move |horizontal| {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_toggle_video_reflection(horizontal);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_menu_playlist_item(move |token| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_playlist_action(12, token);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_menu_chapter_item(move |token| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_select_item(3, token);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_video_panel(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_settings_pane(6);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_plugins_panel(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_plugins_pane();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_cycle_audio_tracks(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_cycle_audio_track();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_adjust_volume(move |delta| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_adjust_volume(delta);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_mute(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_mute();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_audio_panel(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_settings_pane(1);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_adjust_audio_delay(move |delta| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_adjust_audio_delay(delta);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_reset_audio_delay(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_reset_audio_delay();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_cycle_subtitles(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_cycle_subtitle_track();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_subtitle_visibility(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_subtitle_visibility();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_show_subtitles_panel(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_settings_pane(2);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_subtitle_track(move |token| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_select_item(2, token);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_secondary_subtitle(move |token| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_select_item(5, token);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_secondary_subtitle_visibility(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_secondary_subtitle_visibility();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_load_external_subtitle(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_browse_files(2);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_find_online_subtitles(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_find_online_subtitles();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_set_subtitle_encoding(move |encoding| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_set_subtitle_encoding(encoding);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_adjust_subtitle_scale(move |delta| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_adjust_subtitle_scale(delta);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_reset_subtitle_scale(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_set_subtitle_scale_slider(0.0);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_adjust_subtitle_delay(move |delta| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_adjust_subtitle_delay(delta);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_reset_subtitle_delay(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_reset_subtitle_delay();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_choose_subtitle_font(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_choose_subtitle_font();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_cycle_video_track(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_cycle_video_track();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_video_track(move |token| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_select_item(6, token);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_fit_window_to_video(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_fit_window_to_video();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_resize_window_command(move |command| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_resize_window_command(command);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_fullscreen(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_fullscreen();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_float_on_top(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.set_always_float_on_top(!app.get_always_float_on_top());
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_window_aspect_lock(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.set_unlock_window_aspect_ratio(!app.get_unlock_window_aspect_ratio());
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_live_text(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_live_text();
                 }
             });
             let configured = configure_player(
@@ -340,6 +738,36 @@ pub fn run(
             host.on_set_menu_video_crop(move |index| {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_set_menu_video_crop(index);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_delogo(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_delogo();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_saved_video_filter(move |filter| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_saved_video_filter(filter);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_video_filters(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_video_filters();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_toggle_saved_audio_filter(move |filter| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_toggle_saved_audio_filter(filter);
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_open_audio_filters(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_open_audio_filters();
                 }
             });
             let menu_app = app.as_weak();
@@ -506,6 +934,12 @@ pub fn run(
                     let _ = host.hide();
                 }
                 let _ = slint::quit_event_loop();
+            });
+            let quit_app = app.as_weak();
+            app.on_quit_riina(move || {
+                if let Some(app) = quit_app.upgrade() {
+                    app.invoke_close_player();
+                }
             });
             app.show()?;
             if action_after_launch.open_file_panel(supplied_media_argument) {

@@ -1,8 +1,39 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
+use crate::{NativeVideoHost, PlayerWindow};
+use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 pub(crate) mod clipboard;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
 pub(crate) mod settings_file;
+
+/// Name the enabled material accurately on each platform. Windows currently
+/// composites these sampled-video surfaces in the app rather than using Mica
+/// or Acrylic system backdrops.
+pub(crate) fn surface_material_title() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Liquid Glass"
+    } else {
+        "Translucent Surfaces"
+    }
+}
+
+/// Apply the native minimize action to the window that owns a menu command.
+pub(crate) fn minimize_window(window: &slint::Window) {
+    window.with_winit_window(|window| window.set_minimized(true));
+}
+
+/// Toggle the platform's standard window zoom/maximize state.
+pub(crate) fn toggle_zoom_window(window: &slint::Window) {
+    window.with_winit_window(|window| window.set_maximized(!window.is_maximized()));
+}
+
+pub(crate) fn system_trash_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "Recycle Bin"
+    } else {
+        "Trash"
+    }
+}
 
 /// Uses each operating system's mounted-volume metadata for IINA's remote-drive policy.
 pub(crate) fn is_remote_volume(path: &std::path::Path) -> bool {
@@ -367,6 +398,66 @@ pub fn reveal_file(path: &std::path::Path) -> std::io::Result<()> {
         )
     }
 }
+
+pub(crate) fn save_playlist_file(
+    app: &PlayerWindow,
+    host: Option<slint::Weak<NativeVideoHost>>,
+    content: String,
+) {
+    if app.get_dialog_open() {
+        return;
+    }
+    app.set_dialog_open(true);
+    app.invoke_activity();
+    let weak = app.as_weak();
+    let failure = weak.clone();
+    let started = slint::spawn_local(async move {
+        let Some(app) = weak.upgrade() else { return };
+        let saved = async {
+            let owner = if let Some(host) = host.and_then(|host| host.upgrade()) {
+                host.window()
+                    .winit_window()
+                    .await
+                    .map_err(|error| error.to_string())?
+            } else {
+                app.window()
+                    .winit_window()
+                    .await
+                    .map_err(|error| error.to_string())?
+            };
+            let file = rfd::AsyncFileDialog::new()
+                .set_title("Save to Playlist")
+                .set_file_name("playlist.m3u8")
+                .add_filter("M3U8 playlist", &["m3u8"])
+                .set_parent(owner.as_ref())
+                .save_file()
+                .await;
+            if let Some(file) = file {
+                file.write(content.as_bytes())
+                    .await
+                    .map_err(|error| error.to_string())?;
+                Ok::<bool, String>(true)
+            } else {
+                Ok(false)
+            }
+        }
+        .await;
+        app.set_dialog_open(false);
+        app.invoke_activity();
+        match saved {
+            Ok(true) => app.set_status("Playlist saved".into()),
+            Ok(false) => {}
+            Err(error) => app.set_status(format!("Could not save playlist: {error}").into()),
+        }
+    });
+    if let Err(error) = started
+        && let Some(app) = failure.upgrade()
+    {
+        app.set_dialog_open(false);
+        app.set_status(error.to_string().into());
+    }
+}
+
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]

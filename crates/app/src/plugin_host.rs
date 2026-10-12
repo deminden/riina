@@ -6,13 +6,17 @@ use crate::{
 };
 use riina_core::{
     Command, Phase, Playback, TrackKind,
-    plugin::{Manifest, OverlayEffect},
+    plugin::{Manifest, OverlayEffect, WindowAction},
 };
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, mpsc},
+    sync::{
+        Arc, Mutex, OnceLock,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        mpsc,
+    },
     thread::JoinHandle,
     time::Duration,
 };
@@ -263,10 +267,229 @@ fn finite_json(value: Option<f64>) -> serde_json::Value {
         .map_or(serde_json::Value::Null, |value| serde_json::json!(value))
 }
 
+static NEXT_HISTORY_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+static SHARED_PLAYBACK_HISTORIES: OnceLock<
+    Mutex<HashMap<PathBuf, Arc<Mutex<PlaybackHistoryState>>>>,
+> = OnceLock::new();
+static SHARED_HISTORY_MERGE_FLAGS: OnceLock<Mutex<HashMap<PathBuf, Arc<AtomicBool>>>> =
+    OnceLock::new();
+
+pub(crate) fn next_history_session_id() -> u64 {
+    NEXT_HISTORY_SESSION_ID
+        .fetch_add(1, Ordering::Relaxed)
+        .max(1)
+}
+
+pub(crate) fn shared_playback_history_state(
+    key: PathBuf,
+    entries: Vec<riina_core::playback_history::Entry>,
+    persistence_path: Option<PathBuf>,
+    watch_later_directory: Option<PathBuf>,
+) -> Arc<Mutex<PlaybackHistoryState>> {
+    let histories = SHARED_PLAYBACK_HISTORIES.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut histories = histories
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    histories
+        .entry(key)
+        .or_insert_with(|| {
+            Arc::new(Mutex::new(PlaybackHistoryState::with_persistence(
+                entries,
+                persistence_path,
+                watch_later_directory,
+            )))
+        })
+        .clone()
+}
+
+pub(crate) fn shared_history_merge_flag(preferences_path: &Path) -> Arc<AtomicBool> {
+    let flags = SHARED_HISTORY_MERGE_FLAGS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut flags = flags
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    flags
+        .entry(preferences_path.to_path_buf())
+        .or_insert_with(|| Arc::new(AtomicBool::new(false)))
+        .clone()
+}
+
+#[cfg(test)]
 pub(crate) fn player_file_context(
     playback: &Playback,
     recent_media: &mut Vec<riina_core::RecentMedia>,
 ) -> PluginPlayerFileContext {
+    player_file_context_with_history(
+        playback,
+        recent_media,
+        &mut PlaybackHistoryState::default(),
+        false,
+        0,
+    )
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct PlaybackHistoryState {
+    entries: Vec<riina_core::playback_history::Entry>,
+    revision: u64,
+    observed_sessions: HashMap<u64, (u64, String)>,
+    persistence_path: Option<PathBuf>,
+    watch_later_directory: Option<PathBuf>,
+    pending_progress_paths: HashSet<String>,
+    persistence_error: Option<String>,
+}
+
+impl PlaybackHistoryState {
+    pub(crate) fn with_persistence(
+        entries: Vec<riina_core::playback_history::Entry>,
+        path: Option<PathBuf>,
+        watch_later_directory: Option<PathBuf>,
+    ) -> Self {
+        let pending_progress_paths = entries.iter().map(|entry| entry.path.clone()).collect();
+        Self {
+            entries,
+            revision: 1,
+            observed_sessions: HashMap::new(),
+            persistence_path: path,
+            watch_later_directory,
+            pending_progress_paths,
+            persistence_error: None,
+        }
+    }
+
+    pub(crate) fn entries(&self) -> &[riina_core::playback_history::Entry] {
+        &self.entries
+    }
+
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.entries.clear();
+        self.pending_progress_paths.clear();
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub(crate) fn remove_path(&mut self, path: &str) -> Result<bool, String> {
+        let mut retained = self.entries.clone();
+        retained.retain(|entry| entry.path != path);
+        if retained.len() == self.entries.len() {
+            return Ok(false);
+        }
+        if let Some(persistence_path) = &self.persistence_path {
+            crate::playback_history_store::save(persistence_path, &retained)?;
+        }
+        self.entries = retained;
+        self.pending_progress_paths.remove(path);
+        self.revision = self.revision.wrapping_add(1);
+        Ok(true)
+    }
+
+    pub(crate) fn take_persistence_error(&mut self) -> Option<String> {
+        self.persistence_error.take()
+    }
+
+    fn observe(
+        &mut self,
+        session_id: u64,
+        playback: &Playback,
+        _recent_media: &[riina_core::RecentMedia],
+        record_history: bool,
+    ) {
+        self.refresh_saved_progress(playback);
+        if !matches!(
+            playback.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+        ) || playback.generation == 0
+        {
+            return;
+        }
+        let Some(media) = playback.playlist.iter().find(|entry| entry.current) else {
+            return;
+        };
+        let path = playback_media_url(&media.filename).unwrap_or_else(|| media.filename.clone());
+        let observed = (playback.generation, path.clone());
+        if self.observed_sessions.get(&session_id) == Some(&observed) {
+            return;
+        }
+        self.observed_sessions.insert(session_id, observed);
+        if !record_history {
+            return;
+        }
+        let duration = playback
+            .duration
+            .filter(|duration| duration.is_finite() && *duration >= 0.0)
+            .unwrap_or(0.0);
+        let date_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
+            .unwrap_or(0);
+        self.entries.retain(|entry| entry.path != path);
+        self.entries.insert(
+            0,
+            riina_core::playback_history::Entry {
+                path,
+                date_ms,
+                // IINA reads this from mpv's watch-later file when history is
+                // restored. A new history row has no saved progress yet.
+                progress: None,
+                duration,
+            },
+        );
+        self.revision = self.revision.wrapping_add(1);
+        if let Some(path) = &self.persistence_path
+            && let Err(error) = crate::playback_history_store::save(path, &self.entries)
+        {
+            self.persistence_error = Some(error);
+        }
+    }
+
+    fn refresh_saved_progress(&mut self, playback: &Playback) {
+        let (Some(directory), Some(ignore_path)) = (
+            self.watch_later_directory.as_deref(),
+            playback.ignore_path_in_watch_later_config,
+        ) else {
+            return;
+        };
+        if self.pending_progress_paths.is_empty() {
+            return;
+        }
+
+        let paths = std::mem::take(&mut self.pending_progress_paths);
+        let mut changed = false;
+        for entry in &mut self.entries {
+            if paths.contains(&entry.path) {
+                let progress = crate::playback_history_store::progress_from_watch_later(
+                    &entry.path,
+                    directory,
+                    ignore_path,
+                );
+                if entry.progress != progress {
+                    entry.progress = progress;
+                    changed = true;
+                }
+            }
+        }
+        if changed
+            && let Some(path) = &self.persistence_path
+            && let Err(error) = crate::playback_history_store::save(path, &self.entries)
+        {
+            self.persistence_error = Some(error);
+        }
+        if changed {
+            self.revision = self.revision.wrapping_add(1);
+        }
+    }
+}
+
+pub(crate) fn player_file_context_with_history(
+    playback: &Playback,
+    recent_media: &mut Vec<riina_core::RecentMedia>,
+    history: &mut PlaybackHistoryState,
+    record_history: bool,
+    history_session_id: u64,
+) -> PluginPlayerFileContext {
+    history.observe(history_session_id, playback, recent_media, record_history);
     if !matches!(playback.phase, Phase::Loading | Phase::Failed)
         && let Some(entry) = playback.playlist.iter().find(|entry| entry.current)
     {
@@ -309,6 +532,7 @@ pub(crate) fn player_file_context(
     PluginPlayerFileContext::from_playback(playback)
         .with_core_version(version_snapshot(playback.mpv_version.as_deref()))
         .with_recent_documents(recent_document_values(recent_media))
+        .with_playback_history(playback_history_values(history.entries()))
 }
 
 fn version_snapshot(mpv_version: Option<&str>) -> serde_json::Value {
@@ -327,23 +551,45 @@ pub(crate) fn recent_document_values(
         .filter_map(|media| {
             let url = playback_media_url(&media.path)?;
             let parsed = url::Url::parse(&url).ok()?;
-            let name = parsed
-                .to_file_path()
-                .ok()
-                .and_then(|path| {
-                    path.file_name()
-                        .map(|name| name.to_string_lossy().into_owned())
-                })
-                .or_else(|| {
-                    parsed
-                        .path_segments()
-                        .and_then(Iterator::last)
-                        .filter(|name| !name.is_empty())
-                        .map(str::to_owned)
-                })?;
+            let name = media_url_name(&parsed)?;
             Some(serde_json::json!({"name": name, "url": url}))
         })
         .collect()
+}
+
+pub(crate) fn playback_history_values(
+    entries: &[riina_core::playback_history::Entry],
+) -> Vec<serde_json::Value> {
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let url = playback_media_url(&entry.path)?;
+            let parsed = url::Url::parse(&url).ok()?;
+            let name = media_url_name(&parsed)?;
+            Some(serde_json::json!({
+                "name": name,
+                "url": url,
+                "date": entry.date_ms,
+                "progress": finite_json(entry.progress),
+                "duration": entry.duration,
+            }))
+        })
+        .collect()
+}
+
+fn media_url_name(url: &url::Url) -> Option<String> {
+    url.to_file_path()
+        .ok()
+        .and_then(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .or_else(|| {
+            url.path_segments()
+                .and_then(Iterator::last)
+                .filter(|name| !name.is_empty())
+                .map(str::to_owned)
+        })
 }
 
 const MAX_PENDING_MESSAGES: usize = 256;
@@ -358,6 +604,7 @@ pub(crate) enum PluginHostMessage {
     Status(String),
     PlayerCommand(Command),
     SetUiVisibility(bool),
+    WindowAction(WindowAction),
     Overlay {
         plugin_identifier: String,
         plugin_directory: PathBuf,
@@ -400,6 +647,15 @@ impl PluginHostHandle {
     ) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::UpdatePlayerFileContext(context))
+            .map_err(command_error)
+    }
+
+    pub(crate) fn update_window_properties(
+        &self,
+        properties: BTreeMap<String, serde_json::Value>,
+    ) -> Result<(), String> {
+        self.commands
+            .try_send(PluginCommand::UpdateWindowProperties(properties))
             .map_err(command_error)
     }
 
@@ -480,6 +736,7 @@ impl PluginHost {
     pub(crate) fn start(
         preferences_path: &Path,
         recent_media: &[riina_core::RecentMedia],
+        playback_history: &[riina_core::playback_history::Entry],
     ) -> Result<Self, String> {
         let plugins_directory = preferences_path.with_file_name("Plugins");
         let permissions_path = preferences_path.with_file_name("plugin-permissions.json");
@@ -489,7 +746,8 @@ impl PluginHost {
         let worker_messages = messages.clone();
         let initial_player_context = PluginPlayerFileContext::default()
             .with_core_version(version_snapshot(None))
-            .with_recent_documents(recent_document_values(recent_media));
+            .with_recent_documents(recent_document_values(recent_media))
+            .with_playback_history(playback_history_values(playback_history));
         let worker = std::thread::Builder::new()
             .name("riina-plugin-host".into())
             .spawn(move || {
@@ -539,6 +797,7 @@ enum PluginCommand {
         response: mpsc::SyncSender<Result<(), String>>,
     },
     UpdatePlayerFileContext(PluginPlayerFileContext),
+    UpdateWindowProperties(BTreeMap<String, serde_json::Value>),
     #[cfg(target_os = "windows")]
     DeliverOverlayMessage {
         identifier: String,
@@ -588,6 +847,9 @@ fn run_host(
                 Ok(PluginCommand::Shutdown) => return,
                 Ok(PluginCommand::UpdatePlayerFileContext(context)) => {
                     player_context = context;
+                }
+                Ok(PluginCommand::UpdateWindowProperties(properties)) => {
+                    player_context.set_core_window_properties(properties);
                 }
                 Ok(command) => deferred.push(command),
                 Err(mpsc::TryRecvError::Empty | mpsc::TryRecvError::Disconnected) => break,
@@ -700,6 +962,14 @@ fn handle_command(
         }
         PluginCommand::UpdatePlayerFileContext(context) => {
             *player_context = context;
+            for (key, session) in sessions.iter() {
+                if !key.global {
+                    session.update_player_file_context(player_context.clone());
+                }
+            }
+        }
+        PluginCommand::UpdateWindowProperties(properties) => {
+            player_context.set_core_window_properties(properties);
             for (key, session) in sessions.iter() {
                 if !key.global {
                     session.update_player_file_context(player_context.clone());
@@ -881,6 +1151,7 @@ fn host_message(plugin_name: &str, event: HostEvent) -> PluginHostMessage {
         }
         HostEvent::CoreCommand(command) => PluginHostMessage::PlayerCommand(command),
         HostEvent::SetUiVisibility(visible) => PluginHostMessage::SetUiVisibility(visible),
+        HostEvent::WindowAction(action) => PluginHostMessage::WindowAction(action),
         HostEvent::Overlay(_) => unreachable!("overlay effects carry plugin package identity"),
         HostEvent::PluginMessage(_, _) => {
             unreachable!("plugin messages are routed to their paired runtime")
@@ -901,6 +1172,154 @@ mod tests {
     use super::*;
     use crate::plugin_files::PluginFiles;
     use riina_core::{Chapter, PlaylistEntry, Track, TrackKind};
+
+    #[test]
+    fn playback_history_records_a_loaded_media_once_per_generation() {
+        let mut state = PlaybackHistoryState::default();
+        let media = "https://media.example/sample.mp4";
+        let mut playback = Playback {
+            generation: 1,
+            phase: Phase::Playing,
+            position: Some(15.0),
+            duration: Some(80.0),
+            ..Playback::default()
+        };
+        playback.playlist.push(PlaylistEntry {
+            id: 1,
+            filename: media.into(),
+            title: None,
+            current: true,
+            playing: true,
+        });
+
+        let recent_media = [riina_core::RecentMedia {
+            path: media.into(),
+            title: "Sample".into(),
+            position: 12.0,
+        }];
+        state.observe(1, &playback, &recent_media, true);
+        let first = state.entries().first().unwrap().clone();
+        assert_eq!(first.path, media);
+        assert_eq!(first.progress, None);
+        assert_eq!(first.duration, 80.0);
+        assert!(first.date_ms > 0);
+
+        playback.position = Some(42.0);
+        state.observe(1, &playback, &recent_media, true);
+        assert_eq!(state.entries(), std::slice::from_ref(&first));
+
+        playback.generation = 2;
+        state.observe(1, &playback, &recent_media, true);
+        assert_eq!(state.entries().len(), 1);
+        assert_eq!(state.entries()[0].path, media);
+        assert!(state.entries()[0].date_ms >= first.date_ms);
+    }
+
+    #[test]
+    fn playback_history_is_saved_when_a_media_generation_is_first_observed() {
+        let path = std::env::temp_dir().join(format!(
+            "riina-history-observed-{}-{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut state =
+            PlaybackHistoryState::with_persistence(Vec::new(), Some(path.clone()), None);
+        let mut playback = Playback {
+            generation: 1,
+            phase: Phase::Playing,
+            duration: Some(90.0),
+            ..Playback::default()
+        };
+        playback.playlist.push(PlaylistEntry {
+            id: 1,
+            filename: "C:/media/movie.mkv".into(),
+            title: None,
+            current: true,
+            playing: true,
+        });
+
+        player_file_context_with_history(&playback, &mut Vec::new(), &mut state, true, 1);
+
+        let saved = crate::playback_history_store::load(&path, &[]).unwrap();
+        assert_eq!(saved, state.entries());
+        assert_eq!(saved.len(), 1);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn restored_playback_history_reads_progress_from_mpv_watch_later() {
+        let root = std::env::temp_dir().join(format!(
+            "riina-history-watch-later-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let watch_later = root.join("watch-later");
+        std::fs::create_dir_all(&watch_later).unwrap();
+        let archive_path = root.join("playback-history.json");
+        let media = "https://media.example/movie.mkv";
+        let entry = riina_core::playback_history::Entry {
+            path: media.into(),
+            date_ms: 1,
+            progress: None,
+            duration: 90.0,
+        };
+        crate::playback_history_store::save(&archive_path, std::slice::from_ref(&entry)).unwrap();
+        let key = crate::playback_history_store::md5_hex(media.as_bytes());
+        std::fs::write(watch_later.join(key), "start=42.25\n").unwrap();
+        let mut state = PlaybackHistoryState::with_persistence(
+            vec![entry],
+            Some(archive_path.clone()),
+            Some(watch_later),
+        );
+        let mut playback = Playback {
+            generation: 1,
+            phase: Phase::Playing,
+            ignore_path_in_watch_later_config: Some(false),
+            ..Playback::default()
+        };
+        playback.playlist.push(PlaylistEntry {
+            id: 1,
+            filename: media.into(),
+            title: None,
+            current: true,
+            playing: true,
+        });
+
+        player_file_context_with_history(&playback, &mut Vec::new(), &mut state, false, 1);
+
+        assert_eq!(state.entries()[0].progress, Some(42.25));
+        assert_eq!(
+            crate::playback_history_store::load(&archive_path, &[]).unwrap()[0].progress,
+            Some(42.25)
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn playback_history_api_values_use_iina_field_names() {
+        let entries = playback_history_values(&[riina_core::playback_history::Entry {
+            path: "https://media.example/sample.mp4".into(),
+            date_ms: 1_750_000_000_000,
+            progress: Some(12.5),
+            duration: 80.0,
+        }]);
+        assert_eq!(
+            entries,
+            [serde_json::json!({
+                "name": "sample.mp4",
+                "url": "https://media.example/sample.mp4",
+                "date": 1_750_000_000_000_u64,
+                "progress": 12.5,
+                "duration": 80.0
+            })]
+        );
+    }
 
     #[test]
     fn recent_documents_preserve_recency_names_and_absolute_urls() {

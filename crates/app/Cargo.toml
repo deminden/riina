@@ -16,6 +16,7 @@ glow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "=0.10.9"
+md-5 = "=0.11.0"
 url.workspace = true
 chrono = { version = "=0.4.45", default-features = false, features = ["clock"] }
 battery = "=0.7.8"
@@ -23,10 +24,13 @@ fontdb = "=0.24.0"
 ttf-parser = "=0.25.1"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg"] }
 icu_experimental = "=0.6.0"
+icu_decimal = { version = "=2.3.0", features = ["alloc", "ryu"] }
 icu_locale = "=2.3.1"
 sys-locale = "=0.3.2"
 dirs = "=7.0.0"
 rfd = "=0.17.2"
+trash = "=5.2.9"
+lofty = "=0.25.4"
 arboard = { version = "=3.6.1", default-features = false, features = ["image-data", "wayland-data-control"] }
 riina-core = { path = "../core" }
 riina-mpv = { path = "../mpv" }
@@ -34,6 +38,9 @@ zip.workspace = true
 rquickjs = { version = "=0.14.0", default-features = false, features = ["std"] }
 encoding_rs = "=0.8.42"
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
+quick-xml = "=0.41.0"
+roxmltree = "=0.20.0"
+base64 = "=0.23.1"
 keyring = "=4.2.0"
 
 [build-dependencies]

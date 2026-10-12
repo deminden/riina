@@ -27,6 +27,16 @@ Linux `$XDG_CONFIG_HOME/riina/preferences.json` (normally
 `~/.config/riina/preferences.json`). Volume stays capped at 100% unless the user
 enables the shared 200% option. Windows retains its own preferences location.
 
+Native surface materials are a port requirement. macOS follows IINA with Liquid
+Glass. Windows 11 uses Mica for the long-lived window backdrop and Acrylic for
+transient surfaces, while playback overlays keep the video as their visual
+backdrop through in-app Acrylic or a renderer-specific video composite. Linux
+uses compositor-provided materials when supported. Keep each port's labels and
+fallbacks platform-specific; currently the shared switches only adjust RGBA
+tint/opacity, so native material implementation and runtime verification remain
+open. See [the visual specification](visual-spec.md) and
+[platform differences](platform-differences.md).
+
 Validate first-frame rendering, play/pause, seek, stop/reopen, each picker purpose,
 cancel/reopen, external tracks, fullscreen/Escape, resize/DPI, owned-dialog close
 handling and shutdown on each target. Record exact OS, architecture, library,

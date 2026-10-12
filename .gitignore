@@ -3,6 +3,7 @@
 /reference/iina-upstream/
 /reference/mpv-upstream/
 /reference/captures/
+/reference/new/
 /dist/
 *.log
 __pycache__/

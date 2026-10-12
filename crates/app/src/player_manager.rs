@@ -1,7 +1,7 @@
 //! Own independent shared-renderer player windows for the application lifetime.
 
 use crate::{PlayerWindow, WelcomeWindow, player_ui::UiSession};
-use slint::{CloseRequestResponse, ComponentHandle, Model};
+use slint::{CloseRequestResponse, ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
     ffi::OsString,
@@ -71,6 +71,16 @@ impl PlayerManager {
 
         let state = Rc::downgrade(&self.state);
         app.on_close_player(move || schedule_close(state.clone(), id, false));
+        let state = Rc::downgrade(&self.state);
+        app.on_quit_riina(move || schedule_quit(state.clone()));
+        let state = Rc::downgrade(&self.state);
+        let owner = app.as_weak();
+        app.on_bring_all_to_front(move || {
+            let (Some(state), Some(owner)) = (state.upgrade(), owner.upgrade()) else {
+                return;
+            };
+            bring_all_to_front(&state, &owner);
+        });
         if let Some(welcome) = welcome {
             let state = Rc::downgrade(&self.state);
             welcome.window().on_close_requested(move || {
@@ -87,6 +97,37 @@ impl PlayerManager {
         }
         Ok(())
     }
+}
+
+fn bring_all_to_front(state: &Rc<RefCell<ManagerState>>, owner: &PlayerWindow) {
+    let windows = state
+        .borrow()
+        .players
+        .iter()
+        .map(|player| {
+            (
+                player.app.clone_strong(),
+                player.welcome.as_ref().map(WelcomeWindow::clone_strong),
+            )
+        })
+        .collect::<Vec<_>>();
+    for (app, welcome) in windows {
+        show_and_focus(&app, owner);
+        if let Some(welcome) = welcome {
+            show_and_focus(&welcome, owner);
+        }
+    }
+}
+
+fn show_and_focus(window: &impl ComponentHandle, owner: &PlayerWindow) {
+    if let Err(error) = window.show() {
+        owner.set_status(format!("Could not show a player window: {error}").into());
+        return;
+    }
+    window.window().with_winit_window(|window| {
+        window.set_minimized(false);
+        window.focus_window();
+    });
 }
 
 fn open_player(
@@ -162,6 +203,24 @@ fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: boo
         if let Some(state) = state.upgrade() {
             close_player(&state, id, from_welcome);
         }
+    });
+}
+
+fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
+    let _ = slint::spawn_local(async move {
+        let Some(state) = state.upgrade() else { return };
+        let players = std::mem::take(&mut state.borrow_mut().players);
+        for player in players {
+            if let Err(error) = player.session.save(&player.app) {
+                eprintln!("Could not save player state before quitting: {error}");
+            }
+            if let Some(welcome) = &player.welcome {
+                let _ = welcome.hide();
+            }
+            let _ = player.app.hide();
+            drop(player);
+        }
+        let _ = slint::quit_event_loop();
     });
 }
 

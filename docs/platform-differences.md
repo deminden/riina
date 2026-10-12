@@ -40,6 +40,16 @@ controls render on GL/native routes. Sampled-video blur is absent. Accessibility
 inspection covers selected controls and keyboard workflows at 300% DPI. Text
 entry, other DPI values and multi-display coverage remain incomplete.
 
+Material design follows each host OS. macOS uses IINA's Liquid Glass appearance
+and the system's Liquid Glass material. Windows 11 uses Mica on the persistent
+window backdrop and Acrylic on transient surfaces; video overlays must composite
+against the playing video rather than reveal desktop wallpaper. Windows can fall
+back to solid colors when system transparency or power-saving policy requires it.
+The Settings title is “Translucent Surfaces” on Windows because the current Slint
+implementation only adjusts RGBA tint/opacity. Native per-surface Mica/Acrylic
+composition and macOS 27 material rendering remain implementation and runtime
+verification gaps.
+
 Full playlist, track, chapter and subtitle parity, history, multiple windows, music/PiP, screenshots,
 OCR, plugins/webviews, helpers, localization, other shell associations and media controls
 are outstanding parity work, not removed scope. Preferences persist volume and opt-in volume boost

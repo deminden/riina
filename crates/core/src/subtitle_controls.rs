@@ -408,18 +408,9 @@ pub enum SubtitleLane {
 
 impl SubtitleLane {
     pub fn delay_from_text(self, text: &str) -> Result<Command, &'static str> {
-        let text = text.trim();
-        // Numeric entry can exceed the slider range. Parse directly as a native
-        // double so edits never round through a UI toolkit's single precision.
-        let delay = if text.is_empty() {
-            0.0
-        } else {
-            text.parse::<f64>()
-                .map_err(|_| "Enter a numeric delay in seconds")?
-        };
-        if !delay.is_finite() {
-            return Err("Enter a finite delay in seconds");
-        }
+        // Keep numeric editing in native double precision rather than rounding
+        // through the UI toolkit's single-precision property.
+        let delay = crate::timing_controls::parse_delay_seconds(text)?;
         Ok(match self {
             Self::Primary => Command::SubtitleDelay(delay),
             Self::Secondary => Command::SecondarySubtitleDelay(delay),

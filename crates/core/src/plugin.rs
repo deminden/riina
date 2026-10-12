@@ -26,6 +26,22 @@ pub enum Permission {
     FileSystem,
 }
 
+/// Typed operations accepted by IINA's `core.window` plugin proxy.
+#[derive(Debug, Clone, PartialEq)]
+pub enum WindowAction {
+    SetFrame {
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    },
+    SetFullscreen(bool),
+    SetPictureInPicture(bool),
+    SetOnTop(bool),
+    SetSidebar(Option<String>),
+    SetMiniaturized(bool),
+}
+
 /// Commands crossing from the isolated plugin runtime to a platform webview.
 /// The core owns state transitions; a native adapter owns rendering and input.
 #[derive(Debug, Clone, PartialEq)]

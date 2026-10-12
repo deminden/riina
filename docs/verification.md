@@ -2534,3 +2534,58 @@ libmpv tests skipped because the pinned runtime is not provisioned). Workspace
 Clippy with `-D warnings`, `cargo fmt --all -- --check`, parity traceability, and
 `git diff --check` passed. `cargo build --workspace --locked` passed. No native
 GUI version panel or non-Windows app runtime is being claimed for this API.
+
+## Audio equalizer · 2026-10-12
+
+The portable audio pane now exposes ten frequency bands, the pinned built-in
+curves, and save/rename/delete for named profiles. Profile gains persist in the
+preferences document. The player labels its lavfi filter and removes only that
+filter when replacing a curve; libmpv's `af` property feeds the observed gains
+back to the controls. The implementation uses the pinned frequencies and width
+calculation while keeping the rest of the audio-filter chain intact.
+
+The five focused `riina-core` audio-equalizer tests passed, including persistence,
+graph validation, profile operations, and decoding the observed filter. The
+ignored native integration `audio_equalizer_applies_updates_and_returns_to_flat`
+also passed with `tools/mpv/libmpv-2.dll` and a null audio output. `cargo check
+--workspace --locked` and `cargo fmt --all -- --check` passed. The GUI controls
+have not been exercised, and there is no matched macOS capture or macOS/Linux
+native playback result for this feature.
+
+## Mixed media and subtitle drops · 2026-10-12
+
+The dropped-file route now preserves subtitle files when a batch also contains
+playable media. It submits one typed open intent and attaches the subtitle paths
+after libmpv reports the replacement media loaded, without selecting the new track.
+A later load or stop cancels the deferred attachment. Small `.url` Internet
+Shortcut files resolve only when their `[InternetShortcut]` section contains an
+allowed, validated network URL. The parser unit test rejects out-of-section
+values, unsupported schemes, malformed URLs, and missing targets. The focused
+live-libmpv test `opening_dropped_media_with_subtitles_attaches_them_to_the_new_file`
+passed with the provisioned Windows runtime. `cargo check --workspace --locked`,
+formatting, and strict workspace Clippy passed. The workspace suite passed for the
+mixed-subtitle implementation before shortcut parsing was added; the parser test
+passed separately. The suite marks 48 provisioned-libmpv integration cases ignored,
+with the focused drop/subtitle test run separately. GUI drag-and-drop, raw URL/text
+payloads, playlist-row insertion, and macOS/Linux behavior remain unverified.
+
+## Localized delay entry · 2026-10-12
+
+Audio, primary subtitle, and secondary subtitle delay fields now format observed
+values with ICU decimal data for the system locale and accept that locale's decimal
+and grouping symbols on commit. Display precision matches IINA's three significant
+digits; editing and playback commands retain their entered precision. Grouping must
+be valid in three-digit groups; malformed grouping and multiple decimal marks are
+rejected. Five focused tests passed, including real ICU `de-DE` formatting and an
+Arabic-locale round trip for native digits and bidi marks. Workspace check and strict
+Clippy passed. Rendered-field geometry, live locale changes, matching macOS
+screenshots, and runtime behavior on macOS/Linux remain unverified.
+# Manual-open repeat mode
+
+`media_open::tests::manual_open_repeat_is_opt_in` confirms the preference does
+not add a loop command by default. `manual_open_repeat_maps_the_selected_loop_mode`
+checks playlist and file loop mappings, and
+`invalid_manual_repeat_mode_is_rejected_only_when_enabled` ensures malformed
+stored selection is ignored while the feature is off and reported when enabled.
+The command is applied after explicit manual media-load actions. Native playback
+looping and live preference persistence remain separate GUI/native checks.

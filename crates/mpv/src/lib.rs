@@ -223,9 +223,10 @@ impl Player {
                     worker_api.check((worker_api.initialize)(handle))?;
                     for (name, format) in [("time-pos", 5), ("duration", 5), ("pause", 3),
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
-                        ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("mpv-version", 1), ("eof-reached", 3),
+                        ("ignore-path-in-watch-later-config", 3),
+                        ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("mpv-version", 1), ("ffmpeg-version", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
-                        ("vf", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
+                        ("vf", 6), ("af", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("deinterlace", 1), ("deinterlace-active", 3),
                         ("video-frame-info", 6),
@@ -272,6 +273,7 @@ impl Player {
                 let mut pending: HashMap<u64, PendingCommand> = HashMap::new();
                 let mut pending_screenshots = HashMap::new();
                 let mut pending_frame_captures = HashSet::new();
+                let mut pending_drop_subtitles = Vec::<String>::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
                 let mut seek_feedback = seek_feedback::SeekFeedback::default();
@@ -289,6 +291,9 @@ impl Player {
                             trace_shutdown("shutdown accepted; terminating pending playback work");
                             break;
                         }
+                        if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) {
+                            pending_drop_subtitles.clear();
+                        }
                         match command.plan(&state) {
                             Ok(plan) => {
                                 if let Command::SetPauseWhenOpen(pause) = &command {
@@ -303,7 +308,13 @@ impl Player {
                                     state.aspect_requests = state.aspect_requests.wrapping_add(1);
                                 }
                                 if matches!(command, Command::TogglePause | Command::SetPaused(_)) { seek_feedback.playback_transition(); }
-                                if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::Stop) { resume_on_load = false; }
+                                let dropped_subtitles = match &command {
+                                    Command::OpenFilesWithSubtitles { subtitles, .. } => {
+                                        Some(subtitles.clone())
+                                    }
+                                    _ => None,
+                                };
+                                if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;
                                 let is_auto_seek = matches!(
                                     &command,
@@ -314,6 +325,7 @@ impl Player {
                                 );
                                 // Validate the whole intent before submitting any part. Multi-file
                                 // additions consume one queue slot and cannot be partially dropped.
+                                let mut command_issue_succeeded = true;
                                 for mut args in plan.commands {
                                     if is_auto_seek && !auto_seek_decided
                                         && args.first().is_some_and(|argument| argument == "seek")
@@ -331,12 +343,13 @@ impl Player {
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
-                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Deinterlace(_) | Command::ToggleDeinterlace | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::Stop) {
+                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Deinterlace(_) | Command::ToggleDeinterlace | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) {
                                         seek_feedback.clear();
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
                                         state.error = Some(error);
                                         resume_on_load = false;
+                                        command_issue_succeeded = false;
                                         break;
                                     }
                                     if is_auto_seek && !auto_seek_decided {
@@ -355,6 +368,7 @@ impl Player {
                                             | Command::ClearPlaylist
                                             | Command::AppendFiles(_)
                                             | Command::OpenFiles(_)
+                                            | Command::OpenFilesWithSubtitles { .. }
                                     ) {
                                         state.playlist_shuffled = false;
                                     }
@@ -367,6 +381,11 @@ impl Player {
                                     } else if matches!(command, Command::CaptureFrame) {
                                         pending_frame_captures.insert(next_id);
                                     }
+                                }
+                                if command_issue_succeeded
+                                    && let Some(subtitles) = dropped_subtitles
+                                {
+                                    pending_drop_subtitles = subtitles;
                                 }
                             }
                             Err(error) => state.error = Some(error),
@@ -447,6 +466,20 @@ impl Player {
                             }
                             8 => {
                                 state.phase = Phase::Playing;
+                                for path in std::mem::take(&mut pending_drop_subtitles) {
+                                    let args = vec!["sub-add".into(), path, "auto".into()];
+                                    if let Err(error) = issue(
+                                        &worker_api,
+                                        handle,
+                                        &args,
+                                        &mut next_id,
+                                        &mut pending,
+                                        state.generation,
+                                    ) {
+                                        state.error = Some(error);
+                                        break;
+                                    }
+                                }
                                 if resume_on_load {
                                     resume_on_load = false;
                                     let args = ["set".into(), "pause".into(), "no".into()];
@@ -603,6 +636,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"time-pos" => state.position = None,
             b"duration" => state.duration = None,
             b"mpv-version" => state.mpv_version = None,
+            b"ffmpeg-version" => state.ffmpeg_version = None,
+            b"ignore-path-in-watch-later-config" => state.ignore_path_in_watch_later_config = None,
             b"track-list" => state.tracks.clear(),
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
@@ -633,6 +668,10 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"video-target-params" => state.video_target = None,
             b"video-out-params" => state.video_output = None,
             b"vf" => state.video_filters = None,
+            b"af" => {
+                state.audio_equalizer = None;
+                state.audio_filters = None;
+            }
             b"video-aspect-override" => state.video_aspect_override = None,
             b"video-rotate" => state.video_rotation = None,
             b"deinterlace" => state.deinterlace = None,
@@ -671,6 +710,15 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"vf" => {
                     state.video_filters =
                         Some(serde_json::from_value(value).map_err(|e| e.to_string())?);
+                }
+                b"af" => {
+                    let raw_filters: Vec<serde_json::Value> =
+                        serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+                    let filters: Vec<riina_core::crop::VideoFilter> =
+                        serde_json::from_value(value).map_err(|e| e.to_string())?;
+                    state.audio_equalizer =
+                        riina_core::audio_equalizer::observed_gains(&raw_filters);
+                    state.audio_filters = Some(filters);
                 }
                 b"chapter-list" => {
                     state.chapters = serde_json::from_value(value).map_err(|e| e.to_string())?
@@ -771,6 +819,9 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
         let flag = unsafe { *property.data.cast::<i32>() } != 0;
         match name {
             b"pause" => state.paused = flag,
+            b"ignore-path-in-watch-later-config" => {
+                state.ignore_path_in_watch_later_config = Some(flag)
+            }
             b"paused-for-cache" => state.buffering = flag,
             b"seeking" => state.seeking = flag,
             b"seekable" => state.seekable = flag,
@@ -798,6 +849,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             match name {
                 b"media-title" => state.title = value,
                 b"mpv-version" => state.mpv_version = Some(value),
+                b"ffmpeg-version" => state.ffmpeg_version = Some(value),
                 b"current-ao" => state.audio_output = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
                 b"hwdec" => state.hardware_decoding = Some(value),
@@ -865,6 +917,30 @@ mod version_property_tests {
         // SAFETY: the null event is valid and does not dereference data.
         unsafe { apply_property(&mut playback, &unavailable) };
         assert_eq!(playback.mpv_version, None);
+    }
+
+    #[test]
+    fn watch_later_path_policy_is_observed_and_can_become_unavailable() {
+        let name = CString::new("ignore-path-in-watch-later-config").unwrap();
+        let mut flag = 1_i32;
+        let property = Property {
+            name: name.as_ptr(),
+            format: 3,
+            data: (&mut flag as *mut i32).cast(),
+        };
+        let mut playback = Playback::default();
+        // SAFETY: the flag remains valid for the complete property copy.
+        unsafe { apply_property(&mut playback, &property) };
+        assert_eq!(playback.ignore_path_in_watch_later_config, Some(true));
+
+        let unavailable = Property {
+            name: name.as_ptr(),
+            format: 3,
+            data: std::ptr::null_mut(),
+        };
+        // SAFETY: the null event is valid and does not dereference data.
+        unsafe { apply_property(&mut playback, &unavailable) };
+        assert_eq!(playback.ignore_path_in_watch_later_config, None);
     }
 }
 

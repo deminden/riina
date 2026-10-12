@@ -74,6 +74,20 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.set_sidebar(kind);
         }
     });
+    let weak_plugins = app.as_weak();
+    app.on_toggle_plugins_pane(move || {
+        let Some(app) = weak_plugins.upgrade() else {
+            return;
+        };
+        if app.get_leading_sidebar() == 7 {
+            app.set_leading_sidebar(0);
+        } else if app.get_sidebar() == 7 {
+            app.set_sidebar(0);
+        } else {
+            // IINA places its plugin sidebar on the leading edge by default.
+            app.set_leading_sidebar(7);
+        }
+    });
     app.on_sidebar_resize_finished(move || {
         let Some(app) = weak.upgrade() else { return };
         let widths = (

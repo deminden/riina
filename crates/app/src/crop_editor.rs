@@ -18,6 +18,7 @@ use std::{
 struct Data {
     latest: Option<Playback>,
     session: Option<Session>,
+    delogo: bool,
     rectangle: Option<SourceRect>,
     drag: Option<Drag>,
     sender: Option<CommandSender>,
@@ -39,6 +40,7 @@ impl Editor {
                 data.session = None;
                 data.rectangle = None;
                 data.drag = None;
+                data.delogo = false;
             }
             data.latest = Some(state.clone());
         }
@@ -61,9 +63,9 @@ impl Editor {
     }
 
     fn refresh(&self, app: &PlayerWindow) {
-        let (editing, ready, rectangle, screen, content) = {
+        let (editing, delogo, ready, rectangle, screen, content) = {
             let data = self.0.lock().expect("Crop editor state is available");
-            let ready = data
+            let session_ready = data
                 .session
                 .as_ref()
                 .zip(data.latest.as_ref())
@@ -81,7 +83,15 @@ impl Editor {
             let content = Self::projection(&data, app)
                 .ok()
                 .map(|projection| projection.content());
-            (data.session.is_some(), ready, rectangle, screen, content)
+            let ready = session_ready && (data.delogo || screen.is_some());
+            (
+                data.session.is_some(),
+                data.delogo,
+                ready,
+                rectangle,
+                screen,
+                content,
+            )
         };
         // Property changes may call back into layout. Never hold the coordinator
         // mutex while publishing UI properties or moving keyboard focus.
@@ -94,7 +104,8 @@ impl Editor {
             app.set_crop_picture_height(content.height as f32);
         }
         app.set_crop_editing(editing);
-        app.set_crop_ready(ready && screen.is_some());
+        app.set_crop_delogo(delogo);
+        app.set_crop_ready(ready);
         if app.get_native_video() {
             let window_size = (
                 f64::from(app.get_window_width()),
@@ -170,10 +181,18 @@ impl Editor {
             app.set_crop_box_y(screen.y as f32);
             app.set_crop_box_width(screen.width as f32);
             app.set_crop_box_height(screen.height as f32);
+        } else if delogo {
+            app.set_crop_box_width(0.0);
+            app.set_crop_box_height(0.0);
         }
     }
 
-    fn begin(&self, app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
+    fn begin(
+        &self,
+        app: &PlayerWindow,
+        sender: &CommandSender,
+        delogo: bool,
+    ) -> Result<(), String> {
         {
             let mut data = self.0.lock().expect("Crop editor state is available");
             if data.session.is_some() {
@@ -181,10 +200,15 @@ impl Editor {
             }
             let state = data.latest.as_ref().ok_or("Source video is unavailable")?;
             Self::projection(&data, app)?;
-            let session = Session::begin(state)?;
+            let session = if delogo {
+                Session::begin_delogo(state)?
+            } else {
+                Session::begin(state)?
+            };
             sender.send(Command::EnterCrop(session.clone()))?;
-            data.rectangle = Some(session.whole_source().into());
+            data.rectangle = (!delogo).then(|| session.whole_source().into());
             data.session = Some(session);
+            data.delogo = delogo;
             data.drag = None;
         }
         self.refresh(app);
@@ -227,6 +251,7 @@ impl Editor {
                 rectangle,
             })?;
             data.session = None;
+            data.delogo = false;
             data.rectangle = None;
             data.drag = None;
         }
@@ -244,7 +269,17 @@ impl Editor {
         let begin_sender = sender.clone();
         app.on_begin_custom_crop(move || {
             if let Some(app) = weak.upgrade()
-                && let Err(error) = editor.begin(&app, &begin_sender)
+                && let Err(error) = editor.begin(&app, &begin_sender, false)
+            {
+                app.set_status(error.into());
+            }
+        });
+        let editor = self.clone();
+        let weak = app.as_weak();
+        let delogo_sender = sender.clone();
+        app.on_begin_delogo(move || {
+            if let Some(app) = weak.upgrade()
+                && let Err(error) = editor.begin(&app, &delogo_sender, true)
             {
                 app.set_status(error.into());
             }
@@ -274,6 +309,9 @@ impl Editor {
                     let Some(session) = data.session.as_ref() else {
                         return;
                     };
+                    if data.delogo {
+                        return;
+                    }
                     let whole = session.whole_source();
                     let Some((w, h)) = usize::try_from(index)
                         .ok()
@@ -312,20 +350,31 @@ impl Editor {
                 && app.get_crop_ready()
             {
                 let mut data = editor.0.lock().expect("Crop editor state is available");
-                if let Ok(projection) = Self::projection(&data, &app)
-                    && let Some(rectangle) = data.rectangle
-                    && let Ok(screen) = projection.project_continuous(rectangle)
-                {
+                if let Ok(projection) = Self::projection(&data, &app) {
                     let point = Point {
                         x: f64::from(x),
                         y: f64::from(y),
                     };
                     let content = projection.content();
-                    if (1..=4).contains(&kind)
-                        || (point.x >= content.x
-                            && point.x <= content.x + content.width
-                            && point.y >= content.y
-                            && point.y <= content.y + content.height)
+                    let inside = point.x >= content.x
+                        && point.x <= content.x + content.width
+                        && point.y >= content.y
+                        && point.y <= content.y + content.height;
+                    if data.delogo && kind == 0 && inside {
+                        data.drag = Drag::begin(
+                            None,
+                            point,
+                            DisplayRect {
+                                x: point.x,
+                                y: point.y,
+                                width: 0.0,
+                                height: 0.0,
+                            },
+                        )
+                        .ok();
+                    } else if let Some(rectangle) = data.rectangle
+                        && let Ok(screen) = projection.project_continuous(rectangle)
+                        && ((1..=4).contains(&kind) || inside)
                     {
                         let edge = match kind {
                             0 => None,

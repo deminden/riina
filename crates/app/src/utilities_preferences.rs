@@ -65,7 +65,6 @@ pub(crate) fn connect(
                     format!("Could not start file-association update: {error}").into(),
                 );
             }
-            return;
         }
         #[cfg(not(target_os = "linux"))]
         match register_default_file_types(video, audio, playlists) {
@@ -81,11 +80,23 @@ pub(crate) fn connect(
 
     let weak = window.as_weak();
     window.on_utilities_restore_alerts(move || {
-        if let Some(window) = weak.upgrade() {
-            // The pinned source currently has no suppressible alerts either; keep
-            // the action present for compatibility without clearing unrelated data.
-            window.set_utilities_status("There are no suppressed alerts to restore.".into());
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let response = MessageDialog::new()
+            .set_title("Restore Suppressed Alerts")
+            .set_description("Are you sure you want to restore suppressed alerts?")
+            .set_buttons(MessageButtons::YesNo)
+            .show();
+        if response != MessageDialogResult::Yes {
+            return;
         }
+        let _ = MessageDialog::new()
+            .set_title("Restore Suppressed Alerts")
+            .set_description("Restored.")
+            .set_buttons(MessageButtons::Ok)
+            .show();
+        window.set_utilities_status("Restored.".into());
     });
 
     let weak = window.as_weak();
@@ -136,7 +147,7 @@ pub(crate) fn connect(
         }
         match clear_history() {
             Ok(removed) => window.set_utilities_status(
-                format!("Playback history cleared ({removed} recent items removed).").into(),
+                format!("Playback history cleared ({removed} entries removed).").into(),
             ),
             Err(error) => window
                 .set_utilities_status(format!("Could not clear playback history: {error}").into()),
@@ -190,14 +201,18 @@ pub(crate) fn thumbnail_cache_directory() -> Result<std::path::PathBuf, String> 
     Ok(cache.join("riina").join("thumb_cache"))
 }
 
-pub(crate) fn clear_recent_history(preferences_path: &Path) -> Result<usize, String> {
+pub(crate) fn clear_playback_history(preferences_path: &Path) -> Result<usize, String> {
     let mut preferences = match fs::read_to_string(preferences_path) {
         Ok(text) => riina_core::Preferences::parse(&text).map_err(|error| error.to_string())?,
         Err(error) if error.kind() == io::ErrorKind::NotFound => riina_core::Preferences::default(),
         Err(error) => return Err(error.to_string()),
     };
-    let removed = preferences.recent_media.len();
-    preferences.recent_media.clear();
+    let history_path = crate::playback_history_store::path_for_preferences(preferences_path);
+    let entries =
+        crate::playback_history_store::load(&history_path, &preferences.playback_history)?;
+    let removed = entries.len();
+    preferences.playback_history.clear();
+    crate::playback_history_store::save(&history_path, &[])?;
     let encoded = serde_json::to_string_pretty(&preferences).map_err(|error| error.to_string())?;
     crate::platform::save_preferences(preferences_path, &encoded)
         .map_err(|error| error.to_string())?;
@@ -209,6 +224,7 @@ pub(crate) fn preserve_saved_history(preferences: &mut riina_core::Preferences, 
         && let Ok(saved) = riina_core::Preferences::parse(&text)
     {
         preferences.recent_media = saved.recent_media;
+        preferences.playback_history = saved.playback_history;
     }
 }
 
@@ -452,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_history_persists_empty_recents_without_resetting_preferences() {
+    fn clear_history_preserves_recent_media_and_other_preferences() {
         let root = temporary_directory();
         fs::create_dir_all(&root).unwrap();
         let path = root.join("preferences.json");
@@ -463,14 +479,31 @@ mod tests {
                 title: "movie".into(),
                 position: 12.0,
             }],
+            playback_history: vec![riina_core::playback_history::Entry {
+                path: "file:///C:/media/movie.mkv".into(),
+                date_ms: 1_750_000_000_000,
+                progress: Some(12.0),
+                duration: 90.0,
+            }],
             ..riina_core::Preferences::default()
         };
-        fs::write(&path, serde_json::to_vec(&preferences).unwrap()).unwrap();
+        let mut encoded = serde_json::to_value(&preferences).unwrap();
+        encoded["playback_history"] = serde_json::to_value(&preferences.playback_history).unwrap();
+        fs::write(&path, serde_json::to_vec(&encoded).unwrap()).unwrap();
 
-        assert_eq!(clear_recent_history(&path).unwrap(), 1);
+        assert_eq!(clear_playback_history(&path).unwrap(), 1);
         let saved = riina_core::Preferences::parse(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(saved.recent_media.is_empty());
+        assert!(saved.playback_history.is_empty());
+        assert_eq!(saved.recent_media.len(), 1);
         assert_eq!(saved.volume, 63.0);
+        assert!(
+            crate::playback_history_store::load(
+                &crate::playback_history_store::path_for_preferences(&path),
+                &[],
+            )
+            .unwrap()
+            .is_empty()
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -482,7 +515,7 @@ mod tests {
         let original = b"{ invalid settings";
         fs::write(&path, original).unwrap();
 
-        assert!(clear_recent_history(&path).is_err());
+        assert!(clear_playback_history(&path).is_err());
         assert_eq!(fs::read(&path).unwrap(), original);
         fs::remove_dir_all(root).unwrap();
     }
@@ -501,9 +534,18 @@ mod tests {
             title: "old".into(),
             position: 0.0,
         });
+        stale
+            .playback_history
+            .push(riina_core::playback_history::Entry {
+                path: "stale.mkv".into(),
+                date_ms: 1,
+                progress: None,
+                duration: 0.0,
+            });
 
         preserve_saved_history(&mut stale, &path);
         assert!(stale.recent_media.is_empty());
+        assert!(stale.playback_history.is_empty());
         fs::remove_dir_all(root).unwrap();
     }
 }

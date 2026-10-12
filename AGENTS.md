@@ -35,13 +35,17 @@ coding tools as contributors.
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.3.2.
+the minor digit for major milestones. The current development version is 0.3.3.
 
 Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
 Verify `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
 `cargo test --workspace --locked`. Native tests require the pinned DLL.
 Never report an unrun GUI/HDR test as passed. Keep implementation and verification separate.
+After each GUI feature test, close the Riina instance used and confirm no Riina
+window or process remains before rebuilding or testing another version. This avoids
+stale builds remaining open and slowing later development. If normal shutdown fails,
+end only the exact Riina process started for that test.
 After staging asset changes, run `python scripts/check-assets.py --staged` before
 publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
 The repository's license choice is settled: original Riina source is MIT and

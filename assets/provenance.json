@@ -232,6 +232,13 @@
       "sha256": "8807810edfc8440c47890ba9a13532c8d4a168a4ee945d5866cc82b4ea07f76c"
     },
     {
+      "path": "assets/icons/pip.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "5f78ee7ced26e25e7eabceab5c74957672bc500ce7ca4b95b1b3d3da894e89ed"
+    },
+    {
       "path": "assets/icons/playlist.svg",
       "author": "riina contributors",
       "license": "MIT",

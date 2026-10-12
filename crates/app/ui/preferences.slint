@@ -599,6 +599,51 @@ component PreferenceActionButton inherits Rectangle {
     }
 }
 
+component ToolbarOrderButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback activated();
+    width: 26px; height: 22px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: focus.has-focus ? #168bff : #b8b8b8;
+    background: !root.enabled ? #f1f1f2 : touch.pressed ? #d9d9dd : #f7f7f8;
+    accessible-role: button;
+    accessible-label: root.label == "↑" ? "Move toolbar action up" : "Move toolbar action down";
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.activated(); } }
+    Text { text: root.label; font-size: 12px; color: root.enabled ? #333337 : #a0a0a4;
+        horizontal-alignment: center; vertical-alignment: center; }
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height; enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { if root.enabled { root.activated(); } return accept; }
+            return reject;
+        }
+    }
+}
+
+component ToolbarPreferenceRow inherits HorizontalLayout {
+    in property <string> label;
+    in-out property <bool> checked;
+    in property <int> position;
+    in property <int> count;
+    callback toggled(bool);
+    callback move-requested(int, int);
+    height: 28px; spacing: 4px;
+    PreferenceSwitch {
+        width: 230px; label: root.label;
+        checked <=> root.checked;
+        toggled => { root.toggled(self.checked); }
+    }
+    Rectangle { horizontal-stretch: 1; background: transparent; }
+    ToolbarOrderButton { label: "↑"; enabled: root.position > 0;
+        activated => { root.move-requested(root.position, -1); } }
+    ToolbarOrderButton { label: "↓"; enabled: root.position + 1 < root.count;
+        activated => { root.move-requested(root.position, 1); } }
+}
+
 // AppKit draws number formatters as bounded editable cells; give shared values
 // the same visible affordance even when the Windows widget theme omits a bezel.
 component PreferenceNumericInput inherits Rectangle {
@@ -1002,7 +1047,7 @@ export component PreferencesWindow inherits Window {
     in-out property <int> selected-pane: 0;
     in-out property <bool> disable-animations: false;
     in property <bool> system-reduce-motion: false;
-    in-out property <int> selected-general-section: 0;
+    in-out property <length> general-scroll-position: 0px;
     in-out property <bool> when-media-opened-expanded: false;
     in-out property <bool> pause-resume-when-expanded: false;
     in-out property <int> appearance-index: 0;
@@ -1010,9 +1055,20 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> liquid-glass-osd: true;
     in-out property <bool> liquid-glass-osc: true;
     in-out property <bool> liquid-glass-sidebar: true;
+    in property <string> surface-material-title: "Translucent Surfaces";
     in-out property <int> selected-interface-section: 0;
     in-out property <bool> control-auto-hide-enabled: true;
     in-out property <string> control-auto-hide-timeout-text: "2.5";
+    in-out property <bool> toolbar-show-plugins: true;
+    in-out property <bool> toolbar-show-pip: true;
+    in-out property <bool> toolbar-show-playlist: true;
+    in-out property <bool> toolbar-show-quick-settings: true;
+    in-out property <bool> toolbar-show-fullscreen: false;
+    in-out property <bool> toolbar-show-music-mode: false;
+    in-out property <bool> toolbar-show-subtitle-track: false;
+    in-out property <bool> toolbar-show-screenshot: false;
+    in-out property <bool> toolbar-show-live-text: false;
+    in-out property <[int]> toolbar-order: [7, 2, 1, 0, 3, 4, 5, 6, 8];
     in-out property <bool> osd-suppression-expanded: false;
     in-out property <bool> disable-osd-file-start: false;
     in-out property <bool> disable-osd-pause-resume: false;
@@ -1053,7 +1109,7 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-physical-resolution-y: interface-resize-y + 134px;
     out property <length> interface-float-y: interface-physical-resolution-y + 56px;
     out property <length> interface-osc-y: interface-float-y + 96px;
-    out property <length> interface-osc-card-height: 230px;
+    out property <length> interface-osc-card-height: 500px;
     out property <length> interface-osd-y: interface-osc-y + interface-osc-card-height + 16px;
     out property <length> osd-suppression-detail-height: osd-suppression-expanded ? 112px : 0px;
     out property <length> interface-thumbnail-y: interface-osd-y + 108px + osd-suppression-detail-height + 128px;
@@ -1067,6 +1123,15 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-thumbnail-target: 0px - (interface-thumbnail-y - 13px);
     out property <length> interface-pip-target: 0px - (interface-pip-y - 13px);
     out property <length> interface-accessibility-target: 0px - (interface-accessibility-y - 13px);
+    out property <length> general-history-target: 0px - ((459px
+        + (root.when-media-opened-expanded ? 166px : 0px)
+        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)) - 13px);
+    out property <length> general-playlist-target: 0px - ((604px
+        + (root.when-media-opened-expanded ? 166px : 0px)
+        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)) - 13px);
+    out property <length> general-screenshots-target: 0px - ((820px
+        + (root.when-media-opened-expanded ? 166px : 0px)
+        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)) - 13px);
     out property <length> interface-appearance-threshold: interface-window-target / 2;
     out property <length> interface-window-threshold: (interface-window-target + interface-osc-target) / 2;
     out property <length> interface-osc-threshold: (interface-osc-target + interface-osd-target) / 2;
@@ -1253,6 +1318,11 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> group-simultaneous-opens-in-playlist: false;
     in-out property <bool> allow-duplicate-players: false;
     in-out property <bool> playlist-auto-add: true;
+    in-out property <bool> playlist-auto-play-next: true;
+    in-out property <bool> playlist-show-metadata: true;
+    in-out property <bool> playlist-show-metadata-in-music-mode: true;
+    in-out property <bool> auto-repeat: false;
+    in-out property <int> default-repeat-mode-index: 0;
     in-out property <bool> pause-when-open: false;
     in-out property <bool> play-when-entering-fullscreen: false;
     in-out property <bool> pause-when-leaving-fullscreen: false;
@@ -1264,6 +1334,9 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> keep-open-on-file-end: true;
     in-out property <bool> fullscreen-when-open: false;
     in-out property <bool> resume-last-position: true;
+    in-out property <bool> record-playback-history: true;
+    in-out property <bool> record-recent-files: true;
+    in-out property <bool> track-all-files-in-recent-open-menu: true;
     in-out property <bool> auto-switch-to-music-mode: true;
     in-out property <bool> music-mode-show-playlist: false;
     in-out property <bool> music-mode-show-album-art: true;
@@ -1275,6 +1348,8 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> utilities-default-audio: true;
     in-out property <bool> utilities-default-playlist: true;
     callback settings-changed();
+    callback toolbar-move(int, int);
+    callback toolbar-reset();
     changed disable-animations => {
         MotionSettings.animations-disabled = root.disable-animations || root.system-reduce-motion;
     }
@@ -1329,17 +1404,8 @@ export component PreferencesWindow inherits Window {
             Rectangle { width: parent.width; height: root.selected-pane == 1 ? 564px : (root.selected-pane == 0 || root.selected-pane == 3 || root.selected-pane == 5) ? 488px : 416px; background: transparent;
         PreferenceNavItem { x: 10px; y: 0px; width: 180px; label: "General";
             icon: @image-url("../../../assets/icons/settings.svg");
-            selected: root.selected-pane == 0; activated => { root.selected-pane = 0; root.selected-general-section = 0; } }
-        if root.selected-pane == 0 : Rectangle { x: 24px; y: 40px; width: 2px; height: 90px; background: #d3d3d7; }
-        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 36px; width: 158px; label: "Behavior";
-            selected: root.selected-general-section == 0; activated => { root.selected-general-section = 0; } }
-        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 60px; width: 158px; label: "History";
-            selected: root.selected-general-section == 1; activated => { root.selected-general-section = 1; } }
-        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 84px; width: 158px; label: "Playlist";
-            selected: root.selected-general-section == 2; activated => { root.selected-general-section = 2; } }
-        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 108px; width: 158px; label: "Screenshots";
-            selected: root.selected-general-section == 3; activated => { root.selected-general-section = 3; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 0 ? 144px : 36px; width: 180px; label: "Interface";
+            selected: root.selected-pane == 0; activated => { root.selected-pane = 0; root.general-scroll-position = 0px; } }
+        PreferenceNavItem { x: 10px; y: 36px; width: 180px; label: "Interface";
             icon: @image-url("../../../assets/icons/interface.svg");
             selected: root.selected-pane == 1; activated => { root.selected-pane = 1; root.selected-interface-section = 0; root.interface-scroll-position = 0px; } }
         if root.selected-pane == 1 : Rectangle { x: 24px; y: 76px; width: 2px; height: 144px; background: #d3d3d7; }
@@ -1364,16 +1430,16 @@ export component PreferencesWindow inherits Window {
         if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Accessibility";
             selected: root.selected-interface-section == 6;
             activated => { root.selected-interface-section = 6; root.interface-scroll-position = root.interface-accessibility-target; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 240px : root.selected-pane == 0 ? 180px : 72px; width: 180px; label: "Video";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 240px : 72px; width: 180px; label: "Video";
             icon: @image-url("../../../assets/icons/video-page.svg");
             selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 276px : root.selected-pane == 0 ? 216px : 108px; width: 180px; label: "Audio";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 276px : 108px; width: 180px; label: "Audio";
             icon: @image-url("../../../assets/icons/audio-page.svg");
             selected: root.selected-pane == 3; activated => { root.selected-pane = 3; root.selected-audio-section = 0; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 312px : (root.selected-pane == 3 ? 216px : root.selected-pane == 0 ? 252px : 144px); width: 180px; label: "Subtitles";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 312px : (root.selected-pane == 3 ? 216px : 144px); width: 180px; label: "Subtitles";
             icon: @image-url("../../../assets/icons/subtitles-page.svg");
             selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 348px : (root.selected-pane == 3 ? 252px : root.selected-pane == 0 ? 288px : 180px); width: 180px; label: "Network";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 348px : (root.selected-pane == 3 ? 252px : 180px); width: 180px; label: "Network";
             icon: @image-url("../../../assets/icons/network.svg");
             selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.selected-network-section = 0; } }
         if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: #d3d3d7; }
@@ -1396,19 +1462,19 @@ export component PreferencesWindow inherits Window {
         if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 192px; width: 158px; label: "Other";
             selected: root.selected-audio-section == 2;
             activated => { root.selected-pane = 3; root.selected-audio-section = 2; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 384px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 300px : root.selected-pane == 0 ? 324px : 216px); width: 180px; label: "Control";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 384px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 300px : 216px); width: 180px; label: "Control";
             icon: @image-url("../../../assets/icons/control.svg");
             selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 420px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 336px : root.selected-pane == 0 ? 360px : 252px); width: 180px; label: "Key Bindings";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 420px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 336px : 252px); width: 180px; label: "Key Bindings";
             icon: @image-url("../../../assets/icons/keybindings.svg");
             selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 456px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 372px : root.selected-pane == 0 ? 396px : 288px); width: 180px; label: "Advanced";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 456px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 372px : 288px); width: 180px; label: "Advanced";
             icon: @image-url("../../../assets/icons/advanced.svg");
             selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 492px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 408px : root.selected-pane == 0 ? 432px : 324px); width: 180px; label: "Plugins";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 492px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 408px : 324px); width: 180px; label: "Plugins";
             icon: @image-url("../../../assets/icons/plugins.svg");
             selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 528px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 444px : root.selected-pane == 0 ? 468px : 360px); width: 180px; label: "Utilities";
+        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 528px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 444px : 360px); width: 180px; label: "Utilities";
             icon: @image-url("../../../assets/icons/utilities.svg");
             selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
             }
@@ -1416,29 +1482,26 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 0 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.selected-general-section == 0
-            ? 492px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)
-            : 300px;
+        content-height: 1124px + (root.when-media-opened-expanded ? 166px : 0px)
+            + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
         content-width: self.visible-width;
+        content-y <=> root.general-scroll-position;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
         width: parent.width;
-        height: root.selected-general-section == 0
-            ? 492px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)
-            : 300px;
+        height: 1048px + (root.when-media-opened-expanded ? 166px : 0px)
+            + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
         background: #ffffff;
-        Text { x: 28px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
-        if root.selected-general-section == 0 : Text { x: 28px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        if root.selected-general-section == 0 : Rectangle {
-            x: 20px; y: 81px; width: parent.width - 40px;
+        Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
+        Text { x: 20px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
+        Rectangle {
+            x: 12px; y: 81px; width: parent.width - 24px;
             height: 122px + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
-            Text { x: 12px; y: 0; width: 120px; height: 40px; text: "At launch";
+            Text { x: 38px; y: 0; width: 120px; height: 40px; text: "At launch";
                 font-size: 13px; color: #222222; vertical-alignment: center; }
-            ComboBox { x: 152px; y: 7px; width: parent.width - 164px; height: 26px;
+            ComboBox { x: 180px; y: 7px; width: parent.width - 192px; height: 26px;
                 model: ["Show welcome window", "Show open file panel", "Do nothing"];
                 current-index <=> root.launch-action-index;
                 selected => { root.settings-changed(); }
@@ -1516,14 +1579,14 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.settings-changed(); }
             }
         }
-        if root.selected-general-section == 0 : Rectangle {
-            x: 20px; y: 81px + 122px + 16px
+        Rectangle {
+            x: 12px; y: 81px + 122px + 16px
                 + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
-            width: parent.width - 40px; height: 212px;
+            width: parent.width - 24px; height: 212px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
             GeneralSettingToggle { x: 12px; y: 8px; width: parent.width - 24px; height: 36px;
-                label: "Allow multiple player windows";
+                label: "Always open media in new window";
                 checked <=> root.allow-multiple-windows; toggled => { root.settings-changed(); } }
             Rectangle { x: 24px; y: 47px; width: parent.width - 36px; height: 1px; background: #e1e1e1; }
             GeneralSettingToggle { x: 32px; y: 48px; width: parent.width - 44px; height: 40px;
@@ -1544,20 +1607,64 @@ export component PreferencesWindow inherits Window {
                 label: "Keep window open after playback finishes";
                 checked <=> root.keep-open-on-file-end; toggled => { root.settings-changed(); } }
         }
-        if root.selected-general-section == 1 : Text { x: 28px; y: 52px; text: "History"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        if root.selected-general-section == 1 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 48px;
+        Text { x: 20px; y: 459px + (root.when-media-opened-expanded ? 166px : 0px)
+                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+            text: "History"; font-weight: 600; font-size: 13px; color: #7a7a80; }
+        Rectangle { x: 12px; y: 488px + (root.when-media-opened-expanded ? 166px : 0px)
+                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+            width: parent.width - 24px; height: 164px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
-            CheckBox { x: 16px; y: 8px; height: 24px; text: "Resume last position";
+            CheckBox { x: 16px; y: 6px; height: 32px; text: "Resume last position";
                 checked <=> root.resume-last-position; toggled => { root.settings-changed(); } }
+            Rectangle { x: 12px; y: 43px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 16px; y: 48px; height: 32px; text: "Record playback history";
+                checked <=> root.record-playback-history; toggled => { root.settings-changed(); } }
+            Rectangle { x: 12px; y: 83px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 16px; y: 88px; height: 32px; text: "Enable \"Open Recent\" menu";
+                checked <=> root.record-recent-files; toggled => { root.settings-changed(); } }
+            Rectangle { x: 24px; y: 123px; width: parent.width - 36px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 32px; y: 128px; width: parent.width - 48px; height: 32px;
+                text: "Track all played files in \"Open Recent\" menu";
+                checked <=> root.track-all-files-in-recent-open-menu;
+                enabled: root.record-recent-files; toggled => { root.settings-changed(); } }
         }
-        if root.selected-general-section == 2 : Text { x: 28px; y: 52px; text: "Playlist"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        if root.selected-general-section == 2 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 48px;
+        Text { x: 20px; y: 680px + (root.when-media-opened-expanded ? 166px : 0px)
+                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+            text: "Playlist"; font-weight: 600; font-size: 13px; color: #7a7a80; }
+        Rectangle { x: 12px; y: 708px + (root.when-media-opened-expanded ? 166px : 0px)
+                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+            width: parent.width - 24px; height: 160px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
-            CheckBox { x: 16px; y: 8px; height: 24px; text: "Add files in the same folder automatically";
+            CheckBox { x: 16px; y: 2px; height: 28px; text: "Add files in the same folder automatically";
                 checked <=> root.playlist-auto-add; toggled => { root.settings-changed(); } }
+            Rectangle { x: 12px; y: 32px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 16px; y: 34px; height: 28px; text: "Play next item automatically";
+                checked <=> root.playlist-auto-play-next; toggled => { root.settings-changed(); } }
+            Rectangle { x: 12px; y: 64px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 16px; y: 66px; width: parent.width - 32px; height: 28px;
+                text: "Show artist and track name for audio files when available";
+                checked <=> root.playlist-show-metadata; toggled => { root.settings-changed(); } }
+            CheckBox { x: 36px; y: 94px; width: parent.width - 52px; height: 28px;
+                text: "Only in Music Mode"; enabled: root.playlist-show-metadata;
+                checked <=> root.playlist-show-metadata-in-music-mode;
+                toggled => { root.settings-changed(); } }
+            Rectangle { x: 12px; y: 124px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
+            CheckBox { x: 16px; y: 128px; width: parent.width - 230px; height: 28px;
+                text: "Loop when a file is opened manually";
+                checked <=> root.auto-repeat; toggled => { root.settings-changed(); } }
+            ComboBox { x: parent.width - 204px; y: 129px; width: 188px; height: 26px;
+                model: ["Loop playlist", "Loop file"];
+                current-index <=> root.default-repeat-mode-index;
+                enabled: root.auto-repeat;
+                selected => { root.settings-changed(); }
+            }
         }
-        if root.selected-general-section == 3 : Text { x: 28px; y: 52px; text: "Screenshots"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        if root.selected-general-section == 3 : Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 184px;
+        Text { x: 20px; y: 896px + (root.when-media-opened-expanded ? 166px : 0px)
+                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+            text: "Screenshots"; font-weight: 600; font-size: 13px; color: #7a7a80; }
+        Rectangle { x: 12px; y: 924px + (root.when-media-opened-expanded ? 166px : 0px)
+                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+            width: parent.width - 24px; height: 184px;
         border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
         Text { x: 16px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
         Text { x: 16px; y: 112px; text: "Options:"; font-size: 13px; color: #222222; }
@@ -1623,7 +1730,7 @@ export component PreferencesWindow inherits Window {
                 selected => { root.settings-changed(); }
             }
             PreferenceDetailRow { x: 36px; y: 44px; width: parent.width - 60px;
-                label: "Liquid Glass"; expanded: root.liquid-glass-expanded;
+                label: root.surface-material-title; expanded: root.liquid-glass-expanded;
                 toggled => { root.liquid-glass-expanded = !root.liquid-glass-expanded; }
             }
             if root.liquid-glass-expanded : VerticalLayout {
@@ -1815,6 +1922,45 @@ export component PreferencesWindow inherits Window {
                 label: "Prevent scroll wheel from changing volume";
                 checked <=> root.control-disable-volume-slider-scrolling;
                 toggled => { root.settings-changed(); }
+            }
+            Text { x: 36px; y: 218px; text: "Toolbar buttons";
+                font-size: 12px; font-weight: 600; color: #222222; }
+            PreferenceActionButton { x: parent.width - 112px; y: 214px;
+                label: "Restore Default";
+                activated => { root.toolbar-reset(); }
+            }
+            for action-kind[index] in root.toolbar-order : ToolbarPreferenceRow {
+                x: 36px; y: 238px + index * 28px; width: parent.width - 72px;
+                label: action-kind == 0 ? "Quick Settings" :
+                    action-kind == 1 ? "Playlist and chapters" :
+                    action-kind == 2 ? "Picture in Picture" :
+                    action-kind == 3 ? "Full Screen" :
+                    action-kind == 4 ? "Music Mode" :
+                    action-kind == 5 ? "Subtitle Track" :
+                    action-kind == 6 ? "Screenshot" :
+                    action-kind == 7 ? "Plugins" : "Live Text";
+                position: index; count: root.toolbar-order.length;
+                checked: action-kind == 0 ? root.toolbar-show-quick-settings :
+                    action-kind == 1 ? root.toolbar-show-playlist :
+                    action-kind == 2 ? root.toolbar-show-pip :
+                    action-kind == 3 ? root.toolbar-show-fullscreen :
+                    action-kind == 4 ? root.toolbar-show-music-mode :
+                    action-kind == 5 ? root.toolbar-show-subtitle-track :
+                    action-kind == 6 ? root.toolbar-show-screenshot :
+                    action-kind == 7 ? root.toolbar-show-plugins : root.toolbar-show-live-text;
+                toggled(value) => {
+                    if action-kind == 0 { root.toolbar-show-quick-settings = value; }
+                    else if action-kind == 1 { root.toolbar-show-playlist = value; }
+                    else if action-kind == 2 { root.toolbar-show-pip = value; }
+                    else if action-kind == 3 { root.toolbar-show-fullscreen = value; }
+                    else if action-kind == 4 { root.toolbar-show-music-mode = value; }
+                    else if action-kind == 5 { root.toolbar-show-subtitle-track = value; }
+                    else if action-kind == 6 { root.toolbar-show-screenshot = value; }
+                    else if action-kind == 7 { root.toolbar-show-plugins = value; }
+                    else { root.toolbar-show-live-text = value; }
+                    root.settings-changed();
+                }
+                move-requested(position, direction) => { root.toolbar-move(position, direction); }
             }
         }
         Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;
@@ -2721,11 +2867,11 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 7 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-width: self.visible-width;
-        content-height: max(parent.height, root.key-binding-rows.length == 0 ? 288px : 242px + root.key-binding-rows.length * 32px);
+        content-height: max(parent.height, root.key-binding-rows.length == 0 ? 310px : 290px + root.key-binding-rows.length * 32px);
         vertical-scrollbar-policy: as-needed;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
-            width: parent.width; height: max(parent.height, root.key-binding-rows.length == 0 ? 288px : 242px + root.key-binding-rows.length * 32px);
+            width: parent.width; height: max(parent.height, root.key-binding-rows.length == 0 ? 310px : 290px + root.key-binding-rows.length * 32px);
             background: #ffffff;
             Text { x: 28px; y: 16px; text: "Key Bindings";
                 font-size: 15px; font-weight: 600; color: #222222; }
@@ -2750,7 +2896,7 @@ export component PreferencesWindow inherits Window {
             }
             Rectangle {
                 x: 20px; y: 110px; width: parent.width - 40px;
-                height: root.key-binding-rows.length == 0 ? 178px : 132px + root.key-binding-rows.length * 32px;
+                height: root.key-binding-rows.length == 0 ? 200px : 180px + root.key-binding-rows.length * 32px;
                 border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
                 background: #f8f8f8;
                 Text { x: 12px; y: 8px; width: 66px; height: 36px;
@@ -2803,14 +2949,6 @@ export component PreferencesWindow inherits Window {
                     enabled: root.key-binding-profile-index >= 5;
                     activated => { root.key-binding-add-requested(); }
                 }
-                KeyBindingIconButton {
-                    x: parent.width - 52px; y: 58px; width: 40px; height: 36px;
-                    label: "Display raw key and action values"; icon-kind: 2;
-                    activated => {
-                        root.key-binding-display-raw-values = !root.key-binding-display-raw-values;
-                        root.key-binding-settings-changed(); root.settings-changed();
-                    }
-                }
                 if root.key-binding-rows.length == 0 : Text {
                     x: 28px; y: 100px; width: parent.width - 52px; height: 44px;
                     text: "No mappings in this configuration";
@@ -2832,14 +2970,21 @@ export component PreferencesWindow inherits Window {
                         remove-requested(row-index) => { root.key-binding-remove-requested(row-index); }
                     }
                 }
+                Rectangle {
+                    x: 1px; y: root.key-binding-rows.length == 0 ? 152px : 132px + root.key-binding-rows.length * 32px;
+                    width: parent.width - 2px; height: 1px; background: #e3e3e6;
+                }
                 Text {
-                    x: 20px; y: root.key-binding-rows.length == 0 ? 148px : 100px + root.key-binding-rows.length * 32px;
-                    width: parent.width - 40px; height: 24px;
-                    text: "Show the profile file";
-                    font-size: 11px; color: #66666c; vertical-alignment: center;
-                    accessible-role: button;
-                    accessible-action-default => { root.key-binding-reveal-profile(); }
-                    reveal-touch := TouchArea { clicked => { root.key-binding-reveal-profile(); } }
+                    x: 20px; y: root.key-binding-rows.length == 0 ? 164px : 144px + root.key-binding-rows.length * 32px;
+                    width: parent.width - 88px; height: 28px;
+                    text: "Display raw values"; font-size: 11px; color: #29292d;
+                    vertical-alignment: center;
+                }
+                PreferenceSwitch {
+                    x: parent.width - 68px; y: root.key-binding-rows.length == 0 ? 164px : 144px + root.key-binding-rows.length * 32px;
+                    width: 44px; height: 28px; label: "Display raw values"; show-label: false;
+                    checked <=> root.key-binding-display-raw-values;
+                    toggled => { root.key-binding-settings-changed(); root.settings-changed(); }
                 }
                 if root.key-binding-profile-menu-open : Rectangle {
                     x: parent.width - 194px; y: 34px; width: 188px; height: root.key-binding-profile-index >= 5 ? 158px : 128px;

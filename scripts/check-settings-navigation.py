@@ -34,23 +34,32 @@ def main():
     routes = [(label, selected, activated) for label, _, selected, activated in nav]
     assert routes == expected_routes, f"Unexpected settings navigation: {routes!r}"
 
-    general_sections = re.findall(
-        r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
-        r'[^{}]*selected:\s*root\.selected-general-section\s*==\s*(\d+);',
+    general_page = re.search(
+        r"if root\.selected-pane == 0\s*:\s*ScrollView\s*\{(.*?)"
+        r"(?=\n\s*if root\.selected-pane == 1\s*:)",
         SOURCE,
         re.DOTALL,
     )
-    assert general_sections == [
-        (label, str(index)) for index, label in enumerate(EXPECTED_GENERAL_SECTIONS)
-    ], f"Unexpected General subsection navigation: {general_sections!r}"
+    assert general_page and "content-y <=> root.general-scroll-position" in general_page.group(1), (
+        "General settings must remain one continuous scroll page"
+    )
+    headings = [
+        general_page.group(1).find(f'text: "{label}"')
+        for label in EXPECTED_GENERAL_SECTIONS
+    ]
+    assert all(position >= 0 for position in headings) and headings == sorted(headings), (
+        f"General sections must appear in order on the shared page: {headings!r}"
+    )
     assert all(
-        f'if root.selected-general-section == {index}' in SOURCE
-        for index in range(len(EXPECTED_GENERAL_SECTIONS))
-    ), "Every General subsection must display its own content"
-    assert all(
-        f'"{label}" => {index}' in SEARCH_SOURCE
-        for label, index in (("History", 1), ("Playlist", 2), ("Screenshots", 3))
-    ), "Settings search must open matching General subsections"
+        f'"{section}" => window.get_general_{target}_target()' in SEARCH_SOURCE
+        for section, target in (
+            ("History", "history"),
+            ("Playlist", "playlist"),
+            ("Screenshots", "screenshots"),
+        )
+    ) and "window.set_general_scroll_position(target);" in SEARCH_SOURCE, (
+        "Settings search must scroll to the matching General section"
+    )
 
     interface_sections = re.findall(
         r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
@@ -162,7 +171,9 @@ def main():
         "interface-appearance-card-y: 81px;" in SOURCE
         and "interface-appearance-card-height: 122px + liquid-glass-detail-height;" in SOURCE
         and "liquid-glass-detail-height: liquid-glass-expanded ? 96px : 0px;" in SOURCE
-        and 'label: "Liquid Glass"' in SOURCE
+        and 'label: root.surface-material-title' in SOURCE
+        and '"Liquid Glass"' in (ROOT / "crates/app/src/platform.rs").read_text(encoding="utf-8")
+        and '"Translucent Surfaces"' in (ROOT / "crates/app/src/platform.rs").read_text(encoding="utf-8")
         and 'label: "On-Screen Display"' in SOURCE
         and 'label: "On-Screen Controller"' in SOURCE
         and 'label: "Sidebar"' in SOURCE
@@ -249,7 +260,7 @@ def main():
         and 'text: root.fullscreen-info-time' in PLAYER_SOURCE
         and 'text: root.fullscreen-info-battery' in PLAYER_SOURCE
         and 'changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }' in PLAYER_SOURCE
-        and 'changed fullscreen => { root.refresh-fullscreen-info(); }' in PLAYER_SOURCE
+        and re.search(r"changed fullscreen => \{[^}]*root\.refresh-fullscreen-info\(\);", PLAYER_SOURCE)
         and re.search(r"changed crop-editing => \{[^}]*root\.refresh-fullscreen-info\(\);", PLAYER_SOURCE)
     ), "Fullscreen clock/battery feedback must follow the saved preference and visible controls"
     utilities = re.search(

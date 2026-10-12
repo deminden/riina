@@ -15,6 +15,7 @@ pub(crate) fn open(
 #[derive(Clone, Copy)]
 pub enum Purpose {
     Media,
+    MediaInNewPlayer,
     Audio,
     Subtitle,
     Playlist,
@@ -24,6 +25,7 @@ impl Purpose {
     pub(crate) fn title(self) -> &'static str {
         match self {
             Self::Media => "Open File",
+            Self::MediaInNewPlayer => "Open in New Window",
             Self::Audio => "Load External Audio",
             Self::Subtitle => "Load Subtitle",
             Self::Playlist => "Add to Playlist",
@@ -36,6 +38,7 @@ impl Purpose {
         }
         Some(match self {
             Self::Media => Command::OpenFiles(paths),
+            Self::MediaInNewPlayer => return None,
             Self::Audio => Command::AddAudio(paths[0].clone()),
             Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
             Self::Playlist => Command::AppendFiles(paths),

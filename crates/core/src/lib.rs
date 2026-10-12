@@ -1,12 +1,14 @@
 //! Player intent and observed state. The backend is the only playback clock.
 
 pub mod advanced_preferences;
+pub mod audio_equalizer;
 pub mod audio_preferences;
 pub mod control_preferences;
 pub mod crop;
 pub mod crop_drag;
 pub mod crop_geometry;
 pub mod crop_session;
+pub mod delogo;
 pub mod file_selection;
 pub mod hdr_preferences;
 pub mod key_bindings;
@@ -18,6 +20,7 @@ pub mod online_subtitles;
 pub mod osc_preferences;
 pub mod pip_lifecycle;
 pub mod pip_preferences;
+pub mod playback_history;
 pub mod playlist;
 pub mod plugin;
 pub mod screenshot;
@@ -26,8 +29,10 @@ pub mod subtitle_color;
 pub mod subtitle_controls;
 pub mod thumbnail_preferences;
 pub mod time_input;
+pub mod timing_controls;
 mod track_labels;
 pub mod video_controls;
+pub mod video_filters;
 pub mod video_reflection;
 pub mod video_viewport;
 pub mod window_aspect;
@@ -35,6 +40,23 @@ pub mod window_resize;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+fn default_true() -> bool {
+    true
+}
+
+pub fn playlist_end_policy(
+    keep_open_on_file_end: bool,
+    playlist_auto_play_next: bool,
+) -> &'static str {
+    if !playlist_auto_play_next {
+        "always"
+    } else if keep_open_on_file_end {
+        "yes"
+    } else {
+        "no"
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -44,8 +66,15 @@ pub enum Command {
         position: f64,
     },
     OpenFiles(Vec<String>),
+    OpenFilesWithSubtitles {
+        paths: Vec<String>,
+        subtitles: Vec<String>,
+    },
     SetPauseWhenOpen(bool),
-    SetKeepOpenOnFileEnd(bool),
+    SetPlaybackEndPolicy {
+        keep_open_on_file_end: bool,
+        playlist_auto_play_next: bool,
+    },
     SetResumeLastPosition(bool),
     SetPaused(bool),
     TogglePause,
@@ -88,6 +117,21 @@ pub enum Command {
     ToggleDeinterlace,
     VideoCrop(Option<crop::Preset>),
     VideoCropRectangle(crop::Rectangle),
+    RemoveDelogo,
+    ToggleVideoFilter(String),
+    AddVideoFilter(String),
+    RemoveVideoFilter(crop::VideoFilter),
+    SetVideoFilterAt {
+        index: usize,
+        filter: String,
+    },
+    ToggleAudioFilter(String),
+    AddAudioFilter(String),
+    RemoveAudioFilter(crop::VideoFilter),
+    SetAudioFilterAt {
+        index: usize,
+        filter: String,
+    },
     ToggleVideoReflection(video_reflection::Axis),
     VideoViewport(Option<video_viewport::Viewport>),
     VideoReflection {
@@ -162,6 +206,7 @@ pub enum Command {
     AddAudio(String),
     AddVideo(String),
     AudioDelay(f64),
+    AudioEqualizer([f64; 10]),
     AdjustAudioDelay(f64),
     SubtitleDelay(f64),
     SecondarySubtitleDelay(f64),
@@ -187,6 +232,7 @@ pub enum Command {
     ToggleSecondarySubtitleVisibility,
     CycleLoop,
     ToggleFileLoop,
+    SetLoopMode(LoopMode),
     CycleAbLoop,
     SetAbLoop {
         a: Option<f64>,
@@ -232,10 +278,13 @@ impl Command {
                 if *paused { "yes" } else { "no" }.into(),
             ],
             Self::TogglePause => vec!["cycle".into(), "pause".into()],
-            Self::SetKeepOpenOnFileEnd(enabled) => vec![
+            Self::SetPlaybackEndPolicy {
+                keep_open_on_file_end,
+                playlist_auto_play_next,
+            } => vec![
                 "set".into(),
                 "keep-open".into(),
-                if *enabled { "yes" } else { "no" }.into(),
+                playlist_end_policy(*keep_open_on_file_end, *playlist_auto_play_next).into(),
             ],
             Self::MpvInputAction(action) => key_bindings::mpv_action_args(action)?,
             Self::Stop => vec!["stop".into()],
@@ -518,12 +567,23 @@ impl Command {
                 ]
             }
             Self::OpenFiles(_)
+            | Self::OpenFilesWithSubtitles { .. }
             | Self::SetPauseWhenOpen(_)
             | Self::SetResumeLastPosition(_)
             | Self::Screenshot { .. }
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
+            | Self::RemoveDelogo
+            | Self::ToggleVideoFilter(_)
+            | Self::AddVideoFilter(_)
+            | Self::RemoveVideoFilter(_)
+            | Self::SetVideoFilterAt { .. }
+            | Self::ToggleAudioFilter(_)
+            | Self::AddAudioFilter(_)
+            | Self::RemoveAudioFilter(_)
+            | Self::SetAudioFilterAt { .. }
             | Self::VideoViewport(_)
+            | Self::AudioEqualizer(_)
             | Self::VideoReflection { .. }
             | Self::EnterCrop(_)
             | Self::ExitCrop { .. }
@@ -536,6 +596,7 @@ impl Command {
             | Self::SubtitleEncoding(_)
             | Self::SubtitleAutoLoad(_)
             | Self::CycleLoop
+            | Self::SetLoopMode(_)
             | Self::SetAbLoop { .. }
             | Self::SetAbLoopPoint { .. }
             | Self::SetToneMapping(_)
@@ -560,6 +621,24 @@ impl Command {
         }
         let commands = match self {
             Self::MpvInputAction(action) => key_bindings::mpv_action_commands(action)?,
+            Self::AudioEqualizer(gains) => {
+                let filter = audio_equalizer::lavfi_filter(gains).map_err(str::to_owned)?;
+                let mut commands = Vec::new();
+                if state
+                    .audio_equalizer
+                    .is_some_and(|current| current.iter().any(|gain| *gain != 0.0))
+                {
+                    commands.push(vec![
+                        "af".into(),
+                        "remove".into(),
+                        format!("@{}", audio_equalizer::FILTER_LABEL),
+                    ]);
+                }
+                if let Some(filter) = filter {
+                    commands.push(vec!["af".into(), "add".into(), filter]);
+                }
+                commands
+            }
             Self::SubtitleLetterboxMargins(enabled) => {
                 let value = if *enabled { "yes" } else { "no" };
                 vec![
@@ -670,6 +749,122 @@ impl Command {
             Self::VideoReflection { axis, enabled } => axis.commands(*enabled, state)?,
             Self::EnterCrop(session) => session.enter_commands(state)?,
             Self::ExitCrop { session, rectangle } => session.exit_commands(state, *rectangle)?,
+            Self::RemoveDelogo => {
+                let filters = state
+                    .video_filters
+                    .as_ref()
+                    .ok_or("Video filters are unavailable")?;
+                if filters
+                    .iter()
+                    .any(|filter| filter.label.as_deref() == Some(delogo::FILTER_LABEL))
+                {
+                    delogo::remove_filter()
+                } else {
+                    Vec::new()
+                }
+            }
+            Self::ToggleVideoFilter(filter) => {
+                if !video_filters::valid_filter_string(filter) {
+                    return Err("The saved video filter string is invalid".into());
+                }
+                let filters = state
+                    .video_filters
+                    .as_ref()
+                    .ok_or("Video filters are unavailable")?;
+                if let Some(index) = filters.iter().position(|candidate| {
+                    video_filters::is_active(filter, std::slice::from_ref(candidate))
+                }) {
+                    vec![vec!["vf".into(), "del".into(), index.to_string()]]
+                } else {
+                    vec![vec!["vf".into(), "add".into(), filter.clone()]]
+                }
+            }
+            Self::AddVideoFilter(filter) => {
+                if !video_filters::valid_filter_string(filter) {
+                    return Err("The video filter string is invalid".into());
+                }
+                vec![vec!["vf".into(), "add".into(), filter.clone()]]
+            }
+            Self::RemoveVideoFilter(filter) => {
+                let filters = state
+                    .video_filters
+                    .as_ref()
+                    .ok_or("Video filters are unavailable")?;
+                let index = filters
+                    .iter()
+                    .position(|candidate| candidate == filter)
+                    .ok_or("The selected video filter is no longer active")?;
+                vec![vec!["vf".into(), "del".into(), index.to_string()]]
+            }
+            Self::SetVideoFilterAt { index, filter } => {
+                if !video_filters::valid_filter_string(filter) {
+                    return Err("The video filter string is invalid".into());
+                }
+                let filters = state
+                    .video_filters
+                    .as_ref()
+                    .ok_or("Video filters are unavailable")?;
+                if *index >= filters.len() {
+                    return Err("The selected video filter is no longer active".into());
+                }
+                let mut chain = filters
+                    .iter()
+                    .map(video_filters::format_filter)
+                    .collect::<Vec<_>>();
+                chain[*index] = filter.clone();
+                vec![vec!["vf".into(), "set".into(), chain.join(",")]]
+            }
+            Self::ToggleAudioFilter(filter) => {
+                if !video_filters::valid_filter_string(filter) {
+                    return Err("The saved audio filter string is invalid".into());
+                }
+                let filters = state
+                    .audio_filters
+                    .as_ref()
+                    .ok_or("Audio filters are unavailable")?;
+                if let Some(index) = filters.iter().position(|candidate| {
+                    video_filters::is_active(filter, std::slice::from_ref(candidate))
+                }) {
+                    vec![vec!["af".into(), "del".into(), index.to_string()]]
+                } else {
+                    vec![vec!["af".into(), "add".into(), filter.clone()]]
+                }
+            }
+            Self::AddAudioFilter(filter) => {
+                if !video_filters::valid_filter_string(filter) {
+                    return Err("The audio filter string is invalid".into());
+                }
+                vec![vec!["af".into(), "add".into(), filter.clone()]]
+            }
+            Self::RemoveAudioFilter(filter) => {
+                let filters = state
+                    .audio_filters
+                    .as_ref()
+                    .ok_or("Audio filters are unavailable")?;
+                let index = filters
+                    .iter()
+                    .position(|candidate| candidate == filter)
+                    .ok_or("The selected audio filter is no longer active")?;
+                vec![vec!["af".into(), "del".into(), index.to_string()]]
+            }
+            Self::SetAudioFilterAt { index, filter } => {
+                if !video_filters::valid_filter_string(filter) {
+                    return Err("The audio filter string is invalid".into());
+                }
+                let filters = state
+                    .audio_filters
+                    .as_ref()
+                    .ok_or("Audio filters are unavailable")?;
+                if *index >= filters.len() {
+                    return Err("The selected audio filter is no longer active".into());
+                }
+                let mut chain = filters
+                    .iter()
+                    .map(video_filters::format_filter)
+                    .collect::<Vec<_>>();
+                chain[*index] = filter.clone();
+                vec![vec!["af".into(), "set".into(), chain.join(",")]]
+            }
             Self::VideoCropRectangle(rectangle) => {
                 let source = state
                     .video
@@ -857,15 +1052,27 @@ impl Command {
                     })
                     .collect()
             }
-            Self::OpenFiles(paths) | Self::AppendFiles(paths) => {
+            Self::OpenFiles(paths)
+            | Self::AppendFiles(paths)
+            | Self::OpenFilesWithSubtitles { paths, .. } => {
                 if paths.is_empty() || paths.iter().any(|path| !valid_path(path)) {
                     return Err("No valid files were supplied".into());
+                }
+                if let Self::OpenFilesWithSubtitles { subtitles, .. } = self
+                    && (subtitles.is_empty()
+                        || subtitles.len() > 64
+                        || subtitles.iter().any(|path| !valid_path(path)))
+                {
+                    return Err("Invalid dropped subtitle files were supplied".into());
                 }
                 let mut commands: Vec<Vec<String>> = paths
                     .iter()
                     .map(|path| vec!["loadfile".into(), path.clone(), "append".into()])
                     .collect();
-                if matches!(self, Self::OpenFiles(_)) {
+                if matches!(
+                    self,
+                    Self::OpenFiles(_) | Self::OpenFilesWithSubtitles { .. }
+                ) {
                     // PlayerCore.openURLs opens the first playable item, then appends
                     // the remainder. Validate everything before replacing old media.
                     commands[0][2] = "replace".into();
@@ -1037,23 +1244,28 @@ impl Command {
                 }
                 commands
             }
-            Self::CycleLoop => match state.loop_mode().next() {
-                LoopMode::Off => vec![
-                    vec!["set".into(), "loop-playlist".into(), "no".into()],
-                    vec!["set".into(), "loop-file".into(), "no".into()],
-                ],
-                LoopMode::File => vec![vec!["set".into(), "loop-file".into(), "inf".into()]],
-                LoopMode::Playlist => vec![
-                    vec!["set".into(), "loop-playlist".into(), "inf".into()],
-                    vec!["set".into(), "loop-file".into(), "no".into()],
-                ],
-            },
+            Self::CycleLoop => set_loop_mode_commands(state.loop_mode().next()),
+            Self::SetLoopMode(mode) => set_loop_mode_commands(*mode),
             _ => vec![self.mpv_args()?],
         };
         Ok(CommandPlan {
             commands,
             resume_on_load,
         })
+    }
+}
+
+fn set_loop_mode_commands(mode: LoopMode) -> Vec<Vec<String>> {
+    match mode {
+        LoopMode::Off => vec![
+            vec!["set".into(), "loop-playlist".into(), "no".into()],
+            vec!["set".into(), "loop-file".into(), "no".into()],
+        ],
+        LoopMode::File => vec![vec!["set".into(), "loop-file".into(), "inf".into()]],
+        LoopMode::Playlist => vec![
+            vec!["set".into(), "loop-playlist".into(), "inf".into()],
+            vec!["set".into(), "loop-file".into(), "no".into()],
+        ],
     }
 }
 
@@ -1109,6 +1321,38 @@ pub enum LoopMode {
     Off,
     File,
     Playlist,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DefaultRepeatMode {
+    #[default]
+    Playlist,
+    File,
+}
+
+impl DefaultRepeatMode {
+    pub const fn loop_mode(self) -> LoopMode {
+        match self {
+            Self::Playlist => LoopMode::Playlist,
+            Self::File => LoopMode::File,
+        }
+    }
+
+    pub const fn from_index(index: i32) -> Option<Self> {
+        match index {
+            0 => Some(Self::Playlist),
+            1 => Some(Self::File),
+            _ => None,
+        }
+    }
+
+    pub const fn index(self) -> i32 {
+        match self {
+            Self::Playlist => 0,
+            Self::File => 1,
+        }
+    }
 }
 impl LoopMode {
     pub fn next(self) -> Self {
@@ -1338,6 +1582,10 @@ pub struct Playback {
     pub phase: Phase,
     /// Version string from the loaded libmpv runtime, when that property is available.
     pub mpv_version: Option<String>,
+    /// FFmpeg version reported by the loaded libmpv runtime, when available.
+    pub ffmpeg_version: Option<String>,
+    /// Observed libmpv filename-hashing policy for its watch-later files.
+    pub ignore_path_in_watch_later_config: Option<bool>,
     pub position: Option<f64>,
     pub duration: Option<f64>,
     pub paused: bool,
@@ -1362,6 +1610,7 @@ pub struct Playback {
     pub video_target: Option<VideoParameters>,
     pub video_output: Option<VideoParameters>,
     pub video_filters: Option<Vec<crop::VideoFilter>>,
+    pub audio_filters: Option<Vec<crop::VideoFilter>>,
     pub video_aspect_override: Option<f64>,
     /// Exact requested aspect, separate from the numeric backend result. The
     /// reference retains this selection even when native parsing rejects it.
@@ -1380,6 +1629,8 @@ pub struct Playback {
     pub captured_frame: Option<Arc<CapturedFrame>>,
     pub completed_frame_captures: u64,
     pub video_equalizer: [Option<i64>; 5],
+    /// Decoded gain curve for Riina's labeled native audio equalizer filter.
+    pub audio_equalizer: Option<[f64; 10]>,
     pub title: String,
     pub artist: Option<String>,
     pub album: Option<String>,
@@ -1610,6 +1861,11 @@ pub struct Preferences {
     pub group_simultaneous_opens_in_playlist: bool,
     pub allow_duplicate_players: bool,
     pub playlist_auto_add: bool,
+    pub playlist_auto_play_next: bool,
+    pub playlist_show_metadata: bool,
+    pub playlist_show_metadata_in_music_mode: bool,
+    pub auto_repeat: bool,
+    pub default_repeat_mode: DefaultRepeatMode,
     pub quit_when_no_opened_window: bool,
     pub keep_open_on_file_end: bool,
     pub pause_when_open: bool,
@@ -1629,6 +1885,12 @@ pub struct Preferences {
     pub volume_boost: bool,
     pub advanced: advanced_preferences::Settings,
     pub audio: audio_preferences::Settings,
+    #[serde(default)]
+    pub audio_equalizer: audio_equalizer::Settings,
+    #[serde(default)]
+    pub video_filters: video_filters::Settings,
+    #[serde(default)]
+    pub audio_filters: video_filters::Settings,
     pub hdr_enabled: bool,
     pub live_text_enabled: bool,
     pub hdr_tone_mapping: hdr_preferences::Settings,
@@ -1668,6 +1930,15 @@ pub struct Preferences {
     pub network_online_videos: network_preferences::OnlineVideos,
     pub thumbnail_preview: thumbnail_preferences::Settings,
     pub recent_media: Vec<RecentMedia>,
+    #[serde(default = "default_true")]
+    pub record_recent_files: bool,
+    #[serde(default = "default_true")]
+    pub track_all_files_in_recent_open_menu: bool,
+    pub recent_open_documents: Vec<RecentMedia>,
+    #[serde(default = "default_true")]
+    pub record_playback_history: bool,
+    #[serde(default, skip_serializing)]
+    pub playback_history: Vec<playback_history::Entry>,
 }
 
 /// Appearance intent. `System` follows the effective theme reported by the
@@ -1775,6 +2046,11 @@ impl Default for Preferences {
             group_simultaneous_opens_in_playlist: false,
             allow_duplicate_players: false,
             playlist_auto_add: true,
+            playlist_auto_play_next: true,
+            playlist_show_metadata: true,
+            playlist_show_metadata_in_music_mode: true,
+            auto_repeat: false,
+            default_repeat_mode: DefaultRepeatMode::Playlist,
             quit_when_no_opened_window: false,
             keep_open_on_file_end: true,
             pause_when_open: false,
@@ -1794,6 +2070,9 @@ impl Default for Preferences {
             volume_boost: false,
             advanced: advanced_preferences::Settings::default(),
             audio: audio_preferences::Settings::default(),
+            audio_equalizer: audio_equalizer::Settings::default(),
+            video_filters: video_filters::Settings::default(),
+            audio_filters: video_filters::Settings::default(),
             hdr_enabled: true,
             live_text_enabled: false,
             hdr_tone_mapping: hdr_preferences::Settings::default(),
@@ -1830,6 +2109,11 @@ impl Default for Preferences {
             network_online_videos: network_preferences::OnlineVideos::default(),
             thumbnail_preview: thumbnail_preferences::Settings::default(),
             recent_media: Vec::new(),
+            record_recent_files: true,
+            track_all_files_in_recent_open_menu: true,
+            recent_open_documents: Vec::new(),
+            record_playback_history: true,
+            playback_history: Vec::new(),
         }
     }
 }
@@ -1879,6 +2163,9 @@ impl Preferences {
             .validate()
             .map_err(str::to_owned)?;
         prefs.audio.validate().map_err(str::to_owned)?;
+        prefs.audio_equalizer.validate().map_err(str::to_owned)?;
+        prefs.video_filters.validate().map_err(str::to_owned)?;
+        prefs.audio_filters.validate().map_err(str::to_owned)?;
         prefs.hdr_tone_mapping.validate().map_err(str::to_owned)?;
         prefs.advanced.validate()?;
         prefs.controls.validate().map_err(str::to_owned)?;
@@ -1904,6 +2191,19 @@ impl Preferences {
             })
         {
             return Err("Recent media history is invalid".into());
+        }
+        if prefs.recent_open_documents.len() > 10
+            || prefs.recent_open_documents.iter().any(|item| {
+                !valid_path(&item.path)
+                    || item.title.contains('\0')
+                    || !item.position.is_finite()
+                    || item.position < 0.0
+            })
+        {
+            return Err("Open Recent documents are invalid".into());
+        }
+        if prefs.playback_history.iter().any(|entry| !entry.is_valid()) {
+            return Err("Playback history is invalid".into());
         }
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
@@ -2446,6 +2746,9 @@ mod tests {
             control_bar: osc_preferences::Settings {
                 auto_hide_enabled: false,
                 auto_hide_timeout_secs: 4.25,
+                toolbar_buttons: osc_preferences::Settings::TOOLBAR_PLUGINS
+                    | osc_preferences::Settings::TOOLBAR_QUICK_SETTINGS,
+                toolbar_order: osc_preferences::Settings::default().toolbar_order,
             },
             disable_osd_speed: true,
             disable_osd_seek: true,
@@ -3155,6 +3458,23 @@ mod tests {
     }
 
     #[test]
+    fn playlist_end_policy_matches_iina_keep_open_precedence() {
+        assert_eq!(playlist_end_policy(true, true), "yes");
+        assert_eq!(playlist_end_policy(false, true), "no");
+        assert_eq!(playlist_end_policy(true, false), "always");
+        assert_eq!(playlist_end_policy(false, false), "always");
+        assert_eq!(
+            Command::SetPlaybackEndPolicy {
+                keep_open_on_file_end: true,
+                playlist_auto_play_next: false,
+            }
+            .mpv_args()
+            .unwrap(),
+            ["set", "keep-open", "always"]
+        );
+    }
+
+    #[test]
     fn resume_load_uses_native_start_option_and_rejects_invalid_positions() {
         let command = Command::LoadAtPosition {
             path: r"C:\Фильмы\a b.mkv".into(),
@@ -3406,6 +3726,35 @@ mod tests {
         assert!(
             Preferences::parse(
                 r#"{"recent_media":[{"path":"x","title":"x","position":1.0,"secret":true}]}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn playback_history_defaults_on_and_round_trips_independently_of_recent_media() {
+        let old_preferences = Preferences::parse("{}").unwrap();
+        assert!(old_preferences.record_playback_history);
+        assert!(old_preferences.playback_history.is_empty());
+
+        let item = playback_history::Entry {
+            path: "file:///C:/media/movie.mkv".into(),
+            date_ms: 1_750_000_000_000,
+            progress: Some(12.5),
+            duration: 90.0,
+        };
+        let legacy = serde_json::json!({ "playback_history": [item] });
+        let parsed = Preferences::parse(&legacy.to_string()).unwrap();
+        assert_eq!(parsed.playback_history, [item]);
+        assert!(
+            serde_json::to_value(&parsed)
+                .unwrap()
+                .get("playback_history")
+                .is_none()
+        );
+        assert!(
+            Preferences::parse(
+                r#"{"playback_history":[{"path":"x","date_ms":1,"progress":-1.0,"duration":1.0}]}"#
             )
             .is_err()
         );

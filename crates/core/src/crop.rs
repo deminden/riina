@@ -182,7 +182,7 @@ impl Preset {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 pub struct VideoFilter {
     pub name: String,
     pub label: Option<String>,

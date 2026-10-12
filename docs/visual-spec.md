@@ -5,6 +5,27 @@ Existing accepted IINA 1.5.0 captures in this document are from macOS 26.6.2 and
 remain evidence for that captured state only. A matched 27.0.1 reference capture
 and Riina comparison are required before claiming latest-version visual parity.
 
+## Platform materials
+
+Use the platform's material vocabulary and implementation. On macOS, preserve
+IINA's Liquid Glass controls and render them with the macOS material APIs. On
+Windows 11, use Mica for long-lived window backdrops and Acrylic for transient
+surfaces; use in-app Acrylic when available or renderer-specific video composition
+for overlays whose background is the playing video. Do not label Windows surfaces
+Liquid Glass or let a desktop backdrop replace the video behind playback controls.
+Mica/Acrylic effects should follow Windows transparency and power-saving fallbacks.
+Linux uses its native backdrop material when the compositor exposes one and
+otherwise uses the documented in-app fallback.
+
+The current Windows Slint controls only switch RGBA tint/opacity. They are
+captioned “Translucent Surfaces” while native Mica/Acrylic composition is not
+implemented. The three per-surface switches remain a visual approximation until
+each Windows surface is connected to an appropriate compositor material; the
+macOS control keeps its “Liquid Glass” label and must be verified on macOS 27.0.1.
+Platform references: [Apple Materials](https://developer.apple.com/design/human-interface-guidelines/materials),
+[Windows Mica](https://learn.microsoft.com/en-us/windows/apps/design/style/mica),
+and [Windows Acrylic](https://learn.microsoft.com/en-us/windows/apps/design/style/acrylic).
+
 The user prioritizes full interface parity first. Windows captures now work again;
 an actual General Preferences before/after review exposed a blank 24px folder
 button and touching Save to/path text. The original chooser now draws its own
@@ -46,6 +67,41 @@ estimated until actual visible-control captures are reviewed and measured.
 | playlist rows | 30 spacious / 26 compact | SidebarPlaylistPane LayoutValue |
 | chapter rows | 40 points | SidebarChaptersPane.tableView |
 | auto-hide | 2.5 s | Preference.defaultPreference |
+
+## Default macOS playback controller
+
+IINA 1.5.0's standard on-screen controller has previous, play/pause, and next
+in its center. Its toolbar button type has no Stop entry, so there is no square
+Stop button in the default controller (Stop remains available as a playback
+command elsewhere). By default, four configurable toolbar buttons sit to the
+right, in this order: Show Plugins Panel, toggle Picture in Picture, Playlist
+and Chapters, and Quick Settings. The defaults are
+`Preference.ToolBarButton.plugins`, `.pip`, `.playlist`, and `.settings` in
+`Preference.swift`. `MainWindowController.swift` builds the center trio and the
+toolbar independently; the toolbar actions open the Plugins or Settings
+sidebar, open Playlist and Chapters, or toggle PiP. The toolbar can be
+customized in preferences, but these four are the pinned default shown by the
+macOS reference. Source anchors:
+`reference/iina-upstream/iina/MainWindowController.swift:572` builds the
+three-button center group; `Preference.swift:864` defines the available toolbar
+button types and `Preference.swift:1072` defines their default order;
+`MainWindowController.swift:913` builds the right-side controls and
+`MainWindowController.swift:2968` routes their actions;
+`Base.lproj/Localizable.strings:428-435` provides the button names.
+
+Riina exposes independent visibility switches for all nine IINA toolbar action
+types under Interface > On-Screen Controller and persists their order with the
+control-bar policy. The default four match IINA's source order; users can move
+actions up and down in the list. Like IINA, Live Text only appears when its feature
+preference is enabled and the platform reports it available. IINA's drag/drop
+editor and matched visual review remain open.
+
+Riina's standard playback controller follows the same center and toolbar action
+set. Windows live accessibility inspection confirms the controls are present and
+the Stop/Fullscreen substitutions are gone. Its Plugins sidebar is currently a
+placeholder; plugin-provided sidebar rendering and same-state macOS capture
+comparison remain open. The Windows PiP button opened the compact playback
+window in the debug build; the app was relaunched afterward.
 
 Fullscreen Additional Info is source-derived from `AdditionalInfoView.swift` and
 `MainWindowController.swift`: the title sits above an 18-point bold monospaced
@@ -90,9 +146,13 @@ Music Mode hides the standard title controls and uses a full-width 300-point
 compact controller. Its previous/next actions and playlist/artwork toggles are
 wired to shared playback and preference state; an original artwork icon is used.
 The hover toolbar has close-player and return-to-player actions.
+The playback surface does not add an app-drawn button row above the video.
+Playback settings and tracks remain reachable from the on-screen controller's
+gear; the top inset and settings-pane placement collapse with that row on all
+platforms. The native window title identifies the current playlist filename
+alongside Riina.
 The Music Mode playlist keeps single-click selection separate from double-click
 playback.
-The ordinary speed, stop, and fullscreen controls remain in the standard player.
 The compact volume control opens a slider popover, with mute available inside it.
 Music Mode artwork area height follows embedded-art dimensions for audio and
 display aspect ratio for video, defaulting to square when unavailable. The art
@@ -242,8 +302,10 @@ y=248. Resize mode and its three radio choices occupy a separate 118-point list
 starting at y=346; physical resolution is its own single-row list. Riina now follows
 that default heading/card hierarchy and the measured first-card positions and
 heights, and recomputes later positions when geometry details expand. The captured
-Liquid Glass row is represented visually, while its per-surface effect and expanded
-controls remain an explicit implementation gap.
+macOS Liquid Glass row is represented visually and exposes its three per-surface
+switches. Native material rendering and matched macOS 27.0.1 comparison remain open.
+Windows uses the platform-specific “Translucent Surfaces” title until Mica/Acrylic
+backdrops are wired into the native window and video-backed surfaces.
 
 Network > Online Videos (yt-dlp) is implemented as the source's two stacked
 rounded lists: the Online Media recommendation and the extractor switch with

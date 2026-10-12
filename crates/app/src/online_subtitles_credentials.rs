@@ -109,7 +109,7 @@ fn restore_preferences_with(
 
 #[cfg(test)]
 mod tests {
-    use super::{load_entry, restore_preferences_with, store_entry};
+    use super::restore_preferences_with;
     use riina_core::Preferences;
     use std::{cell::RefCell, path::Path};
 
@@ -193,6 +193,8 @@ mod tests {
     #[cfg(target_os = "windows")]
     #[test]
     fn windows_credential_store_persists_and_deletes_a_unique_entry() {
+        use super::{load_entry, store_entry};
+
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()

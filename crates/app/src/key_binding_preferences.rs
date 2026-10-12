@@ -781,50 +781,75 @@ fn dispatch_mapping(
         RuntimeAction::TogglePictureInPicture => app.invoke_toggle_picture_in_picture(),
         RuntimeAction::FitWindowToVideo => app.invoke_fit_window_to_video(),
         RuntimeAction::ToggleLiveText => app.invoke_toggle_live_text(),
-        RuntimeAction::RevealCurrentMedia => {
-            let filename = latest_playback.lock().ok().and_then(|playback| {
-                playback
-                    .playlist
-                    .iter()
-                    .find(|entry| entry.playing)
-                    .or_else(|| playback.playlist.iter().find(|entry| entry.current))
-                    .map(|entry| entry.filename.clone())
-            });
-            let Some(filename) = filename else {
-                app.set_status("There is no current media file to reveal".into());
-                return;
-            };
-            let filename = if filename
-                .split_once(':')
-                .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
-            {
-                riina_core::playlist::clipboard_references(&filename)
-                    .into_iter()
-                    .next()
-            } else if filename.contains("://") {
-                None
-            } else {
-                Some(filename)
-            };
-            let Some(path) = filename.map(std::path::PathBuf::from) else {
-                app.set_status("Only local media files can be revealed".into());
-                return;
-            };
-            if !path.is_file() {
-                app.set_status(
-                    "The current media file is not available in the file manager".into(),
-                );
-                return;
-            }
-            if let Err(error) = crate::platform::reveal_file(&path) {
-                app.set_status(format!("Could not reveal the current media file: {error}").into());
-            }
-        }
+        RuntimeAction::RevealCurrentMedia => reveal_current_media(app, latest_playback),
         RuntimeAction::AbLoop => app.invoke_cycle_ab_loop(),
         RuntimeAction::Screenshot => app.invoke_take_screenshot(),
         RuntimeAction::MpvInputAction(action) => app.invoke_execute_mpv_input_action(action.into()),
         RuntimeAction::Ignore => {}
     }
+}
+
+pub(crate) enum CurrentMediaLocation {
+    NoMedia,
+    NonLocal,
+    Local(std::path::PathBuf),
+}
+
+pub(crate) fn reveal_current_media(
+    app: &PlayerWindow,
+    latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
+) {
+    let location = latest_playback
+        .lock()
+        .ok()
+        .map_or(CurrentMediaLocation::NoMedia, |playback| {
+            current_media_location(&playback)
+        });
+    let path = match location {
+        CurrentMediaLocation::NoMedia => {
+            app.set_status("There is no current media file to reveal".into());
+            return;
+        }
+        CurrentMediaLocation::NonLocal => {
+            app.set_status("Only local media files can be revealed".into());
+            return;
+        }
+        CurrentMediaLocation::Local(path) => path,
+    };
+    if !path.is_file() {
+        app.set_status("The current media file is not available in the file manager".into());
+        return;
+    }
+    if let Err(error) = crate::platform::reveal_file(&path) {
+        app.set_status(format!("Could not reveal the current media file: {error}").into());
+    }
+}
+
+pub(crate) fn current_media_location(playback: &riina_core::Playback) -> CurrentMediaLocation {
+    let Some(filename) = playback
+        .playlist
+        .iter()
+        .find(|entry| entry.playing)
+        .or_else(|| playback.playlist.iter().find(|entry| entry.current))
+        .map(|entry| entry.filename.clone())
+    else {
+        return CurrentMediaLocation::NoMedia;
+    };
+    let filename = if filename
+        .split_once(':')
+        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+    {
+        riina_core::playlist::clipboard_references(&filename)
+            .into_iter()
+            .next()
+    } else if filename.contains("://") {
+        return CurrentMediaLocation::NonLocal;
+    } else {
+        Some(filename)
+    };
+    filename.map_or(CurrentMediaLocation::NonLocal, |filename| {
+        CurrentMediaLocation::Local(std::path::PathBuf::from(filename))
+    })
 }
 
 pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {

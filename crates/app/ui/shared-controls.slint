@@ -187,6 +187,79 @@ export component PlayerSlider inherits Rectangle {
     }
 }
 
+export component VerticalEqualizerSlider inherits Rectangle {
+    in property <float> minimum: -12;
+    in property <float> maximum: 12;
+    in property <float> value: 0;
+    in property <float> step: 0.1;
+    in property <bool> enabled: true;
+    in property <bool> dark-theme: true;
+    in property <string> hint;
+    callback changed(float);
+    width: 22px;
+    height: 104px;
+    accessible-role: slider;
+    accessible-label: hint;
+    accessible-enabled: enabled;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: step;
+    accessible-action-set-value(text) => {
+        if enabled && text.is-float() { changed(clamp(text.to-float(), minimum, maximum)); }
+    }
+    accessible-action-increment => { if enabled { changed(min(maximum, value + step)); } }
+    accessible-action-decrement => { if enabled { changed(max(minimum, value - step)); } }
+    property <length> center-y: root.height / 2;
+    property <length> knob-y: 4px + (root.height - 8px) * (maximum - value) / max(0.001, maximum - minimum);
+    Rectangle { x: root.width / 2 - 1px; y: 4px; width: 2px; height: root.height - 8px;
+        border-radius: 1px; background: root.dark-theme ? #ffffff45 : #00000035; }
+    for tick in [0, 1, 2, 3, 4] : Rectangle {
+        x: root.width / 2 + 2px; y: 4px + (root.height - 8px) * (tick / 4.0);
+        width: 3px; height: 1px;
+        background: root.dark-theme ? #ffffff55 : #00000045;
+    }
+    Rectangle { x: root.width / 2 - 1px;
+        y: min(root.center-y, root.knob-y); width: 2px;
+        height: max(1px, abs(root.center-y - root.knob-y));
+        background: root.enabled ? #90b7ef : #777777; }
+    Rectangle { x: 2px; y: root.knob-y - 2px; width: root.width - 4px; height: 4px;
+        border-radius: 2px; background: root.enabled ? #f4f4f7 : #777777; }
+    if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef;
+        border-radius: 3px; background: transparent; }
+    TouchArea {
+        x: 0; y: 0; width: root.width; height: root.height;
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left
+                && (event.kind == PointerEventKind.down || event.kind == PointerEventKind.up) {
+                if event.kind == PointerEventKind.down { focus.focus(); }
+                let fraction = clamp((root.height - self.mouse-y - 4px) / max(1px, root.height - 8px), 0, 1);
+                root.changed(root.minimum + fraction * (root.maximum - root.minimum));
+            }
+        }
+        moved => {
+            if self.pressed {
+                let fraction = clamp((root.height - self.mouse-y - 4px) / max(1px, root.height - 8px), 0, 1);
+                root.changed(root.minimum + fraction * (root.maximum - root.minimum));
+            }
+        }
+    }
+    focus := FocusScope {
+        x: 0; y: 0; width: root.width; height: root.height;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.UpArrow || event.text == Key.RightArrow {
+                root.changed(min(root.maximum, root.value + root.step)); return accept;
+            }
+            if event.text == Key.DownArrow || event.text == Key.LeftArrow {
+                root.changed(max(root.minimum, root.value - root.step)); return accept;
+            }
+            return reject;
+        }
+    }
+}
+
 export component SubtitleColorWell inherits Rectangle {
     in property <color> observed-color;
     in property <bool> enabled: true;

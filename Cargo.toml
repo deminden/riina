@@ -6,7 +6,7 @@ resolver = "2"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
-version = "0.3.2"
+version = "0.3.3"
 
 [workspace.dependencies]
 slint = { version = "=1.18.1", default-features = false, features = ["std", "backend-winit", "renderer-femtovg", "compat-1-2", "accessibility", "unstable-winit-030", "raw-window-handle-06"] }

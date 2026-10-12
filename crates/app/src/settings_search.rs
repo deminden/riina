@@ -93,6 +93,20 @@ const ENTRIES: &[Entry] = &[
         terms: "resume playback history",
     },
     Entry {
+        page_index: 0,
+        page: "General",
+        section: "Playlist",
+        title: "Show artist and track name for audio files when available",
+        terms: "playlist artist title metadata audio tags music",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Playlist",
+        title: "Only in Music Mode",
+        terms: "playlist audio metadata artist track title music mode only",
+    },
+    Entry {
         page_index: 1,
         page: "Interface",
         section: "Appearance",
@@ -103,8 +117,8 @@ const ENTRIES: &[Entry] = &[
         page_index: 1,
         page: "Interface",
         section: "Appearance",
-        title: "Liquid Glass",
-        terms: "glass material translucency overlay controller sidebar",
+        title: "Platform Materials",
+        terms: "liquid glass mica acrylic glass material translucency overlay controller sidebar",
     },
     Entry {
         page_index: 1,
@@ -669,6 +683,7 @@ fn anchor_y(entry: &Entry) -> i32 {
         (0, "Screenshots", "Include subtitles") => 268,
         (0, "Screenshots", _) => 292,
         (0, "History", _) => 334,
+        (0, "Playlist", _) => 720,
         (1, "Appearance", _) => 0,
         (1, "Window", _) => 207,
         (1, "On-Screen Controller", _) => 619,
@@ -841,12 +856,13 @@ fn next_selectable_index(
 
 fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
     if page == 0 {
-        window.set_selected_general_section(match section {
-            "History" => 1,
-            "Playlist" => 2,
-            "Screenshots" => 3,
-            _ => 0,
-        });
+        let target = match section {
+            "History" => window.get_general_history_target(),
+            "Playlist" => window.get_general_playlist_target(),
+            "Screenshots" => window.get_general_screenshots_target(),
+            _ => 0.0,
+        };
+        window.set_general_scroll_position(target);
     }
     if page == 1 {
         window.set_selected_interface_section(match section {

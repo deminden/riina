@@ -29,7 +29,10 @@ pub fn open(
             let dialog = rfd::AsyncFileDialog::new()
                 .set_title(purpose.title())
                 .set_parent(owner.as_ref());
-            let files = if matches!(purpose, Purpose::Media | Purpose::Playlist) {
+            let files = if matches!(
+                purpose,
+                Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
+            ) {
                 dialog.pick_files().await.unwrap_or_default()
             } else {
                 dialog.pick_file().await.into_iter().collect()
@@ -56,7 +59,19 @@ pub fn open(
             return;
         }
         let result = result.and_then(|paths| {
-            if matches!(purpose, Purpose::Media | Purpose::Playlist) {
+            if matches!(
+                purpose,
+                Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
+            ) {
+                if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer) {
+                    for path in &paths {
+                        app.invoke_remember_recent_path(path.clone().into());
+                    }
+                }
+                if matches!(purpose, Purpose::MediaInNewPlayer) {
+                    media_open::selection_in_new_player(&app, paths);
+                    return Ok(());
+                }
                 media_open::selection(&app, paths, matches!(purpose, Purpose::Playlist), sender);
                 Ok(())
             } else {

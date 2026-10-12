@@ -10,6 +10,7 @@ use std::{
 };
 
 const MAX_FILE_BYTES: usize = 4 * 1024 * 1024;
+const MAX_DOWNLOAD_BYTES: usize = 64 * 1024 * 1024;
 const MAX_LIST_ENTRIES: usize = 4096;
 
 pub(crate) struct PluginFileHandle {
@@ -83,14 +84,22 @@ pub(crate) struct PluginFiles {
     player_context: Arc<Mutex<PluginPlayerFileContext>>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PluginPlayerFileContext {
     current_directory: Option<PathBuf>,
     external_tracks: BTreeMap<String, PathBuf>,
     core_properties: BTreeMap<String, serde_json::Value>,
     chapters: Vec<serde_json::Value>,
     core_version: serde_json::Value,
+    core_window_properties: BTreeMap<String, serde_json::Value>,
     recent_documents: Vec<serde_json::Value>,
+    playback_history: Vec<serde_json::Value>,
+}
+
+impl Default for PluginPlayerFileContext {
+    fn default() -> Self {
+        Self::new(None, BTreeMap::new())
+    }
 }
 
 impl PluginPlayerFileContext {
@@ -104,7 +113,19 @@ impl PluginPlayerFileContext {
             core_properties: BTreeMap::new(),
             chapters: Vec::new(),
             core_version: serde_json::Value::Null,
+            core_window_properties: BTreeMap::from([
+                ("loaded".into(), serde_json::Value::Bool(false)),
+                ("frame".into(), serde_json::Value::Null),
+                ("fullscreen".into(), serde_json::Value::Null),
+                ("pip".into(), serde_json::Value::Null),
+                ("ontop".into(), serde_json::Value::Null),
+                ("visible".into(), serde_json::Value::Null),
+                ("sidebar".into(), serde_json::Value::Null),
+                ("screens".into(), serde_json::Value::Null),
+                ("miniaturized".into(), serde_json::Value::Null),
+            ]),
             recent_documents: Vec::new(),
+            playback_history: Vec::new(),
         }
     }
 
@@ -126,9 +147,24 @@ impl PluginPlayerFileContext {
         self
     }
 
+    pub(crate) fn with_playback_history(
+        mut self,
+        playback_history: Vec<serde_json::Value>,
+    ) -> Self {
+        self.playback_history = playback_history;
+        self
+    }
+
     pub(crate) fn with_core_version(mut self, version: serde_json::Value) -> Self {
         self.core_version = version;
         self
+    }
+
+    pub(crate) fn set_core_window_properties(
+        &mut self,
+        properties: BTreeMap<String, serde_json::Value>,
+    ) {
+        self.core_window_properties = properties;
     }
 }
 
@@ -314,11 +350,29 @@ impl PluginFiles {
             .map_err(|_| "Player file context was poisoned".to_owned())
     }
 
+    pub(crate) fn core_playback_history(&self) -> Result<Vec<serde_json::Value>, String> {
+        self.player_context
+            .lock()
+            .map(|context| context.playback_history.clone())
+            .map_err(|_| "Player file context was poisoned".to_owned())
+    }
+
     pub(crate) fn core_version(&self) -> Result<serde_json::Value, String> {
         self.player_context
             .lock()
             .map(|context| context.core_version.clone())
             .map_err(|_| "Player file context was poisoned".to_owned())
+    }
+
+    pub(crate) fn core_window_property(
+        &self,
+        name: &str,
+    ) -> Result<Option<serde_json::Value>, String> {
+        let context = self
+            .player_context
+            .lock()
+            .map_err(|_| "Player file context was poisoned".to_owned())?;
+        Ok(context.core_window_properties.get(name).cloned())
     }
 
     pub(crate) fn exists(&self, path: &str, file_system_granted: bool) -> Result<bool, String> {
@@ -405,6 +459,24 @@ impl PluginFiles {
             return Err("Cannot overwrite a file outside plugin storage".into());
         }
         fs::write(path, content).map_err(|error| format!("Could not write file: {error}"))
+    }
+
+    pub(crate) fn write_download(
+        &self,
+        path: &str,
+        content: &[u8],
+        file_system_granted: bool,
+    ) -> Result<(), String> {
+        if content.len() > MAX_DOWNLOAD_BYTES {
+            return Err("Download exceeds the 64 MiB limit".into());
+        }
+        let path = self
+            .resolve(path, file_system_granted, true)?
+            .ok_or_else(|| "Download destination is invalid".to_owned())?;
+        if !self.is_private_path(&path)? && path.exists() {
+            return Err("Cannot overwrite a file outside plugin storage".into());
+        }
+        fs::write(path, content).map_err(|error| format!("Could not save download: {error}"))
     }
 
     pub(crate) fn move_path(
