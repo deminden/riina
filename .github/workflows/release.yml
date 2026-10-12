@@ -374,13 +374,18 @@ jobs:
           cat > release-notes.md <<EOF
           **[Download Riina $version for Windows]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip)**
 
-          For Windows 11 (64-bit). Everything needed to play video and audio is
-          included, and no installation is required.
+          These are portable binaries for Windows 11 (64-bit). Everything needed
+          to play video and audio is included, and no installation is required.
 
           1. Download the Windows ZIP above.
           2. Extract it to a folder of your choice.
           3. Open riina.exe and choose a video or audio file.
           EOF
+          feature_notes="docs/release-notes/$version.md"
+          if [[ -f "$feature_notes" ]]; then
+            printf '\n' >> release-notes.md
+            cat "$feature_notes" >> release-notes.md
+          fi
           gh release create "$tag" \
             "release-assets/riina-$version-windows-x86_64.zip" \
             "release-assets/SHA256SUMS.txt" \
