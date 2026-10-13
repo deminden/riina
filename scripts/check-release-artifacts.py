@@ -30,6 +30,55 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def native_rust_notice_index(binary):
+    root = binary / "THIRD_PARTY_LICENSES" / "NATIVE_RUST"
+    manifest = root / "RUST-LICENSES.json"
+    if not manifest.is_file():
+        return None
+    packages = json.loads(manifest.read_text(encoding="utf-8")).get("packages", [])
+    indexed = {}
+    for package in packages:
+        name = package.get("name", "").casefold()
+        if not name:
+            raise ValueError("Native Rust license inventory has a package without a name")
+        for license_file in package.get("license_files", []):
+            path_value = license_file.get("path", "")
+            path = PurePosixPath(path_value)
+            expected = license_file.get("sha256", "")
+            if (not path_value or path.is_absolute() or ".." in path.parts
+                    or "\\" in path_value or ":" in path_value or str(path) != path_value
+                    or not path.parts or not re.fullmatch(r"[0-9a-f]{64}", expected)):
+                raise ValueError(f"Invalid native Rust notice inventory path: {path_value!r}")
+            candidate = root.joinpath(*path.parts)
+            if candidate.is_symlink() or not candidate.is_file() or digest(candidate) != expected:
+                raise ValueError(f"Native Rust notice differs from its inventory: {path_value}")
+            indexed.setdefault(name, []).append((path.name.casefold(), expected))
+    return indexed
+
+
+def verify_packaged_native_notice(binary, relative, expected, rust_notices):
+    """Match an indexed source notice in its original or collected package path."""
+    notice_root = binary / "THIRD_PARTY_LICENSES"
+    notice_relative = relative.parts[1:]
+    notice = notice_root.joinpath(*notice_relative)
+    if notice.is_file():
+        if digest(notice) == expected:
+            return
+        raise ValueError(f"Packaged native notice differs from its pinned source: {relative.as_posix()}")
+
+    # The source snapshot records every vendored crate. The Windows-target
+    # inventory intentionally includes only crates used by that target, and
+    # groups each included crate's notices by package and version.
+    if relative.parts[1:3] == ("subrandr", "riina-vendor") and len(relative.parts) >= 5:
+        package_notices = (rust_notices or {}).get(relative.parts[3].casefold())
+        if package_notices is None:
+            return
+        match = (relative.name.casefold(), expected)
+        if package_notices.count(match) == 1:
+            return
+    raise ValueError(f"Packaged native notice differs from its pinned source: {relative.as_posix()}")
+
+
 def verify_runtime(directory, application=False):
     manifest = directory / "RUNTIME-MANIFEST.tsv"
     recorded = set()
@@ -62,6 +111,7 @@ def verify_native_source_index(binary, source):
     manifest = binary / "SOURCE-MANIFEST.tsv"
     records = {}
     source_files = set()
+    rust_notices = native_rust_notice_index(binary)
 
     def source_path(value):
         relative = PurePosixPath(value)
@@ -98,10 +148,7 @@ def verify_native_source_index(binary, source):
                 raise ValueError(f"Unsafe native source index path: {fields[1]!r}")
             source_files.add(fields[1])
             if relative.name.casefold().startswith(("license", "licence", "copying", "notice")):
-                notice_relative = relative.parts[1:]
-                notice = binary / "THIRD_PARTY_LICENSES" / Path(*notice_relative)
-                if not notice.is_file() or digest(notice) != fields[2]:
-                    raise ValueError(f"Packaged native notice differs from its pinned source: {fields[1]}")
+                verify_packaged_native_notice(binary, relative, fields[2], rust_notices)
         elif kind == "source_symlink":
             if len(fields) != 3 or fields[1] in source_files or not fields[2]:
                 raise ValueError("Invalid or duplicate native source symlink")

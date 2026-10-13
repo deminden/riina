@@ -1,5 +1,6 @@
 """Release regressions independent of a native compilation or runner platform."""
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -101,6 +102,57 @@ class ReleaseArtifactTests(unittest.TestCase):
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
 
             self.assertEqual(release.verify_native_source_index(binary, source), (1, 1))
+
+    def test_native_source_index_accepts_collected_subrandr_vendor_notices(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source"
+            tools = source / "tools/mpv"
+            tools.mkdir(parents=True)
+            builder_revision = "a" * 40
+            curl_revision = "b" * 40
+            (tools / "build-windows.sh").write_text(
+                f"readonly BUILDER_REVISION='{builder_revision}'\n"
+                f"readonly CURL_REVISION='{curl_revision}'\n",
+                encoding="utf-8")
+            patches = {
+                "remove-x264.patch": "x264 exclusion",
+                "pin-curl.patch": "curl source pin",
+                "native-bootstrap.patch": "native source bootstrap",
+            }
+            for name, content in patches.items():
+                (tools / name).write_text(content, encoding="utf-8")
+
+            binary = root / "binary"
+            license_bytes = b"adler2 license bytes\n"
+            license_hash = release.hashlib.sha256(license_bytes).hexdigest()
+            inventory = binary / "THIRD_PARTY_LICENSES/NATIVE_RUST/RUST-LICENSES.json"
+            inventory.parent.mkdir(parents=True)
+            license_path = "packages/adler2-2.0.1/LICENSE-0BSD"
+            (binary / "THIRD_PARTY_LICENSES/NATIVE_RUST" / license_path).parent.mkdir(parents=True)
+            (binary / "THIRD_PARTY_LICENSES/NATIVE_RUST" / license_path).write_bytes(license_bytes)
+            inventory.write_text(json.dumps({"packages": [{
+                "name": "adler2",
+                "version": "2.0.1",
+                "license_files": [{"path": license_path, "sha256": license_hash}],
+            }]}), encoding="utf-8")
+            android_hash = release.hashlib.sha256(b"android-only license\n").hexdigest()
+            manifest_rows = [
+                f"builder_revision\t{builder_revision}",
+                f"curl_revision\t{curl_revision}",
+                "native_rust_toolchain\tnightly-2026-10-10",
+                "x264_policy\tencoder removed",
+                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
+                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
+                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
+                "container_image\tghcr.io/example/image@sha256:abc",
+                f"source_revision\tsrc_packages/subrandr\thttps://github.com/example/subrandr\t{'c' * 40}",
+                f"source_sha256\tsrc_packages/subrandr/riina-vendor/adler2/LICENSE-0BSD\t{license_hash}",
+                f"source_sha256\tsrc_packages/subrandr/riina-vendor/android-activity/LICENSE\t{android_hash}",
+            ]
+            (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
+
+            self.assertEqual(release.verify_native_source_index(binary, source), (2, 1))
 
     def test_native_source_index_rejects_a_missing_matching_notice(self):
         with tempfile.TemporaryDirectory() as temp:

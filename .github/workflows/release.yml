@@ -33,6 +33,11 @@ on:
         type: boolean
         required: true
         default: false
+      release_source_tag:
+        description: Existing immutable source tag to package and publish, for example v0.3.3
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: write
   actions: read
@@ -42,6 +47,8 @@ jobs:
     outputs:
       release_ready: ${{ steps.readiness.outputs.release_ready }}
       native_run_id: ${{ steps.readiness.outputs.native_run_id }}
+      source_ref: ${{ steps.readiness.outputs.source_ref }}
+      source_sha: ${{ steps.readiness.outputs.source_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
       - name: Check exact candidate verification status
@@ -51,11 +58,30 @@ jobs:
           NATIVE_ARTIFACT_RUN_ID: ${{ inputs.native_artifact_run_id }}
           PUBLISH_RELEASE: ${{ inputs.publish_release }}
           BUILD_CANDIDATE: ${{ inputs.build_release_candidate }}
+          RELEASE_SOURCE_TAG: ${{ inputs.release_source_tag }}
         run: |
           if [[ "$PUBLISH_RELEASE" == true && "$BUILD_CANDIDATE" != true ]]; then
             echo 'Publishing requires a complete package candidate in this run' >&2
             exit 1
           fi
+          source_ref="$GITHUB_SHA"
+          source_sha="$GITHUB_SHA"
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$RELEASE_SOURCE_TAG" ]]; then
+            [[ "$RELEASE_SOURCE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo 'release_source_tag must be an immutable semantic-version tag' >&2
+              exit 1
+            }
+            git fetch --depth=1 origin "refs/tags/$RELEASE_SOURCE_TAG:refs/tags/$RELEASE_SOURCE_TAG"
+            source_ref="$RELEASE_SOURCE_TAG"
+            source_sha="$(git rev-list -n1 "$source_ref")"
+            source_version="$(git show "$source_sha:Cargo.toml" | sed -n 's/^version = "\([0-9][0-9.]*\)"/\1/p' | head -n1)"
+            [[ "$RELEASE_SOURCE_TAG" == "v$source_version" ]] || {
+              echo 'release_source_tag does not match the version in its source' >&2
+              exit 1
+            }
+          fi
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$NATIVE_ARTIFACT_RUN_ID" ]]; then
             [[ "$NATIVE_ARTIFACT_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
               echo 'native_artifact_run_id must be a positive numeric workflow run ID' >&2
@@ -128,8 +154,11 @@ jobs:
     env:
       CARGO_INCREMENTAL: '0'
       RIINA_BUILD_NUMBER: ${{ github.run_number }}
+      RIINA_SOURCE_SHA: ${{ needs.release-readiness.outputs.source_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+        with:
+          ref: ${{ needs.release-readiness.outputs.source_ref }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
         if: needs.native-engine.result == 'success'
         with:
@@ -266,7 +295,7 @@ jobs:
           Copy-Item LICENSE, LICENSE-GPL-3.0.txt, THIRD_PARTY_NOTICES.md, README.md $dist
           Copy-Item docs/licensing.md $dist/LICENSING.md
           Copy-Item docs/SOURCE-ACCESS.md $dist/SOURCE-ACCESS.md
-          $env:GITHUB_SHA | Set-Content -NoNewline (Join-Path $dist 'SOURCE-COMMIT.txt')
+          $env:RIINA_SOURCE_SHA | Set-Content -NoNewline (Join-Path $dist 'SOURCE-COMMIT.txt')
           python scripts/check-windows-runtime.py --package "$dist"
           if ($LASTEXITCODE -ne 0) { throw 'Portable package has unresolved Windows imports.' }
           python scripts/package-rust-licenses.py --output "$dist/THIRD_PARTY_LICENSES/RUST"
@@ -307,17 +336,27 @@ jobs:
   package-verification:
     if: always() && needs.windows-package.result == 'success'
     runs-on: ubuntu-24.04
-    needs: [windows-package]
+    needs: [release-readiness, windows-package]
     outputs:
       version: ${{ steps.package.outputs.version }}
+      source_sha: ${{ steps.package.outputs.source_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+        with:
+          ref: ${{ needs.release-readiness.outputs.source_ref }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
         with:
           name: windows-package
           path: release-assets
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_source_tag != '' }}
+        with:
+          ref: ${{ github.sha }}
+          path: release-audit-tools
       - name: Audit exact extracted binary and corresponding source
         id: package
+        env:
+          RELEASE_SOURCE_TAG: ${{ inputs.release_source_tag }}
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n1)"
@@ -329,11 +368,16 @@ jobs:
           mkdir binary-source-check
           unzip -q "release-assets/riina-$version-windows-x86_64.zip" -d binary-source-check
           python scripts/check-windows-runtime.py --package binary-source-check
-          python scripts/check-release-artifacts.py package --binary binary-source-check \
+          audit_tool=scripts/check-release-artifacts.py
+          if [[ -n "$RELEASE_SOURCE_TAG" ]]; then
+            audit_tool=release-audit-tools/scripts/check-release-artifacts.py
+          fi
+          python "$audit_tool" package --binary binary-source-check \
             --source "$GITHUB_WORKSPACE" --version "$version" \
             > release-assets/RELEASE-VERIFICATION.json
           cat release-assets/RELEASE-VERIFICATION.json
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
         with:
           name: verified-release-assets
@@ -349,6 +393,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ needs.release-readiness.outputs.source_ref }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
         with:
           name: verified-release-assets
@@ -357,6 +402,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.package-verification.outputs.version }}
+          RELEASE_SOURCE_SHA: ${{ needs.package-verification.outputs.source_sha }}
         run: |
           set -euo pipefail
           version="$RELEASE_VERSION"
@@ -365,9 +411,9 @@ jobs:
           # Never attach new assets to a tag pointing at different application
           # sources. A dispatch creates the version tag only after verification.
           if git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
-            test "$(git rev-list -n1 "$tag")" = "$GITHUB_SHA"
+            test "$(git rev-list -n1 "$tag")" = "$RELEASE_SOURCE_SHA"
           else
-            git tag "$tag" "$GITHUB_SHA"
+            git tag "$tag" "$RELEASE_SOURCE_SHA"
             git push origin "refs/tags/$tag"
           fi
           (cd release-assets && sha256sum --check SHA256SUMS.txt)
