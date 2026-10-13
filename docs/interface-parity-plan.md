@@ -11,6 +11,12 @@ The current OS-version target is macOS 27.0.1, Apple's latest release as of
 they remain pinned-app evidence, not 27.0.1 visual goldens. Capture matching IINA
 and Riina surfaces on 27.0.1 before accepting current visual parity.
 
+The user-supplied 2026-10-12 IINA desktop capture set is indexed in
+[`docs/macos-manual-reference-index.md`](macos-manual-reference-index.md). It adds
+macOS 27.0.1 menu, submenu, PiP, Welcome, and native file-dialog references. The
+raw images remain in the ignored `reference/new/` folder; the full-desktop menu
+captures are structural and material references, not matched-state pixel goldens.
+
 Windows capture now succeeds through the computer-use tool. Earlier captures did
 not distinguish capture failure from native-overlay opacity. The 2026-10-11 live
 repair identifies an opaque Slint chrome HWND over correctly decoded native video;
@@ -231,8 +237,13 @@ Audio now has the captured Hardware, Volume and Other section routes. Typed
 preferences configure startup audio threads, driver, device ID, S/PDIF, initial
 volume, ReplayGain, gapless playback and preferred languages. The independent
 200% volume extension is visible in Volume and remains disabled by default.
-Device enumeration, immediate reconfiguration, native language selection and
-matched surface pixels remain open. The remaining Network pages, Control, Key
+The Audio menu now lists observed output-device IDs and descriptions, filters by
+the active output driver, checks the currently observed selection, and sends a
+typed live device-selection command. A removed selected endpoint triggers
+automatic output during active playback. Unit coverage and a provisioned Windows
+libmpv selection check pass; physical hot-plug and matched surface pixels remain
+open, as does preferred-language selection. The
+remaining Network pages, Control, Key
 Bindings, Plugin and Utilities remain unfinished. Full surface comparison is
 part of the complete parity goal.
 
@@ -296,10 +307,12 @@ directory and leaves that directory ready for future progress writes. The defaul
 application action opens Windows Default Apps; Restore Alerts reports the current
 source-equivalent empty state. Clear Playback History confirms and removes Riina's
 persisted recent-media entries, refreshes the live welcome list, and prevents the
-current item from being re-added at shutdown until another media item opens. Riina
-does not yet have IINA's separate playback-history database. Thumbnail previews now
-have source-matched disk entries and budget eviction under the Riina cache directory.
-Browser extensions remain absent. The latest
+current item from being re-added at shutdown until another media item opens.
+Playback history is now separate from recent documents and resume state, persisted
+in a versioned `playback-history.json` archive with watch-later progress recovery.
+The history-window layout and interaction still need a matching capture. Thumbnail
+previews now have source-matched disk entries and budget eviction under the Riina
+cache directory. Browser extensions remain absent. The latest
 Windows render, focus treatment and matched pixel comparison remain unverified.
 
 The Plugins page now uses the captured overview card, GitHub/local-package actions,

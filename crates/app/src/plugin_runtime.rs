@@ -1684,6 +1684,15 @@ fn install_plugin_file_api<'js>(
     )?;
     let files = file_system.clone();
     native.set(
+        "__trash",
+        Func::from(move |path: String| -> rquickjs::Result<()> {
+            files
+                .trash(&path, file_system_granted)
+                .map_err(plugin_file_js_error)
+        }),
+    )?;
+    let files = file_system.clone();
+    native.set(
         "__move",
         Func::from(
             move |source: String, destination: String| -> rquickjs::Result<()> {
@@ -1713,6 +1722,7 @@ fn install_plugin_file_api<'js>(
                 read: (path, options = {}) => native.__read(String(path), JSON.stringify(options)),
                 write: (path, content) => native.__write(String(path), String(content)),
                 delete: path => native.__delete(String(path)),
+                trash: path => native.__trash(String(path)),
                 move: (source, destination) => native.__move(String(source), String(destination)),
                 list: (path, options = {}) => JSON.parse(native.__list(String(path), JSON.stringify(options))),
                 handle: (path, mode) => {
@@ -3281,6 +3291,18 @@ mod tests {
             )
             .is_err()
         );
+        execute_entry(
+            r#"try {
+                iina.file.trash('@current/movie.mkv');
+                throw new Error('ungranted trash succeeded');
+            } catch (error) {
+                if (!String(error).includes('file-system permission')) throw error;
+            }"#,
+            &identifier,
+            &[],
+            &[],
+        )
+        .unwrap();
     }
 
     #[test]

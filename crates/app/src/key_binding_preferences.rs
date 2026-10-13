@@ -1,4 +1,4 @@
-use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow};
+use crate::{KeyBindingRow, MenuShortcutRow, PlayerWindow, PreferencesWindow};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::sync::Arc;
@@ -11,7 +11,7 @@ const BUILTIN_PROFILES: [&str; 5] = [
     "Movist v2 Default",
 ];
 
-const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 29] = [
+const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 50] = [
     ("Shift+Meta+v", "video-panel", ActionKind::Riina),
     ("Shift+Meta+a", "audio-panel", ActionKind::Riina),
     ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
@@ -45,6 +45,27 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 29] = [
         ActionKind::Riina,
     ),
     ("Shift+Meta+t", "live-text", ActionKind::Riina),
+    ("Meta+s", "screenshot", ActionKind::Mpv),
+    ("Meta+RIGHT", "playlist-next", ActionKind::Mpv),
+    ("Meta+LEFT", "playlist-prev", ActionKind::Mpv),
+    ("Shift+Meta+>", "add chapter 1", ActionKind::Mpv),
+    ("Shift+Meta+<", "add chapter -1", ActionKind::Mpv),
+    ("Meta+[", "multiply speed 0.5", ActionKind::Mpv),
+    ("Meta+]", "multiply speed 2.0", ActionKind::Mpv),
+    ("Alt+Meta+[", "multiply speed 1/1.1", ActionKind::Mpv),
+    ("Alt+Meta+]", "multiply speed 1.1", ActionKind::Mpv),
+    ("Meta+\\", "set speed 1.0", ActionKind::Mpv),
+    ("Meta+0", "set window-scale 0.5", ActionKind::Mpv),
+    ("Meta+1", "set window-scale 1", ActionKind::Mpv),
+    ("Meta+2", "set window-scale 2", ActionKind::Mpv),
+    ("Meta+-", "smaller-window", ActionKind::Riina),
+    ("Meta+=", "bigger-window", ActionKind::Riina),
+    ("Ctrl+Meta+f", "cycle fullscreen", ActionKind::Mpv),
+    ("Ctrl+Meta+t", "cycle ontop", ActionKind::Mpv),
+    ("Shift+(", "add audio-delay 0.5", ActionKind::Mpv),
+    ("Shift+)", "add audio-delay -0.5", ActionKind::Mpv),
+    ("Alt+Shift+(", "add audio-delay 0.1", ActionKind::Mpv),
+    ("Alt+Shift+)", "add audio-delay -0.1", ActionKind::Mpv),
 ];
 
 const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 26] = [
@@ -491,6 +512,7 @@ pub(crate) fn install_player(
             Vec::new()
         }
     };
+    app.set_menu_shortcuts(ModelRc::new(VecModel::from(menu_shortcut_rows(&mappings))));
     let player = app.as_weak();
     let observed_playback = latest_playback;
     app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
@@ -565,6 +587,109 @@ fn normalize_profile_key(value: &str) -> String {
     recorded_key(&key, control, alt, shift, meta).unwrap_or_default()
 }
 
+// This order is shared with the `menu-shortcut(index)` calls in the two player
+// menu surfaces. Keep it stable so profile changes update the same actions in
+// both the shared-renderer and native-video windows.
+const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 46] = [
+    (ActionKind::Mpv, "cycle pause"),
+    (ActionKind::Mpv, "stop"),
+    (ActionKind::Mpv, "seek 5"),
+    (ActionKind::Mpv, "seek -5"),
+    (ActionKind::Mpv, "frame-step"),
+    (ActionKind::Mpv, "frame-back-step"),
+    (ActionKind::Mpv, "set speed 1.0"),
+    (ActionKind::Mpv, "multiply speed 2.0"),
+    (ActionKind::Mpv, "multiply speed 0.5"),
+    (ActionKind::Mpv, "multiply speed 1.1"),
+    (ActionKind::Mpv, "multiply speed 1/1.1"),
+    (ActionKind::Mpv, "screenshot"),
+    (ActionKind::Riina, "playlist-panel"),
+    (ActionKind::Mpv, "playlist-next"),
+    (ActionKind::Mpv, "playlist-prev"),
+    (ActionKind::Riina, "chapter-panel"),
+    (ActionKind::Mpv, "add chapter 1"),
+    (ActionKind::Mpv, "add chapter -1"),
+    (ActionKind::Riina, "video-panel"),
+    (ActionKind::Mpv, "cycle video"),
+    (ActionKind::Mpv, "set window-scale 0.5"),
+    (ActionKind::Mpv, "set window-scale 1"),
+    (ActionKind::Mpv, "set window-scale 2"),
+    (ActionKind::Riina, "fit-to-screen"),
+    (ActionKind::Riina, "bigger-window"),
+    (ActionKind::Riina, "smaller-window"),
+    (ActionKind::Riina, "toggle-pip"),
+    (ActionKind::Mpv, "cycle fullscreen"),
+    (ActionKind::Mpv, "cycle ontop"),
+    (ActionKind::Riina, "live-text"),
+    (ActionKind::Riina, "toggle-music-mode"),
+    (ActionKind::Riina, "audio-panel"),
+    (ActionKind::Mpv, "cycle audio"),
+    (ActionKind::Mpv, "add volume 5"),
+    (ActionKind::Mpv, "add volume -5"),
+    (ActionKind::Mpv, "add volume 1"),
+    (ActionKind::Mpv, "add volume -1"),
+    (ActionKind::Mpv, "cycle mute"),
+    (ActionKind::Mpv, "add audio-delay 0.5"),
+    (ActionKind::Mpv, "add audio-delay -0.5"),
+    (ActionKind::Mpv, "add audio-delay 0.1"),
+    (ActionKind::Mpv, "add audio-delay -0.1"),
+    (ActionKind::Riina, "sub-panel"),
+    (ActionKind::Mpv, "cycle sub"),
+    (ActionKind::Mpv, "cycle sub-visibility"),
+    (ActionKind::Riina, "plugin-panel"),
+];
+
+fn menu_shortcut_rows(mappings: &[Mapping]) -> Vec<MenuShortcutRow> {
+    MENU_SHORTCUT_ACTIONS
+        .iter()
+        .map(|(kind, action)| {
+            let shortcut = mappings
+                .iter()
+                .rev()
+                .find(|mapping| mapping.kind == *kind && mapping.action.trim() == *action)
+                .and_then(|mapping| shortcut_keys(&mapping.key))
+                .unwrap_or_default();
+            MenuShortcutRow { shortcut }
+        })
+        .collect()
+}
+
+fn shortcut_keys(key: &str) -> Option<slint::Keys> {
+    let normalized = normalize_profile_key(key);
+    let parts = normalized
+        .split('+')
+        .map(|part| match part {
+            "Ctrl" => "Control".to_owned(),
+            " " | "SPACE" => "Space".to_owned(),
+            "←" | "LEFT" => "LeftArrow".to_owned(),
+            "→" | "RIGHT" => "RightArrow".to_owned(),
+            "↑" | "UP" => "UpArrow".to_owned(),
+            "↓" | "DOWN" => "DownArrow".to_owned(),
+            "ENTER" => "Return".to_owned(),
+            "ESC" => "Escape".to_owned(),
+            "BS" => "Backspace".to_owned(),
+            "DEL" => "Delete".to_owned(),
+            "-" => "HyphenMinus".to_owned(),
+            "=" => "Equals".to_owned(),
+            "[" => "OpenBracket".to_owned(),
+            "]" => "CloseBracket".to_owned(),
+            "\\" => "BackSlash".to_owned(),
+            "`" => "BackQuote".to_owned(),
+            "," => "Comma".to_owned(),
+            "." => "Period".to_owned(),
+            "/" => "Slash".to_owned(),
+            "<" => "LessThan".to_owned(),
+            ">" => "GreaterThan".to_owned(),
+            "(" => "OpenParen".to_owned(),
+            ")" => "CloseParen".to_owned(),
+            "+" => "Plus".to_owned(),
+            "_" => "Underscore".to_owned(),
+            value => value.to_owned(),
+        })
+        .collect::<Vec<_>>();
+    slint::Keys::from_parts(parts.iter().map(String::as_str)).ok()
+}
+
 enum RuntimeAction {
     TogglePause,
     SetPaused(bool),
@@ -588,7 +713,9 @@ enum RuntimeAction {
     TogglePlaylistPane(i32),
     ToggleMusicMode,
     TogglePictureInPicture,
-    FitWindowToVideo,
+    FitToScreen,
+    ResizeWindow(i32),
+    TogglePluginsPanel,
     RevealCurrentMedia,
     ToggleLiveText,
     AbLoop,
@@ -626,11 +753,14 @@ fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             "preferences" => Some(RuntimeAction::OpenPreferences),
             "playlist-panel" => Some(RuntimeAction::TogglePlaylistPane(4)),
             "chapter-panel" => Some(RuntimeAction::TogglePlaylistPane(3)),
-            "fit-to-screen" => Some(RuntimeAction::FitWindowToVideo),
+            "fit-to-screen" => Some(RuntimeAction::FitToScreen),
+            "bigger-window" => Some(RuntimeAction::ResizeWindow(4)),
+            "smaller-window" => Some(RuntimeAction::ResizeWindow(5)),
             "toggle-pip" => Some(RuntimeAction::TogglePictureInPicture),
             "toggle-music-mode" => Some(RuntimeAction::ToggleMusicMode),
             "show-current-file-in-finder" => Some(RuntimeAction::RevealCurrentMedia),
             "live-text" => Some(RuntimeAction::ToggleLiveText),
+            "plugin-panel" => Some(RuntimeAction::TogglePluginsPanel),
             _ => None,
         };
     }
@@ -656,6 +786,12 @@ fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
         ["playlist-shuffle"] => Some(RuntimeAction::PlaylistShuffle),
         ["ab-loop"] => Some(RuntimeAction::AbLoop),
         ["screenshot"] => Some(RuntimeAction::Screenshot),
+        ["set", "window-scale", scale] => match *scale {
+            "0.5" => Some(RuntimeAction::ResizeWindow(0)),
+            "1" | "1.0" => Some(RuntimeAction::ResizeWindow(1)),
+            "2" | "2.0" => Some(RuntimeAction::ResizeWindow(2)),
+            _ => None,
+        },
         ["seek", seconds] => seconds
             .parse::<f32>()
             .ok()
@@ -779,7 +915,9 @@ fn dispatch_mapping(
         RuntimeAction::TogglePlaylistPane(kind) => app.invoke_toggle_playlist_pane(kind),
         RuntimeAction::ToggleMusicMode => app.invoke_toggle_music_mode(),
         RuntimeAction::TogglePictureInPicture => app.invoke_toggle_picture_in_picture(),
-        RuntimeAction::FitWindowToVideo => app.invoke_fit_window_to_video(),
+        RuntimeAction::FitToScreen => app.invoke_resize_window_command(3),
+        RuntimeAction::ResizeWindow(command) => app.invoke_resize_window_command(command),
+        RuntimeAction::TogglePluginsPanel => app.invoke_toggle_plugins_pane(),
         RuntimeAction::ToggleLiveText => app.invoke_toggle_live_text(),
         RuntimeAction::RevealCurrentMedia => reveal_current_media(app, latest_playback),
         RuntimeAction::AbLoop => app.invoke_cycle_ab_loop(),
@@ -977,7 +1115,10 @@ mod tests {
     fn filtered_rows_keep_their_source_mapping_identity() {
         let mappings = builtin_mappings("IINA Default");
         assert_eq!(visible_source_indices(&mappings, false, "cycle audio"), [5]);
-        assert_eq!(visible_source_indices(&mappings, true, "META+S"), [2, 4]);
+        assert_eq!(
+            visible_source_indices(&mappings, true, "META+S"),
+            [2, 4, 29]
+        );
         assert_eq!(
             visible_source_indices(&mappings, false, "missing"),
             Vec::<usize>::new()
@@ -1016,6 +1157,41 @@ mod tests {
     }
 
     #[test]
+    fn menu_shortcuts_follow_the_active_profile_for_both_player_surfaces() {
+        let mappings = builtin_mappings("IINA Default");
+        let rows = menu_shortcut_rows(&mappings);
+        assert_eq!(rows.len(), 46);
+        assert_eq!(
+            rows[0].shortcut.to_string(),
+            slint::Keys::from_parts(["Space"]).unwrap().to_string()
+        );
+        let video_panel_key = if cfg!(target_os = "macos") {
+            slint::Keys::from_parts(["Shift", "Meta", "v"]).unwrap()
+        } else {
+            slint::Keys::from_parts(["Control", "Shift", "v"]).unwrap()
+        };
+        assert_eq!(rows[18].shortcut, video_panel_key);
+        let cycle_video_key = if cfg!(target_os = "macos") {
+            slint::Keys::from_parts(["Control", "Meta", "v"]).unwrap()
+        } else {
+            slint::Keys::from_parts(["Control", "Alt", "v"]).unwrap()
+        };
+        assert_eq!(rows[19].shortcut, cycle_video_key);
+        let custom = Mapping {
+            key: "Ctrl+k".into(),
+            action: "cycle pause".into(),
+            kind: ActionKind::Mpv,
+            comment: None,
+        };
+        let custom_rows = menu_shortcut_rows(&[custom]);
+        assert_eq!(
+            custom_rows[0].shortcut,
+            slint::Keys::from_parts(["Control", "k"]).unwrap()
+        );
+        assert!(custom_rows[18].shortcut.to_string().is_empty());
+    }
+
+    #[test]
     fn runtime_dispatch_accepts_supported_actions_and_rejects_unbounded_commands() {
         let mapping = |action: &str, kind| Mapping {
             key: "SPACE".into(),
@@ -1030,6 +1206,18 @@ mod tests {
         assert!(matches!(
             runtime_action(&mapping("video-panel", ActionKind::Riina)),
             Some(RuntimeAction::SettingsPane(6))
+        ));
+        assert!(matches!(
+            runtime_action(&mapping("fit-to-screen", ActionKind::Riina)),
+            Some(RuntimeAction::FitToScreen)
+        ));
+        assert!(matches!(
+            runtime_action(&mapping("bigger-window", ActionKind::Riina)),
+            Some(RuntimeAction::ResizeWindow(4))
+        ));
+        assert!(matches!(
+            runtime_action(&mapping("set window-scale 0.5", ActionKind::Mpv)),
+            Some(RuntimeAction::ResizeWindow(0))
         ));
         assert!(runtime_action(&mapping("run calc.exe", ActionKind::Mpv)).is_none());
         assert!(runtime_action(&mapping("seek NaN", ActionKind::Mpv)).is_none());

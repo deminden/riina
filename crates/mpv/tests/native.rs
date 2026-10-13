@@ -146,6 +146,61 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
     server.join().unwrap().unwrap();
 }
 
+#[test]
+#[ignore = "requires provisioned libmpv; verifies audio-device selection through observed property state"]
+fn audio_device_selection_updates_the_live_engine() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player_with_options(
+        &test_library(&root),
+        true,
+        vec![("ao".into(), "null".into())],
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
+    .unwrap();
+    let initial = wait_for(&receiver, |state| state.audio_device.is_some());
+    assert_eq!(initial.error, None);
+    eprintln!(
+        "audio output driver: {:?}; observed devices: {}",
+        initial.audio_output,
+        initial.audio_devices.len()
+    );
+    if initial.audio_devices.is_empty() {
+        // Some headless Windows sessions expose the AO but no endpoint list.
+        drop(player);
+        return;
+    }
+    assert!(
+        initial
+            .audio_devices
+            .iter()
+            .any(|device| { Some(device.name.as_str()) == initial.audio_device.as_deref() })
+    );
+    let alternative = initial
+        .audio_devices
+        .iter()
+        .find(|device| Some(device.name.as_str()) != initial.audio_device.as_deref());
+    eprintln!(
+        "observed {} audio device(s); alternate selection available: {}",
+        initial.audio_devices.len(),
+        alternative.is_some()
+    );
+    if let Some(alternative) = alternative {
+        let selected = alternative.name.clone();
+        player.send(Command::AudioDevice(selected.clone())).unwrap();
+        let changed = wait_for(&receiver, |state| {
+            state.audio_device.as_deref() == Some(selected.as_str())
+        });
+        assert_eq!(changed.error, None);
+    }
+    drop(player);
+}
+
 fn serve_http_fixture(
     listener: TcpListener,
     fixture: Vec<u8>,
@@ -160,6 +215,10 @@ fn serve_http_fixture(
         }
         match listener.accept() {
             Ok((stream, _)) => {
+                // On Windows an accepted socket can retain the listener's
+                // nonblocking mode. The request worker uses blocking reads with
+                // a timeout, so explicitly restore that contract here.
+                stream.set_nonblocking(false)?;
                 // A decoder may open its next range while an earlier response
                 // is still buffered. A blocked writer must not block acceptance.
                 let fixture = fixture.clone();
@@ -1876,7 +1935,11 @@ fn start_test_player_with_options(
     // decoding and clocked transport without changing the application's AO.
     if let Some(output) = std::env::var_os("RIINA_TEST_MPV_AUDIO_OUTPUT") {
         let output = output.to_string_lossy().into_owned();
-        options.push(("ao".into(), output.clone()));
+        if let Some((_, configured_output)) = options.iter_mut().find(|(key, _)| key == "ao") {
+            *configured_output = output;
+        } else {
+            options.push(("ao".into(), output));
+        }
     }
     Player::start_with_options(path, headless, options, notify)
 }

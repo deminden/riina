@@ -21,6 +21,13 @@ struct ManagerState {
     players: Vec<ManagedPlayer>,
 }
 
+pub(crate) const fn should_quit_after_last_window_closed(
+    quit_when_no_opened_window: bool,
+    windows_remaining: usize,
+) -> bool {
+    quit_when_no_opened_window && windows_remaining == 0
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct PlayerManager {
     state: Rc<RefCell<ManagerState>>,
@@ -56,15 +63,14 @@ impl PlayerManager {
         let owner = app.as_weak();
         app.on_open_player_requested(move |paths, position| {
             let Some(state) = state.upgrade() else { return };
+            let Some(owner) = owner.upgrade() else { return };
             let paths = paths
                 .iter()
                 .map(|path| OsString::from(path.as_str()))
                 .collect::<Vec<_>>();
             let resume_position =
                 (position.is_finite() && position >= 0.0).then_some(f64::from(position));
-            if let Err(error) = open_player(&state, paths, resume_position)
-                && let Some(owner) = owner.upgrade()
-            {
+            if let Err(error) = open_player(&state, &owner, paths, resume_position) {
                 owner.set_status(error.into());
             }
         });
@@ -132,6 +138,7 @@ fn show_and_focus(window: &impl ComponentHandle, owner: &PlayerWindow) {
 
 fn open_player(
     state: &Rc<RefCell<ManagerState>>,
+    owner: &PlayerWindow,
     media: Vec<OsString>,
     resume_position: Option<f64>,
 ) -> Result<(), String> {
@@ -151,34 +158,38 @@ fn open_player(
         media.len(),
         preferences.group_simultaneous_opens_in_playlist,
     );
-    let mut selected = Vec::<OsString>::new();
-    let mut existing_player = None;
-    for path in media {
-        let candidate = path.to_string_lossy();
-        if !preferences.allow_duplicate_players && !grouped_request {
-            let duplicate = state.borrow().players.iter().find_map(|player| {
-                let playlist = player.app.get_playlist();
-                (0..playlist.row_count())
-                    .filter_map(|index| playlist.row_data(index))
-                    .any(|row| crate::media_open::same_media(row.path.as_str(), &candidate))
-                    .then(|| player.app.clone_strong())
-            });
-            if let Some(player) = duplicate {
-                existing_player = Some(player);
-                continue;
-            }
-            if selected
-                .iter()
-                .any(|open| crate::media_open::same_media(&open.to_string_lossy(), &candidate))
-            {
-                continue;
-            }
-        }
-        selected.push(path);
-    }
+    let existing_playlists = state
+        .borrow()
+        .players
+        .iter()
+        .map(|player| {
+            let playlist = player.app.get_playlist();
+            (0..playlist.row_count())
+                .filter_map(|index| playlist.row_data(index))
+                .map(|row| row.path.to_string())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let (selected, existing_player) = select_media_for_new_player(
+        media,
+        &existing_playlists,
+        preferences.allow_duplicate_players,
+        grouped_request,
+    );
     if selected.is_empty() {
-        if let Some(player) = existing_player {
+        if let Some(player) = existing_player.and_then(|index| {
+            state
+                .borrow()
+                .players
+                .get(index)
+                .map(|player| player.app.clone_strong())
+        }) {
             player.show().map_err(|error| error.to_string())?;
+            player.window().with_winit_window(|window| {
+                window.set_minimized(false);
+                window.focus_window();
+            });
+            return Ok(());
         }
         return Err("The selected media is already open.".into());
     }
@@ -195,7 +206,44 @@ fn open_player(
         close_player(state, id, false);
         return Err(error.to_string());
     }
+    crate::platform::center_player_window_for_owner(
+        &app,
+        owner,
+        app.get_initial_window_position_enabled(),
+    );
     Ok(())
+}
+
+fn select_media_for_new_player(
+    media: Vec<OsString>,
+    existing_playlists: &[Vec<String>],
+    allow_duplicate_players: bool,
+    grouped_request: bool,
+) -> (Vec<OsString>, Option<usize>) {
+    let filter_duplicates = !allow_duplicate_players && !grouped_request;
+    let mut selected = Vec::<OsString>::new();
+    let mut existing_player = None;
+    for path in media {
+        let candidate = path.to_string_lossy();
+        if filter_duplicates {
+            if let Some(index) = existing_playlists.iter().position(|playlist| {
+                playlist
+                    .iter()
+                    .any(|open| crate::media_open::same_media(open, &candidate))
+            }) {
+                existing_player = Some(index);
+                continue;
+            }
+            if selected
+                .iter()
+                .any(|open| crate::media_open::same_media(&open.to_string_lossy(), &candidate))
+            {
+                continue;
+            }
+        }
+        selected.push(path);
+    }
+    (selected, existing_player)
 }
 
 fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: bool) {
@@ -241,7 +289,10 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
         let _ = welcome.hide();
     }
     let empty = state.borrow().players.is_empty();
-    let quit_when_empty = player.app.get_quit_when_no_opened_window();
+    let quit_when_empty = should_quit_after_last_window_closed(
+        player.app.get_quit_when_no_opened_window(),
+        state.borrow().players.len(),
+    );
     drop(player);
     if empty {
         if quit_when_empty {
@@ -263,6 +314,76 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     };
     manager.attach(&app, Some(welcome.clone_strong()), session);
     crate::window_aspect::connect(&app);
+    crate::platform::center_auxiliary_window(&welcome, &app);
     welcome.show()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{select_media_for_new_player, should_quit_after_last_window_closed};
+    use std::ffi::OsString;
+
+    #[test]
+    fn duplicate_media_resolves_to_the_existing_player() {
+        let existing = vec![
+            vec!["https://example.com/first.mkv".to_owned()],
+            vec!["https://example.com/current.mkv".to_owned()],
+        ];
+
+        let (selected, existing_player) = select_media_for_new_player(
+            vec![OsString::from("https://example.com/current.mkv")],
+            &existing,
+            false,
+            false,
+        );
+
+        assert!(selected.is_empty());
+        assert_eq!(existing_player, Some(1));
+    }
+
+    #[test]
+    fn duplicate_media_is_preserved_when_duplicates_are_allowed() {
+        let (selected, existing_player) = select_media_for_new_player(
+            vec![
+                OsString::from("https://example.com/current.mkv"),
+                OsString::from("https://example.com/current.mkv"),
+            ],
+            &[vec!["https://example.com/current.mkv".to_owned()]],
+            true,
+            false,
+        );
+
+        assert_eq!(
+            selected,
+            [
+                OsString::from("https://example.com/current.mkv"),
+                OsString::from("https://example.com/current.mkv"),
+            ]
+        );
+        assert_eq!(existing_player, None);
+    }
+
+    #[test]
+    fn grouped_open_keeps_duplicate_items_even_when_duplicates_are_disabled() {
+        let (selected, existing_player) = select_media_for_new_player(
+            vec![
+                OsString::from("https://example.com/current.mkv"),
+                OsString::from("https://example.com/current.mkv"),
+            ],
+            &[vec!["https://example.com/current.mkv".to_owned()]],
+            false,
+            true,
+        );
+
+        assert_eq!(selected.len(), 2);
+        assert_eq!(existing_player, None);
+    }
+
+    #[test]
+    fn application_quits_only_when_requested_after_the_last_window_closes() {
+        assert!(should_quit_after_last_window_closed(true, 0));
+        assert!(!should_quit_after_last_window_closed(false, 0));
+        assert!(!should_quit_after_last_window_closed(true, 1));
+    }
 }

@@ -57,10 +57,7 @@ pub(crate) fn copy_playlist_references(paths: &[String]) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         use objc2::runtime::ProtocolObject;
-        use objc2_app_kit::{
-            NSFilenamesPboardType, NSPasteboard, NSPasteboardTypeFileURL, NSPasteboardTypeString,
-            NSPasteboardTypeURL,
-        };
+        use objc2_app_kit::{NSFilenamesPboardType, NSPasteboard, NSPasteboardTypeString};
         use objc2_foundation::{NSArray, NSString, NSURL};
 
         let pasteboard = NSPasteboard::generalPasteboard();

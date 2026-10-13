@@ -85,7 +85,7 @@ fn open_paths_in_new_player(app: &PlayerWindow, paths: &[String]) -> Result<(), 
             -1.0,
         );
     } else {
-        spawn_player(paths, None)?;
+        spawn_player(app, paths, None)?;
     }
     app.set_status(if paths.len() == 1 {
         "Opened the media in a new player.".into()
@@ -99,9 +99,19 @@ fn open_paths_in_new_player(app: &PlayerWindow, paths: &[String]) -> Result<(), 
     Ok(())
 }
 
-fn spawn_player(paths: &[String], resume_position: Option<f64>) -> Result<(), String> {
+fn spawn_player(
+    app: &PlayerWindow,
+    paths: &[String],
+    resume_position: Option<f64>,
+) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let mut process = std::process::Command::new(executable);
+    if let Some((x, y)) = crate::platform::player_window_center(app.window()) {
+        process
+            .arg("--riina-owner-center")
+            .arg(x.to_string())
+            .arg(y.to_string());
+    }
     if let Some(position) = resume_position.filter(|value| value.is_finite() && *value >= 0.0) {
         process.arg("--riina-resume-at").arg(position.to_string());
     }
@@ -219,6 +229,7 @@ fn open_in_separate_players(
             );
         } else {
             spawn_player(
+                app,
                 group,
                 if groups.len() == 1 {
                     resume_position
@@ -478,7 +489,10 @@ fn selection_at(
                             if let Some(count) = added {
                                 crate::player_ui::show_osd_message(
                                     &app,
-                                    format!("Added {count} Files to Playlist"),
+                                    crate::video_osd::action_message(
+                                        crate::video_osd::ActionFeedback::PlaylistAdded(count),
+                                    )
+                                    .text,
                                     false,
                                 );
                             }

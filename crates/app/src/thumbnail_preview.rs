@@ -478,7 +478,12 @@ mod tests {
 
     #[test]
     fn only_absolute_local_files_are_started_by_the_player() {
+        let absolute_path = std::env::temp_dir().join("clip.mkv");
+        assert!(media_path(absolute_path.to_str().unwrap()).is_some());
+        #[cfg(windows)]
         assert!(media_path("C:\\Videos\\clip.mkv").is_some());
+        #[cfg(not(windows))]
+        assert!(media_path("C:\\Videos\\clip.mkv").is_none());
         assert!(media_path("relative\\clip.mkv").is_none());
         assert!(media_path("https://example.com/clip.mkv").is_none());
     }

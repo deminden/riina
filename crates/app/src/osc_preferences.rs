@@ -78,32 +78,24 @@ pub(crate) fn install_preferences(window: &PreferencesWindow, settings: Settings
 
 pub(crate) fn connect_preferences(window: &PreferencesWindow) {
     let weak = window.as_weak();
-    window.on_toolbar_move(move |position, direction| {
+    window.on_toolbar_move(move |position, destination| {
         let Some(window) = weak.upgrade() else { return };
-        if direction != -1 && direction != 1 {
-            return;
-        }
         let model = window.get_toolbar_order();
-        let mut order: Vec<i32> = (0..model.row_count())
+        let order: Vec<i32> = (0..model.row_count())
             .filter_map(|index| model.row_data(index))
             .collect();
-        let Ok(position) = usize::try_from(position) else {
-            return;
-        };
-        let target = if direction < 0 {
-            position.checked_sub(1)
-        } else {
-            position.checked_add(1)
-        };
-        let Some(target) = target.filter(|target| *target < order.len()) else {
-            return;
-        };
-        if position >= order.len() {
-            return;
+        if let Some(order) = reordered_toolbar_order(&order, position, destination) {
+            window.set_toolbar_order(ModelRc::new(VecModel::from(order)));
+            window.invoke_settings_changed();
         }
-        order.swap(position, target);
-        window.set_toolbar_order(ModelRc::new(VecModel::from(order)));
-        window.invoke_settings_changed();
+    });
+    let weak = window.as_weak();
+    window.on_toolbar_drag_finished(move || {
+        let Some(window) = weak.upgrade() else { return };
+        window.invoke_toolbar_move(
+            window.get_toolbar_drag_index(),
+            window.get_toolbar_drop_index(),
+        );
     });
     let weak = window.as_weak();
     window.on_toolbar_reset(move || {
@@ -112,6 +104,27 @@ pub(crate) fn connect_preferences(window: &PreferencesWindow) {
             window.invoke_settings_changed();
         }
     });
+}
+
+fn reordered_toolbar_order(order: &[i32], from: i32, to: i32) -> Option<Vec<i32>> {
+    use std::collections::BTreeSet;
+
+    if order.len() != 9 || order.iter().copied().collect::<BTreeSet<_>>() != (0..9).collect() {
+        return None;
+    }
+    let from = usize::try_from(from)
+        .ok()
+        .filter(|index| *index < order.len())?;
+    let to = usize::try_from(to)
+        .ok()
+        .filter(|index| *index < order.len())?;
+    if from == to {
+        return None;
+    }
+    let mut reordered = order.to_vec();
+    let action = reordered.remove(from);
+    reordered.insert(to, action);
+    Some(reordered)
 }
 
 fn toolbar_mask(visible: [bool; 9]) -> u16 {
@@ -280,8 +293,32 @@ fn parse_timeout(text: &str) -> Result<f64, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_timeout, parse_timeout};
+    use super::{format_timeout, parse_timeout, reordered_toolbar_order};
     use riina_core::osc_preferences::Settings;
+
+    #[test]
+    fn toolbar_drag_moves_an_action_to_the_drop_row() {
+        assert_eq!(
+            reordered_toolbar_order(&[7, 2, 1, 0, 3, 4, 5, 6, 8], 1, 4),
+            Some(vec![7, 1, 0, 3, 2, 4, 5, 6, 8])
+        );
+        assert_eq!(
+            reordered_toolbar_order(&[7, 2, 1, 0, 3, 4, 5, 6, 8], 4, 2),
+            Some(vec![7, 2, 3, 1, 0, 4, 5, 6, 8])
+        );
+    }
+
+    #[test]
+    fn toolbar_reordering_rejects_invalid_positions_and_orders() {
+        let order = [7, 2, 1, 0, 3, 4, 5, 6, 8];
+        assert_eq!(reordered_toolbar_order(&order, 3, 3), None);
+        assert_eq!(reordered_toolbar_order(&order, -1, 3), None);
+        assert_eq!(reordered_toolbar_order(&order, 3, 9), None);
+        assert_eq!(
+            reordered_toolbar_order(&[0, 0, 1, 2, 3, 4, 5, 6, 7], 1, 3),
+            None
+        );
+    }
 
     #[test]
     fn timeout_editor_preserves_fractional_seconds_and_rejects_bad_text() {

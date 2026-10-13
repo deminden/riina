@@ -15,6 +15,7 @@ slint.workspace = true
 glow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+unicode-segmentation = "=1.13.3"
 sha2 = "=0.10.9"
 md-5 = "=0.11.0"
 url.workspace = true
@@ -48,7 +49,7 @@ slint-build.workspace = true
 winresource = "=0.1.31"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows.workspace = true
+windows = { workspace = true, features = ["Win32_UI_HiDpi"] }
 wry.workspace = true
 percent-encoding = "=2.3.2"
 

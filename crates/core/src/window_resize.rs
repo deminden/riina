@@ -311,6 +311,7 @@ pub fn initial_placement(
         size = size_at_aspect(f64::from(size.width) * min_scale, aspect, Some(screen.size));
     }
 
+    size = crate::window_aspect::bounded_size(size, aspect, minimum, Some(screen.size))?;
     let (x, y) = if let Some(position) = geometry.position {
         if position.horizontal_offset == 0
             || position.vertical_offset == 0
@@ -375,6 +376,8 @@ pub fn initial_placement(
         )
     };
 
+    let x = x.min(screen.size.width.saturating_sub(size.width));
+    let y = y.min(screen.size.height.saturating_sub(size.height));
     Some(Placement {
         x: screen
             .x
@@ -384,6 +387,108 @@ pub fn initial_placement(
             .saturating_add(i32::try_from(y).unwrap_or(i32::MAX)),
         size,
     })
+}
+
+/// Keep a resized window inside its monitor while preserving its intended position.
+pub fn clamp_position(x: i32, y: i32, size: PixelSize, screen: ScreenRect) -> (i32, i32) {
+    fn clamp_axis(position: i32, origin: i32, extent: u32, window_extent: u32) -> i32 {
+        let low = i64::from(origin);
+        let high = low + i64::from(extent.saturating_sub(window_extent));
+        i32::try_from(i64::from(position).clamp(low, high)).unwrap_or(origin)
+    }
+
+    (
+        clamp_axis(x, screen.x, screen.size.width, size.width),
+        clamp_axis(y, screen.y, screen.size.height, size.height),
+    )
+}
+
+/// Clamp a window frame inside a monitor's work area with an inset margin.
+/// Coordinates and dimensions are physical pixels.
+pub fn clamp_position_with_margin(
+    x: i32,
+    y: i32,
+    size: PixelSize,
+    screen: ScreenRect,
+    margin: u32,
+) -> (i32, i32) {
+    let inset_x = margin.min(screen.size.width.saturating_sub(1) / 2);
+    let inset_y = margin.min(screen.size.height.saturating_sub(1) / 2);
+    let bounds = ScreenRect {
+        x: screen
+            .x
+            .saturating_add(i32::try_from(inset_x).unwrap_or(i32::MAX)),
+        y: screen
+            .y
+            .saturating_add(i32::try_from(inset_y).unwrap_or(i32::MAX)),
+        size: PixelSize {
+            width: screen.size.width.saturating_sub(inset_x.saturating_mul(2)),
+            height: screen.size.height.saturating_sub(inset_y.saturating_mul(2)),
+        },
+    };
+    clamp_position(x, y, size, bounds)
+}
+
+/// Center an auxiliary window over its owner, then keep it inside the monitor's
+/// usable bounds. Coordinates and dimensions are physical pixels.
+pub fn centered_window_position(
+    owner: ScreenRect,
+    window_size: PixelSize,
+    usable_bounds: ScreenRect,
+) -> (i32, i32) {
+    let centered = |origin: i32, owner_extent: u32, window_extent: u32| {
+        let position = i64::from(origin) + (i64::from(owner_extent) - i64::from(window_extent)) / 2;
+        i32::try_from(position).unwrap_or(if position < 0 { i32::MIN } else { i32::MAX })
+    };
+    clamp_position(
+        centered(owner.x, owner.size.width, window_size.width),
+        centered(owner.y, owner.size.height, window_size.height),
+        window_size,
+        usable_bounds,
+    )
+}
+
+/// Fit an outer window frame to a monitor's usable area, preserve its ratio,
+/// and center it. The margin is applied only when the frame needs to shrink.
+pub fn centered_window_placement(
+    frame_size: PixelSize,
+    usable_bounds: ScreenRect,
+    margin: u32,
+) -> Option<Placement> {
+    if !frame_size.valid() || !usable_bounds.size.valid() {
+        return None;
+    }
+    let max_width = usable_bounds
+        .size
+        .width
+        .saturating_sub(margin.saturating_mul(2))
+        .max(1);
+    let max_height = usable_bounds
+        .size
+        .height
+        .saturating_sub(margin.saturating_mul(2))
+        .max(1);
+    let size = if frame_size.width <= max_width && frame_size.height <= max_height {
+        frame_size
+    } else if u64::from(max_width) * u64::from(frame_size.height)
+        <= u64::from(max_height) * u64::from(frame_size.width)
+    {
+        PixelSize {
+            width: max_width,
+            height: ((u64::from(frame_size.height) * u64::from(max_width))
+                / u64::from(frame_size.width))
+            .max(1) as u32,
+        }
+    } else {
+        PixelSize {
+            width: ((u64::from(frame_size.width) * u64::from(max_height))
+                / u64::from(frame_size.height))
+            .max(1) as u32,
+            height: max_height,
+        }
+    };
+    let (x, y) = centered_window_position(usable_bounds, size, usable_bounds);
+    Some(Placement { x, y, size })
 }
 
 fn geometry_offset(value: u32, unit: GeometryUnit, screen_span: u32, scale: f64) -> u32 {
@@ -453,7 +558,7 @@ pub fn target_size(
     if grow > 1.0 {
         target = size_at_aspect(f64::from(target.width) * grow, aspect, maximum);
     }
-    target.valid().then_some(target)
+    crate::window_aspect::bounded_size(target, aspect, minimum, maximum)
 }
 
 /// Current video and window measurements used by a manual resize command.
@@ -746,6 +851,34 @@ mod tests {
     }
 
     #[test]
+    fn fit_sized_window_centers_against_full_monitor_bounds() {
+        let placement = initial_placement(
+            PixelSize {
+                width: 1152,
+                height: 648,
+            },
+            16.0 / 9.0,
+            1.0,
+            ScreenRect {
+                x: 0,
+                y: 0,
+                size: PixelSize {
+                    width: 1280,
+                    height: 720,
+                },
+            },
+            PixelSize {
+                width: 520,
+                height: 300,
+            },
+            InitialGeometry::default(),
+        )
+        .unwrap();
+
+        assert_eq!((placement.x, placement.y), (64, 36));
+    }
+
+    #[test]
     fn initial_geometry_scales_points_and_centers_a_size_only_override() {
         let placement = initial_placement(
             PixelSize {
@@ -848,6 +981,193 @@ mod tests {
         )
         .unwrap();
         assert_eq!((percent_position.x, percent_position.y), (-1360, 355));
+    }
+
+    #[test]
+    fn initial_geometry_clamps_large_point_offsets_inside_negative_origin_display() {
+        let placement = initial_placement(
+            PixelSize {
+                width: 800,
+                height: 450,
+            },
+            16.0 / 9.0,
+            1.0,
+            ScreenRect {
+                x: -1920,
+                y: -200,
+                size: PixelSize {
+                    width: 1920,
+                    height: 1080,
+                },
+            },
+            PixelSize {
+                width: 520,
+                height: 300,
+            },
+            InitialGeometry {
+                size: None,
+                position: Some(InitialPosition {
+                    horizontal_anchor: HorizontalAnchor::Left,
+                    horizontal_offset: 5000,
+                    horizontal_unit: GeometryUnit::Points,
+                    vertical_anchor: VerticalAnchor::Top,
+                    vertical_offset: 5000,
+                    vertical_unit: GeometryUnit::Points,
+                }),
+            },
+        )
+        .unwrap();
+
+        assert_eq!((placement.x, placement.y), (-800, 430));
+    }
+
+    #[test]
+    fn resized_window_position_is_clamped_to_monitor_bounds() {
+        let screen = ScreenRect {
+            x: -1920,
+            y: 40,
+            size: PixelSize {
+                width: 1920,
+                height: 1080,
+            },
+        };
+        let size = PixelSize {
+            width: 800,
+            height: 450,
+        };
+
+        assert_eq!(clamp_position(-4000, -1000, size, screen), (-1920, 40));
+        assert_eq!(clamp_position(1000, 2000, size, screen), (-800, 670));
+    }
+
+    #[test]
+    fn resized_window_keeps_a_dpi_scaled_safe_inset_from_work_area_edges() {
+        let screen = ScreenRect {
+            x: -1920,
+            y: 40,
+            size: PixelSize {
+                width: 1920,
+                height: 1000,
+            },
+        };
+        let size = PixelSize {
+            width: 800,
+            height: 450,
+        };
+
+        assert_eq!(
+            clamp_position_with_margin(-4000, -1000, size, screen, 24),
+            (-1896, 64)
+        );
+        assert_eq!(
+            clamp_position_with_margin(1000, 2000, size, screen, 24),
+            (-824, 566)
+        );
+    }
+
+    #[test]
+    fn oversized_first_show_frame_is_fitted_and_centered_inside_work_area() {
+        let work_area = ScreenRect {
+            x: 0,
+            y: 0,
+            size: PixelSize {
+                width: 1280,
+                height: 672,
+            },
+        };
+        let placement = centered_window_placement(
+            PixelSize {
+                width: 1280,
+                height: 720,
+            },
+            work_area,
+            24,
+        )
+        .unwrap();
+
+        assert_eq!(
+            placement.size,
+            PixelSize {
+                width: 1109,
+                height: 624
+            }
+        );
+        assert_eq!((placement.x, placement.y), (85, 24));
+        assert!(placement.x >= work_area.x);
+        assert!(placement.y >= work_area.y);
+        assert!(placement.x as u32 + placement.size.width <= work_area.size.width);
+        assert!(placement.y as u32 + placement.size.height <= work_area.size.height);
+    }
+
+    #[test]
+    fn fitted_frame_keeps_negative_origin_and_does_not_resize_a_small_window() {
+        let work_area = ScreenRect {
+            x: -1920,
+            y: 40,
+            size: PixelSize {
+                width: 1920,
+                height: 1000,
+            },
+        };
+        let placement = centered_window_placement(
+            PixelSize {
+                width: 800,
+                height: 450,
+            },
+            work_area,
+            24,
+        )
+        .unwrap();
+
+        assert_eq!(
+            placement.size,
+            PixelSize {
+                width: 800,
+                height: 450
+            }
+        );
+        assert_eq!((placement.x, placement.y), (-1360, 315));
+    }
+
+    #[test]
+    fn auxiliary_windows_center_over_owner_and_stay_in_work_area() {
+        let work_area = ScreenRect {
+            x: -1920,
+            y: 40,
+            size: PixelSize {
+                width: 1920,
+                height: 1040,
+            },
+        };
+        let auxiliary = PixelSize {
+            width: 500,
+            height: 300,
+        };
+        let owner = ScreenRect {
+            x: -1800,
+            y: 100,
+            size: PixelSize {
+                width: 900,
+                height: 800,
+            },
+        };
+        assert_eq!(
+            centered_window_position(owner, auxiliary, work_area),
+            (-1600, 350)
+        );
+
+        let offscreen_owner = ScreenRect {
+            x: -4000,
+            y: -1000,
+            size: PixelSize {
+                width: 700,
+                height: 500,
+            },
+        };
+        assert_eq!(
+            centered_window_position(offscreen_owner, auxiliary, work_area),
+            (-1920, 40)
+        );
     }
 
     #[test]

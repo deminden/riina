@@ -27,6 +27,107 @@ pub(crate) fn toggle_zoom_window(window: &slint::Window) {
     window.with_winit_window(|window| window.set_maximized(!window.is_maximized()));
 }
 
+/// Give newly created auxiliary windows a predictable first position on Windows.
+pub(crate) fn center_auxiliary_window(
+    window: &(impl slint::ComponentHandle + 'static),
+    owner: &(impl slint::ComponentHandle + 'static),
+) {
+    #[cfg(target_os = "windows")]
+    windows::window_position::center_auxiliary_window(window, owner);
+    #[cfg(not(target_os = "windows"))]
+    let _ = (window, owner);
+}
+
+/// Center a top-level player window on Windows unless the user configured an
+/// initial position. Other platforms keep their native window-placement policy.
+pub(crate) fn center_player_window(
+    window: &(impl slint::ComponentHandle + 'static),
+    initial_position_configured: bool,
+) {
+    #[cfg(target_os = "windows")]
+    if !initial_position_configured {
+        windows::window_position::center_window(window);
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = (window, initial_position_configured);
+}
+
+/// Center a player opened from another player on the display that owns it.
+/// This avoids sending a new player to the primary display when its parent is
+/// on another monitor.
+pub(crate) fn center_player_window_for_owner(
+    window: &(impl slint::ComponentHandle + 'static),
+    owner: &(impl slint::ComponentHandle + 'static),
+    initial_position_configured: bool,
+) {
+    #[cfg(target_os = "windows")]
+    if !initial_position_configured {
+        windows::window_position::center_auxiliary_window(window, owner);
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = (window, owner, initial_position_configured);
+}
+
+/// Return the owning window's screen-space center for a child player process.
+pub(crate) fn player_window_center(window: &slint::Window) -> Option<(i32, i32)> {
+    #[cfg(target_os = "windows")]
+    {
+        window
+            .with_winit_window(|native| {
+                let origin = native.outer_position().ok()?;
+                let size = native.outer_size();
+                Some((
+                    origin
+                        .x
+                        .saturating_add(i32::try_from(size.width / 2).unwrap_or(i32::MAX)),
+                    origin
+                        .y
+                        .saturating_add(i32::try_from(size.height / 2).unwrap_or(i32::MAX)),
+                ))
+            })
+            .flatten()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        None
+    }
+}
+
+/// Read the taskbar-free monitor bounds for the native window on Windows.
+pub(crate) fn window_work_area(
+    window: &slint::Window,
+) -> Option<riina_core::window_resize::ScreenRect> {
+    #[cfg(target_os = "windows")]
+    {
+        window
+            .with_winit_window(windows::window_position::work_area)
+            .flatten()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        None
+    }
+}
+
+/// Return the current monitor's work-area limit for client content on Windows.
+pub(crate) fn window_content_work_area(
+    window: &slint::Window,
+) -> Option<riina_core::window_aspect::PixelSize> {
+    #[cfg(target_os = "windows")]
+    {
+        window
+            .with_winit_window(windows::window_position::content_work_area)
+            .flatten()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        None
+    }
+}
+
 pub(crate) fn system_trash_name() -> &'static str {
     if cfg!(target_os = "windows") {
         "Recycle Bin"
@@ -465,7 +566,7 @@ pub(crate) use windows::text_recognition;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
     NativePresentation, PluginOverlayPresenter, file_dialog, native_window, open_dialog,
-    services::*,
+    services::*, window_geometry::resize_content, window_sizing::WindowSizing,
 };
 
 #[cfg(target_os = "macos")]
@@ -474,8 +575,8 @@ mod macos;
 pub(crate) use macos::text_recognition;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
-    ControlGesture, GesturePhase, MacPictureInPicture, MacScrollEventMonitor, NativeScrollEvent,
-    RemoteMediaAction, SystemMediaControls, install_control_gestures,
+    ControlGesture, GesturePhase, MacPictureInPicture, MacScrollEventMonitor, RemoteMediaAction,
+    SystemMediaControls, install_control_gestures,
 };
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]

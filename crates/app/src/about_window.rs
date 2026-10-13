@@ -23,6 +23,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
                 return;
             };
             connect_links(&window, app.as_weak());
+            crate::platform::center_auxiliary_window(&window, &app);
             *slot.borrow_mut() = Some(window.clone_strong());
             window
         };

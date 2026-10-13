@@ -1,0 +1,23 @@
+{
+  "platform": "Windows 11 x64",
+  "application_version": "0.3.4",
+  "binary_sha256": "B895A8CC87416061B36A61133BC12739E2EAD80EB90B91090E928D56E3B746BF",
+  "renderer": "shared OpenGL",
+  "fixture": "moving-square.avi (isolated temporary copy)",
+  "interaction": "Video > Crop > 4:3",
+  "observed_osd": "Crop: 4:3",
+  "window_title": "moving-square.avi — riina",
+  "captured_player_bounds": {
+    "x": 777,
+    "y": 72,
+    "width": 763,
+    "height": 619
+  },
+  "screenshot": "tests/visual/crop-osd-windows.jpg",
+  "native_crop_visible": true,
+  "test_process_closed": true,
+  "limitations": [
+    "Custom rectangle wording and movement are covered by unit tests but were not validated through a live GUI selection.",
+    "Matched macOS pixels, exact OSD timeout, and macOS/Linux runtime remain open."
+  ]
+}

@@ -345,6 +345,7 @@ pub(crate) fn connect_player(
                     let _ = window.hide();
                 }
             });
+            crate::platform::center_auxiliary_window(&window, &app);
             *window_slot_callback.borrow_mut() = Some(window.clone_strong());
             window
         };

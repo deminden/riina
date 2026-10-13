@@ -323,11 +323,32 @@
       "sha256": "8cb9676853e01b1aa5683b2ec8fb799ef9cd6cb962f457b1d36d242b3c720ff1"
     },
     {
+      "path": "assets/icons/video-aspect-ratio.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "1301791f7ca2301e34eb063bcd0147e0197d3897f8b3e57d7d63d82dfd34d1ff"
+    },
+    {
+      "path": "assets/icons/video-crop.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "866201a0ca6ab57338b808b2ad3456428f1d5e5c2a51041814fa8b849e4da778"
+    },
+    {
       "path": "assets/icons/video-page.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "4d1962726596ab8df48ce1ff720dcec53d8b0c99b7ce4d7de3aa28c33693c9e1"
+    },
+    {
+      "path": "assets/icons/video-rotate.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "57c3fcf0b31c5c529585838d151590fbe93e4c335db53d8d3864e2da203150ec"
     },
     {
       "path": "assets/icons/video.svg",

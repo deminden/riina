@@ -731,10 +731,58 @@ fn playlist_paste_index(app: &PlayerWindow, clicked_token: &str) -> usize {
         .unwrap_or(0)
 }
 
+fn audio_device_menu_rows(state: &Playback) -> Vec<MenuCatalogRow> {
+    state
+        .audio_devices
+        .iter()
+        .filter(|device| {
+            device.name == "auto"
+                || state.audio_output.as_deref().is_none_or(|driver| {
+                    device
+                        .name
+                        .split_once('/')
+                        .is_none_or(|(device_driver, _)| device_driver == driver)
+                })
+        })
+        .map(|device| MenuCatalogRow {
+            token: device.name.clone().into(),
+            label: if device.description.trim().is_empty() {
+                device.name.clone().into()
+            } else {
+                device.description.clone().into()
+            },
+            selected: state.audio_device.as_deref() == Some(device.name.as_str()),
+        })
+        .collect()
+}
+
+fn should_fallback_removed_audio_device(previous: Option<&Playback>, state: &Playback) -> bool {
+    let active = matches!(
+        state.phase,
+        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
+    );
+    let selection_changed = previous.is_none_or(|previous| {
+        previous.audio_device != state.audio_device || previous.audio_devices != state.audio_devices
+    });
+    active
+        && selection_changed
+        && !state.audio_devices.is_empty()
+        && state.audio_device.as_deref().is_some_and(|selected| {
+            selected != "auto"
+                && !state
+                    .audio_devices
+                    .iter()
+                    .any(|device| device.name == selected)
+        })
+}
+
 fn update_catalog(app: &PlayerWindow, state: &Playback) {
     app.set_downloaded_subtitle_save_available(
         crate::file_actions::downloaded_subtitle_path(state).is_some(),
     );
+    app.set_audio_device_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+        audio_device_menu_rows(state),
+    )));
     let languages = crate::language_names::LanguageNames::current();
     for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
         let tracks: Vec<_> = state
@@ -947,6 +995,32 @@ fn current_chapter(state: &Playback) -> Option<usize> {
     })
 }
 
+fn window_video_geometry(state: &Playback) -> Option<(f32, f32, i32)> {
+    if matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed) {
+        return None;
+    }
+    let video = state.window_size_video_parameters()?;
+    let width = video.dw.filter(|size| *size > 0).unwrap_or(video.w);
+    let height = video.dh.filter(|size| *size > 0).unwrap_or(video.h);
+    if width == 0 || height == 0 {
+        return None;
+    }
+    Some((
+        width as f32,
+        height as f32,
+        state.video_rotation.or(video.rotate).unwrap_or(0) as i32,
+    ))
+}
+
+fn media_geometry_requires_resize(
+    previous_generation: Option<u64>,
+    geometry_was_missing: bool,
+    state: &Playback,
+) -> bool {
+    window_video_geometry(state).is_some()
+        && (previous_generation != Some(state.generation) || geometry_was_missing)
+}
+
 #[cfg(target_os = "macos")]
 fn resize_for_trackpad_pinch(window: &slint::Window, delta: f64) {
     use slint::winit_030::winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -989,8 +1063,10 @@ fn resize_for_trackpad_pinch(window: &slint::Window, delta: f64) {
             let width_change = i64::from(size.width) - i64::from(current.width);
             let height_change = i64::from(size.height) - i64::from(current.height);
             native.set_outer_position(PhysicalPosition::new(
-                position.x - width_change / 2,
-                position.y - height_change / 2,
+                (i64::from(position.x) - width_change / 2)
+                    .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
+                (i64::from(position.y) - height_change / 2)
+                    .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
             ));
         }
         let _ = native.request_inner_size(size);
@@ -1064,31 +1140,39 @@ fn install_macos_control_gestures(app: &PlayerWindow, player: riina_mpv::Command
     });
 }
 
+struct UiUpdateResources<'a> {
+    audio_device_player: Option<&'a riina_mpv::CommandSender>,
+    saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
+    saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
+}
+
 fn update_ui(
     app: &PlayerWindow,
     state: Playback,
-    saved_filters: (
-        &Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
-        &Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
-    ),
+    resources: UiUpdateResources<'_>,
     displayed: &mut Option<Playback>,
     last_seek: &mut SeekOsd,
     last_video: &mut crate::video_osd::VideoOsd,
     last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
-) {
+) -> bool {
     use riina_core::video_reflection::Axis;
-    let (saved_video_filters, saved_audio_filters) = saved_filters;
-    if let Ok(settings) = saved_video_filters.lock() {
+    let previous_generation = app.get_window_geometry_source().parse::<u64>().ok();
+    app.set_window_geometry_source(state.generation.to_string().into());
+    if let Ok(settings) = resources.saved_video_filters.lock() {
         let active = state.video_filters.as_deref().unwrap_or_default();
-        app.set_saved_video_filter_rows(slint::ModelRc::new(slint::VecModel::from(
+        crate::ui_models::set_rows_if_changed(
+            &app.get_saved_video_filter_rows(),
             crate::video_filter_window::saved_filter_rows(&settings.saved, active),
-        )));
+            |rows| app.set_saved_video_filter_rows(rows),
+        );
     }
-    if let Ok(settings) = saved_audio_filters.lock() {
+    if let Ok(settings) = resources.saved_audio_filters.lock() {
         let active = state.audio_filters.as_deref().unwrap_or_default();
-        app.set_saved_audio_filter_rows(slint::ModelRc::new(slint::VecModel::from(
+        crate::ui_models::set_rows_if_changed(
+            &app.get_saved_audio_filter_rows(),
             crate::video_filter_window::saved_filter_rows(&settings.saved, active),
-        )));
+            |rows| app.set_saved_audio_filter_rows(rows),
+        );
     }
     let filename = state
         .playlist
@@ -1107,9 +1191,7 @@ fn update_ui(
     } else {
         format!("{filename} — riina")
     };
-    app.window()
-        .with_winit_window(|window| window.set_title(&window_title));
-    app.invoke_window_title_changed(window_title.into());
+    app.set_window_title(window_title.into());
     app.set_screenshot_available(
         state
             .tracks
@@ -1230,22 +1312,40 @@ fn update_ui(
     app.set_seek_position_label(seek_osd::clock(state.position).into());
     app.set_seek_duration_label(seek_osd::clock(state.duration).into());
     app.set_playlist_shuffled(state.playlist_shuffled);
+    if should_fallback_removed_audio_device(displayed.as_ref(), &state)
+        && let Some(audio_device_player) = resources.audio_device_player
+        && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
+    {
+        app.set_status(format!("Could not restore automatic audio output: {error}").into());
+    }
     // Preserve row identity across clock ticks so focus and accessibility indexes
     // are not destroyed by unrelated time-pos notifications.
     if displayed.as_ref().is_none_or(|old| {
         old.tracks != state.tracks
             || old.chapters != state.chapters
             || old.playlist != state.playlist
+            || old.audio_devices != state.audio_devices
+            || old.audio_device != state.audio_device
+            || old.audio_output != state.audio_output
             || current_chapter(old) != current_chapter(&state)
     }) {
         update_catalog(app, &state);
         *displayed = Some(state.clone());
     }
-    let first_loaded = !app.get_loaded()
+    let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
         && matches!(
             state.phase,
             Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
         );
+    if previous_generation != Some(state.generation)
+        || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
+    {
+        // Do not leave the prior media's resize commands enabled while a
+        // replacement is loading or after the current item has stopped.
+        app.set_video_window_width(0.0);
+        app.set_video_window_height(0.0);
+        app.set_video_window_rotation(0);
+    }
     app.set_loaded(!matches!(
         state.phase,
         Phase::Stopped | Phase::Failed | Phase::Loading
@@ -1255,18 +1355,20 @@ fn update_ui(
     if matches!(state.phase, Phase::Paused | Phase::Ended | Phase::Failed) {
         app.set_controls_visible(true);
     }
-    if first_loaded {
-        if let Some(video) = state
-            .video_target
-            .as_ref()
-            .or(state.video.as_ref())
-            .or(state.video_output.as_ref())
-        {
-            app.set_video_window_width(video.dw.filter(|size| *size > 0).unwrap_or(video.w) as f32);
-            app.set_video_window_height(video.dh.filter(|size| *size > 0).unwrap_or(video.h) as f32);
-            app.set_video_window_rotation(state.video_rotation.or(video.rotate).unwrap_or(0) as i32);
-            app.invoke_resize_window_for_media();
+    let mut resize_for_media = false;
+    if let Some((width, height, rotation)) = window_video_geometry(&state) {
+        let geometry_was_missing =
+            app.get_video_window_width() <= 0.0 || app.get_video_window_height() <= 0.0;
+        app.set_video_window_width(width);
+        app.set_video_window_height(height);
+        app.set_video_window_rotation(rotation);
+        if media_geometry_requires_resize(previous_generation, geometry_was_missing, &state) {
+            // mpv can publish the loaded phase before its first usable video
+            // dimensions. Retry initial sizing when those dimensions arrive.
+            resize_for_media = true;
         }
+    }
+    if first_loaded {
         app.invoke_activity();
         if let Some(entry) = state.playlist.iter().find(|entry| entry.current) {
             let title = entry
@@ -1301,26 +1403,29 @@ fn update_ui(
     app.set_ab_loop_b(state.ab_loop_b.unwrap_or_default() as f32);
     app.set_ab_loop_b_known(state.ab_loop_b.is_some());
     app.set_volume(state.volume as f32);
+    app.set_volume_menu_title(
+        format!(
+            "Volume: {}{}",
+            crate::localized_number::format_delay(state.volume),
+            if state.muted { " (Muted)" } else { "" }
+        )
+        .into(),
+    );
     app.set_muted(state.muted);
     app.set_speed_value(state.speed as f32);
     app.set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
     app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
     app.set_video_aspect_known(state.video_aspect_override.is_some());
-    let display_aspect = state
-        .video_target
-        .as_ref()
-        .or(state.video.as_ref())
-        .or(state.video_output.as_ref())
-        .and_then(|video| {
-            riina_core::window_aspect::display_aspect_ratio(
-                video.w,
-                video.h,
-                video.dw,
-                video.dh,
-                state.video_rotation.or(video.rotate),
-                state.video_aspect_override,
-            )
-        });
+    let display_aspect = state.display_video_parameters().and_then(|video| {
+        riina_core::window_aspect::display_aspect_ratio(
+            video.w,
+            video.h,
+            video.dw,
+            video.dh,
+            state.video_rotation.or(video.rotate),
+            state.video_aspect_override,
+        )
+    });
     app.set_video_display_aspect_ratio(display_aspect.unwrap_or(0.0) as f32);
     let is_audio = state.audio_status() == riina_core::music_mode::AudioStatus::Audio;
     let album_art = state
@@ -1481,6 +1586,7 @@ fn update_ui(
     // Playback state belongs to controls and transient OSD, not permanent text
     // over the video. Keep failures visible while ordinary clock ticks stay quiet.
     app.set_status(state.error.unwrap_or_default().into());
+    resize_for_media
 }
 
 pub(crate) struct UiSession {
@@ -2823,12 +2929,35 @@ pub(crate) fn configure_player(
                         app.get_music_mode_show_playlist(),
                         f64::from(app.get_music_mode_artwork_aspect_ratio()),
                     );
-                    window.set_size(slint::PhysicalSize::new(
+                    let target = slint::PhysicalSize::new(
                         (crate::music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
                         (height * scale).round() as u32,
-                    ));
+                    );
+                    crate::window_aspect::resize_centered(
+                        window,
+                        riina_core::window_aspect::PixelSize {
+                            width: window.size().width,
+                            height: window.size().height,
+                        },
+                        riina_core::window_aspect::PixelSize {
+                            width: target.width,
+                            height: target.height,
+                        },
+                        None,
+                    );
                 } else if let Some(size) = saved_size.take() {
-                    window.set_size(size);
+                    crate::window_aspect::resize_centered(
+                        window,
+                        riina_core::window_aspect::PixelSize {
+                            width: window.size().width,
+                            height: window.size().height,
+                        },
+                        riina_core::window_aspect::PixelSize {
+                            width: size.width,
+                            height: size.height,
+                        },
+                        None,
+                    );
                 }
             }
         });
@@ -2861,6 +2990,7 @@ pub(crate) fn configure_player(
     let notify_plugin_recent_media = plugin_recent_media.clone();
     let notify_video_filter_settings = saved_video_filters.clone();
     let notify_audio_filter_settings = saved_audio_filters.clone();
+    let notify_audio_device_sender = plugin_command_sender.clone();
     let notified_plugin_file_context = Arc::new(std::sync::Mutex::new(
         crate::plugin_files::PluginPlayerFileContext::default(),
     ));
@@ -2924,6 +3054,7 @@ pub(crate) fn configure_player(
         let crop_editor = observed_crop_editor.clone();
         let notify_saved_video_filters = notify_video_filter_settings.clone();
         let notify_saved_audio_filters = notify_audio_filter_settings.clone();
+        let audio_device_sender = notify_audio_device_sender.clone();
         let opening_fullscreen = opening_fullscreen.clone();
         let music_mode_state = notify_music_mode_state.clone();
         let _ = slint::invoke_from_event_loop(move || {
@@ -2935,6 +3066,13 @@ pub(crate) fn configure_player(
                 && let Ok(mut last_video) = last_video.lock()
                 && let Ok(mut last_screenshot) = last_screenshot.lock()
             {
+                let first_loaded = (!app.get_loaded()
+                    || app.get_window_geometry_source().parse::<u64>().ok()
+                        != Some(state.generation))
+                    && matches!(
+                        state.phase,
+                        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
+                    );
                 let audio_status = state.audio_status();
                 let captures = latest.1.take();
                 let enter_fullscreen = opening_fullscreen.lock().is_ok_and(|mut opening| {
@@ -2947,10 +3085,18 @@ pub(crate) fn configure_player(
                 });
                 let clipboard_error = crate::screenshot_output::copy(&app, &captures);
                 crop_editor.observe(&app, &state);
-                update_ui(
+                let audio_device_sender = audio_device_sender
+                    .lock()
+                    .ok()
+                    .and_then(|sender| sender.clone());
+                let resize_for_media = update_ui(
                     &app,
                     state,
-                    (&notify_saved_video_filters, &notify_saved_audio_filters),
+                    UiUpdateResources {
+                        audio_device_player: audio_device_sender.as_ref(),
+                        saved_video_filters: &notify_saved_video_filters,
+                        saved_audio_filters: &notify_saved_audio_filters,
+                    },
                     &mut displayed,
                     &mut last_seek,
                     &mut last_video,
@@ -2960,6 +3106,15 @@ pub(crate) fn configure_player(
                     && let Some(active) = mode.observe(audio_status, app.get_fullscreen())
                 {
                     app.set_music_mode(active);
+                }
+                if resize_for_media {
+                    // Apply the complete geometry after automatic music mode has
+                    // restored the video window. Coalesced snapshots may omit
+                    // Loading, so media identity owns this transition.
+                    app.invoke_resize_window_for_media();
+                }
+                if first_loaded {
+                    app.invoke_initial_media_loaded();
                 }
                 crate::screenshot_output::cleanup(&app, &captures);
                 if enter_fullscreen {
@@ -3841,7 +3996,10 @@ pub(crate) fn configure_player(
                     }
                     Ok(()) if show_stop => {
                         if let Some(app) = weak.upgrade() {
-                            show_osd_message(&app, "Stop", true);
+                            let message = crate::video_osd::action_message(
+                                crate::video_osd::ActionFeedback::Stop,
+                            );
+                            show_osd_message(&app, message.text, true);
                         }
                     }
                     Ok(()) => {}
@@ -4453,6 +4611,29 @@ pub(crate) fn configure_player(
     connect!(on_cycle_audio_track, Command::CycleTrack(TrackKind::Audio));
     connect!(on_cycle_subtitle_track, Command::CycleTrack(TrackKind::Sub));
     connect!(on_cycle_video_track, Command::CycleTrack(TrackKind::Video));
+    let audio_device_player = player.command_sender();
+    let audio_device_state = latest_playback.clone();
+    let audio_device_app = app.as_weak();
+    app.on_set_audio_device(move |device| {
+        let Some(app) = audio_device_app.upgrade() else {
+            return;
+        };
+        let device = device.to_string();
+        let available = audio_device_state.lock().ok().is_some_and(|state| {
+            state
+                .audio_devices
+                .iter()
+                .any(|available| available.name == device)
+        });
+        if !available {
+            app.set_status("That audio device is no longer available".into());
+            return;
+        }
+        app.invoke_activity();
+        if let Err(error) = audio_device_player.send(Command::AudioDevice(device)) {
+            app.set_status(error.into());
+        }
+    });
     connect!(
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility
@@ -4527,7 +4708,10 @@ pub(crate) fn configure_player(
                 Err(error) => app.set_status(error.into()),
                 Ok(()) => {
                     if let Some(title) = chapter_title {
-                        show_osd_message(&app, format!("Chapter: {title}"), false);
+                        let message = crate::video_osd::action_message(
+                            crate::video_osd::ActionFeedback::Chapter(title),
+                        );
+                        show_osd_message(&app, message.text, false);
                     }
                 }
             }
@@ -4607,11 +4791,10 @@ pub(crate) fn configure_player(
                     playlist_player
                         .send(Command::InsertPlaylistFiles { paths, index })
                         .map(|()| {
-                            show_osd_message(
-                                &window,
-                                format!("Added {count} Files to Playlist"),
-                                false,
+                            let message = crate::video_osd::action_message(
+                                crate::video_osd::ActionFeedback::PlaylistAdded(count),
                             );
+                            show_osd_message(&window, message.text, false);
                         })
                 }),
                 9 => selected_index
@@ -4673,7 +4856,9 @@ pub(crate) fn configure_player(
         if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
             window.set_status(error.into());
         } else if action == 4 {
-            show_osd_message(&window, "Cleared Playlist", false);
+            let message =
+                crate::video_osd::action_message(crate::video_osd::ActionFeedback::PlaylistCleared);
+            show_osd_message(&window, message.text, false);
         } else if action == 1 {
             window.set_selected_playlist_token("".into());
             window.set_selected_playlist_tokens(slint::ModelRc::default());
@@ -5608,6 +5793,103 @@ mod control_auto_hide_tests {
 }
 
 #[cfg(test)]
+mod audio_device_menu_tests {
+    use super::{audio_device_menu_rows, should_fallback_removed_audio_device};
+    use riina_core::{Phase, Playback, audio_preferences::OutputDevice};
+
+    #[test]
+    fn device_menu_uses_native_ids_and_marks_the_observed_selection() {
+        let state = Playback {
+            audio_output: Some("wasapi".into()),
+            audio_device: Some("wasapi/{speaker-id}".into()),
+            audio_devices: vec![
+                OutputDevice {
+                    name: "auto".into(),
+                    description: "Autoselect device".into(),
+                },
+                OutputDevice {
+                    name: "wasapi/{speaker-id}".into(),
+                    description: "Speakers (USB Audio)".into(),
+                },
+                OutputDevice {
+                    name: "dsound/{speaker-id}".into(),
+                    description: "Incompatible DirectSound device".into(),
+                },
+            ],
+            ..Playback::default()
+        };
+        let rows = audio_device_menu_rows(&state);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].token.as_str(), "auto");
+        assert!(!rows[0].selected);
+        assert_eq!(rows[1].token.as_str(), "wasapi/{speaker-id}");
+        assert_eq!(rows[1].label.as_str(), "Speakers (USB Audio)");
+        assert!(rows[1].selected);
+    }
+
+    #[test]
+    fn device_menu_uses_native_id_when_description_is_missing() {
+        let state = Playback {
+            audio_devices: vec![OutputDevice {
+                name: "wasapi/{speaker-id}".into(),
+                description: "  ".into(),
+            }],
+            ..Playback::default()
+        };
+        let rows = audio_device_menu_rows(&state);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label.as_str(), "wasapi/{speaker-id}");
+    }
+
+    #[test]
+    fn removed_device_falls_back_once_only_for_active_playback() {
+        let previous = Playback {
+            phase: Phase::Playing,
+            audio_device: Some("wasapi/{speaker-id}".into()),
+            audio_devices: vec![OutputDevice {
+                name: "wasapi/{speaker-id}".into(),
+                description: "Speakers".into(),
+            }],
+            ..Playback::default()
+        };
+        let removed = Playback {
+            phase: Phase::Playing,
+            audio_device: previous.audio_device.clone(),
+            audio_devices: vec![OutputDevice {
+                name: "wasapi/{headphones-id}".into(),
+                description: "Headphones".into(),
+            }],
+            ..Playback::default()
+        };
+        assert!(should_fallback_removed_audio_device(
+            Some(&previous),
+            &removed
+        ));
+        assert!(!should_fallback_removed_audio_device(
+            Some(&removed),
+            &removed
+        ));
+
+        let stopped = Playback {
+            phase: Phase::Stopped,
+            ..removed.clone()
+        };
+        assert!(!should_fallback_removed_audio_device(
+            Some(&previous),
+            &stopped
+        ));
+        let no_devices = Playback {
+            audio_devices: Vec::new(),
+            ..removed
+        };
+        assert!(!should_fallback_removed_audio_device(
+            Some(&previous),
+            &no_devices
+        ));
+    }
+}
+
+#[cfg(test)]
 mod welcome_tests {
     use super::{
         recent_document_rows, recent_media_rows, resume_engine_options, resume_media_rows,
@@ -5679,5 +5961,97 @@ mod welcome_tests {
         .unwrap();
         assert_eq!(disabled[1].1, "no");
         assert_eq!(disabled[2].1, "no");
+    }
+}
+
+#[cfg(test)]
+mod window_video_geometry_tests {
+    use super::{media_geometry_requires_resize, window_video_geometry};
+    use riina_core::{Phase, Playback, VideoParameters};
+
+    fn video(width: u32, height: u32, display: Option<(u32, u32)>) -> VideoParameters {
+        VideoParameters {
+            pixelformat: None,
+            w: width,
+            h: height,
+            dw: display.map(|(width, _)| width),
+            dh: display.map(|(_, height)| height),
+            rotate: Some(90),
+            colormatrix: None,
+            colorlevels: None,
+            primaries: None,
+            gamma: None,
+            max_luma: None,
+            min_luma: None,
+            signal_peak: None,
+        }
+    }
+
+    #[test]
+    fn natural_size_uses_display_dimensions_and_observed_rotation() {
+        let state = Playback {
+            phase: Phase::Playing,
+            video: Some(video(640, 360, Some((1280, 720)))),
+            video_rotation: Some(180),
+            ..Playback::default()
+        };
+        assert_eq!(window_video_geometry(&state), Some((1280.0, 720.0, 180)));
+    }
+
+    #[test]
+    fn natural_size_falls_back_to_source_dimensions_when_display_size_is_zero() {
+        let state = Playback {
+            phase: Phase::Playing,
+            video: Some(video(640, 360, Some((0, 0)))),
+            ..Playback::default()
+        };
+        assert_eq!(window_video_geometry(&state), Some((640.0, 360.0, 90)));
+    }
+
+    #[test]
+    fn coalesced_file_change_resizes_even_without_a_loading_snapshot() {
+        let state = Playback {
+            generation: 2,
+            phase: Phase::Playing,
+            video: Some(video(640, 480, None)),
+            ..Playback::default()
+        };
+        assert!(media_geometry_requires_resize(Some(1), false, &state));
+        assert!(!media_geometry_requires_resize(Some(2), false, &state));
+    }
+
+    #[test]
+    fn late_geometry_resizes_once_in_the_same_media_generation() {
+        let mut state = Playback {
+            generation: 2,
+            phase: Phase::Playing,
+            ..Playback::default()
+        };
+        assert!(!media_geometry_requires_resize(Some(1), true, &state));
+        state.video = Some(video(640, 480, None));
+        assert!(media_geometry_requires_resize(Some(2), true, &state));
+        assert!(!media_geometry_requires_resize(Some(2), false, &state));
+        state.phase = Phase::Loading;
+        assert!(!media_geometry_requires_resize(Some(1), true, &state));
+    }
+
+    #[test]
+    fn missing_or_zero_geometry_does_not_enable_video_size_commands() {
+        assert_eq!(window_video_geometry(&Playback::default()), None);
+        let state = Playback {
+            phase: Phase::Playing,
+            video: Some(video(0, 360, None)),
+            ..Playback::default()
+        };
+        assert_eq!(window_video_geometry(&state), None);
+
+        for phase in [Phase::Loading, Phase::Stopped, Phase::Failed] {
+            let state = Playback {
+                phase,
+                video: Some(video(640, 360, None)),
+                ..Playback::default()
+            };
+            assert_eq!(window_video_geometry(&state), None);
+        }
     }
 }

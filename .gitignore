@@ -12,3 +12,7 @@ __pycache__/
 /tests/visual/*.txt
 /tests/visual/*.png
 /tests/visual/*.jpg
+# Reproducible app-only crop OSD capture uses the repository's synthetic fixture.
+!/tests/visual/crop-osd-windows.jpg
+# Reproducible app-only menu capture uses the same synthetic fixture.
+!/tests/visual/video-menu-windows.jpg

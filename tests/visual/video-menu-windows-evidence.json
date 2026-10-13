@@ -1,0 +1,35 @@
+{
+  "platform": "Windows 11 x64",
+  "application_version": "0.3.4",
+  "binary_sha256": "B895A8CC87416061B36A61133BC12739E2EAD80EB90B91090E928D56E3B746BF",
+  "renderer": "shared OpenGL",
+  "fixture": "moving-square.avi (isolated temporary copy)",
+  "window_title": "moving-square.avi — riina",
+  "opened_menu": "Video",
+  "observed_top_level_order": [
+    "riina",
+    "File",
+    "Edit",
+    "Playback",
+    "Video",
+    "Audio",
+    "Subtitles",
+    "Plugin",
+    "Window",
+    "Help"
+  ],
+  "visible_shortcut": "Video Filters… — Ctrl+Shift+F",
+  "duplicate_top_video_controls": false,
+  "capture_bounds": {
+    "x": 397,
+    "y": 72,
+    "width": 1016,
+    "height": 619
+  },
+  "screenshot": "tests/visual/video-menu-windows.jpg",
+  "test_process_closed": true,
+  "limitations": [
+    "Only the Video menu was opened in this check; other menu sections and keyboard routing remain open.",
+    "Dynamic shortcut customization, matched macOS captures, and other-OS runtime remain open."
+  ]
+}

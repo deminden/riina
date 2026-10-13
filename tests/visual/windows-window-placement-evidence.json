@@ -1,0 +1,277 @@
+{
+  "date_utc": "2026-10-13T05:43:15Z",
+  "platform": "Windows 11 x64",
+  "binary": "target/debug/riina.exe",
+  "binary_sha256": "33A927B5C2C1F709DA82B0D083D55A3203F04DA1CC000C3BCBA49FF3DEAF20B8",
+  "work_area": {
+    "origin": [
+      0,
+      0
+    ],
+    "size": [
+      1280,
+      672
+    ]
+  },
+  "runs": [
+    {
+      "scenario": "idle launch with action_after_launch=none and no media",
+      "binary_sha256": "1CF46B61F908E1ED85A429DB646AA6C043551CC536510095937751EAB89E5929",
+      "window_title": "riina",
+      "outer_rect": [
+        154,
+        9,
+        1126,
+        663
+      ],
+      "expected_centered_origin": [
+        154,
+        9
+      ],
+      "centering_delta": [
+        0,
+        0
+      ],
+      "test_process_closed": true
+    },
+    {
+      "scenario": "playback launch with tests/fixtures/moving-square.avi",
+      "binary_sha256": "1CF46B61F908E1ED85A429DB646AA6C043551CC536510095937751EAB89E5929",
+      "window_title": "moving-square.avi — riina",
+      "outer_rect": [
+        85,
+        0,
+        1197,
+        672
+      ],
+      "expected_centered_origin": [
+        84,
+        0
+      ],
+      "centering_delta": [
+        1,
+        0
+      ],
+      "desktop_capture": "GDI CopyFromScreen returned an all-black frame; rendered pixels are unverified",
+      "test_process_closed": true
+    },
+    {
+      "scenario": "rebuilt playback window after DPI-aware automatic-size inset",
+      "binary_sha256": "7D0A429311BA8A1C75232989823D6CE1C11EF2A0129DE64464ECF5B92D2C1D33",
+      "window_title": "track-languages.mkv — riina",
+      "outer_rect": [
+        127,
+        24,
+        1153,
+        648
+      ],
+      "expected_centered_origin": [
+        127,
+        24
+      ],
+      "centering_delta": [
+        0,
+        0
+      ],
+      "work_area_edge_margin": 24,
+      "note": "The visible media title differed from the requested fixture argument; this confirms playback-window placement only.",
+      "test_process_closed": true
+    },
+    {
+      "scenario": "playback with moving-square fixture after pre-show controls alignment",
+      "binary_sha256": "00E5EAE24C7DE850EB95B56FA49842199D34070ED880AE0E5755B894EB40DA34",
+      "window_title": "moving-square.avi — riina",
+      "host_outer_rect": [
+        127,
+        24,
+        1153,
+        648
+      ],
+      "controls_outer_rect": [
+        133,
+        72,
+        1147,
+        642
+      ],
+      "host_client_rect": [
+        133,
+        72,
+        1147,
+        642
+      ],
+      "host_client_matches_controls_outer": true,
+      "test_process_closed": true,
+      "note": "Win32 bounds confirm the controls outer frame exactly covers the host client rect, with a 24px work-area margin; rendered pixels were not captured."
+    },
+    {
+      "scenario": "shared-renderer startup with action_after_launch=none and no media",
+      "binary_sha256": "CAF73188450A3867C9E1EBFC827BF7C2FDF934CF1D9FB9028668EA7A7155927C",
+      "window_title": "riina",
+      "outer_rect": [
+        154,
+        9,
+        1126,
+        663
+      ],
+      "expected_centered_origin": [
+        154,
+        9
+      ],
+      "centering_delta": [
+        0,
+        0
+      ],
+      "test_process_closed": true,
+      "visual_capture": "not captured"
+    },
+    {
+      "scenario": "isolated Welcome window with fresh UIA and screenshot capture",
+      "binary_sha256": "CAF73188450A3867C9E1EBFC827BF7C2FDF934CF1D9FB9028668EA7A7155927C",
+      "window_title": "Riina",
+      "outer_rect": [
+        354,
+        99,
+        926,
+        573
+      ],
+      "expected_centered_origin": [
+        354,
+        99
+      ],
+      "centering_delta": [
+        0,
+        0
+      ],
+      "work_area": [
+        0,
+        0,
+        1280,
+        672
+      ],
+      "uia_controls_available": true,
+      "screen_capture": "Current Windows capture returned the Welcome surface and its visible controls",
+      "test_process_closed": true
+    },
+    {
+      "scenario": "native empty-player window after closing Welcome",
+      "binary_sha256": "B927F7D75ACD4C958E89D63AF5006CD03CFE794144074300B1AF71FB4426CE41",
+      "window_title": "riina",
+      "outer_rect": [
+        176,
+        24,
+        1104,
+        648
+      ],
+      "expected_centered_origin": [
+        176,
+        24
+      ],
+      "centering_delta": [
+        0,
+        0
+      ],
+      "work_area": [
+        0,
+        0,
+        1280,
+        672
+      ],
+      "work_area_edge_margin": [
+        176,
+        24,
+        176,
+        24
+      ],
+      "native_window_resized_to_fit": true,
+      "screen_capture": "Captured the centered player window and menu bar; empty surface, no video loaded",
+      "test_process_closed": true
+    },
+    {
+      "scenario": "shared-renderer playback with moving-square fixture",
+      "binary_sha256": "B927F7D75ACD4C958E89D63AF5006CD03CFE794144074300B1AF71FB4426CE41",
+      "initial_window_title": "moving-square.avi — riina",
+      "screen_capture": "State capture failed with 'window is not a usable app window'; fresh-handle retry found no Riina window",
+      "test_process_closed": true
+    },
+    {
+      "binary_sha256": "33A927B5C2C1F709DA82B0D083D55A3203F04DA1CC000C3BCBA49FF3DEAF20B8",
+      "window_title": "moving-square.avi — riina",
+      "work_area": [
+        0,
+        0,
+        1280,
+        672
+      ],
+      "expected_centered_origin": [
+        127,
+        24
+      ],
+      "scenario": "rebuilt shared-renderer Windows playback placement",
+      "centering_delta": [
+        0,
+        0
+      ],
+      "test_process_closed": true,
+      "outer_rect": [
+        127,
+        24,
+        1153,
+        648
+      ]
+    },
+    {
+      "binary_sha256": "33A927B5C2C1F709DA82B0D083D55A3203F04DA1CC000C3BCBA49FF3DEAF20B8",
+      "window_title": "Riina",
+      "work_area": [
+        0,
+        0,
+        1280,
+        672
+      ],
+      "expected_centered_origin": [
+        354,
+        99
+      ],
+      "scenario": "rebuilt Windows Welcome first-show placement",
+      "centering_delta": [
+        0,
+        0
+      ],
+      "test_process_closed": true,
+      "outer_rect": [
+        354,
+        99,
+        926,
+        573
+      ]
+    },
+    {
+      "binary_sha256": "2AD21933F291F5C8632D319430269B4AF8C81B8BE3852215DE2AA9CFA0FDEB10",
+      "window_title": "Riina",
+      "work_area": [
+        0,
+        0,
+        1280,
+        672
+      ],
+      "expected_centered_origin": [
+        354,
+        99
+      ],
+      "scenario": "immediate-first-placement rebuilt Windows Welcome",
+      "centering_delta": [
+        0,
+        0
+      ],
+      "test_process_closed": true,
+      "outer_rect": [
+        354,
+        99,
+        926,
+        573
+      ],
+      "capture": "Windows Graphics Capture failed; frame bounds read through Win32"
+    }
+  ],
+  "scope": "Single-monitor primary-work-area first-show and playback bounds measured. Multi-monitor behavior, shared-renderer video rendering and matched IINA interface pixels remain unverified."
+}

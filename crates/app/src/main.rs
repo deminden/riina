@@ -57,11 +57,13 @@ mod subtitle_other_preferences;
 mod subtitle_position_preferences;
 mod subtitle_preferences;
 mod subtitle_priority;
+mod subtitle_series;
 mod thumbnail_cache;
 mod thumbnail_preferences;
 mod thumbnail_preview;
 mod tone_mapping_preferences;
 mod ui_dialogs;
+mod ui_models;
 mod utilities_preferences;
 mod video_filter_window;
 mod video_osd;
@@ -74,22 +76,32 @@ use player_ui::configure_player;
 use slint::ComponentHandle;
 slint::include_modules!();
 
+struct StartupArguments {
+    media: Vec<std::ffi::OsString>,
+    resume_position: Option<f64>,
+    owner_center: Option<(i32, i32)>,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     prepare_online_video_path()?;
     let action_after_launch = player_ui::action_after_launch()?;
-    let (arguments, resume_position) = take_resume_argument(std::env::args_os().skip(1))?;
-    let (_shared_gl, _native_video, media) = startup_arguments(arguments.into_iter());
+    let startup = take_startup_arguments(std::env::args_os().skip(1))?;
+    let (_shared_gl, _native_video, media) = startup_arguments(startup.media.into_iter());
+    let resume_position = startup.resume_position;
+    let owner_center = startup.owner_center;
     let supplied_media_argument = !media.is_empty();
     #[cfg(target_os = "windows")]
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
     if !_shared_gl {
-        return platform::native_window::run(media, resume_position);
+        return platform::native_window::run(media, resume_position, owner_center);
     }
     #[cfg(not(target_os = "windows"))]
     if _native_video {
         return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
     }
+    #[cfg(not(target_os = "windows"))]
+    let _ = owner_center;
     let backend = slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("femtovg".into());
@@ -121,24 +133,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     window_aspect::connect(&app);
     if let Some(welcome) = &welcome {
+        platform::center_auxiliary_window(welcome, &app);
         welcome.show()?;
     } else {
         app.show()?;
         if action_after_launch.open_file_panel(supplied_media_argument) {
             app.invoke_open_file();
         }
+        platform::center_player_window(&app, app.get_initial_window_position_enabled());
     }
     slint::run_event_loop()?;
     player_manager.save_all()
 }
 
-fn take_resume_argument(
+fn take_startup_arguments(
     args: impl Iterator<Item = std::ffi::OsString>,
-) -> Result<(Vec<std::ffi::OsString>, Option<f64>), Box<dyn std::error::Error>> {
-    // Keep the resume position separate from the media reference passed to a new player.
+) -> Result<StartupArguments, Box<dyn std::error::Error>> {
+    // Keep internal launch hints separate from media references passed to a player.
     let mut args = args.peekable();
     let mut media = Vec::new();
     let mut resume_position = None;
+    let mut owner_center = None;
     while let Some(argument) = args.next() {
         if argument == "--riina-resume-at" {
             let value = args.next().ok_or("Missing resume position")?;
@@ -150,11 +165,26 @@ fn take_resume_argument(
                 return Err("Resume position must be a finite non-negative number".into());
             }
             resume_position = Some(value);
+        } else if argument == "--riina-owner-center" {
+            let x = args.next().ok_or("Missing owner-center x coordinate")?;
+            let y = args.next().ok_or("Missing owner-center y coordinate")?;
+            owner_center = Some((
+                x.to_str()
+                    .ok_or("Owner-center x coordinate is not Unicode")?
+                    .parse()?,
+                y.to_str()
+                    .ok_or("Owner-center y coordinate is not Unicode")?
+                    .parse()?,
+            ));
         } else {
             media.push(argument);
         }
     }
-    Ok((media, resume_position))
+    Ok(StartupArguments {
+        media,
+        resume_position,
+        owner_center,
+    })
 }
 
 fn startup_arguments(
@@ -193,7 +223,7 @@ fn prepare_online_video_path() -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
-    use super::startup_arguments;
+    use super::{startup_arguments, take_startup_arguments};
     use std::ffi::OsString;
 
     #[test]
@@ -217,5 +247,26 @@ mod tests {
         assert!(!shared_gl);
         assert!(!native_video);
         assert_eq!(media, ["first.mkv", "second.mkv"].map(OsString::from));
+    }
+
+    #[test]
+    fn child_player_keeps_owner_monitor_hint_out_of_media_arguments() {
+        let arguments = take_startup_arguments(
+            [
+                "--riina-owner-center",
+                "1440",
+                "520",
+                "--riina-resume-at",
+                "3.5",
+                "movie.mkv",
+            ]
+            .into_iter()
+            .map(OsString::from),
+        )
+        .unwrap();
+
+        assert_eq!(arguments.media, ["movie.mkv"].map(OsString::from));
+        assert_eq!(arguments.resume_position, Some(3.5));
+        assert_eq!(arguments.owner_center, Some((1440, 520)));
     }
 }

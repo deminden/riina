@@ -189,6 +189,8 @@ fn decode_text(bytes: &[u8], name: &str) -> Result<String, String> {
         "japaneseuc" => "euc-jp",
         "shiftjis" => "shift_jis",
         "macosroman" => "macintosh",
+        "big5-hkscs" | "big5-hkscs-1999" | "big5-e" => "big5",
+        "iso-2022-jp-1" | "iso-2022-jp-2" | "iso-2022-jp-3" => "iso-2022-jp",
         "windowscp1250" => "windows-1250",
         "windowscp1251" => "windows-1251",
         "windowscp1252" => "windows-1252",
@@ -202,6 +204,8 @@ fn decode_text(bytes: &[u8], name: &str) -> Result<String, String> {
         "windowslatin2" => "windows-1250",
         "windowslatin5" => "windows-1254",
         "windowsvietnamese" => "windows-1258",
+        "isolatin5" => "iso-8859-9",
+        "isolatinthai" => "windows-874",
         "cp949" => "euc-kr",
         "iso2022jp" | "iso-2022-jp" => "iso-2022-jp",
         "euc-cn" | "gbk-95" | "gb2312-80" => "gbk",
@@ -503,6 +507,23 @@ impl PluginFiles {
             return Err("Cannot move a plugin storage root".into());
         }
         fs::rename(source, destination).map_err(|error| format!("Could not move file: {error}"))
+    }
+
+    pub(crate) fn trash(&self, path: &str, file_system_granted: bool) -> Result<(), String> {
+        let path = self
+            .resolve(path, file_system_granted, false)?
+            .ok_or_else(|| "File does not exist".to_owned())?;
+        if path == self.canonical_root(&self.data_root)?
+            || path == self.canonical_root(&self.temp_root)?
+        {
+            return Err("Cannot trash a plugin storage root".into());
+        }
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("Could not inspect file: {error}"))?;
+        if metadata.file_type().is_symlink() {
+            return Err("Cannot trash a symbolic link through the plugin file API".into());
+        }
+        trash::delete(&path).map_err(|error| format!("Could not move file to Trash: {error}"))
     }
 
     pub(crate) fn delete(&self, path: &str) -> Result<(), String> {
@@ -888,6 +909,7 @@ mod tests {
     #[test]
     fn move_scopes_private_paths_and_requires_grant_for_external_paths() {
         let (files, root) = temporary_files();
+        assert!(files.trash("@data/", false).is_err());
         files
             .write_text("@data/source.txt", "saved", false)
             .unwrap();
@@ -905,6 +927,12 @@ mod tests {
         let external_source = root.join("outside.txt");
         let external_destination = root.join("moved.txt");
         fs::write(&external_source, "external").unwrap();
+        assert!(
+            files
+                .trash(external_source.to_str().unwrap(), false)
+                .is_err()
+        );
+        assert!(external_source.exists());
         assert!(
             files
                 .move_path(
@@ -1029,6 +1057,28 @@ mod tests {
                 .unwrap(),
             "café\u{0080}"
         );
+
+        for (name, bytes, expected) in [
+            ("isoLatin5", &[0xd0][..], "Ğ"),
+            ("isoLatinThai", &[0xa1][..], "ก"),
+            ("KOI8_R", &[0xc1][..], "а"),
+            ("KOI8_U", &[0xc1][..], "а"),
+            ("big5_E", b"A", "A"),
+            ("big5_HKSCS_1999", b"A", "A"),
+            ("ISO_2022_JP_1", b"A", "A"),
+            ("ISO_2022_JP_2", b"A", "A"),
+            ("ISO_2022_JP_3", b"A", "A"),
+        ] {
+            fs::write(&path, bytes).unwrap();
+            let options = serde_json::json!({ "encoding": name }).to_string();
+            assert_eq!(
+                files
+                    .read_text("@data/encoded.txt", &options, false)
+                    .unwrap(),
+                expected,
+                "Foundation encoding name {name}"
+            );
+        }
 
         fs::write(&path, [0xff, 0xfe, b'h', 0, b'i', 0]).unwrap();
         assert_eq!(

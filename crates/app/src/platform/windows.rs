@@ -1,9 +1,14 @@
+pub(crate) mod bring_to_front;
 pub(crate) mod file_dialog;
+pub(crate) mod materials;
 mod menu_focus;
 pub(crate) mod native_window;
 pub(crate) mod pip;
 mod plugin_overlay;
 mod presentation;
+pub(crate) mod window_geometry;
+pub(crate) mod window_position;
+pub(crate) mod window_sizing;
 pub(crate) use plugin_overlay::PluginOverlayPresenter;
 pub(crate) use presentation::NativePresentation;
 pub(crate) mod services;

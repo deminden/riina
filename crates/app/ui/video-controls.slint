@@ -48,10 +48,13 @@ export component VideoControls inherits Rectangle {
     in property <bool> rotation-enabled: false;
     callback aspect-changed(string);
     callback rotation-changed(int);
-    height: 152px;
+    height: 160px;
     background: transparent;
     VerticalLayout { spacing: 8px;
-        Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+        HorizontalLayout { height: 16px; spacing: 8px;
+            Image { source: @image-url("../../../assets/icons/video-aspect-ratio.svg"); width: 16px; height: 16px; }
+            Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
+        }
         Rectangle { height: 24px;
             ScrollView { width: parent.width; height: 24px;
                 horizontal-scrollbar-policy: always-off;
@@ -98,7 +101,10 @@ export component VideoControls inherits Rectangle {
                 }
             }
         }
-        Text { text: "Crop"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+        HorizontalLayout { height: 16px; spacing: 8px;
+            Image { source: @image-url("../../../assets/icons/video-crop.svg"); width: 16px; height: 16px; }
+            Text { text: "Crop"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
+        }
         Rectangle { height: 24px;
             ScrollView { width: parent.width; height: 24px;
                 horizontal-scrollbar-policy: always-off;
@@ -116,7 +122,10 @@ export component VideoControls inherits Rectangle {
                 }
             }
         }
-        Text { text: "Rotation"; font-size: 12px; font-weight: 700; color: #dddddd; height: 14px; }
+        HorizontalLayout { height: 16px; spacing: 8px;
+            Image { source: @image-url("../../../assets/icons/video-rotate.svg"); width: 16px; height: 16px; }
+            Text { text: "Rotation"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
+        }
         HorizontalLayout { height: 24px; spacing: 1px;
             for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
                 label: label; hint: "Video rotation " + label;

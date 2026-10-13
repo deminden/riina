@@ -18,15 +18,15 @@ use std::{
 };
 use windows::{
     Win32::{
-        Foundation::HWND,
+        Foundation::{HWND, RECT},
         Graphics::{
             Dwm::{DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BLURBEHIND, DwmEnableBlurBehindWindow},
             Gdi::{CreateRectRgn, DeleteObject, HGDIOBJ},
         },
         UI::WindowsAndMessaging::{
-            GWL_EXSTYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE,
-            SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
-            WS_EX_TRANSPARENT,
+            GWL_EXSTYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW,
+            SetWindowPos, WS_EX_TRANSPARENT,
         },
     },
     core::BOOL,
@@ -98,11 +98,112 @@ fn align(host: &slint::Window, chrome: &slint::Window) {
     host.with_winit_window(|window| {
         if let Ok(origin) = window.inner_position() {
             // Both values are physical: never multiply a physical size by DPI again.
-            chrome.set_size(slint::PhysicalSize::new(
-                window.inner_size().width,
-                window.inner_size().height,
-            ));
-            chrome.set_position(slint::PhysicalPosition::new(origin.x, origin.y));
+            let size =
+                slint::PhysicalSize::new(window.inner_size().width, window.inner_size().height);
+            let position = slint::PhysicalPosition::new(origin.x, origin.y);
+            chrome.with_winit_window(|overlay| {
+                if let Err(error) = super::window_geometry::align_overlay(overlay, position, size) {
+                    // The overlay adapter may not have an HWND during its
+                    // initial construction. Keep queued Slint geometry there;
+                    // realized windows use one native move/resize operation.
+                    if chrome.size() != size {
+                        chrome.set_size(size);
+                    }
+                    if chrome.position() != position {
+                        chrome.set_position(position);
+                    }
+                    if !error.contains("not initialized") {
+                        eprintln!("Could not align native video controls atomically: {error}");
+                    }
+                }
+            });
+        }
+    });
+}
+
+fn center_host_in_work_area(window: &winit::window::Window, owner_center: Option<(i32, i32)>) {
+    let Ok(raw_window) = window.window_handle() else {
+        return;
+    };
+    let RawWindowHandle::Win32(raw_window) = raw_window.as_raw() else {
+        return;
+    };
+    let hwnd = HWND(raw_window.hwnd.get() as *mut _);
+    let mut frame = RECT::default();
+    // SAFETY: frame is a valid writable RECT and hwnd belongs to this live window.
+    if unsafe { GetWindowRect(hwnd, &mut frame) }.is_err() {
+        return;
+    }
+    // Fit oversized initial frames inside the taskbar-free area before
+    // centering. A position-only center clamps an overheight window to (0, 0).
+    let work_area = owner_center
+        .and_then(|(x, y)| super::window_position::work_area_near_point(x, y))
+        .or_else(|| super::window_position::primary_work_area(window));
+    let Some(work_area) = work_area else {
+        return;
+    };
+    let width = frame.right.saturating_sub(frame.left).max(0) as u32;
+    let height = frame.bottom.saturating_sub(frame.top).max(0) as u32;
+    let bounds = riina_core::window_resize::ScreenRect {
+        x: work_area.x,
+        y: work_area.y,
+        size: riina_core::window_aspect::PixelSize {
+            width: work_area.size.width,
+            height: work_area.size.height,
+        },
+    };
+    let margin = (24.0 * window.scale_factor()).round().max(0.0) as u32;
+    let Some(placement) = riina_core::window_resize::centered_window_placement(
+        riina_core::window_aspect::PixelSize { width, height },
+        bounds,
+        margin,
+    ) else {
+        return;
+    };
+    let mut flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER;
+    if placement.size.width == width && placement.size.height == height {
+        flags |= SWP_NOSIZE;
+    }
+    // Position by the measured outer frame so DPI conversion cannot shift the
+    // caption edge; shrink only when that frame exceeds the usable area.
+    let _ = unsafe {
+        SetWindowPos(
+            hwnd,
+            None,
+            placement.x,
+            placement.y,
+            i32::try_from(placement.size.width).unwrap_or(i32::MAX),
+            i32::try_from(placement.size.height).unwrap_or(i32::MAX),
+            flags,
+        )
+    };
+}
+
+fn schedule_startup_center(
+    host: slint::Weak<NativeVideoHost>,
+    app: slint::Weak<PlayerWindow>,
+    pending: Rc<Cell<bool>>,
+    generation: Rc<Cell<u64>>,
+    owner_center: Option<(i32, i32)>,
+) {
+    if !pending.get() {
+        return;
+    }
+    let next = generation.get().wrapping_add(1);
+    generation.set(next);
+    slint::Timer::single_shot(std::time::Duration::from_millis(250), move || {
+        if generation.get() != next || !pending.get() {
+            return;
+        }
+        if let (Some(host), Some(app)) = (host.upgrade(), app.upgrade()) {
+            if app.get_initial_window_position_enabled() {
+                pending.set(false);
+                return;
+            }
+            host.window()
+                .with_winit_window(|window| center_host_in_work_area(window, owner_center));
+            align(host.window(), app.window());
+            pending.set(false);
         }
     });
 }
@@ -110,6 +211,7 @@ fn align(host: &slint::Window, chrome: &slint::Window) {
 pub fn run(
     media: Vec<OsString>,
     resume_position: Option<f64>,
+    owner_center: Option<(i32, i32)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let action_after_launch = crate::player_ui::action_after_launch()?;
     let supplied_media_argument = !media.is_empty();
@@ -135,10 +237,8 @@ pub fn run(
         })
         .select()?;
     let host = NativeVideoHost::new()?;
+    host.set_bring_all_to_front_available(true);
     host.set_display_title("riina".into());
-    host.window().with_winit_window(|window| {
-        window.set_title("riina");
-    });
     let chrome: Rc<RefCell<Option<PlayerWindow>>> = Rc::new(RefCell::new(None));
     let welcome_window: Rc<RefCell<Option<crate::WelcomeWindow>>> = Rc::new(RefCell::new(None));
     let session: Rc<RefCell<Option<UiSession>>> = Rc::new(RefCell::new(None));
@@ -157,6 +257,13 @@ pub fn run(
     let startup_menu_lifecycle = menu_lifecycle.clone();
     let menu_focus = Rc::new(Cell::new(false));
     let startup_menu_focus = menu_focus.clone();
+    let startup_center_pending = Rc::new(Cell::new(false));
+    let startup_media_loaded = Rc::new(Cell::new(false));
+    let startup_center_generation = Rc::new(Cell::new(0_u64));
+    let event_center_host = host.as_weak();
+    let event_startup_center_pending = startup_center_pending.clone();
+    let event_startup_media_loaded = startup_media_loaded.clone();
+    let event_startup_center_generation = startup_center_generation.clone();
     host.show()?;
     slint::spawn_local(async move {
         let Some(host) = weak_host.upgrade() else {
@@ -164,7 +271,17 @@ pub fn run(
         };
         let result = async {
             let window = host.window().winit_window().await?;
-            window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(520.0, 300.0)));
+            // Winit's first placement is an implementation default, often near
+            // the upper-left corner. Correct it as soon as the native frame is
+            // realized so the user never sees the temporary location while the
+            // player and playback session are still being initialized.
+            center_host_in_work_area(&window, owner_center);
+            window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(285.0, 120.0)));
+            if let Err(error) = super::materials::apply_main_window_mica(&window) {
+                eprintln!(
+                    "Windows system backdrop unavailable; keeping the renderer fallback: {error}"
+                );
+            }
             let presentation = super::NativePresentation::new(window, host.as_weak())
                 .map_err(std::io::Error::other)?;
             let video_hwnd = presentation.owner_handle();
@@ -176,12 +293,30 @@ pub fn run(
             let title_host = host.as_weak();
             app.on_window_title_changed(move |title| {
                 if let Some(host) = title_host.upgrade() {
-                    host.set_display_title(title.clone());
-                    host.window()
-                        .with_winit_window(|window| window.set_title(title.as_str()));
+                    host.set_display_title(title);
                 }
             });
             let music_original_size = Rc::new(Cell::new(None));
+            startup_center_pending.set(!app.get_initial_window_position_enabled());
+            let loaded_center_host = host.as_weak();
+            let loaded_center_app = app.as_weak();
+            let loaded_center_pending = startup_center_pending.clone();
+            let loaded_media_state = startup_media_loaded.clone();
+            let loaded_center_generation = startup_center_generation.clone();
+            let loaded_owner_center = owner_center;
+            app.on_initial_media_loaded(move || {
+                if !loaded_center_pending.get() {
+                    return;
+                }
+                loaded_media_state.set(true);
+                schedule_startup_center(
+                    loaded_center_host.clone(),
+                    loaded_center_app.clone(),
+                    loaded_center_pending.clone(),
+                    loaded_center_generation.clone(),
+                    loaded_owner_center,
+                );
+            });
             let saved_music_size = music_original_size.clone();
             let music_host = host.as_weak();
             let music_app = app.as_weak();
@@ -189,6 +324,7 @@ pub fn run(
                 let (Some(host), Some(app)) = (music_host.upgrade(), music_app.upgrade()) else {
                     return;
                 };
+                let mut resized = None;
                 host.window().with_winit_window(|window| {
                     let scale = window.scale_factor();
                     let target = if app.get_music_mode() {
@@ -206,16 +342,27 @@ pub fn run(
                             (height * scale).round() as u32,
                         )
                     } else if let Some(size) = saved_music_size.take() {
-                        window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(520.0, 300.0)));
+                        window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(285.0, 120.0)));
                         size
                     } else {
                         return;
                     };
-                    let _ = window.request_inner_size(target);
-                    let chrome_size = slint::PhysicalSize::new(target.width, target.height);
-                    host.window().set_size(chrome_size);
-                    app.window().set_size(chrome_size);
+                    resized = Some((window.inner_size(), target));
                 });
+                if let Some((current, target)) = resized {
+                    crate::window_aspect::resize_centered(
+                        host.window(),
+                        riina_core::window_aspect::PixelSize {
+                            width: current.width,
+                            height: current.height,
+                        },
+                        riina_core::window_aspect::PixelSize {
+                            width: target.width,
+                            height: target.height,
+                        },
+                        Some(app.window()),
+                    );
+                }
             });
             let recreated_app = app.as_weak();
             let recreated_host = host.as_weak();
@@ -247,6 +394,36 @@ pub fn run(
             } else {
                 None
             };
+            if let Some(welcome) = &welcome {
+                let quit_preference = app.as_weak();
+                let close_welcome_app = app.as_weak();
+                let close_welcome_host = host.as_weak();
+                welcome.window().on_close_requested(move || {
+                    let setting = quit_preference
+                        .upgrade()
+                        .is_some_and(|app| app.get_quit_when_no_opened_window());
+                    let should_quit =
+                        crate::player_manager::should_quit_after_last_window_closed(setting, 0);
+                    if should_quit {
+                        let _ = slint::quit_event_loop();
+                    } else if let (Some(app), Some(host)) =
+                        (close_welcome_app.upgrade(), close_welcome_host.upgrade())
+                    {
+                        // The welcome surface is the only visible native window at
+                        // startup. Keep a usable player window when the user closes
+                        // it but has asked the application to remain available.
+                        align(host.window(), app.window());
+                        host.window()
+                            .with_winit_window(|window| window.set_visible(true));
+                        let _ = app.show();
+                        host.window().with_winit_window(|window| {
+                            center_host_in_work_area(window, owner_center)
+                        });
+                        align(host.window(), app.window());
+                    }
+                    slint::CloseRequestResponse::HideWindow
+                });
+            }
             // Slint stores one event hook per window. Return the aspect filter
             // to our owner router so it cannot replace alignment/focus handling.
             *startup_resize_filter.borrow_mut() =
@@ -275,120 +452,163 @@ pub fn run(
             // playback model or sending window handles across threads.
             let menu_host = host.as_weak();
             let menu_app = app.as_weak();
+            let menu_pending = Rc::new(Cell::new(false));
             app.on_video_menu_changed(move || {
-                if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
-                    host.set_reflection_menu_enabled(
-                        app.get_loaded() && app.get_reflection_known() && !app.get_crop_editing(),
-                    );
-                    host.set_video_mirrored(app.get_video_mirrored());
-                    host.set_video_flipped(app.get_video_flipped());
-                    host.set_delogo_menu_enabled(
-                        app.get_delogo_enabled() && !app.get_crop_editing(),
-                    );
-                    host.set_delogo_active(app.get_delogo_active());
-                    host.set_saved_video_filter_rows(app.get_saved_video_filter_rows());
-                    host.set_saved_audio_filter_rows(app.get_saved_audio_filter_rows());
-                    host.set_crop_menu_enabled(
-                        app.get_loaded() && app.get_video_crop_known() && !app.get_crop_editing(),
-                    );
-                    host.set_crop_menu_labels(app.get_video_crop_menu_labels());
-                    host.set_crop_menu_index(app.get_video_crop_menu_index());
-                    host.set_aspect_menu_enabled(
-                        app.get_loaded() && app.get_video_aspect_known() && !app.get_crop_editing(),
-                    );
-                    host.set_aspect_menu_labels(app.get_video_aspect_menu_labels());
-                    host.set_video_aspect_menu_index(app.get_video_aspect_menu_index());
-                    host.set_rotation_menu_enabled(
-                        app.get_loaded()
-                            && app.get_video_rotation_known()
-                            && !app.get_crop_editing(),
-                    );
-                    host.set_video_rotation_index(app.get_video_rotation_index());
-                    host.set_deinterlace_menu_enabled(
-                        app.get_loaded() && app.get_deinterlace_known() && !app.get_crop_editing(),
-                    );
-                    host.set_deinterlace_enabled(app.get_deinterlace_enabled());
-                    host.set_screenshot_available(
-                        app.get_screenshot_available() && !app.get_crop_editing(),
-                    );
-                    host.set_screenshot_folder_enabled(!app.get_crop_editing());
-                    host.set_fullscreen_mode(app.get_fullscreen());
-                    host.set_always_float_on_top(app.get_always_float_on_top());
-                    host.set_unlock_window_aspect_ratio(app.get_unlock_window_aspect_ratio());
-                    host.set_live_text_available(app.get_live_text_available());
-                    host.set_live_text_enabled(app.get_live_text_enabled());
-                    host.set_record_recent_files(app.get_record_recent_files());
-                    host.set_recent_open_menu_rows(app.get_recent_open_menu_rows());
-                    host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
-                    host.set_reveal_current_media_available(
-                        app.get_reveal_current_media_available(),
-                    );
-                    host.set_delete_current_media_available(
-                        app.get_delete_current_media_available(),
-                    );
-                    host.set_save_current_playlist_available(
-                        app.get_save_current_playlist_available(),
-                    );
-                    host.set_downloaded_subtitle_save_available(
-                        app.get_downloaded_subtitle_save_available(),
-                    );
-                    host.set_current_file_manager_name(app.get_current_file_manager_name());
-                    host.set_playback_paused(app.get_paused());
-                    host.set_loop_label(app.get_loop_label());
-                    let playlist_rows = app.get_playlist();
-                    host.set_playlist_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-                        (0..playlist_rows.row_count())
-                            .filter_map(|index| playlist_rows.row_data(index))
-                            .map(|row| crate::MenuCatalogRow {
-                                token: row.token,
-                                label: row.label,
-                                selected: row.playing,
-                            })
-                            .collect::<Vec<_>>(),
-                    )));
-                    let chapter_rows = app.get_chapters();
-                    host.set_chapter_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-                        (0..chapter_rows.row_count())
-                            .filter_map(|index| chapter_rows.row_data(index))
-                            .map(|row| crate::MenuCatalogRow {
-                                token: row.token,
-                                label: row.label,
-                                selected: row.selected,
-                            })
-                            .collect::<Vec<_>>(),
-                    )));
-                    let video_rows = app.get_video_tracks();
-                    host.set_video_track_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-                        (0..video_rows.row_count())
-                            .filter_map(|index| video_rows.row_data(index))
-                            .map(|row| crate::MenuCatalogRow {
-                                token: row.token,
-                                label: row.label,
-                                selected: row.selected,
-                            })
-                            .collect::<Vec<_>>(),
-                    )));
-                    host.set_subtitle_visible(app.get_subtitle_visible());
-                    host.set_secondary_subtitle_visible(app.get_secondary_subtitle_visible());
-                    host.set_secondary_subtitle_visibility_known(
-                        app.get_secondary_subtitle_visibility_known(),
-                    );
-                    host.set_subtitle_scale_known(app.get_subtitle_scale_known());
-                    host.set_subtitle_default_encoding(app.get_subtitle_default_encoding());
-                    let subtitle_rows = app.get_subtitle_tracks();
-                    host.set_subtitle_track_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-                        (0..subtitle_rows.row_count())
-                            .filter_map(|index| subtitle_rows.row_data(index))
-                            .map(|row| crate::MenuCatalogRow {
-                                token: row.token,
-                                label: row.label,
-                                selected: row.selected,
-                            })
-                            .collect::<Vec<_>>(),
-                    )));
-                    let secondary_subtitle_rows = app.get_secondary_subtitle_tracks();
-                    host.set_secondary_subtitle_menu_rows(slint::ModelRc::new(
-                        slint::VecModel::from(
+                if menu_pending.replace(true) {
+                    return;
+                }
+                let menu_host = menu_host.clone();
+                let menu_app = menu_app.clone();
+                let menu_pending = menu_pending.clone();
+                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                    menu_pending.set(false);
+                    if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
+                        let settings_pane = if app.get_settings_at_leading() {
+                            app.get_leading_sidebar()
+                        } else {
+                            app.get_sidebar()
+                        };
+                        host.set_video_panel_open(settings_pane == 6);
+                        host.set_audio_panel_open(settings_pane == 1);
+                        host.set_subtitles_panel_open(settings_pane == 2);
+                        host.set_plugins_panel_open(
+                            app.get_leading_sidebar() == 7 || app.get_sidebar() == 7,
+                        );
+                        host.set_reflection_menu_enabled(
+                            app.get_loaded()
+                                && app.get_reflection_known()
+                                && !app.get_crop_editing(),
+                        );
+                        host.set_video_mirrored(app.get_video_mirrored());
+                        host.set_video_flipped(app.get_video_flipped());
+                        host.set_delogo_menu_enabled(
+                            app.get_delogo_enabled() && !app.get_crop_editing(),
+                        );
+                        host.set_delogo_active(app.get_delogo_active());
+                        host.set_saved_video_filter_rows(app.get_saved_video_filter_rows());
+                        host.set_saved_audio_filter_rows(app.get_saved_audio_filter_rows());
+                        host.set_crop_menu_enabled(
+                            app.get_loaded()
+                                && app.get_video_crop_known()
+                                && !app.get_crop_editing(),
+                        );
+                        host.set_crop_menu_labels(app.get_video_crop_menu_labels());
+                        host.set_crop_menu_index(app.get_video_crop_menu_index());
+                        host.set_aspect_menu_enabled(
+                            app.get_loaded()
+                                && app.get_video_aspect_known()
+                                && !app.get_crop_editing(),
+                        );
+                        host.set_aspect_menu_labels(app.get_video_aspect_menu_labels());
+                        host.set_video_aspect_menu_index(app.get_video_aspect_menu_index());
+                        host.set_rotation_menu_enabled(
+                            app.get_loaded()
+                                && app.get_video_rotation_known()
+                                && !app.get_crop_editing(),
+                        );
+                        host.set_video_rotation_index(app.get_video_rotation_index());
+                        host.set_deinterlace_menu_enabled(
+                            app.get_loaded()
+                                && app.get_deinterlace_known()
+                                && !app.get_crop_editing(),
+                        );
+                        host.set_deinterlace_enabled(app.get_deinterlace_enabled());
+                        host.set_screenshot_available(
+                            app.get_screenshot_available() && !app.get_crop_editing(),
+                        );
+                        host.set_screenshot_folder_enabled(!app.get_crop_editing());
+                        host.set_fullscreen_mode(app.get_fullscreen());
+                        host.set_always_float_on_top(app.get_always_float_on_top());
+                        host.set_menu_shortcuts(app.get_menu_shortcuts());
+                        host.set_unlock_window_aspect_ratio(app.get_unlock_window_aspect_ratio());
+                        host.set_live_text_available(app.get_live_text_available());
+                        host.set_live_text_enabled(app.get_live_text_enabled());
+                        host.set_record_recent_files(app.get_record_recent_files());
+                        host.set_recent_open_menu_rows(app.get_recent_open_menu_rows());
+                        host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
+                        host.set_reveal_current_media_available(
+                            app.get_reveal_current_media_available(),
+                        );
+                        host.set_delete_current_media_available(
+                            app.get_delete_current_media_available(),
+                        );
+                        host.set_save_current_playlist_available(
+                            app.get_save_current_playlist_available(),
+                        );
+                        host.set_downloaded_subtitle_save_available(
+                            app.get_downloaded_subtitle_save_available(),
+                        );
+                        host.set_current_file_manager_name(app.get_current_file_manager_name());
+                        host.set_playback_paused(app.get_paused());
+                        host.set_menu_alternates_visible(app.get_menu_alternates_visible());
+                        host.set_playback_speed_value(app.get_speed_edit_value());
+                        host.set_volume_menu_title(app.get_volume_menu_title());
+                        host.set_playback_muted(app.get_muted());
+                        host.set_audio_delay_text(app.get_audio_delay_text());
+                        host.set_loop_label(app.get_loop_label());
+                        let playlist_rows = app.get_playlist();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_playlist_menu_rows(),
+                            (0..playlist_rows.row_count())
+                                .filter_map(|index| playlist_rows.row_data(index))
+                                .map(|row| crate::MenuCatalogRow {
+                                    token: row.token,
+                                    label: row.label,
+                                    selected: row.playing,
+                                })
+                                .collect::<Vec<_>>(),
+                            |rows| host.set_playlist_menu_rows(rows),
+                        );
+                        host.set_audio_device_menu_rows(app.get_audio_device_menu_rows());
+                        let chapter_rows = app.get_chapters();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_chapter_menu_rows(),
+                            (0..chapter_rows.row_count())
+                                .filter_map(|index| chapter_rows.row_data(index))
+                                .map(|row| crate::MenuCatalogRow {
+                                    token: row.token,
+                                    label: row.label,
+                                    selected: row.selected,
+                                })
+                                .collect::<Vec<_>>(),
+                            |rows| host.set_chapter_menu_rows(rows),
+                        );
+                        let video_rows = app.get_video_tracks();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_video_track_menu_rows(),
+                            (0..video_rows.row_count())
+                                .filter_map(|index| video_rows.row_data(index))
+                                .map(|row| crate::MenuCatalogRow {
+                                    token: row.token,
+                                    label: row.label,
+                                    selected: row.selected,
+                                })
+                                .collect::<Vec<_>>(),
+                            |rows| host.set_video_track_menu_rows(rows),
+                        );
+                        host.set_subtitle_visible(app.get_subtitle_visible());
+                        host.set_secondary_subtitle_visible(app.get_secondary_subtitle_visible());
+                        host.set_secondary_subtitle_visibility_known(
+                            app.get_secondary_subtitle_visibility_known(),
+                        );
+                        host.set_subtitle_scale_known(app.get_subtitle_scale_known());
+                        host.set_subtitle_default_encoding(app.get_subtitle_default_encoding());
+                        let subtitle_rows = app.get_subtitle_tracks();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_subtitle_track_menu_rows(),
+                            (0..subtitle_rows.row_count())
+                                .filter_map(|index| subtitle_rows.row_data(index))
+                                .map(|row| crate::MenuCatalogRow {
+                                    token: row.token,
+                                    label: row.label,
+                                    selected: row.selected,
+                                })
+                                .collect::<Vec<_>>(),
+                            |rows| host.set_subtitle_track_menu_rows(rows),
+                        );
+                        let secondary_subtitle_rows = app.get_secondary_subtitle_tracks();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_secondary_subtitle_menu_rows(),
                             (0..secondary_subtitle_rows.row_count())
                                 .filter_map(|index| secondary_subtitle_rows.row_data(index))
                                 .map(|row| crate::MenuCatalogRow {
@@ -397,11 +617,11 @@ pub fn run(
                                     selected: row.selected,
                                 })
                                 .collect::<Vec<_>>(),
-                        ),
-                    ));
-                    let subtitle_encodings = app.get_subtitle_encoding_options();
-                    host.set_subtitle_encoding_menu_rows(slint::ModelRc::new(
-                        slint::VecModel::from(
+                            |rows| host.set_secondary_subtitle_menu_rows(rows),
+                        );
+                        let subtitle_encodings = app.get_subtitle_encoding_options();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_subtitle_encoding_menu_rows(),
                             (0..subtitle_encodings.row_count())
                                 .filter_map(|index| subtitle_encodings.row_data(index))
                                 .map(|row| crate::MenuCatalogRow {
@@ -410,20 +630,24 @@ pub fn run(
                                     selected: row.selected,
                                 })
                                 .collect::<Vec<_>>(),
-                        ),
-                    ));
-                    host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
-                    host.set_music_mode(app.get_music_mode());
-                    host.set_video_resize_available(
-                        app.get_video_window_width() > 0.0
-                            && app.get_video_window_height() > 0.0
-                            && !app.get_crop_editing(),
-                    );
-                    host.set_picture_in_picture_available(
-                        app.get_loaded() && app.get_video_width() > 0.0 && !app.get_crop_editing(),
-                    );
-                }
+                            |rows| host.set_subtitle_encoding_menu_rows(rows),
+                        );
+                        host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
+                        host.set_music_mode(app.get_music_mode());
+                        host.set_video_resize_available(
+                            app.get_video_window_width() > 0.0
+                                && app.get_video_window_height() > 0.0
+                                && !app.get_crop_editing(),
+                        );
+                        host.set_picture_in_picture_available(
+                            app.get_loaded()
+                                && app.get_video_width() > 0.0
+                                && !app.get_crop_editing(),
+                        );
+                    }
+                });
             });
+            app.invoke_video_menu_changed();
             let menu_app = app.as_weak();
             host.on_open_media_file(move || {
                 if let Some(app) = menu_app.upgrade() {
@@ -490,6 +714,15 @@ pub fn run(
                     crate::platform::toggle_zoom_window(host.window());
                 }
             });
+            let menu_host = host.as_weak();
+            host.on_bring_all_to_front(move || {
+                if let Some(host) = menu_host.upgrade()
+                    && let Err(error) =
+                        super::bring_to_front::bring_all_riina_windows_to_front(host.window())
+                {
+                    eprintln!("Could not bring all Riina windows forward: {error}");
+                }
+            });
             let menu_app = app.as_weak();
             host.on_close_player(move || {
                 if let Some(app) = menu_app.upgrade() {
@@ -554,6 +787,12 @@ pub fn run(
             host.on_cycle_audio_tracks(move || {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_cycle_audio_track();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_audio_device(move |device| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_set_audio_device(device);
                 }
             });
             let menu_app = app.as_weak();
@@ -725,6 +964,7 @@ pub fn run(
                 welcome.as_ref(),
                 resume_position,
             )?;
+            startup_center_pending.set(!app.get_initial_window_position_enabled());
             let commands = configured
                 .player
                 .as_ref()
@@ -914,12 +1154,21 @@ pub fn run(
             let close_host = host.as_weak();
             let weak_app = app.as_weak();
             app.window().on_close_requested(move || {
-                if weak_app.upgrade().is_some_and(|app| app.get_dialog_open()) {
+                let app = weak_app.upgrade();
+                if app.as_ref().is_some_and(|app| app.get_dialog_open()) {
                     return slint::CloseRequestResponse::KeepWindowShown;
                 }
-                close(&close_session, &close_pip, weak_app.upgrade().as_ref());
+                let should_quit = crate::player_manager::should_quit_after_last_window_closed(
+                    app.as_ref()
+                        .is_some_and(PlayerWindow::get_quit_when_no_opened_window),
+                    0,
+                );
+                close(&close_session, &close_pip, app.as_ref());
                 if let Some(host) = close_host.upgrade() {
                     let _ = host.hide();
+                }
+                if should_quit {
+                    let _ = slint::quit_event_loop();
                 }
                 slint::CloseRequestResponse::HideWindow
             });
@@ -929,19 +1178,42 @@ pub fn run(
             let close_button_pip = startup_pip.clone();
             app.on_close_player(move || {
                 let chrome = close_button_chrome.upgrade();
+                let should_quit = chrome.as_ref().is_some_and(|app| {
+                    crate::player_manager::should_quit_after_last_window_closed(
+                        app.get_quit_when_no_opened_window(),
+                        0,
+                    )
+                });
                 close(&close_button_session, &close_button_pip, chrome.as_ref());
                 if let Some(host) = close_button_host.upgrade() {
                     let _ = host.hide();
                 }
-                let _ = slint::quit_event_loop();
+                if should_quit {
+                    let _ = slint::quit_event_loop();
+                }
             });
             let quit_app = app.as_weak();
             app.on_quit_riina(move || {
                 if let Some(app) = quit_app.upgrade() {
                     app.invoke_close_player();
                 }
+                let _ = slint::quit_event_loop();
             });
+            // The shared controls are a separate transparent HWND layered over
+            // the native video host. Give it the host's realized bounds before
+            // its first show so Winit never exposes it at its default position.
+            align(host.window(), app.window());
             app.show()?;
+            // The native host otherwise keeps Winit's default placement until
+            // playback loads. That leaves idle launches and cancelled open
+            // dialogs stranded at the OS-selected (often top-left) position.
+            schedule_startup_center(
+                host.as_weak(),
+                app.as_weak(),
+                startup_center_pending.clone(),
+                startup_center_generation.clone(),
+                owner_center,
+            );
             if action_after_launch.open_file_panel(supplied_media_argument) {
                 app.invoke_open_file();
             }
@@ -956,6 +1228,7 @@ pub fn run(
                 app.hide()?;
                 // A visible native host owns the menu/video surface and would
                 // cover the independent welcome window with its black idle frame.
+                crate::platform::center_auxiliary_window(welcome, &app);
                 welcome.show()?;
                 // NativePresentation retains the Winit handle for mpv's HWND
                 // lifetime, so hide the OS surface directly instead of asking
@@ -983,6 +1256,22 @@ pub fn run(
     let scroll_transition = Rc::new(Cell::new(0_u64));
     let event_scroll_transition = scroll_transition.clone();
     host.window().on_winit_window_event(move |host, event| {
+        if event_startup_media_loaded.get()
+            && matches!(
+                event,
+                winit::event::WindowEvent::Resized(_)
+                    | winit::event::WindowEvent::ScaleFactorChanged { .. }
+            )
+            && let Some(app) = event_chrome.borrow().as_ref()
+        {
+            schedule_startup_center(
+                event_center_host.clone(),
+                app.as_weak(),
+                event_startup_center_pending.clone(),
+                event_startup_center_generation.clone(),
+                owner_center,
+            );
+        }
         let result = resize_filter
             .borrow()
             .as_ref()
@@ -1029,9 +1318,18 @@ pub fn run(
         if chrome.as_ref().is_some_and(|app| app.get_dialog_open()) {
             return slint::CloseRequestResponse::KeepWindowShown;
         }
+        let should_quit = chrome.as_ref().is_some_and(|app| {
+            crate::player_manager::should_quit_after_last_window_closed(
+                app.get_quit_when_no_opened_window(),
+                0,
+            )
+        });
         close(&close_session, &close_pip, chrome.as_ref());
         if let Some(app) = chrome.as_ref() {
             let _ = app.hide();
+        }
+        if should_quit {
+            let _ = slint::quit_event_loop();
         }
         slint::CloseRequestResponse::HideWindow
     });

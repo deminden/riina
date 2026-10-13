@@ -9,6 +9,7 @@ use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 const MAX_SEARCH_DIRECTORIES: usize = 128;
 const MAX_ENTRIES_PER_DIRECTORY: usize = 4096;
@@ -87,7 +88,7 @@ pub(crate) fn find_matching_files(
         .split(',')
         .map(str::trim)
         .filter(|keyword| !keyword.is_empty())
-        .map(str::to_lowercase)
+        .map(str::to_owned)
         .collect::<Vec<_>>();
     let mut candidates = Vec::new();
     let mut seen = HashSet::new();
@@ -134,6 +135,11 @@ pub(crate) fn find_matching_files(
             &sibling_stems,
             &candidates,
         ));
+        found.extend(crate::subtitle_series::matched_subtitles_for(
+            &media_stem,
+            &sibling_stems,
+            &candidates,
+        ));
         found.sort();
         found.dedup();
         if found.is_empty() {
@@ -142,8 +148,11 @@ pub(crate) fn find_matching_files(
     }
 
     found.sort_by(|left, right| {
-        priority_score(right, &priority_keywords)
-            .cmp(&priority_score(left, &priority_keywords))
+        crate::subtitle_priority::priority_occurrences(right, &priority_keywords)
+            .cmp(&crate::subtitle_priority::priority_occurrences(
+                left,
+                &priority_keywords,
+            ))
             .then_with(|| {
                 left.file_name()
                     .unwrap_or_default()
@@ -161,18 +170,6 @@ pub(crate) fn find_matching_files(
     });
     found.truncate(MAX_MATCHED_SUBTITLES);
     found
-}
-
-fn priority_score(path: &Path, keywords: &[String]) -> usize {
-    let filename = path
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_lowercase();
-    keywords
-        .iter()
-        .map(|keyword| filename.match_indices(keyword).count())
-        .sum()
 }
 
 fn expand_search_paths(media_path: &Path, configured: &str) -> Vec<PathBuf> {
@@ -535,17 +532,18 @@ fn fuzzy_matches(
     let mut distances = vec![vec![None; unmatched_subtitles.len()]; unmatched_media.len()];
     for (media_index, video_index) in unmatched_media.iter().enumerate() {
         let video = &sibling_stems[*video_index];
-        if video.chars().count() > MAX_FUZZY_STEM_CHARACTERS {
+        if video.graphemes(true).count() > MAX_FUZZY_STEM_CHARACTERS {
             continue;
         }
         for (subtitle_index, subtitle_index_in_all) in unmatched_subtitles.iter().enumerate() {
             let subtitle = &subtitles[*subtitle_index_in_all].1;
-            if subtitle.chars().count() > MAX_FUZZY_STEM_CHARACTERS
+            if subtitle.graphemes(true).count() > MAX_FUZZY_STEM_CHARACTERS
                 || episode_number_conflicts(video, subtitle)
             {
                 continue;
             }
-            let threshold = (video.chars().count() + subtitle.chars().count()) * 3 / 5;
+            let threshold =
+                (video.graphemes(true).count() + subtitle.graphemes(true).count()) * 3 / 5;
             let limit = threshold.saturating_sub(1);
             let video_split = media_split_offsets[*video_index];
             let subtitle_split = subtitle_split_offsets[*subtitle_index_in_all];
@@ -608,9 +606,10 @@ fn episode_number_conflicts(media_stem: &str, subtitle_stem: &str) -> bool {
         })
 }
 
-fn edit_distance_bounded(left: &str, right: &str, limit: usize) -> Option<usize> {
-    let right = right.chars().collect::<Vec<_>>();
-    if left.chars().count().abs_diff(right.len()) > limit {
+pub(crate) fn edit_distance_bounded(left: &str, right: &str, limit: usize) -> Option<usize> {
+    let left = left.graphemes(true).collect::<Vec<_>>();
+    let right = right.graphemes(true).collect::<Vec<_>>();
+    if left.len().abs_diff(right.len()) > limit {
         return None;
     }
     let unreachable = limit.saturating_add(1);
@@ -622,7 +621,7 @@ fn edit_distance_bounded(left: &str, right: &str, limit: usize) -> Option<usize>
     {
         *value = index;
     }
-    for (left_index, left_character) in left.chars().enumerate() {
+    for (left_index, left_grapheme) in left.iter().enumerate() {
         let row = left_index + 1;
         let start = row.saturating_sub(limit).max(1);
         let end = (row + limit).min(right.len());
@@ -635,7 +634,7 @@ fn edit_distance_bounded(left: &str, right: &str, limit: usize) -> Option<usize>
                 .min(current[column - 1].saturating_add(1))
                 .min(
                     previous[column - 1]
-                        .saturating_add(usize::from(left_character != right[column - 1])),
+                        .saturating_add(usize::from(left_grapheme != &right[column - 1])),
                 );
         }
         if current.iter().copied().min().unwrap_or(unreachable) > limit {
@@ -721,6 +720,24 @@ mod tests {
     }
 
     #[test]
+    fn priority_sort_ignores_search_folder_and_subtitle_extension() {
+        let tree = TestTree::new();
+        let filename_order = tree.file("srt/Movie.aaa.en.vtt");
+        let extension_only = tree.file("captions/Movie.zzz.en.srt");
+        let paths = std::env::join_paths([Path::new("captions"), Path::new("srt")])
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let mut settings = preferences(AutoLoadMode::Intelligent, &paths);
+        settings.priority_keywords = "srt".into();
+
+        assert_eq!(
+            find_matching_files(&tree.media(), &settings),
+            [filename_order, extension_only]
+        );
+    }
+
+    #[test]
     fn explicit_search_paths_are_relative_to_media_and_deduplicated() {
         let tree = TestTree::new();
         let expected = tree.file("captions/Movie.forced.vtt");
@@ -769,6 +786,23 @@ mod tests {
         assert_eq!(
             find_matching_files(&media, &preferences(AutoLoadMode::Intelligent, ".")),
             [same_episode]
+        );
+    }
+
+    #[test]
+    fn direct_match_survives_competing_subtitle_series_prefixes() {
+        let tree = TestTree::new();
+        let media = tree.file("The Other Side - Part 002.mkv");
+        tree.file("The Other Side - Part 001.mkv");
+        tree.file("The Other Side - Part 003.mkv");
+        tree.file("subs/The Other Side - English 001.en.srt");
+        tree.file("subs/The Other Side - English 002.en.srt");
+        tree.file("subs/The Other Side - English 003.en.srt");
+        let direct_match = tree.file("subs/The Other Side - Part 002.en.srt");
+
+        assert_eq!(
+            find_matching_files(&media, &preferences(AutoLoadMode::Intelligent, "subs")),
+            [direct_match]
         );
     }
 

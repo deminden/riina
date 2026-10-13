@@ -165,6 +165,7 @@ fn install_for_kind(
             window
                 .window()
                 .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
+            crate::platform::center_auxiliary_window(&window, &app);
             *show_slot.borrow_mut() = Some(window.clone_strong());
             window
         };

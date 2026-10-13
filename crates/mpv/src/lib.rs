@@ -17,6 +17,7 @@ use std::{
     rc::Rc,
     sync::{
         Arc,
+        atomic::{AtomicBool, Ordering},
         mpsc::{self, SyncSender},
     },
     thread::JoinHandle,
@@ -26,6 +27,24 @@ use std::{
 enum Message {
     Intent(Command),
     Wake,
+}
+
+struct WakeupContext {
+    sender: SyncSender<Message>,
+    queued: AtomicBool,
+}
+
+impl WakeupContext {
+    fn signal(&self) {
+        if self.queued.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        if self.sender.try_send(Message::Wake).is_err() {
+            // A full queue already guarantees the worker has work to consume;
+            // let the next native notification request another wake if needed.
+            self.queued.store(false, Ordering::Release);
+        }
+    }
 }
 
 struct Owner {
@@ -103,11 +122,10 @@ impl CommandSender {
 }
 
 unsafe extern "C" fn wakeup(context: *mut c_void) {
-    // SAFETY: the worker retains this boxed sender through native core destruction,
+    // SAFETY: the worker retains this context through native core destruction,
     // including callbacks already in flight when it unregisters the wakeup callback.
-    let sender = unsafe { &*(context.cast::<SyncSender<Message>>()) };
-    // Wakeups coalesce: every intent also causes the worker to drain the entire event queue.
-    let _ = sender.try_send(Message::Wake);
+    let wakeup = unsafe { &*(context.cast::<WakeupContext>()) };
+    wakeup.signal();
 }
 
 impl Player {
@@ -147,6 +165,7 @@ impl Player {
             ("gpu-context".into(), "d3d11".into()),
             ("d3d11-output-format".into(), "rgba16f".into()),
             ("target-colorspace-hint".into(), "auto".into()),
+            ("prefetch-playlist".into(), "yes".into()),
         ]);
         Self::start_options(path, false, options, notify)
     }
@@ -225,7 +244,7 @@ impl Player {
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
                         ("ignore-path-in-watch-later-config", 3),
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("mpv-version", 1), ("ffmpeg-version", 1), ("eof-reached", 3),
-                        ("current-ao", 1), ("hwdec-current", 1), ("hwdec", 1),
+                        ("current-ao", 1), ("audio-device", 1), ("hwdec-current", 1), ("hwdec", 1),
                         ("vf", 6), ("af", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
                         ("video-aspect-override", 5), ("video-rotate", 4),
                         ("deinterlace", 1), ("deinterlace-active", 3),
@@ -253,8 +272,11 @@ impl Player {
                     (worker_api.destroy)(handle);
                     return;
                 }
-                let mut callback = Box::new(callback_sender);
-                (worker_api.wakeup)(handle, Some(wakeup), (&mut *callback as *mut SyncSender<Message>).cast());
+                let mut callback = Box::new(WakeupContext {
+                    sender: callback_sender,
+                    queued: AtomicBool::new(false),
+                });
+                (worker_api.wakeup)(handle, Some(wakeup), (&mut *callback as *mut WakeupContext).cast());
                 // The numeric token is opaque outside video.rs. No Rust object is given a
                 // fabricated Send implementation; the worker owns and destroys this handle.
                 let _ = ready_tx.send(Ok(handle as usize));
@@ -282,6 +304,9 @@ impl Player {
                 let mut auto_seek_measurement_started = None;
                 let mut auto_seek_decided = false;
                 while let Ok(message) = receiver.recv() {
+                    if matches!(message, Message::Wake) {
+                        callback.queued.store(false, Ordering::Release);
+                    }
                     if let Message::Intent(command) = message {
                         if command == Command::Shutdown {
                             // Termination must start before waiting for pending work:
@@ -680,6 +705,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"hwdec-current" => state.hardware_decoder = None,
             b"hwdec" => state.hardware_decoding = None,
             b"current-ao" => state.audio_output = None,
+            b"audio-device" => state.audio_device = None,
             b"loop-file" => state.loop_file = None,
             b"loop-playlist" => state.loop_playlist = None,
             b"ab-loop-a" => state.ab_loop_a = None,
@@ -851,6 +877,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                 b"mpv-version" => state.mpv_version = Some(value),
                 b"ffmpeg-version" => state.ffmpeg_version = Some(value),
                 b"current-ao" => state.audio_output = Some(value),
+                b"audio-device" => state.audio_device = Some(value),
                 b"hwdec-current" => state.hardware_decoder = Some(value),
                 b"hwdec" => state.hardware_decoding = Some(value),
                 b"deinterlace" => {
@@ -1000,8 +1027,8 @@ mod metadata_property_tests {
 
 #[cfg(test)]
 mod command_sender_tests {
-    use super::{Command, CommandSender, Message};
-    use std::sync::mpsc;
+    use super::{Command, CommandSender, Message, WakeupContext};
+    use std::sync::{atomic::Ordering, mpsc};
 
     #[test]
     fn pause_toggle_returns_promptly_and_is_delivered_after_queue_pressure() {
@@ -1015,5 +1042,38 @@ mod command_sender_tests {
             receiver.recv().unwrap(),
             Message::Intent(Command::TogglePause)
         ));
+    }
+
+    #[test]
+    fn native_wake_notifications_share_one_queued_message() {
+        let (sender, receiver) = mpsc::sync_channel(64);
+        let wakeup = WakeupContext {
+            sender,
+            queued: std::sync::atomic::AtomicBool::new(false),
+        };
+        for _ in 0..100 {
+            wakeup.signal();
+        }
+        assert!(matches!(receiver.try_recv(), Ok(Message::Wake)));
+        assert!(receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn full_intent_queue_does_not_leave_wakeup_permanently_armed() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        sender.try_send(Message::Intent(Command::Stop)).unwrap();
+        let wakeup = WakeupContext {
+            sender,
+            queued: std::sync::atomic::AtomicBool::new(false),
+        };
+        wakeup.signal();
+        assert!(!wakeup.queued.load(Ordering::Acquire));
+        assert!(matches!(
+            receiver.recv(),
+            Ok(Message::Intent(Command::Stop))
+        ));
+
+        wakeup.signal();
+        assert!(matches!(receiver.recv(), Ok(Message::Wake)));
     }
 }

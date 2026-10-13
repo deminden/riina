@@ -64,16 +64,29 @@ fn replace(source: &Path, destination: &Path) -> std::io::Result<()> {
         .encode_wide()
         .chain(Some(0))
         .collect();
-    // SAFETY: both owned UTF-16 strings remain terminated and live through this
-    // same-directory atomic replacement; no native pointer escapes the call.
-    unsafe {
-        MoveFileExW(
-            PCWSTR(source.as_ptr()),
-            PCWSTR(destination.as_ptr()),
-            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-        )
+    for retry in 0..=5 {
+        // SAFETY: both owned UTF-16 strings remain terminated and live through
+        // this same-directory atomic replacement; no native pointer escapes.
+        match unsafe {
+            MoveFileExW(
+                PCWSTR(source.as_ptr()),
+                PCWSTR(destination.as_ptr()),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+            )
+        } {
+            Ok(()) => return Ok(()),
+            Err(error)
+                if retry < 5 && matches!(error.code().0 as u32, 0x8007_0005 | 0x8007_0020) =>
+            {
+                // Defender and indexers can briefly open a just-synced temp file.
+                // Retry only the Win32 access/sharing errors, then preserve the
+                // previous settings and report persistent failures normally.
+                std::thread::sleep(std::time::Duration::from_millis(2_u64 << retry));
+            }
+            Err(error) => return Err(std::io::Error::other(error)),
+        }
     }
-    .map_err(std::io::Error::other)
+    unreachable!("replacement retry loop always returns or exhausts its retries")
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]

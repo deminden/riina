@@ -1,5 +1,65 @@
 # Verification record · native Windows · 2026-10-09
 
+## Coalesced A/B loop feedback · 2026-10-13
+
+The shared OSD reducer now retains both endpoint messages when one native
+playback observation contains updates to A and B, preserving A-then-B order. A
+snapshot that clears both endpoints emits one `AB-Loop: Cleared` message. The
+focused tests `coalesced_ab_loop_endpoints_each_receive_feedback` and
+`simultaneous_ab_loop_clear_is_reported_once` passed. This covers reducer
+behavior only. `cargo fmt --all -- --check`, strict workspace Clippy,
+`cargo build --workspace --locked`, and the parity-inventory traceability check
+passed. The complete `cargo test --workspace --locked` suite passed; its 49
+native libmpv integration cases remain ignored by default and are covered by the
+separate pinned-engine run recorded above.
+Playback timing, visible OSD rendering, and macOS/Linux runtime remain
+unverified.
+
+## Windows work-area window placement · 2026-10-13
+
+The Windows player now sizes initial video windows against the monitor's actual
+taskbar-free work area and centers their outer frame in those same bounds. This
+keeps sizing and placement consistent with side taskbars and docked app bars;
+auxiliary windows remain centered over their owner and clamped to its monitor.
+`cargo check --workspace --locked`, `cargo build --workspace --locked`,
+`cargo test --workspace --locked`, strict all-target Clippy, formatting, and
+`git diff --check` passed. The rebuilt app
+launched, but the desktop capture helper failed twice with
+`CreateForMonitor ... 0x80070057` after refreshing its window selection, so
+on-screen placement could not be verified. The exact test process was closed
+after normal shutdown did not finish.
+The focused Windows placement tests pass for a negative-origin monitor with a
+taskbar inset, measured native-frame inset subtraction, and rejection of empty
+or inverted work rectangles. The full workspace test suite passed after these
+changes, with native libmpv cases run separately against the pinned engine.
+
+## Development workspace and native playback checks · 2026-10-13
+
+`cargo test --workspace --locked` passed across the app and core suites. The
+49 ignored libmpv integration cases were then run serially with null audio against
+the reused Windows native engine from workflow run 38138622911; all 49 passed.
+The tested DLL hash is
+`1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`, matching
+the 0.3.3 release verification record. The broader suite covers playback
+controls, track selection, file and playlist operations, filters, lifecycle,
+and shutdown/reopen behavior. Physical audio output and GUI interactions were
+not exercised by these native tests. The parity inventory, settings-navigation
+and fixture-integrity checks also passed.
+
+The current 0.3.4 workspace suite passed after native wakeup coalescing; all 49
+applicable pinned-engine integration tests also passed. Earlier full-suite runs
+exposed one dropped volume command under queue pressure and one intermittent
+localhost HTTP load failure. The event worker previously enqueued duplicate
+`Wake` messages despite relying on them to coalesce. An atomic pending-wakeup flag
+now permits only one queued wake and is cleared on consumption or when the queue
+is already full. Focused coverage verifies repeated wakes occupy one queue slot
+and a full intent queue does not leave wakeups permanently armed. The full native
+suite then passed serially, including the volume-boost stress and localhost HTTP
+playback cases. `cargo test --workspace --locked` also passed after this change.
+Strict all-target workspace Clippy and `cargo build --workspace --locked` passed
+with the coalescing implementation. Formatting, parity traceability and
+`git diff --check` pass as well.
+
 # OpenSubtitles workflow and current macOS target · 2026-10-12
 
 The app now has a manually opened OpenSubtitles search window, user-provided API
@@ -80,15 +140,18 @@ compiler (`cc`). No tests or GUI were run. Bundle launch, playback, Launch
 Services consent/handler behavior and current-macOS rendering still need a Mac
 run; this does not establish macOS support.
 
-## Subtitle auto-load priority · 2026-10-12
+## Subtitle auto-load priority · 2026-10-13
 
-The player now promotes the external subtitle track whose filename has the most
-matches among the configured comma-separated priority keywords, after libmpv
-reports its discovered tracks. `cargo check --workspace --locked`, direct Rust
-1.99 formatting checks and `git diff --check` passed. No playback or GUI check was
-run; selection timing and matched macOS pixels remain unverified. Series-level
-grouping and fuzzy matching remain open; path expansion and candidate loading are
-covered by the later subtitle discovery verification above.
+The priority matcher now counts configured case-sensitive keywords only in the
+extensionless subtitle filename stem, matching IINA's `FileInfo.filename` input.
+Parent-directory and file-extension text cannot accidentally influence track
+selection or candidate order. Focused tests cover filename case, folder/extension
+exclusion and discovery ordering; all four passed, and the complete workspace
+suite passes. The 49-test native playback suite also passed against the pinned
+Windows DLL. Formatting, strict all-target Clippy and the workspace build passed.
+Playback timing, GUI capture and matched macOS pixels remain unverified.
+Series-level grouping and fuzzy thresholds remain open; path expansion and
+candidate loading are covered above.
 
 ## macOS PiP frame-bridge API audit · 2026-10-12
 
@@ -2589,3 +2652,521 @@ checks playlist and file loop mappings, and
 stored selection is ignored while the feature is off and reported when enabled.
 The command is applied after explicit manual media-load actions. Native playback
 looping and live preference persistence remain separate GUI/native checks.
+
+# Plugin file trash
+
+`plugin_file_api_scopes_private_paths_and_checks_external_access_grants` checks
+that `iina.file.trash` is exposed through the JavaScript bridge, requires the
+file-system permission for `@current` media paths, and rejects plugin storage
+roots. `move_scopes_private_paths_and_requires_grant_for_external_paths` checks
+that an absolute external path remains in place when the grant is absent. The
+OS Trash/Recycle Bin move itself and macOS/Linux runtime behavior remain
+unverified.
+
+# Plugin file encoding names
+
+The pinned IINA encoding-name map includes Foundation aliases beyond browser
+encoding labels. The decoder now accepts ISO Latin-5 and Thai, KOI8-R, Big5-E and
+Big5-HKSCS-1999, and ISO-2022-JP-1/-2/-3 names where the portable codec has a
+compatible base decoder. Focused cases are included in
+`text_read_supports_iina_encoding_names_and_rejects_malformed_input`. Big5-HKSCS
+and ISO-2022-JP variants currently use the base codec tables and can differ for
+extension-specific characters; EBCDIC, CNS/EUC-TW, HZ, UTF-7, and specialized Mac
+encodings remain unsupported. Exact decoding parity requires macOS runtime checks.
+
+## macOS and Linux workflow corrections · 2026-10-13
+
+The v0.3.3 application-port workflow exposed strict macOS lint/build failures and
+one Linux test that assumed a Windows drive path. Removed the target-only unused
+imports, changed the ImageIO thumbnail-options return type to Core Foundation's
+retained type, bounded macOS pinch-resize position arithmetic before converting to
+native i32 coordinates, and made the local-media path test use a host-native absolute
+path while retaining platform-specific Windows-drive assertions. The complete
+Windows workspace suite passes after these changes. A Windows-hosted Linux
+cross-check stopped at missing pkg-config/sysroot and C compiler tooling; an Apple
+cross-check stopped at the missing target C compiler/Apple SDK. The actual macOS and
+Linux application builds still need a hosted workflow rerun and remain unverified.
+
+## Windows window placement · 2026-10-13
+
+Initial window geometry now clamps point-based offsets to the selected display,
+including displays with negative virtual-desktop origins. Video-driven resizes
+retain their centered placement while clamping the result to the current monitor.
+The first media resize previously reused the reduced fit-size limit as monitor
+positioning bounds, placing fit-height windows too high. It now centers against
+the full current display while keeping the independent fit-size limit, accounts
+for the decorated outer frame, and uses outer dimensions for initial centering.
+Windows now recenters after the shared chrome's first layout and first playback
+state, then debounces native move/resize events until the frame settles. It uses
+Win32 monitor/frame rectangles to avoid DPI virtualization and placeholder
+coordinates. Later user Music Mode toggles preserve the current frame center.
+A regression test for a 1152×648 window on a 1280×720 display passes and expects
+position `(64, 36)` before the native frame inset is applied. Fresh live placement
+verification on the scaled Windows desktop measured outer bounds
+`[1452, 441]–[2388, 1718]` on a 3840×2160 monitor (center error: 0 px horizontally,
+0.5 px vertically). The exact test instance was closed afterward.
+Music Mode entry and exit use the same centered resize path on shared and native
+Windows presentation surfaces.
+The native Windows host starts centered on the primary display,
+so the first player surface no longer inherits an arbitrary Winit placement.
+Ten focused `riina-core` window-resize tests passed. The workspace build, strict
+workspace Clippy, and full workspace test suite passed (48 native libmpv cases
+remain ignored without the provisioned runtime). A fresh player launch measured
+outer bounds `[174, 27]–[3667, 2132]` on a 3840×2160 primary monitor, with center
+error 0.5 px horizontally and vertically. That exact test process exited normally
+and no Riina process remained.
+First-show placement now also centers the Welcome, About, Preferences, Playback
+History, Filter, Online Subtitle, and Font Picker windows over their owning player,
+clamped to the monitor work area. Reused auxiliary windows retain their last user
+position. The shared placement policy passes its focused test for a negative-origin
+display, owner centering, and an off-screen owner clamped into the work area. The
+Windows workspace check, strict Clippy, formatting, and full workspace suite pass;
+live positioning of these auxiliary surfaces still needs a grouped GUI check.
+The first-show content-to-window conversion now measures the actual offset between
+Winit's inner and outer screen positions. This avoids treating the title bar and
+bottom resize border as equal halves, which had displaced the client contents on
+decorated Windows windows. Focused tests cover asymmetric frame offsets and
+negative monitor origins. A fresh desktop capture attempt failed because the
+foreground window did not report a process id; this code change is not yet visually
+verified.
+
+## Windows package audit · 2026-10-13
+
+The v0.3.3 Actions run built its Windows package and passed package playback,
+but its final source audit assumed every vendored Rust notice was copied at its
+source-tree path. The reused engine package instead organizes Windows-target
+Rust notices by crate and version under `THIRD_PARTY_LICENSES/NATIVE_RUST`.
+The audit now verifies each inventoried notice byte-for-byte and maps source
+vendor paths to the target inventory, while excluding vendored crates absent
+from the Windows dependency set. All 19 release-checker tests pass, and the
+exact downloaded v0.3.3 package passes the corrected audit against commit
+`8cf9cc222b40936deab0747dc0d8c5d866bb02e3` (101,748 indexed source files and
+88 native repositories). The package checksum and three-binary PE import check
+also pass. Its packaged player window could not be captured because the UI
+capture crop fell outside the monitor, so its visual release check is still open.
+The published ZIP was independently downloaded and its SHA-256 matches the
+release checksum manifest. Its `SOURCE-COMMIT.txt` names the immutable v0.3.3
+tag commit, and its packaged libmpv DLL matches the reused native-engine artifact.
+A fresh computer-use window lookup returned a Riina handle that disappeared on
+both capture attempts, while the next listing showed only the desktop shell; the
+exact release package therefore still needs a live visual check in a working UI
+session. No Riina process remained after the attempt.
+On a later launch of that same extracted package, two screenshots of the Welcome
+window showed a white client area while the accessibility tree exposed its normal
+controls. Opening a recent media item was attempted, but the subsequent monitor
+capture failed with `0x80070057`; the UI outcome could not be observed. The exact
+release process was closed and confirmed absent. This is a visual-check failure,
+not a passed screen comparison; reproduce it in a working capture session before
+deciding whether it is a release rendering defect or a capture-path failure.
+
+## Current debug UI access · 2026-10-13
+
+The v0.3.4 debug Welcome window and its accessibility tree were discoverable.
+Accessibility-only capture returned the Welcome controls, but screenshot capture
+again failed with `IGraphicsCaptureItemInterop.CreateForMonitor ... 0x80070057`.
+Control activation failed because coordinate geometry was unavailable; keyboard
+input did not change the window. No visual comparison or UI interaction is
+claimed. The main window was closed, the remaining console-host window was
+inspected, and the exact debug process and all Riina windows were confirmed gone.
+
+On a fresh capture attempt, the first main-window handle became stale before it
+could be rehydrated; a fresh listing and handle succeeded, but screenshot capture
+again failed with `0x80070057`. The accessibility-only tree still worked, while
+indexed clicks reported unavailable coordinate geometry and keyboard input did
+not activate Welcome actions. Alt+F4 closed the main window but left its exact
+debug executable alive; that process alone was stopped, then process and window
+lists were both checked empty.
+
+After the latest workspace build, the main `Riina` window and native-video host
+window were both returned for the exact debug executable. Screen capture failed
+twice with `IGraphicsCaptureItemInterop.CreateForMonitor ... 0x80070057` after a
+fresh application/window lookup. Alt+F4 closed the main window; its exact
+remaining debug process was then stopped and verified absent. This attempt did
+not produce a visual reference or interaction result.
+
+## v0.3.3 published-package revalidation · 2026-10-13
+
+Workflow-dispatch run [38332824004](https://github.com/deminden/riina/actions/runs/38332824004)
+reused the verified native-engine artifact (`native-engine` skipped), passed
+Windows native playback/lifecycle tests and the corrected exact-package source and
+notice audit, then published successfully. The current v0.3.3 release has the
+72,613,531-byte Windows ZIP with SHA-256
+`2a72ded17b01c928cd0bdc5aec9be31c1ca286ef743bdba5201587b7910d2a74`; its
+verification manifest identifies tagged source commit
+`8cf9cc222b40936deab0747dc0d8c5d866bb02e3`, 101,748 indexed native source files
+and 88 repositories. This closes the prior package-verification failure.
+
+The latest debug visual attempt selected the rebuilt `target/debug/riina.exe`
+window and retried after refreshing its handle. Both screenshot attempts failed
+with `IGraphicsCaptureItemInterop.CreateForMonitor ... 0x80070057`. Alt+F4 closed
+the player window but left the native host process, so the exact test process was
+ended and verified absent. No visual comparison is claimed.
+
+## Apple-target compilation from Windows · 2026-10-13
+
+`cargo check --workspace --locked --target aarch64-apple-darwin` reached the
+`ring` dependency and stopped because this Windows host has no target C compiler
+(`cc`). The shared `riina-core` crate does compile for `aarch64-apple-darwin`.
+This is not a full macOS application build; the native macOS CI/build host remains
+required for app compilation and runtime evidence.
+
+## Windows startup window placement · 2026-10-13
+
+The newly built debug app was launched twice. With an isolated preference setting
+of `action_after_launch=none` and no media, its outer frame was exactly centered
+in the 1280x672 monitor work area (0 px horizontal and vertical delta). With
+`tests/fixtures/moving-square.avi`, it was within one horizontal pixel of center.
+Both exact test processes were closed and verified absent. The GDI desktop
+capture returned an all-black image, so this verifies frame placement only, not
+rendered appearance. Binary hash, frame bounds, and test scope are recorded in
+`tests/visual/windows-window-placement-evidence.json`.
+
+## Revalidation after the release · 2026-10-13
+
+The public latest-release endpoint still identifies v0.3.3 as current, with the
+72,613,531-byte Windows x64 ZIP, `SHA256SUMS.txt`, and
+`RELEASE-VERIFICATION.json`. The most recent successful Windows release workflow
+is [38332824004](https://github.com/deminden/riina/actions/runs/38332824004).
+No second v0.3.3 release was created.
+
+On the current dirty v0.3.4 checkout, `cargo build --workspace --locked`,
+`cargo clippy --workspace --all-targets --locked -- -D warnings`,
+`cargo fmt --all -- --check`, `git diff --check`,
+`scripts/check-parity.py`, and `cargo test --workspace --locked` passed. The
+workspace command runs 197 application tests. New tests cover toolbar
+forward/backward drag reordering, invalid toolbar order data, Windows work-area
+margins and frame positioning, audio-device routing, subtitle priority, and
+normalized volume OSD progress at the default 100% and opt-in 200% caps. The
+separate provisioned native playback suite passed 49/49, including live audio
+device selection and HTTP fixture playback. The Python repository tooling suite
+passed 19/19. The traceability checker validates 244 initial requirements and
+still reports the inventory incomplete.
+
+The public application-ports workflow
+[38332341339](https://github.com/deminden/riina/actions/runs/38332341339) has
+failed macOS application lint on both macOS runners and Linux application/shared
+tests on Ubuntu. Its logs endpoint returned HTTP 403 requiring repository admin
+rights, so the exact remote diagnostics are unavailable from this session.
+Local cross-target Clippy attempts independently stop before application code:
+the Apple target lacks a C compiler, and the Linux target lacks a configured
+pkg-config sysroot. This Windows host has no WSL installation, so these failures
+do not establish the remote failure causes or substitute for the native CI
+hosts. The portable `riina-core` crate passes strict cross-target Clippy for
+both `aarch64-apple-darwin` and `x86_64-unknown-linux-gnu`.
+
+The latest live visual check launched the rebuilt debug app, selected its
+refreshed `Riina` window, and retried capture after the first stale window ID.
+Both capture attempts fail at `IGraphicsCaptureItemInterop.CreateForMonitor`
+with `0x80070057`. The player window was closed, its remaining exact debug
+process was stopped, and the process list was confirmed empty. No appearance or
+interaction result is claimed from this attempt.
+
+## Current feature sweep · 2026-10-13
+
+On the current dirty v0.3.4 checkout, formatting, diff checks, all 203 workspace
+application tests, strict workspace Clippy, the workspace build, the parity
+traceability checker, and 19 Python tooling tests passed. The provisioned native
+libmpv integration suite passed 49/49 tests in 33 seconds. A live Riina window was
+enumerated and launched through Windows Computer Use, but screenshot capture failed
+twice with `IGraphicsCaptureItemInterop.CreateForMonitor ... 0x80070057`, including
+after refreshing the window handle. The exact test process was stopped and verified
+absent. This sweep establishes automated, native playback, build and process
+lifecycle results; it does not establish live GUI interactions or visual parity.
+
+## Timed OSD behavior regression · 2026-10-13
+
+Six focused `video_osd` regression tests bring the application suite to 203 tests.
+They verify delay direction and progress for audio plus both subtitle lanes,
+primary/secondary subtitle positioning and visibility, selected-track identity
+including `#0 <None>`, rotation, reciprocal subtitle scaling, and playlist-loop
+feedback. Stop, chapter selection, playlist append, paste and clear also share
+typed action-feedback messages matching IINA's reference text. Eleven related OSD
+rows now distinguish unit-tested message semantics
+from pending live display timing, native event ordering, matched pixels, and
+macOS/Linux runtime. The refreshed live capture attempt again failed with
+`CreateForMonitor ... 0x80070057`; its exact Riina process was closed.
+
+After resetting and reinitializing the Computer Use JavaScript session, the
+rebuilt app's first window ID again expired before capture. A fresh app/window
+selection still reached `CreateForMonitor ... 0x80070057`. Alt+F4 closed the
+player; its exact remaining process (PID 6068) was stopped and confirmed absent.
+The new toolbar drag affordance therefore has compile and unit-test evidence but
+no live interaction or screenshot evidence.
+
+## Windows placement recheck · 2026-10-13
+
+The realized player frame is now centered immediately, before asynchronous player
+setup. On this single 1280×720 display, the idle Welcome window measured
+`[154, 9, 1126, 663]` within the `1280×672` work area. A clean-profile launch of
+the 320×180 moving-square fixture measured `[85, 0, 1196, 672]`: its horizontal
+center is within one pixel, and the frame stays inside the taskbar-free work area.
+The unexpectedly near-full-work-area playback size persists after changing the
+natural-size input to decoded source dimensions; the correct display capture and
+the remaining resize cause still need investigation. After adding a DPI-aware
+24-point automatic-size inset, the rebuilt playback window measured
+`[127, 24, 1153, 648]`, exactly centered with a 24-pixel work-area margin. The
+window title showed `track-languages.mkv` although the launch requested another
+fixture, so this establishes placement behavior but not fixture-specific sizing.
+The process was closed and confirmed absent. These are Win32 geometry measurements,
+not a visual-pixel comparison.
+
+## Current workspace and UI retest · 2026-10-13
+
+On the current dirty v0.3.4 worktree, `cargo build -p riina --locked`,
+`cargo test --workspace --locked` (209 application tests), strict all-target
+workspace Clippy, formatting, `git diff --check`, and the parity traceability
+check passed. The normal workspace test command leaves 49 provisioned-engine
+integration cases ignored; the separate pinned-engine 49/49 pass is recorded
+above and in the release verification evidence.
+
+The debug Welcome window rendered and showed version 0.3.4. Opening the long media
+sample produced a filename-bearing playback window in the fresh app listing, but
+the desktop capture bridge rejected it as unusable after one re-list and
+rehydration. The exact test process was closed and verified absent. This pass
+confirms the Welcome screenshot only; playback controls and Quick Settings remain
+visually unverified.
+
+The requested v0.3.3 release is already published. GitHub reports successful
+release-readiness, Windows packaging, package verification, and publish jobs; the
+native-engine job was skipped. The immutable tag points to source commit
+`8cf9cc222b40936deab0747dc0d8c5d866bb02e3`, and its release verification record
+includes the reused libmpv hash. No second v0.3.3 release was created.
+
+## Follow-up player capture · 2026-10-13
+
+`cargo build -p riina --locked` completed for v0.3.4. The Welcome screenshot
+rendered and displayed Version 0.3.4. Opening `tests/fixtures/moving-square.avi`
+updated the app listing to `moving-square.avi — riina`; the refreshed playback
+window was then rejected by the capture bridge as unusable after one fresh
+re-list and rehydration. Process 22040, launched from `target/debug/riina.exe`,
+was closed and verified absent. This does not verify playback pixels or live menu
+behavior. `cargo check --workspace --locked`, `cargo fmt --all -- --check`, the
+209-app-test workspace suite (49 provisioned-libmpv integration cases remain
+ignored by the default command), the parity traceability check (245 rows), and the
+19 Python tooling tests passed after the shared and Windows native-video Playback/
+Audio menu state wiring. Strict workspace Clippy also passed for the current source
+revision. A fresh development binary build then completed with those changes.
+
+The rebuilt executable was launched again for visual validation. Welcome capture
+again showed version 0.3.4 and the recent-media list. Opening
+`tests/fixtures/moving-square.avi` changed the app listing to
+`moving-square.avi — riina`, but the refreshed playback HWND remained unusable
+after one re-list and rehydration. Process 22384 was closed and verified absent.
+No playback pixels or live menu state were visually verified.
+
+## Verification sweep and Windows last-window lifecycle · 2026-10-13
+
+The current v0.3.4 workspace passed `cargo build --workspace --locked`,
+`cargo test --workspace --locked` (207 app tests), strict workspace Clippy,
+formatting, the parity traceability checker (244 inventoried rows; still incomplete),
+and the Python tooling suite (19 tests). The explicit provisioned libmpv suite passed
+49/49 native playback tests. Windows placement was rechecked: the shared-renderer
+player's native outer frame is exactly centered at `[154, 9]` in the 1280×672 work
+area. The isolated Welcome frame was also exactly centered at `[354, 99]`.
+
+With `quit_when_no_opened_window=false`, closing Welcome restored the empty native
+player and the process stayed alive; closing that player ended the isolated test
+process. With the preference enabled, closing Welcome exited. These process-level
+checks cover Windows only. Visual screenshot APIs still fail (`CreateForMonitor`
+0x80070057); GDI and PrintWindow returned black client pixels, so no visual
+comparison is claimed. The published v0.3.3 package remains unchanged; v0.3.4 has
+not been prepared for release.
+
+## IINA menu state and modifier alternates · 2026-10-13
+
+The shared menu and Windows native-video menu now bind Pause/Resume, speed,
+volume, mute, and audio delay to playback observations. Pressing Alt/Option switches
+the existing menu rows to IINA's alternate frame-step, fine speed, fine volume, and
+fine audio-delay actions. Workspace `cargo check`, all 209 app tests, strict Clippy,
+formatting, and the 246-row parity traceability check passed. Menu interaction is
+still unverified because the playback HWND cannot be captured. A fresh debug binary
+build completed with the alternate-row implementation.
+
+## Owner-monitor placement and refreshed desktop capture · 2026-10-13
+
+New player processes now receive the owning player's screen-space center. The
+Windows startup host selects the work area containing that point, so playback
+opened from a secondary-display player starts on that same display. In-process
+shared-renderer children continue to center over the owner. An explicitly
+configured initial position remains authoritative. The startup-argument regression
+test verifies the internal coordinates are removed from media arguments.
+
+`cargo fmt --all -- --check`, strict workspace Clippy, `cargo test --workspace --locked`
+(210 app tests; 49 provisioned-libmpv tests remain ignored by default), and
+`cargo build --workspace --locked` pass. The parity traceability checker validates
+246 rows and reports that the inventory remains incomplete.
+
+The Windows desktop helper captured the Welcome surface and a player with the menu
+bar, playback controls, and Video Quick Settings visible. The fixture was paused at
+its final timestamp and the captured video area was black, so rendered video pixels
+are not verified. Switching Quick Settings tabs caused the helper to lose the window
+handle; test process 8652 was stopped and confirmed absent. Audio-pane interaction
+and live multi-monitor placement still need verification.
+
+## Fresh rebuild, pinned native suite, and playback capture retry · 2026-10-13
+
+After cleaning the 53.2 GiB project-local dev cache, `cargo test --workspace --locked`
+passed (212 app tests); `cargo build --workspace --locked` passed. The explicit
+serial native suite passed 49/49 tests using `tools/mpv/libmpv-2.dll`. Its digest
+matched `reference/native-lock.json`: `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`.
+
+The app opened the `moving-square.avi` fixture and initially reported that filename
+in the player title. Same-folder playlist progression changed the title to
+`external-tone.wav — riina` before capture. The Windows computer-use helper rejected
+the playback window as unusable after a fresh list and rehydration retry. Process
+21816, launched for this check, was stopped and verified absent. This attempt does
+not verify playback pixels, menu actions, Quick Settings, or live window placement.
+
+## Deterministic standalone Windows placement · 2026-10-13
+
+Standalone player and auxiliary windows now use the primary monitor's work area
+when no visible owner supplies a display. Pointer position is no longer used as
+an implicit monitor selector; child windows still follow their explicit owner,
+and configured initial geometry remains authoritative. The placement fallback
+has a focused unit regression for owner-versus-primary selection. `cargo build
+-p riina --locked` passed after removing an incomplete Slint shortcut lookup that
+prevented the workspace from compiling. A fresh debug Welcome view was captured,
+but the UI helper rejected its window handle during shutdown and again after a
+fresh selection. Only the exact launched debug process was stopped; a process
+check confirmed it was gone. The capture did not expose screen coordinates, so
+live centering and multi-monitor placement remain unverified. A subsequent
+`cargo test --workspace --locked` passed all 213 app tests, including the
+owner-versus-primary placement fallback regression.
+
+## Immediate Windows first-show placement · 2026-10-13
+
+Windows placement now tries to center a new player or auxiliary window as soon
+as its Winit handle is available. The existing bounded retries remain for
+windows whose native frame is not realized yet. This removes the unconditional
+80 ms wait that could show a new window at Winit's temporary default location
+before moving it to the owner or primary work area.
+
+The focused placement tests passed (5 tests), and `cargo build -p riina
+--locked` passed. On the rebuilt app, a Win32 frame-bounds check measured the
+visible Welcome window at `[354, 99, 926, 573]` within `[0, 0, 1280, 672]`,
+exactly centered with zero-pixel delta. The screenshot attempt still failed in
+Windows Graphics Capture (`CreateForMonitor failed: 0x80070057`), so rendered
+visuals and multi-monitor behavior remain unverified. The exact Riina debug
+process started for this check was stopped and confirmed absent. The measurement
+is in `tests/visual/windows-window-placement-evidence.json`. `cargo test -p
+riina --locked` passed 211 tests (2 ignored); strict app Clippy, formatting,
+and `git diff --check` passed.
+
+## Profile-driven menu shortcut hints · 2026-10-13
+
+The shared and Windows-native menus now derive shortcut labels for supported
+playback, track, window-size, panel, and window actions from the active key-binding
+profile. Both surfaces consume the same ordered shortcut model; absent mappings
+produce empty hints. IINA's Meta+0/1/2, Meta+-/=, screenshot, playlist, chapter,
+speed, audio-delay, and window-level mappings were added to the built-in profile.
+Fit to Screen and the source window-scale actions now dispatch through the
+corresponding shared resize command.
+
+`cargo test -p riina key_binding_preferences::tests --locked` passed (8 tests),
+including active-profile replacement and IINA default shortcut conversion.
+`cargo build -p riina --locked`, strict workspace Clippy, and
+`cargo test --workspace --locked` passed (213 app tests). The 49 provisioned-libmpv
+native integration tests are ignored by default. A fresh Welcome capture was
+possible, but the UI helper failed on close and again
+after a fresh selection; it did not capture the updated menus. The exact debug
+process was stopped and confirmed absent. Live menu visuals and interaction remain
+unverified.
+
+## Current release and native playback recheck · 2026-10-13
+
+GitHub currently lists v0.3.3 as a published stable release with the Windows
+x86_64 ZIP, `SHA256SUMS.txt`, and release-verification record. The Windows release
+workflow and package-verification checks succeeded. The requested 0.3.3 binary
+release is therefore already deployed; the local workspace remains v0.3.4 and
+has not been released.
+
+The explicit serial suite against the pinned `tools/mpv/libmpv-2.dll` passed all
+49 native playback tests. Its first run exposed a Windows-only fixture-server
+socket mode error in the HTTP playback case. Accepted sockets are now switched
+back to blocking mode before the request worker starts; the isolated HTTP test
+and the complete native suite then passed. The full workspace tests passed 213
+app tests (49 native tests remain ignored by default), strict workspace Clippy,
+formatting, and the v0.3.4 app build passed.
+
+The latest public macOS/Linux application workflow (run 93 at commit
+`7e31e85`) failed at Full application lint on both macOS runners and at
+Application and shared unit tests on Ubuntu. The Windows workflow for that
+commit succeeded. A Windows-host Apple cross-target lint attempt stopped before
+project code because the Apple-target C compiler needed by `ring` is unavailable
+on this host; macOS runner failures still need their job-log diagnosis. The
+saved Video menu capture predates the active-profile shortcut changes, and the
+fresh desktop screenshot helper still fails with
+`CreateForMonitor failed: 0x80070057`; updated menu visuals remain unverified.
+
+## Video size menu waits for valid geometry · 2026-10-13
+
+The Video menu's size actions depended on dimensions from the first `Playing`
+update. If mpv reported source/output dimensions one event later, those actions
+stayed disabled. Riina now updates natural video geometry whenever it becomes
+available, triggers the pending initial resize once the first valid dimensions
+arrive, and clears stale dimensions while media loads, stops, or fails. Later
+geometry changes update the size commands without repeatedly resizing the window.
+
+Three focused tests cover display-size preference, source-size fallback,
+rotation, and missing/zero geometry. `cargo test --workspace --locked` passed
+216 app tests; strict workspace Clippy, formatting, and `cargo build -p riina
+--locked` passed. Fresh menu pixels could not be captured in this run, so the
+size-item enabled state still needs live visual confirmation.
+
+## Quick Settings menu titles follow the active pane · 2026-10-13
+
+IINA changes the Video, Audio, and Subtitles menu action to “Hide … Panel” while
+that settings tab is open, then restores “Show … Panel” when another tab or
+sidebar is active. Riina's actions already toggled the correct pane but their
+labels were static. The shared and Windows-native menu bindings now track the
+active pane on the configured settings side. `cargo check -p riina --locked` and
+`cargo fmt --all -- --check` passed. Live menu interaction and matched visuals
+remain unverified.
+
+The Plugin menu now changes between “Show Plugins Panel” and “Hide Plugins
+Panel” as the plugin sidebar opens and closes, following IINA's `updatePluginMenu`
+behavior. The follow-up `cargo check -p riina --locked`, strict workspace
+Clippy, and formatting check passed. Live menu interaction and matched visuals
+remain unverified.
+
+## Autoplay window-transition flicker · 2026-10-13
+
+Pinned mpv Windows source shows that `wid` creates a child video HWND and
+installs a parent-position hook that resizes it asynchronously. Riina now
+synchronously batches media-size changes for the video host, this mpv child,
+and the transparent controller. Both the media-size and aspect-lock callbacks
+now honor the configured resize timing, so automatic playlist changes do not
+resize the window when timing is “when opened manually” or “never”. The Windows
+native path also enables mpv playlist URL prefetch to reduce load gaps. The audit
+records direct child HWND bounds and samples screen pixels in the video area.
+
+The follow-up executable SHA-256 is
+`D20D1F74479C667AC5CBC71BDEFEC47F883C62E9AD510B8A9147E338E87F41A6`. A
+35.35-second loop through wide, standard, portrait, audio, and return-video
+fixtures recorded zero host/child size mismatches across 2,082 stable 10 ms
+samples, zero off-screen samples, and normal shutdown (PID 5640, exit code 0).
+The previous asynchronous-child build had one mismatch at 5,879 ms, when the
+host had changed to 908×454 but the video child was still 960×483. The follow-up
+audit also saw eight brief `IsWindowVisible` false samples but no host hide/show
+events in the Windows event hook. This verifies synchronized bounds, not rendered
+pixels; the user-visible flash remains open pending a live visual check.
+
+The final Windows executable SHA-256 is
+`C22E0C3E5FD6D1A26D802D8F3EF659CF33D0B9F5EE80ED70FBBD8F0E69EB3AB4`. A fresh
+35-second autoplay loop covered wide, standard, portrait, return-video, and audio
+fixtures. It recorded zero host/child size mismatches and zero off-screen
+samples, with normal shutdown (PID 8120, exit code 0). During the video-to-video
+portion, automatic playlist changes kept the same window frame. Screen-pixel
+sampling found no dark handoff sample on the first two video transitions; one
+near-black sample remained at 15,950 ms as the higher-resolution return-video
+fixture began. This is a short decoder/render handoff, not a window resize. The
+visible transition issue is reduced but not fully resolved.
+
+The earlier asynchronous-child build had one mismatch at 5,879 ms, when the host
+had changed to 908×454 but the video child was still 960×483. The synchronized
+three-surface change removed that mismatch. The 49 pinned-DLL playback/lifecycle
+tests passed against `target/ci-native-engine-38138622911/libmpv-2.dll`; the
+focused resize-timing regression test also passed. `cargo build --locked`,
+`cargo test --workspace --locked` (221 app tests; 49 native tests ignored in the
+ordinary workspace run), strict workspace Clippy, formatting, and `git diff
+--check` passed after the follow-up.

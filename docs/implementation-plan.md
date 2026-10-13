@@ -24,10 +24,17 @@ priorities, not a project timeline. The traceable requirement inventory is
      battery-saver fallbacks; do not call Windows materials Liquid Glass.
    - Linux uses the compositor's native backdrop when available and a documented
      in-app fallback otherwise.
-   Current state: the shared switches still select RGBA tint/opacity only. Windows
-   Mica/Acrylic composition and macOS 27.0.1 Liquid Glass rendering are open. Inspect
-   Slint/Winit transparency and per-surface compositor boundaries before wiring effects;
-   one window-wide backdrop does not prove parity for OSD, controller and sidebar.
+   Current state: the Windows native player host requests and reads back
+   `DWMSBT_MAINWINDOW`, which Windows 11 maps to Mica on build 22621 and later
+   ([Microsoft DWM backdrop types](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type)).
+   Unsupported systems keep the renderer surface. Debug playback works. Fresh
+   per-window captures show Welcome and the empty player, but the helper still
+   loses the active playback window, so visible Mica remains unverified. Slint
+   surfaces remain opaque, transient Acrylic and video-backed overlays are open,
+   and the shared switches still select RGBA tint/opacity. macOS 27.0.1 Liquid Glass
+   rendering remains open. Inspect Slint/Winit transparency and per-surface compositor
+   boundaries before wiring effects; one window-wide backdrop does not prove parity
+   for OSD, controller and sidebar.
 3. Build macOS and Linux application ports alongside Windows feature and visual work.
    Windows 11 x64 is the only supported application target until each port has a full
    app build, visible playback, input, dialogs, window lifecycle, and shutdown evidence.
@@ -37,6 +44,19 @@ priorities, not a project timeline. The traceable requirement inventory is
    upstream revisions, rebuild evidence, and playback tests from the final package.
 
 ## Current verification gates
+
+Current focused sweep: small portrait/landscape video controls, restoring hidden
+groups after enlargement, native menu shortcuts and settings-panel titles, and
+wide/standard/portrait/audio playlist transitions. Preserve the window center and
+usable bounds while respecting the configured natural-size timing. Include an
+audio-to-video transition; successful video-only navigation does not cover it.
+Windows playback still flashes during some clip transitions. The pinned mpv
+Windows video output creates a child HWND and resizes it after parent-location
+events; the app now includes that video child with the host and transparent
+controls in the native resize batch. The follow-up 35-second loop found zero
+host/child size mismatches in 2,082 stable samples, after one mismatch in the
+previous build. Rendered pixels remain unverified, and the user's reported flash
+remains open. Capture transition frames before considering this closed.
 
 - Every implemented behavior has typed intent, observed backend state where applicable,
   and tests at the layer that owns the behavior.

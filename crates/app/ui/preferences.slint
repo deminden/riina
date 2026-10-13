@@ -629,19 +629,58 @@ component ToolbarPreferenceRow inherits HorizontalLayout {
     in-out property <bool> checked;
     in property <int> position;
     in property <int> count;
+    in property <int> drag-index: -1;
+    in property <int> drop-index: -1;
+    in property <length> drag-start-y: 0px;
+    in property <bool> drag-active: false;
     callback toggled(bool);
     callback move-requested(int, int);
+    callback drag-started(int, length);
+    callback drag-target-changed(int);
+    callback drag-finished();
     height: 28px; spacing: 4px;
     PreferenceSwitch {
-        width: 230px; label: root.label;
+        width: 208px; label: root.label;
         checked <=> root.checked;
         toggled => { root.toggled(self.checked); }
     }
+    Rectangle {
+        width: 20px; height: 22px; border-radius: 4px;
+        background: drag-handle.pressed ? #d9d9dd : #f7f7f8;
+        accessible-role: button;
+        accessible-label: "Drag to reorder " + root.label;
+        Text { text: "⠿"; font-size: 15px; color: #68686e;
+            horizontal-alignment: center; vertical-alignment: center; }
+        drag-handle := TouchArea {
+            mouse-cursor: root.drag-active ? move : grab;
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                    root.drag-started(root.position, self.mouse-y);
+                } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up &&
+                    root.drag-active && root.drag-index == root.position {
+                    root.drag-finished();
+                }
+            }
+            moved => {
+                if self.pressed && root.drag-index == root.position {
+                    let delta = self.mouse-y - root.drag-start-y;
+                    let steps = floor(abs(delta) / 28px);
+                    if abs(delta) >= 6px {
+                        let target = clamp(root.drag-index + (delta < 0px ? -steps : steps), 0, root.count - 1);
+                        root.drag-target-changed(target);
+                    }
+                }
+            }
+        }
+    }
     Rectangle { horizontal-stretch: 1; background: transparent; }
+    if root.drag-active && root.drop-index == root.position : Rectangle {
+        width: 2px; height: 20px; border-radius: 1px; background: #168bff;
+    }
     ToolbarOrderButton { label: "↑"; enabled: root.position > 0;
-        activated => { root.move-requested(root.position, -1); } }
+        activated => { root.move-requested(root.position, root.position - 1); } }
     ToolbarOrderButton { label: "↓"; enabled: root.position + 1 < root.count;
-        activated => { root.move-requested(root.position, 1); } }
+        activated => { root.move-requested(root.position, root.position + 1); } }
 }
 
 // AppKit draws number formatters as bounded editable cells; give shared values
@@ -1069,6 +1108,10 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> toolbar-show-screenshot: false;
     in-out property <bool> toolbar-show-live-text: false;
     in-out property <[int]> toolbar-order: [7, 2, 1, 0, 3, 4, 5, 6, 8];
+    in-out property <int> toolbar-drag-index: -1;
+    in-out property <int> toolbar-drop-index: -1;
+    in-out property <length> toolbar-drag-start-y: 0px;
+    in-out property <bool> toolbar-drag-active: false;
     in-out property <bool> osd-suppression-expanded: false;
     in-out property <bool> disable-osd-file-start: false;
     in-out property <bool> disable-osd-pause-resume: false;
@@ -1349,6 +1392,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> utilities-default-playlist: true;
     callback settings-changed();
     callback toolbar-move(int, int);
+    callback toolbar-drag-finished();
     callback toolbar-reset();
     changed disable-animations => {
         MotionSettings.animations-disabled = root.disable-animations || root.system-reduce-motion;
@@ -1940,6 +1984,10 @@ export component PreferencesWindow inherits Window {
                     action-kind == 6 ? "Screenshot" :
                     action-kind == 7 ? "Plugins" : "Live Text";
                 position: index; count: root.toolbar-order.length;
+                drag-index: root.toolbar-drag-index;
+                drop-index: root.toolbar-drop-index;
+                drag-start-y: root.toolbar-drag-start-y;
+                drag-active: root.toolbar-drag-active;
                 checked: action-kind == 0 ? root.toolbar-show-quick-settings :
                     action-kind == 1 ? root.toolbar-show-playlist :
                     action-kind == 2 ? root.toolbar-show-pip :
@@ -1960,7 +2008,23 @@ export component PreferencesWindow inherits Window {
                     else { root.toolbar-show-live-text = value; }
                     root.settings-changed();
                 }
-                move-requested(position, direction) => { root.toolbar-move(position, direction); }
+                move-requested(position, destination) => { root.toolbar-move(position, destination); }
+                drag-started(position, start-y) => {
+                    root.toolbar-drag-index = position;
+                    root.toolbar-drop-index = position;
+                    root.toolbar-drag-start-y = start-y;
+                    root.toolbar-drag-active = false;
+                }
+                drag-target-changed(destination) => {
+                    root.toolbar-drag-active = true;
+                    root.toolbar-drop-index = destination;
+                }
+                drag-finished => {
+                    root.toolbar-drag-finished();
+                    root.toolbar-drag-index = -1;
+                    root.toolbar-drop-index = -1;
+                    root.toolbar-drag-active = false;
+                }
             }
         }
         Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;

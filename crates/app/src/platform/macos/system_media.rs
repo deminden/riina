@@ -1,6 +1,6 @@
 use block2::RcBlock;
 use objc2::{
-    AnyThread, ClassType,
+    AnyThread,
     rc::Retained,
     runtime::{AnyObject, NSObject, ProtocolObject},
 };
@@ -9,7 +9,8 @@ use objc2_app_kit::{
     NSWorkspaceWillSleepNotification,
 };
 use objc2_core_foundation::{
-    CFBoolean, CFData, CFDictionary, CFMutableData, CFNumber, CFString, CFType, CFURL, CGSize,
+    CFBoolean, CFData, CFDictionary, CFMutableData, CFNumber, CFRetained, CFString, CFType, CFURL,
+    CGSize,
 };
 use objc2_core_graphics::CGImage;
 use objc2_foundation::{
@@ -711,7 +712,7 @@ fn now_playing_artwork(path: &str) -> Option<Retained<MPMediaItemArtwork>> {
     now_playing_artwork_image(image)
 }
 
-fn image_source_thumbnail_options() -> Retained<CFDictionary<CFType, CFType>> {
+fn image_source_thumbnail_options() -> CFRetained<CFDictionary<CFType, CFType>> {
     let create_key = CFString::from_str("kCGImageSourceCreateThumbnailFromImageAlways");
     let transform_key = CFString::from_str("kCGImageSourceCreateThumbnailWithTransform");
     let size_key = CFString::from_str("kCGImageSourceThumbnailMaxPixelSize");

@@ -71,6 +71,61 @@ pub fn fit_to_video(
     Some(limit(size, aspect, maximum))
 }
 
+/// Playlist navigation keeps the window area while adopting the next video's
+/// shape, matching the pinned player's non-manual open policy.
+pub fn area_preserving_size(
+    current: PixelSize,
+    aspect: f64,
+    minimum: PixelSize,
+    maximum: Option<PixelSize>,
+) -> Option<PixelSize> {
+    if !current.valid() || !valid_aspect(aspect) {
+        return None;
+    }
+    let area = f64::from(current.width) * f64::from(current.height);
+    bounded_size(
+        PixelSize {
+            width: pixels((area * aspect).sqrt()),
+            height: pixels((area / aspect).sqrt()),
+        },
+        aspect,
+        minimum,
+        maximum,
+    )
+}
+
+/// Keep controls usable and the frame inside its display. For an aspect that
+/// cannot satisfy both limits, retain a bounded client area and letterbox it.
+pub fn bounded_size(
+    requested: PixelSize,
+    aspect: f64,
+    minimum: PixelSize,
+    maximum: Option<PixelSize>,
+) -> Option<PixelSize> {
+    if !requested.valid() || !minimum.valid() || !valid_aspect(aspect) {
+        return None;
+    }
+    let minimum_scale = (f64::from(minimum.width) / f64::from(requested.width))
+        .max(f64::from(minimum.height) / f64::from(requested.height));
+    let maximum = maximum.filter(|size| size.valid());
+    let maximum_scale = maximum.map_or(f64::INFINITY, |maximum| {
+        (f64::from(maximum.width) / f64::from(requested.width))
+            .min(f64::from(maximum.height) / f64::from(requested.height))
+    });
+    if maximum_scale < minimum_scale {
+        let maximum = maximum?;
+        return Some(PixelSize {
+            width: requested.width.max(minimum.width).min(maximum.width),
+            height: requested.height.max(minimum.height).min(maximum.height),
+        });
+    }
+    let scale = 1.0_f64.clamp(minimum_scale, maximum_scale);
+    Some(PixelSize {
+        width: pixels(f64::from(requested.width) * scale),
+        height: pixels(f64::from(requested.height) * scale),
+    })
+}
+
 pub fn display_aspect_ratio(
     width: u32,
     height: u32,
@@ -132,6 +187,83 @@ fn pixels(value: f64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn autoplay_keeps_window_area_when_video_shape_changes() {
+        let current = PixelSize {
+            width: 960,
+            height: 540,
+        };
+        let target = area_preserving_size(
+            current,
+            4.0 / 3.0,
+            PixelSize {
+                width: 285,
+                height: 120,
+            },
+            None,
+        )
+        .unwrap();
+        let difference = (i64::from(target.width) * i64::from(target.height)
+            - i64::from(current.width) * i64::from(current.height))
+        .abs();
+        assert!(difference < 1000);
+        assert!((f64::from(target.width) / f64::from(target.height) - 4.0 / 3.0).abs() < 0.002);
+    }
+
+    #[test]
+    fn portrait_windows_keep_usable_controls_at_three_hundred_percent_scale() {
+        let size = area_preserving_size(
+            PixelSize {
+                width: 960,
+                height: 540,
+            },
+            9.0 / 16.0,
+            PixelSize {
+                width: 855,
+                height: 360,
+            },
+            Some(PixelSize {
+                width: 3708,
+                height: 1797,
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            size,
+            PixelSize {
+                width: 855,
+                height: 1520
+            }
+        );
+    }
+
+    #[test]
+    fn impossible_aspect_limits_leave_a_usable_bounded_letterboxed_window() {
+        let size = area_preserving_size(
+            PixelSize {
+                width: 960,
+                height: 540,
+            },
+            0.1,
+            PixelSize {
+                width: 855,
+                height: 360,
+            },
+            Some(PixelSize {
+                width: 3708,
+                height: 1797,
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            size,
+            PixelSize {
+                width: 855,
+                height: 1797
+            }
+        );
+    }
 
     #[test]
     fn resize_follows_the_dominant_edge_and_keeps_the_video_ratio() {

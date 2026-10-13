@@ -2,14 +2,51 @@
 
 ## Application state
 
+### Current window and controller work
+
+Small video windows keep the transport centered and the timeline visible. The
+volume and toolbar groups disappear together when there is insufficient space,
+following the pinned IINA floating-controller behavior. Live Windows captures
+confirmed the portrait layout, a native border drag to a small landscape window,
+and restoration of the full controller on maximize. The gear opens Quick Settings;
+the native Video menu then displays “Hide Video Panel” and its shortcut.
+
+Windows aspect constraints now apply to the native user resize gesture rather
+than every `WM_SIZE` notification. Unchanged menu row models remain stable across
+playback clock updates, preventing repeated native menu rebuilds. Media sizing
+uses generation identity, including loads whose intermediate Loading snapshot
+was coalesced, and runs after automatic Music Mode transitions. A bounded native
+resize measures wrapped menu rows and moves/sizes around one saved center.
+
+During mixed-aspect autoplay, the framed video host, mpv video child, and
+transparent controller are now submitted together for a Windows resize. A
+35-second loop recorded zero video-child/host size mismatches across 2,082 stable
+samples, zero off-screen samples, and normal shutdown; the previous build had one
+child-size mismatch during a clip switch. A follow-up found the aspect-lock path
+could still resize during autoplay when the configured timing was manual-only.
+Both media and aspect changes now honor that timing, and Windows native playback
+prefetches the next playlist URL. A fresh 35-second pixel audit found no window
+resize during video-to-video autoplay and no host/child size mismatch. One brief
+black frame remains as a higher-resolution clip begins, so transition rendering
+is still open. Exact build and audit details are in `docs/verification.md`.
+
+The current display is physically 3840×2160 at 300% DPI, with a 3840×2016 work
+area. Older 1280×720/1280×672 measurements below were DPI-virtualized coordinates;
+they are not a second physical display configuration.
+Matched macOS pixels, multiple monitors, unusual aspect extremes, auxiliary-window
+coverage and macOS/Linux runtime remain open.
+
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.3. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.4. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
 native HTTP playback check that serves the repository's moving-square fixture over
 localhost and verifies advancing playback, duration, and the selected audio track.
 This does not verify physical audio hardware, public network streams, or macOS playback.
+The libmpv event wakeup now coalesces repeated native notifications into one
+bounded-queue message, preserving room for playback commands during event bursts;
+focused queue-pressure tests cover coalescing and recovery after a full queue.
 The stored Disable Animations preference combines with live Windows, macOS, and
 Linux desktop Reduce Motion settings while the player or reusable Preferences
 window is open. Linux reads the standardized XDG Settings value and follows its
@@ -18,8 +55,10 @@ remain open.
 Interface > On-Screen Controller now persists independent visibility choices for
 all nine IINA toolbar action types, including Full Screen, Music Mode, Subtitle
 Track, Screenshot, and Live Text. Each action can be moved up or down in the saved
-order; the default remains Plugins, PiP, Playlist, Quick Settings. Matching
-IINA's drag/drop presentation and grouped GUI interaction review remain open.
+order or repositioned with a drag handle; the default remains Plugins, PiP,
+Playlist, Quick Settings. Unit tests cover forward/backward reordering and reject
+invalid order data. Matching IINA's customization presentation and live drag
+interaction review remain open.
 Live Text is removed from the toolbar unless enabled and available, matching its
 source preference gate. The preference list can restore IINA defaults.
 Command-line HTTP, HTTPS, RTSP and RTSPS media references now share URL validation
@@ -61,9 +100,14 @@ video display bounds, rotation, physical-resolution setting, monitor bounds, and
 IINA's 25-point Bigger/Smaller step. Fit Window to Video belongs in IINA's Layout
 sidebar and has been removed from Riina's Video menu. Fit to Screen centers a
 shrunk window in the current monitor's usable bounds; the other size commands
-preserve video aspect while resizing around the window center. A moving-square
-fixture debug run started, but the current desktop-control session exposed no
-inspectable application windows, so live menu behavior remains unverified.
+preserve video aspect while resizing around the window center. Video-size
+commands now enable when the first valid natural dimensions arrive, even if
+libmpv reports them after the initial loaded state; replacement/loading and
+stopped media clear the previous dimensions. Focused tests cover source and
+display-size selection, rotation, and invalid geometry. A fresh visual menu
+check is still needed. A moving-square fixture debug run started, but the current
+desktop-control session exposed no inspectable application windows, so live menu
+behavior remains visually unverified.
 Delogo reuses the source-space interactive selector and playback-pause lifecycle,
 then applies a labeled `lavfi` delogo filter; the checked menu item removes only
 Riina's Delogo filter. Shared and Windows native menus are wired. The Video
@@ -86,12 +130,29 @@ See REF-30 in
 `docs/visual-reference-audit.csv`.
 The top-level menus now follow IINA's app, File, Edit, Playback, Video, Audio,
 Subtitles, Plugin, Window, Help order on both shared and Windows-native surfaces.
+Video, Audio, and Subtitles menu commands now switch between “Show … Panel” and
+“Hide … Panel” based on whether that exact settings tab is open on the configured
+settings side. The Plugin menu also follows the plugin sidebar's visibility.
+These match IINA's dynamic panel commands; live menu interaction remains visually
+unverified.
 File, Playback, Video, Audio and Subtitles sections now follow the pinned
 `MainMenu.xib` order and separators for implemented entries, including nested
 audio-track choices and the reference's alternate speed, volume and delay steps.
 Shortcut metadata is configured for the menu's right-hand column using Command
-on macOS and Control on Windows. These are static source-defined equivalents;
-matching user-customized IINA key bindings dynamically remains open. Windows
+on macOS and Control on Windows for application commands. Profile-backed player
+actions now derive their shortcut hints from the active key-binding profile in
+both shared and Windows-native menus; unsupported or absent actions leave the
+hint blank. Broader mapping coverage and live profile-switch verification remain
+open. Windows
+Playback and Audio menus in shared-renderer and Windows native-video modes now
+show Resume/Pause with Space, live speed, live volume with the muted suffix, a
+checked Mute item, and current audio delay. The Windows menu bridge copies these
+values from the shared playback snapshot. Speed adjustment entries use IINA's
+“by” wording, matching their multiplicative behavior. These labels are
+source-wired. Frame-step, fine speed, fine volume, and fine audio-delay alternates
+now replace their primary rows while Alt/Option is held, matching IINA's menu
+alternate behavior in the shared menu and Windows native-video menu. Live modifier
+interaction and matched visual verification remain open.
 Audio, Subtitles and Plugin menus route their
 implemented actions to existing player commands. The File menu's Open in New
 Window action is source-wired to the multi-file picker and separate-player
@@ -153,13 +214,17 @@ path; live playlist ordering and the macOS capture remain unverified.
 Later local, URL, and recent-media opens use in-process player windows on the
 shared-renderer path, including macOS. The Windows native-video path still launches
 separate processes. Playback history state is shared by in-process player windows,
-and open history views refresh from the shared revision. Plugin state,
-cross-process history/duplicate synchronization, and live lifecycle verification
-remain open.
+and open history views refresh from the shared revision. When duplicate playback is
+disabled, an in-process request for media already open now restores and focuses the
+matching player instead of reporting a failed open. The selection policy has focused
+unit coverage; live focus behavior, plugin state, cross-process history/duplicate
+synchronization, and native-video lifecycle verification remain open.
 General settings now persist IINA's quit-after-all-windows-close preference
 (default off) and keep-window-open-after-playback preference (default on). On the
 shared-renderer path, closing the last player restores Welcome when quitting is off;
-the Windows native-video lifecycle and live close/reopen behavior remain open. The
+Windows native-video now consults the quit preference on window close and the Quit
+command always exits. Its setting policy is unit-tested; live OS close/reopen behavior
+and a visible reopen path while the native process stays alive remain open. The
 keep-open setting reaches new and active libmpv sessions; EOF replay and playlist
 boundaries still need native playback verification. General > Pause/resume when now
 stores fullscreen entry/exit settings and applies their pause intent when fullscreen
@@ -174,9 +239,17 @@ OSD now also reports observed volume/mute, audio delay,
 subtitle timing/visibility and selected track changes; exact rendering and
 remaining OSD event families remain open; state-based rotation, crop, subtitle
 scale, loop mode and A/B loop feedback plus stop/chapter/playlist-action messages
-are implemented. Track-selection feedback now includes the selected track ID and
-localized language name, with IINA's synthetic `#0 <None>` entry when a track is
-cleared; matched OSD rendering and live locale changes remain open.
+are implemented. Focused regression tests now cover delay direction/progress,
+separate primary and secondary subtitle delay/position/visibility, selected-track
+identity and the disabled `#0 <None>` choice, rotation, reciprocal subtitle scale,
+and playlist-loop feedback. Track-selection feedback includes the selected track
+ID and localized language name. When one native observation contains both updated
+A/B loop endpoints, Riina queues feedback for both in A-then-B order; a simultaneous
+removal of both points produces one clear message. Matched OSD rendering, live
+locale changes, and native timing remain open. Stop, chapter selection, playlist
+append, paste, and clear confirmations now share typed action-feedback messages
+with regression coverage for the IINA reference text; action acceptance timing and
+the stopped-state hold remain GUI-verification gaps.
 Wheel Auto seek now starts with exact seeking and measures the first native
 seek-to-playback-restart interval for each media file; later Auto seeks use exact
 mode below 50 ms and keyframe mode otherwise. The render path reports composed
@@ -209,22 +282,31 @@ and now expands the default `./*` and configured subtitle search directories on 
 background worker for each local playback generation. It filters IINA-supported
 subtitle extensions, matches media filename prefixes or containment according to
 the selected mode, and loads matches with mpv's non-stealing automatic-selection
-flag. In intelligent mode it also recognizes numbered episode groups from three
-or more sibling media files and uses a bounded reciprocal nearest-name fallback
-when direct and episode matching find nothing. Episode grouping preserves stable
-filename tokens while matching multiple varying numeric identifiers, such as season
-and episode numbers, across three or more sibling media files. Explicit episode-number
-conflicts and subtitles already matched to neighboring media are excluded from that fallback.
-Configured priority keywords can then choose the preferred external track.
+flag. In intelligent mode it recognizes numbered episode groups from three or more
+sibling media files, recursively groups differing filename prefixes, matches reciprocal
+nearest prefixes, and compares the episode name within each group. These group matches
+run alongside the token-based series matcher, which handles multiple varying numeric
+identifiers such as season and episode numbers. A bounded reciprocal nearest-name
+fallback remains available when those matches find nothing; explicit episode-number
+conflicts and subtitles matched to neighboring media are excluded from that fallback.
+Configured priority keywords then match the extensionless subtitle filename stem
+case-sensitively, excluding directory names and extensions, to choose a preferred
+external track and order discovered candidates consistently.
 Riina now includes manual OpenSubtitles search and download, stores
 the user's key in the platform credential store, migrates any saved plain-text key,
 and can open a search for local media above the configured duration threshold when
 no subtitle tracks are found after discovery settles.
+IINA's provider submenu also offers Assrt, Shooter, and plugin-backed providers;
+Riina currently implements OpenSubtitles only, so matching those providers and
+their menu actions remains a tracked feature gap.
 Search uses preferred subtitle languages and an OpenSubtitles media hash when
-available. The Auto Load matcher now measures bounded prefix and suffix distances
-for numeric-pattern groups; its group thresholds and assignment rules still differ
-from IINA's recursive matcher. Live provider playback, captured UI comparison, and
-matched macOS visual behavior remain open.
+available. The Auto Load matcher uses bounded prefix and suffix distances for
+numeric-pattern groups and now performs bounded recursive filename-series grouping,
+reciprocal nearest-prefix assignment, and per-episode name matching across differing
+media and subtitle prefixes. Subtitle groups of any size participate in nearest-prefix
+selection, while media groups require at least three siblings. These results run
+alongside direct and token-based matches. Deterministic tie handling, end-to-end
+playback/captured UI comparison, and matched macOS visual behavior remain open.
 
 Windows 11 x64 is the supported application target. macOS and Linux application
 ports are in development and are not supported yet. Full application builds, visible
@@ -234,7 +316,7 @@ support.
 ## Parity state
 
 The pinned baseline is official IINA v1.5.0. The parity inventory currently traces
-243 atomic requirements, and the inventory is still incomplete. Many requirements
+244 atomic requirements, and the inventory is still incomplete. Many requirements
 remain partial or unverified. There is no defensible overall parity percentage.
 Full behavioral coverage and measured, full-surface visual parity remain primary
 acceptance goals. Use `docs/parity.csv`, `docs/interface-parity-plan.md`, and the
@@ -414,16 +496,17 @@ Riina's original source is MIT. The combined application package is GPL-3.0-only
 The v0.3.0 package includes the exact third-party notices and corresponding
 sources for its pinned native engine and Cargo dependencies.
 
-The latest published GitHub release is Riina 0.3.2 and includes a Windows x86_64
+The latest published GitHub release is Riina 0.3.3 and includes a Windows x86_64
 portable application, checksums, and a release verification record. Its successful
-candidate run reused a previously built native engine, passed native playback and
-shutdown checks, and verified the package against its tagged application source and
-native source manifest. The [release workflow](https://github.com/deminden/riina/actions/runs/38259354701)
-and artifact record are available online.
+workflow reused a previously verified native engine, passed native playback and
+shutdown checks, and audited the exact package against its tagged application source
+and native source manifest. The [v0.3.3 release](https://github.com/deminden/riina/releases/tag/v0.3.3)
+and [successful release workflow](https://github.com/deminden/riina/actions/runs/38332824004)
+are available online.
 
 The v0.3.0 source archive measured 1.60 GB compressed and 2.57 GB expanded.
 Its native-source snapshot included 1.01 GB of Git object metadata across 5,568
-entries. The v0.3.0 archive remains unchanged. The v0.3.2 release does not attach
+entries. The v0.3.0 archive remains unchanged. The v0.3.3 release does not attach
 duplicate native or vendored Rust source trees: the exact application source is
 served from the release tag, Cargo.lock pins Rust sources by checksum, and the
 package's `SOURCE-MANIFEST.tsv` identifies each public native repository, revision
@@ -433,14 +516,21 @@ the pinned builder recipe retrieves it from its upstream source.
 
 Release assets:
 
-- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.2/riina-0.3.2-windows-x86_64.zip)
-- [Tagged source code at v0.3.2](https://github.com/deminden/riina/archive/refs/tags/v0.3.2.tar.gz)
-- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.2/SHA256SUMS.txt)
-- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.2/RELEASE-VERIFICATION.json)
+- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.3/riina-0.3.3-windows-x86_64.zip)
+- [Tagged source code at v0.3.3](https://github.com/deminden/riina/archive/refs/tags/v0.3.3.tar.gz)
+- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.3/SHA256SUMS.txt)
+- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.3/RELEASE-VERIFICATION.json)
 
-The next v0.3.3 candidate must pass the exact package, source-access, and playback
-gates before its Windows binary is public. Earlier native shutdown failures
-and their resolution remain in `docs/native-distribution-audit.json` as
+v0.3.3 is published with its Windows portable binary. The exact 72.6 MB package
+matches SHA-256 `2a72ded17b01c928cd0bdc5aec9be31c1ca286ef743bdba5201587b7910d2a74`,
+identifies immutable source commit `8cf9cc2`, contains no duplicate native or
+vendored Rust source trees, and passes the package audit with 101,748 native
+source-file records across 88 repositories. The first tag-triggered workflow's
+older strict notice matcher failed; corrected main-branch workflow-dispatch run
+`38332824004` then passed native playback/lifecycle tests, exact package
+verification, and publication. It reused the verified native engine instead of
+running the multi-hour engine build again. Earlier native shutdown failures and
+their resolution remain in `docs/native-distribution-audit.json` as
 release-engineering evidence.
 The x264 encoder is excluded from the release engine; FFmpeg's built-in H.264
 decoder remains enabled. The development DLL is not the release runtime. License
@@ -449,9 +539,9 @@ terms and package provenance are recorded in `docs/licensing.md` and
 
 ## Verification state
 
-The parity inventory contains 243 currently inventoried requirements,
-while explicitly reporting that the inventory is incomplete. The 0.3.3 candidate
-must run the complete package, corresponding-source, and playback gates. The Unix presentation marker
+The parity inventory contains 244 currently inventoried requirements,
+while explicitly reporting that the inventory is incomplete. The next release
+candidate must run the complete package, corresponding-source, and playback gates. The Unix presentation marker
 derives `Clone` to match the Windows adapter's shared timer ownership. The full
 macOS/Linux application workflow passed Clippy, workspace tests, and application
 builds for both matrix hosts at commit `007e410` in
@@ -475,8 +565,12 @@ The permission gate and a localhost HTTP JSON response are covered by tests;
 JavaScript Promise and external-network behavior remain unverified. The file API
 supports exists, list, named text encodings for reads, UTF-8 writes, delete, move,
 and binary handles with seek/read/write/close operations bounded to 4 MiB each.
-UTF-8/16/32, strict ASCII, Latin-1, and common WHATWG labels are decoded; Foundation
-encodings absent from or mapped differently by the portable decoder remain open.
+UTF-8/16/32, strict ASCII, Latin-1, and common WHATWG labels are decoded. Additional
+Foundation names now cover ISO Latin-5/Thai, KOI8-R, and accepted Big5-HKSCS and
+ISO-2022-JP variant names. The latter variants use the portable decoder's base
+Big5 or ISO-2022-JP tables, so encoding-specific extension mappings can differ from
+Foundation. Other Foundation-only encodings such as EBCDIC, CNS/EUC-TW, HZ, UTF-7,
+and specialized Mac character sets remain unsupported.
 Move accepts the reviewed absolute-path permission for either endpoint;
 overwriting external files through text `write` is denied to match the plugin API
 behavior.
@@ -484,9 +578,13 @@ behavior.
 root escapes and storage symlinks are rejected, and absolute paths require the
 reviewed file-system permission. `@current/<path>` now expands against the current
 media directory and requires that grant; `@video/<id>`, `@audio/<id>`, and `@sub/<id>`
-resolve the current external track paths from playback context. Trash, unsupported
-Foundation encodings, cross-volume move behavior, and exact IINA path semantics
-remain open. `showInFinder` now resolves a plugin path and delegates to
+resolve the current external track paths from playback context. `file.trash` now
+moves a resolved path to the OS Trash/Recycle Bin, following IINA's distinction
+between trashing a selected path and permanently deleting private `@data`/`@tmp`
+files. Its file-system permission gate has a runtime bridge test; native file-manager
+effects and macOS/Linux behavior remain unverified. Unsupported Foundation encodings,
+cross-volume move behavior, and exact IINA path semantics remain open.
+`showInFinder` now resolves a plugin path and delegates to
 the platform file-manager adapter; its external path requires the same explicit
 file-system permission. Workspace tests cover its permission gate, but not the OS
 file-manager interaction. Handle tests cover binary reads and writes, seeking,
@@ -504,3 +602,223 @@ domain for HTTP(S) and SMB. Other URL schemes, including RTSP, follow IINA's
 filesystem-permission branch. The playback-history getter is implemented, and
 the `core.window` proxy is source-wired; plugin command GUI execution and native
 window semantics remain pending live verification.
+
+Windows startup placement now centers the realized native frame immediately,
+before the player UI/session finishes asynchronous initialization. Playback-driven
+resizing still recenters after the final initial size is known. Natural window size
+now uses decoded source dimensions, preventing the VO's current output target from
+feeding back into the next window-size request. Display aspect calculations retain
+post-filter dimensions. A Windows 11 run with the 320×180 moving-square fixture
+still ended at nearly the full 1280×672 work area. Windows now reserves a 24-point
+DPI-aware inset on each side when calculating automatic video size, so a capped
+playback window remains visibly separated from the work-area edges. The rebuilt
+app measured at `[127, 24, 1153, 648]` on the 1280×672 work area, exactly centered
+with a 24-pixel edge margin. The title showed `track-languages.mkv` despite a
+different requested fixture argument, so this confirms playback-window placement
+but not the fixture-specific sizing path. Startup sizing and centering use the
+current monitor's taskbar-free
+work area together. The client-size limit subtracts the measured native frame
+insets before the video is sized, so the outer frame still fits. The native outer frame is recentered after Slint's first
+layout settles and after command-line media finishes loading; configured
+initial-position offsets remain clamped to their selected display. Video-driven
+and Music Mode resizes preserve the frame center. Core geometry tests cover
+negative-origin secondary displays and oversized offsets. A prior Win32 check
+measured full-display centering on a 3840×2160 primary monitor, before this
+work-area correction. The rebuilt current app passed workspace compilation,
+tests, and strict Clippy, but the desktop capture helper failed with
+`CreateForMonitor ... 0x80070057`, so the corrected work-area placement still
+needs a visual/runtime measurement in a working capture session. The latest
+accessibility-only observation exposed the Welcome controls, but screenshots
+still fail with `0x80070057` and UIA click geometry is unavailable.
+The client-to-outer-window conversion now uses measured screen positions instead
+of splitting the full frame thickness in half; this preserves the actual top
+caption inset when it differs from the bottom border. Regression tests cover an
+asymmetric caption frame and negative virtual-desktop coordinates. The current
+desktop capture session again failed to expose a stable Riina window, so the live
+visual confirmation remains open.
+Windows now centers the player after its visible surface is created, so idle
+launches and cancelled file dialogs do not retain Winit's default placement. The
+existing post-media center accounts for playback sizing, and resize or scale changes
+settle while a startup center is pending; moving the window does not schedule another
+center. An explicit initial-position preference bypasses automatic centering.
+The shared-renderer Windows entry point and in-process player windows now use the
+same work-area centering policy when no explicit initial position is configured;
+the shared-renderer path applies it as soon as its native window exists, with a
+short realization fallback. These alternate paths are compile-checked; their live
+frame bounds still need measurement because the current desktop capture API fails.
+The transparent controls HWND now receives the native host's bounds before its first
+show, preventing the separate overlay from briefly appearing at Winit's default
+screen position. A Windows playback launch measured the controls outer frame exactly
+over the host client rect, and the host retained a 24-pixel margin from the 1280×672
+work area. The live screen capture remains unavailable, so rendered pixels are still
+unverified.
+Auxiliary windows with a hidden or unrealized owner center in the monitor work area
+instead of inheriting the owner HWND's default upper-left rectangle. The latest
+startup-placement change was measured on the current 1280x672 work area: an idle
+launch was centered exactly and a loaded moving-square fixture was within one
+horizontal pixel. Both test processes were closed. The desktop screenshot API
+returned an all-black frame, so rendered pixels remain unverified; measurements
+are recorded in `tests/visual/windows-window-placement-evidence.json`.
+
+The Windows native player host now requests DWM's `DWMSBT_MAINWINDOW` backdrop
+and reads back the applied type, with a renderer-surface fallback when DWM rejects
+the attribute. Microsoft maps this value to Mica on Windows 11 22H2 and newer.
+The debug app reached playback with this call in place, but capture still fails, so
+visible Mica, other persistent surfaces, Acrylic dialogs, and video-backed overlays
+remain unverified.
+
+IINA's Audio > Audio Device menu was still a disabled placeholder. Riina now builds
+that submenu from libmpv's observed device IDs and descriptions, filters devices by
+the active output driver, marks the observed selection, and sends the selected native
+ID to libmpv's writable `audio-device` property during playback. The shared menu and
+Windows native menu share the same typed action. If the selected endpoint disappears
+during active playback, Riina requests automatic output. Command validation, selected
+row mapping, driver filtering, and one-shot fallback conditions have regression tests.
+The provisioned Windows libmpv check exposed three endpoints and verified that
+selecting an alternate changed the observed property. Physical hot-plug and GUI
+capture remain unverified.
+
+The Quick Settings Audio pane now follows IINA's control order: a bounded audio
+track selector first, then external-audio loading, delay, and the equalizer.
+The requested opt-in volume-boost switch remains between delay and EQ. Backend
+track switching is covered by the full native playback suite. The Slint
+layout compiles and the workspace test suite passes; the matched live capture
+remains unverified because the current monitor-capture request fails with
+`0x80070057`.
+
+## Verification sweep and Windows last-window lifecycle · 2026-10-13
+
+The current v0.3.4 workspace passed `cargo build --workspace --locked`,
+`cargo test --workspace --locked` (207 app tests), strict workspace Clippy,
+formatting, the parity traceability checker (244 inventoried rows; still incomplete),
+and the Python tooling suite (19 tests). The explicit provisioned libmpv suite passed
+49/49 native playback tests. Windows placement was rechecked: the shared-renderer
+player's native outer frame is exactly centered at `[154, 9]` in the 1280×672 work
+area. The isolated Welcome frame was also exactly centered at `[354, 99]`.
+
+With `quit_when_no_opened_window=false`, closing Welcome restored the empty native
+player and the process stayed alive; closing that player ended the isolated test
+process. With the preference enabled, closing Welcome exited. These process-level
+checks cover Windows only. Earlier monitor-wide capture calls had failed
+(`CreateForMonitor` 0x80070057), and GDI/PrintWindow returned black client pixels.
+Fresh per-window capture displayed the Welcome and empty-player surfaces, though not
+the video playback surface. The published v0.3.3 package remains unchanged;
+v0.3.4 has not been prepared for release.
+
+Windows first-show placement now retries until a native HWND accepts its
+position, and shrinks an oversized outer frame to the work area while preserving
+its ratio. A runtime check found the old native host at `[0, 0, 1280, 720]` on a
+`[0, 0, 1280, 672]` work area. After closing Welcome in the rebuilt v0.3.4 app,
+the measured empty-player outer frame was `[176, 24, 1104, 648]`: centered with
+24-pixel top and bottom margins. A fresh screenshot showed the title bar, menus,
+and player surface. The command-line playback test briefly showed
+`moving-square.avi — riina`, confirming filename title wiring; the capture helper
+then lost the playback window, and the exact test process was closed. Shared
+video pixels and matched IINA comparison remain open.
+
+First-show placement now selects the taskbar-free work area under the pointer
+for new windows without a visible owner, then falls back to the primary monitor.
+An existing visible owner still takes priority, so auxiliary windows and child
+players remain beside the window that opened them. This avoids sending a launch
+to the primary display when the user is working on another monitor, and avoids
+using Winit's temporary cascade coordinates. Earlier single-monitor captures
+measured the Welcome window at `[354, 99, 926, 573]` and playback host at
+`[127, 24, 1153, 648]` on a 1280×672 work area. Those measurements remain the
+single-monitor baseline; multi-monitor pointer selection still needs runtime
+verification. The Windows selection-priority test passes for owner, pointer,
+and primary fallback. A playback capture on the pre-change build confirmed live
+video and controls, but did not exercise multi-monitor placement. A post-change
+Windows launch displayed Welcome and the empty-player surface; the test process
+was closed afterward. The active desktop exposes no second monitor for runtime
+verification.
+
+The Windows native-video Window menu now enables Bring All to Front. Its handler
+matches the exact running executable, restores and asynchronously raises visible
+windows from sibling player processes, then requests focus for the player that
+received the command. The executable-path unit test and strict workspace Clippy pass; live multi-process
+activation remains unverified because the desktop capture helper stopped accepting
+the playback window after a Quick Settings click.
+
+Crop OSD now follows the observed managed-filter state: preset names and crop
+clearing are reported only after the native filter catalog confirms the change.
+Interactive custom crops include their source-pixel origin and dimensions, matching
+IINA's readable crop label; moving a custom rectangle while remaining in the Custom
+category produces fresh feedback. Unknown filter state is kept distinct from a
+confirmed uncropped state. Two focused unit tests pass. A live Windows 11 run
+selected Video > Crop > 4:3 and captured the visible `Crop: 4:3` OSD plus the
+cropped playback surface; evidence is in `tests/visual/crop-osd-windows-evidence.json`
+and its screenshot. Live custom-rectangle selection, exact OSD timing, and matched
+macOS comparison remain open.
+
+The IINA 1.5.0 Video Quick Settings pane uses the system aspect-ratio, crop, and
+rotation symbols beside those section labels. Riina now uses original 16 px
+vector glyphs for the same three headings. Its fixed component height now includes
+all three headings, control rows, and layout spacing. The application build passes;
+the symbol shapes and spacing still need a live comparison capture before visual
+acceptance.
+
+## Windows UI retest · 2026-10-13
+
+The rebuilt 0.3.4 Welcome window rendered through the desktop capture bridge and
+reported its version and recent-file controls. Selecting the long playback sample
+opened a player titled with the filename, but the bridge then reported that the
+player window was not usable for capture after one fresh re-list and rehydration.
+The exact test process was closed and no Riina process remains. This confirms the
+Welcome capture path only; playback controls and Quick Settings visuals still need
+a successful live capture.
+
+On a fresh follow-up, Welcome capture succeeded after selecting a newly listed
+window handle. Double-clicking `moving-square.avi` changed the app's listed title
+to the playback filename, but its refreshed window handle disappeared before the
+capture request could use it. Test process 13952 was stopped and confirmed absent;
+no video pixels or Quick Settings interaction were verified.
+
+The rebuilt v0.3.4 Welcome window captured successfully and showed Version 0.3.4
+and the recent-media list. Opening `moving-square.avi` changed the app listing to
+`moving-square.avi — riina`, but `get_window` rejected the refreshed playback HWND
+as unusable after one re-list and rehydration. Test process 22040, launched from
+`target/debug/riina.exe`, was stopped and verified absent. Playback rendering,
+dynamic menu state, and Quick Settings remain unverified through this capture path.
+
+A second fresh launch used the development binary rebuilt after the Windows
+native-video menu-state bridge changes. Welcome capture succeeded again. Opening
+`moving-square.avi` changed the listed player title to
+`moving-square.avi — riina`, but capture failed as soon as the player replaced the
+Welcome surface; a fresh list and rehydration produced the same unusable-window
+error. Process 22384 was stopped and verified absent. The native menu labels compile
+and pass workspace tests, but live Playback/Audio menus and video pixels still
+cannot be visually checked through this bridge.
+
+New player windows opened from an existing player now stay on that player's
+monitor. The shared-renderer path centers the child over its owner; separately
+launched Windows players inherit the owner's monitor as a startup hint. Previously
+both paths could move a new window to the primary monitor. A configured initial
+position still takes precedence. Multi-monitor runtime placement remains to be
+verified.
+
+Standalone Windows windows now choose the primary display when there is no visible
+owner. Their placement no longer follows the pointer, which could be left on a
+secondary display or at a remote-desktop edge. A fresh Welcome capture showed the
+surface, but the computer-use helper failed while closing its HWND; the exact
+debug process was then stopped and confirmed absent. Screen-coordinate placement
+and multi-monitor behavior were not visually verified in this run.
+
+The desktop helper again captured the Welcome window and the playback window.
+The playback capture exposed the shared playback controls, menu bar, and Video
+Quick Settings; the fixture was paused at its final timestamp and the video area
+appeared black, so this did not verify video pixels. Quick Settings tab switching
+then lost its window handle. Test process 8652 was stopped and confirmed absent.
+
+## Current workspace validation · 2026-10-13
+
+`cargo test --workspace --locked` passed. All 49 ignored native playback integration
+tests also passed serially against `tools/mpv/libmpv-2.dll`; its SHA-256 matched the
+pin in `reference/native-lock.json` (`a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`).
+`cargo build --workspace --locked` completed successfully. The current development
+binary launched with `moving-square.avi` and reported that filename in its player
+title. The fixture advanced to the following same-folder playlist item during
+capture. The Windows capture helper rejected the playback window with `window is
+not a usable app window` after a fresh window-list and rehydration retry. Test
+process 21816 was stopped; a process check confirmed no Riina process remains.
+This leaves live playback pixels, menu interaction, Quick Settings, and multi-
+window positioning unverified in this run.

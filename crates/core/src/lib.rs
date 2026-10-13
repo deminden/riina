@@ -90,6 +90,7 @@ pub enum Command {
         seek_type: control_preferences::SeekType,
     },
     Volume(f64),
+    AudioDevice(String),
     AdjustVolume {
         delta: f64,
         boost: bool,
@@ -310,6 +311,12 @@ impl Command {
             ],
             Self::Volume(value) if value.is_finite() && (0.0..=200.0).contains(value) => {
                 vec!["set".into(), "volume".into(), value.to_string()]
+            }
+            Self::AudioDevice(name) if !name.is_empty() && !name.contains('\0') => {
+                vec!["set".into(), "audio-device".into(), name.clone()]
+            }
+            Self::AudioDevice(_) => {
+                return Err("The audio device name is empty or contains a NUL byte".into());
             }
             // The reference's custom field has no upper bound. Submit finite
             // requests above the engine limit so native rejection remains an
@@ -1601,6 +1608,9 @@ pub struct Playback {
     pub muted: bool,
     pub speed: f64,
     pub audio_output: Option<String>,
+    /// Currently selected libmpv output device ID, independently observed so
+    /// menus reflect runtime changes and backend fallback behavior.
+    pub audio_device: Option<String>,
     pub audio_devices: Vec<audio_preferences::OutputDevice>,
     pub hardware_decoder: Option<String>,
     // Configured policy is separate from hwdec-current: unsupported codecs can
@@ -1674,6 +1684,23 @@ pub struct SubtitleStyleAvailability {
 }
 
 impl Playback {
+    /// Use post-filter output to compute displayed geometry and aspect ratio.
+    pub fn display_video_parameters(&self) -> Option<&VideoParameters> {
+        self.video_output
+            .as_ref()
+            .or(self.video.as_ref())
+            .or(self.video_target.as_ref())
+    }
+
+    /// Base natural window size on decoded source dimensions. In native VO
+    /// mode output dimensions can describe the current target window.
+    pub fn window_size_video_parameters(&self) -> Option<&VideoParameters> {
+        self.video
+            .as_ref()
+            .or(self.video_output.as_ref())
+            .or(self.video_target.as_ref())
+    }
+
     pub fn audio_status(&self) -> music_mode::AudioStatus {
         if self
             .playlist
@@ -1822,6 +1849,60 @@ impl VideoParameters {
     pub fn is_hdr(&self) -> bool {
         matches!(self.gamma.as_deref(), Some("pq" | "hlg"))
             && matches!(self.primaries.as_deref(), Some("bt.2020" | "display-p3"))
+    }
+}
+
+#[cfg(test)]
+mod display_video_parameters_tests {
+    use super::{Playback, VideoParameters};
+
+    fn video(width: u32, height: u32) -> VideoParameters {
+        VideoParameters {
+            pixelformat: None,
+            w: width,
+            h: height,
+            dw: None,
+            dh: None,
+            rotate: None,
+            colormatrix: None,
+            colorlevels: None,
+            primaries: None,
+            gamma: None,
+            max_luma: None,
+            min_luma: None,
+            signal_peak: None,
+        }
+    }
+
+    #[test]
+    fn natural_window_size_uses_source_dimensions_before_vo_output() {
+        let playback = Playback {
+            video: Some(video(320, 180)),
+            video_target: Some(video(1920, 1080)),
+            video_output: Some(video(1920, 1080)),
+            ..Playback::default()
+        };
+        let natural = playback.window_size_video_parameters().unwrap();
+        assert_eq!((natural.w, natural.h), (320, 180));
+    }
+
+    #[test]
+    fn display_geometry_uses_post_filter_output_and_falls_back_to_source_then_target() {
+        let source = Playback {
+            video: Some(video(320, 180)),
+            video_target: Some(video(1920, 1080)),
+            video_output: Some(video(640, 360)),
+            ..Playback::default()
+        };
+        let displayed = source.display_video_parameters().unwrap();
+        assert_eq!((displayed.w, displayed.h), (640, 360));
+
+        let target = Playback {
+            video_target: Some(video(1920, 1080)),
+            ..Playback::default()
+        };
+        let displayed = target.display_video_parameters().unwrap();
+        assert_eq!((displayed.w, displayed.h), (1920, 1080));
     }
 }
 
@@ -3510,6 +3591,22 @@ mod tests {
             }
             .plan(&Playback::default())
             .is_err()
+        );
+    }
+
+    #[test]
+    fn audio_device_commands_preserve_the_native_id_and_reject_invalid_names() {
+        assert_eq!(
+            Command::AudioDevice("wasapi/{device-guid}".into())
+                .mpv_args()
+                .unwrap(),
+            ["set", "audio-device", "wasapi/{device-guid}"],
+        );
+        assert!(Command::AudioDevice(String::new()).mpv_args().is_err());
+        assert!(
+            Command::AudioDevice("bad\0device".into())
+                .mpv_args()
+                .is_err()
         );
     }
 

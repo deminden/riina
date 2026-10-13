@@ -1436,6 +1436,7 @@ pub(crate) fn connect(
                 },
             );
             *reduce_motion_refresh.borrow_mut() = Some(timer);
+            crate::platform::center_auxiliary_window(&window, &app);
             *current.borrow_mut() = Some(window.clone_strong());
             window
         };

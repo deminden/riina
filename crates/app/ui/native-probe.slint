@@ -9,6 +9,7 @@ export struct SavedFilterMenuRow {
     shortcut-key: string,
     shortcut-modifiers: int,
 }
+export struct MenuShortcutRow { shortcut: keys }
 
 // The native video window owns OS-level menus while the shared chrome provides controls.
 export component NativeVideoHost inherits Window {
@@ -26,6 +27,15 @@ export component NativeVideoHost inherits Window {
     callback quit-riina();
     callback minimize-window();
     callback zoom-window();
+    callback bring-all-to-front();
+    in property <bool> bring-all-to-front-available: false;
+    in property <[MenuShortcutRow]> menu-shortcuts: [];
+    callback menu-shortcuts-changed();
+    changed menu-shortcuts => { root.menu-shortcuts-changed(); }
+    function menu-shortcut(index: int) -> keys {
+        if index < 0 || index >= root.menu-shortcuts.length { return @keys(); }
+        return root.menu-shortcuts[index].shortcut;
+    }
     callback open-url-dialog();
     in property <bool> primary-shortcut-is-meta: false;
     callback open-recent-path(string);
@@ -34,6 +44,10 @@ export component NativeVideoHost inherits Window {
     in property <bool> record-recent-files: true;
     in property <[MenuCatalogRow]> recent-open-menu-rows: [];
     in property <bool> playback-loaded: false;
+    in property <bool> video-panel-open: false;
+    in property <bool> audio-panel-open: false;
+    in property <bool> subtitles-panel-open: false;
+    in property <bool> plugins-panel-open: false;
     in property <bool> reveal-current-media-available: false;
     in property <bool> delete-current-media-available: false;
     in property <bool> save-current-playlist-available: false;
@@ -41,6 +55,11 @@ export component NativeVideoHost inherits Window {
     in property <string> current-file-manager-name: "File Manager";
     in property <bool> video-resize-available: false;
     in property <bool> playback-paused: true;
+    in property <bool> menu-alternates-visible: false;
+    in property <string> playback-speed-value: "1";
+    in property <string> volume-menu-title: "Volume: 100";
+    in property <bool> playback-muted: false;
+    in property <string> audio-delay-text: "0";
     in property <string> loop-label: "Off";
     callback toggle-pause();
     callback stop();
@@ -65,6 +84,8 @@ export component NativeVideoHost inherits Window {
     callback show-video-panel();
     callback show-plugins-panel();
     callback cycle-audio-tracks();
+    in property <[MenuCatalogRow]> audio-device-menu-rows: [];
+    callback select-audio-device(string);
     callback adjust-volume(float);
     callback toggle-mute();
     callback show-audio-panel();
@@ -217,39 +238,42 @@ export component NativeVideoHost inherits Window {
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A); }
         }
         Menu { title: "Playback";
-            MenuItem { title: root.playback-paused ? "Play" : "Pause";
-                enabled: root.playback-loaded; activated => { root.toggle-pause(); } }
+            MenuItem { title: root.playback-paused ? "Resume" : "Pause";
+                enabled: root.playback-loaded; shortcut: root.menu-shortcut(0);
+                activated => { root.toggle-pause(); } }
             MenuItem { title: "Stop and Clear Playlists"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(1);
                 activated => { root.stop(); } }
             MenuSeparator {}
-            MenuItem { title: "Step Forward 5s"; enabled: root.playback-loaded;
-                activated => { root.seek-relative(5); } }
-            MenuItem { title: "Next Frame"; enabled: root.playback-loaded;
-                activated => { root.frame-step(); } }
-            MenuItem { title: "Step Backward 5s"; enabled: root.playback-loaded;
-                activated => { root.seek-relative(-5); } }
-            MenuItem { title: "Previous Frame"; enabled: root.playback-loaded;
-                activated => { root.frame-back-step(); } }
+            MenuItem { title: root.menu-alternates-visible ? "Next Frame" : "Step Forward 5s";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 4 : 2);
+                activated => { if root.menu-alternates-visible { root.frame-step(); } else { root.seek-relative(5); } } }
+            MenuItem { title: root.menu-alternates-visible ? "Previous Frame" : "Step Backward 5s";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 5 : 3);
+                activated => { if root.menu-alternates-visible { root.frame-back-step(); } else { root.seek-relative(-5); } } }
             MenuItem { title: "Jump to Beginning"; enabled: root.playback-loaded;
                 activated => { root.seek(0); } }
             MenuItem { title: "Jump to…"; enabled: root.playback-loaded;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + J) : @keys(Control + J);
                 activated => { root.open-jump-time-dialog(); } }
             MenuSeparator {}
-            MenuItem { title: "Speed:"; enabled: false; }
-            MenuItem { title: "Speed Up to 2x"; enabled: root.playback-loaded;
-                activated => { root.set-speed(2); } }
-            MenuItem { title: "Speed Up to 1.1x"; enabled: root.playback-loaded;
-                activated => { root.set-speed(1.1); } }
-            MenuItem { title: "Speed Down to 0.5x"; enabled: root.playback-loaded;
-                activated => { root.set-speed(0.5); } }
-            MenuItem { title: "Speed Down to 0.9x"; enabled: root.playback-loaded;
-                activated => { root.set-speed(0.9); } }
+            MenuItem { title: "Speed: " + root.playback-speed-value + "x"; enabled: false; }
+            MenuItem { title: root.menu-alternates-visible ? "Speed Up by 1.1x" : "Speed Up by 2x";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 9 : 7);
+                activated => { root.set-speed(root.menu-alternates-visible ? 1.1 : 2); } }
+            MenuItem { title: root.menu-alternates-visible ? "Speed Down by 0.9x" : "Speed Down by 0.5x";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 10 : 8);
+                activated => { root.set-speed(root.menu-alternates-visible ? 0.9 : 0.5); } }
             MenuItem { title: "Reset Speed"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(6);
                 activated => { root.reset-speed(); } }
             MenuSeparator {}
             MenuItem { title: "Take a Screenshot"; enabled: root.screenshot-available;
-                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + S) : @keys(Control + Shift + S);
+                shortcut: root.menu-shortcut(11);
                 activated => { root.take-screenshot(); } }
             MenuItem { title: "Go to Screenshot Folder"; enabled: root.screenshot-folder-enabled;
                 activated => { root.open-screenshot-folder(); } }
@@ -259,7 +283,8 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
                 enabled: root.playback-loaded; activated => { root.toggle-file-loop(); } }
             MenuSeparator {}
-            MenuItem { title: "Show Playlist Panel"; activated => { root.show-playlist-panel(); } }
+            MenuItem { title: "Show Playlist Panel"; shortcut: root.menu-shortcut(12);
+                activated => { root.show-playlist-panel(); } }
             MenuItem { title: "Playlist Loop"; checkable: true; checked: root.loop-label == "Playlist";
                 enabled: root.playback-loaded; activated => { root.cycle-playlist-loop(); } }
             Menu { title: "Playlist"; enabled: root.playback-loaded && root.playlist-menu-rows.length > 0;
@@ -271,10 +296,13 @@ export component NativeVideoHost inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Next Media"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(13);
                 activated => { root.playlist-next(); } }
             MenuItem { title: "Previous Media"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(14);
                 activated => { root.playlist-previous(); } }
             MenuItem { title: "Show Chapters Panel";
+                shortcut: root.menu-shortcut(15);
                 activated => { root.show-chapters-panel(); } }
             Menu { title: "Chapters"; enabled: root.playback-loaded && root.chapter-menu-rows.length > 0;
                 for row in root.chapter-menu-rows : MenuItem {
@@ -285,14 +313,18 @@ export component NativeVideoHost inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Next Chapter"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(16);
                 activated => { root.adjust-chapter(1); } }
             MenuItem { title: "Previous Chapter"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(17);
                 activated => { root.adjust-chapter(-1); } }
         }
         Menu { title: "Video";
-            MenuItem { title: "Show Video Panel"; activated => { root.show-video-panel(); } }
+            MenuItem { title: root.video-panel-open ? "Hide Video Panel" : "Show Video Panel"; shortcut: root.menu-shortcut(18);
+                activated => { root.show-video-panel(); } }
             MenuSeparator {}
             MenuItem { title: "Cycle Video Tracks"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(19);
                 activated => { root.cycle-video-track(); } }
             Menu { title: "Video Track"; enabled: root.playback-loaded && root.video-track-menu-rows.length > 0;
                 for row in root.video-track-menu-rows : MenuItem {
@@ -302,33 +334,36 @@ export component NativeVideoHost inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Half Size"; enabled: root.playback-loaded && root.video-resize-available
-                    && !root.music-mode;
+                    && !root.music-mode; shortcut: root.menu-shortcut(20);
                 activated => { root.resize-window-command(0); } }
             MenuItem { title: "Normal Size"; enabled: root.playback-loaded && root.video-resize-available
-                    && !root.music-mode;
+                    && !root.music-mode; shortcut: root.menu-shortcut(21);
                 activated => { root.resize-window-command(1); } }
             MenuItem { title: "Double Size"; enabled: root.playback-loaded && root.video-resize-available
-                    && !root.music-mode;
+                    && !root.music-mode; shortcut: root.menu-shortcut(22);
                 activated => { root.resize-window-command(2); } }
-            MenuItem { title: "Fit to Screen";
+            MenuItem { title: "Fit to Screen"; shortcut: root.menu-shortcut(23);
                 activated => { root.resize-window-command(3); } }
             MenuSeparator {}
             MenuItem { title: "Bigger Size"; enabled: root.playback-loaded && root.video-resize-available
-                    && !root.music-mode;
+                    && !root.music-mode; shortcut: root.menu-shortcut(24);
                 activated => { root.resize-window-command(4); } }
             MenuItem { title: "Smaller Size"; enabled: root.playback-loaded && root.video-resize-available
-                    && !root.music-mode;
+                    && !root.music-mode; shortcut: root.menu-shortcut(25);
                 activated => { root.resize-window-command(5); } }
             MenuSeparator {}
             MenuItem {
                 title: root.picture-in-picture-active ? "Exit Picture in Picture" : "Enter Picture in Picture";
                 enabled: root.picture-in-picture-active || root.picture-in-picture-available;
+                shortcut: root.menu-shortcut(26);
                 activated => { root.toggle-picture-in-picture(); }
             }
             MenuItem { title: root.fullscreen-mode ? "Exit Full Screen" : "Enter Full Screen";
                 checkable: true; checked: root.fullscreen-mode;
+                shortcut: root.menu-shortcut(27);
                 activated => { root.toggle-fullscreen(); } }
             MenuItem { title: "Float on Top"; checkable: true; checked: root.always-float-on-top;
+                shortcut: root.menu-shortcut(28);
                 activated => { root.toggle-float-on-top(); } }
             MenuItem { title: "Lock Window Aspect Ratio"; checkable: true;
                 checked: !root.unlock-window-aspect-ratio;
@@ -336,11 +371,13 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Live Text";
                 checkable: true; checked: root.live-text-enabled;
                 enabled: root.live-text-available;
+                shortcut: root.menu-shortcut(29);
                 activated => { root.toggle-live-text(); } }
             MenuSeparator {}
             MenuItem { title: root.music-mode ? "Exit Music Mode" : "Enter Music Mode";
                 checkable: true; checked: root.music-mode;
                 enabled: root.music-mode-available;
+                shortcut: root.menu-shortcut(30);
                 activated => { root.toggle-music-mode(); } }
             MenuSeparator {}
             Menu { title: "Aspect Ratio"; enabled: root.aspect-menu-enabled;
@@ -392,38 +429,48 @@ export component NativeVideoHost inherits Window {
             }
         }
         Menu { title: "Audio";
-            MenuItem { title: "Show Audio Panel"; activated => { root.show-audio-panel(); } }
+            MenuItem { title: root.audio-panel-open ? "Hide Audio Panel" : "Show Audio Panel"; shortcut: root.menu-shortcut(31);
+                activated => { root.show-audio-panel(); } }
             MenuSeparator {}
             MenuItem { title: "Cycle Audio Tracks"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(32);
                 activated => { root.cycle-audio-tracks(); } }
             MenuItem { title: "Audio Track"; enabled: false; }
             MenuItem { title: "Load External Audio…"; enabled: false; }
             MenuSeparator {}
-            MenuItem { title: "Volume:"; enabled: false; }
-            MenuItem { title: "Volume + 5%"; enabled: root.playback-loaded;
-                activated => { root.adjust-volume(5); } }
-            MenuItem { title: "Volume + 1%"; enabled: root.playback-loaded;
-                activated => { root.adjust-volume(1); } }
-            MenuItem { title: "Volume - 5%"; enabled: root.playback-loaded;
-                activated => { root.adjust-volume(-5); } }
-            MenuItem { title: "Volume - 1%"; enabled: root.playback-loaded;
-                activated => { root.adjust-volume(-1); } }
-            MenuItem { title: "Mute"; enabled: root.playback-loaded;
+            MenuItem { title: root.volume-menu-title; enabled: false; }
+            MenuItem { title: root.menu-alternates-visible ? "Volume + 1%" : "Volume + 5%";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 35 : 33);
+                activated => { root.adjust-volume(root.menu-alternates-visible ? 1 : 5); } }
+            MenuItem { title: root.menu-alternates-visible ? "Volume - 1%" : "Volume - 5%";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 36 : 34);
+                activated => { root.adjust-volume(root.menu-alternates-visible ? -1 : -5); } }
+            MenuItem { title: "Mute"; checkable: true; checked: root.playback-muted;
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(37);
                 activated => { root.toggle-mute(); } }
             MenuSeparator {}
-            MenuItem { title: "Audio Delay:"; enabled: false; }
-            MenuItem { title: "Audio Delay + 0.5s"; enabled: root.playback-loaded;
-                activated => { root.adjust-audio-delay(0.5); } }
-            MenuItem { title: "Audio Delay + 0.1s"; enabled: root.playback-loaded;
-                activated => { root.adjust-audio-delay(0.1); } }
-            MenuItem { title: "Audio Delay - 0.5s"; enabled: root.playback-loaded;
-                activated => { root.adjust-audio-delay(-0.5); } }
-            MenuItem { title: "Audio Delay - 0.1s"; enabled: root.playback-loaded;
-                activated => { root.adjust-audio-delay(-0.1); } }
+            MenuItem { title: "Audio Delay: " + root.audio-delay-text + "s"; enabled: false; }
+            MenuItem { title: root.menu-alternates-visible ? "Audio Delay + 0.1s" : "Audio Delay + 0.5s";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 40 : 38);
+                activated => { root.adjust-audio-delay(root.menu-alternates-visible ? 0.1 : 0.5); } }
+            MenuItem { title: root.menu-alternates-visible ? "Audio Delay - 0.1s" : "Audio Delay - 0.5s";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 41 : 39);
+                activated => { root.adjust-audio-delay(root.menu-alternates-visible ? -0.1 : -0.5); } }
             MenuItem { title: "Reset Audio Delay"; enabled: root.playback-loaded;
                 activated => { root.reset-audio-delay(); } }
             MenuSeparator {}
-            MenuItem { title: "Audio Device"; enabled: false; }
+            Menu { title: "Audio Device";
+                enabled: root.playback-loaded && root.audio-device-menu-rows.length > 0;
+                for row in root.audio-device-menu-rows : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.select-audio-device(row.token); }
+                }
+            }
             MenuSeparator {}
             MenuItem { title: "Audio Filters…"; enabled: root.playback-loaded;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + G) : @keys(Control + Shift + G);
@@ -436,9 +483,11 @@ export component NativeVideoHost inherits Window {
             }
         }
         Menu { title: "Subtitles";
-            MenuItem { title: "Show Subtitles Panel"; activated => { root.show-subtitles-panel(); } }
+            MenuItem { title: root.subtitles-panel-open ? "Hide Subtitles Panel" : "Show Subtitles Panel"; shortcut: root.menu-shortcut(42);
+                activated => { root.show-subtitles-panel(); } }
             MenuSeparator {}
             MenuItem { title: "Cycle Subtitles"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(43);
                 activated => { root.cycle-subtitles(); } }
             Menu { title: "Subtitle"; enabled: root.playback-loaded;
                 for row in root.subtitle-track-menu-rows : MenuItem {
@@ -448,6 +497,7 @@ export component NativeVideoHost inherits Window {
             }
             MenuItem { title: root.subtitle-visible ? "Hide Subtitles" : "Show Subtitles";
                 checkable: true; checked: root.subtitle-visible; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(44);
                 activated => { root.toggle-subtitle-visibility(); } }
             Menu { title: "Secondary Subtitle"; enabled: root.playback-loaded;
                 for row in root.secondary-subtitle-menu-rows : MenuItem {
@@ -501,7 +551,8 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Font…"; activated => { root.choose-subtitle-font(); } }
         }
         Menu { title: "Plugin";
-            MenuItem { title: "Show Plugins Panel"; activated => { root.show-plugins-panel(); } }
+            MenuItem { title: root.plugins-panel-open ? "Hide Plugins Panel" : "Show Plugins Panel"; shortcut: root.menu-shortcut(45);
+                activated => { root.show-plugins-panel(); } }
         }
         Menu { title: "Window";
             MenuItem { title: "Minimize";
@@ -510,7 +561,9 @@ export component NativeVideoHost inherits Window {
             }
             MenuItem { title: "Zoom"; activated => { root.zoom-window(); } }
             MenuSeparator {}
-            MenuItem { title: "Bring All to Front"; enabled: false; }
+            MenuItem { title: "Bring All to Front";
+                enabled: root.bring-all-to-front-available;
+                activated => { root.bring-all-to-front(); } }
         }
         Menu { title: "Help";
             MenuItem { title: "Riina Help"; enabled: false;
@@ -525,8 +578,8 @@ export component NativeVideoHost inherits Window {
     title: display-title;
     preferred-width: 960px;
     preferred-height: 600px;
-    min-width: 320px;
-    min-height: 240px;
+    min-width: 285px;
+    min-height: 120px;
     background: black;
 }
 

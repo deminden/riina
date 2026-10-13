@@ -153,6 +153,7 @@ pub fn connect(app: &PlayerWindow) {
             app.set_status(error.to_string().into());
             return;
         }
+        crate::platform::center_auxiliary_window(&picker, &app);
         let window = picker.as_weak();
         *current.borrow_mut() = Some(picker);
         // Only owned metadata crosses threads. A hidden reusable picker may

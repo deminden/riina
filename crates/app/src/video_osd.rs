@@ -25,6 +25,10 @@ pub(crate) enum Kind {
     SecondarySubtitleDelay,
     SecondarySubtitlePosition,
     SecondarySubtitleVisibility,
+    Stop,
+    Chapter,
+    PlaylistAdd,
+    PlaylistClear,
     Track,
 }
 
@@ -33,6 +37,30 @@ pub(crate) struct Message {
     pub kind: Kind,
     pub text: String,
     pub progress: Option<f32>,
+}
+
+pub(crate) enum ActionFeedback {
+    Stop,
+    Chapter(String),
+    PlaylistAdded(usize),
+    PlaylistCleared,
+}
+
+pub(crate) fn action_message(action: ActionFeedback) -> Message {
+    let (kind, text) = match action {
+        ActionFeedback::Stop => (Kind::Stop, "Stop".to_owned()),
+        ActionFeedback::Chapter(title) => (Kind::Chapter, format!("Chapter: {title}")),
+        ActionFeedback::PlaylistAdded(count) => (
+            Kind::PlaylistAdd,
+            format!("Added {count} Files to Playlist"),
+        ),
+        ActionFeedback::PlaylistCleared => (Kind::PlaylistClear, "Cleared Playlist".into()),
+    };
+    Message {
+        kind,
+        text,
+        progress: None,
+    }
 }
 
 pub(crate) fn file_start_message(title: &str, enabled: bool, disabled: bool) -> Option<Message> {
@@ -182,8 +210,17 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
     match kind {
         Kind::Aspect => baseline.aspect_requests = state.aspect_requests,
         Kind::AbLoop => {
-            baseline.ab_loop_a = state.ab_loop_a;
-            baseline.ab_loop_b = state.ab_loop_b;
+            // Native observations can coalesce both endpoints into one
+            // snapshot. Advance one endpoint at a time so changed_all can
+            // preserve both feedback messages. A full clear is one action.
+            if state.ab_loop_a.is_none() && state.ab_loop_b.is_none() {
+                baseline.ab_loop_a = None;
+                baseline.ab_loop_b = None;
+            } else if baseline.ab_loop_a != state.ab_loop_a {
+                baseline.ab_loop_a = state.ab_loop_a;
+            } else {
+                baseline.ab_loop_b = state.ab_loop_b;
+            }
         }
         Kind::AudioDelay => baseline.audio_delay = state.audio_delay,
         Kind::Crop => {
@@ -216,7 +253,7 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
             baseline.secondary_subtitle_visible = state.secondary_subtitle_visible;
         }
         Kind::Track => baseline.tracks.clone_from(&state.tracks),
-        Kind::FileStart => {}
+        Kind::FileStart | Kind::Stop | Kind::Chapter | Kind::PlaylistAdd | Kind::PlaylistClear => {}
     }
 }
 
@@ -334,15 +371,10 @@ fn changed_one(previous: Option<&Playback>, state: &Playback) -> Option<Message>
             progress: None,
         });
     }
-    if let (Some(old), Some(current)) = (
-        riina_core::crop::observed_index(previous),
-        riina_core::crop::observed_index(state),
-    ) && old != current
+    if let (Some(old), Some(current)) = (observed_crop_osd(previous), observed_crop_osd(state))
+        && old != current
     {
-        let label = riina_core::crop::LABELS
-            .get(current)
-            .copied()
-            .unwrap_or("Custom");
+        let label = current.unwrap_or_else(|| "None".into());
         return Some(Message {
             kind: Kind::Crop,
             text: format!("Crop: {label}"),
@@ -359,15 +391,18 @@ fn changed_one(previous: Option<&Playback>, state: &Playback) -> Option<Message>
         });
     }
     if previous.ab_loop_a != state.ab_loop_a || previous.ab_loop_b != state.ab_loop_b {
+        let both_cleared = state.ab_loop_a.is_none()
+            && state.ab_loop_b.is_none()
+            && (previous.ab_loop_a.is_some() || previous.ab_loop_b.is_some());
         let (label, point) = if previous.ab_loop_a != state.ab_loop_a {
             ("A", state.ab_loop_a)
         } else {
             ("B", state.ab_loop_b)
         };
-        let text = if let Some(point) = point {
-            format!("AB-Loop: {label} {}", riina_core::time_label(Some(point)))
-        } else if state.ab_loop_a.is_none() && state.ab_loop_b.is_none() {
+        let text = if both_cleared {
             "AB-Loop: Cleared".into()
+        } else if let Some(point) = point {
+            format!("AB-Loop: {label} {}", riina_core::time_label(Some(point)))
         } else {
             format!("AB-Loop: {label}")
         };
@@ -460,6 +495,41 @@ fn changed_one(previous: Option<&Playback>, state: &Playback) -> Option<Message>
         }
     }
     None
+}
+
+/// Return an observed crop label, keeping unavailable native state distinct
+/// from a confirmed absence of Riina's managed crop filter.
+fn observed_crop_osd(state: &Playback) -> Option<Option<String>> {
+    let index = riina_core::crop::observed_index(state)?;
+    if index == 0 {
+        return Some(None);
+    }
+    let custom_index = riina_core::crop::Preset::ALL.len() + 1;
+    if index == custom_index {
+        let filter = state
+            .video_filters
+            .as_ref()?
+            .iter()
+            .find(|filter| filter.label.as_deref() == Some(riina_core::crop::FILTER_LABEL))?;
+        let param = |name: &str, position: &str| {
+            filter
+                .params
+                .get(name)
+                .or_else(|| filter.params.get(position))
+                .and_then(|value| value.parse::<u32>().ok())
+        };
+        let rectangle = param("x", "@2")
+            .zip(param("y", "@3"))
+            .zip(param("w", "@0").zip(param("h", "@1")));
+        return Some(Some(match rectangle {
+            Some(((x, y), (width, height))) => {
+                format!("({x}, {y}) ({width}×{height})")
+            }
+            None => "Custom".into(),
+        }));
+    }
+    let label = riina_core::crop::LABELS.get(index).copied()?;
+    Some(Some(label.trim_end_matches('…').to_owned()))
 }
 
 fn delay_message(label: &str, value: f64) -> Message {
@@ -578,6 +648,84 @@ mod tests {
             ..Default::default()
         }
     }
+
+    #[test]
+    fn accepted_action_feedback_uses_reference_stop_chapter_and_playlist_messages() {
+        for (action, kind, text) in [
+            (ActionFeedback::Stop, Kind::Stop, "Stop".to_owned()),
+            (
+                ActionFeedback::Chapter("Opening".into()),
+                Kind::Chapter,
+                "Chapter: Opening".to_owned(),
+            ),
+            (
+                ActionFeedback::PlaylistAdded(3),
+                Kind::PlaylistAdd,
+                "Added 3 Files to Playlist".to_owned(),
+            ),
+            (
+                ActionFeedback::PlaylistCleared,
+                Kind::PlaylistClear,
+                "Cleared Playlist".to_owned(),
+            ),
+        ] {
+            let message = action_message(action);
+            assert_eq!(message.kind, kind);
+            assert_eq!(message.text, text);
+            assert_eq!(message.progress, None);
+        }
+    }
+
+    #[test]
+    fn coalesced_ab_loop_endpoints_each_receive_feedback() {
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        assert_eq!(feedback.observe(&state), None);
+
+        state.ab_loop_a = Some(3.0);
+        state.ab_loop_b = Some(9.0);
+        assert_eq!(feedback.observe(&state).unwrap().text, "AB-Loop: A 0:03");
+        assert_eq!(feedback.take_pending().unwrap().text, "AB-Loop: B 0:09");
+        assert_eq!(feedback.take_pending(), None);
+    }
+
+    #[test]
+    fn volume_feedback_progress_tracks_the_default_and_boost_caps() {
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        state.volume = 40.0;
+        assert_eq!(feedback.observe(&state), None);
+
+        state.volume = 100.0;
+        let default_cap = feedback.observe(&state).unwrap();
+        assert_eq!(default_cap.kind, Kind::Volume);
+        assert_eq!(default_cap.text, "Volume: 100");
+        assert_eq!(default_cap.progress, Some(1.0));
+
+        feedback.set_volume_limit(200.0);
+        for (volume, progress) in [(125.0, 0.625), (200.0, 1.0), (240.0, 1.0)] {
+            state.volume = volume;
+            let message = feedback.observe(&state).unwrap();
+            assert_eq!(message.kind, Kind::Volume);
+            assert_eq!(message.text, format!("Volume: {volume:.0}"));
+            assert_eq!(message.progress, Some(progress));
+        }
+    }
+
+    #[test]
+    fn simultaneous_ab_loop_clear_is_reported_once() {
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        state.ab_loop_a = Some(3.0);
+        state.ab_loop_b = Some(9.0);
+        assert_eq!(feedback.observe(&state), None);
+
+        state.ab_loop_a = None;
+        state.ab_loop_b = None;
+        assert_eq!(feedback.observe(&state).unwrap().text, "AB-Loop: Cleared");
+        assert_eq!(feedback.take_pending(), None);
+    }
+
     #[test]
     fn feedback_requires_confirmed_changes_in_the_same_media_generation() {
         let old = loaded();
@@ -598,6 +746,80 @@ mod tests {
         state.generation = old.generation;
         state.error = Some("Rejected command".into());
         assert_eq!(changed(Some(&old), &state), None);
+    }
+
+    #[test]
+    fn crop_feedback_reports_confirmed_presets_and_custom_rectangle_changes() {
+        use riina_core::crop::{FILTER_LABEL, VideoFilter};
+
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        state.video =
+            Some(serde_json::from_value(serde_json::json!({"w": 320, "h": 180})).unwrap());
+        state.video_filters = Some(vec![]);
+        assert_eq!(feedback.observe(&state), None);
+
+        state.video_filters = Some(vec![VideoFilter {
+            name: "crop".into(),
+            label: Some(FILTER_LABEL.into()),
+            enabled: Some(true),
+            params: [("w".into(), "240".into()), ("h".into(), "180".into())].into(),
+        }]);
+        assert_eq!(feedback.observe(&state).unwrap().text, "Crop: 4:3");
+
+        state.video_filters = Some(vec![VideoFilter {
+            name: "crop".into(),
+            label: Some(FILTER_LABEL.into()),
+            enabled: Some(true),
+            params: [
+                ("w".into(), "300".into()),
+                ("h".into(), "170".into()),
+                ("x".into(), "20".into()),
+                ("y".into(), "10".into()),
+            ]
+            .into(),
+        }]);
+        assert_eq!(
+            feedback.observe(&state).unwrap().text,
+            "Crop: (20, 10) (300×170)"
+        );
+
+        state.video_filters.as_mut().unwrap()[0]
+            .params
+            .insert("x".into(), "21".into());
+        assert_eq!(
+            feedback.observe(&state).unwrap().text,
+            "Crop: (21, 10) (300×170)"
+        );
+
+        state.video_filters = Some(vec![]);
+        assert_eq!(feedback.observe(&state).unwrap().text, "Crop: None");
+        assert_eq!(feedback.observe(&state), None);
+    }
+
+    #[test]
+    fn crop_feedback_does_not_treat_unknown_filter_state_as_no_crop() {
+        use riina_core::crop::{FILTER_LABEL, VideoFilter};
+
+        let mut feedback = VideoOsd::default();
+        let mut state = loaded();
+        state.video =
+            Some(serde_json::from_value(serde_json::json!({"w": 320, "h": 180})).unwrap());
+        assert_eq!(feedback.observe(&state), None);
+
+        state.video_filters = Some(vec![VideoFilter {
+            name: "crop".into(),
+            label: Some(FILTER_LABEL.into()),
+            enabled: Some(true),
+            params: [
+                ("w".into(), "240".into()),
+                ("h".into(), "180".into()),
+                ("x".into(), "0".into()),
+                ("y".into(), "0".into()),
+            ]
+            .into(),
+        }]);
+        assert_eq!(feedback.observe(&state), None);
     }
 
     #[test]
@@ -749,5 +971,138 @@ mod tests {
         state.generation += 1;
         state.deinterlace = Some(false);
         assert_eq!(feedback.observe(&state), None);
+    }
+
+    #[test]
+    fn delay_feedback_preserves_lane_direction_and_progress() {
+        let old = loaded();
+        let mut state = old.clone();
+        state.audio_delay = -0.5;
+        let audio = changed(Some(&old), &state).unwrap();
+        assert_eq!(audio.kind, Kind::AudioDelay);
+        assert_eq!(audio.text, "Audio Delay: 0.5s Earlier");
+        assert_eq!(audio.progress, Some(0.475));
+
+        let mut old = loaded();
+        old.subtitle_delay = 0.0;
+        let mut state = old.clone();
+        state.subtitle_delay = 1.25;
+        let primary = changed(Some(&old), &state).unwrap();
+        assert_eq!(primary.kind, Kind::SubtitleDelay);
+        assert_eq!(primary.text, "Subtitle Delay: 1.25s Later");
+        assert_eq!(primary.progress, Some(0.5625));
+
+        old.secondary_subtitle_delay = Some(0.0);
+        state = old.clone();
+        state.secondary_subtitle_delay = Some(-2.0);
+        let secondary = changed(Some(&old), &state).unwrap();
+        assert_eq!(secondary.kind, Kind::SecondarySubtitleDelay);
+        assert_eq!(secondary.text, "Secondary Subtitle Delay: 2s Earlier");
+        assert_eq!(secondary.progress, Some(0.4));
+    }
+
+    #[test]
+    fn subtitle_position_feedback_keeps_primary_and_secondary_lanes_distinct() {
+        let mut old = loaded();
+        old.subtitle_position = Some(50.0);
+        let mut state = old.clone();
+        state.subtitle_position = Some(75.0);
+        let primary = changed(Some(&old), &state).unwrap();
+        assert_eq!(primary.kind, Kind::SubtitlePosition);
+        assert_eq!(primary.text, "Subtitle Position: 75");
+        assert_eq!(primary.progress, Some(0.75));
+
+        old.secondary_subtitle_position = Some(30.0);
+        state = old.clone();
+        state.secondary_subtitle_position = Some(65.0);
+        let secondary = changed(Some(&old), &state).unwrap();
+        assert_eq!(secondary.kind, Kind::SecondarySubtitlePosition);
+        assert_eq!(secondary.text, "Secondary Subtitle Position: 65");
+        assert_eq!(secondary.progress, Some(0.65));
+    }
+
+    #[test]
+    fn subtitle_visibility_feedback_identifies_the_changed_lane() {
+        let old = loaded();
+        let mut state = old.clone();
+        state.subtitle_visible = true;
+        let primary = changed(Some(&old), &state).unwrap();
+        assert_eq!(primary.kind, Kind::SubtitleVisibility);
+        assert_eq!(primary.text, "Subtitles Visible");
+
+        let mut old = loaded();
+        old.secondary_subtitle_visible = Some(false);
+        let mut state = old.clone();
+        state.secondary_subtitle_visible = Some(true);
+        let secondary = changed(Some(&old), &state).unwrap();
+        assert_eq!(secondary.kind, Kind::SecondarySubtitleVisibility);
+        assert_eq!(secondary.text, "Second Subtitles Visible");
+    }
+
+    #[test]
+    fn track_feedback_uses_selected_track_identity_and_empty_choice() {
+        fn audio_track(id: i64, title: &str) -> riina_core::Track {
+            riina_core::Track {
+                id,
+                kind: riina_core::TrackKind::Audio,
+                title: Some(title.into()),
+                lang: None,
+                codec: None,
+                selected: true,
+                main_selection: None,
+                external: false,
+                albumart: false,
+                external_filename: None,
+                is_default: false,
+                forced: false,
+                channels: None,
+                channel_layout: None,
+                sample_rate: None,
+                width: None,
+                height: None,
+                frame_rate: None,
+            }
+        }
+
+        let mut old = loaded();
+        old.tracks = vec![audio_track(1, "Main")];
+        let mut state = old.clone();
+        state.tracks = vec![audio_track(2, "Director Commentary")];
+        let selected = changed(Some(&old), &state).unwrap();
+        assert_eq!(selected.kind, Kind::Track);
+        assert_eq!(selected.text, "Audio: #2 Director Commentary");
+
+        state.tracks.clear();
+        let disabled = changed(Some(&old), &state).unwrap();
+        assert_eq!(disabled.kind, Kind::Track);
+        assert_eq!(disabled.text, "Audio: #0 <None>");
+    }
+
+    #[test]
+    fn rotation_subtitle_scale_and_loop_feedback_use_observed_values() {
+        let mut old = loaded();
+        old.video_rotation = Some(0);
+        let mut state = old.clone();
+        state.video_rotation = Some(90);
+        let rotation = changed(Some(&old), &state).unwrap();
+        assert_eq!(rotation.kind, Kind::Rotation);
+        assert_eq!(rotation.text, "Rotate: 90°");
+
+        old.video_rotation = state.video_rotation;
+        old.subtitle_scale = Some(1.0);
+        state = old.clone();
+        state.subtitle_scale = Some(0.5);
+        let scale = changed(Some(&old), &state).unwrap();
+        assert_eq!(scale.kind, Kind::SubtitleScale);
+        assert_eq!(scale.text, "Subtitle Scale: -2x");
+
+        old.subtitle_scale = state.subtitle_scale;
+        old.loop_file = Some("no".into());
+        old.loop_playlist = Some("no".into());
+        state = old.clone();
+        state.loop_playlist = Some("inf".into());
+        let looping = changed(Some(&old), &state).unwrap();
+        assert_eq!(looping.kind, Kind::LoopMode);
+        assert_eq!(looping.text, "Loop: Playlist");
     }
 }
