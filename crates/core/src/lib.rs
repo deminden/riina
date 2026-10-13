@@ -39,7 +39,11 @@ pub mod window_aspect;
 pub mod window_resize;
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Instant;
+
+pub const MAX_PLUGIN_OBSERVED_MPV_PROPERTIES: usize = 128;
 
 fn default_true() -> bool {
     true
@@ -103,6 +107,10 @@ pub enum Command {
     FrameStep,
     FrameBackStep,
     CaptureFrame,
+    CaptureTransitionFrame,
+    CaptureIncomingTransitionFrame,
+    /// Observe an arbitrary, validated libmpv property for plugin events.
+    ObserveMpvProperty(String),
     Screenshot {
         directory: String,
         content: screenshot::Content,
@@ -336,6 +344,15 @@ impl Command {
             Self::FrameStep => vec!["frame-step".into()],
             Self::FrameBackStep => vec!["frame-back-step".into()],
             Self::CaptureFrame => vec!["screenshot-raw".into(), "video".into(), "rgba".into()],
+            Self::CaptureTransitionFrame => {
+                vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
+            }
+            Self::CaptureIncomingTransitionFrame => {
+                vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
+            }
+            Self::ObserveMpvProperty(_) => {
+                return Err("mpv property observation is handled by the player worker".into());
+            }
             Self::ScreenshotToFile { path, content } if valid_path(path) => vec![
                 "screenshot-to-file".into(),
                 path.clone(),
@@ -626,7 +643,19 @@ impl Command {
         if matches!(self, Self::CaptureFrame) && state.phase != Phase::Paused {
             return Err("Text recognition is available only while video is paused".into());
         }
+        if matches!(
+            self,
+            Self::CaptureTransitionFrame | Self::CaptureIncomingTransitionFrame
+        ) && (state.video.is_none()
+            || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed))
+        {
+            return Err("A transition image requires an active video".into());
+        }
         let commands = match self {
+            Self::ObserveMpvProperty(property) if valid_mpv_property_name(property) => Vec::new(),
+            Self::ObserveMpvProperty(_) => {
+                return Err("Invalid mpv property name".into());
+            }
             Self::MpvInputAction(action) => key_bindings::mpv_action_commands(action)?,
             Self::AudioEqualizer(gains) => {
                 let filter = audio_equalizer::lavfi_filter(gains).map_err(str::to_owned)?;
@@ -1280,6 +1309,13 @@ fn valid_path(path: &str) -> bool {
     !path.is_empty() && !path.contains('\0')
 }
 
+fn valid_mpv_property_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 256
+        && !name.contains('.')
+        && !name.chars().any(char::is_control)
+}
+
 fn volume_adjustment(delta: f64, boost: bool) -> Vec<Vec<String>> {
     // Native add clamps against the active range and uses the engine's current
     // volume. A zero adjustment also clamps when the user turns boost off.
@@ -1638,6 +1674,24 @@ pub struct Playback {
     /// Latest paused-frame snapshot for asynchronous OCR and selection overlays.
     pub captured_frame: Option<Arc<CapturedFrame>>,
     pub completed_frame_captures: u64,
+    /// Last pre-transition image retained while the next video initializes.
+    pub transition_frame: Option<Arc<CapturedFrame>>,
+    pub transition_frame_generation: Option<u64>,
+    pub transition_frame_revision: u64,
+    pub transition_frame_captured_at: Option<Instant>,
+    /// Monotonic start time for the incoming side of a native video handoff.
+    pub incoming_transition_started_at: Option<Instant>,
+    /// First decoded frame from the incoming video, used to bridge native-surface startup.
+    pub incoming_transition_frame: Option<Arc<CapturedFrame>>,
+    pub incoming_transition_frame_generation: Option<u64>,
+    /// Changes for every capture reply, including blank frames that must be retried.
+    pub incoming_transition_frame_revision: u64,
+    pub incoming_transition_frame_position: Option<f64>,
+    /// Monotonic capture time used to keep the native-output handoff cover up
+    /// for a real settling interval regardless of playback speed.
+    pub incoming_transition_frame_captured_at: Option<Instant>,
+    /// Properties requested by active player-scoped plugin event listeners.
+    pub observed_mpv_properties: BTreeMap<String, serde_json::Value>,
     pub video_equalizer: [Option<i64>; 5],
     /// Decoded gain curve for Riina's labeled native audio equalizer filter.
     pub audio_equalizer: Option<[f64; 10]>,
@@ -1646,6 +1700,8 @@ pub struct Playback {
     pub album: Option<String>,
     pub error: Option<String>,
     pub tracks: Vec<Track>,
+    /// Whether mpv reported the incoming file's track list, including an empty list.
+    pub track_list_observed: bool,
     pub chapters: Vec<Chapter>,
     pub playlist: Vec<PlaylistEntry>,
     /// libmpv does not expose whether its native shuffle order is active.
@@ -1769,7 +1825,9 @@ impl Playback {
         }
     }
     pub fn begin_load(&mut self) {
+        let outgoing_generation = self.generation;
         self.generation += 1;
+        self.incoming_transition_started_at = Some(Instant::now());
         self.phase = Phase::Loading;
         self.position = None;
         self.duration = None;
@@ -1779,6 +1837,7 @@ impl Playback {
         self.error = None;
         // Track IDs belong to one file; never offer a stale selector during replacement.
         self.tracks.clear();
+        self.track_list_observed = false;
         self.chapters.clear();
         self.subtitle_text = None;
         self.secondary_subtitle_text = None;
@@ -1791,6 +1850,15 @@ impl Playback {
         self.video_frame_info = None;
         self.screenshot_file = None;
         self.captured_frame = None;
+        if self.transition_frame_generation != Some(outgoing_generation) {
+            self.transition_frame = None;
+            self.transition_frame_generation = None;
+            self.transition_frame_captured_at = None;
+        }
+        self.incoming_transition_frame = None;
+        self.incoming_transition_frame_generation = None;
+        self.incoming_transition_frame_position = None;
+        self.incoming_transition_frame_captured_at = None;
     }
 
     pub fn reconcile(&mut self) {
@@ -2380,6 +2448,41 @@ mod tests {
         );
         assert!(CapturedFrame::new(2, 2, 4, &[0; 16]).is_err());
         assert!(CapturedFrame::new(2, 2, 8, &[0; 15]).is_err());
+    }
+
+    #[test]
+    fn transition_frame_capture_requires_an_active_video() {
+        let state = Playback {
+            phase: Phase::Playing,
+            video: Some(VideoParameters {
+                pixelformat: None,
+                w: 640,
+                h: 360,
+                dw: None,
+                dh: None,
+                rotate: None,
+                colormatrix: None,
+                colorlevels: None,
+                primaries: None,
+                gamma: None,
+                max_luma: None,
+                min_luma: None,
+                signal_peak: None,
+            }),
+            ..Default::default()
+        };
+        assert_eq!(
+            Command::CaptureTransitionFrame
+                .plan(&state)
+                .unwrap()
+                .commands,
+            [["screenshot-raw", "video", "rgba"]]
+        );
+        assert!(
+            Command::CaptureTransitionFrame
+                .plan(&Playback::default())
+                .is_err()
+        );
     }
 
     #[test]
@@ -3767,6 +3870,24 @@ mod tests {
     }
 
     #[test]
+    fn playlist_handoff_retains_only_the_current_file_snapshot() {
+        let frame = Arc::new(CapturedFrame::new(1, 1, 4, &[1, 2, 3, 4]).unwrap());
+        let mut state = Playback {
+            transition_frame: Some(frame.clone()),
+            transition_frame_generation: Some(0),
+            ..Default::default()
+        };
+        state.begin_load();
+        assert_eq!(state.transition_frame_generation, Some(0));
+        assert_eq!(state.transition_frame, Some(frame));
+
+        state.transition_frame_generation = Some(0);
+        state.begin_load();
+        assert!(state.transition_frame_generation.is_none());
+        assert!(state.transition_frame.is_none());
+    }
+
+    #[test]
     fn buffering_pause_and_seek_have_distinct_states() {
         let mut state = Playback {
             phase: Phase::Playing,
@@ -4066,6 +4187,33 @@ mod tests {
                 .unwrap()
                 .commands,
             vec![vec!["playlist-unshuffle"]]
+        );
+    }
+
+    #[test]
+    fn plugin_mpv_property_observation_is_validated_and_has_no_input_command() {
+        let command = Command::ObserveMpvProperty("cache-buffering-state".into());
+        assert!(
+            command
+                .plan(&Playback::default())
+                .unwrap()
+                .commands
+                .is_empty()
+        );
+        assert!(
+            Command::ObserveMpvProperty(String::new())
+                .plan(&Playback::default())
+                .is_err()
+        );
+        assert!(
+            Command::ObserveMpvProperty("property.with.dot".into())
+                .plan(&Playback::default())
+                .is_err()
+        );
+        assert!(
+            Command::ObserveMpvProperty("bad\0property".into())
+                .plan(&Playback::default())
+                .is_err()
         );
     }
 }

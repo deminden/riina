@@ -102,22 +102,7 @@ pub(crate) fn connect_actions(
     });
 
     let log_file = preferences_path.with_file_name("native-player.log");
-    let app_weak = app.as_weak();
-    window.on_advanced_open_log_viewer(move || {
-        if !log_file.is_file() {
-            if let Some(app) = app_weak.upgrade() {
-                app.set_status(
-                    "The log file will appear after logging is enabled and Riina restarts".into(),
-                );
-            }
-            return;
-        }
-        if let Err(error) = crate::platform::open_file(&log_file)
-            && let Some(app) = app_weak.upgrade()
-        {
-            app.set_status(format!("Could not open the log file: {error}").into());
-        }
-    });
+    crate::log_viewer::connect(app, window, log_file);
 
     let chooser_app = app.as_weak();
     window.on_advanced_choose_config_directory(move || {

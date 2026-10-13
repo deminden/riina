@@ -7,6 +7,9 @@ export struct OnlineSubtitleRow {
     year: string,
     downloads: string,
     rating: string,
+    uploaded-at: string,
+    format: string,
+    selected: bool,
 }
 
 export component OnlineSubtitlesWindow inherits Window {
@@ -19,21 +22,34 @@ export component OnlineSubtitlesWindow inherits Window {
 
     in-out property <string> query: "";
     in property <[OnlineSubtitleRow]> results: [];
-    in-out property <int> selected-index: -1;
+    in-out property <int> selected-count: 0;
+    in-out property <int> provider-index: 0;
     in-out property <string> status-text: "Search OpenSubtitles by title or filename.";
     in-out property <bool> searching: false;
     in-out property <bool> downloading: false;
     callback search();
-    callback download(int);
+    callback select-result(int, bool, bool);
+    callback download-selected();
+    callback selection-action(int);
+    callback open-assrt-site();
+    callback open-shooter-site();
     callback cancel();
 
+    keys := FocusScope {
+    width: root.width;
+    height: root.height;
     Rectangle {
         x: 18px; y: 16px; width: parent.width - 36px; height: 34px;
         border-radius: 6px; border-width: 1px; border-color: #bcbcc2; background: #ffffff;
-        TextInput {
+        if root.provider-index != 2 : TextInput {
             x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
             text <=> root.query; font-size: 13px; color: #242428;
             accepted => { root.search(); }
+        }
+        if root.provider-index == 2 : Text {
+            x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
+            text: "Match this local video using its file samples";
+            font-size: 13px; color: #77777d; vertical-alignment: center;
         }
     }
     Button {
@@ -55,21 +71,25 @@ export component OnlineSubtitlesWindow inherits Window {
             Text { x: 10px; y: 0px; width: 185px; height: parent.height; text: "Subtitle"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
             Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: "Language"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
             Text { x: 270px; y: 0px; width: 150px; height: parent.height; text: "Release"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
-            Text { x: parent.width - 158px; y: 0px; width: 52px; height: parent.height; text: "Rating"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
-            Text { x: parent.width - 90px; y: 0px; width: 80px; height: parent.height; text: "Downloads"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
+            Text { x: parent.width - 158px; y: 0px; width: 72px; height: parent.height; text: root.provider-index == 1 ? "Uploaded" : root.provider-index == 2 ? "Format" : "Rating"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
+            if root.provider-index == 0 : Text { x: parent.width - 90px; y: 0px; width: 80px; height: parent.height; text: "Downloads"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
         }
         for row[index] in root.results : Rectangle {
             x: 0px; y: 28px + index * 30px; width: parent.width; height: 30px;
-            background: root.selected-index == index ? #dceaff : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa);
+            background: row.selected ? #dceaff : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa);
             Text { x: 10px; y: 0px; width: 185px; height: parent.height; text: row.file-name; font-size: 11px; color: #242428; vertical-alignment: center; overflow: elide; }
             Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: row.language; font-size: 11px; color: #4f4f55; vertical-alignment: center; overflow: elide; }
             Text { x: 270px; y: 0px; width: 150px; height: parent.height; text: row.year == "" ? row.release : row.release + " (" + row.year + ")"; font-size: 11px; color: #4f4f55; vertical-alignment: center; overflow: elide; }
-            Text { x: parent.width - 158px; y: 0px; width: 52px; height: parent.height; text: row.rating; font-size: 11px; color: #4f4f55; vertical-alignment: center; overflow: elide; }
-            Text { x: parent.width - 90px; y: 0px; width: 80px; height: parent.height; text: row.downloads; font-size: 11px; color: #4f4f55; vertical-alignment: center; }
+            Text { x: parent.width - 158px; y: 0px; width: 72px; height: parent.height; text: root.provider-index == 1 ? row.uploaded-at : root.provider-index == 2 ? row.format : row.rating; font-size: 11px; color: #4f4f55; vertical-alignment: center; overflow: elide; }
+            if root.provider-index == 0 : Text { x: parent.width - 90px; y: 0px; width: 80px; height: parent.height; text: row.downloads; font-size: 11px; color: #4f4f55; vertical-alignment: center; }
             TouchArea {
                 width: parent.width; height: parent.height;
-                clicked => { root.selected-index = index; }
-                double-clicked => { root.selected-index = index; root.download(index); }
+                pointer-event(event) => {
+                    if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                        root.select-result(index, event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
+                    }
+                }
+                double-clicked => { root.download-selected(); }
             }
         }
         if root.results.length == 0 && !root.searching : Text {
@@ -84,8 +104,34 @@ export component OnlineSubtitlesWindow inherits Window {
     }
     Button {
         x: parent.width - 112px; y: parent.height - 44px; width: 94px; height: 28px;
-        text: root.downloading ? "Downloading…" : "Download";
-        enabled: root.selected-index >= 0 && !root.searching && !root.downloading;
-        clicked => { root.download(root.selected-index); }
+        text: root.downloading ? "Downloading…" : (root.selected-count > 1 ? "Download Selected" : "Download");
+        enabled: root.selected-count > 0 && !root.searching && !root.downloading;
+        clicked => { root.download-selected(); }
+    }
+    if root.provider-index == 1 : Text {
+        x: 20px; y: parent.height - 42px; width: 178px; height: 24px;
+        text: "Subtitles provided by Assrt.net"; color: #2878cc; font-size: 11px;
+        vertical-alignment: center;
+        Rectangle { x: 0px; y: parent.height - 2px; width: 140px; height: 1px; background: #2878cc; }
+        TouchArea { width: parent.width; height: parent.height;
+            clicked => { root.open-assrt-site(); } }
+    }
+    if root.provider-index == 2 : Text {
+        x: 20px; y: parent.height - 48px; width: 206px; height: 32px;
+        text: "Shooter.cn receives this video's local path and sample hash";
+        color: #77777d; font-size: 10px; wrap: word-wrap; vertical-alignment: center;
+        TouchArea { width: parent.width; height: parent.height;
+            clicked => { root.open-shooter-site(); } }
+    }
+
+    key-pressed(event) => {
+        if (event.modifiers.control || event.modifiers.meta) && (event.text == "a" || event.text == "A") {
+            root.selection-action(0); return accept;
+        }
+        if event.text == Key.Return && root.selected-count > 0 {
+            root.download-selected(); return accept;
+        }
+        return reject;
+    }
     }
 }

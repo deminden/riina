@@ -320,7 +320,15 @@ fn play_restarts_media_after_end_of_file() {
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Ended);
+    let ended = wait_for(&receiver, |state| state.phase == Phase::Ended);
+    assert!(
+        ended.video.is_some(),
+        "keep-open-on-file-end must retain the final video presentation"
+    );
+    assert!(
+        ended.playlist.iter().any(|entry| entry.current),
+        "the ended media must remain the current playlist item"
+    );
 
     player.send(Command::TogglePause).unwrap();
     let restarted = wait_for(&receiver, |state| {
@@ -1866,6 +1874,45 @@ fn test_library(root: &std::path::Path) -> PathBuf {
         let _ = root;
         panic!("Set RIINA_TEST_MPV_LIBRARY to the absolute path of a provisioned libmpv library");
     }
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; exercises generic property observation"]
+fn dynamic_mpv_property_observation_publishes_generic_node_values() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
+    });
+    player
+        .send(Command::ObserveMpvProperty("container-fps".into()))
+        .unwrap();
+    let observed = wait_for(&receiver, |state| {
+        state
+            .observed_mpv_properties
+            .get("container-fps")
+            .is_some_and(|value| value.as_f64().is_some_and(|fps| fps > 0.0))
+    });
+    assert_eq!(
+        observed.error, None,
+        "unexpected native error: {:?}",
+        observed.error
+    );
+    drop(player);
 }
 
 struct TemporaryMedia(PathBuf);

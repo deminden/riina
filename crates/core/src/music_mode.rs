@@ -1,5 +1,9 @@
 //! Music mode transitions are based on observed track catalogs, not filename guesses.
 
+use std::time::{Duration, Instant};
+
+const AUTO_SWITCH_STABILITY: Duration = Duration::from_millis(300);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AudioStatus {
     Unknown,
@@ -12,6 +16,7 @@ pub struct State {
     active: bool,
     auto_switch: bool,
     manual_override: bool,
+    transition_candidate: Option<(bool, Instant)>,
 }
 
 impl State {
@@ -20,6 +25,7 @@ impl State {
             active: false,
             auto_switch,
             manual_override: false,
+            transition_candidate: None,
         }
     }
 
@@ -33,24 +39,51 @@ impl State {
 
     pub fn set_auto_switch(&mut self, enabled: bool) {
         self.auto_switch = enabled;
+        if !enabled {
+            self.transition_candidate = None;
+        }
     }
 
     /// Manual switches toggle IINA's auto-switch override until the next manual switch.
     pub fn toggle_manually(&mut self) -> bool {
         self.active = !self.active;
         self.manual_override = !self.manual_override;
+        self.transition_candidate = None;
         self.active
     }
 
     /// Returns a new mode only when the observed catalog warrants a transition.
     pub fn observe(&mut self, status: AudioStatus, fullscreen: bool) -> Option<bool> {
+        self.observe_at(status, fullscreen, Instant::now())
+    }
+
+    fn observe_at(&mut self, status: AudioStatus, fullscreen: bool, now: Instant) -> Option<bool> {
         if !self.auto_switch || self.manual_override || status == AudioStatus::Unknown {
+            self.transition_candidate = None;
             return None;
         }
         let enter = status == AudioStatus::Audio;
         if enter == self.active || (enter && fullscreen) {
+            self.transition_candidate = None;
             return None;
         }
+
+        // mpv can publish an audio track before the video's track-list entry.
+        // Waiting for a stable catalog avoids toggling Music Mode and resizing
+        // the player during every video-to-video playlist handoff.
+        let Some((candidate, started)) = self.transition_candidate else {
+            self.transition_candidate = Some((enter, now));
+            return None;
+        };
+        if candidate != enter {
+            self.transition_candidate = Some((enter, now));
+            return None;
+        }
+        if now.saturating_duration_since(started) < AUTO_SWITCH_STABILITY {
+            return None;
+        }
+
+        self.transition_candidate = None;
         self.active = enter;
         Some(enter)
     }
@@ -60,6 +93,7 @@ impl State {
 mod tests {
     use super::{AudioStatus, State};
     use crate::{Playback, PlaylistEntry, Track, TrackKind};
+    use std::time::{Duration, Instant};
 
     fn track(kind: TrackKind, albumart: bool) -> Track {
         Track {
@@ -109,18 +143,98 @@ mod tests {
     #[test]
     fn automatic_mode_enters_audio_and_exits_for_video_but_respects_fullscreen() {
         let mut state = State::new(true);
-        assert_eq!(state.observe(AudioStatus::Audio, true), None);
-        assert_eq!(state.observe(AudioStatus::Audio, false), Some(true));
-        assert_eq!(state.observe(AudioStatus::Video, false), Some(false));
+        let start = Instant::now();
+        assert_eq!(state.observe_at(AudioStatus::Audio, true, start), None);
+        assert_eq!(state.observe_at(AudioStatus::Audio, false, start), None);
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Audio,
+                false,
+                start + Duration::from_millis(300)
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Video,
+                false,
+                start + Duration::from_millis(301)
+            ),
+            None
+        );
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Video,
+                false,
+                start + Duration::from_millis(601)
+            ),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn a_video_track_arriving_after_audio_cancels_the_transient_music_mode_candidate() {
+        let mut state = State::new(true);
+        let start = Instant::now();
+        assert_eq!(state.observe_at(AudioStatus::Audio, false, start), None);
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Video,
+                false,
+                start + Duration::from_millis(120)
+            ),
+            None
+        );
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Video,
+                false,
+                start + Duration::from_millis(500)
+            ),
+            None
+        );
+        assert!(!state.active());
+    }
+
+    #[test]
+    fn unknown_catalog_cancels_a_pending_automatic_mode_change() {
+        let mut state = State::new(true);
+        let start = Instant::now();
+        assert_eq!(state.observe_at(AudioStatus::Audio, false, start), None);
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Unknown,
+                false,
+                start + Duration::from_millis(200)
+            ),
+            None
+        );
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Audio,
+                false,
+                start + Duration::from_millis(501)
+            ),
+            None
+        );
     }
 
     #[test]
     fn manual_toggle_overrides_automatic_switching_until_toggled_again() {
         let mut state = State::new(true);
+        let start = Instant::now();
         assert!(state.toggle_manually());
-        assert_eq!(state.observe(AudioStatus::Video, false), None);
+        assert_eq!(state.observe_at(AudioStatus::Video, false, start), None);
         assert!(!state.toggle_manually());
-        assert_eq!(state.observe(AudioStatus::Audio, false), Some(true));
+        assert_eq!(state.observe_at(AudioStatus::Audio, false, start), None);
+        assert_eq!(
+            state.observe_at(
+                AudioStatus::Audio,
+                false,
+                start + Duration::from_millis(300)
+            ),
+            Some(true)
+        );
     }
 
     #[test]

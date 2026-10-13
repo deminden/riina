@@ -3170,3 +3170,603 @@ focused resize-timing regression test also passed. `cargo build --locked`,
 `cargo test --workspace --locked` (221 app tests; 49 native tests ignored in the
 ordinary workspace run), strict workspace Clippy, formatting, and `git diff
 --check` passed after the follow-up.
+
+## Native video handoff frame · 2026-10-13
+
+Windows native playback captures a generation-bound outgoing frame about 0.35 seconds before EOF. It keeps that image through mpv's end-of-file state when autoplay has a successor, while an incoming video buffers, and through its first 0.75 seconds because mpv can coalesce time updates and publish frame metadata before the surface is visible. It clears for an audio-only successor; an observed paused frame may release it earlier. Five focused display-policy tests pass.
+
+A clean 23-second autoplay run set resize timing to Always, disabled resume positions, and covered wide, standard, portrait, return-video, and audio clips in order. It sampled a 320-by-180 center crop 771 times at a 29.6 ms average and 174 ms maximum gap. None of the three video-to-video transitions or the video-to-audio transition had an all-dark sample. The run recorded one host/child size mismatch sample during the portrait-to-wide resize, no off-screen samples, and normal shutdown. A fresh 18-second repeat recorded 563 samples at a 31.8 ms average and 172 ms maximum gap; it had no all-dark video-to-video sample or child-size mismatch. Six all-dark samples occurred during startup/first-frame startup in the longer run. Earlier `IsWindowVisible` samples reported windows hidden even as full screen captures showed the moving video and controls; that flag is not a flash measurement. Audio-to-video handoff, the user's media, and flashes shorter than the sampling gap remain unverified, so keep the issue open until it is reproduced on those files.
+
+`cargo build --workspace --locked`, `cargo test --workspace --locked` (226 app tests passed; 49 native integration tests ignored), strict workspace Clippy, formatting, and `git diff --check` passed after the 0.75-second grace-window adjustment. A mixed-codec audit captured the rendered interlaced pattern after startup; its center-crop darkness was caused by the fixture image, so that crop is not a valid blank-frame detector for this source. Automatic-resize behavior on the user's media and flashes shorter than the 174 ms maximum sampling gap remain unverified. The local change is post-release and is not included in v0.3.4.
+
+## Riina 0.3.4 Windows binary release · 2026-10-13
+
+Tag `v0.3.4` points to application commit `0a4c8b361f31b01882e20f81245963be17ac07a2`. GitHub Actions run `38389488319` completed successfully: the package job reused the successful native-engine artifact, verified its runtime hash, passed native playback/lifecycle and lint/unit checks, assembled the Windows x64 ZIP, and passed exact extracted-package/source verification before publication. The release is public at `https://github.com/deminden/riina/releases/tag/v0.3.4`.
+
+The published ZIP is 72,854,337 bytes. Its downloaded SHA-256 `833a95e8fa74cc13138eb911cc25ce70c84e7851da9fc230552dbf7344f0eaae` matches the public `SHA256SUMS.txt`. `RELEASE-VERIFICATION.json` records source commit `0a4c8b361f31b01882e20f81245963be17ac07a2`, 101,748 indexed native-source files, 88 native-source repositories, and the package's libmpv and Cargo.lock hashes. The exact downloaded package contains its GPLv3 and third-party notices, runtime/source manifests, source commit and source-access instructions. The Windows runtime import checker verified all three packaged PE binaries. A local package smoke run played `moving-square.avi`, advanced to `track-languages.mkv`, maintained aligned/on-screen windows and exited normally (code 0); no Riina process remained.
+
+## Windows transition resize follow-up · 2026-10-13
+
+The prior audit caught one frame where the native host had resized for the incoming portrait clip but mpv's child video HWND still had the outgoing clip's dimensions. Windows now aligns the transparent controller and every mpv child surface during the host resize notification. The outgoing transition-frame request also moves from 0.35 to 1.25 seconds before EOF so mpv has more time to return it before autoplay advances.
+
+The fresh 25-second autoplay audit used the existing wide, standard, portrait, return-video, and audio fixtures with automatic resizing enabled. The executable SHA-256 was `E6190293BDEBCD15D1015DEEE9B5074592617D12A1B8CB30E1D8D917BF6970`. It recorded 825 stable samples at a 27.9 ms average and 214 ms maximum gap, zero host/child size mismatches, zero all-dark samples after startup, zero off-screen samples, and normal exit. Three `IsWindowVisible` samples reported false during the video sequence; full captures still showed the video and controls, so these are not counted as flashes. `cargo build --workspace --locked`, `cargo test --workspace --locked` (226 app tests passed; 49 native tests ignored), strict workspace Clippy, formatting, and `git diff --check` passed. The local fix is not in v0.3.4. The user's affected files and flashes shorter than the audit sampling gap remain unverified.
+
+## Windows transition rendering · 2026-10-13
+
+After the previous resize fix, higher-resolution screen captures at the first video-to-video handoff still showed a narrow incoming-frame strip leaking through above the retained outgoing image. The incoming child surface could resize without a host `WM_SIZE` event, so the Windows native path now checks and aligns the mpv child and transparent controller every 16 ms, issuing a batch resize only when bounds differ. The transition image now fills the overlay client area; an opaque black matte covers aspect-fit bands so the incoming surface cannot show through. The ordinary playback image geometry is unchanged.
+
+`cargo build --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked` (226 app tests passed; 49 native integration tests ignored), `cargo fmt --all -- --check`, and `git diff --check` passed. The rebuilt executable SHA-256 was `3FC70EE2A5867FB228EF6632A21DC4FC0531FDAECF98A29CDC34C2F1CC01D025`. A 32-second GUI autoplay run covered wide, standard, portrait, return-video, and audio fixtures; it recorded 1,161 samples, zero host/child size mismatches, zero off-screen samples, one dark sample at startup, and normal shutdown. Full captures during the first video-to-video handoff show the retained outgoing frame with clean black bars and no incoming strip. The test process closed normally and no Riina process remained. The user's affected files and sub-cadence flashing remain unverified.
+
+## Windows playlist handoff and resize follow-up · 2026-10-13
+
+The user continued to report flashes during clip switches. The transition cover now waits for an `mpv` raw capture from the incoming video instead of releasing on a fixed 0.75-second guess. It briefly displays that incoming capture while the native surface catches up; if capture fails, playback time provides a three-second release fallback. On Windows, autoplay changes that would reduce the player window area retain the current size to avoid downsizing the D3D11 host during decoder replacement. Manually opened media still follows the configured resize policy.
+
+`cargo build --workspace --locked`, `cargo test --workspace --locked` (228 app tests passed; 49 native integration tests ignored), strict workspace Clippy, `cargo fmt --all -- --check`, and `git diff --check` passed. The final rebuilt executable SHA-256 was `C582808B3176A17C9CF4C2966EB41C0717AEF4013817A91F48BE80D5DAE708B5`. The 27-second GUI autoplay audit covered wide, standard, portrait, return-video, and audio fixtures. Across 822 stable samples after startup, the average capture gap was 30.4 ms and the maximum was 364 ms; it found no all-dark video samples, no off-screen samples, and no host/child size mismatches. The video window kept the same frame size across the three video-to-video transitions. Riina closed normally (exit 0), and no process remained. This synthetic run does not settle flashes shorter than the maximum sample gap or behavior on the user's files.
+
+## Windows constrained controller layout · 2026-10-13
+
+The controller's floating position is clamped to the current viewport. Its height follows the available video area; below 48 points the timeline is omitted, and below 114 points width only Play/Pause remains in the center row. `cargo build --workspace --locked`, `cargo test --workspace --locked` (228 app tests passed; 49 native integration tests ignored), strict workspace Clippy, formatting, and `git diff --check` passed after this change.
+
+A live 980-by-330-pixel resize kept video playback visible, on-screen and aligned between the window host and mpv child, then closed normally. The capture did not show the controller even after moving the pointer into the resized window, so this only verifies video/window stability; visible button placement and interaction at that size remain open.
+
+## Compact controller extreme viewport bounds · 2026-10-13
+
+The compact transport now drops horizontal insets and gaps below 64 logical
+points, and limits its row height and vertical spacing to the available height
+below 24 points. This targets transiently tiny resizes where fixed controller
+chrome could extend beyond its viewport. The workspace build is in flight;
+pointer interaction and a visible capture at the affected sizes remain
+unverified.
+
+## Windows clip-switch resize ownership · 2026-10-13
+
+The native Windows mpv output now sets `auto-window-resize=no`, leaving video-size
+changes to Riina's configured resize policy and synchronized host/child geometry.
+`cargo build --workspace --locked`, `cargo test --workspace --locked` (228 app
+tests passed; 49 native playback tests ignored in the ordinary run), strict
+workspace Clippy, formatting, and `git diff --check` passed.
+
+A 25-second GUI autoplay run on wide, standard, portrait, return-video, and audio
+synthetic clips recorded 1,045 stable samples, zero fully dark video samples, zero
+host/child size mismatches, and zero off-screen samples. It captured 52 full-window
+transition frames and exited normally; no Riina process remained. The screen
+sampler checks every 10 ms and transition captures are 40 ms apart, so briefer
+flashes and the user's affected media remain unverified. Evidence is in the ignored
+local audit directory `tools/window-stability-audit/autoresize-disabled/`.
+
+## Automatic Music Mode handoff stabilization · 2026-10-13
+
+`music_mode::State` now waits 300 ms of stable audio-only track catalog before
+switching layout. Regression tests verify that a later video-track update or an
+unknown catalog cancels the candidate. `cargo build --workspace --locked`,
+`cargo test --workspace --locked` (228 app tests passed; 49 native playback tests
+ignored in the ordinary run), strict workspace Clippy, and formatting passed.
+
+A 25-second Windows autoplay run covered wide, standard, portrait, return-video,
+and audio fixtures. All four video items kept the same player size; the audio item
+entered Music Mode after its title appeared. The run recorded 1,047 stable samples,
+zero fully dark video samples, zero host/child mismatches, and zero off-screen
+samples, then exited normally with no Riina process left. Evidence is in the ignored
+local audit directory `tools/window-stability-audit/music-mode-stability/`. The
+user's affected files and macOS runtime remain unverified.
+
+## Windows incoming-frame handoff cover · 2026-10-13
+
+The incoming transition frame remains visible for 750 ms after a successful raw
+capture before the native D3D11 child is uncovered. `cargo fmt --all -- --check`,
+`cargo test --workspace --locked` (228 app tests passed; 49 native playback tests
+ignored in the ordinary run), strict workspace Clippy, and `cargo build --workspace
+--locked` passed. A 32-second Windows autoplay run covered wide, standard, portrait,
+audio, and return-video fixtures. Across 1,136 stable samples it recorded no dark
+video samples after startup, no host/child size mismatches, and no off-screen frames.
+Full captures across video handoffs show a retained image followed by the incoming
+frame without a black gap. Riina closed normally (exit 0), and no process remained.
+Evidence is under the ignored local directory
+`tools/window-stability-audit/incoming-hold-075-experiment/`. This synthetic run
+does not confirm the user's affected files or flashes shorter than the capture
+cadence.
+
+## Incoming-frame capture stabilization · 2026-10-13
+
+Incoming raw-frame capture now waits until playback has advanced 250 ms, scaled
+down for very short media. The outgoing frame remains over the native surface
+during that settling interval. Eight transition-policy tests pass. The full
+workspace suite passes; 49 native playback tests are ignored because the pinned
+DLL is not provisioned. Strict workspace Clippy, formatting, and the workspace
+build pass.
+
+A 28-second Windows autoplay GUI run covered six mixed-size synthetic clips with
+automatic resizing enabled. It recorded 733 samples, zero host/child size
+mismatches, and zero off-screen samples, then closed normally with no Riina
+process remaining. Full-window captures during the two sampled mpv child-hide
+events show the retained frame covering the video surface; captured handoffs show
+the incoming image appearing after the outgoing frame without a blank gap. The
+mostly-black synthetic fixtures make dark-pixel counts unreliable. Evidence is in
+the ignored local files `tools/window-stability-audit/incoming-stability-20261013-retry.json`
+and `tools/window-stability-audit/transition-*.png`. The user's affected media
+and flashes shorter than the screen-capture cadence remain unverified.
+
+## Windows clip-switch follow-up · 2026-10-13
+
+`cargo fmt --all -- --check` and `cargo build --workspace --locked` passed after
+adding a 300 ms stable-host-size gate before incoming-frame capture and capture-
+before-navigation for manual Next/Previous (500 ms timeout fallback). The local
+26-second Windows autoplay audit used six generated clips and “Always resize.” It
+recorded 609 samples, zero host/child size mismatches, zero off-screen samples,
+normal shutdown, and no remaining Riina process. The screen sampler found extended
+black intervals in the generated interlaced clips; those cannot be attributed to
+the player transition from this evidence. A separate Windows smoke check sent
+Ctrl+Right and advanced from `01-square.avi` to `02-tracks.mkv`, exiting normally.
+It did not capture the manual transition visually. The user's media remains
+unverified. Evidence: ignored local directory
+`tools/window-stability-audit/switch-surface-stability-20261013/`.
+
+## Advanced preferences and log viewer GUI · 2026-10-13
+
+`cargo fmt --all -- --check` and `cargo build --workspace --locked` passed. A
+Windows GUI smoke check started with Advanced disabled, enabled it, confirmed the
+saved preference was true, opened the Log Viewer, read four fixture entries, and
+observed a fifth entry appended while the viewer remained open. Captures verify
+the Search field and toolbar actions fit at the default window size. The test
+harness's normal close timed out, so it ended the exact Riina process it launched;
+no Riina process remained afterward. Filter interaction and the remaining viewer
+actions are not GUI-verified. Evidence: ignored local directory
+`tools/window-stability-audit/log-viewer-smoke-20261013/`.
+
+## Windows autoplay surface-size stability · 2026-10-13
+
+An initial GUI audit with “Always resize” played four generated video clips. Across
+455 stable samples the host stayed 2747×1711 physical pixels, with zero host/video
+child size mismatches and zero off-screen samples. Repeated captures exposed two
+gaps: the video aspect-ratio callback bypassed the automatic-resize guard, and a
+playback-state update briefly changed the client-area height while the outer frame
+stayed steady, consistent with a native-menu refresh. The Windows handoff rule now
+covers the aspect callback, and menu updates are coalesced for 80 ms. After
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, and the focused
+Windows automatic-playlist regression test passed, a 20-second GUI replay with
+“Always resize” covered six generated clips. Across 644 stable samples, the host
+and mpv child stayed 2747×1711 physical pixels, with zero size mismatches and zero
+off-screen samples. Riina exited normally and no process remained. Generated
+interlaced frames still produced dark center crops, so this does not prove the
+user's reported flash is resolved on their files. Evidence: ignored local
+directories `tools/window-stability-audit/resize-trace-20261013/`,
+`tools/window-stability-audit/hold-frame-autoplay-recheck-20261013/`,
+`tools/window-stability-audit/resize-stack-trace-20261013/`, and
+`tools/window-stability-audit/menu-coalesce-autoplay-20261013/`.
+
+## Keep final frame at EOF · 2026-10-13
+
+Extended the ignored native integration test to assert that an EOF snapshot retains
+video metadata and the current playlist item before Play is pressed. With the pinned
+`tools/mpv/libmpv-2.dll`, `cargo test -p riina-mpv --test native --locked
+play_restarts_media_after_end_of_file -- --ignored --nocapture` passed (1 test).
+The test also confirms restart from the beginning. It uses a headless mpv output;
+visible final-frame pixels and playlist-end setting combinations still need GUI
+verification. No GUI player was left open.
+
+## Windows clip-switch frame handoff · 2026-10-13
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, and
+`git diff --check` passed. The capture-reply path preserves a transition frame when
+its command reply arrives one media generation after the request, while rejecting
+older captures. Windows native mode no longer creates a second libmpv OpenGL render
+context over the D3D11 child output. The cover waits for the visible, size-matched
+mpv child surface and uses opaque captured pixels. A 24-second Windows GUI autoplay
+run covered six generated clips and collected 995 screen samples. It recorded zero
+host/mpv-child size mismatches and zero off-screen frames; Riina exited normally.
+Generated interlaced clips still produced dark center samples. This does not
+confirm the user's reported flash is resolved on their media or rule out gaps
+shorter than the capture cadence. Evidence: ignored local directory
+`tools/window-stability-audit/native-render-separation-20261013/`.
+
+## Playback History group navigation · 2026-10-13
+
+`cargo check --workspace --locked` passes with per-group toggling and Expand All /
+Collapse All actions wired to the Playback History view model. Group state is
+retained across history refreshes and reset when history is cleared. A bounded
+Windows GUI smoke attempt did not open Playback History through its shortcut, so
+the new controls were not exercised and no matched macOS/Windows capture was made.
+The test process closed normally; no Riina process remains.
+
+## Windows clip-switch surface readiness follow-up · 2026-10-13
+
+The transition cover now treats the visible, size-matched mpv child as the
+presented output surface, so a hidden stale child cannot block readiness. The
+workspace formatting check and `cargo build --workspace --locked` passed. A
+25-second Windows autoplay audit resized the player to a 960×600 physical
+outer frame after 8 seconds and sampled 951 frames across six mixed-size clips.
+It recorded zero host/child size mismatches and zero off-screen samples; the
+test process exited normally and no Riina process remained. A second targeted
+14-second capture around clip changes found no hidden host samples. The very
+dark center samples belong to the generated interlaced fixtures. This does not
+reproduce the user's reported flashes or rule out gaps shorter than the screen
+capture cadence; the affected media still needs direct verification. Evidence is
+in the ignored local directories `tools/window-stability-audit/transition-user-followup-20261013/`
+and `tools/window-stability-audit/transition-switch-frames-20261013/`.
+
+## Windows transition-cover render ordering · 2026-10-13
+
+The Slint transition image is now assigned before enabling its opaque cover,
+preventing an intermediate render from showing the cover's black matte before
+the retained frame. After incoming-frame capture, the cover now remains visible
+for 750 ms of monotonic wall time, regardless of playback speed. The focused
+`incoming_frame_grace_uses_wall_clock_at_high_playback_speed` regression passed at
+8× playback speed. `cargo fmt --all -- --check`, `cargo build --workspace --locked`,
+and `git diff --check` passed. A live six-clip Windows autoplay check captured
+normal rendered content on later clips, but the point-in-time screenshots did not
+sample quickly enough to prove that brief flashes are gone or to reproduce the
+user's files. Ctrl+Q did not close the test player, so the exact Riina process
+started for this run was stopped; a subsequent process check found no Riina process.
+Keep the reported flash open pending high-rate screen capture and direct media
+verification.
+
+## Windows incoming-video readiness · 2026-10-13
+
+Transition-cover fallback expiry now uses elapsed wall time, so a resume position
+past three seconds does not uncover the native surface before capture. The cover
+also waits briefly when a coalesced playback update has not yet reported the
+incoming track list; the capture timer can start from video-track metadata before
+full video dimensions arrive. The two focused cover-readiness regressions pass.
+
+`cargo fmt --all -- --check`, `cargo build --workspace --locked`, and
+`git diff --check` pass. A 25-second Windows autoplay screen audit traversed six
+generated clips with 572 samples, no off-screen frames, and normal process close.
+The generated interlaced and low-resolution MPEG clips have dark center content;
+the audit also saw one transient host/child-size mismatch. It cannot confirm the
+user's files or rule out a flash shorter than the sampling interval. Evidence is
+in the ignored directory
+`tools/window-stability-audit/transition-late-metadata-20261013/`.
+
+## Windows transition-cover release ordering · 2026-10-13
+
+When a transition ends, the opaque retained image now remains assigned until the
+cover rectangle is disabled. Clearing the image first could let Slint render its
+black backing for a frame between property updates. `cargo fmt --all -- --check`,
+`git diff --check`, and `cargo build --workspace --locked` pass. A 24-second GUI
+autoplay capture traversed six clips in 555 screen samples, with zero off-screen
+samples, zero host/child size mismatches, and normal shutdown. The captured
+handoffs show incoming clip content; black center samples came from the generated
+dark interlaced/MPEG fixtures. This does not reproduce the user's affected media,
+and the screen capture cannot rule out shorter flashes. Evidence is in the ignored
+directory `tools/window-stability-audit/cover-release-order-20261013/`.
+
+## Preferred-language token editor · 2026-10-13
+
+Audio and Subtitle preferences now render preferred languages as ordered removable
+chips with an inline entry field. Enter accepts a token; comma-separated entry
+pastes multiple values; duplicates are ignored without changing existing order;
+removing a chip updates the saved comma-separated value through the existing
+settings pipeline. Three focused token parsing/order/removal tests pass; the
+workspace app target compiled, and strict Clippy, format, and diff checks pass.
+A Windows GUI attempt could not operate the native Open File dialog through the
+available window handle, so visual interaction and the matched macOS reference
+remain unverified. The exact Riina process started for that attempt was closed
+and no Riina process remains.
+
+## Windows incoming black-frame retry · 2026-10-13
+
+Reviewing the high-rate report above showed repeated black screen samples after
+clip changes. The first incoming-capture guard rejected fully black images, but a
+new 16-second autoplay audit still caught a mostly black capture with a narrow
+bright stripe, which passed the initial visibility threshold. Incoming captures
+are now checked for picture across both sides of the sampled frame; rejected
+captures keep the outgoing cover and retry at a bounded interval while the
+existing three-second fallback remains active. Every capture reply has a revision
+so a later successful retry refreshes the Slint cover. A focused test now rejects
+the narrow-stripe capture. All 14 focused transition tests and strict workspace
+Clippy pass, `cargo fmt --all -- --check` and `git diff --check` pass, and
+`cargo build --workspace --locked` succeeds. A second 16-second Windows replay
+covered four generated clips at up to 100 screen samples per second. It recorded
+no host/child size mismatch or off-screen sample and closed Riina normally. Fully
+dark center samples on the interlaced clip fell from 41 to 21, but remain present;
+this reduces a transition artifact without resolving all reported flashing. The
+user's affected media remains unverified. An isolated software-decoding replay
+and an experimental deinterlace-on replay did not consistently reduce these dark
+samples across both interlaced codecs; production remains at IINA's deinterlace-off
+default. Evidence is in the ignored directories
+`tools/window-stability-audit/incoming-black-frame-retry2-20261013/`,
+`tools/window-stability-audit/incoming-black-frame-software-decode-20261013/`,
+and `tools/window-stability-audit/incoming-deinterlace-test-20261013/`.
+
+## Playlist-row transition capture · 2026-10-13
+
+`cargo fmt --all -- --check`, `cargo check --workspace --locked`, strict
+workspace Clippy, and `git diff --check` passed. A Windows GUI pass opened the
+playlist panel and double-clicked `05-return-video.avi`; playback history shows
+it followed `03-portrait.avi` and preceded the following `04-audio.wav` item.
+The exact Riina process
+closed normally and a process check found no remaining Riina instance. This
+confirms the direct playlist-selection route executes, but the screen capture did
+not establish that the user's flash is fixed. An autoplay screen audit across
+wide, standard, portrait, return-video, and audio fixtures recorded 666 samples,
+zero all-dark samples, zero host/child size mismatches, zero off-screen frames,
+and normal shutdown. Evidence is in the ignored directory
+`tools/window-stability-audit/flash-variable-window-20261013/`; affected user
+media and flashes shorter than the capture interval remain unverified.
+
+## Windows incoming-frame stability · 2026-10-13
+
+The cover now requires three usable incoming-frame captures spanning at least
+400 ms before its existing 750 ms release grace can begin. `cargo fmt --all --
+--check`, `cargo check --workspace --locked`, `cargo build --workspace --locked`,
+and `git diff --check` passed. The built executable SHA-256 is
+`217908464F431AD7D883B18FA95AA3D2BCE609B445FF312EECC3956DD91F974E`. A six-clip
+Windows GUI replay closed normally (exit 0), with 572 geometry samples, no
+off-screen samples, and no mpv-child size mismatches. `GetWindowState` showed the
+synthetic video rendering in the test player, but the monitor's desktop-capture
+images were occluded by Codex, so this run does not verify transition pixels or
+the reported flash. No Riina process remains. The user's affected media still
+needs a direct check.
+
+## Playback History multi-row action alignment · 2026-10-13
+
+Removed the duplicate bottom action bar, which offered single-row operations
+despite outline multi-selection; Play, New Window, Reveal, Remove, and Trash now
+use the selection-aware context-action path. The context selection plan includes
+all selected visible rows in outline order and adds the clicked row, matching
+IINA's pinned `selectedRowIndexes` plus `clickedRow` behavior. Two focused tests
+cover row order, clicked-row inclusion, and filtered-out selections.
+`cargo fmt --all -- --check`, `cargo check --workspace --locked`,
+`cargo test --workspace --locked` (246 app tests passed; 49 native integration
+tests ignored because the pinned runtime is not provisioned for this invocation),
+strict workspace Clippy, and `git diff --check` pass. Live History window
+interaction and matched macOS/Windows captures remain to be verified.
+
+## Windows clip-switch flash follow-up · 2026-10-13
+
+Replayed the six generated video clips with the rebuilt Windows app visible and
+captured the handoffs on screen. Transition captures showed video content at the
+tested clip changes; the 814-sample run recorded no off-screen frames. It did
+record one transient host/child-size mismatch 2 seconds into the final clip,
+after its transition, plus black-center samples within the deliberately dark
+interlaced fixture. These generated clips still do not reproduce the user's
+reported flash on their media, so the issue remains open. Riina exited normally
+and no process remained. Evidence is in the ignored directory
+`tools/window-stability-audit/user-flash-followup-20261013/`.
+
+## Playback History Windows layout check · 2026-10-13
+
+Opened File → Playback History in the rebuilt Windows app using the isolated six-
+entry history fixture. The window displayed date grouping, folder/site grouping,
+expand/collapse, search-mode and clear-history controls, plus the media/progress/
+played-at columns. The duplicate bottom action strip is absent and the list uses
+the freed vertical space. Context-menu selection actions and visual comparison
+with a matched macOS capture remain open. Riina was closed normally after the
+check and no process remained.
+
+## Windows autoplay cover handoff · 2026-10-13
+
+When a usable full-frame capture arrives for an incoming clip, the transition
+cover now releases immediately to live native playback instead of continuing to
+display the captured snapshot over the moving surface. Loading, unknown video
+metadata, black frames, and incomplete captures still retain the outgoing
+cover. All 14 focused transition tests pass; `cargo fmt --all -- --check`,
+`cargo build --workspace --locked`, and `git diff --check` pass. A foreground
+24-second Windows replay crossed all six generated clips, recorded 807 samples
+with zero off-screen samples, and Riina exited normally. The monitor also saw
+three hidden samples and one late host/child size mismatch. The transition
+captures still do not reproduce the user's media, so this change does not
+confirm that the reported flash is fixed. Evidence is in the ignored directory
+`tools/window-stability-audit/incoming-cover-release-20261013/`.
+
+## Windows clip-switch stability release gate · 2026-10-13
+
+The player previously hid the transition cover on the first usable incoming-frame
+capture, before the existing three-frame/400 ms surface-stability check had
+completed. It now keeps the opaque handoff image until that stability check
+confirms the incoming surface, while preserving the existing three-second
+fallback if capture cannot stabilize. Two focused regression tests cover the
+release gate and timeout. All 16 transition-frame tests pass; formatting, strict
+Riina Clippy, and the Riina build pass.
+
+A 24-second Windows GUI replay of the final rebuilt executable used the mixed-
+size wide, standard, portrait, return-video, and audio fixtures. It produced 657
+window samples with zero off-screen frames and zero host/mpv size mismatches. Of
+511 video samples, the sole near-black sample was during initial startup; none
+occurred at clip changes. Captured handoff screenshots show incoming video
+content. Riina closed normally and no Riina process remains. The user's affected
+files are still unavailable, so this improves the specific premature-release
+race but does not yet verify the reported flash on those files. Evidence is in
+the ignored directory
+`tools/window-stability-audit/flash-stability-final-20261013/`; executable SHA-
+256: `5E7FDF22B15EB888CCF669C1DA5088F1FF801A898365A8F0A83747AEB878E5F7`.
+
+## A/B timeline marker drag behavior · 2026-10-13
+
+The shared playback slider now records where the pointer grabbed each A/B marker
+and moves that marker only after an actual drag, preserving its position when the
+mouse first goes down. The existing hit-target ordering keeps the playhead ahead
+of loop markers and gives B priority where A and B overlap. The pinned reference
+behavior was inspected in `PlaySliderLoopKnob.swift`; Riina's implementation is
+independent. `cargo check -p riina --locked`, formatting and diff checks pass, and
+the focused `dragging_an_ab_loop_point_updates_only_the_selected_endpoint` core
+test passes. Native pointer interaction and matched captures remain unverified.
+
+## Windows outgoing-frame capture retry · 2026-10-13
+
+The clip-switch timer previously stopped requesting an outgoing frame as soon as
+mpv accepted the asynchronous command, even when its capture reply later failed.
+Riina now retries every 240 ms until a frame for that playback generation is
+confirmed. The focused `outgoing_capture_retries_until_a_reply_confirms_the_frame`
+test, `cargo fmt --all -- --check`, `cargo build -p riina --locked`, and strict
+`cargo clippy -p riina --all-targets --locked -- -D warnings` pass.
+
+A 30-second Windows mixed-codec autoplay replay produced 1,260 screen samples at
+a 23.5 ms average and 214 ms maximum sampling gap, with zero host/child-size
+mismatches, zero off-screen samples, and normal exit. A follow-up captured full
+windows at the black-center samples: those images showed the interlaced/MPEG test
+pattern itself, while the handoff screenshots showed continuous picture output.
+No actual blank was sampled at the transitions in this generated playlist. The
+user's reported files remain unverified. Evidence is in the ignored directories
+`tools/window-stability-audit/retry-capture-20261013/` and
+`tools/window-stability-audit/retry-capture-confirm-20261013/`; executable
+SHA-256: `1D1CCEB29FEA4337A539FB26952660C84F713266CC32FB676426DBE5A6C777D8`.
+
+## Player-scoped plugin event API · 2026-10-13
+
+Added bounded `iina.event.on/off` listeners and worker-thread delivery for
+`iina.file-loaded` and changes to playback properties already present in the
+Riina plugin snapshot. The focused runtime/context tests pass (41 plugin tests),
+as do strict Riina Clippy and `cargo build -p riina --locked`. This is partial
+IINA event parity: arbitrary `mpv.observe(property:)`, the wider event catalogue,
+global event access, and macOS runtime behavior remain unimplemented or
+unverified.
+
+## Windows incoming native-surface release gate · 2026-10-13
+
+Moved the visible-child/host-size stability check ahead of transition-cover
+release. This prevents stable decoder captures from releasing the cover while
+the native output is hidden or reconfiguring. All 18
+`transition_frame::tests` pass; formatting, diff checks, strict app Clippy, and
+the player build pass.
+
+The visible 25-second Windows synthetic-folder replay recorded 1,011 samples,
+zero off-screen samples, zero host/mpv child-size mismatches, and zero sampled
+near-black video frames after startup. Captured handoffs show continuous video;
+Riina exited normally and no process remained. This does not reproduce the
+user's affected files or prove sub-sample flashes are absent. Evidence is in
+`tools/window-stability-audit/flash-surface-gate-followup-20261013/`.
+Executable SHA-256: `DB748A09F7D386229D8792D77DEE2E504EB2B612CD0FA7BC588CC066D001041F`.
+
+## Dynamic plugin MPV-property events · 2026-10-13
+
+Player-scoped plugin listeners can now observe bounded, deduplicated dynamic
+MPV properties. Runtime tests verify subscription requests and event dispatch;
+`cargo test --workspace --locked` verifies the full workspace, and the targeted
+ignored native integration test
+`dynamic_mpv_property_observation_publishes_generic_node_values` passes against
+the pinned Windows libmpv DLL using `container-fps`. Strict workspace Clippy and
+the workspace build pass. This proves native property observation and portable
+state update, but not the complete QuickJS-to-GUI path. The wider IINA event
+catalogue, global events, and macOS runtime remain open.
+
+## Windows autoplay cover lead · 2026-10-13
+
+Extended the outgoing-frame cover to 450 ms before an autoplay handoff when a
+successor exists. All 19 `transition_frame::tests` pass, `cargo fmt --all -- --check`
+and `git diff --check` pass, and `cargo build -p riina --locked` passes.
+The built player launched with the synthetic codec folder and advanced through
+`05-mpeg2-bff.mkv`, confirming playlist playback. Two refreshed capture attempts
+against its stable host window failed with
+`IGraphicsCaptureItemInterop.CreateForMonitor` error `0x80070057`, so this run
+does not verify transition pixels or the user's flashing. The test process was
+closed normally and a process check found no Riina instance.
+
+## Open URL stream protocol coverage · 2026-10-13
+
+The protocol envelope follows mpv's `file|URL` input model and its documented
+network backends ([mpv manual](https://mpv.io/manual/stable/),
+[FFmpeg protocol reference](https://ffmpeg.org/ffmpeg-protocols.html)).
+The shared media URL validator now accepts common mpv stream schemes beyond
+HTTP and RTSP, including FTP, RTMP, SRT, UDP, SMB and mpv's `ytdl://` handler.
+It preserves the supplied URL spelling and query escaping for libmpv, rejects
+unknown schemes and local `file://` URLs in the network-only entry path, and
+keeps Windows drive paths classified as files. The three focused
+`media_reference::tests` pass as part of `cargo test --workspace --locked`.
+Plugin media opens apply network permission and manifest-domain checks to all
+recognized stream schemes, including RTSP and RTMP; `ytdl://` checks its nested
+source host. Plugin grant tests cover allowed and denied hosts. Live playback of
+each external protocol remains unverified; runtime availability depends on the
+packaged engine's FFmpeg protocol support.
+
+## Windows playlist phase-gap cover · 2026-10-13
+
+The transition cover now remains enabled if a newer media generation briefly
+reports `Ended` or `Stopped` before incoming metadata arrives. This handles a
+late end notification crossing the UI update for a playlist handoff; once the
+track list confirms an audio-only item, the cover can release immediately. The
+two focused phase-gap regressions pass. `cargo test --workspace --locked`, strict
+workspace Clippy, `cargo fmt --all -- --check`, `git diff --check`, and
+`cargo build --workspace --locked` pass.
+
+A 25-second mixed-codec GUI replay advanced through the playlist and exited
+normally. It did not provide usable visual evidence: the desktop-copy samples
+were uniformly black, and Windows Graphics Capture returned
+`CreateForMonitor` error `0x80070057`. One late sample for `06-catalog.mkv` also
+reported a window frame far outside the measured work area, so that geometry
+observation needs a separate, foreground-verified reproduction. The user's
+switching flash remains open; this change is not claimed as a visual fix.
+
+## Windows clip-switch cover and compact transport follow-up · 2026-10-13
+
+The transition overlay now continues to use the complete outgoing frame while
+the incoming decoder capture and native child surface settle. The incoming
+capture is only a readiness signal, avoiding display of a partial raw frame.
+The compact transport keeps previous/next buttons hidden until at least 132
+logical pixels are available for their hit targets and spacing. All 22 focused
+transition tests pass, including the partial-incoming-frame regression. The full
+workspace test run passes (257 app tests; 50 native integration tests ignored),
+as do strict workspace Clippy, formatting, and the workspace build.
+
+A fresh 25-second Windows autoplay replay traversed all six mixed-codec clips,
+with zero off-screen samples, zero mpv-child size mismatches, and normal
+shutdown. Its 258 stable pixel samples and 45 transition screenshots were
+uniformly black, so they do not establish whether any individual handoff flashed.
+Direct capture of the Riina window failed twice with Windows Graphics Capture
+`CreateForMonitor` error `0x80070057`. The user-reported flash and the compact
+controller's appearance therefore remain visually unverified. Riina was closed
+and a process check found no instance. Evidence is in the ignored directory
+`tools/window-stability-audit/outgoing-frame-hold-20261013/`.
+
+## OpenSubtitles multi-selection · 2026-10-13
+
+The result list supports modifier-click toggling, Shift range selection, Select
+All, Return/double-click download, and sequential download of selected results.
+The focused `ResultSelection` tests pass within the workspace run. The app build,
+strict Clippy and full workspace tests pass. This session did not exercise the
+live service/API key or visually verify the dialog; Assrt is now implemented as a
+second native provider, and Shooter.cn is implemented as a third. Live service
+availability and GUI results remain unverified; plugin-registered providers
+remain open.
+
+## Assrt subtitle provider integration · 2026-10-13
+
+Assrt selection now routes manual and eligible automatic searches through a
+bounded HTTPS client; selected results are downloaded and loaded using the
+shared sequential batch path. Separate credentials stay in the platform
+credential store and never enter preferences JSON. Seven fixture tests cover
+search and detail response fields, empty result objects, token validation,
+provider errors, HTTPS host confinement and playable file extension selection.
+The Settings provider/token lookup and search attribution link are compiled and
+the subtitle-provider Settings search is covered. The full workspace test suite
+passes; 50 native integration tests remain ignored because this environment lacks
+the pinned libmpv test provision. Live Assrt requests/playback and dialog capture
+remain unverified because no user token or usable GUI capture surface was
+available. The official API contract is at https://2.assrt.net/api/doc.
+Automatic search submits a provider request when the result window opens, once
+for each eligible media generation after the duration, subtitle-track and
+sidecar-discovery gates pass.
+
+## Shooter.cn subtitle provider · 2026-10-13
+
+The provider catalog now includes Shooter.cn for manual and eligible automatic
+searches. Its fixture coverage checks response filtering, supported subtitle
+formats, HTTPS host confinement, four bounded 4 KiB sample hashes, small-file
+rejection, and bounded metadata text. `cargo test --workspace --locked` passes
+with 271 app tests; 50 native integration tests are ignored because this test
+environment lacks the pinned libmpv provision. Strict workspace Clippy,
+formatting, diff checks, and the Windows player build pass. The user-facing
+disclosure states that Shooter receives the local path and sampled hash. Live
+service availability and GUI playback/results remain unverified.
+
+## Windows visible mpv surface alignment · 2026-10-13
+
+The 16 ms native-surface alignment loop now resizes only visible mpv child
+windows. mpv may retain hidden child HWNDs while replacing its swap chain; the
+previous loop kept resizing those stale windows even though they could not be
+seen. A replacement child is included as soon as Windows marks it visible. The
+workspace test suite passes (264 app tests; 50 native integration tests ignored
+because the pinned libmpv DLL is not provisioned here), as do strict workspace
+Clippy, formatting, `git diff --check` and the full workspace build.
+No usable live capture was available for this run, so the user's reported flash
+is not yet confirmed fixed.
+
+## Windows surface-replacement stability · 2026-10-13
+
+The incoming handoff stability timer now fingerprints the aligned visible mpv
+child surfaces in addition to host size and media generation. A new child HWND,
+changed child dimensions, or relabeled surface restarts the settling interval.
+The user reports that the whole-screen white flash was no longer visible in the
+latest playback check (“seems ok”). Automated pixel capture was unusable, so this
+is a user-observed improvement rather than a captured visual pass. The synthetic
+test launcher shut down normally, and no Riina process remained afterward.

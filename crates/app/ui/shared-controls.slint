@@ -59,6 +59,8 @@ export component PlayerSlider inherits Rectangle {
         0px, root.width - knob-width);
     private property <length> loop-b-x: clamp(3px + (root.width - 6px) * loop-b-fraction - knob-width / 2,
         0px, root.width - knob-width);
+    private property <length> loop-a-grab-offset: 0px;
+    private property <length> loop-b-grab-offset: 0px;
     private property <length> loop-hit-width: max(8px, knob-width);
     Rectangle { x: 3px; y: 9px; width: parent.width - 6px; height: 2px;
         background: root.dark-theme ? #ffffff40 : #00000030; border-radius: 1px; }
@@ -159,12 +161,14 @@ export component PlayerSlider inherits Rectangle {
         width: root.loop-hit-width; height: parent.height;
         pointer-event(event) => {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                root.loop-a-moved(root.minimum + clamp((self.x + self.mouse-x - 3px)
-                    / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+                // Preserve the grabbed marker's offset so pressing its edge
+                // starts a drag without moving the A point on mouse-down.
+                loop-a-grab-offset =
+                    self.x + self.mouse-x - root.loop-a-x - root.knob-width / 2;
             }
         }
         moved => { if self.pressed {
-            root.loop-a-moved(root.minimum + clamp((self.x + self.mouse-x - 3px)
+            root.loop-a-moved(root.minimum + clamp((self.x + self.mouse-x - loop-a-grab-offset - 3px)
                 / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
         } }
     }
@@ -176,12 +180,14 @@ export component PlayerSlider inherits Rectangle {
         width: root.loop-hit-width; height: parent.height;
         pointer-event(event) => {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                root.loop-b-moved(root.minimum + clamp((self.x + self.mouse-x - 3px)
-                    / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+                // B receives a click when the A and B markers overlap, matching
+                // the reference's marker priority; keep its initial value stable.
+                loop-b-grab-offset =
+                    self.x + self.mouse-x - root.loop-b-x - root.knob-width / 2;
             }
         }
         moved => { if self.pressed {
-            root.loop-b-moved(root.minimum + clamp((self.x + self.mouse-x - 3px)
+            root.loop-b-moved(root.minimum + clamp((self.x + self.mouse-x - loop-b-grab-offset - 3px)
                 / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
         } }
     }

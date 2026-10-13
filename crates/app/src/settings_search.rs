@@ -425,6 +425,20 @@ const ENTRIES: &[Entry] = &[
         page_index: 4,
         page: "Subtitles",
         section: "Online Subtitles",
+        title: "Subtitle provider",
+        terms: "Assrt.net OpenSubtitles Shooter.cn source service local file hash",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Online Subtitles",
+        title: "Assrt.net token",
+        terms: "account API key credential",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Online Subtitles",
         title: "OpenSubtitles API key",
         terms: "online subtitle search download provider account key",
     },
@@ -1086,8 +1100,21 @@ mod tests {
                 "Subtitle matching mode",
                 "Automatic subtitle search",
                 "OpenSubtitles API key",
+                "Subtitle provider",
             ]
         );
+        let assrt_items = results_for_query("assrt")
+            .into_iter()
+            .filter(|result| !result.is_header && result.page_index == 4)
+            .map(|result| result.title.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(assrt_items, ["Assrt.net token", "Subtitle provider"]);
+        let shooter_items = results_for_query("shooter")
+            .into_iter()
+            .filter(|result| !result.is_header && result.page_index == 4)
+            .map(|result| result.title.to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(shooter_items, ["Subtitle provider"]);
     }
 
     #[test]

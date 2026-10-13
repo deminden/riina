@@ -7,7 +7,7 @@ use riina_core::plugin::{
 use riina_core::{Command, control_preferences::SeekType};
 use rquickjs::{Context, Ctx, Function, Object, Runtime, Value, function::Func};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::Read,
     path::{Path, PathBuf},
@@ -39,6 +39,54 @@ const MAX_NETWORK_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_PLUGIN_DOWNLOAD_BYTES: usize = 64 * 1024 * 1024;
 const MAX_OPEN_FILE_HANDLES: usize = 64;
 const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
+const PLUGIN_EVENT_API: &str = r#"(() => {
+    const listeners = new Map();
+    let nextId = 0;
+    let listenerCount = 0;
+    const validName = (name) => {
+        if (typeof name !== "string") return false;
+        const parts = name.split(".");
+        return (parts.length === 2 || (parts.length === 3 && parts[2] === "changed"))
+            && (parts[0] === "iina" || parts[0] === "mpv")
+            && parts[1].length > 0
+            && parts.every((part) => part.length > 0);
+    };
+    iina.event = {
+        on(name, callback) {
+            if (!validName(name)) throw new Error(`Incorrect event name syntax: ${String(name)}`);
+            if (typeof callback !== "function") throw new TypeError("Event listener must be a function");
+            if (listenerCount >= 1024) throw new Error("Plugin has reached the 1024 event listener limit");
+            let entries = listeners.get(name);
+            if (!entries) {
+                iina.__subscribePlayerEvent(name);
+                entries = new Map();
+                listeners.set(name, entries);
+            }
+            const id = String(++nextId);
+            entries.set(id, callback);
+            listenerCount += 1;
+            return id;
+        },
+        off(name, id) {
+            const entries = listeners.get(name);
+            if (!entries || !entries.delete(id)) {
+                iina.log(`Event listener not found for id ${String(id)}`);
+                return;
+            }
+            listenerCount -= 1;
+            if (entries.size === 0) {
+                listeners.delete(name);
+                iina.__unsubscribePlayerEvent(name);
+            }
+        },
+        __dispatch(name, data) {
+            for (const callback of [...(listeners.get(name)?.values() || [])]) {
+                try { callback(data); }
+                catch (error) { iina.log(`Event callback failed for ${name}: ${String(error)}`); }
+            }
+        }
+    };
+})();"#;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostEvent {
@@ -55,6 +103,7 @@ pub enum HostEvent {
 enum RuntimeCommand {
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverPluginMessage(String, serde_json::Value),
+    DeliverPlayerEvent(String, serde_json::Value),
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
     DeliverNetworkDownload(u32, Result<(), String>),
     DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
@@ -93,6 +142,9 @@ struct PluginWorkerHost {
     module_context: Option<PluginModuleContext>,
     file_system: PluginFiles,
     events: Arc<Mutex<Vec<HostEvent>>>,
+    player_event_subscriptions: Arc<Mutex<BTreeSet<String>>>,
+    observed_mpv_properties: Arc<Mutex<BTreeSet<String>>>,
+    mpv_property_observation_requests: Arc<Mutex<BTreeSet<String>>>,
 }
 
 struct PluginStorageContext {
@@ -160,6 +212,8 @@ pub struct PluginRuntimeSession {
     commands: SyncSender<RuntimeCommand>,
     events: Arc<Mutex<Vec<HostEvent>>>,
     file_system: PluginFiles,
+    player_event_subscriptions: Arc<Mutex<BTreeSet<String>>>,
+    mpv_property_observation_requests: Arc<Mutex<BTreeSet<String>>>,
     worker: Option<JoinHandle<()>>,
 }
 
@@ -265,6 +319,12 @@ impl PluginRuntimeSession {
         let events = Arc::new(Mutex::new(Vec::new()));
         let session_file_system = storage.file_system.clone();
         let worker_events = events.clone();
+        let player_event_subscriptions = Arc::new(Mutex::new(BTreeSet::new()));
+        let worker_player_event_subscriptions = player_event_subscriptions.clone();
+        let observed_mpv_properties = Arc::new(Mutex::new(BTreeSet::new()));
+        let worker_observed_mpv_properties = observed_mpv_properties.clone();
+        let mpv_property_observation_requests = Arc::new(Mutex::new(BTreeSet::new()));
+        let worker_mpv_property_observation_requests = mpv_property_observation_requests.clone();
         let network_active = Arc::new(AtomicUsize::new(0));
         let network_commands = commands.clone();
         let network_context = NetworkWorkerContext {
@@ -289,6 +349,9 @@ impl PluginRuntimeSession {
                         module_context,
                         file_system: storage.file_system,
                         events: worker_events,
+                        player_event_subscriptions: worker_player_event_subscriptions,
+                        observed_mpv_properties: worker_observed_mpv_properties,
+                        mpv_property_observation_requests: worker_mpv_property_observation_requests,
                     },
                     receiver,
                     ready_sender,
@@ -301,6 +364,8 @@ impl PluginRuntimeSession {
                 commands,
                 events,
                 file_system: session_file_system,
+                player_event_subscriptions,
+                mpv_property_observation_requests,
                 worker: Some(worker),
             }),
             Ok(Err(error)) => {
@@ -352,6 +417,41 @@ impl PluginRuntimeSession {
             .try_send(RuntimeCommand::DeliverPluginMessage(name, data))
             .map_err(|error| match error {
                 mpsc::TrySendError::Full(_) => "Plugin message queue is busy".into(),
+                mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
+            })
+    }
+
+    pub(crate) fn is_subscribed_to_player_event(&self, name: &str) -> bool {
+        self.player_event_subscriptions
+            .lock()
+            .is_ok_and(|subscriptions| subscriptions.contains(name))
+    }
+
+    pub(crate) fn take_mpv_property_observation_requests(&self) -> Vec<String> {
+        self.mpv_property_observation_requests
+            .lock()
+            .map(|mut requests| std::mem::take(&mut *requests).into_iter().collect())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn deliver_player_event(
+        &self,
+        name: String,
+        data: serde_json::Value,
+    ) -> Result<(), String> {
+        validate_player_event_name(&name)?;
+        if !self.is_subscribed_to_player_event(&name) {
+            return Ok(());
+        }
+        let bytes = serde_json::to_vec(&data)
+            .map_err(|error| format!("Plugin event data is not valid JSON: {error}"))?;
+        if bytes.len() > MAX_PLUGIN_MESSAGE_BYTES {
+            return Err("Plugin event data exceeds the 1 MiB limit".into());
+        }
+        self.commands
+            .try_send(RuntimeCommand::DeliverPlayerEvent(name, data))
+            .map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => "Plugin event queue is busy".into(),
                 mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
             })
     }
@@ -570,6 +670,9 @@ fn run_entry_worker(
         module_context,
         file_system,
         events,
+        player_event_subscriptions,
+        observed_mpv_properties,
+        mpv_property_observation_requests,
     } = host;
     let deadline = Arc::new(Mutex::new(Instant::now() + MAX_EXECUTION_TIME));
     let interrupt_deadline = deadline.clone();
@@ -640,6 +743,75 @@ fn run_entry_worker(
                 )?;
             }
             globals.set("iina", api.clone())?;
+            if global_api_mode != GlobalApiMode::Controller {
+                let subscriptions = player_event_subscriptions.clone();
+                let observed_properties = observed_mpv_properties.clone();
+                let observation_requests = mpv_property_observation_requests.clone();
+                api.set(
+                    "__subscribePlayerEvent",
+                    Func::from(move |name: String| -> rquickjs::Result<()> {
+                        validate_player_event_name(&name).map_err(|message| {
+                            rquickjs::Error::new_from_js_message(
+                                "event name",
+                                "iina.* or mpv.* event",
+                                message,
+                            )
+                        })?;
+                        let mut subscriptions = subscriptions.lock().map_err(|_| {
+                            rquickjs::Error::new_from_js_message(
+                                "event listener",
+                                "available subscription registry",
+                                "Plugin event subscriptions were poisoned",
+                            )
+                        })?;
+                        if let Some(property) = mpv_property_for_changed_event(&name)
+                            && !player_snapshot_mpv_property(property)
+                        {
+                            let mut observed = observed_properties.lock().map_err(|_| {
+                                rquickjs::Error::new_from_js_message(
+                                    "mpv property",
+                                    "available observation registry",
+                                    "Plugin property observations were poisoned",
+                                )
+                            })?;
+                            if !observed.contains(property)
+                                && observed.len()
+                                    >= riina_core::MAX_PLUGIN_OBSERVED_MPV_PROPERTIES
+                            {
+                                return Err(rquickjs::Error::new_from_js_message(
+                                    "mpv property",
+                                    "at most 128 observed properties per plugin",
+                                    "Plugin has reached the 128 observed mpv property limit",
+                                ));
+                            }
+                            if observed.insert(property.to_owned()) {
+                                observation_requests
+                                    .lock()
+                                    .map_err(|_| {
+                                        rquickjs::Error::new_from_js_message(
+                                            "mpv property",
+                                            "available observation request queue",
+                                            "Plugin observation request queue was poisoned",
+                                        )
+                                    })?
+                                    .insert(property.to_owned());
+                            }
+                        }
+                        subscriptions.insert(name);
+                        Ok(())
+                    }),
+                )?;
+                let subscriptions = player_event_subscriptions.clone();
+                api.set(
+                    "__unsubscribePlayerEvent",
+                    Func::from(move |name: String| {
+                        if let Ok(mut subscriptions) = subscriptions.lock() {
+                            subscriptions.remove(&name);
+                        }
+                    }),
+                )?;
+                ctx.eval::<Value, _>(PLUGIN_EVENT_API)?;
+            }
             install_plugin_file_api(
                 ctx.clone(),
                 globals.clone(),
@@ -1407,6 +1579,29 @@ fn run_entry_worker(
                     record(
                         &events,
                         HostEvent::Log(format!("Plugin message callback failed: {error}")),
+                    );
+                }
+            }
+            RuntimeCommand::DeliverPlayerEvent(name, data) => {
+                let script = match serde_json::to_string(&name)
+                    .and_then(|name| serde_json::to_string(&data).map(|data| (name, data)))
+                {
+                    Ok((name, data)) => format!("iina.event.__dispatch({name}, {data})"),
+                    Err(error) => {
+                        record(
+                            &events,
+                            HostEvent::Log(format!("Player event encoding failed: {error}")),
+                        );
+                        continue;
+                    }
+                };
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| ctx.eval::<Value, _>(script).map(|_| ())) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("Player event callback failed: {error}")),
                     );
                 }
             }
@@ -2207,25 +2402,15 @@ fn plugin_media_reference(
     network_granted: bool,
     allowed_domains: &[String],
 ) -> Result<String, String> {
+    if riina_core::media_reference::is_network_url_candidate(value) {
+        riina_core::media_reference::validate_network_url(value).map_err(str::to_owned)?;
+        if !network_granted || !plugin_media_url_allowed(value, allowed_domains) {
+            return Err("Network permission and an allowed domain are required".into());
+        }
+        return Ok(value.to_owned());
+    }
     if let Ok(url) = url::Url::parse(value) {
         match url.scheme() {
-            "http" | "https" => {
-                riina_core::media_reference::validate_network_url(value).map_err(str::to_owned)?;
-                if !network_granted || !plugin_media_url_allowed(value, allowed_domains) {
-                    return Err("Network permission and an allowed domain are required".into());
-                }
-                return Ok(value.to_owned());
-            }
-            "smb" => {
-                if url.host_str().is_none_or(str::is_empty)
-                    || value.chars().any(char::is_whitespace)
-                    || !network_granted
-                    || !plugin_media_url_allowed(value, allowed_domains)
-                {
-                    return Err("Network permission and an allowed domain are required".into());
-                }
-                return Ok(value.to_owned());
-            }
             "file" => {
                 let path = url
                     .to_file_path()
@@ -2247,13 +2432,27 @@ fn plugin_media_reference(
 }
 
 fn plugin_media_url_allowed(value: &str, allowed_domains: &[String]) -> bool {
-    let Ok(url) = url::Url::parse(value) else {
+    if riina_core::media_reference::validate_network_url(value).is_err() {
+        return false;
+    }
+    let Ok(outer_url) = url::Url::parse(value) else {
         return false;
     };
-    if !matches!(url.scheme(), "http" | "https" | "smb")
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
+    let url = if outer_url.scheme() == "ytdl" {
+        let Some(source) = value.strip_prefix("ytdl://") else {
+            return false;
+        };
+        let Ok(source_url) = url::Url::parse(source) else {
+            return false;
+        };
+        if riina_core::media_reference::validate_network_url(source).is_err() {
+            return false;
+        }
+        source_url
+    } else {
+        outer_url
+    };
+    if !url.username().is_empty() || url.password().is_some() {
         return false;
     }
     let Some(host) = url.host_str().map(str::to_ascii_lowercase) else {
@@ -2933,6 +3132,47 @@ fn validate_plugin_message(name: &str, data: &serde_json::Value) -> Result<(), S
         return Err("Plugin message exceeds the 1 MiB limit".into());
     }
     Ok(())
+}
+
+fn validate_player_event_name(name: &str) -> Result<(), String> {
+    let parts = name.split('.').collect::<Vec<_>>();
+    let valid_shape = parts.len() == 2 || (parts.len() == 3 && parts[2] == "changed");
+    if !valid_shape
+        || !matches!(parts[0], "iina" | "mpv")
+        || parts[1].is_empty()
+        || parts.iter().any(|part| part.is_empty())
+        || name.len() > 256
+        || name.chars().any(char::is_control)
+    {
+        return Err(format!("Incorrect event name syntax: \"{name}\""));
+    }
+    Ok(())
+}
+
+fn mpv_property_for_changed_event(name: &str) -> Option<&str> {
+    let property = name.strip_prefix("mpv.")?.strip_suffix(".changed")?;
+    (!property.is_empty() && !property.contains('.')).then_some(property)
+}
+
+fn player_snapshot_mpv_property(name: &str) -> bool {
+    matches!(
+        name,
+        "pause"
+            | "idle-active"
+            | "time-pos"
+            | "duration"
+            | "speed"
+            | "width"
+            | "height"
+            | "media-title"
+            | "aid"
+            | "audio-delay"
+            | "volume"
+            | "mute"
+            | "sid"
+            | "secondary-sid"
+            | "sub-delay"
+    )
 }
 
 fn decode_plugin_json(text: &str) -> Result<serde_json::Value, String> {
@@ -3639,14 +3879,63 @@ mod tests {
                 "rtsp://media.example/live",
                 &files,
                 false,
-                true,
+                false,
                 &["media.example".into()],
             )
             .is_err()
         );
         assert_eq!(
-            plugin_media_reference("rtsp://media.example/live", &files, true, false, &[],).unwrap(),
+            plugin_media_reference(
+                "rtsp://media.example/live",
+                &files,
+                false,
+                true,
+                &["media.example".into()],
+            )
+            .unwrap(),
             "rtsp://media.example/live"
+        );
+        assert!(
+            plugin_media_reference(
+                "rtmp://media.example/live/channel",
+                &files,
+                true,
+                false,
+                &["media.example".into()],
+            )
+            .is_err()
+        );
+        assert_eq!(
+            plugin_media_reference(
+                "rtmp://media.example/live/channel",
+                &files,
+                false,
+                true,
+                &["media.example".into()],
+            )
+            .unwrap(),
+            "rtmp://media.example/live/channel"
+        );
+        assert_eq!(
+            plugin_media_reference(
+                "ytdl://https://media.example/watch?id=42",
+                &files,
+                false,
+                true,
+                &["media.example".into()],
+            )
+            .unwrap(),
+            "ytdl://https://media.example/watch?id=42"
+        );
+        assert!(
+            plugin_media_reference(
+                "ytdl://https://media.example/watch?id=42",
+                &files,
+                false,
+                true,
+                &["elsewhere.example".into()],
+            )
+            .is_err()
         );
         assert!(
             plugin_media_reference(
@@ -3775,6 +4064,83 @@ mod tests {
             );
             std::thread::yield_now();
         }
+    }
+
+    #[test]
+    fn persistent_session_delivers_player_events_and_unregisters_listeners() {
+        let session = PluginRuntimeSession::start_entry(
+            "iina.event.on('iina.file-loaded', url => iina.log(url)); iina.event.on('mpv.pause.changed', value => iina.log(String(value))); iina.event.on('mpv.cache-buffering-state.changed', value => iina.log(String(value)));",
+            "org.example.player-events",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert!(session.is_subscribed_to_player_event("iina.file-loaded"));
+        assert!(session.is_subscribed_to_player_event("mpv.pause.changed"));
+        assert!(session.is_subscribed_to_player_event("mpv.cache-buffering-state.changed"));
+        assert_eq!(
+            session.take_mpv_property_observation_requests(),
+            ["cache-buffering-state"]
+        );
+        assert!(session.take_mpv_property_observation_requests().is_empty());
+        session
+            .deliver_player_event(
+                "iina.file-loaded".into(),
+                serde_json::json!("file:///media/example.mkv"),
+            )
+            .unwrap();
+        session
+            .deliver_player_event("mpv.pause.changed".into(), serde_json::json!(true))
+            .unwrap();
+
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let mut seen = Vec::new();
+        loop {
+            seen.extend(session.drain_events().unwrap());
+            let file_loaded = seen.iter().any(|event| {
+                matches!(event, HostEvent::Log(message) if message == "file:///media/example.mkv")
+            });
+            let paused = seen
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "true"));
+            if file_loaded && paused {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "player event callback was not delivered: {seen:?}"
+            );
+            std::thread::yield_now();
+        }
+
+        let removed = PluginRuntimeSession::start_entry(
+            "const listener = iina.event.on('iina.file-loaded', url => iina.log(url)); iina.event.off('iina.file-loaded', listener);",
+            "org.example.player-events-off",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert!(!removed.is_subscribed_to_player_event("iina.file-loaded"));
+        removed
+            .deliver_player_event(
+                "iina.file-loaded".into(),
+                serde_json::json!("file:///media/ignored.mkv"),
+            )
+            .unwrap();
+        assert!(removed.drain_events().unwrap().is_empty());
+    }
+
+    #[test]
+    fn player_event_listener_rejects_invalid_names() {
+        assert!(
+            execute_entry(
+                "iina.event.on('mpv..changed', () => {});",
+                "org.example.invalid-player-event",
+                &[],
+                &[],
+            )
+            .is_err()
+        );
     }
 
     #[test]

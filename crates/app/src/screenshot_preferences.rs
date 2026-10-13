@@ -49,6 +49,18 @@ pub(crate) fn connect(
                 }
             };
             crate::settings_search::connect(&window);
+            let assrt_token_page_parent = app.as_weak();
+            window.on_open_assrt_token_page(move || {
+                if let Err(error) =
+                    crate::platform::open_http_url_in_browser("https://2.assrt.net/api/doc")
+                    && let Some(app) = assrt_token_page_parent.upgrade()
+                {
+                    app.set_status(
+                        format!("Could not open Assrt API instructions: {error}").into(),
+                    );
+                }
+            });
+            crate::language_token_preferences::connect(&window);
             crate::osc_preferences::connect_preferences(&window);
             crate::utilities_preferences::connect(&window, &path, clear_history.clone());
             crate::plugin_preferences::connect(
@@ -430,6 +442,12 @@ pub(crate) fn connect(
                 }
             });
             let key_binding_playback = latest_playback.clone();
+            let advanced_settings_window = window.as_weak();
+            window.on_advanced_settings_changed(move || {
+                if let Some(window) = advanced_settings_window.upgrade() {
+                    window.invoke_settings_changed();
+                }
+            });
             window.on_settings_changed(move || {
                 let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
                     return;
@@ -636,6 +654,7 @@ pub(crate) fn connect(
                             return;
                         }
                     };
+                let previous_assrt_token = app.get_assrt_token().to_string();
                 let previous_network_cache =
                     match crate::network_cache_preferences::current_player(&app) {
                         Ok(preferences) => preferences,
@@ -1181,6 +1200,18 @@ pub(crate) fn connect(
                                     app.set_status(error.into());
                                 }
                             }
+                        }
+                        if selected_online_subtitles.assrt_token != previous_assrt_token
+                            && let Err(error) = crate::online_subtitles_credentials::store_assrt(
+                                &selected_online_subtitles.assrt_token,
+                            )
+                        {
+                            let mut retained = selected_online_subtitles.clone();
+                            retained.api_key = app.get_open_subtitles_api_key().to_string();
+                            retained.assrt_token = previous_assrt_token.clone();
+                            crate::online_subtitles_preferences::install_player(&app, &retained);
+                            window.set_assrt_token(retained.assrt_token.into());
+                            app.set_status(error.into());
                         }
                         crate::pip_preferences::install_player(&app, selected_picture_in_picture);
                         app.set_live_text_enabled(window.get_live_text_enabled());

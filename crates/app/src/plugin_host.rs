@@ -47,10 +47,9 @@ impl PluginPlayerFileContext {
             })
             .collect();
         let video = playback.video.as_ref();
-        let is_network_resource = current_media.as_deref().is_some_and(|value| {
-            riina_core::media_reference::is_network_url_candidate(value)
-                || url::Url::parse(value).is_ok_and(|url| url.scheme() == "smb")
-        });
+        let is_network_resource = current_media
+            .as_deref()
+            .is_some_and(riina_core::media_reference::is_network_url_candidate);
         let properties = BTreeMap::from([
             ("paused".into(), serde_json::json!(playback.paused)),
             (
@@ -253,9 +252,7 @@ fn playback_media_url(value: &str) -> Option<String> {
             .ok()
             .map(|url| url.to_string());
     }
-    if riina_core::media_reference::is_network_url_candidate(value)
-        || url::Url::parse(value).is_ok_and(|url| url.scheme() == "smb")
-    {
+    if riina_core::media_reference::is_network_url_candidate(value) {
         return url::Url::parse(value).ok().map(|url| url.to_string());
     }
     url::Url::parse(value).ok().map(|url| url.to_string())
@@ -530,6 +527,12 @@ pub(crate) fn player_file_context_with_history(
         recent_media.truncate(10);
     }
     PluginPlayerFileContext::from_playback(playback)
+        .with_media_generation(playback.generation)
+        .with_media_ready(matches!(
+            playback.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+        ))
+        .with_observed_mpv_properties(playback.observed_mpv_properties.clone())
         .with_core_version(version_snapshot(playback.mpv_version.as_deref()))
         .with_recent_documents(recent_document_values(recent_media))
         .with_playback_history(playback_history_values(history.entries()))
@@ -605,6 +608,7 @@ pub(crate) enum PluginHostMessage {
     PlayerCommand(Command),
     SetUiVisibility(bool),
     WindowAction(WindowAction),
+    ObserveMpvProperty(String),
     Overlay {
         plugin_identifier: String,
         plugin_directory: PathBuf,
@@ -961,10 +965,19 @@ fn handle_command(
             let _ = response.send(result);
         }
         PluginCommand::UpdatePlayerFileContext(context) => {
+            let events = player_context.player_events_to(&context);
             *player_context = context;
             for (key, session) in sessions.iter() {
                 if !key.global {
                     session.update_player_file_context(player_context.clone());
+                    for (name, data) in &events {
+                        if session.is_subscribed_to_player_event(name)
+                            && let Err(error) =
+                                session.deliver_player_event(name.clone(), data.clone())
+                        {
+                            record(messages, PluginHostMessage::Status(error));
+                        }
+                    }
                 }
             }
         }
@@ -1011,6 +1024,9 @@ fn pump_session_events(
         let Some(session) = sessions.get(&key) else {
             continue;
         };
+        for property in session.take_mpv_property_observation_requests() {
+            record(messages, PluginHostMessage::ObserveMpvProperty(property));
+        }
         let events = match session.drain_events() {
             Ok(events) => events,
             Err(error) => {

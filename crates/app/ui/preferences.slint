@@ -704,6 +704,59 @@ component PreferenceNumericInput inherits Rectangle {
     }
 }
 
+component LanguageTokenEditor inherits Rectangle {
+    in property <[string]> tokens;
+    in-out property <string> draft: "";
+    callback add-token(string);
+    callback remove-token(int);
+    border-radius: 2px;
+    border-width: 1px;
+    border-color: #b8b8bc;
+    background: #ffffff;
+
+    ScrollView {
+        x: 2px; y: 1px; width: parent.width - 4px; height: parent.height - 2px;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+        HorizontalLayout {
+            width: root.tokens.length * 48px + 70px;
+            height: parent.height;
+            spacing: 3px;
+            for token[index] in root.tokens : Rectangle {
+                width: 45px; height: 18px;
+                border-radius: 9px; background: #e9e9ec;
+                accessible-role: list-item;
+                accessible-label: token;
+                Text { x: 5px; y: 0px; width: 26px; height: parent.height;
+                    text: token; font-size: 10px; color: #303036;
+                    vertical-alignment: center; overflow: elide; }
+                Rectangle { x: 30px; y: 2px; width: 13px; height: 14px;
+                    border-radius: 7px; background: transparent;
+                    Text { x: 0px; y: 0px; width: parent.width; height: parent.height;
+                        text: "×"; font-size: 11px; color: #66666d;
+                        horizontal-alignment: center; vertical-alignment: center; }
+                    TouchArea {
+                        accessible-role: button;
+                        accessible-label: "Remove preferred language " + token;
+                        clicked => { root.remove-token(index); }
+                    }
+                }
+            }
+            TextInput {
+                width: 64px; height: parent.height;
+                text <=> root.draft;
+                font-size: 10px; color: #222222;
+                accepted => {
+                    if root.draft != "" {
+                        root.add-token(root.draft);
+                        root.draft = "";
+                    }
+                }
+            }
+        }
+    }
+}
+
 component PreferenceChoiceRow inherits Rectangle {
     in property <string> label;
     in property <[string]> options;
@@ -1268,7 +1321,13 @@ export component PreferencesWindow inherits Window {
     in-out property <string> subtitle-margin-x-text: "25";
     in-out property <string> subtitle-margin-y-text: "22";
     in-out property <string> subtitle-preferred-languages-text: "";
+    in property <[string]> subtitle-language-tokens;
+    callback add-subtitle-language-token(string);
+    callback remove-subtitle-language-token(int);
     in-out property <string> open-subtitles-api-key: "";
+    in-out property <int> open-subtitles-provider-index: 0;
+    in-out property <[string]> open-subtitles-provider-options: ["OpenSubtitles", "Assrt.net", "Shooter.cn"];
+    in-out property <string> assrt-token: "";
     in-out property <bool> open-subtitles-auto-search: false;
     in-out property <string> open-subtitles-threshold-text: "20";
     in-out property <int> subtitle-encoding-index: 0;
@@ -1314,6 +1373,9 @@ export component PreferencesWindow inherits Window {
     in-out property <int> audio-gapless-index: 1;
     in property <[string]> audio-gapless-options;
     in-out property <string> audio-preferred-languages: "";
+    in property <[string]> audio-language-tokens;
+    callback add-audio-language-token(string);
+    callback remove-audio-language-token(int);
     in-out property <bool> network-cache-enabled: true;
     in-out property <bool> network-cache-pause-initial: false;
     in-out property <string> network-cache-pause-wait-text: "1";
@@ -1391,6 +1453,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> utilities-default-audio: true;
     in-out property <bool> utilities-default-playlist: true;
     callback settings-changed();
+    callback open-assrt-token-page();
     callback toolbar-move(int, int);
     callback toolbar-drag-finished();
     callback toolbar-reset();
@@ -2572,14 +2635,10 @@ export component PreferencesWindow inherits Window {
                 font-weight: 600; font-size: 13px; color: #222222; }
             Text { x: 98px; y: 8px; text: "Preferred language:";
                 font-size: 13px; color: #222222; vertical-alignment: center; }
-            Rectangle { x: 228px; y: 4px; width: 232px; height: 23px;
-                border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
-                background: #ffffff;
-                TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                    text <=> root.subtitle-preferred-languages-text;
-                    font-size: 11px; color: #222222;
-                    accepted => { root.settings-changed(); }
-                }
+            LanguageTokenEditor { x: 228px; y: 4px; width: 232px; height: 23px;
+                tokens: root.subtitle-language-tokens;
+                add-token(entry) => { root.add-subtitle-language-token(entry); }
+                remove-token(index) => { root.remove-subtitle-language-token(index); }
             }
             Text { x: 98px; y: 30px; width: parent.width - 102px; height: 28px;
                 text: "Use comma-separated ISO 639-2 language codes. These preferences also guide subtitle track selection.";
@@ -2593,15 +2652,22 @@ export component PreferencesWindow inherits Window {
                 selected => { root.settings-changed(); }
             }
         }
-        Rectangle { x: 20px; y: 1040px; width: parent.width - 40px; height: 150px; background: transparent;
+        Rectangle { x: 20px; y: 1040px; width: parent.width - 40px; height: 202px; background: transparent;
             Text { x: 0; y: 8px; text: "Online Subtitles:";
                 font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 2px; width: parent.width - 102px; height: 142px;
+            Rectangle { x: 98px; y: 2px; width: parent.width - 102px; height: 194px;
                 border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
                 background: #f1f1f3;
-                Text { x: 12px; y: 8px; text: "OpenSubtitles API key:";
+                Text { x: 12px; y: 8px; text: "Provider:";
                     font-size: 11px; font-weight: 600; color: #55555d; }
-                Rectangle { x: 12px; y: 28px; width: parent.width - 24px; height: 22px;
+                ComboBox { x: 100px; y: 4px; width: min(210px, parent.width - 112px); height: 25px;
+                    model: root.open-subtitles-provider-options;
+                    current-index <=> root.open-subtitles-provider-index;
+                    selected => { root.settings-changed(); }
+                }
+                if root.open-subtitles-provider-index == 0 : Text { x: 12px; y: 38px; text: "OpenSubtitles API key:";
+                    font-size: 11px; font-weight: 600; color: #55555d; }
+                if root.open-subtitles-provider-index == 0 : Rectangle { x: 12px; y: 58px; width: parent.width - 24px; height: 22px;
                     border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
                     background: #ffffff;
                     TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
@@ -2611,20 +2677,40 @@ export component PreferencesWindow inherits Window {
                         accepted => { root.settings-changed(); }
                     }
                 }
-                Text { x: 12px; y: 53px; text: "Stored in your system credential store.";
+                if root.open-subtitles-provider-index == 0 : Text { x: 12px; y: 82px; text: "Stored in your system credential store.";
                     font-size: 10px; color: #77777d; }
-                CheckBox { x: 12px; y: 70px; width: 270px; height: 20px;
+                if root.open-subtitles-provider-index == 1 : Text { x: 12px; y: 38px; text: "Assrt.net token:";
+                    font-size: 11px; font-weight: 600; color: #55555d; }
+                if root.open-subtitles-provider-index == 1 : Rectangle { x: 12px; y: 58px; width: parent.width - 24px; height: 22px;
+                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px; background: #ffffff;
+                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
+                        text <=> root.assrt-token; input-type: password; font-size: 11px; color: #222222;
+                        accepted => { root.settings-changed(); }
+                    }
+                }
+                if root.open-subtitles-provider-index == 1 : Text { x: 12px; y: 82px; text: "Stored in your system credential store. Assrt accounts provide this token.";
+                    font-size: 10px; color: #77777d; }
+                if root.open-subtitles-provider-index == 1 : Text { x: 12px; y: 98px; text: "Get an API token from Assrt.net";
+                    font-size: 10px; color: #2878cc; }
+                if root.open-subtitles-provider-index == 1 : TouchArea { x: 12px; y: 98px; width: 170px; height: 16px;
+                    clicked => { root.open-assrt-token-page(); }
+                }
+                if root.open-subtitles-provider-index == 2 : Text { x: 12px; y: 38px; width: parent.width - 24px; height: 36px;
+                    text: "Shooter matches local videos by file samples and path. Searching sends both to Shooter.cn; no account is needed.";
+                    font-size: 10px; color: #77777d; wrap: word-wrap;
+                }
+                CheckBox { x: 12px; y: root.open-subtitles-provider-index == 1 ? 118px : root.open-subtitles-provider-index == 2 ? 82px : 108px; width: 270px; height: 20px;
                     text: "Search online subtitles automatically";
                     checked <=> root.open-subtitles-auto-search;
                     toggled => { root.settings-changed(); }
                 }
-                Text { x: 12px; y: 101px; text: "Only search when media is longer than";
+                Text { x: 12px; y: root.open-subtitles-provider-index == 1 ? 151px : root.open-subtitles-provider-index == 2 ? 115px : 139px; text: "Only search when media is longer than";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 206px; y: 95px; width: 48px; height: 24px;
+                PreferenceNumericInput { x: 206px; y: root.open-subtitles-provider-index == 1 ? 145px : root.open-subtitles-provider-index == 2 ? 109px : 133px; width: 48px; height: 24px;
                     text <=> root.open-subtitles-threshold-text;
                     accepted => { root.settings-changed(); }
                 }
-                Text { x: 259px; y: 101px; text: "minutes.";
+                Text { x: 259px; y: root.open-subtitles-provider-index == 1 ? 151px : root.open-subtitles-provider-index == 2 ? 115px : 139px; text: "minutes.";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
             }
         }
@@ -2673,7 +2759,11 @@ export component PreferencesWindow inherits Window {
             Text { x: 14px; y: 14px; width: 150px; height: 26px; text: "Gapless playback"; font-size: 12px; color: #252529; vertical-alignment: center; }
             ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px; model: root.audio-gapless-options; current-index <=> root.audio-gapless-index; selected => { root.settings-changed(); } }
             Text { x: 14px; y: 52px; width: 150px; height: 34px; text: "Preferred languages"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            TextInput { x: 176px; y: 56px; width: parent.width - 194px; height: 24px; text <=> root.audio-preferred-languages; accepted => { root.settings-changed(); } }
+            LanguageTokenEditor { x: 176px; y: 56px; width: parent.width - 194px; height: 24px;
+                tokens: root.audio-language-tokens;
+                add-token(entry) => { root.add-audio-language-token(entry); }
+                remove-token(index) => { root.remove-audio-language-token(index); }
+            }
             Text { x: 176px; y: 84px; width: parent.width - 194px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: #77777d; wrap: word-wrap; }
         }
     }

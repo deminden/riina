@@ -128,6 +128,22 @@ pub(crate) fn window_content_work_area(
     }
 }
 
+/// Identify the aligned embedded video surface that is currently visible.
+/// A replacement HWND restarts the Windows handoff stability interval.
+pub(crate) fn native_video_surface_signature(window: &slint::Window) -> Option<u64> {
+    #[cfg(target_os = "windows")]
+    {
+        window
+            .with_winit_window(windows::window_geometry::native_video_surface_signature)
+            .flatten()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+        None
+    }
+}
+
 pub(crate) fn system_trash_name() -> &'static str {
     if cfg!(target_os = "windows") {
         "Recycle Bin"
@@ -394,42 +410,6 @@ pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
         };
         if result.0 as isize <= 32 {
             return Err(std::io::Error::other("Could not open screenshot folder"));
-        }
-    }
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        let program = if cfg!(target_os = "macos") {
-            "open"
-        } else {
-            "xdg-open"
-        };
-        std::process::Command::new(program).arg(path).spawn()?;
-    }
-    Ok(())
-}
-
-pub fn open_file(path: &std::path::Path) -> std::io::Result<()> {
-    #[cfg(target_os = "windows")]
-    {
-        use ::windows::{
-            Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL},
-            core::{PCWSTR, w},
-        };
-        use std::os::windows::ffi::OsStrExt;
-        let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-        // The user explicitly asks to open this log in its registered text viewer.
-        let result = unsafe {
-            ShellExecuteW(
-                None,
-                w!("open"),
-                PCWSTR(path.as_ptr()),
-                None,
-                None,
-                SW_SHOWNORMAL,
-            )
-        };
-        if result.0 as isize <= 32 {
-            return Err(std::io::Error::other("Could not open the log file"));
         }
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]

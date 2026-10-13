@@ -102,7 +102,9 @@ fn align(host: &slint::Window, chrome: &slint::Window) {
                 slint::PhysicalSize::new(window.inner_size().width, window.inner_size().height);
             let position = slint::PhysicalPosition::new(origin.x, origin.y);
             chrome.with_winit_window(|overlay| {
-                if let Err(error) = super::window_geometry::align_overlay(overlay, position, size) {
+                if let Err(error) =
+                    super::window_geometry::align_surfaces(window, overlay, position, size)
+                {
                     // The overlay adapter may not have an HWND during its
                     // initial construction. Keep queued Slint geometry there;
                     // realized windows use one native move/resize operation.
@@ -240,6 +242,8 @@ pub fn run(
     host.set_bring_all_to_front_available(true);
     host.set_display_title("riina".into());
     let chrome: Rc<RefCell<Option<PlayerWindow>>> = Rc::new(RefCell::new(None));
+    let surface_alignment_timer = Rc::new(slint::Timer::default());
+    let startup_surface_alignment_timer = surface_alignment_timer.clone();
     let welcome_window: Rc<RefCell<Option<crate::WelcomeWindow>>> = Rc::new(RefCell::new(None));
     let session: Rc<RefCell<Option<UiSession>>> = Rc::new(RefCell::new(None));
     let pip_controller: Rc<RefCell<Option<Rc<RefCell<super::pip::Controller>>>>> =
@@ -290,6 +294,22 @@ pub fn run(
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
+            let alignment_host = host.as_weak();
+            let alignment_chrome = app.as_weak();
+            startup_surface_alignment_timer.start(
+                slint::TimerMode::Repeated,
+                std::time::Duration::from_millis(16),
+                move || {
+                    if let (Some(host), Some(chrome)) =
+                        (alignment_host.upgrade(), alignment_chrome.upgrade())
+                    {
+                        // mpv can resize or hide its child HWND during a
+                        // playlist handoff without resizing the host. Repair
+                        // that transient independently of host WM_SIZE events.
+                        align(host.window(), chrome.window());
+                    }
+                },
+            );
             let title_host = host.as_weak();
             app.on_window_title_changed(move |title| {
                 if let Some(host) = title_host.upgrade() {
@@ -460,7 +480,7 @@ pub fn run(
                 let menu_host = menu_host.clone();
                 let menu_app = menu_app.clone();
                 let menu_pending = menu_pending.clone();
-                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                slint::Timer::single_shot(std::time::Duration::from_millis(80), move || {
                     menu_pending.set(false);
                     if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
                         let settings_pane = if app.get_settings_at_leading() {
@@ -1334,6 +1354,7 @@ pub fn run(
         slint::CloseRequestResponse::HideWindow
     });
     slint::run_event_loop()?;
+    surface_alignment_timer.stop();
     close(&session, &pip_controller, chrome.borrow().as_ref());
     Ok(())
 }

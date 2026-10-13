@@ -8,13 +8,14 @@ use slint::winit_030::winit::{
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
     window::Window,
 };
+use std::hash::{Hash, Hasher};
 use windows::Win32::{
     Foundation::{HWND, LPARAM, POINT, RECT},
     Graphics::Gdi::ClientToScreen,
     UI::WindowsAndMessaging::{
         BeginDeferWindowPos, DeferWindowPos, EndDeferWindowPos, EnumChildWindows, GetClientRect,
-        GetParent, GetWindowRect, GetWindowTextW, SWP_NOACTIVATE, SWP_NOOWNERZORDER, SWP_NOZORDER,
-        SetWindowPos,
+        GetParent, GetWindowRect, GetWindowTextW, IsWindowVisible, SWP_NOACTIVATE,
+        SWP_NOOWNERZORDER, SWP_NOZORDER, SetWindowPos,
     },
 };
 use windows::core::BOOL;
@@ -116,10 +117,10 @@ fn defer_resize_surfaces(
             .height
             .saturating_sub(size(overlay_inner).height),
     );
-    let video = mpv_child_window(host);
+    let video_windows = visible_mpv_child_windows(host);
     // mpv owns a child HWND on its render thread. Include it with the parent and
     // Slint overlay so their bounds switch aspect ratio together.
-    let count = if video.is_some() { 3 } else { 2 };
+    let count = 2_i32.saturating_add(i32::try_from(video_windows.len()).unwrap_or(i32::MAX));
     let batch = unsafe { BeginDeferWindowPos(count) }.map_err(|error| error.to_string())?;
     let batch = unsafe {
         DeferWindowPos(
@@ -149,11 +150,12 @@ fn defer_resize_surfaces(
         )
     }
     .map_err(|error| error.to_string())?;
-    let batch = if let Some(video) = video {
+    let mut batch = batch;
+    for video in video_windows {
         // SAFETY: video is the mpv child of this host. Its window thread pumps
-        // Win32 messages; synchronously apply matching bounds in this batch so
-        // the new parent size is never exposed with the previous video size.
-        unsafe {
+        // Win32 messages; apply matching bounds in the parent resize batch so
+        // playlist changes cannot expose the previous media's render bounds.
+        batch = unsafe {
             DeferWindowPos(
                 batch,
                 video,
@@ -166,15 +168,13 @@ fn defer_resize_surfaces(
             )
         }
         .map_err(|error| error.to_string())?
-    } else {
-        batch
-    };
+    }
     unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())
 }
 
 struct MpvChildSearch {
     parent: HWND,
-    result: Option<HWND>,
+    matches: Vec<HWND>,
 }
 
 unsafe extern "system" fn find_mpv_child(hwnd: HWND, parameter: LPARAM) -> BOOL {
@@ -187,17 +187,16 @@ unsafe extern "system" fn find_mpv_child(hwnd: HWND, parameter: LPARAM) -> BOOL 
         let title = String::from_utf16_lossy(&title[..length.min(title.len())]);
         let title = title.to_ascii_lowercase();
         if title == "mpv" || title.ends_with(" - mpv") || title.ends_with(" — mpv") {
-            search.result = Some(hwnd);
-            return BOOL(0);
+            search.matches.push(hwnd);
         }
     }
     BOOL(1)
 }
 
-fn mpv_child_window(parent: HWND) -> Option<HWND> {
+fn mpv_child_windows(parent: HWND) -> Vec<HWND> {
     let mut search = MpvChildSearch {
         parent,
-        result: None,
+        matches: Vec::new(),
     };
     // SAFETY: the callback receives a valid stack context for the duration of
     // this synchronous enumeration and only selects direct mpv-owned children.
@@ -208,17 +207,81 @@ fn mpv_child_window(parent: HWND) -> Option<HWND> {
             LPARAM((&mut search as *mut MpvChildSearch) as isize),
         );
     }
-    search.result
+    search.matches
+}
+
+fn visible_mpv_child_windows(parent: HWND) -> Vec<HWND> {
+    // mpv can retain a hidden child while rebuilding its swap chain. Do not
+    // resize that stale HWND on every alignment tick; it is aligned when shown.
+    mpv_child_windows(parent)
+        .into_iter()
+        .filter(|window| unsafe { IsWindowVisible(*window) }.as_bool())
+        .collect()
+}
+
+/// Check the real embedded output surface before releasing a transition cover.
+/// The owner can keep a steady client size while mpv is still resizing or
+/// temporarily hiding its child window during a playlist item handoff.
+pub(crate) fn native_video_surface_signature(window: &Window) -> Option<u64> {
+    let Ok(handle) = window.window_handle() else {
+        return None;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return None;
+    };
+    let host = HWND(handle.hwnd.get() as *mut _);
+    let mut host_client = RECT::default();
+    // SAFETY: the live Winit window owns this HWND and the output RECT is writable.
+    if unsafe { GetClientRect(host, &mut host_client) }.is_err() {
+        return None;
+    }
+    let expected = size(host_client);
+    let mut surfaces = Vec::new();
+    for video in visible_mpv_child_windows(host) {
+        let Ok((_, client)) = rectangles(video) else {
+            return None;
+        };
+        let client_size = size(client);
+        // A stale visible child must not make a newly-created surface appear
+        // ready just because both happen to share one matching dimension.
+        if client_size != expected {
+            return None;
+        }
+        let mut title = [0_u16; 128];
+        // SAFETY: video is a live, visible direct mpv child and title is writable.
+        let length = unsafe { GetWindowTextW(video, &mut title) }.max(0) as usize;
+        surfaces.push((
+            video.0 as usize,
+            client_size.width,
+            client_size.height,
+            title[..length.min(title.len())].to_vec(),
+        ));
+    }
+    if surfaces.is_empty() {
+        return None;
+    }
+    surfaces.sort_by_key(|(hwnd, _, _, _)| *hwnd);
+    let mut signature = std::collections::hash_map::DefaultHasher::new();
+    expected.width.hash(&mut signature);
+    expected.height.hash(&mut signature);
+    surfaces.hash(&mut signature);
+    Some(signature.finish())
 }
 
 /// Keep the transparent controls over the native video client in one window
 /// manager operation. Separate Slint size and position calls expose an
 /// intermediate overlay frame while playlist items change aspect ratio.
-pub(crate) fn align_overlay(
+pub(crate) fn align_surfaces(
+    host: &Window,
     overlay: &Window,
     position: slint::PhysicalPosition,
     client_size: slint::PhysicalSize,
 ) -> Result<(), String> {
+    let host_handle = host.window_handle().map_err(|error| error.to_string())?;
+    let RawWindowHandle::Win32(host_handle) = host_handle.as_raw() else {
+        return Err("Video surface alignment requires a Windows host".into());
+    };
+    let host = HWND(host_handle.hwnd.get() as *mut _);
     let handle = overlay.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(handle) = handle.as_raw() else {
         return Err("Overlay alignment requires a Windows surface".into());
@@ -229,17 +292,32 @@ pub(crate) fn align_overlay(
     let frame_height = size(outer).height.saturating_sub(size(client).height);
     let width = client_size.width.saturating_add(frame_width);
     let height = client_size.height.saturating_add(frame_height);
+    let video_windows = visible_mpv_child_windows(host);
+    let video_is_aligned = video_windows.iter().all(|video| {
+        rectangles(*video).is_ok_and(|(_, client)| {
+            size(client).width == client_size.width && size(client).height == client_size.height
+        })
+    });
     if outer.left == position.x
         && outer.top == position.y
         && size(outer).width == width
         && size(outer).height == height
+        && video_is_aligned
     {
         return Ok(());
     }
+    let batch = unsafe {
+        BeginDeferWindowPos(
+            1_i32.saturating_add(i32::try_from(video_windows.len()).unwrap_or(i32::MAX)),
+        )
+    }
+    .map_err(|error| error.to_string())?;
     // SAFETY: the overlay is a live Slint-owned HWND and dimensions are
-    // measured from the native client surface. Move and resize atomically.
-    unsafe {
-        SetWindowPos(
+    // measured from the native client surface. Align it with every mpv child
+    // in one window-manager operation after the host's WM_SIZE notification.
+    let mut batch = unsafe {
+        DeferWindowPos(
+            batch,
             hwnd,
             None,
             position.x,
@@ -249,7 +327,23 @@ pub(crate) fn align_overlay(
             SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER,
         )
     }
-    .map_err(|error| error.to_string())
+    .map_err(|error| error.to_string())?;
+    for video in video_windows {
+        batch = unsafe {
+            DeferWindowPos(
+                batch,
+                video,
+                None,
+                0,
+                0,
+                i32::try_from(client_size.width).unwrap_or(i32::MAX),
+                i32::try_from(client_size.height).unwrap_or(i32::MAX),
+                SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER,
+            )
+        }
+        .map_err(|error| error.to_string())?;
+    }
+    unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())
 }
 
 fn rectangles(hwnd: HWND) -> Result<(RECT, RECT), String> {

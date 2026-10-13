@@ -11,7 +11,7 @@ mod windows_apartment;
 use ffi::{Api, EndFile, Property};
 use riina_core::{Command, Phase, Playback};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     ffi::{CStr, CString, c_void},
     path::Path,
     rc::Rc,
@@ -165,6 +165,10 @@ impl Player {
             ("gpu-context".into(), "d3d11".into()),
             ("d3d11-output-format".into(), "rgba16f".into()),
             ("target-colorspace-hint".into(), "auto".into()),
+            // Riina owns video-size policy and synchronizes its host and mpv
+            // child surface. Letting mpv resize the embedded window itself
+            // races that geometry update during playlist handoffs.
+            ("auto-window-resize".into(), "no".into()),
             ("prefetch-playlist".into(), "yes".into()),
         ]);
         Self::start_options(path, false, options, notify)
@@ -292,9 +296,13 @@ impl Player {
                     ..Default::default()
                 };
                 let mut next_id = 0u64;
+                let mut dynamic_property_observers = BTreeMap::<u64, String>::new();
+                let mut next_dynamic_property_observer = 1_u64;
                 let mut pending: HashMap<u64, PendingCommand> = HashMap::new();
                 let mut pending_screenshots = HashMap::new();
                 let mut pending_frame_captures = HashSet::new();
+                let mut pending_transition_captures = HashSet::new();
+                let mut pending_incoming_transition_captures = HashSet::new();
                 let mut pending_drop_subtitles = Vec::<String>::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
@@ -315,6 +323,60 @@ impl Player {
                             // a separate wait_async_requests here can stall that quit.
                             trace_shutdown("shutdown accepted; terminating pending playback work");
                             break;
+                        }
+                        if let Command::ObserveMpvProperty(property) = &command {
+                            let already_observed = dynamic_property_observers
+                                .values()
+                                .any(|observed| observed == property);
+                            if !already_observed {
+                                if dynamic_property_observers.len()
+                                    >= riina_core::MAX_PLUGIN_OBSERVED_MPV_PROPERTIES
+                                {
+                                    state.error = Some(format!(
+                                        "Player has reached the {} observed mpv property limit",
+                                        riina_core::MAX_PLUGIN_OBSERVED_MPV_PROPERTIES
+                                    ));
+                                } else if let Err(error) = command.plan(&state) {
+                                    state.error = Some(error);
+                                } else {
+                                    match CString::new(property.as_str()) {
+                                        Ok(name) => {
+                                            let observer_id = next_dynamic_property_observer;
+                                            // SAFETY: the player worker owns the live handle and
+                                            // libmpv copies the property name during this call.
+                                            match worker_api.check({
+                                                (worker_api.observe)(
+                                                    handle,
+                                                    observer_id,
+                                                    name.as_ptr(),
+                                                    6,
+                                                )
+                                            }) {
+                                                Ok(()) => {
+                                                    dynamic_property_observers.insert(
+                                                        observer_id,
+                                                        property.clone(),
+                                                    );
+                                                    next_dynamic_property_observer =
+                                                        next_dynamic_property_observer
+                                                            .saturating_add(1);
+                                                }
+                                                Err(error) => {
+                                                    state.error = Some(format!(
+                                                        "Could not observe mpv property {property}: {error}"
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                        Err(error) => state.error = Some(error.to_string()),
+                                    }
+                                }
+                                if state.error.is_some() {
+                                    state.reconcile();
+                                    notify(state.clone());
+                                }
+                            }
+                            continue;
                         }
                         if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) {
                             pending_drop_subtitles.clear();
@@ -405,6 +467,10 @@ impl Player {
                                         pending_screenshots.insert(next_id, None);
                                     } else if matches!(command, Command::CaptureFrame) {
                                         pending_frame_captures.insert(next_id);
+                                    } else if matches!(command, Command::CaptureTransitionFrame) {
+                                        pending_transition_captures.insert(next_id);
+                                    } else if matches!(command, Command::CaptureIncomingTransitionFrame) {
+                                        pending_incoming_transition_captures.insert(next_id);
                                     }
                                 }
                                 if command_issue_succeeded
@@ -424,26 +490,67 @@ impl Player {
                                 seek_feedback.replied(event.userdata, event.error < 0);
                                 let screenshot = pending_screenshots.remove(&event.userdata);
                                 let frame_capture = pending_frame_captures.remove(&event.userdata);
+                                let transition_capture =
+                                    pending_transition_captures.remove(&event.userdata);
+                                let incoming_transition_capture = pending_incoming_transition_captures
+                                    .remove(&event.userdata);
                                 if let Some(pending_command) = pending.remove(&event.userdata)
-                                    && pending_command.generation == state.generation {
+                                    && (pending_command.generation == state.generation
+                                        || (transition_capture
+                                            && state.generation.saturating_sub(
+                                                pending_command.generation,
+                                            ) <= 1
+                                            && state
+                                                .transition_frame_generation
+                                                .is_none_or(|generation| {
+                                                    generation <= pending_command.generation
+                                                }))) {
                                     if event.error < 0 {
-                                        state.error = worker_api.check(event.error).err().map(|error| {
-                                            format!("mpv {}: {error}", pending_command.label)
-                                        });
-                                        resume_on_load = false;
-                                    } else if frame_capture {
+                                        if !frame_capture
+                                            && !transition_capture
+                                            && !incoming_transition_capture
+                                        {
+                                            state.error = worker_api.check(event.error).err().map(|error| {
+                                                format!("mpv {}: {error}", pending_command.label)
+                                            });
+                                            resume_on_load = false;
+                                        }
+                                    } else if frame_capture || transition_capture || incoming_transition_capture {
                                         if event.data.is_null() {
-                                            state.error = Some("mpv returned no video frame for text recognition".into());
+                                            eprintln!("mpv returned no frame for an asynchronous frame capture");
                                         } else {
                                             // SAFETY: COMMAND_REPLY keeps this raw frame alive only until
                                             // the next wait_event, so copy its pixels before continuing.
                                             let reply = &*event.data.cast::<ffi::CommandReply>();
                                             match reply.result.copy_rgba_frame() {
                                                 Ok(frame) => {
-                                                    state.captured_frame = Some(Arc::new(frame));
-                                                    state.completed_frame_captures = state.completed_frame_captures.wrapping_add(1);
+                                                    let frame = Arc::new(frame);
+                                                    if incoming_transition_capture {
+                                                        state.incoming_transition_frame = Some(frame);
+                                                        state.incoming_transition_frame_revision = state
+                                                            .incoming_transition_frame_revision
+                                                            .wrapping_add(1);
+                                                        state.incoming_transition_frame_generation =
+                                                            Some(state.generation);
+                                                        state.incoming_transition_frame_position =
+                                                            state.position;
+                                                        state.incoming_transition_frame_captured_at =
+                                                            Some(std::time::Instant::now());
+                                                    } else if transition_capture {
+                                                        state.transition_frame = Some(frame);
+                                                        state.transition_frame_generation =
+                                                            Some(pending_command.generation);
+                                                        state.transition_frame_revision = state
+                                                            .transition_frame_revision
+                                                            .wrapping_add(1);
+                                                        state.transition_frame_captured_at =
+                                                            Some(std::time::Instant::now());
+                                                    } else {
+                                                        state.captured_frame = Some(frame);
+                                                        state.completed_frame_captures = state.completed_frame_captures.wrapping_add(1);
+                                                    }
                                                 }
-                                                Err(error) => state.error = Some(error),
+                                                Err(error) => eprintln!("Could not copy an asynchronous frame capture: {error}"),
                                             }
                                         }
                                     } else if let Some(path) = screenshot {
@@ -536,6 +643,21 @@ impl Player {
                             }
                             22 if !event.data.is_null() => {
                                 let property = &*event.data.cast::<Property>();
+                                if let Some(name) = dynamic_property_observers
+                                    .get(&event.userdata)
+                                    .cloned()
+                                {
+                                    match observed_property_value(property) {
+                                        Ok(value) => {
+                                            state.observed_mpv_properties.insert(name, value);
+                                        }
+                                        Err(error) => {
+                                            eprintln!(
+                                                "Could not copy observed mpv plugin property: {error}"
+                                            );
+                                        }
+                                    }
+                                }
                                 apply_property(&mut state, property);
                             }
                             24 => { state.error = Some("The libmpv event queue overflowed; playback state may be incomplete".into()); }
@@ -636,6 +758,28 @@ fn decode_audio_devices(
     Ok(devices)
 }
 
+unsafe fn observed_property_value(property: &Property) -> Result<serde_json::Value, String> {
+    if property.data.is_null() {
+        return Ok(serde_json::Value::Null);
+    }
+    if property.format != 6 {
+        return Err(format!(
+            "mpv returned format {} instead of a generic node",
+            property.format
+        ));
+    }
+    // SAFETY: MPV_FORMAT_NODE selects a live node owned by the current wait_event.
+    // SAFETY: MPV_FORMAT_NODE selects the live node arm and the callback copies
+    // it before the current mpv_wait_event result is replaced.
+    let node = unsafe { &*property.data.cast::<ffi::Node>() };
+    let value = unsafe { node.copy_json()? };
+    let encoded = serde_json::to_vec(&value).map_err(|error| error.to_string())?;
+    if encoded.len() > 1024 * 1024 {
+        return Err("mpv property value exceeds the 1 MiB plugin event limit".into());
+    }
+    Ok(value)
+}
+
 fn metadata_value(value: &serde_json::Value, key: &str) -> Option<String> {
     value
         .as_object()?
@@ -731,7 +875,8 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
                     }
                 }
                 b"track-list" => {
-                    state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?
+                    state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?;
+                    state.track_list_observed = true;
                 }
                 b"vf" => {
                     state.video_filters =
@@ -1022,6 +1167,45 @@ mod metadata_property_tests {
         assert_eq!(metadata_value(&metadata, "ALBUM").as_deref(), Some("Debut"));
         assert_eq!(metadata_value(&metadata, "track"), None);
         assert_eq!(metadata_value(&metadata, "title"), None);
+    }
+}
+
+#[cfg(test)]
+mod dynamic_property_tests {
+    use super::*;
+
+    #[test]
+    fn plugin_observed_node_properties_are_copied_as_json() {
+        let name = CString::new("cache-buffering-state").unwrap();
+        let mut node = ffi::Node {
+            value: ffi::NodeValue { integer: 42 },
+            format: 4,
+        };
+        let property = Property {
+            name: name.as_ptr(),
+            format: 6,
+            data: (&mut node as *mut ffi::Node).cast(),
+        };
+        // SAFETY: the node and name remain valid while the helper copies them.
+        assert_eq!(
+            unsafe { observed_property_value(&property) }.unwrap(),
+            serde_json::json!(42)
+        );
+    }
+
+    #[test]
+    fn unavailable_plugin_observed_properties_become_json_null() {
+        let name = CString::new("cache-buffering-state").unwrap();
+        let property = Property {
+            name: name.as_ptr(),
+            format: 6,
+            data: std::ptr::null_mut(),
+        };
+        // SAFETY: null property data is explicitly represented as JSON null.
+        assert_eq!(
+            unsafe { observed_property_value(&property) }.unwrap(),
+            serde_json::Value::Null
+        );
     }
 }
 

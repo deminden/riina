@@ -86,9 +86,12 @@ pub(crate) struct PluginFiles {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PluginPlayerFileContext {
+    media_generation: u64,
+    media_ready: bool,
     current_directory: Option<PathBuf>,
     external_tracks: BTreeMap<String, PathBuf>,
     core_properties: BTreeMap<String, serde_json::Value>,
+    observed_mpv_properties: BTreeMap<String, serde_json::Value>,
     chapters: Vec<serde_json::Value>,
     core_version: serde_json::Value,
     core_window_properties: BTreeMap<String, serde_json::Value>,
@@ -108,9 +111,12 @@ impl PluginPlayerFileContext {
         external_tracks: BTreeMap<String, PathBuf>,
     ) -> Self {
         Self {
+            media_generation: 0,
+            media_ready: false,
             current_directory,
             external_tracks,
             core_properties: BTreeMap::new(),
+            observed_mpv_properties: BTreeMap::new(),
             chapters: Vec::new(),
             core_version: serde_json::Value::Null,
             core_window_properties: BTreeMap::from([
@@ -127,6 +133,66 @@ impl PluginPlayerFileContext {
             recent_documents: Vec::new(),
             playback_history: Vec::new(),
         }
+    }
+
+    pub(crate) fn with_media_generation(mut self, generation: u64) -> Self {
+        self.media_generation = generation;
+        self
+    }
+
+    pub(crate) fn with_media_ready(mut self, ready: bool) -> Self {
+        self.media_ready = ready;
+        self
+    }
+
+    pub(crate) fn player_events_to(&self, next: &Self) -> Vec<(String, serde_json::Value)> {
+        let mut events = Vec::new();
+        if next.media_ready
+            && (self.media_generation != next.media_generation || !self.media_ready)
+            && let Some(url) = next
+                .core_properties
+                .get("url")
+                .and_then(serde_json::Value::as_str)
+        {
+            events.push(("iina.file-loaded".into(), serde_json::json!(url)));
+        }
+        for (context_property, mpv_property) in [
+            ("paused", "pause"),
+            ("idle", "idle-active"),
+            ("position", "time-pos"),
+            ("duration", "duration"),
+            ("speed", "speed"),
+            ("videoWidth", "width"),
+            ("videoHeight", "height"),
+            ("title", "media-title"),
+            ("audio.id", "aid"),
+            ("audio.delay", "audio-delay"),
+            ("audio.volume", "volume"),
+            ("audio.muted", "mute"),
+            ("subtitle.id", "sid"),
+            ("subtitle.secondID", "secondary-sid"),
+            ("subtitle.delay", "sub-delay"),
+        ] {
+            if let Some(value) = next.core_properties.get(context_property)
+                && self.core_properties.get(context_property) != Some(value)
+            {
+                events.push((format!("mpv.{mpv_property}.changed"), value.clone()));
+            }
+        }
+        for (property, value) in &next.observed_mpv_properties {
+            if self.observed_mpv_properties.get(property) != Some(value) {
+                events.push((format!("mpv.{property}.changed"), value.clone()));
+            }
+        }
+        events
+    }
+
+    pub(crate) fn with_observed_mpv_properties(
+        mut self,
+        properties: BTreeMap<String, serde_json::Value>,
+    ) -> Self {
+        self.observed_mpv_properties = properties;
+        self
     }
 
     pub(crate) fn with_core_snapshot(
@@ -804,6 +870,72 @@ mod tests {
             },
             root,
         )
+    }
+
+    #[test]
+    fn player_context_reports_file_loaded_and_changed_mpv_properties() {
+        let previous = PluginPlayerFileContext::default()
+            .with_media_generation(4)
+            .with_media_ready(true)
+            .with_core_snapshot(
+                BTreeMap::from([
+                    ("url".into(), serde_json::json!("file:///media/old.mkv")),
+                    ("paused".into(), serde_json::json!(false)),
+                    ("position".into(), serde_json::json!(4.0)),
+                ]),
+                Vec::new(),
+            )
+            .with_observed_mpv_properties(BTreeMap::from([(
+                "cache-buffering-state".into(),
+                serde_json::json!({"total-bytes": 256}),
+            )]));
+        let next = PluginPlayerFileContext::default()
+            .with_media_generation(5)
+            .with_media_ready(true)
+            .with_core_snapshot(
+                BTreeMap::from([
+                    ("url".into(), serde_json::json!("file:///media/new.mkv")),
+                    ("paused".into(), serde_json::json!(true)),
+                    ("position".into(), serde_json::json!(0.0)),
+                ]),
+                Vec::new(),
+            )
+            .with_observed_mpv_properties(BTreeMap::from([(
+                "cache-buffering-state".into(),
+                serde_json::json!({"total-bytes": 512}),
+            )]));
+
+        assert_eq!(
+            previous.player_events_to(&next),
+            [
+                (
+                    "iina.file-loaded".into(),
+                    serde_json::json!("file:///media/new.mkv"),
+                ),
+                ("mpv.pause.changed".into(), serde_json::json!(true)),
+                ("mpv.time-pos.changed".into(), serde_json::json!(0.0)),
+                (
+                    "mpv.cache-buffering-state.changed".into(),
+                    serde_json::json!({"total-bytes": 512}),
+                ),
+            ]
+        );
+
+        let loading = PluginPlayerFileContext::default()
+            .with_media_generation(5)
+            .with_core_snapshot(
+                BTreeMap::from([("url".into(), serde_json::json!("file:///media/new.mkv"))]),
+                Vec::new(),
+            );
+        assert!(previous.player_events_to(&loading).is_empty());
+        let loaded = loading.clone().with_media_ready(true);
+        assert_eq!(
+            loading.player_events_to(&loaded),
+            [(
+                "iina.file-loaded".into(),
+                serde_json::json!("file:///media/new.mkv"),
+            )]
+        );
     }
 
     #[test]

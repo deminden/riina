@@ -66,6 +66,7 @@ pub(crate) fn install_window(
     preferences: &OtherPreferences,
 ) -> Result<(), String> {
     window.set_subtitle_preferred_languages_text(preferences.preferred_languages.clone().into());
+    crate::language_token_preferences::install_subtitle(window, &preferences.preferred_languages);
     let index = preferences
         .encoding_index()
         .ok_or_else(|| "Invalid subtitle encoding selection".to_owned())?;

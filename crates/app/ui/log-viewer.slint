@@ -1,0 +1,140 @@
+import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+
+export struct LogViewerRow {
+    level: string,
+    timestamp: string,
+    subsystem: string,
+    message: string,
+    level-color: color,
+    raw: string,
+}
+
+export component LogViewerWindow inherits Window {
+    title: "Log Viewer";
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
+    preferred-width: 980px;
+    preferred-height: 620px;
+    min-width: 900px;
+    min-height: 360px;
+    background: #f5f5f7;
+
+    in property <[LogViewerRow]> rows: [];
+    in property <[string]> subsystem-options: ["All Subsystems"];
+    in property <[string]> level-options: ["All Levels", "Fatal", "Error", "Warning", "Info", "Verbose", "Debug", "Trace"];
+    in-out property <int> level-index: 0;
+    in-out property <int> subsystem-index: 0;
+    in-out property <string> search-text: "";
+    in-out property <bool> follow-latest: false;
+    in-out property <int> selected-index: -1;
+    in-out property <length> log-scroll-y: 0px;
+    in property <string> status-text: "";
+    callback filters-changed(string, int, int);
+    callback refresh-logs();
+    callback save-filtered-logs();
+    callback copy-selected-log(string);
+    callback open-log-folder();
+    changed search-text => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
+    changed rows => {
+        if root.follow-latest {
+            root.log-scroll-y = min(0px, root.height - 112px - root.rows.length * 21px);
+        }
+    }
+
+    Rectangle {
+        x: 0; y: 0; width: parent.width; height: 48px;
+        background: #ececf0;
+        HorizontalLayout {
+            x: 12px; y: 7px; width: parent.width - 24px; height: 34px; spacing: 5px;
+            Button {
+                text: "Follow Latest";
+                width: 96px;
+                checkable: true;
+                checked: root.follow-latest;
+                clicked => {
+                    root.follow-latest = !root.follow-latest;
+                    if root.follow-latest {
+                        root.log-scroll-y = min(0px, root.height - 112px - root.rows.length * 21px);
+                    }
+                }
+            }
+            ComboBox {
+                width: 112px; height: 28px;
+                model: root.level-options;
+                current-index <=> root.level-index;
+                selected => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
+            }
+            ComboBox {
+                width: 170px; height: 28px;
+                model: root.subsystem-options;
+                current-index <=> root.subsystem-index;
+                selected => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
+            }
+            LineEdit {
+                width: 120px;
+                horizontal-stretch: 1;
+                height: 28px;
+                placeholder-text: "Search logs";
+                accessible-label: "Search logs";
+                text <=> root.search-text;
+                accepted => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
+            }
+            Button { text: "Refresh"; width: 70px; clicked => { root.refresh-logs(); } }
+            Button { text: "Save Filtered"; width: 104px; clicked => { root.save-filtered-logs(); } }
+            Button {
+                text: "Copy";
+                width: 60px;
+                enabled: root.selected-index >= 0 && root.selected-index < root.rows.length;
+                clicked => { root.copy-selected-log(root.rows[root.selected-index].raw); }
+            }
+            Button { text: "Open Folder"; width: 94px; clicked => { root.open-log-folder(); } }
+        }
+    }
+
+    Rectangle {
+        x: 12px; y: 55px; width: parent.width - 24px; height: 24px;
+        background: #e5e5e9;
+        Text { x: 6px; width: 72px; height: parent.height; text: "Level"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
+        Text { x: 78px; width: 86px; height: parent.height; text: "Time"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
+        Text { x: 166px; width: 126px; height: parent.height; text: "Subsystem"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
+        Text { x: 296px; width: parent.width - 302px; height: parent.height; text: "Message"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
+    }
+
+    scroll := ScrollView {
+        x: 12px; y: 79px; width: parent.width - 24px; height: parent.height - 112px;
+        content-height: max(1px, root.rows.length * 21px);
+        content-width: self.visible-width;
+        content-y <=> root.log-scroll-y;
+        horizontal-scrollbar-policy: always-off;
+        Rectangle {
+            width: parent.width; height: max(1px, root.rows.length * 21px); background: #ffffff;
+            for row[index] in root.rows : Rectangle {
+                x: 0; y: index * 21px; width: parent.width; height: 21px;
+                background: root.selected-index == index ? #d8e8ff : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa);
+                Text { x: 6px; width: 72px; height: parent.height; text: row.level; color: row.level-color; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
+                Text { x: 78px; width: 86px; height: parent.height; text: row.timestamp; color: #707078; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
+                Text { x: 166px; width: 126px; height: parent.height; text: row.subsystem; color: #62626a; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
+                Text { x: 296px; width: parent.width - 302px; height: parent.height; text: row.message; color: #242428; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
+                TouchArea {
+                    width: parent.width; height: parent.height;
+                    clicked => { root.selected-index = index; }
+                    double-clicked => { root.copy-selected-log(row.raw); }
+                }
+            }
+            if root.rows.length == 0 : Text {
+                x: 10px; y: 12px; width: parent.width - 20px; height: 28px;
+                text: root.status-text == "" ? "No matching log entries" : root.status-text;
+                color: #77777d; font-size: 12px; horizontal-alignment: center; vertical-alignment: center;
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0; y: parent.height - 28px; width: parent.width; height: 28px;
+        background: #ececf0;
+        Text {
+            x: 12px; width: parent.width - 24px; height: parent.height;
+            text: root.status-text;
+            color: #68686f; font-size: 10px; vertical-alignment: center; overflow: elide;
+        }
+    }
+}

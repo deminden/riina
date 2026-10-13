@@ -167,6 +167,7 @@ pub(crate) fn install_window(
             .collect::<Vec<slint::SharedString>>(),
     )));
     window.set_audio_preferred_languages(preferences.preferred_languages.clone().into());
+    crate::language_token_preferences::install_audio(window, &preferences.preferred_languages);
 }
 
 pub(crate) fn install_devices(

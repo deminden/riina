@@ -10,6 +10,7 @@ export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
 export { OnlineSubtitlesWindow } from "online-subtitles.slint";
 export { PlaybackHistoryWindow, PlaybackHistoryRow } from "history-window.slint";
+export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
 export struct CatalogRow { token: string, label: string, detail: string, path: string, language: string, selected: bool, playing: bool, network: bool }
 export struct RecentMediaRow { title: string, position-label: string }
@@ -1135,6 +1136,7 @@ export component PlayerWindow inherits Window {
     // transparent renderer before Slint discovers the conditional native menu.
     // Shared-window entry points opt into their opaque menu surface before show().
     in property <bool> native-video: true;
+    in property <bool> native-transition-frame: false;
     in property <bool> show-player-title-row: false;
     in-out property <bool> dialog-open: false;
     in-out property <bool> jump-time-dialog-visible: false;
@@ -1382,6 +1384,8 @@ export component PlayerWindow inherits Window {
     in-out property <string> subtitle-position-text: "100";
     in-out property <string> subtitle-preferred-languages: "";
     in-out property <string> open-subtitles-api-key: "";
+    in-out property <int> open-subtitles-provider-index: 0;
+    in-out property <string> assrt-token: "";
     in-out property <bool> open-subtitles-auto-search: false;
     in-out property <string> open-subtitles-threshold-text: "20";
     in-out property <string> subtitle-default-encoding: "auto";
@@ -1590,13 +1594,33 @@ export component PlayerWindow inherits Window {
     changed control-bar-hovered => { root.control-bar-hover-changed(); }
     changed control-bar-dragging => { root.control-bar-hover-changed(); }
     // One logical-point viewport drives both GL texture size and native mpv margins.
+    private property <bool> small-video-controller: !root.music-mode &&
+        (root.width < 402px || root.height < 210px);
+    private property <length> osc-height: root.music-mode ? 72px : min(root.height,
+        root.small-video-controller ? 50px : root.compact-ui ? 59px : 67px);
+    private property <length> osc-row-height: !root.music-mode && root.height < 24px
+        ? min(root.height, 10px) : root.small-video-controller ? 14px : 17px;
+    private property <length> osc-timeline-height: root.music-mode ? 20px : root.height < 48px ? 0px :
+        root.small-video-controller ? 16px : 20px;
+    private property <length> osc-row-inline-inset: root.music-mode ? 8px :
+        root.width < 64px ? 0px : root.small-video-controller ? 8px : 12px;
+    private property <length> osc-timeline-inline-inset: root.width < 64px ? 0px :
+        root.small-video-controller ? 6px : 8px;
+    private property <length> osc-row-gap: root.music-mode ? 2px : root.width < 64px ? 0px : 4px;
+    private property <length> osc-timeline-gap: root.width < 64px ? 0px :
+        root.small-video-controller ? 4px : 8px;
+    // Keep enough room for both 30px neighbor buttons, their gaps, and the
+    // centered bar's inner padding before exposing them in a narrow window.
+    private property <bool> transport-neighbor-actions-fit: root.music-mode ||
+        (root.width >= 330px &&
+            (root.osc-position == 0 ? max(0px, root.width - 24px) : root.width) >= 132px);
     private property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
     private property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
     private property <length> title-row-height: root.show-player-title-row ? (root.compact-ui ? 30px : 34px) : 0px;
     private property <length> video-inset-top: root.edge-to-edge-video || !root.docked-controls ? 0px : title-row-height;
     private property <length> video-inset-bottom: root.music-mode
         ? 72px + (root.music-mode-show-playlist ? 300px : 0px)
-        : root.edge-to-edge-video || !root.docked-controls ? 0px : (root.compact-ui ? 59px : 67px);
+        : root.edge-to-edge-video || !root.docked-controls ? 0px : root.osc-height;
     out property <length> window-width: root.width;
     out property <length> window-height: root.height;
     out property <length> video-origin-x: video-inset-leading;
@@ -1729,12 +1753,18 @@ export component PlayerWindow inherits Window {
             x: video-inset-leading; y: video-inset-top;
             width: video-width; height: video-height; background: #111111;
         }
+        if root.native-transition-frame : Rectangle {
+            x: 0px; y: 0px; width: root.width; height: root.height;
+            background: #000000;
+        }
         Image {
             visible: !root.music-mode || root.music-mode-show-album-art;
             source: video-frame;
-            x: video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
-            y: video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
-            width: root.render-width; height: root.render-height; image-fit: contain;
+            x: root.native-transition-frame ? 0px : video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
+            y: root.native-transition-frame ? 0px : video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
+            width: root.native-transition-frame ? root.width : root.render-width;
+            height: root.native-transition-frame ? root.height : root.render-height;
+            image-fit: contain;
         }
         if root.music-mode && root.music-mode-show-album-art
             && root.music-mode-is-audio && !root.music-mode-has-album-art
@@ -1849,10 +1879,10 @@ export component PlayerWindow inherits Window {
                 ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
                 : (root.dark-theme ? #151519 : #f2f2f2);
             x: side == 0 ? 0px : parent.width - self.width;
-            y: root.title-row-height + (root.osc-position == 1 ? 67px : 0px);
+            y: root.title-row-height + (root.osc-position == 1 ? root.osc-height : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
-                (root.osc-position == 1 ? 67px : root.osc-position == 2 ? 33px : 0px);
+                (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px);
             // Track row height and None entry follow SidebarTrackSelector.swift.
             // Saved widths are independent; opening clamps to 80% without overwriting intent.
             // Playlist/chapters default leading; settings default trailing.
@@ -2541,9 +2571,9 @@ export component PlayerWindow inherits Window {
             visible: !root.crop-editing && (side == 0 ? root.leading-sidebar != 0 : root.sidebar != 0);
             private property <length> panel-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
             x: side == 0 ? panel-width : root.width - panel-width - 4px;
-            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? 67px : 0px); width: 4px;
+            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? root.osc-height : 0px); width: 4px;
             height: root.height - (root.compact-ui ? 60px : 68px) -
-                (root.osc-position == 1 ? 67px : root.osc-position == 2 ? 33px : 0px);
+                (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px);
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
@@ -2568,16 +2598,17 @@ export component PlayerWindow inherits Window {
             private property <length> side-width: max(116px, toolbar-width);
             private property <bool> side-controls-fit: self.width >= 98px + side-width * 2 + 40px;
             width: root.music-mode ? parent.width :
-                root.osc-position == 0 ? min(460px, parent.width - 24px) : parent.width;
-            height: root.music-mode ? 72px : root.compact-ui ? 59px : 67px;
+                root.osc-position == 0 ? min(parent.width, min(460px, max(48px, parent.width - 24px))) : parent.width;
+            height: root.osc-height;
             x: root.music-mode ? 0px :
                 root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
             // Keep the transport row outside the playlist's hit-test surface
             // in the compact music layout so Play/Pause remains directly usable.
             y: root.music-mode ? parent.height -
                     (root.music-mode-show-playlist ? 300px : 0px) - self.height :
-                root.osc-position == 1 ? (root.compact-ui ? 30px : 34px) :
-                root.osc-position == 2 ? parent.height - self.height : parent.height * 0.9 - self.height;
+                root.osc-position == 1 ? min(max(0px, parent.height - self.height), root.compact-ui ? 30px : 34px) :
+                root.osc-position == 2 ? max(0px, parent.height - self.height) :
+                    max(0px, min(parent.height - self.height, parent.height * 0.9 - self.height));
             opacity: root.music-mode || root.controls-visible ? 1 : 0;
             animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
             border-radius: root.music-mode ? 0px : root.osc-position == 0 ? 12px : 4px;
@@ -2596,29 +2627,29 @@ export component PlayerWindow inherits Window {
                     if root.music-mode && !self.has-hover { root.music-mode-volume-open = false; }
                 }
                 VerticalLayout { width: parent.width; height: parent.height;
-                padding-top: root.music-mode ? 8px : root.compact-ui ? 10px : 14px;
-                padding-bottom: root.music-mode ? 8px : root.compact-ui ? 6px : 8px;
-                spacing: root.music-mode ? 6px : root.compact-ui ? 6px : 8px;
+                padding-top: root.music-mode ? 8px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 5px : root.compact-ui ? 10px : 14px;
+                padding-bottom: root.music-mode ? 8px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 4px : root.compact-ui ? 6px : 8px;
+                spacing: root.music-mode ? 6px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 3px : root.compact-ui ? 6px : 8px;
                 Rectangle {
                     horizontal-stretch: 1;
-                    height: root.music-mode ? 27px : 17px;
+                    height: root.music-mode ? 27px : root.osc-row-height;
                     background: transparent;
                     HorizontalLayout {
                     x: 0px; y: root.music-mode ? 5px : 0px;
-                    width: parent.width; height: 17px;
+                    width: parent.width; height: root.osc-row-height;
                     opacity: root.controls-visible ? 1 : 0;
                     animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
-                    padding-left: root.music-mode ? 8px : 12px;
-                    padding-right: root.music-mode ? 8px : 12px;
-                    spacing: root.music-mode ? 2px : 4px;
+                    padding-left: root.osc-row-inline-inset;
+                    padding-right: root.osc-row-inline-inset;
+                    spacing: root.osc-row-gap;
                     if !root.music-mode && osc-bar.side-controls-fit : Rectangle {
-                        width: osc-bar.side-width; height: 17px;
+                        width: osc-bar.side-width; height: root.osc-row-height;
                         HorizontalLayout {
-                            width: 116px; height: 17px; spacing: 4px;
-                            Tool { dark-theme: root.dark-theme; height: 17px;
+                            width: 116px; height: root.osc-row-height; spacing: 4px;
+                            Tool { dark-theme: root.dark-theme; height: root.osc-row-height;
                                 icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
                                 hint: "Mute"; activated => { root.toggle-mute(); } }
-                            PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: 17px;
+                            PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: root.osc-row-height;
                                 minimum: 0; maximum: root.volume-limit; value: root.volume; hint: "Volume";
                                 scroll-override-enabled: !root.control-disable-volume-slider-scrolling;
                                 scroll-disabled: root.control-disable-volume-slider-scrolling;
@@ -2629,8 +2660,8 @@ export component PlayerWindow inherits Window {
                         }
                     }
                     Rectangle { horizontal-stretch: 1; background: transparent; }
-                    Tool {
-                        dark-theme: root.dark-theme; height: 17px;
+                    if root.transport-neighbor-actions-fit : Tool {
+                        dark-theme: root.dark-theme; height: root.osc-row-height;
                         icon: root.music-mode
                             ? @image-url("../../../assets/icons/skip-previous.svg")
                             : @image-url("../../../assets/icons/backward.svg");
@@ -2640,10 +2671,10 @@ export component PlayerWindow inherits Window {
                             else { root.speed(0.5); }
                         }
                     }
-                    Tool { dark-theme: root.dark-theme; height: 17px; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";
+                    Tool { dark-theme: root.dark-theme; width: min(30px, max(0px, parent.width - 2 * root.osc-row-inline-inset)); height: root.osc-row-height; icon: paused ? @image-url("../../../assets/icons/play.svg") : @image-url("../../../assets/icons/pause.svg"); hint: paused ? "Play" : "Pause";
                         activated => { root.toggle-pause(); } }
-                    Tool {
-                        dark-theme: root.dark-theme; height: 17px;
+                    if root.transport-neighbor-actions-fit : Tool {
+                        dark-theme: root.dark-theme; height: root.osc-row-height;
                         icon: root.music-mode
                             ? @image-url("../../../assets/icons/skip-next.svg")
                             : @image-url("../../../assets/icons/forward.svg");
@@ -2673,10 +2704,10 @@ export component PlayerWindow inherits Window {
                         activated => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
                     }
                     if !root.music-mode && osc-bar.side-controls-fit : Rectangle {
-                        width: osc-bar.side-width; height: 17px;
+                        width: osc-bar.side-width; height: root.osc-row-height;
                         HorizontalLayout {
                         x: parent.width - osc-bar.toolbar-width;
-                        width: osc-bar.toolbar-width; height: 17px;
+                        width: osc-bar.toolbar-width; height: root.osc-row-height;
                         spacing: 4px;
                         for action-kind in root.toolbar-visible-order : ToolbarAction {
                         kind: action-kind;
@@ -2737,9 +2768,15 @@ export component PlayerWindow inherits Window {
                         clicked => { root.activity(); }
                     }
                 }
-                HorizontalLayout { height: 20px; vertical-stretch: 0; padding-left: 8px; padding-right: 8px; spacing: 8px;
-                    Text { text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
-                    PlayerSlider { dark-theme: root.dark-theme; knob-width: 3px; knob-height: 15px; knob-radius: 1px;
+                if root.osc-timeline-height > 0px : HorizontalLayout {
+                    height: root.osc-timeline-height; vertical-stretch: 0;
+                    padding-left: root.osc-timeline-inline-inset;
+                    padding-right: root.osc-timeline-inline-inset;
+                    spacing: root.osc-timeline-gap;
+                    Text { visible: root.width >= 150px; text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d;
+                        font-size: root.small-video-controller ? 10px : 11px; vertical-alignment: center; }
+                    PlayerSlider { dark-theme: root.dark-theme; height: root.small-video-controller ? 14px : 20px;
+                        knob-width: 3px; knob-height: root.small-video-controller ? 12px : 15px; knob-radius: 1px;
                         scroll-override-enabled: seekable && !root.control-disable-play-slider-scrolling;
                         scroll-disabled: root.control-disable-play-slider-scrolling;
                         scroll-request(delta-x, delta-y) => { root.seek-scroll-action-request(delta-x, delta-y); }
@@ -2758,7 +2795,8 @@ export component PlayerWindow inherits Window {
                         loop-b-moved(value) => { root.set-ab-loop-point(1, value); }
                         preview-requested(value) => { root.timeline-hovered(value); }
                         preview-dismissed => { root.timeline-hovered(-1); } }
-                    Text { text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d; font-size: 11px; vertical-alignment: center; }
+                    Text { visible: root.width >= 150px; text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d;
+                        font-size: root.small-video-controller ? 10px : 11px; vertical-alignment: center; }
                 }
                 }
             }
@@ -2885,7 +2923,7 @@ export component PlayerWindow inherits Window {
             x: parent.width - self.card-width -
                 (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
             y: (root.compact-ui ? 38px : 42px) +
-                (root.osc-position == 1 ? (root.compact-ui ? 59px : 67px) : 0px);
+                (root.osc-position == 1 ? root.osc-height : 0px);
             width: self.card-width; height: 77px;
             border-radius: root.liquid-glass-osd ? 16px : 10px;
             background: root.liquid-glass-osd ? #1b1b20d8 : #1b1b20;

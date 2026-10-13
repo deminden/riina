@@ -50,13 +50,17 @@ groups after enlargement, native menu shortcuts and settings-panel titles, and
 wide/standard/portrait/audio playlist transitions. Preserve the window center and
 usable bounds while respecting the configured natural-size timing. Include an
 audio-to-video transition; successful video-only navigation does not cover it.
-Windows playback still flashes during some clip transitions. The pinned mpv
-Windows video output creates a child HWND and resizes it after parent-location
-events; the app now includes that video child with the host and transparent
-controls in the native resize batch. The follow-up 35-second loop found zero
-host/child size mismatches in 2,082 stable samples, after one mismatch in the
-previous build. Rendered pixels remain unverified, and the user's reported flash
-remains open. Capture transition frames before considering this closed.
+Windows native playback retains an outgoing frame across playlist handoffs and
+covers the full video surface, including aspect-fit matte bands. A 32-second
+synthetic autoplay audit after this change covered wide, standard, portrait,
+return-video, and audio clips with zero host/child size mismatches, zero off-screen
+samples, one dark initial-startup sample, and normal shutdown. Captures no longer
+show the incoming frame leaking through the retained image's matte bands. The user's
+media and flashes shorter than the capture cadence remain unverified. A compact
+Windows controller now shortens its height and timeline at small viewport sizes;
+hover/focus interaction and matched macOS appearance remain unverified.
+The embedded Windows mpv output now has `auto-window-resize=no` because Riina owns
+resize policy and synchronizes its own host and child geometry. A 25-second mixed-size autoplay run completed with no fully dark samples, host/child mismatches, or off-screen samples. The user's affected media and flashes shorter than capture intervals still need direct verification.
 
 - Every implemented behavior has typed intent, observed backend state where applicable,
   and tests at the layer that owns the behavior.
@@ -83,3 +87,8 @@ Use small Rust modules, typed intent, and comments that explain semantics or inv
 Keep the IINA v1.5.0 reference outside product source. Implement from observable behavior
 and documented APIs; do not translate upstream implementation code or copy protected
 assets.
+
+Automatic Music Mode now requires 300 ms of stable audio-only track metadata before
+it changes layout. A Windows mixed-media autoplay run preserved the video window
+across four clips and entered Music Mode for the audio item; user-media and macOS
+runtime checks remain open.

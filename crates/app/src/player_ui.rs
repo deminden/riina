@@ -23,6 +23,46 @@ use std::{
     time::{Duration, Instant},
 };
 
+const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
+const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
+type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
+
+fn queue_playlist_navigation(
+    sender: &riina_mpv::CommandSender,
+    pending: &PendingNavigation,
+    command: Command,
+    capture_transition_first: bool,
+) {
+    if !capture_transition_first {
+        if let Err(error) = sender.send(command) {
+            eprintln!("Could not navigate the playlist: {error}");
+        }
+        return;
+    }
+
+    let needs_capture = {
+        let mut pending = pending.borrow_mut();
+        if let Some((commands, _)) = pending.as_mut() {
+            commands.push(command);
+            false
+        } else {
+            *pending = Some((vec![command], Instant::now()));
+            true
+        }
+    };
+    if needs_capture && let Err(error) = sender.send(Command::CaptureTransitionFrame) {
+        let commands = pending.borrow_mut().take().map(|(commands, _)| commands);
+        eprintln!("Could not capture the outgoing video frame: {error}");
+        if let Some(commands) = commands {
+            for command in commands {
+                if let Err(error) = sender.send(command) {
+                    eprintln!("Could not navigate the playlist: {error}");
+                }
+            }
+        }
+    }
+}
+
 fn clear_screenshot_preview(app: &PlayerWindow) {
     app.set_screenshot_preview_visible(false);
     app.set_screenshot_preview_path("".into());
@@ -1144,6 +1184,8 @@ struct UiUpdateResources<'a> {
     audio_device_player: Option<&'a riina_mpv::CommandSender>,
     saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
+    transition_overlay: &'a AtomicU64,
+    transition_release_generation: &'a AtomicU64,
 }
 
 fn update_ui(
@@ -1156,6 +1198,72 @@ fn update_ui(
     last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
 ) -> bool {
     use riina_core::video_reflection::Axis;
+    if app.get_native_video() {
+        let show_transition = {
+            #[cfg(target_os = "windows")]
+            {
+                crate::transition_frame::should_display_until_incoming_stable(
+                    &state,
+                    app.get_playlist_auto_play_next(),
+                    match resources
+                        .transition_release_generation
+                        .load(Ordering::Acquire)
+                    {
+                        u64::MAX => None,
+                        generation => Some(generation),
+                    },
+                )
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                crate::transition_frame::should_display(&state, app.get_playlist_auto_play_next())
+            }
+        };
+        let source_generation = state.transition_frame_generation.unwrap_or(u64::MAX);
+        let incoming_generation = state
+            .incoming_transition_frame_generation
+            .unwrap_or(u64::MAX);
+        let key = source_generation.rotate_left(13)
+            ^ state.transition_frame_revision.rotate_left(29)
+            ^ incoming_generation.rotate_left(37)
+            ^ state.incoming_transition_frame_revision.rotate_left(7)
+            ^ u64::from(show_transition);
+        if resources.transition_overlay.swap(key, Ordering::AcqRel) != key {
+            let image = if show_transition {
+                crate::transition_frame::cover_frame(&state).map(|frame| {
+                    let mut rgba = frame.rgba.as_ref().to_vec();
+                    for pixel in rgba.as_chunks_mut::<4>().0 {
+                        // Video pixels are an opaque surface. mpv's raw RGBA
+                        // capture may retain a partial alpha channel, which
+                        // lets the reconfiguring native child bleed through
+                        // the transition cover as a brief double image.
+                        pixel[3] = u8::MAX;
+                    }
+                    let pixels = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
+                        &rgba,
+                        frame.width,
+                        frame.height,
+                    );
+                    slint::Image::from_rgba8(pixels)
+                })
+            } else {
+                None
+            };
+            if show_transition {
+                // Install the opaque image before exposing its cover rectangle.
+                // Slint can schedule a render between property updates; enabling
+                // the cover first would briefly show its black backing instead of
+                // the retained frame during a native-output handoff.
+                app.set_video_frame(image.unwrap_or_default());
+                app.set_native_transition_frame(true);
+            } else {
+                // Keep the last opaque frame until the cover is disabled. Clearing
+                // it first can expose the cover's black backing for one render.
+                app.set_native_transition_frame(false);
+                app.set_video_frame(slint::Image::default());
+            }
+        }
+    }
     let previous_generation = app.get_window_geometry_source().parse::<u64>().ok();
     app.set_window_geometry_source(state.generation.to_string().into());
     if let Ok(settings) = resources.saved_video_filters.lock() {
@@ -1615,6 +1723,7 @@ pub(crate) struct UiSession {
     _appearance_timer: Rc<slint::Timer>,
     _pause_resume_timer: Rc<slint::Timer>,
     _thumbnail_preview_timer: Rc<slint::Timer>,
+    _transition_frame_timer: Option<Rc<slint::Timer>>,
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
     _online_subtitles_timer: Rc<slint::Timer>,
@@ -2512,6 +2621,19 @@ pub(crate) fn configure_player(
                                 );
                             }
                         }
+                        crate::plugin_host::PluginHostMessage::ObserveMpvProperty(property) => {
+                            let result = player_commands.lock().ok().and_then(|sender| {
+                                sender.as_ref().map(|sender| {
+                                    sender.send(Command::ObserveMpvProperty(property))
+                                })
+                            });
+                            if let Some(Err(error)) = result {
+                                app.set_status(
+                                    format!("Could not observe mpv plugin property: {error}")
+                                        .into(),
+                                );
+                            }
+                        }
                         crate::plugin_host::PluginHostMessage::SetUiVisibility(disabled) => {
                             app.set_plugin_ui_disabled(disabled);
                         }
@@ -2908,6 +3030,10 @@ pub(crate) fn configure_player(
         None,
         crate::screenshot_output::Completions::default(),
     )));
+    let transition_overlay = Arc::new(AtomicU64::new(u64::MAX));
+    let transition_release_generation = Arc::new(AtomicU64::new(u64::MAX));
+    let notify_transition_overlay = transition_overlay.clone();
+    let notify_transition_release_generation = transition_release_generation.clone();
     let observed_playback = latest_playback.clone();
     let music_mode_state = Arc::new(std::sync::Mutex::new(riina_core::music_mode::State::new(
         prefs.auto_switch_to_music_mode,
@@ -3057,6 +3183,8 @@ pub(crate) fn configure_player(
         let audio_device_sender = notify_audio_device_sender.clone();
         let opening_fullscreen = opening_fullscreen.clone();
         let music_mode_state = notify_music_mode_state.clone();
+        let transition_overlay = notify_transition_overlay.clone();
+        let transition_release_generation = notify_transition_release_generation.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let (Some(app), Ok(mut latest)) = (weak.upgrade(), latest.lock())
@@ -3096,6 +3224,8 @@ pub(crate) fn configure_player(
                         audio_device_player: audio_device_sender.as_ref(),
                         saved_video_filters: &notify_saved_video_filters,
                         saved_audio_filters: &notify_saved_audio_filters,
+                        transition_overlay: transition_overlay.as_ref(),
+                        transition_release_generation: transition_release_generation.as_ref(),
                     },
                     &mut displayed,
                     &mut last_seek,
@@ -3453,6 +3583,187 @@ pub(crate) fn configure_player(
                 .observe(&app, &state, &settings, &thumbnail_library);
         },
     );
+    let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
+    let transition_frame_timer = if cfg!(target_os = "windows") && native.is_some() {
+        let timer = Rc::new(slint::Timer::default());
+        let playback = latest_playback.clone();
+        let sender = player.command_sender();
+        let captured_generation = Rc::new(Cell::new(None::<u64>));
+        let outgoing_capture_attempt = Rc::new(Cell::new(None::<(u64, Instant)>));
+        let incoming_capture_attempt = Rc::new(Cell::new(None::<(u64, Instant)>));
+        let incoming_capture_stability = Rc::new(Cell::new(None::<(u64, u64, u8, Instant)>));
+        let surface_host = native.as_ref().map(|presentation| presentation.host());
+        let surface_geometry = Rc::new(Cell::new(None::<(u64, slint::PhysicalSize, u64, Instant)>));
+        let timer_generation = captured_generation.clone();
+        let timer_outgoing_attempt = outgoing_capture_attempt.clone();
+        let timer_incoming_attempt = incoming_capture_attempt.clone();
+        let timer_incoming_stability = incoming_capture_stability.clone();
+        let timer_transition_release_generation = transition_release_generation.clone();
+        let timer_pending_navigation = pending_navigation.clone();
+        let timer_surface_host = surface_host.clone();
+        let timer_surface_geometry = surface_geometry.clone();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(80),
+            move || {
+                let Ok(state) = playback.lock().map(|state| state.clone()) else {
+                    return;
+                };
+                let navigation = {
+                    let mut pending = timer_pending_navigation.borrow_mut();
+                    pending
+                        .as_ref()
+                        .is_some_and(|(_, requested_at)| {
+                            state.transition_frame_generation == Some(state.generation)
+                                && state
+                                    .transition_frame_captured_at
+                                    .is_some_and(|captured_at| captured_at >= *requested_at)
+                                || requested_at.elapsed() >= MANUAL_TRANSITION_CAPTURE_TIMEOUT
+                        })
+                        .then(|| pending.take().map(|(commands, _)| commands))
+                        .flatten()
+                };
+                if let Some(commands) = navigation {
+                    for command in commands {
+                        if let Err(error) = sender.send(command) {
+                            eprintln!("Could not navigate the playlist: {error}");
+                        }
+                    }
+                }
+                if state.transition_frame_generation == Some(state.generation) {
+                    // Only a successful asynchronous reply confirms that mpv
+                    // retained a frame. Queue acceptance alone is not enough:
+                    // the D3D11 output can reject a capture while reconfiguring.
+                    timer_generation.set(Some(state.generation));
+                    timer_outgoing_attempt.set(None);
+                }
+                let now = Instant::now();
+                if crate::transition_frame::outgoing_capture_due(
+                    &state,
+                    timer_generation.get(),
+                    timer_outgoing_attempt.get(),
+                    now,
+                ) {
+                    // Capture before mpv tears down and reconfigures its
+                    // D3D11 output. Retry rejected or failed captures while
+                    // there is still time before the playlist advances.
+                    match sender.send(Command::CaptureTransitionFrame) {
+                        Ok(()) => timer_outgoing_attempt.set(Some((state.generation, now))),
+                        Err(error) => {
+                            timer_outgoing_attempt.set(None);
+                            eprintln!("Could not retain the outgoing video frame: {error}");
+                        }
+                    }
+                }
+                if state
+                    .transition_frame_generation
+                    .is_some_and(|generation| generation < state.generation)
+                    && crate::transition_frame::incoming_has_video(&state)
+                    && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
+                    && crate::transition_frame::incoming_capture_window_active(
+                        &state,
+                        Instant::now(),
+                    )
+                    && crate::transition_frame::incoming_capture_ready(&state)
+                {
+                    let now = Instant::now();
+                    // Decoder captures can remain healthy while mpv's native
+                    // child HWND is hidden or changing size. Check the actual
+                    // presentation surface before considering cover release;
+                    // doing this after the capture-stability branch let a
+                    // stale but valid decoder frame uncover a blank swap chain.
+                    let surface_stable = timer_surface_host
+                        .as_ref()
+                        .and_then(slint::Weak::upgrade)
+                        .is_some_and(|host| {
+                            let size = host.window().size();
+                            let Some(surface_signature) =
+                                crate::platform::native_video_surface_signature(host.window())
+                            else {
+                                timer_surface_geometry.set(None);
+                                return false;
+                            };
+                            match timer_surface_geometry.get() {
+                                Some((generation, previous_size, previous_surface, since))
+                                    if generation == state.generation
+                                        && previous_size == size
+                                        && previous_surface == surface_signature =>
+                                {
+                                    now.duration_since(since) >= INCOMING_SURFACE_STABLE_FOR
+                                }
+                                _ => {
+                                    timer_surface_geometry.set(Some((
+                                        state.generation,
+                                        size,
+                                        surface_signature,
+                                        now,
+                                    )));
+                                    false
+                                }
+                            }
+                        });
+                    let capture_is_usable = state.incoming_transition_frame_generation
+                        == Some(state.generation)
+                        && crate::transition_frame::incoming_frame_is_usable(&state);
+                    if capture_is_usable {
+                        let revision = state.incoming_transition_frame_revision;
+                        let stable_capture = match timer_incoming_stability.get() {
+                            Some((generation, last_revision, count, since))
+                                if generation == state.generation && last_revision == revision =>
+                            {
+                                (generation, last_revision, count, since)
+                            }
+                            Some((generation, _, count, since))
+                                if generation == state.generation =>
+                            {
+                                (generation, revision, count.saturating_add(1), since)
+                            }
+                            _ => (state.generation, revision, 1, now),
+                        };
+                        timer_incoming_stability.set(Some(stable_capture));
+                        let (_, _, count, since) = stable_capture;
+                        if crate::transition_frame::incoming_cover_release_ready(
+                            count,
+                            since,
+                            now,
+                            surface_stable,
+                        ) {
+                            timer_transition_release_generation
+                                .store(state.generation, Ordering::Release);
+                            return;
+                        }
+                    } else {
+                        timer_incoming_stability.set(None);
+                    }
+                    let retry_wait_elapsed =
+                        timer_incoming_attempt
+                            .get()
+                            .is_none_or(|(generation, attempted_at)| {
+                                generation != state.generation
+                                    || now.duration_since(attempted_at)
+                                        >= Duration::from_millis(240)
+                            });
+                    if !retry_wait_elapsed {
+                        return;
+                    }
+                    if !surface_stable {
+                        return;
+                    }
+                    // Do not uncover the native child just because time-pos or
+                    // track metadata appeared. Wait for host geometry to settle,
+                    // then require a successful raw capture before uncovering.
+                    if let Err(error) = sender.send(Command::CaptureIncomingTransitionFrame) {
+                        eprintln!("Could not capture the incoming video frame: {error}");
+                    } else {
+                        timer_incoming_attempt.set(Some((state.generation, now)));
+                    }
+                }
+            },
+        );
+        Some(timer)
+    } else {
+        None
+    };
     #[cfg(target_os = "macos")]
     {
         *system_media_sender.borrow_mut() = Some(player.command_sender());
@@ -4086,8 +4397,36 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    connect!(on_playlist_next, Command::PlaylistNext);
-    connect!(on_playlist_previous, Command::PlaylistPrevious);
+    let capture_transition_first = cfg!(target_os = "windows") && native.is_some();
+    let playlist_navigation_sender = player.command_sender();
+    let sender = playlist_navigation_sender.clone();
+    let pending = pending_navigation.clone();
+    let weak = app.as_weak();
+    app.on_playlist_next(move || {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        queue_playlist_navigation(
+            &sender,
+            &pending,
+            Command::PlaylistNext,
+            capture_transition_first,
+        );
+    });
+    let sender = playlist_navigation_sender.clone();
+    let pending = pending_navigation.clone();
+    let weak = app.as_weak();
+    app.on_playlist_previous(move || {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        queue_playlist_navigation(
+            &sender,
+            &pending,
+            Command::PlaylistPrevious,
+            capture_transition_first,
+        );
+    });
     connect!(on_reset_speed, Command::Speed(1.0));
     let speed_slider_player = player.command_sender();
     let weak = app.as_weak();
@@ -4736,6 +5075,8 @@ pub(crate) fn configure_player(
         }
     });
     let playlist_player = player.command_sender();
+    let playlist_pending_navigation = pending_navigation.clone();
+    let playlist_capture_transition_first = capture_transition_first;
     let weak = app.as_weak();
     app.on_playlist_action(move |action, token| {
         let Some(window) = weak.upgrade() else {
@@ -4744,15 +5085,24 @@ pub(crate) fn configure_player(
         if action == 12 {
             window.invoke_activity();
             let rows = window.get_playlist();
-            let index = (0..rows.row_count()).find(|index| {
-                rows.row_data(*index)
+            let exists = (0..rows.row_count()).any(|index| {
+                rows.row_data(index)
                     .is_some_and(|row| row.token.as_str() == token.as_str())
             });
-            let result = index
-                .ok_or_else(|| "The playlist item is no longer available".to_owned())
-                .and_then(|index| playlist_player.send(Command::SelectPlaylistEntry(index)));
-            if let Err(error) = result {
-                window.set_status(error.into());
+            if !exists {
+                window.set_status("The playlist item is no longer available".into());
+                return;
+            }
+            match token.parse::<i64>() {
+                Ok(id) => queue_playlist_navigation(
+                    &playlist_player,
+                    &playlist_pending_navigation,
+                    Command::SelectPlaylistId(id),
+                    playlist_capture_transition_first,
+                ),
+                Err(error) => {
+                    window.set_status(format!("Invalid playlist item: {error}").into());
+                }
             }
             return;
         }
@@ -5541,6 +5891,7 @@ pub(crate) fn configure_player(
             _appearance_timer: appearance_timer,
             _pause_resume_timer: pause_resume_timer,
             _thumbnail_preview_timer: thumbnail_preview_timer,
+            _transition_frame_timer: transition_frame_timer,
             _subtitle_priority_timer: subtitle_priority_timer.clone(),
             _online_subtitles_window: online_subtitles_window,
             _online_subtitles_timer: online_subtitles_timer,
@@ -5587,7 +5938,30 @@ pub(crate) fn configure_player(
             match state {
                 slint::RenderingState::RenderingSetup => {
                     render_generation.set(render_generation.get().wrapping_add(1));
-                    if let slint::GraphicsAPI::NativeOpenGL { get_proc_address } = graphics_api {
+                    if let Some(app) = render_weak.upgrade()
+                        && app.get_native_video()
+                    {
+                        // Windows native playback is already presented by mpv's
+                        // D3D11 child window. Creating libmpv's OpenGL render API
+                        // context for that same player produces a second video
+                        // feed above it and leaves doubled frames during handoff.
+                        app.set_engine_ready(true);
+                        if !started {
+                            started = true;
+                            let _ = render_player.send(Command::Volume(volume));
+                            let paths = std::mem::take(&mut *pending_media.borrow_mut());
+                            if !paths.is_empty() {
+                                media_open::startup_at(
+                                    &app,
+                                    paths,
+                                    render_resume_position.take(),
+                                    render_player.command_sender(),
+                                );
+                            }
+                        }
+                    } else if let slint::GraphicsAPI::NativeOpenGL { get_proc_address } =
+                        graphics_api
+                    {
                         let weak = render_weak.clone();
                         let pending = repaint_pending.clone();
                         // SAFETY: notifier guarantees that this GL context is current.
@@ -5707,6 +6081,7 @@ pub(crate) fn configure_player(
                     slint::Timer::single_shot(Duration::ZERO, move || {
                         if generation.get() == retired_generation
                             && let Some(app) = weak.upgrade()
+                            && !app.get_native_video()
                         {
                             app.set_video_frame(slint::Image::default());
                             app.set_engine_ready(false);
@@ -5736,6 +6111,7 @@ pub(crate) fn configure_player(
         _appearance_timer: appearance_timer,
         _pause_resume_timer: pause_resume_timer,
         _thumbnail_preview_timer: thumbnail_preview_timer,
+        _transition_frame_timer: transition_frame_timer,
         _subtitle_priority_timer: subtitle_priority_timer,
         _online_subtitles_window: online_subtitles_window,
         _online_subtitles_timer: online_subtitles_timer,

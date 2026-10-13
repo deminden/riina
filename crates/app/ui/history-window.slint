@@ -10,6 +10,7 @@ export struct PlaybackHistoryRow {
     progress-ratio: float,
     available: bool,
     local-file: bool,
+    selected: bool,
 }
 
 export component PlaybackHistoryWindow inherits Window {
@@ -25,22 +26,26 @@ export component PlaybackHistoryWindow inherits Window {
     in-out property <string> search-text: "";
     in-out property <int> group-mode: 0;
     in-out property <int> search-mode: 1;
-    in-out property <int> selected-index: -1;
     in-out property <string> selected-path: "";
+    in property <[string]> selected-paths: [];
     callback search-changed(string, int);
+    callback history-key(int);
+    callback select-entry(string, int, bool, bool);
+    callback context-action(int, string);
     callback open-entry(string);
-    callback open-entry-in-new-window(string);
-    callback reveal-entry(string);
-    callback remove-entry(string);
-    callback delete-file(string);
     callback clear-history();
+    callback toggle-group(string);
+    callback expand-all-groups();
+    callback collapse-all-groups();
     changed search-text => { root.search-changed(root.search-text, root.group-mode); }
 
+    keys := FocusScope {
+    width: root.width; height: root.height;
     Rectangle {
-        x: 0; y: 0; width: parent.width; height: 54px;
+        x: 0; y: 0; width: parent.width; height: 84px;
         background: #ececf0;
         HorizontalLayout {
-            x: 16px; y: 9px; width: parent.width - 32px; height: 36px; spacing: 6px;
+            x: 16px; y: 7px; width: parent.width - 32px; height: 32px; spacing: 6px;
             Button {
                 text: "Date";
                 checkable: true;
@@ -54,8 +59,8 @@ export component PlaybackHistoryWindow inherits Window {
                 clicked => { root.group-mode = 1; root.search-changed(root.search-text, root.group-mode); }
             }
             Rectangle { horizontal-stretch: 1; }
-            TextInput {
-                width: 190px; height: 28px;
+            search-input := TextInput {
+                width: max(110px, min(190px, parent.width * 0.26)); height: 28px;
                 text <=> root.search-text;
                 accepted => { root.search-changed(root.search-text, root.group-mode); }
             }
@@ -68,10 +73,15 @@ export component PlaybackHistoryWindow inherits Window {
             }
             Button { text: "Clear History"; clicked => { root.clear-history(); } }
         }
+        HorizontalLayout {
+            x: 16px; y: 45px; width: parent.width - 32px; height: 30px; spacing: 6px;
+            Button { text: "Expand All"; clicked => { root.expand-all-groups(); } }
+            Button { text: "Collapse All"; clicked => { root.collapse-all-groups(); } }
+        }
     }
 
     Rectangle {
-        x: 16px; y: 62px; width: parent.width - 32px; height: 28px;
+        x: 16px; y: 92px; width: parent.width - 32px; height: 28px;
         background: #e9e9ed;
         Text { x: 34px; y: 0; width: parent.width - 390px; height: parent.height;
             text: "Media"; font-size: 11px; font-weight: 600; color: #55555b; vertical-alignment: center; }
@@ -82,7 +92,7 @@ export component PlaybackHistoryWindow inherits Window {
     }
 
     ScrollView {
-        x: 16px; y: 90px; width: parent.width - 32px; height: parent.height - 148px;
+        x: 16px; y: 120px; width: parent.width - 32px; height: parent.height - 132px;
         content-height: max(1px, root.rows.length * 46px);
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
@@ -90,11 +100,15 @@ export component PlaybackHistoryWindow inherits Window {
             width: parent.width; height: max(1px, root.rows.length * 46px); background: #ffffff;
             for row[index] in root.rows : Rectangle {
                 x: 0; y: index * 46px; width: parent.width; height: 46px;
-                background: row.is-group ? #f0f0f2 : (root.selected-index == index ? #d8e8ff : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa));
+                background: row.is-group ? #f0f0f2 : (row.selected ? #d8e8ff : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa));
                 if row.is-group : Text {
                     x: 12px; y: 0; width: parent.width - 24px; height: parent.height;
                     text: row.label; color: #66666c; font-size: 11px; font-weight: 600;
                     vertical-alignment: center; overflow: elide;
+                }
+                if row.is-group : TouchArea {
+                    width: parent.width; height: parent.height;
+                    clicked => { root.toggle-group(row.label); }
                 }
                 if !row.is-group : Rectangle {
                     x: 10px; y: 11px; width: 22px; height: 22px;
@@ -131,14 +145,41 @@ export component PlaybackHistoryWindow inherits Window {
                 }
                 if !row.is-group : TouchArea {
                     width: parent.width; height: parent.height;
-                    clicked => {
-                        root.selected-index = index;
-                        root.selected-path = row.is-group ? "" : row.path;
+                    pointer-event(event) => {
+                        if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                            root.select-entry(row.path, index,
+                                event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
+                        }
                     }
                     double-clicked => {
-                        root.selected-index = index;
-                        root.selected-path = row.path;
                         if row.available { root.open-entry(row.path); }
+                    }
+                }
+                if !row.is-group : ContextMenuArea {
+                    x: 0; y: 0; width: parent.width; height: parent.height;
+                    Menu {
+                        MenuItem {
+                            title: "Play"; enabled: row.available;
+                            activated => { root.context-action(0, row.path); }
+                        }
+                        MenuItem {
+                            title: "Play in New Window"; enabled: row.available;
+                            activated => { root.context-action(1, row.path); }
+                        }
+                        MenuSeparator {}
+                        MenuItem {
+                            title: "Show in File Manager"; enabled: row.local-file && row.available;
+                            activated => { root.context-action(2, row.path); }
+                        }
+                        MenuSeparator {}
+                        MenuItem {
+                            title: "Remove from History";
+                            activated => { root.context-action(3, row.path); }
+                        }
+                        MenuItem {
+                            title: "Move to Trash"; enabled: row.local-file && row.available;
+                            activated => { root.context-action(4, row.path); }
+                        }
                     }
                 }
             }
@@ -150,38 +191,26 @@ export component PlaybackHistoryWindow inherits Window {
         }
     }
 
-    Rectangle {
-        x: 0; y: parent.height - 48px; width: parent.width; height: 48px;
-        background: #eeeeF1;
-        HorizontalLayout {
-            x: 16px; y: 8px; width: parent.width - 32px; height: 32px; spacing: 8px;
-            Rectangle { horizontal-stretch: 1; }
-            Button {
-                text: "Open in New Window";
-                enabled: root.selected-index >= 0 && root.selected-index < root.rows.length
-                    && !root.rows[root.selected-index].is-group && root.rows[root.selected-index].available;
-                clicked => { root.open-entry-in-new-window(root.rows[root.selected-index].path); }
-            }
-            Button {
-                text: "Show in File Manager";
-                enabled: root.selected-index >= 0 && root.selected-index < root.rows.length
-                    && !root.rows[root.selected-index].is-group && root.rows[root.selected-index].local-file
-                    && root.rows[root.selected-index].available;
-                clicked => { root.reveal-entry(root.rows[root.selected-index].path); }
-            }
-            Button {
-                text: "Remove from History";
-                enabled: root.selected-index >= 0 && root.selected-index < root.rows.length
-                    && !root.rows[root.selected-index].is-group;
-                clicked => { root.remove-entry(root.rows[root.selected-index].path); }
-            }
-            Button {
-                text: "Move to Trash";
-                enabled: root.selected-index >= 0 && root.selected-index < root.rows.length
-                    && !root.rows[root.selected-index].is-group && root.rows[root.selected-index].local-file
-                    && root.rows[root.selected-index].available;
-                clicked => { root.delete-file(root.rows[root.selected-index].path); }
-            }
+    key-pressed(event) => {
+        if (event.modifiers.control || event.modifiers.meta) && (event.text == "a" || event.text == "A") {
+            root.history-key(0); return accept;
         }
+        if (event.modifiers.control || event.modifiers.meta) && (event.text == "f" || event.text == "F") {
+            search-input.focus(); return accept;
+        }
+        if event.modifiers.alt || event.modifiers.shift { return reject; }
+        if (event.modifiers.control || event.modifiers.meta) && event.text == Key.Return {
+            root.history-key(2); return accept;
+        }
+        if (event.modifiers.control || event.modifiers.meta) && (event.text == "l" || event.text == "L") {
+            root.history-key(3); return accept;
+        }
+        if event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return { root.history-key(1); return accept; }
+        if event.text == Key.Backspace || event.text == Key.Delete {
+            root.history-key(4); return accept;
+        }
+        return reject;
+    }
     }
 }

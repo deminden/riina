@@ -87,6 +87,14 @@ fn connect_with_target(
                     // "when opened manually" or "never".
                     return;
                 }
+                #[cfg(target_os = "windows")]
+                if !windows_media_resize_applies(initial, manually_opened) {
+                    // Playlist handoffs can replace the native D3D11 surface
+                    // even when the new frame is larger. Keep the Windows
+                    // player frame stable for the entire automatic sequence;
+                    // the video renderer fits each source into that viewport.
+                    return;
+                }
                 let weak_target = resize_target.clone();
                 with_target_window(&weak_target, &app, |window| {
                     let Some((maximum, true)) = window_limits(window) else {
@@ -240,11 +248,15 @@ fn connect_with_target(
                         let generation = app.get_media_request_generation();
                         let manually_opened = generation != aspect_request_generation.get();
                         aspect_request_generation.set(generation);
-                        aspect_resize_allowed.set(media_resize_applies(
-                            !aspect_initial_state.get(),
-                            timing,
-                            manually_opened,
-                        ));
+                        let initial = !aspect_initial_state.get();
+                        let mut resize_allowed =
+                            media_resize_applies(initial, timing, manually_opened);
+                        #[cfg(target_os = "windows")]
+                        {
+                            resize_allowed &=
+                                windows_media_resize_applies(initial, manually_opened);
+                        }
+                        aspect_resize_allowed.set(resize_allowed);
                         *aspect_source.borrow_mut() = Some(source);
                         return;
                     }
@@ -380,6 +392,11 @@ fn connect_with_target(
 
 fn media_resize_applies(initial: bool, timing: ResizeTiming, manually_opened: bool) -> bool {
     initial || timing.applies_to(manually_opened)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_media_resize_applies(initial: bool, manually_opened: bool) -> bool {
+    initial || manually_opened
 }
 
 fn defer_window_update(
@@ -732,5 +749,15 @@ mod tests {
         ));
         assert!(!media_resize_applies(false, ResizeTiming::Never, true));
         assert!(media_resize_applies(false, ResizeTiming::Always, false));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_automatic_playlist_changes_keep_the_current_native_video_surface() {
+        use super::windows_media_resize_applies;
+
+        assert!(windows_media_resize_applies(true, false));
+        assert!(windows_media_resize_applies(false, true));
+        assert!(!windows_media_resize_applies(false, false));
     }
 }

@@ -37,6 +37,27 @@ auto-hide 2.5 seconds; soft volume 100; arrows control speed; keyboard seeks ±5
 keyboard volume ±5; compact UI false; keep-open at EOF true; sidebars 360.
 Do not treat this initial inventory as the final parity denominator.
 
+Online-subtitle provider audit (deeper pass): IINA v1.5.0 routes the default
+OpenSubtitles, Shooter, Assrt and registered plugin providers through one
+provider boundary in `iina/OnlineSubtitle.swift`. The Assrt source uses title
+search, a 32-character account token, detail lookup and one or more provider
+download files; the result description shows the native title, subtype/language
+and upload date. Its API documents 15-result pages, 20 requests per minute,
+optional archive file lists, and a service attribution requirement. Riina now
+implements OpenSubtitles and a bounded Assrt path with secure per-provider
+credentials, direct subtitle-file selection and an attribution link. Shooter,
+plugin registration, Assrt archive extraction and live provider workflows
+remain open. Assrt contract: https://2.assrt.net/api/doc. This is source/API
+inspection, not an observed macOS provider-session capture.
+
+IINA v1.5.0's online provider menu also offers Shooter.cn. It identifies local
+media by four MD5 values from 4 KiB samples and submits those values with the
+media path to the HTTPS `subapi.php` endpoint; responses can contain multiple
+download links and a delay value. Riina implements a bounded HTTPS client with
+explicit path/hash disclosure, accepted subtitle formats, secure-domain checks,
+and integration into the existing result selection/cache path. Endpoint
+availability and real service responses have not yet been verified.
+
 General > History also exposes the default-on `recordRecentFiles` and
 `trackAllFilesInRecentOpenMenu` preferences. IINA sends manually selected files
 to `NSDocumentController` when recent recording is enabled, and notes other
@@ -53,10 +74,10 @@ playback and platform runtime behavior remains part of grouped GUI verification.
 IINA's Playback History menu opens an 800×600 resizable window with a three-column
 outline grouped by date or file location, search by filename or full path, a
 clear-history toolbar action, row progress, and context actions for play, new
-window, reveal, history removal and moving local media to Trash. Riina now has a
-reusable history window with the main grouping, search and row actions. Its native
-outline selection/context menu, toolbar expand/collapse control, multi-selection,
-localized date presentation and matched visual details remain open.
+window, reveal, history removal and moving local media to Trash. Riina implements
+the grouping, search, row actions, expand/collapse controls, multi-selection and
+multi-row context actions. Live selection/context-menu interaction, native row
+artwork, localized date presentation and matched visual details remain open.
 
 Daily-workflow audit: PlayerCore.playFileInPlaylist deliberately uses
 playlist-play-index rather than playlist-pos to reload the current entry;
@@ -64,11 +85,18 @@ manual transitions pause before changing entries. playChapter uses the observed
 chapter timestamp, absolute seek and resume. Clear preserves the playing entry.
 LoadExternalSubFile reloads an already loaded external subtitle rather than adding
 duplicates. MPVCommandWrappers preserves mpv playlist-move target semantics.
-LoopMode.next is off → file → playlist → off. Audio delay sliders span -5…5 s,
-but source text input allows wider values; current riina slider lacks that input.
-SidebarTrackSelector has 26-point rows, a None entry and selection marker; subtitle
-pane additionally has secondary selection/visibility/delay, still pending here.
+LoopMode.next is off → file → playlist → off. Audio delay sliders span -5…5 s
+with a 0.05 s step, while the numeric input accepts more precise values outside
+the slider range and an empty entry resets to zero. Riina already implements the
+separate numeric input, localized formatting/parsing, and reset behavior in
+`crates/app/ui/player.slint`, `crates/app/src/localized_number.rs`, and
+`crates/core/src/timing_controls.rs`; focused parser and locale tests cover these
+semantics. Live endpoint listening and matched macOS field geometry remain open.
+SidebarTrackSelector has 26-point rows, a None entry and selection marker; Riina
+now supports independent primary and secondary subtitle selection, visibility,
+and delay. Matched panel rendering and cross-platform runtime checks remain open.
 Playlist rows are 30 points spacious/26 compact; chapters are 40 points with
 double-click playback. MPVTrack.readableString assembles title, codec, channel count,
-sample rate and Default. Language badges use localized names upstream; riina currently
-shows the raw language code. These are source-derived facts, not live macOS captures.
+sample rate and Default. Riina localizes track language badges using the system
+display locale; live locale-change behavior and matched macOS captures remain open.
+These are source-derived facts, not live macOS captures.

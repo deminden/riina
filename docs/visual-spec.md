@@ -121,6 +121,18 @@ Windows titlebar, estimated typography, original vector playback icons and tint 
 is not pixel parity or video-sampled blur. Replace toolkit sliders and glyphs with
 measured custom geometry after live baseline captures. Light/compact/docked layouts,
 window controls, full sidebar layout, animations and focus measurements remain incomplete.
+For constrained Windows viewports, Riina uses a platform adaptation: below
+402 points wide or 210 points high, the controller shrinks to 50 points, its
+transport row to 14 points and timeline to 16 points; optional side controls stay
+collapsed until they fit. This keeps playback controls within a short native video
+client, but its hover state and relationship to the pinned macOS controller still
+need a same-state capture.
+The controller now clamps its floating position to the available video viewport.
+Below 48 points of height it omits the timeline row; below 330 points of width it
+keeps Play/Pause and suppresses the two neighbor actions. A 980-by-330-pixel
+Windows resize kept the video visible and the native child aligned, but the test
+capture did not expose the controller, so visible button placement at that size
+remains unverified.
 Initial catalog sidebars now use source width/side defaults and row heights; source
 tab groups, simultaneous leading/trailing panels, drag resize and language localization
 remain pending. Materials, spacing and typography still require reference captures.
@@ -141,6 +153,13 @@ Player controls use original MIT vector icons recorded in assets/provenance.json
 The shared component renders a consistent 17-point box and enabled/disabled tint,
 independent of system symbol-font coverage. Remaining repeat/secondary controls
 use provisional glyphs. Vector shapes are not yet measured against macOS goldens.
+
+The video controller has a responsive compact state: below 330 logical points it
+keeps Play/Pause and the timeline while hiding previous/next; configured volume
+and toolbar groups remain hidden until their full hit targets fit. The floating
+panel is bounded by the video surface during resize. This is a Windows-specific
+usability adaptation awaiting a live check against the reported small-window
+case; macOS geometry remains pinned to the IINA baseline.
 
 Music Mode hides the standard title controls and uses a full-width 300-point
 compact controller. Its previous/next actions and playlist/artwork toggles are

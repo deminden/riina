@@ -4,6 +4,7 @@ use std::path::Path;
 
 const SERVICE: &str = "com.riina.player";
 const ACCOUNT: &str = "opensubtitles-api-key";
+const ASSRT_ACCOUNT: &str = "assrt-token";
 
 pub(crate) fn load() -> Result<Option<String>, String> {
     let entry = keyring::Entry::new(SERVICE, ACCOUNT)
@@ -23,6 +24,31 @@ pub(crate) fn store(secret: &str) -> Result<(), String> {
     let entry = keyring::Entry::new(SERVICE, ACCOUNT)
         .map_err(|error| format!("Could not access the system credential store: {error}"))?;
     store_entry(&entry, secret)
+}
+
+pub(crate) fn load_assrt() -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(SERVICE, ASSRT_ACCOUNT)
+        .map_err(|error| format!("Could not access the system credential store: {error}"))?;
+    match entry.get_password() {
+        Ok(secret) => Ok(Some(secret)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(format!("Could not read the Assrt token: {error}")),
+    }
+}
+
+pub(crate) fn store_assrt(secret: &str) -> Result<(), String> {
+    let entry = keyring::Entry::new(SERVICE, ASSRT_ACCOUNT)
+        .map_err(|error| format!("Could not access the system credential store: {error}"))?;
+    if secret.trim().is_empty() {
+        match entry.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(error) => Err(format!("Could not remove the Assrt token: {error}")),
+        }
+    } else {
+        entry
+            .set_password(secret.trim())
+            .map_err(|error| format!("Could not store the Assrt token securely: {error}"))
+    }
 }
 
 fn store_entry(entry: &keyring::Entry, secret: &str) -> Result<(), String> {
@@ -50,7 +76,9 @@ pub(crate) fn restore_preferences(
         load,
         store,
         crate::platform::save_preferences,
-    )
+    )?;
+    preferences.online_subtitles.assrt_token = load_assrt()?.unwrap_or_default();
+    Ok(())
 }
 
 fn restore_preferences_with(
