@@ -45,8 +45,8 @@ download files; the result description shows the native title, subtype/language
 and upload date. Its API documents 15-result pages, 20 requests per minute,
 optional archive file lists, and a service attribution requirement. Riina now
 implements OpenSubtitles and a bounded Assrt path with secure per-provider
-credentials, direct subtitle-file selection and an attribution link. Shooter,
-plugin registration, Assrt archive extraction and live provider workflows
+credentials, direct subtitle-file selection, bounded ZIP archive extraction and
+an attribution link. Shooter, plugin registration and live provider workflows
 remain open. Assrt contract: https://2.assrt.net/api/doc. This is source/API
 inspection, not an observed macOS provider-session capture.
 

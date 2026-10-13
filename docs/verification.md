@@ -3770,3 +3770,16 @@ The user reports that the whole-screen white flash was no longer visible in the
 latest playback check (“seems ok”). Automated pixel capture was unusable, so this
 is a user-observed improvement rather than a captured visual pass. The synthetic
 test launcher shut down normally, and no Riina process remained afterward.
+
+## Assrt compressed subtitle archives · 2026-10-13
+
+Assrt results can now return supported subtitle files from ZIP archives without
+writing archive contents to disk. Downloads remain capped at 16 MiB; archives
+are limited to 128 entries, and traversal paths, symbolic links, empty files,
+unsupported formats and expanded entries above 16 MiB are ignored. Unit fixtures
+cover valid extraction, traversal and symlink rejection, malformed archives and
+archives without subtitles. `cargo test --workspace --locked` passed all 273 app
+tests; 50 native integration tests were ignored because the pinned libmpv DLL is
+not provisioned locally. Strict workspace Clippy with `-D warnings`, formatting
+and `git diff --check` pass. Live Assrt downloads and the result-window GUI remain
+unverified.

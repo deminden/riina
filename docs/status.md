@@ -334,9 +334,12 @@ external track and order discovered candidates consistently.
 Riina supports manual OpenSubtitles and Assrt search and download. Each provider's
 credential is stored in the platform credential store and excluded from settings
 JSON. Assrt search is title-based, caps results and response sizes, accepts only
-secure service download URLs, and selects directly loadable subtitle formats;
+secure service download URLs, and supports direct subtitle files plus bounded
+in-memory ZIP archives;
 downloaded files are added to the active player. The results identify Assrt's
 upload date and include the service attribution link required by its API terms.
+ZIP results are unpacked in memory with bounds on entry count, file paths,
+symlinks, and expanded subtitle size.
 Automatic search uses the selected provider for eligible local media above the
 configured duration threshold when no subtitle tracks are found after discovery
 settles; it now submits the search when opening the result window and runs at most
@@ -344,8 +347,8 @@ once per eligible media generation. OpenSubtitles still uses preferred languages
 and the available media hash. Shooter.cn uses four sampled-content hashes with
 an explicit Settings and search-dialog disclosure that it receives the local
 path and hash. Plugin-registered providers remain open.
-Assrt archives that do not expose a supported direct subtitle file, live service
-requests and playback, Settings/search window visuals, provider error handling,
+Live service requests and playback, Settings/search window visuals, provider
+error handling,
 and macOS behavior remain unverified. API behavior was derived from
 https://2.assrt.net/api/doc and the pinned provider catalog in
 `reference/iina-upstream/iina/OnlineSubtitle.swift` and

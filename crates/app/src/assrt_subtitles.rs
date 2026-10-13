@@ -1,7 +1,12 @@
-//! Bounded Assrt subtitle search and direct subtitle-file retrieval.
+//! Bounded Assrt subtitle search and safe subtitle-file retrieval.
 
 use serde::Deserialize;
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::BTreeMap,
+    io::{Cursor, Read},
+    path::Path,
+    time::Duration,
+};
 use ureq::Agent;
 use url::Url;
 
@@ -9,6 +14,7 @@ const API_ROOT: &str = "https://api.assrt.net/v1/";
 const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_SUBTITLE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_RESULTS: usize = 15;
+const MAX_ARCHIVE_ENTRIES: usize = 128;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResultRow {
@@ -135,8 +141,10 @@ pub(crate) fn download(token: &str, id: u64) -> Result<(String, Vec<u8>), String
         .subs
         .into_iter()
         .flat_map(|entry| entry.filelist)
-        .find(|file| supported_subtitle_file(&file.file_name))
-        .ok_or_else(|| "Assrt did not provide a directly loadable subtitle file.".to_owned())?;
+        .find(|file| supported_subtitle_file(&file.file_name) || archive_file(&file.file_name))
+        .ok_or_else(|| {
+            "Assrt did not provide a supported subtitle file or ZIP archive.".to_owned()
+        })?;
     let url = checked_download_url(&file.url)?;
     let mut response = agent()
         .get(url.as_str())
@@ -151,10 +159,59 @@ pub(crate) fn download(token: &str, id: u64) -> Result<(String, Vec<u8>), String
         .limit(MAX_SUBTITLE_BYTES)
         .read_to_vec()
         .map_err(|error| format!("Could not read the Assrt subtitle: {error}"))?;
+    unpack_subtitle(&file.file_name, bytes)
+}
+
+fn unpack_subtitle(file_name: &str, bytes: Vec<u8>) -> Result<(String, Vec<u8>), String> {
     if bytes.is_empty() {
         return Err("Assrt returned an empty subtitle file.".into());
     }
-    Ok((safe_file_name(&file.file_name), bytes))
+    let is_zip = archive_file(file_name) || bytes.starts_with(b"PK\x03\x04");
+    if !is_zip {
+        return Ok((safe_file_name(file_name), bytes));
+    }
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes))
+        .map_err(|_| "Assrt returned an invalid subtitle ZIP archive.".to_owned())?;
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err("Assrt's subtitle archive contains too many files.".into());
+    }
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|_| "Assrt's subtitle archive could not be read.".to_owned())?;
+        if entry.is_dir()
+            || entry.is_symlink()
+            || entry.enclosed_name().is_none()
+            || !supported_subtitle_file(entry.name())
+            || entry.size() == 0
+            || entry.size() > MAX_SUBTITLE_BYTES
+        {
+            continue;
+        }
+        let name = entry
+            .enclosed_name()
+            .and_then(|path| path.file_name().map(|name| name.to_owned()))
+            .and_then(|name| name.into_string().ok())
+            .map(|name| safe_file_name(&name))
+            .unwrap_or_else(|| "subtitle.srt".into());
+        let mut content = Vec::with_capacity(entry.size() as usize);
+        entry
+            .take(MAX_SUBTITLE_BYTES + 1)
+            .read_to_end(&mut content)
+            .map_err(|_| "Assrt's subtitle archive entry could not be read.".to_owned())?;
+        if content.is_empty() || content.len() as u64 > MAX_SUBTITLE_BYTES {
+            continue;
+        }
+        return Ok((name, content));
+    }
+    Err("Assrt's archive contains no supported subtitle file.".into())
+}
+
+fn archive_file(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
 }
 
 fn checked_token(token: &str) -> Result<&str, String> {
@@ -281,8 +338,9 @@ where
 mod tests {
     use super::{
         DetailEnvelope, SearchEnvelope, check_status, checked_download_url, safe_file_name,
-        supported_subtitle_file,
+        supported_subtitle_file, unpack_subtitle,
     };
+    use std::io::Write;
 
     #[test]
     fn parses_assrt_search_fields_and_partial_language_data() {
@@ -343,5 +401,83 @@ mod tests {
         assert!(supported_subtitle_file("Movie.ass"));
         assert!(!supported_subtitle_file("Movie.rar"));
         assert_eq!(safe_file_name("../../movie.srt"), "movie.srt");
+    }
+
+    #[test]
+    fn extracts_the_first_supported_subtitle_from_a_zip_in_memory() {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        writer
+            .start_file("../escape.srt", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(b"must be rejected").unwrap();
+        writer
+            .start_file(
+                "link.srt",
+                zip::write::SimpleFileOptions::default().unix_permissions(0o120777),
+            )
+            .unwrap();
+        writer.write_all(b"must also be rejected").unwrap();
+        writer
+            .start_file(
+                "extras/readme.txt",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        writer.write_all(b"not a subtitle").unwrap();
+        writer
+            .start_file(
+                "folder/Movie.en.srt",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        writer
+            .write_all(b"1\n00:00:01,000 --> 00:00:02,000\nHello\n")
+            .unwrap();
+        let mut archive = writer.finish().unwrap().into_inner();
+        mark_zip_entry_as_symlink(&mut archive, b"link.srt");
+
+        let (name, subtitle) = unpack_subtitle("download.zip", archive).unwrap();
+        assert_eq!(name, "Movie.en.srt");
+        assert!(String::from_utf8(subtitle).unwrap().contains("Hello"));
+    }
+
+    #[test]
+    fn rejects_invalid_or_subtitle_free_archives() {
+        assert!(unpack_subtitle("download.zip", b"not a zip".to_vec()).is_err());
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        writer
+            .start_file("readme.txt", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        writer.write_all(b"no subtitle here").unwrap();
+        let archive = writer.finish().unwrap().into_inner();
+        assert!(
+            unpack_subtitle("download.zip", archive)
+                .unwrap_err()
+                .contains("no supported")
+        );
+    }
+
+    fn mark_zip_entry_as_symlink(archive: &mut [u8], name: &[u8]) {
+        let mut offset = 0;
+        while let Some(relative) = archive[offset..]
+            .windows(4)
+            .position(|signature| signature == b"PK\x01\x02")
+        {
+            let header = offset + relative;
+            let name_length =
+                u16::from_le_bytes([archive[header + 28], archive[header + 29]]) as usize;
+            let extra_length =
+                u16::from_le_bytes([archive[header + 30], archive[header + 31]]) as usize;
+            let comment_length =
+                u16::from_le_bytes([archive[header + 32], archive[header + 33]]) as usize;
+            let name_start = header + 46;
+            if &archive[name_start..name_start + name_length] == name {
+                archive[header + 38..header + 42]
+                    .copy_from_slice(&((0o120777_u32) << 16).to_le_bytes());
+                return;
+            }
+            offset = name_start + name_length + extra_length + comment_length;
+        }
+        panic!("ZIP central directory did not contain the test entry");
     }
 }
