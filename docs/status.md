@@ -26,9 +26,10 @@ needed to confirm behavior at the user's reported small video sizes.
 
 The last extreme-size pass removes the compact row's horizontal insets and gaps
 below 64 points, and clamps its row height and vertical spacing to the available
-height below 24 points. This keeps the primary hit target inside the rendered
-bar during transient tiny resizes; the workspace build passes, and visible GUI
-confirmation remains open.
+height below 24 points. A fresh 180×72 Windows autoplay audit stayed on-screen
+with aligned host and video surfaces through a clip change and shut down normally.
+The captured viewport showed video but not the controller, so tiny-state control
+pixels and interaction remain unverified.
 
 Windows aspect constraints now apply to the native user resize gesture rather
 than every `WM_SIZE` notification. Unchanged menu row models remain stable across

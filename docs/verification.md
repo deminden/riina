@@ -3771,6 +3771,21 @@ latest playback check (“seems ok”). Automated pixel capture was unusable, so
 is a user-observed improvement rather than a captured visual pass. The synthetic
 test launcher shut down normally, and no Riina process remained afterward.
 
+## Windows tiny-controller playback audit · 2026-10-13
+
+The fresh 0.3.5 debug build played the moving-square fixture at a forced 180×72
+outer size while advancing to the next playlist item. Across 307 samples there
+were zero hidden-window, off-screen, and host/video-child mismatch samples. The
+test process exited normally and a process check found no remaining Riina
+instance. The small-window screenshot captured the video surface without the
+controller, so it verifies placement and playback geometry, not button visibility
+or interaction.
+
+A second 420×270 autoplay replay recorded 288 samples, one `IsWindowVisible`
+false sample, no off-screen samples or host/video-child mismatches, and normal
+shutdown. Its capture also showed only the video surface, so controller visuals
+and pointer behavior remain unverified.
+
 ## Assrt compressed subtitle archives · 2026-10-13
 
 Assrt results can now return supported subtitle files from ZIP archives without
