@@ -44,6 +44,7 @@ export component NativeVideoHost inherits Window {
     in property <bool> record-recent-files: true;
     in property <[MenuCatalogRow]> recent-open-menu-rows: [];
     in property <bool> playback-loaded: false;
+    in property <int> open-subtitles-provider-index: 0;
     in property <bool> video-panel-open: false;
     in property <bool> audio-panel-open: false;
     in property <bool> subtitles-panel-open: false;
@@ -107,6 +108,7 @@ export component NativeVideoHost inherits Window {
     callback toggle-secondary-subtitle-visibility();
     callback load-external-subtitle();
     callback find-online-subtitles();
+    callback find-online-subtitles-with-provider(int);
     callback set-subtitle-encoding(string);
     callback adjust-subtitle-scale(float);
     callback reset-subtitle-scale();
@@ -513,9 +515,13 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Load External Subtitle…"; enabled: root.playback-loaded;
                 activated => { root.load-external-subtitle(); } }
             MenuSeparator {}
-            MenuItem { title: "Find Online Subtitles…"; enabled: root.playback-loaded;
+            MenuItem { title: root.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.playback-loaded;
                 activated => { root.find-online-subtitles(); } }
-            MenuItem { title: "Find Online Subtitles from"; enabled: false; }
+            Menu { title: "Find Online Subtitles from"; enabled: root.playback-loaded;
+                MenuItem { title: "opensubtitles.com"; activated => { root.find-online-subtitles-with-provider(0); } }
+                MenuItem { title: "assrt.net"; activated => { root.find-online-subtitles-with-provider(1); } }
+                MenuItem { title: "shooter.cn"; activated => { root.find-online-subtitles-with-provider(2); } }
+            }
             MenuItem { title: "Save Downloaded Subtitle…";
                 enabled: root.downloaded-subtitle-save-available;
                 activated => { root.save-downloaded-subtitle(); }

@@ -277,15 +277,19 @@ pub(crate) fn connect_player(
     let result_rows = Arc::new(Mutex::new(Vec::<ResultRow>::new()));
     let result_selection = Rc::new(RefCell::new(ResultSelection::default()));
     let auto_search_request = Rc::new(Cell::new(false));
+    let requested_provider = Rc::new(Cell::new(None::<Provider>));
     let app_weak = app.as_weak();
+    let app_weak_for_provider = app.as_weak();
     let window_slot_callback = window_slot.clone();
     let context_callback = context.clone();
     let rows_callback = result_rows.clone();
     let sender_callback = sender.clone();
     let playback_callback = playback.clone();
     let auto_search_request_for_open = auto_search_request.clone();
+    let requested_provider_for_open = requested_provider.clone();
     app.on_find_online_subtitles(move || {
         let should_search_after_open = auto_search_request_for_open.replace(false);
+        let requested_provider = requested_provider_for_open.replace(None);
         let Some(app) = app_weak.upgrade() else {
             return;
         };
@@ -310,10 +314,12 @@ pub(crate) fn connect_player(
             .title
             .filter(|title| !title.trim().is_empty())
             .unwrap_or_else(|| fallback.to_owned());
+        let provider = requested_provider
+            .unwrap_or_else(|| provider_from_index(app.get_open_subtitles_provider_index()));
         *context_callback.borrow_mut() = SearchContext {
             media_path: path,
             languages: app.get_subtitle_preferred_languages().to_string(),
-            provider: provider_from_index(app.get_open_subtitles_provider_index()),
+            provider,
         };
         let window = if let Some(window) = window_slot_callback.borrow().as_ref() {
             window.clone_strong()
@@ -559,7 +565,6 @@ pub(crate) fn connect_player(
         result_rows.lock().map(|mut rows| rows.clear()).ok();
         result_selection.borrow_mut().clear();
         window.set_selected_count(0);
-        let provider = provider_from_index(app.get_open_subtitles_provider_index());
         window.set_provider_index(provider_index(provider));
         window.set_status_text(
             if provider == Provider::Shooter {
@@ -573,6 +578,14 @@ pub(crate) fn connect_player(
         } else if should_search_after_open {
             window.invoke_search();
         }
+    });
+    let requested_provider_for_menu = requested_provider.clone();
+    app.on_find_online_subtitles_with_provider(move |index| {
+        let Some(app) = app_weak_for_provider.upgrade() else {
+            return;
+        };
+        requested_provider_for_menu.set(Some(provider_from_index(index)));
+        app.invoke_find_online_subtitles();
     });
 
     let auto_seen = Rc::new(Cell::new(None::<u64>));

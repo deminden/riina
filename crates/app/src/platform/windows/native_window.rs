@@ -558,6 +558,9 @@ pub fn run(
                         host.set_downloaded_subtitle_save_available(
                             app.get_downloaded_subtitle_save_available(),
                         );
+                        host.set_open_subtitles_provider_index(
+                            app.get_open_subtitles_provider_index(),
+                        );
                         host.set_current_file_manager_name(app.get_current_file_manager_name());
                         host.set_playback_paused(app.get_paused());
                         host.set_menu_alternates_visible(app.get_menu_alternates_visible());
@@ -891,6 +894,12 @@ pub fn run(
             host.on_find_online_subtitles(move || {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_find_online_subtitles();
+                }
+            });
+            let menu_app = app.as_weak();
+            host.on_find_online_subtitles_with_provider(move |index| {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_find_online_subtitles_with_provider(index);
                 }
             });
             let menu_app = app.as_weak();

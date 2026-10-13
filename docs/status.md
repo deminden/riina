@@ -71,8 +71,12 @@ providers with separate secure credentials. Assrt fixture tests cover token
 validation, response parsing including its empty-object no-results form, status
 errors, direct file types and secure download host checks. Shooter.cn is now the
 third selectable provider; its bounded protocol fixtures pass in the full
-workspace suite. Plugin provider registration, live service playback and native
-dialog visuals remain open.
+workspace suite. The Subtitles menu now labels the configured default source and
+offers an explicit OpenSubtitles, Assrt or Shooter submenu on shared and
+Windows-native menu surfaces. Choosing a source opens the existing result picker
+for that service without changing the saved default. Plugin provider
+registration, IINA's direct-result download behavior, live service playback and
+native dialog visuals remain open.
 
 Riina is an established Rust media-player application, beyond its initial feasibility
 and playback milestones. The current development version is 0.3.5. It opens and plays local media through libmpv on Windows,

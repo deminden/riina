@@ -3798,3 +3798,15 @@ tests; 50 native integration tests were ignored because the pinned libmpv DLL is
 not provisioned locally. Strict workspace Clippy with `-D warnings`, formatting
 and `git diff --check` pass. Live Assrt downloads and the result-window GUI remain
 unverified.
+
+## Built-in online subtitle source menus · 2026-10-13
+
+The Subtitles menu now shows the configured default provider in its primary
+online-search action and lists OpenSubtitles, Assrt and Shooter in a source
+submenu on both shared and Windows-native menu surfaces. Picking a source routes
+that provider into the existing results picker without changing the saved
+default. `cargo check --workspace --locked`, strict workspace Clippy, formatting,
+and `cargo test --workspace --locked` pass (273 app tests; 50 native tests
+ignored because the pinned libmpv DLL is not provisioned locally). Menu pixels,
+live selection and the upstream direct-download behavior remain unverified;
+plugin-registered providers are not included yet.

@@ -678,6 +678,7 @@ export component PlayerWindow inherits Window {
     callback open-application-menu();
     callback open-preferences();
     callback find-online-subtitles();
+    callback find-online-subtitles-with-provider(int);
     changed reflection-known => { root.video-menu-changed(); }
     changed video-mirrored => { root.video-menu-changed(); }
     changed video-flipped => { root.video-menu-changed(); }
@@ -1055,9 +1056,13 @@ export component PlayerWindow inherits Window {
             MenuItem { title: "Load External Subtitle…"; enabled: root.loaded && !root.crop-editing;
                 activated => { root.browse-files(2); } }
             MenuSeparator {}
-            MenuItem { title: "Find Online Subtitles…"; enabled: root.loaded && !root.crop-editing;
+            MenuItem { title: root.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.loaded && !root.crop-editing;
                 activated => { root.find-online-subtitles(); } }
-            MenuItem { title: "Find Online Subtitles from"; enabled: false; }
+            Menu { title: "Find Online Subtitles from"; enabled: root.loaded && !root.crop-editing;
+                MenuItem { title: "opensubtitles.com"; activated => { root.find-online-subtitles-with-provider(0); } }
+                MenuItem { title: "assrt.net"; activated => { root.find-online-subtitles-with-provider(1); } }
+                MenuItem { title: "shooter.cn"; activated => { root.find-online-subtitles-with-provider(2); } }
+            }
             MenuItem { title: "Save Downloaded Subtitle…";
                 enabled: root.downloaded-subtitle-save-available && !root.crop-editing;
                 activated => { root.save-downloaded-subtitle(); }
@@ -1385,6 +1390,7 @@ export component PlayerWindow inherits Window {
     in-out property <string> subtitle-preferred-languages: "";
     in-out property <string> open-subtitles-api-key: "";
     in-out property <int> open-subtitles-provider-index: 0;
+    changed open-subtitles-provider-index => { root.video-menu-changed(); }
     in-out property <string> assrt-token: "";
     in-out property <bool> open-subtitles-auto-search: false;
     in-out property <string> open-subtitles-threshold-text: "20";
