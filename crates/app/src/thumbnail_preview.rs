@@ -108,7 +108,7 @@ impl Controller {
         state: &Playback,
         settings: &Settings,
         library: &Path,
-    ) {
+    ) -> bool {
         app.set_thumbnail_preview_width(settings.width as f32);
         let next = active_identity(state, settings);
         if next != self.identity {
@@ -155,6 +155,7 @@ impl Controller {
                 }
             }
         }
+        let mut thumbnails_ready = false;
         for event in events {
             match event {
                 PreviewEvent::Frame {
@@ -168,6 +169,7 @@ impl Controller {
                 }
                 PreviewEvent::Finished(result) => {
                     self.task.take();
+                    thumbnails_ready = result.is_ok() && complete_frame_set(&self.frames);
                     if let Err(error) = result
                         && error != "Thumbnail extraction was cancelled"
                     {
@@ -177,6 +179,7 @@ impl Controller {
             }
         }
         self.refresh_preview(app);
+        thumbnails_ready
     }
 
     pub(crate) fn hover(&mut self, app: &PlayerWindow, seconds: f64) {
@@ -277,6 +280,10 @@ fn nearest_sample_index(frames: &[Option<(f64, Vec<u8>)>], seconds: f64) -> Opti
             .as_ref()
             .is_some_and(|(timestamp, _)| *timestamp <= seconds)
     })
+}
+
+fn complete_frame_set(frames: &[Option<(f64, Vec<u8>)>]) -> bool {
+    !frames.is_empty() && frames.iter().all(Option::is_some)
 }
 
 fn run_preview_task(
@@ -442,8 +449,8 @@ fn decode_image(data: &[u8]) -> Result<Image, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        EVENT_CAPACITY, PreviewEvent, THUMBNAIL_COUNT, media_path, nearest_sample_index,
-        run_preview_task, volume_is_allowed,
+        EVENT_CAPACITY, PreviewEvent, THUMBNAIL_COUNT, complete_frame_set, media_path,
+        nearest_sample_index, run_preview_task, volume_is_allowed,
     };
     use riina_core::thumbnail_preferences::Settings;
     use std::{
@@ -513,6 +520,16 @@ mod tests {
         assert_eq!(nearest_sample_index(&frames, 2.8), Some(2));
         assert_eq!(nearest_sample_index(&frames, 3.1), Some(3));
         assert_eq!(nearest_sample_index(&frames, -0.1), None);
+    }
+
+    #[test]
+    fn thumbnail_completion_requires_every_sample() {
+        assert!(complete_frame_set(&[
+            Some((0.0, vec![])),
+            Some((1.0, vec![]))
+        ]));
+        assert!(!complete_frame_set(&[Some((0.0, vec![])), None]));
+        assert!(!complete_frame_set(&[]));
     }
 
     #[test]

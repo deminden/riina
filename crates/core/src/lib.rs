@@ -23,6 +23,9 @@ pub mod pip_preferences;
 pub mod playback_history;
 pub mod playlist;
 pub mod plugin;
+pub mod plugin_menu;
+pub mod plugin_order;
+pub mod plugin_sidebar;
 pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
@@ -960,6 +963,18 @@ impl Command {
             }
             Self::SetVolumeBoost(boost) => volume_adjustment(0.0, *boost),
             Self::SetPauseWhenOpen(_) => Vec::new(),
+            Self::Stop => {
+                let active = matches!(
+                    state.phase,
+                    Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
+                );
+                let mut commands = Vec::with_capacity(2);
+                if active && state.save_position_on_quit == Some(true) {
+                    commands.push(vec!["write-watch-later-config".into()]);
+                }
+                commands.push(vec!["stop".into()]);
+                commands
+            }
             Self::SetResumeLastPosition(enabled) => {
                 let value = if *enabled { "yes" } else { "no" };
                 vec![
@@ -1629,6 +1644,8 @@ pub struct Playback {
     pub ffmpeg_version: Option<String>,
     /// Observed libmpv filename-hashing policy for its watch-later files.
     pub ignore_path_in_watch_later_config: Option<bool>,
+    /// Observed save-on-stop/quit policy; Stop writes watch-later only when enabled.
+    pub save_position_on_quit: Option<bool>,
     pub position: Option<f64>,
     pub duration: Option<f64>,
     pub paused: bool,
@@ -1692,6 +1709,11 @@ pub struct Playback {
     pub incoming_transition_frame_captured_at: Option<Instant>,
     /// Properties requested by active player-scoped plugin event listeners.
     pub observed_mpv_properties: BTreeMap<String, serde_json::Value>,
+    /// Recent native mpv event names, retained so coalesced UI snapshots do not
+    /// drop event callbacks before the plugin worker can receive them.
+    pub mpv_events: Vec<MpvEventRecord>,
+    /// Monotonic sequence for native mpv event records in `mpv_events`.
+    pub mpv_event_sequence: u64,
     pub video_equalizer: [Option<i64>; 5],
     /// Decoded gain curve for Riina's labeled native audio equalizer filter.
     pub audio_equalizer: Option<[f64; 10]>,
@@ -1731,6 +1753,44 @@ pub struct Playback {
     pub loop_playlist: Option<String>,
     pub ab_loop_a: Option<f64>,
     pub ab_loop_b: Option<f64>,
+}
+
+pub const MAX_RETAINED_MPV_EVENTS: usize = 256;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MpvEventRecord {
+    pub sequence: u64,
+    pub name: String,
+}
+
+impl Playback {
+    pub fn record_mpv_event(&mut self, name: String) {
+        self.mpv_event_sequence = self.mpv_event_sequence.wrapping_add(1).max(1);
+        self.mpv_events.push(MpvEventRecord {
+            sequence: self.mpv_event_sequence,
+            name,
+        });
+        if self.mpv_events.len() > MAX_RETAINED_MPV_EVENTS {
+            self.mpv_events.remove(0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod mpv_event_record_tests {
+    use super::*;
+
+    #[test]
+    fn native_mpv_event_history_is_bounded_and_sequenced() {
+        let mut playback = Playback::default();
+        for index in 0..=MAX_RETAINED_MPV_EVENTS {
+            playback.record_mpv_event(format!("event-{index}"));
+        }
+        assert_eq!(playback.mpv_events.len(), MAX_RETAINED_MPV_EVENTS);
+        assert_eq!(playback.mpv_events.first().unwrap().sequence, 2);
+        assert_eq!(playback.mpv_events.last().unwrap().sequence, 257);
+        assert_eq!(playback.mpv_events.last().unwrap().name, "event-256");
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1996,12 +2056,17 @@ pub struct Preferences {
     pub trailing_sidebar_width: u32,
     pub settings_at_leading: bool,
     pub playlist_at_leading: bool,
+    pub plugins_at_leading: bool,
     pub edge_to_edge_video: bool,
     pub docked_controls: bool,
     pub unlock_window_aspect_ratio: bool,
     pub window_resize: window_resize::Settings,
     pub compact_ui: bool,
     pub osc_position: u8,
+    /// Horizontal center of the floating control bar as a fraction of video width.
+    pub control_bar_position_horizontal: f64,
+    /// Gap below the floating control bar as a fraction of video height.
+    pub control_bar_position_vertical: f64,
     pub control_bar: osc_preferences::Settings,
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
@@ -2181,12 +2246,15 @@ impl Default for Preferences {
             trailing_sidebar_width: 360,
             settings_at_leading: false,
             playlist_at_leading: true,
+            plugins_at_leading: true,
             edge_to_edge_video: true,
             docked_controls: false,
             unlock_window_aspect_ratio: false,
             window_resize: window_resize::Settings::default(),
             compact_ui: false,
             osc_position: 0,
+            control_bar_position_horizontal: 0.5,
+            control_bar_position_vertical: 0.1,
             control_bar: osc_preferences::Settings::default(),
             always_float_on_top: false,
             always_show_on_top_icon: false,
@@ -2329,6 +2397,13 @@ impl Preferences {
         prefs.trailing_sidebar_width = prefs.trailing_sidebar_width.clamp(300, 500);
         if prefs.osc_position > 2 {
             return Err("Unsupported on-screen controller position".into());
+        }
+        if !prefs.control_bar_position_horizontal.is_finite()
+            || !(0.0..=1.0).contains(&prefs.control_bar_position_horizontal)
+            || !prefs.control_bar_position_vertical.is_finite()
+            || !(0.0..=1.0).contains(&prefs.control_bar_position_vertical)
+        {
+            return Err("Floating control bar position must be between 0 and 1".into());
         }
         prefs.screenshot.validate()?;
         if prefs.recent_media.len() > 10
@@ -2644,8 +2719,11 @@ mod tests {
         let legacy = Preferences::parse("{}").unwrap();
         assert!(!legacy.compact_ui);
         assert_eq!(legacy.osc_position, 0);
+        assert_eq!(legacy.control_bar_position_horizontal, 0.5);
+        assert_eq!(legacy.control_bar_position_vertical, 0.1);
         assert!(!legacy.settings_at_leading);
         assert!(legacy.playlist_at_leading);
+        assert!(legacy.plugins_at_leading);
         assert!(legacy.edge_to_edge_video);
         assert!(!legacy.docked_controls);
         assert!(!legacy.unlock_window_aspect_ratio);
@@ -2657,6 +2735,16 @@ mod tests {
         let selected = Preferences::parse(r#"{"compact_ui":true,"osc_position":2}"#).unwrap();
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert!(restored.compact_ui);
+        let positioned = Preferences::parse(
+            r#"{"control_bar_position_horizontal":0.72,"control_bar_position_vertical":0.25}"#,
+        )
+        .unwrap();
+        let restored_positioned =
+            Preferences::parse(&serde_json::to_string(&positioned).unwrap()).unwrap();
+        assert_eq!(restored_positioned.control_bar_position_horizontal, 0.72);
+        assert_eq!(restored_positioned.control_bar_position_vertical, 0.25);
+        assert!(Preferences::parse(r#"{"control_bar_position_horizontal":1.1}"#).is_err());
+        assert!(Preferences::parse(r#"{"control_bar_position_vertical":-0.1}"#).is_err());
         let light = Preferences::parse(r#"{"dark":false}"#).unwrap();
         assert!(!light.dark);
         assert_eq!(light.effective_theme_material(), ThemeMaterial::Light);
@@ -2684,16 +2772,18 @@ mod tests {
     fn sidebar_positions_round_trip_without_changing_existing_layout_defaults() {
         let selected =
             Preferences::parse(
-                r#"{"settings_at_leading":true,"playlist_at_leading":false,"edge_to_edge_video":false,"docked_controls":true}"#,
+                r#"{"settings_at_leading":true,"playlist_at_leading":false,"plugins_at_leading":false,"edge_to_edge_video":false,"docked_controls":true}"#,
             )
             .unwrap();
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert!(restored.settings_at_leading);
         assert!(!restored.playlist_at_leading);
+        assert!(!restored.plugins_at_leading);
         assert!(!restored.edge_to_edge_video);
         assert!(restored.docked_controls);
         assert!(!Preferences::parse("{}").unwrap().settings_at_leading);
         assert!(Preferences::parse("{}").unwrap().playlist_at_leading);
+        assert!(Preferences::parse("{}").unwrap().plugins_at_leading);
     }
 
     #[test]
@@ -2736,10 +2826,13 @@ mod tests {
             r#"{"controls":{"single_click_action":"pause","vertical_scroll_action":"playback_speed","seek_sensitivity":4}}"#,
         )
         .unwrap();
+        assert_eq!(selected.controls.relative_seek_amount, 4);
         let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
         assert_eq!(restored.controls, selected.controls);
 
         assert!(Preferences::parse(r#"{"controls":{"seek_sensitivity":5}}"#).is_err());
+        let renamed = Preferences::parse(r#"{"controls":{"relative_seek_amount":2}}"#).unwrap();
+        assert_eq!(renamed.controls.relative_seek_amount, 2);
     }
 
     #[test]
@@ -2813,6 +2906,39 @@ mod tests {
                 vec!["set", "resume-playback", "yes"],
             ]
         );
+    }
+
+    #[test]
+    fn stop_saves_active_resume_position_before_stopping_when_enabled() {
+        let mut state = Playback {
+            phase: Phase::Playing,
+            save_position_on_quit: Some(true),
+            ..Playback::default()
+        };
+        assert_eq!(
+            Command::Stop.plan(&state).unwrap().commands,
+            [vec!["write-watch-later-config"], vec!["stop"]]
+        );
+
+        state.phase = Phase::Paused;
+        assert_eq!(
+            Command::Stop.plan(&state).unwrap().commands,
+            [vec!["write-watch-later-config"], vec!["stop"]]
+        );
+    }
+
+    #[test]
+    fn stop_does_not_write_resume_position_when_disabled_or_inactive() {
+        let mut state = Playback {
+            phase: Phase::Playing,
+            save_position_on_quit: Some(false),
+            ..Playback::default()
+        };
+        assert_eq!(Command::Stop.plan(&state).unwrap().commands, [vec!["stop"]]);
+
+        state.save_position_on_quit = Some(true);
+        state.phase = Phase::Loading;
+        assert_eq!(Command::Stop.plan(&state).unwrap().commands, [vec!["stop"]]);
     }
 
     #[test]

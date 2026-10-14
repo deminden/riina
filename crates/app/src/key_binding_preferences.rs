@@ -11,7 +11,7 @@ const BUILTIN_PROFILES: [&str; 5] = [
     "Movist v2 Default",
 ];
 
-const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 50] = [
+const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 51] = [
     ("Shift+Meta+v", "video-panel", ActionKind::Riina),
     ("Shift+Meta+a", "audio-panel", ActionKind::Riina),
     ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
@@ -66,9 +66,10 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 50] = [
     ("Shift+)", "add audio-delay -0.5", ActionKind::Mpv),
     ("Alt+Shift+(", "add audio-delay 0.1", ActionKind::Mpv),
     ("Alt+Shift+)", "add audio-delay -0.1", ActionKind::Mpv),
+    ("Meta+l", "ab-loop", ActionKind::Mpv),
 ];
 
-const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 26] = [
+const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 27] = [
     ("RIGHT", "seek 5", ActionKind::Mpv),
     ("LEFT", "seek -5", ActionKind::Mpv),
     ("UP", "seek 60", ActionKind::Mpv),
@@ -95,6 +96,7 @@ const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 26] = [
     ("]", "multiply speed 1.1", ActionKind::Mpv),
     ("{", "multiply speed 0.5", ActionKind::Mpv),
     ("}", "multiply speed 2", ActionKind::Mpv),
+    ("l", "ab-loop", ActionKind::Mpv),
 ];
 
 const VLC_DEFAULT_ROWS: [(&str, &str, ActionKind); 19] = [
@@ -549,7 +551,7 @@ fn normalize_profile_key(value: &str) -> String {
             "ctrl" | "control" => control = true,
             "alt" | "option" => alt = true,
             "shift" => shift = true,
-            "meta" | "super" | "command" => {
+            "meta" | "super" | "command" | "cmd" => {
                 meta = true;
                 has_meta = true;
             }
@@ -590,7 +592,7 @@ fn normalize_profile_key(value: &str) -> String {
 // This order is shared with the `menu-shortcut(index)` calls in the two player
 // menu surfaces. Keep it stable so profile changes update the same actions in
 // both the shared-renderer and native-video windows.
-const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 46] = [
+const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 47] = [
     (ActionKind::Mpv, "cycle pause"),
     (ActionKind::Mpv, "stop"),
     (ActionKind::Mpv, "seek 5"),
@@ -637,6 +639,7 @@ const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 46] = [
     (ActionKind::Mpv, "cycle sub"),
     (ActionKind::Mpv, "cycle sub-visibility"),
     (ActionKind::Riina, "plugin-panel"),
+    (ActionKind::Mpv, "ab-loop"),
 ];
 
 fn menu_shortcut_rows(mappings: &[Mapping]) -> Vec<MenuShortcutRow> {
@@ -654,7 +657,7 @@ fn menu_shortcut_rows(mappings: &[Mapping]) -> Vec<MenuShortcutRow> {
         .collect()
 }
 
-fn shortcut_keys(key: &str) -> Option<slint::Keys> {
+pub(crate) fn shortcut_keys(key: &str) -> Option<slint::Keys> {
     let normalized = normalize_profile_key(key);
     let parts = normalized
         .split('+')
@@ -1160,7 +1163,7 @@ mod tests {
     fn menu_shortcuts_follow_the_active_profile_for_both_player_surfaces() {
         let mappings = builtin_mappings("IINA Default");
         let rows = menu_shortcut_rows(&mappings);
-        assert_eq!(rows.len(), 46);
+        assert_eq!(rows.len(), 47);
         assert_eq!(
             rows[0].shortcut.to_string(),
             slint::Keys::from_parts(["Space"]).unwrap().to_string()
@@ -1177,6 +1180,17 @@ mod tests {
             slint::Keys::from_parts(["Control", "Alt", "v"]).unwrap()
         };
         assert_eq!(rows[19].shortcut, cycle_video_key);
+        let ab_loop_key = if cfg!(target_os = "macos") {
+            slint::Keys::from_parts(["Meta", "l"]).unwrap()
+        } else {
+            slint::Keys::from_parts(["Control", "l"]).unwrap()
+        };
+        assert_eq!(rows[46].shortcut, ab_loop_key);
+        let mpv_rows = menu_shortcut_rows(&builtin_mappings("mpv Default"));
+        assert_eq!(
+            mpv_rows[46].shortcut,
+            slint::Keys::from_parts(["l"]).unwrap()
+        );
         let custom = Mapping {
             key: "Ctrl+k".into(),
             action: "cycle pause".into(),
@@ -1189,6 +1203,14 @@ mod tests {
             slint::Keys::from_parts(["Control", "k"]).unwrap()
         );
         assert!(custom_rows[18].shortcut.to_string().is_empty());
+        assert!(custom_rows[46].shortcut.to_string().is_empty());
+        let plugin_shortcut = shortcut_keys("Cmd+t").unwrap();
+        let plugin_expected = if cfg!(target_os = "macos") {
+            slint::Keys::from_parts(["Meta", "t"]).unwrap()
+        } else {
+            slint::Keys::from_parts(["Control", "t"]).unwrap()
+        };
+        assert_eq!(plugin_shortcut, plugin_expected);
     }
 
     #[test]

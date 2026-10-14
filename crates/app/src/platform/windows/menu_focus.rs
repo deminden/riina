@@ -21,9 +21,10 @@ use windows::{
             Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
-                GetForegroundWindow, IsWindow, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
-                WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_KEYDOWN, WM_KEYUP,
-                WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
+                GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuStringW, GetSubMenu,
+                IsWindow, MF_BYPOSITION, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
+                WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_INITMENU, WM_INITMENUPOPUP,
+                WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
@@ -36,6 +37,7 @@ struct MenuContext {
     generation: Cell<usize>,
     enter_message: u32,
     restore_message: u32,
+    plugin_menu: isize,
 }
 
 pub(super) struct MenuFocus {
@@ -65,6 +67,7 @@ impl MenuFocus {
             generation: Cell::new(0),
             enter_message,
             restore_message,
+            plugin_menu: plugin_menu_handle(hwnd),
         });
         let pointer = (&*context as *const MenuContext) as usize;
         // SAFETY: the owning UI thread installs/removes this stable box.
@@ -76,6 +79,24 @@ impl MenuFocus {
             context: Some(context),
         })
     }
+}
+
+fn plugin_menu_handle(hwnd: HWND) -> isize {
+    // Resolve the native submenu once; its title is the stable boundary for
+    // dispatching IINA's plugin-menu lifecycle event on Windows.
+    let menu = unsafe { GetMenu(hwnd) };
+    if menu.0.is_null() {
+        return 0;
+    }
+    let count = unsafe { GetMenuItemCount(Some(menu)) };
+    for index in 0..count {
+        let mut title = [0u16; 64];
+        let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
+        if length > 0 && String::from_utf16_lossy(&title[..length as usize]) == "Plugin" {
+            return unsafe { GetSubMenu(menu, index) }.0 as isize;
+        }
+    }
+    0
 }
 impl Drop for MenuFocus {
     fn drop(&mut self) {
@@ -134,6 +155,20 @@ unsafe extern "system" fn menu_proc(
         && app.invoke_dispatch_key_binding(key.into(), false, false, false, false)
     {
         return LRESULT(1);
+    }
+    if message == WM_INITMENU
+        && let Some(app) = context.app.upgrade()
+    {
+        // Playback observations are coalesced for ordinary updates. Refresh the
+        // menu's state labels synchronously before Windows paints its first row.
+        app.invoke_native_menu_will_open();
+    }
+    if message == WM_INITMENUPOPUP
+        && context.plugin_menu != 0
+        && wparam.0 as isize == context.plugin_menu
+        && let Some(app) = context.app.upgrade()
+    {
+        app.invoke_plugin_menu_will_open();
     }
     if wparam.0 == VK_F10.0 as usize && !context.active.get() {
         if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {

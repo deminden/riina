@@ -246,7 +246,7 @@ impl Player {
                     worker_api.check((worker_api.initialize)(handle))?;
                     for (name, format) in [("time-pos", 5), ("duration", 5), ("pause", 3),
                         ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
-                        ("ignore-path-in-watch-later-config", 3),
+                        ("ignore-path-in-watch-later-config", 3), ("save-position-on-quit", 3),
                         ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("mpv-version", 1), ("ffmpeg-version", 1), ("eof-reached", 3),
                         ("current-ao", 1), ("audio-device", 1), ("hwdec-current", 1), ("hwdec", 1),
                         ("vf", 6), ("af", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
@@ -485,6 +485,12 @@ impl Player {
                     loop {
                         let event = &*(worker_api.wait)(handle, 0.0);
                         if event.id == 0 { break; }
+                        let event_name = (worker_api.event_name)(event.id);
+                        if !event_name.is_null() {
+                            state.record_mpv_event(
+                                CStr::from_ptr(event_name).to_string_lossy().into_owned(),
+                            );
+                        }
                         match event.id {
                             5 => {
                                 seek_feedback.replied(event.userdata, event.error < 0);
@@ -807,6 +813,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"mpv-version" => state.mpv_version = None,
             b"ffmpeg-version" => state.ffmpeg_version = None,
             b"ignore-path-in-watch-later-config" => state.ignore_path_in_watch_later_config = None,
+            b"save-position-on-quit" => state.save_position_on_quit = None,
             b"track-list" => state.tracks.clear(),
             b"chapter-list" => state.chapters.clear(),
             b"playlist" => state.playlist.clear(),
@@ -993,6 +1000,7 @@ unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"ignore-path-in-watch-later-config" => {
                 state.ignore_path_in_watch_later_config = Some(flag)
             }
+            b"save-position-on-quit" => state.save_position_on_quit = Some(flag),
             b"paused-for-cache" => state.buffering = flag,
             b"seeking" => state.seeking = flag,
             b"seekable" => state.seekable = flag,
@@ -1113,6 +1121,30 @@ mod version_property_tests {
         // SAFETY: the null event is valid and does not dereference data.
         unsafe { apply_property(&mut playback, &unavailable) };
         assert_eq!(playback.ignore_path_in_watch_later_config, None);
+    }
+
+    #[test]
+    fn save_position_policy_is_observed_and_can_become_unavailable() {
+        let name = CString::new("save-position-on-quit").unwrap();
+        let mut flag = 1_i32;
+        let property = Property {
+            name: name.as_ptr(),
+            format: 3,
+            data: (&mut flag as *mut i32).cast(),
+        };
+        let mut playback = Playback::default();
+        // SAFETY: the flag remains valid for the complete property copy.
+        unsafe { apply_property(&mut playback, &property) };
+        assert_eq!(playback.save_position_on_quit, Some(true));
+
+        let unavailable = Property {
+            name: name.as_ptr(),
+            format: 3,
+            data: std::ptr::null_mut(),
+        };
+        // SAFETY: the null event is valid and does not dereference data.
+        unsafe { apply_property(&mut playback, &unavailable) };
+        assert_eq!(playback.save_position_on_quit, None);
     }
 }
 

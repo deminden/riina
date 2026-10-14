@@ -36,6 +36,23 @@ component VideoSegment inherits Rectangle {
     }
 }
 
+component ScrollArrow inherits Rectangle {
+    in property <bool> overflow: false;
+    in property <bool> toward-end: true;
+    callback clicked(bool);
+    width: 8px;
+    height: 24px;
+    background: transparent;
+    visible: root.overflow;
+    accessible-role: button;
+    accessible-label: root.toward-end ? "Scroll to more choices" : "Scroll to earlier choices";
+    accessible-action-default => { root.clicked(root.toward-end); }
+    Text { text: root.toward-end ? "›" : "‹"; font-size: 16px; font-weight: 600;
+        color: touch.has-hover ? #ffffff : #cccccc;
+        horizontal-alignment: center; vertical-alignment: center; }
+    touch := TouchArea { clicked => { root.clicked(root.toward-end); } }
+}
+
 export component VideoControls inherits Rectangle {
     in property <[string]> aspect-presets;
     in property <int> aspect-index: 0;
@@ -56,47 +73,58 @@ export component VideoControls inherits Rectangle {
             Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
         }
         Rectangle { height: 24px;
-            ScrollView { width: parent.width; height: 24px;
-                horizontal-scrollbar-policy: always-off;
-                vertical-scrollbar-policy: always-off;
-                HorizontalLayout { spacing: 8px;
-                    HorizontalLayout { spacing: 1px;
-                        for label[index] in root.aspect-presets : VideoSegment {
-                            width: index == 0 ? 54px : 43px;
-                            label: label; hint: "Aspect ratio " + label;
-                            enabled: root.aspect-enabled;
-                            selected: root.aspect-index == index;
-                            chosen => { root.aspect-changed(label); }
-                            navigate(direction) => {
-                                root.aspect-changed(root.aspect-presets[clamp(
-                                    (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
-                                    0, root.aspect-presets.length - 1)]);
+            HorizontalLayout { spacing: 4px;
+                aspect-scroll := ScrollView { horizontal-stretch: 1; min-width: 0px; height: 24px;
+                    horizontal-scrollbar-policy: always-off;
+                    vertical-scrollbar-policy: always-off;
+                    content-height: self.visible-height;
+                    HorizontalLayout { spacing: 8px;
+                        HorizontalLayout { spacing: 1px;
+                            for label[index] in root.aspect-presets : VideoSegment {
+                                width: index == 0 ? 54px : 43px;
+                                label: label; hint: "Aspect ratio " + label;
+                                enabled: root.aspect-enabled;
+                                selected: root.aspect-index == index;
+                                chosen => { root.aspect-changed(label); }
+                                navigate(direction) => {
+                                    root.aspect-changed(root.aspect-presets[clamp(
+                                        (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
+                                        0, root.aspect-presets.length - 1)]);
+                                }
+                            }
+                        }
+                        Rectangle { width: 40px; height: 24px; background: #ffffff10;
+                            border-radius: 4px; border-width: 1px;
+                            border-color: custom.has-focus ? #90b7ef : #ffffff20;
+                            forward-focus: custom;
+                            FocusScope {
+                                width: parent.width; height: parent.height;
+                                forward-focus: custom;
+                                // Unmodified editing keys must not seek, pause or
+                                // change volume when the text editor rejects them.
+                                key-pressed(event) => {
+                                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+                                    if event.text == Key.Escape { return reject; }
+                                    if event.text == Key.Tab { return reject; }
+                                    return accept;
+                                }
+                                custom := TextInput { x: 3px; width: parent.width - 6px; height: parent.height;
+                                    single-line: true; enabled: root.aspect-enabled;
+                                    color: root.aspect-enabled ? #eeeeee : #777777; font-size: 12px;
+                                    vertical-alignment: center; accessible-label: "Custom aspect ratio";
+                                    accessible-action-set-value(value) => { self.text = value; }
+                                    accepted => { if self.text != "" { root.aspect-changed(self.text); } }
+                                }
                             }
                         }
                     }
-                    Rectangle { width: 40px; height: 24px; background: #ffffff10;
-                        border-radius: 4px; border-width: 1px;
-                        border-color: custom.has-focus ? #90b7ef : #ffffff20;
-                        forward-focus: custom;
-                        FocusScope {
-                            width: parent.width; height: parent.height;
-                            forward-focus: custom;
-                            // Unmodified editing keys must not seek, pause or
-                            // change volume when the text editor rejects them.
-                            key-pressed(event) => {
-                                if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
-                                if event.text == Key.Escape { return reject; }
-                                if event.text == Key.Tab { return reject; }
-                                return accept;
-                            }
-                            custom := TextInput { x: 3px; width: parent.width - 6px; height: parent.height;
-                                single-line: true; enabled: root.aspect-enabled;
-                                color: root.aspect-enabled ? #eeeeee : #777777; font-size: 12px;
-                                vertical-alignment: center; accessible-label: "Custom aspect ratio";
-                                accessible-action-set-value(value) => { self.text = value; }
-                                accepted => { if self.text != "" { root.aspect-changed(self.text); } }
-                            }
-                        }
+                }
+                ScrollArrow {
+                    toward-end: aspect-scroll.content-x >= -1px;
+                    overflow: aspect-scroll.content-width > aspect-scroll.visible-width + 1px;
+                    clicked(toward_end) => {
+                        aspect-scroll.content-x = toward_end ?
+                            min(0px, aspect-scroll.visible-width - aspect-scroll.content-width) : 0px;
                     }
                 }
             }
@@ -106,18 +134,29 @@ export component VideoControls inherits Rectangle {
             Text { text: "Crop"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
         }
         Rectangle { height: 24px;
-            ScrollView { width: parent.width; height: 24px;
-                horizontal-scrollbar-policy: always-off;
-                vertical-scrollbar-policy: always-off;
-                HorizontalLayout { spacing: 1px;
-                    for label[index] in root.crop-presets : VideoSegment {
-                        width: index == 6 ? 76px : 43px;
-                        label: label; hint: "Crop " + label;
-                        enabled: root.crop-enabled;
-                        selected: root.crop-index == index;
-                        chosen => { root.crop-changed(index); }
-                        navigate(direction) => { root.crop-changed(clamp(
-                            (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
+            HorizontalLayout { spacing: 4px;
+                crop-scroll := ScrollView { horizontal-stretch: 1; min-width: 0px; height: 24px;
+                    horizontal-scrollbar-policy: always-off;
+                    vertical-scrollbar-policy: always-off;
+                    content-height: self.visible-height;
+                    HorizontalLayout { spacing: 1px;
+                        for label[index] in root.crop-presets : VideoSegment {
+                            width: index == 6 ? 76px : 43px;
+                            label: label; hint: "Crop " + label;
+                            enabled: root.crop-enabled;
+                            selected: root.crop-index == index;
+                            chosen => { root.crop-changed(index); }
+                            navigate(direction) => { root.crop-changed(clamp(
+                                (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
+                        }
+                    }
+                }
+                ScrollArrow {
+                    toward-end: crop-scroll.content-x >= -1px;
+                    overflow: crop-scroll.content-width > crop-scroll.visible-width + 1px;
+                    clicked(toward_end) => {
+                        crop-scroll.content-x = toward_end ?
+                            min(0px, crop-scroll.visible-width - crop-scroll.content-width) : 0px;
                     }
                 }
             }

@@ -70,6 +70,7 @@ mod transition_frame;
 mod ui_dialogs;
 mod ui_models;
 mod utilities_preferences;
+mod video_blur;
 mod video_filter_window;
 mod video_osd;
 mod window_aspect;

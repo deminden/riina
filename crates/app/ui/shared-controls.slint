@@ -26,8 +26,12 @@ export component PlayerSlider inherits Rectangle {
     in property <bool> preview-above: true;
     in property <bool> scroll-override-enabled: false;
     in property <bool> scroll-disabled: false;
+    in property <bool> commit-on-release: false;
     out property <bool> is-dragging: false;
+    out property <bool> previewing: drag-value-active;
     callback changed(float);
+    callback draft-changed(float);
+    callback committed(float);
     callback loop-a-moved(float);
     callback loop-b-moved(float);
     callback preview-requested(float);
@@ -39,7 +43,7 @@ export component PlayerSlider inherits Rectangle {
     accessible-role: slider;
     accessible-label: hint;
     accessible-enabled: enabled;
-    accessible-value: value;
+    accessible-value: display-value;
     accessible-value-minimum: minimum;
     accessible-value-maximum: maximum;
     accessible-value-step: step;
@@ -48,9 +52,28 @@ export component PlayerSlider inherits Rectangle {
     }
     accessible-action-increment => { if enabled { changed(min(maximum, value + step)); } }
     accessible-action-decrement => { if enabled { changed(max(minimum, value - step)); } }
-    private property <float> fraction: clamp((value - minimum) / max(0.001, maximum - minimum), 0, 1);
+    private property <float> drag-value: 0;
+    private property <bool> drag-value-active: false;
+    private property <bool> awaiting-native-commit: false;
+    private property <float> display-value: drag-value-active ? drag-value : value;
+    changed value => {
+        if awaiting-native-commit {
+            awaiting-native-commit = false;
+            drag-value-active = false;
+        }
+    }
+    Timer {
+        interval: 750ms;
+        running: root.awaiting-native-commit;
+        triggered => {
+            root.awaiting-native-commit = false;
+            root.drag-value-active = false;
+        }
+    }
+    private property <float> fraction: clamp((display-value - minimum) / max(0.001, maximum - minimum), 0, 1);
     private property <float> loop-a-fraction: clamp((loop-a-value - minimum) / max(0.001, maximum - minimum), 0, 1);
     private property <float> loop-b-fraction: clamp((loop-b-value - minimum) / max(0.001, maximum - minimum), 0, 1);
+    private property <color> loop-knob-color: root.dark-theme ? #a6a6a6 : #696969;
     private property <float> pointer-value: root.minimum + clamp((touch.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
     private property <length> preview-height: root.preview-width * 1px / max(0.001, root.preview-aspect-ratio);
     private property <length> play-knob-x: clamp(3px + (root.width - 6px) * fraction - knob-width / 2,
@@ -81,12 +104,12 @@ export component PlayerSlider inherits Rectangle {
     if loop-a-visible : Rectangle {
         x: loop-a-x; y: (parent.height - round(knob-height / 1px * 0.75) * 1px) / 2;
         width: knob-width; height: round(knob-height / 1px * 0.75) * 1px;
-        border-radius: knob-radius; background: #a4a4ac;
+        border-radius: knob-radius; background: root.loop-knob-color;
     }
     if loop-b-visible : Rectangle {
         x: loop-b-x; y: (parent.height - round(knob-height / 1px * 0.75) * 1px) / 2;
         width: knob-width; height: round(knob-height / 1px * 0.75) * 1px;
-        border-radius: knob-radius; background: #a4a4ac;
+        border-radius: knob-radius; background: root.loop-knob-color;
     }
     Rectangle {
         x: play-knob-x;
@@ -106,9 +129,21 @@ export component PlayerSlider inherits Rectangle {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 root.is-dragging = true;
                 focus.focus();
-                root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+                let pointer-value = root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
+                if root.commit-on-release {
+                    root.drag-value = clamp(round(pointer-value / max(0.0001, root.step)) * root.step,
+                        root.minimum, root.maximum);
+                    root.drag-value-active = true;
+                    root.draft-changed(root.drag-value);
+                } else {
+                    root.changed(pointer-value);
+                }
             } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
                 root.is-dragging = false;
+                if root.commit-on-release && root.drag-value-active {
+                    root.awaiting-native-commit = true;
+                    root.committed(root.drag-value);
+                }
             }
         }
         scroll-event(event) => {
@@ -121,7 +156,15 @@ export component PlayerSlider inherits Rectangle {
         }
         moved => {
             if self.pressed {
-                root.changed(root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+                let pointer-value = root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
+                if root.commit-on-release {
+                    root.drag-value = clamp(round(pointer-value / max(0.0001, root.step)) * root.step,
+                        root.minimum, root.maximum);
+                    root.drag-value-active = true;
+                    root.draft-changed(root.drag-value);
+                } else {
+                    root.changed(pointer-value);
+                }
             }
             if root.preview-enabled { root.preview-requested(pointer-value); }
         }

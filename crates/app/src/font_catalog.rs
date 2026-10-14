@@ -5,6 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FontFace {
     pub weight: u16,
+    /// OpenType OS/2 width class, from 1 (ultra-condensed) to 9 (ultra-expanded).
+    pub stretch: u8,
     pub style: String,
     pub postscript_name: String,
     pub label: String,
@@ -41,6 +43,7 @@ pub fn installed_families() -> Vec<FontFamily> {
             aliases,
             FontFace {
                 weight: face.weight.0,
+                stretch: face.stretch.to_number() as u8,
                 style: match face.style {
                     fontdb::Style::Normal => "Normal",
                     fontdb::Style::Italic => "Italic",
@@ -117,10 +120,24 @@ fn group_faces(
     }
     families
         .into_iter()
-        .map(|(name, (aliases, faces))| FontFamily {
-            name,
-            aliases: aliases.into_iter().collect(),
-            faces: faces.into_iter().collect(),
+        .map(|(name, (aliases, faces))| {
+            let mut faces: Vec<_> = faces.into_iter().collect();
+            // Family selection should prefer a conventional width and upright
+            // regular face, rather than a thin or condensed face by sort order.
+            faces.sort_by_key(|face| {
+                (
+                    face.style != "Normal",
+                    face.weight.abs_diff(400),
+                    face.weight,
+                    face.stretch.abs_diff(5),
+                    face.postscript_name.clone(),
+                )
+            });
+            FontFamily {
+                name,
+                aliases: aliases.into_iter().collect(),
+                faces,
+            }
         })
         .collect()
 }
@@ -162,12 +179,14 @@ mod tests {
     fn families_merge_aliases_and_faces_without_duplicate_source_entries() {
         let normal = FontFace {
             weight: 400,
+            stretch: 5,
             style: "Normal".into(),
             postscript_name: "Example-Regular".into(),
             label: "Regular".into(),
         };
         let bold = FontFace {
             weight: 700,
+            stretch: 5,
             style: "Normal".into(),
             postscript_name: "Example-Bold".into(),
             label: "Bold".into(),
@@ -186,5 +205,75 @@ mod tests {
         assert!(families[0].matches("EXAMP"));
         assert!(families[0].matches("示例"));
         assert!(!families[0].matches("absent"));
+    }
+
+    #[test]
+    fn family_faces_put_regular_before_thin_and_italic_variants() {
+        let face = |weight, style: &str, name: &str| FontFace {
+            weight,
+            stretch: 5,
+            style: style.into(),
+            postscript_name: name.into(),
+            label: name.into(),
+        };
+        let families = group_faces([
+            (
+                "Example".into(),
+                vec![],
+                face(100, "Normal", "Example-Thin"),
+            ),
+            (
+                "Example".into(),
+                vec![],
+                face(400, "Italic", "Example-Italic"),
+            ),
+            (
+                "Example".into(),
+                vec![],
+                face(700, "Normal", "Example-Bold"),
+            ),
+            (
+                "Example".into(),
+                vec![],
+                face(400, "Normal", "Example-Regular"),
+            ),
+        ]);
+
+        assert_eq!(
+            families[0]
+                .faces
+                .iter()
+                .map(|face| face.postscript_name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "Example-Regular",
+                "Example-Thin",
+                "Example-Bold",
+                "Example-Italic"
+            ]
+        );
+    }
+
+    #[test]
+    fn family_faces_prefer_normal_width_before_condensed_variants() {
+        let condensed = FontFace {
+            weight: 400,
+            stretch: 3,
+            style: "Normal".into(),
+            postscript_name: "Example-Condensed".into(),
+            label: "Condensed".into(),
+        };
+        let regular = FontFace {
+            weight: 400,
+            stretch: 5,
+            style: "Normal".into(),
+            postscript_name: "Example-Regular".into(),
+            label: "Regular".into(),
+        };
+        let families = group_faces([
+            ("Example".into(), vec![], condensed.clone()),
+            ("Example".into(), vec![], regular.clone()),
+        ]);
+        assert_eq!(families[0].faces, [regular, condensed]);
     }
 }

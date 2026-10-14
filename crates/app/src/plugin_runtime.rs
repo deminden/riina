@@ -4,6 +4,8 @@ use crate::plugin_files::{PluginFileHandle, PluginFiles, PluginPlayerFileContext
 use riina_core::plugin::{
     Manifest, OverlayEffect, OverlayIntent, OverlayState, WindowAction, network_url_allowed,
 };
+use riina_core::plugin_menu::PluginMenuItem;
+use riina_core::plugin_sidebar::{PluginSidebarEffect, PluginSidebarIntent, PluginSidebarState};
 use riina_core::{Command, control_preferences::SeekType};
 use rquickjs::{Context, Ctx, Function, Object, Runtime, Value, function::Func};
 use std::{
@@ -88,12 +90,109 @@ const PLUGIN_EVENT_API: &str = r#"(() => {
     };
 })();"#;
 
+const PLUGIN_MENU_API: &str = r#"(() => {
+    let nextId = 0;
+    const actions = new Map();
+    const roots = [];
+    const publish = () => iina.__menuUpdate(JSON.stringify(roots.map(snapshot)));
+    const snapshot = item => ({
+        id: item.id,
+        title: item.title,
+        enabled: item.enabled,
+        selected: item.selected,
+        separator: item.separator,
+        keyBinding: item.keyBinding,
+        items: item.items.map(snapshot)
+    });
+    const dispose = item => {
+        actions.delete(item.id);
+        for (const child of item.items) dispose(child);
+    };
+    const register = item => {
+        if (item.__action) actions.set(item.id, item.__action);
+        for (const child of item.items) register(child);
+    };
+    const makeItem = (title, action, options, separator = false) => {
+        if (action != null && typeof action !== 'function') throw new TypeError('action must be a function or null');
+        const item = {
+            _title: separator ? '' : String(title),
+            _enabled: !separator && options?.enabled !== false,
+            _selected: !separator && options?.selected === true,
+            _keyBinding: options?.keyBinding == null ? null : String(options.keyBinding),
+            _items: [],
+            addSubMenuItem(child) {
+                if (!child || typeof child.id !== 'string' || child.separator && child.items.length) {
+                    throw new TypeError('child must be a plugin menu item');
+                }
+                this._items.push(child);
+                register(child);
+                publish();
+                return this;
+            }
+        };
+        Object.defineProperties(item, {
+            id: { value: `menu-${++nextId}`, writable: false, enumerable: false },
+            separator: { value: separator, writable: false, enumerable: false },
+            __action: { value: action, writable: false, enumerable: false },
+            items: { get() { return this._items; }, enumerable: true },
+            title: { get() { return this._title; }, set(value) { this._title = String(value); publish(); } },
+            enabled: { get() { return this._enabled; }, set(value) { this._enabled = Boolean(value); publish(); } },
+            selected: { get() { return this._selected; }, set(value) { this._selected = Boolean(value); publish(); } },
+            keyBinding: { get() { return this._keyBinding; }, set(value) { this._keyBinding = value == null ? null : String(value); publish(); } }
+        });
+        if (action) actions.set(item.id, action);
+        return item;
+    };
+    iina.menu = {
+        item(title, action, options) { return makeItem(title, action, options); },
+        separator() { return makeItem('', null, null, true); },
+        addItem(item) {
+            if (!item || typeof item.id !== 'string') throw new TypeError('item must be a plugin menu item');
+            roots.push(item);
+            register(item);
+            publish();
+        },
+        items() { return roots.slice(); },
+        removeAt(index) {
+            if (!Number.isInteger(index) || index < 0 || index >= roots.length) return false;
+            dispose(roots[index]);
+            roots.splice(index, 1);
+            publish();
+            return true;
+        },
+        removeAllItems() {
+            for (const item of roots) dispose(item);
+            roots.length = 0;
+            publish();
+        },
+        forceUpdate: publish,
+        __activate(id) {
+            const action = actions.get(id);
+            if (!action) return false;
+            const find = items => {
+                for (const item of items) {
+                    if (item.id === id) return item;
+                    const child = find(item.items);
+                    if (child) return child;
+                }
+                return null;
+            };
+            const item = find(roots);
+            if (!item || !item.enabled || item.separator) return false;
+            try { action(item); return true; }
+            catch (error) { iina.log(`Plugin menu action threw: ${String(error)}`); return false; }
+        }
+    };
+})();"#;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostEvent {
     Log(String),
     ShowOsd(String),
     ShowAlert(String),
     Overlay(OverlayEffect),
+    Sidebar(PluginSidebarEffect),
+    MenuUpdate(Vec<PluginMenuItem>),
     PluginMessage(String, serde_json::Value),
     CoreCommand(Command),
     SetUiVisibility(bool),
@@ -102,8 +201,11 @@ pub enum HostEvent {
 
 enum RuntimeCommand {
     DeliverOverlayMessage(String, serde_json::Value),
+    DeliverSidebarMessage(String, serde_json::Value),
+    DeliverPluginMenuAction(String),
     DeliverPluginMessage(String, serde_json::Value),
     DeliverPlayerEvent(String, serde_json::Value),
+    Barrier(mpsc::SyncSender<()>),
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
     DeliverNetworkDownload(u32, Result<(), String>),
     DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
@@ -407,6 +509,32 @@ impl PluginRuntimeSession {
             })
     }
 
+    pub fn deliver_sidebar_message(
+        &self,
+        name: String,
+        data: serde_json::Value,
+    ) -> Result<(), String> {
+        validate_plugin_message(&name, &data)?;
+        self.commands
+            .try_send(RuntimeCommand::DeliverSidebarMessage(name, data))
+            .map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => "Plugin message queue is busy".into(),
+                mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
+            })
+    }
+
+    pub(crate) fn deliver_plugin_menu_action(&self, item_id: String) -> Result<(), String> {
+        if item_id.is_empty() || item_id.len() > 64 {
+            return Err("Plugin menu action identifier is invalid".into());
+        }
+        self.commands
+            .try_send(RuntimeCommand::DeliverPluginMenuAction(item_id))
+            .map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => "Plugin event queue is busy".into(),
+                mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
+            })
+    }
+
     pub fn deliver_plugin_message(
         &self,
         name: String,
@@ -454,6 +582,19 @@ impl PluginRuntimeSession {
                 mpsc::TrySendError::Full(_) => "Plugin event queue is busy".into(),
                 mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
             })
+    }
+
+    pub(crate) fn flush_events(&self, timeout: Duration) -> Result<(), String> {
+        let (response, result) = mpsc::sync_channel(1);
+        self.commands
+            .try_send(RuntimeCommand::Barrier(response))
+            .map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => "Plugin event queue is busy".to_owned(),
+                mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".to_owned(),
+            })?;
+        result
+            .recv_timeout(timeout)
+            .map_err(|error| format!("Plugin event callbacks did not finish: {error}"))
     }
 
     pub fn drain_events(&self) -> Result<Vec<HostEvent>, String> {
@@ -706,6 +847,8 @@ fn run_entry_worker(
     };
     let overlay_state = Arc::new(Mutex::new(OverlayState::default()));
     let worker_overlay_state = overlay_state.clone();
+    let sidebar_state = Arc::new(Mutex::new(PluginSidebarState::default()));
+    let worker_sidebar_state = sidebar_state.clone();
     let timers = Arc::new(PluginTimers::default());
     let worker_timers = timers.clone();
     let network_request_allowed = permissions.network_request;
@@ -811,7 +954,19 @@ fn run_entry_worker(
                     }),
                 )?;
                 ctx.eval::<Value, _>(PLUGIN_EVENT_API)?;
+
             }
+            let menu_events = events.clone();
+            api.set(
+                "__menuUpdate",
+                Func::from(move |json: String| -> rquickjs::Result<()> {
+                    let items = serde_json::from_str::<Vec<PluginMenuItem>>(&json)
+                        .map_err(|error| menu_js_error(error.to_string()))?;
+                    PluginMenuItem::validate_all(&items).map_err(menu_js_error)?;
+                    record_plugin_menu(&menu_events, items).map_err(menu_js_error)
+                }),
+            )?;
+            ctx.eval::<(), _>(PLUGIN_MENU_API)?;
             install_plugin_file_api(
                 ctx.clone(),
                 globals.clone(),
@@ -1459,6 +1614,93 @@ fn run_entry_worker(
                 })();"#,
             )?;
 
+            let sidebar = Object::new(ctx.clone())?;
+            for (method, intent) in [("show", 0), ("hide", 1)] {
+                let sidebar_events = events.clone();
+                let sidebar_state = sidebar_state.clone();
+                sidebar.set(
+                    method,
+                    Func::from(move || -> rquickjs::Result<()> {
+                        let intent = if intent == 0 {
+                            PluginSidebarIntent::Show
+                        } else {
+                            PluginSidebarIntent::Hide
+                        };
+                        record_plugin_sidebar(&sidebar_events, &sidebar_state, intent)
+                            .map_err(sidebar_js_error)?;
+                        Ok(())
+                    }),
+                )?;
+            }
+            let sidebar_events = events.clone();
+            let sidebar_state_for_call = sidebar_state.clone();
+            sidebar.set(
+                "loadFile",
+                Func::from(move |path: String| -> rquickjs::Result<()> {
+                    record_plugin_sidebar(
+                        &sidebar_events,
+                        &sidebar_state_for_call,
+                        PluginSidebarIntent::LoadFile(path.into()),
+                    )
+                    .map_err(sidebar_js_error)?;
+                    Ok(())
+                }),
+            )?;
+            let sidebar_events = events.clone();
+            let sidebar_state_for_call = sidebar_state.clone();
+            sidebar.set(
+                "postMessage",
+                Func::from(move |name: String, data: String| -> rquickjs::Result<()> {
+                    let data = serde_json::from_str(&data).map_err(|error| {
+                        rquickjs::Error::new_from_js_message("string", "JSON", error.to_string())
+                    })?;
+                    record_plugin_sidebar(
+                        &sidebar_events,
+                        &sidebar_state_for_call,
+                        PluginSidebarIntent::PostMessage { name, data },
+                    )
+                    .map_err(sidebar_js_error)?;
+                    Ok(())
+                }),
+            )?;
+            let sidebar_events = events.clone();
+            let sidebar_state_for_call = sidebar_state.clone();
+            sidebar.set(
+                "onMessage",
+                Func::from(move |name: String, _callback: Value| -> rquickjs::Result<()> {
+                    record_plugin_sidebar(
+                        &sidebar_events,
+                        &sidebar_state_for_call,
+                        PluginSidebarIntent::OnMessage(name),
+                    )
+                    .map_err(sidebar_js_error)?;
+                    Ok(())
+                }),
+            )?;
+            globals.set("__riinaSidebar", sidebar)?;
+            ctx.eval::<(), _>(
+                r#"iina.sidebar = __riinaSidebar;
+                (() => {
+                    const sidebar = iina.sidebar;
+                    const postMessage = sidebar.postMessage;
+                    const loadFile = sidebar.loadFile;
+                    const onMessage = sidebar.onMessage;
+                    const listeners = new Map();
+                    sidebar.postMessage = (name, data) => postMessage(name, JSON.stringify(data));
+                    sidebar.loadFile = path => { const result = loadFile(path); listeners.clear(); return result; };
+                    sidebar.onMessage = (name, callback) => {
+                        if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+                        onMessage(name, callback);
+                        const callbacks = listeners.get(name) || [];
+                        callbacks.push(callback);
+                        listeners.set(name, callbacks);
+                    };
+                    sidebar.__deliverMessage = (name, data) => {
+                        for (const callback of listeners.get(name) || []) callback(data);
+                    };
+                })();"#,
+            )?;
+
             let console = Object::new(ctx.clone())?;
             for method in ["log", "info", "warn", "error"] {
                 let log_events = events.clone();
@@ -1529,6 +1771,24 @@ fn run_entry_worker(
         };
         match command {
             RuntimeCommand::Shutdown => break,
+            RuntimeCommand::Barrier(response) => {
+                let _ = response.send(());
+            }
+            RuntimeCommand::DeliverPluginMenuAction(item_id) => {
+                let Ok(item_id) = serde_json::to_string(&item_id) else {
+                    continue;
+                };
+                let script = format!("iina.menu.__activate({item_id})");
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| ctx.eval::<Value, _>(script).map(|_| ())) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("Plugin menu action failed: {error}")),
+                    );
+                }
+            }
             RuntimeCommand::DeliverOverlayMessage(name, data) => {
                 let effect = worker_overlay_state
                     .lock()
@@ -1554,6 +1814,34 @@ fn run_entry_worker(
                     record(
                         &events,
                         HostEvent::Log(format!("Overlay callback failed: {error}")),
+                    );
+                }
+            }
+            RuntimeCommand::DeliverSidebarMessage(name, data) => {
+                let effect = worker_sidebar_state
+                    .lock()
+                    .map_err(|_| "Plugin sidebar state was poisoned".to_owned())
+                    .and_then(|state| state.receive_message(name.clone(), data.clone()));
+                let Ok(Some(_)) = effect else { continue };
+                let script = match serde_json::to_string(&name)
+                    .and_then(|name| serde_json::to_string(&data).map(|data| (name, data)))
+                {
+                    Ok((name, data)) => format!("iina.sidebar.__deliverMessage({name}, {data})"),
+                    Err(error) => {
+                        record(
+                            &events,
+                            HostEvent::Log(format!("Sidebar message encoding failed: {error}")),
+                        );
+                        continue;
+                    }
+                };
+                if let Ok(mut deadline) = deadline.lock() {
+                    *deadline = Instant::now() + MAX_EXECUTION_TIME;
+                }
+                if let Err(error) = context.with(|ctx| ctx.eval::<Value, _>(script).map(|_| ())) {
+                    record(
+                        &events,
+                        HostEvent::Log(format!("Sidebar callback failed: {error}")),
                     );
                 }
             }
@@ -3284,12 +3572,88 @@ fn overlay_effect_size(effect: &OverlayEffect) -> usize {
     }
 }
 
+fn record_plugin_sidebar(
+    events: &Mutex<Vec<HostEvent>>,
+    state: &Mutex<PluginSidebarState>,
+    intent: PluginSidebarIntent,
+) -> Result<(), String> {
+    let effect = state
+        .lock()
+        .map_err(|_| "Plugin sidebar state was poisoned".to_owned())?
+        .apply(intent)?;
+    let Some(effect) = effect else {
+        return Ok(());
+    };
+    let size = sidebar_effect_size(&effect);
+    if size > MAX_PLUGIN_MESSAGE_BYTES {
+        return Err("Sidebar request exceeds the 1 MiB limit".into());
+    }
+    let Ok(mut events) = events.lock() else {
+        return Err("Plugin event queue was poisoned".into());
+    };
+    let current_bytes = events.iter().map(host_event_size).sum::<usize>();
+    if events.len() >= MAX_HOST_EVENTS || current_bytes.saturating_add(size) > MAX_HOST_OUTPUT_BYTES
+    {
+        return Ok(());
+    }
+    events.push(HostEvent::Sidebar(effect));
+    Ok(())
+}
+
+fn sidebar_effect_size(effect: &PluginSidebarEffect) -> usize {
+    match effect {
+        PluginSidebarEffect::LoadFile(path) => path.as_os_str().to_string_lossy().len(),
+        PluginSidebarEffect::PostMessage { name, data }
+        | PluginSidebarEffect::DeliverMessage { name, data } => name
+            .len()
+            .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
+        PluginSidebarEffect::ListenMessage(name) => name.len(),
+        PluginSidebarEffect::Show | PluginSidebarEffect::Hide => 1,
+    }
+}
+
+fn record_plugin_menu(
+    events: &Mutex<Vec<HostEvent>>,
+    items: Vec<PluginMenuItem>,
+) -> Result<(), String> {
+    PluginMenuItem::validate_all(&items)?;
+    let bytes = serde_json::to_vec(&items)
+        .map_err(|error| format!("Plugin menu is not valid JSON: {error}"))?
+        .len();
+    if bytes > MAX_PLUGIN_MESSAGE_BYTES {
+        return Err("Plugin menu exceeds the 1 MiB limit".into());
+    }
+    let Ok(mut events) = events.lock() else {
+        return Err("Plugin event queue was poisoned".into());
+    };
+    events.retain(|event| !matches!(event, HostEvent::MenuUpdate(_)));
+    let current_bytes = events.iter().map(host_event_size).sum::<usize>();
+    if events.len() < MAX_HOST_EVENTS
+        && current_bytes.saturating_add(bytes) <= MAX_HOST_OUTPUT_BYTES
+    {
+        events.push(HostEvent::MenuUpdate(items));
+    }
+    Ok(())
+}
+
+fn menu_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("menu request", "valid plugin menu", message)
+}
+
+fn sidebar_js_error(message: String) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("sidebar request", "valid sidebar effect", message)
+}
+
 fn host_event_size(event: &HostEvent) -> usize {
     match event {
         HostEvent::Log(message) | HostEvent::ShowOsd(message) | HostEvent::ShowAlert(message) => {
             message.len()
         }
         HostEvent::Overlay(effect) => overlay_effect_size(effect),
+        HostEvent::Sidebar(effect) => sidebar_effect_size(effect),
+        HostEvent::MenuUpdate(items) => {
+            serde_json::to_vec(items).map_or(usize::MAX, |bytes| bytes.len())
+        }
         HostEvent::PluginMessage(name, data) => name
             .len()
             .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
@@ -3322,6 +3686,8 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
             message
         }
         HostEvent::Overlay(_)
+        | HostEvent::Sidebar(_)
+        | HostEvent::MenuUpdate(_)
         | HostEvent::PluginMessage(_, _)
         | HostEvent::CoreCommand(_)
         | HostEvent::SetUiVisibility(_)
@@ -3335,6 +3701,8 @@ fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
         HostEvent::ShowOsd(_) => HostEvent::ShowOsd(bounded),
         HostEvent::ShowAlert(_) => HostEvent::ShowAlert(bounded),
         HostEvent::Overlay(effect) => HostEvent::Overlay(effect),
+        HostEvent::Sidebar(effect) => HostEvent::Sidebar(effect),
+        HostEvent::MenuUpdate(_) => unreachable!("plugin menus use their bounded path"),
         HostEvent::PluginMessage(_, _) => unreachable!("plugin messages use their bounded path"),
         HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) | HostEvent::WindowAction(_) => {
             unreachable!("player commands retain typed payloads")
@@ -3381,6 +3749,7 @@ mod tests {
             allowed_domains: Vec::new(),
             github_repo: None,
             github_version: None,
+            sidebar_tab_name: None,
         }
     }
 
@@ -4067,15 +4436,119 @@ mod tests {
     }
 
     #[test]
+    fn sidebar_api_emits_confined_document_and_visibility_effects() {
+        let events = execute_entry(
+            "iina.sidebar.show(); iina.sidebar.loadFile('sidebar/index.html'); iina.sidebar.show(); iina.sidebar.hide();",
+            "org.example.sidebar",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            events,
+            [
+                HostEvent::Sidebar(PluginSidebarEffect::LoadFile("sidebar/index.html".into())),
+                HostEvent::Sidebar(PluginSidebarEffect::Show),
+                HostEvent::Sidebar(PluginSidebarEffect::Hide),
+            ]
+        );
+        assert!(
+            execute_entry(
+                "iina.sidebar.loadFile('../outside.html')",
+                "org.example.sidebar",
+                &[],
+                &[],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn persistent_sidebar_session_delivers_only_registered_messages() {
+        let session = PluginRuntimeSession::start_entry(
+            "iina.sidebar.loadFile('sidebar/index.html'); iina.sidebar.onMessage('ready', value => iina.log(value.answer));",
+            "org.example.sidebar",
+            &[],
+            &[],
+        )
+        .unwrap();
+        assert!(matches!(
+            session.drain_events().unwrap().as_slice(),
+            [
+                HostEvent::Sidebar(PluginSidebarEffect::LoadFile(_)),
+                HostEvent::Sidebar(PluginSidebarEffect::ListenMessage(name))
+            ] if name == "ready"
+        ));
+        session
+            .deliver_sidebar_message("ignored".into(), serde_json::Value::Null)
+            .unwrap();
+        session
+            .deliver_sidebar_message("ready".into(), serde_json::json!({"answer": "received"}))
+            .unwrap();
+
+        let deadline = Instant::now() + Duration::from_secs(1);
+        loop {
+            let events = session.drain_events().unwrap();
+            if events
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "received"))
+            {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "sidebar callback was not delivered"
+            );
+            std::thread::yield_now();
+        }
+    }
+
+    #[test]
+    fn plugin_menu_snapshot_and_action_callback_reach_the_host() {
+        let session = PluginRuntimeSession::start_entry(
+            "const entry = iina.menu.item('Toggle', item => iina.log(item.selected ? 'checked' : 'clear'), { selected: true, keyBinding: 'Cmd+T' }); iina.menu.addItem(entry); iina.menu.removeAt(0); iina.menu.addItem(entry);",
+            "org.example.player-tools",
+            &[],
+            &[],
+        )
+        .unwrap();
+        let events = session.drain_events().unwrap();
+        assert!(events.iter().any(|event| matches!(event,
+            HostEvent::MenuUpdate(items)
+                if items.len() == 1
+                    && items[0].title == "Toggle"
+                    && items[0].selected
+                    && items[0].key_binding.as_deref() == Some("Cmd+T")
+        )));
+
+        session.deliver_plugin_menu_action("menu-1".into()).unwrap();
+        session.flush_events(Duration::from_secs(1)).unwrap();
+        assert!(
+            session
+                .drain_events()
+                .unwrap()
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "checked"))
+        );
+    }
+
+    #[test]
     fn persistent_session_delivers_player_events_and_unregisters_listeners() {
         let session = PluginRuntimeSession::start_entry(
-            "iina.event.on('iina.file-loaded', url => iina.log(url)); iina.event.on('mpv.pause.changed', value => iina.log(String(value))); iina.event.on('mpv.cache-buffering-state.changed', value => iina.log(String(value)));",
+            "iina.event.on('iina.file-started', () => iina.log('started')); iina.event.on('iina.file-loaded', url => iina.log(url)); iina.event.on('iina.window-loaded', () => iina.log('window-loaded')); iina.event.on('iina.window-resized', frame => iina.log(String(frame.width))); iina.event.on('iina.window-size-adjusted', frame => iina.log(`adjusted:${frame.width}`)); iina.event.on('iina.pip.changed', value => iina.log(`pip:${value}`)); iina.event.on('iina.music-mode.changed', value => iina.log(`music:${value}`)); iina.event.on('iina.window-main.changed', value => iina.log(`main:${value}`)); iina.event.on('mpv.pause.changed', value => iina.log(String(value))); iina.event.on('mpv.cache-buffering-state.changed', value => iina.log(String(value)));",
             "org.example.player-events",
             &[],
             &[],
         )
         .unwrap();
+        assert!(session.is_subscribed_to_player_event("iina.file-started"));
         assert!(session.is_subscribed_to_player_event("iina.file-loaded"));
+        assert!(session.is_subscribed_to_player_event("iina.window-loaded"));
+        assert!(session.is_subscribed_to_player_event("iina.window-resized"));
+        assert!(session.is_subscribed_to_player_event("iina.window-size-adjusted"));
+        assert!(session.is_subscribed_to_player_event("iina.pip.changed"));
+        assert!(session.is_subscribed_to_player_event("iina.music-mode.changed"));
+        assert!(session.is_subscribed_to_player_event("iina.window-main.changed"));
         assert!(session.is_subscribed_to_player_event("mpv.pause.changed"));
         assert!(session.is_subscribed_to_player_event("mpv.cache-buffering-state.changed"));
         assert_eq!(
@@ -4084,10 +4557,31 @@ mod tests {
         );
         assert!(session.take_mpv_property_observation_requests().is_empty());
         session
+            .deliver_player_event("iina.file-started".into(), serde_json::Value::Null)
+            .unwrap();
+        session
             .deliver_player_event(
                 "iina.file-loaded".into(),
                 serde_json::json!("file:///media/example.mkv"),
             )
+            .unwrap();
+        session
+            .deliver_player_event("iina.window-loaded".into(), serde_json::Value::Null)
+            .unwrap();
+        session
+            .deliver_player_event(
+                "iina.window-resized".into(),
+                serde_json::json!({"x": 10, "y": 15, "width": 800, "height": 450}),
+            )
+            .unwrap();
+        session
+            .deliver_player_event("iina.pip.changed".into(), serde_json::json!(true))
+            .unwrap();
+        session
+            .deliver_player_event("iina.music-mode.changed".into(), serde_json::json!(true))
+            .unwrap();
+        session
+            .deliver_player_event("iina.window-main.changed".into(), serde_json::json!(true))
             .unwrap();
         session
             .deliver_player_event("mpv.pause.changed".into(), serde_json::json!(true))
@@ -4100,10 +4594,36 @@ mod tests {
             let file_loaded = seen.iter().any(|event| {
                 matches!(event, HostEvent::Log(message) if message == "file:///media/example.mkv")
             });
+            let file_started = seen
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "started"));
             let paused = seen
                 .iter()
                 .any(|event| matches!(event, HostEvent::Log(message) if message == "true"));
-            if file_loaded && paused {
+            let window_loaded = seen.iter().any(
+                |event| matches!(event, HostEvent::Log(message) if message == "window-loaded"),
+            );
+            let window_resized = seen
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "800"));
+            let pip_changed = seen
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "pip:true"));
+            let music_mode_changed = seen
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "music:true"));
+            let main_window_changed = seen
+                .iter()
+                .any(|event| matches!(event, HostEvent::Log(message) if message == "main:true"));
+            if file_started
+                && file_loaded
+                && paused
+                && window_loaded
+                && window_resized
+                && pip_changed
+                && music_mode_changed
+                && main_window_changed
+            {
                 break;
             }
             assert!(

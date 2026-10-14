@@ -34,9 +34,20 @@ still needed to verify its behavior. Linux now installs a user-scoped desktop
 entry and applies selected MIME associations through `xdg-mime` on a worker; desktop-session
 integration and launch behavior remain unverified.
 
+Plugin sidebar pages use Wry child WebViews on Linux X11 and require GTK 3 and
+WebKitGTK 4.1 development packages plus `pkg-config`. GTK initialization and event
+processing run on the player UI thread. Wayland embedding still needs a GTK
+container integration; the current child-window path rejects Wayland rather than
+calling Wry's X11-only child API with an unsupported surface.
+
 AppKit material blur, Apple font metrics, SF Symbols and macOS OS services are not
 redistributed. Current colors and exact icon geometry remain estimates; original MIT vector
-controls render on GL/native routes. Sampled-video blur is absent. Accessibility
+controls render on GL/native routes. Shared-OpenGL playback now has a downsampled,
+sampled-video blur beneath the translucent sidebar, title row, floating controller,
+seek/video/plugin OSDs, and fullscreen information card.
+Native Windows D3D overlays still lack that composition, and the blur/material appearance
+needs live comparison on each platform.
+Accessibility
 inspection covers selected controls and keyboard workflows at 300% DPI. Text
 entry, other DPI values and multi-display coverage remain incomplete.
 
@@ -48,7 +59,7 @@ back to solid colors when system transparency or power-saving policy requires it
 The Settings title is “Translucent Surfaces” on Windows because the current Slint
 implementation only adjusts RGBA tint/opacity. Native per-surface Mica/Acrylic
 composition and macOS 27 material rendering remain implementation and runtime
-verification gaps.
+verification gaps. The shader-based video blur does not replace host-native materials.
 
 Full playlist, track, chapter and subtitle parity, history, multiple windows, music/PiP, screenshots,
 OCR, plugins/webviews, helpers, localization, other shell associations and media controls

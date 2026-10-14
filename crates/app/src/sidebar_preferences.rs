@@ -4,6 +4,14 @@ use riina_core::Preferences;
 use slint::ComponentHandle;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
+pub(crate) fn show_plugins_panel(app: &PlayerWindow) {
+    if app.get_plugins_at_leading() {
+        app.set_leading_sidebar(7);
+    } else {
+        app.set_sidebar(7);
+    }
+}
+
 pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) {
     let saved = Rc::new(Cell::new((
         baseline.leading_sidebar_width,
@@ -84,8 +92,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         } else if app.get_sidebar() == 7 {
             app.set_sidebar(0);
         } else {
-            // IINA places its plugin sidebar on the leading edge by default.
-            app.set_leading_sidebar(7);
+            show_plugins_panel(&app);
         }
     });
     app.on_sidebar_resize_finished(move || {
@@ -101,12 +108,17 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                 trailing_sidebar_width: widths.1,
                 settings_at_leading: app.get_settings_at_leading(),
                 playlist_at_leading: app.get_playlist_at_leading(),
+                plugins_at_leading: app.get_plugins_at_leading(),
                 edge_to_edge_video: app.get_edge_to_edge_video(),
                 docked_controls: app.get_docked_controls(),
                 unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
                 window_resize: crate::window_resize_preferences::from_player(&app)?,
                 compact_ui: app.get_compact_ui(),
                 osc_position: app.get_osc_position() as u8,
+                control_bar_position_horizontal: f64::from(
+                    app.get_control_bar_position_horizontal(),
+                ),
+                control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
                 screenshot,
                 volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
                     200.0
@@ -161,4 +173,26 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             saved.set(widths);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::show_plugins_panel;
+    use crate::PlayerWindow;
+
+    #[test]
+    fn plugin_panel_opens_on_the_saved_side() {
+        let app = PlayerWindow::new().expect("create player window");
+
+        app.set_plugins_at_leading(true);
+        show_plugins_panel(&app);
+        assert_eq!(app.get_leading_sidebar(), 7);
+        assert_eq!(app.get_sidebar(), 0);
+
+        app.set_leading_sidebar(0);
+        app.set_plugins_at_leading(false);
+        show_plugins_panel(&app);
+        assert_eq!(app.get_leading_sidebar(), 0);
+        assert_eq!(app.get_sidebar(), 7);
+    }
 }

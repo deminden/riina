@@ -46,7 +46,7 @@ pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
     app.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
     app.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
     app.set_control_seek_type_index(settings.seek_type.index());
-    app.set_control_seek_sensitivity(i32::from(settings.seek_sensitivity));
+    app.set_control_relative_seek_amount(i32::from(settings.relative_seek_amount));
     app.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
     app.set_control_speed_sensitivity(i32::from(settings.speed_sensitivity));
 }
@@ -76,8 +76,8 @@ pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
         disable_volume_slider_scrolling: app.get_control_disable_volume_slider_scrolling(),
         seek_type: SeekType::from_index(app.get_control_seek_type_index())
             .ok_or_else(|| "Invalid seek type".to_owned())?,
-        seek_sensitivity: u8::try_from(app.get_control_seek_sensitivity())
-            .map_err(|_| "Invalid seek sensitivity")?,
+        relative_seek_amount: u8::try_from(app.get_control_relative_seek_amount())
+            .map_err(|_| "Invalid relative seek amount")?,
         volume_sensitivity: u8::try_from(app.get_control_volume_sensitivity())
             .map_err(|_| "Invalid volume sensitivity")?,
         speed_sensitivity: u8::try_from(app.get_control_speed_sensitivity())
@@ -109,7 +109,7 @@ pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
     window.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
     window.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
     window.set_control_seek_type_index(settings.seek_type.index());
-    window.set_control_seek_sensitivity(i32::from(settings.seek_sensitivity));
+    window.set_control_relative_seek_amount(i32::from(settings.relative_seek_amount));
     window.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
     window.set_control_speed_sensitivity(i32::from(settings.speed_sensitivity));
 }
@@ -150,8 +150,8 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
         disable_volume_slider_scrolling: window.get_control_disable_volume_slider_scrolling(),
         seek_type: SeekType::from_index(window.get_control_seek_type_index())
             .ok_or_else(|| "Invalid seek type".to_owned())?,
-        seek_sensitivity: u8::try_from(window.get_control_seek_sensitivity())
-            .map_err(|_| "Invalid seek sensitivity")?,
+        relative_seek_amount: u8::try_from(window.get_control_relative_seek_amount())
+            .map_err(|_| "Invalid relative seek amount")?,
         volume_sensitivity: u8::try_from(window.get_control_volume_sensitivity())
             .map_err(|_| "Invalid volume sensitivity")?,
         speed_sensitivity: u8::try_from(window.get_control_speed_sensitivity())

@@ -15,6 +15,7 @@ export component FontPicker inherits Window {
     in property <string> preview-font-family;
     in property <int> preview-font-weight: 400;
     in property <bool> preview-font-italic: false;
+    in property <float> preview-font-stretch: 1.0;
     in-out property <string> preview-text: "Test";
     in-out property <string> filter-text;
     callback search(string);
@@ -102,7 +103,9 @@ export component FontPicker inherits Window {
                 font-weight: root.preview-font-weight; font-italic: root.preview-font-italic;
                 color: #eeeeee; font-size: 24px; horizontal-alignment: center;
                 vertical-alignment: center;
-                x: 10px; width: parent.width - 20px; height: parent.height; }
+                x: 10px; width: parent.width - 20px; height: parent.height;
+                transform-origin: { x: self.width / 2, y: self.height / 2 };
+                transform-scale-x: root.preview-font-stretch; }
             Text { text: "Preview"; x: 8px; y: 4px; color: #bbbbbb; font-size: 11px; }
         }
         Rectangle { height: 12px; }

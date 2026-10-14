@@ -97,7 +97,7 @@ pub fn scroll_effect(
     } else {
         settings.vertical_scroll_action
     };
-    scroll_effect_for_action(settings, action, horizontal, delta, precise)
+    scroll_effect_for_input(settings, action, horizontal, delta, precise, !precise)
 }
 
 /// Apply a scroll override supplied by a control such as the timeline or volume slider.
@@ -108,10 +108,24 @@ pub fn scroll_effect_for_action(
     delta: f64,
     precise: bool,
 ) -> ScrollEffect {
+    scroll_effect_for_input(settings, action, horizontal, delta, precise, !precise)
+}
+
+/// Apply an IINA scroll action while keeping event precision separate from the
+/// gesture class. AppKit can report precise deltas for mouse wheels whose phase
+/// is empty; IINA still uses its mouse seek map for those events.
+pub fn scroll_effect_for_input(
+    settings: &Settings,
+    action: ScrollAction,
+    horizontal: bool,
+    delta: f64,
+    precise_delta: bool,
+    mouse_wheel: bool,
+) -> ScrollEffect {
     if !delta.is_finite() || delta == 0.0 || settings.validate().is_err() {
         return ScrollEffect::None;
     }
-    let direction = if precise {
+    let delta = if precise_delta {
         delta
     } else {
         delta.signum() * if horizontal { 1.0 } else { 2.0 }
@@ -120,18 +134,21 @@ pub fn scroll_effect_for_action(
 
     match action {
         ScrollAction::None => ScrollEffect::None,
-        ScrollAction::Volume if precise => ScrollEffect::AdjustVolume(
-            delta * sensitivity([0.25, 0.5, 0.75, 1.0], settings.volume_sensitivity),
-        ),
-        ScrollAction::Volume => ScrollEffect::AdjustVolume(direction),
-        ScrollAction::Seek if precise => ScrollEffect::Seek(
-            delta * sensitivity([0.05, 0.1, 0.25, 0.5], settings.seek_sensitivity),
-        ),
-        ScrollAction::Seek => ScrollEffect::Seek(
-            direction * sensitivity([0.5, 1.0, 2.0, 4.0], settings.seek_sensitivity),
-        ),
+        ScrollAction::Volume => ScrollEffect::AdjustVolume(if mouse_wheel {
+            delta
+        } else {
+            delta * sensitivity([0.25, 0.5, 0.75, 1.0], settings.volume_sensitivity)
+        }),
+        ScrollAction::Seek => {
+            let amount = if mouse_wheel {
+                [0.5, 1.0, 2.0, 4.0][usize::from(settings.relative_seek_amount - 1)]
+            } else {
+                [0.05, 0.1, 0.25, 0.5][usize::from(settings.relative_seek_amount - 1)]
+            };
+            ScrollEffect::Seek(delta * amount)
+        }
         ScrollAction::PlaybackSpeed => ScrollEffect::MultiplySpeed(
-            1.0 + direction * sensitivity([0.001, 0.002, 0.005, 0.01], settings.speed_sensitivity),
+            1.0 + delta * sensitivity([0.001, 0.002, 0.005, 0.01], settings.speed_sensitivity),
         ),
     }
 }
@@ -226,7 +243,8 @@ pub struct Settings {
     pub disable_play_slider_scrolling: bool,
     pub disable_volume_slider_scrolling: bool,
     pub seek_type: SeekType,
-    pub seek_sensitivity: u8,
+    #[serde(alias = "seek_sensitivity")]
+    pub relative_seek_amount: u8,
     pub volume_sensitivity: u8,
     pub speed_sensitivity: u8,
 }
@@ -246,7 +264,7 @@ impl Default for Settings {
             disable_play_slider_scrolling: false,
             disable_volume_slider_scrolling: false,
             seek_type: SeekType::Keyframe,
-            seek_sensitivity: 3,
+            relative_seek_amount: 3,
             volume_sensitivity: 3,
             speed_sensitivity: 3,
         }
@@ -255,9 +273,10 @@ impl Default for Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<(), &'static str> {
-        if !(1..=4).contains(&self.seek_sensitivity)
-            || !(1..=4).contains(&self.volume_sensitivity)
-            || !(1..=4).contains(&self.speed_sensitivity)
+        if !(1..=4).contains(&self.relative_seek_amount) {
+            return Err("Relative seek amount must be between 1 and 4");
+        }
+        if !(1..=4).contains(&self.volume_sensitivity) || !(1..=4).contains(&self.speed_sensitivity)
         {
             return Err("Control sensitivity must be between 1 and 4");
         }
@@ -278,7 +297,7 @@ mod tests {
         assert_eq!(settings.vertical_scroll_action, ScrollAction::Volume);
         assert_eq!(settings.horizontal_scroll_action, ScrollAction::Seek);
         assert_eq!(settings.seek_type, SeekType::Keyframe);
-        assert_eq!(settings.seek_sensitivity, 3);
+        assert_eq!(settings.relative_seek_amount, 3);
         assert_eq!(settings.volume_sensitivity, 3);
         assert_eq!(settings.speed_sensitivity, 3);
     }
@@ -324,15 +343,15 @@ mod tests {
     }
 
     #[test]
-    fn sensitivities_reject_values_outside_source_slider_bounds() {
+    fn scroll_amounts_reject_values_outside_source_slider_bounds() {
         let below_range = Settings {
-            seek_sensitivity: 0,
+            relative_seek_amount: 0,
             ..Settings::default()
         };
         assert!(below_range.validate().is_err());
 
         let upper_boundary = Settings {
-            seek_sensitivity: 4,
+            relative_seek_amount: 4,
             ..Settings::default()
         };
         assert!(upper_boundary.validate().is_ok());
@@ -355,7 +374,7 @@ mod tests {
     fn precise_scroll_uses_selected_sensitivity_and_speed_is_bounded() {
         let precise = Settings {
             vertical_scroll_action: ScrollAction::Seek,
-            seek_sensitivity: 4,
+            relative_seek_amount: 4,
             ..Settings::default()
         };
         assert_eq!(
@@ -371,6 +390,30 @@ mod tests {
         assert_eq!(
             scroll_effect(&speed, false, 60.0, false),
             ScrollEffect::MultiplySpeed(1.02)
+        );
+    }
+
+    #[test]
+    fn mouse_wheel_and_trackpad_keep_their_independent_iina_seek_curves() {
+        let settings = Settings {
+            relative_seek_amount: 3,
+            ..Settings::default()
+        };
+        assert_eq!(
+            scroll_effect_for_input(&settings, ScrollAction::Seek, false, 1.0, true, true,),
+            ScrollEffect::Seek(2.0)
+        );
+        assert_eq!(
+            scroll_effect_for_input(&settings, ScrollAction::Seek, false, 1.0, true, false,),
+            ScrollEffect::Seek(0.25)
+        );
+        assert_eq!(
+            scroll_effect_for_input(&settings, ScrollAction::Volume, false, 1.0, true, true,),
+            ScrollEffect::AdjustVolume(1.0)
+        );
+        assert_eq!(
+            scroll_effect_for_input(&settings, ScrollAction::Volume, false, 1.0, true, false,),
+            ScrollEffect::AdjustVolume(0.75)
         );
     }
 

@@ -1104,12 +1104,19 @@ pub(crate) fn connect(
                         trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                         settings_at_leading: app.get_settings_at_leading(),
                         playlist_at_leading: app.get_playlist_at_leading(),
+                        plugins_at_leading: app.get_plugins_at_leading(),
                         edge_to_edge_video: app.get_edge_to_edge_video(),
                         docked_controls: app.get_docked_controls(),
                         unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
                         window_resize: selected_window_resize,
                         compact_ui: app.get_compact_ui(),
                         osc_position: app.get_osc_position() as u8,
+                        control_bar_position_horizontal: f64::from(
+                            app.get_control_bar_position_horizontal(),
+                        ),
+                        control_bar_position_vertical: f64::from(
+                            app.get_control_bar_position_vertical(),
+                        ),
                         hardware_decoder: decoder,
                         subtitle_ass_override: ass_primary,
                         secondary_subtitle_ass_override: ass_secondary,
@@ -1471,6 +1478,11 @@ pub(crate) fn connect(
             *current.borrow_mut() = Some(window.clone_strong());
             window
         };
+        let target_pane = app.get_preferences_target_pane();
+        if target_pane >= 0 {
+            window.set_selected_pane(target_pane);
+            app.set_preferences_target_pane(-1);
+        }
         let stored_audio = std::fs::read_to_string(&path)
             .ok()
             .and_then(|text| riina_core::Preferences::parse(&text).ok())
@@ -1561,6 +1573,7 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     }
     window.set_live_text_enabled(app.get_live_text_enabled());
     window.set_disable_animations(app.get_disable_animations());
+    window.set_platform_macos(cfg!(target_os = "macos"));
     window.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
     window.set_live_text_available(app.get_live_text_available());
     if let Ok(controls) = crate::control_preferences::current_player(app) {

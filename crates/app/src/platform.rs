@@ -539,8 +539,14 @@ pub(crate) fn save_playlist_file(
     }
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+mod plugin_sidebar;
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+pub(crate) use plugin_sidebar::PluginSidebarPresenter;
+#[cfg(target_os = "linux")]
+pub(crate) use plugin_sidebar::pump_linux_webview_events;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::text_recognition;
 #[cfg(target_os = "windows")]
@@ -555,8 +561,8 @@ mod macos;
 pub(crate) use macos::text_recognition;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
-    ControlGesture, GesturePhase, MacPictureInPicture, MacScrollEventMonitor, RemoteMediaAction,
-    SystemMediaControls, install_control_gestures,
+    ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver,
+    MacScrollEventMonitor, RemoteMediaAction, SystemMediaControls, install_control_gestures,
 };
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]

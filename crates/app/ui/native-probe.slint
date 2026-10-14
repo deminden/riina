@@ -1,6 +1,7 @@
 import { Button, HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
 export struct MenuCatalogRow { token: string, label: string, selected: bool }
+export struct PluginMenuRow { token: string, label: string, enabled: bool, selected: bool, shortcut: keys, section-header: bool }
 export struct SavedFilterMenuRow {
     token: string,
     label: string,
@@ -15,6 +16,10 @@ export struct MenuShortcutRow { shortcut: keys }
 export component NativeVideoHost inherits Window {
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     callback open-preferences();
+    callback manage-plugins();
+    callback reload-plugins();
+    callback activate-plugin-menu-item(string);
+    in property <[PluginMenuRow]> plugin-menu-rows: [];
     callback open-media-file();
     callback open-in-new-window();
     callback reveal-current-media();
@@ -281,6 +286,7 @@ export component NativeVideoHost inherits Window {
                 activated => { root.open-screenshot-folder(); } }
             MenuSeparator {}
             MenuItem { title: "A-B Loop"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(46);
                 activated => { root.cycle-ab-loop(); } }
             MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
                 enabled: root.playback-loaded; activated => { root.toggle-file-loop(); } }
@@ -557,8 +563,20 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Font…"; activated => { root.choose-subtitle-font(); } }
         }
         Menu { title: "Plugin";
+            MenuItem { title: "Manage Plugins…"; activated => { root.manage-plugins(); } }
             MenuItem { title: root.plugins-panel-open ? "Hide Plugins Panel" : "Show Plugins Panel"; shortcut: root.menu-shortcut(45);
                 activated => { root.show-plugins-panel(); } }
+            MenuSeparator {}
+            for row in root.plugin-menu-rows : MenuItem {
+                title: row.label;
+                enabled: row.enabled && !row.section-header;
+                checkable: false;
+                checked: row.selected;
+                shortcut: row.shortcut;
+                activated => { root.activate-plugin-menu-item(row.token); }
+            }
+            if root.plugin-menu-rows.length > 0 : MenuSeparator {}
+            MenuItem { title: "Reload All Plugins"; activated => { root.reload-plugins(); } }
         }
         Menu { title: "Window";
             MenuItem { title: "Minimize";

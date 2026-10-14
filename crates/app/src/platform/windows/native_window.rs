@@ -467,6 +467,30 @@ pub fn run(
                     app.set_status(error.to_string().into());
                 }
             });
+            let menu_state_host = host.as_weak();
+            let menu_state_app = app.as_weak();
+            app.on_native_menu_will_open(move || {
+                if let (Some(host), Some(app)) =
+                    (menu_state_host.upgrade(), menu_state_app.upgrade())
+                {
+                    let settings_pane = if app.get_settings_at_leading() {
+                        app.get_leading_sidebar()
+                    } else {
+                        app.get_sidebar()
+                    };
+                    host.set_video_panel_open(settings_pane == 6);
+                    host.set_audio_panel_open(settings_pane == 1);
+                    host.set_subtitles_panel_open(settings_pane == 2);
+                    host.set_plugins_panel_open(
+                        app.get_leading_sidebar() == 7 || app.get_sidebar() == 7,
+                    );
+                    host.set_playback_paused(app.get_paused());
+                    host.set_playback_speed_value(app.get_speed_edit_value());
+                    host.set_volume_menu_title(app.get_volume_menu_title());
+                    host.set_playback_muted(app.get_muted());
+                    host.set_audio_delay_text(app.get_audio_delay_text());
+                }
+            });
             // The framed owner hosts the native menu; its transparent popup
             // retains controller state. Bridge observations without a second
             // playback model or sending window handles across threads.
@@ -545,6 +569,7 @@ pub fn run(
                         host.set_live_text_enabled(app.get_live_text_enabled());
                         host.set_record_recent_files(app.get_record_recent_files());
                         host.set_recent_open_menu_rows(app.get_recent_open_menu_rows());
+                        host.set_plugin_menu_rows(app.get_plugin_menu_rows());
                         host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
                         host.set_reveal_current_media_available(
                             app.get_reveal_current_media_available(),
@@ -1078,6 +1103,25 @@ pub fn run(
                     app.invoke_open_preferences();
                 }
             });
+            let plugin_manager_app = app.as_weak();
+            host.on_manage_plugins(move || {
+                if let Some(app) = plugin_manager_app.upgrade() {
+                    app.set_preferences_target_pane(9);
+                    app.invoke_open_preferences();
+                }
+            });
+            let reload_plugins_app = app.as_weak();
+            host.on_reload_plugins(move || {
+                if let Some(app) = reload_plugins_app.upgrade() {
+                    app.invoke_reload_plugins();
+                }
+            });
+            let menu_action_app = app.as_weak();
+            host.on_activate_plugin_menu_item(move |token| {
+                if let Some(app) = menu_action_app.upgrade() {
+                    app.invoke_activate_plugin_menu_item(token);
+                }
+            });
             let jump_app = app.as_weak();
             host.on_open_jump_time_dialog(move || {
                 if let Some(app) = jump_app.upgrade() {
@@ -1373,6 +1417,9 @@ fn close(
     pip: &RefCell<Option<Rc<RefCell<super::pip::Controller>>>>,
     app: Option<&PlayerWindow>,
 ) {
+    if let Some(app) = app {
+        app.invoke_window_will_close();
+    }
     if let Some(controller) = pip.borrow_mut().take() {
         super::pip::Controller::shutdown(controller);
     }

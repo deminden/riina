@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-13",
+  "source_commit": "b33590e75704425aaa9674f53f7c44a174da62de",
+  "working_tree_changes_in_test_build": true,
+  "binary_sha256": "f2c5fc93e24ee55b6fa722d91190900e45618f53008a5d2f4698ad1704978d73",
+  "platform": "Windows x64",
+  "renderer": "native video",
+  "fixture": "tests/fixtures/moving-square.avi",
+  "observations": [
+    "Opened the Video menu, selected Show Video Panel, then reopened Video after the panel transition.",
+    "The first Video menu command immediately read Hide Video Panel with Ctrl+Shift+V.",
+    "While inspecting, same-folder autoplay advanced through clips to long-silence.wav; the Video panel remained selected and the menu title still reflected its open state.",
+    "Closed the test instance normally and confirmed the Riina process and windows were absent."
+  ],
+  "verification": "Manual first-paint label check for the active Video panel only.",
+  "unverified": [
+    "Audio and Subtitles panel menu labels",
+    "Plugins panel visibility label",
+    "Playback pause, speed, volume, mute and audio-delay labels",
+    "macOS native menu behavior and matched pixels",
+    "Other Windows rendering modes"
+  ]
+}

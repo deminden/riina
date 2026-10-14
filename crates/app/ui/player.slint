@@ -3,8 +3,8 @@ import { PlayerSlider, VerticalEqualizerSlider, SubtitleColorWell } from "shared
 import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
 import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
-import { MenuCatalogRow, SavedFilterMenuRow, MenuShortcutRow } from "native-probe.slint";
-export { NativeVideoHost, NativeProbeOverlay, MenuCatalogRow, SavedFilterMenuRow, MenuShortcutRow } from "native-probe.slint";
+import { MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-probe.slint";
+export { NativeVideoHost, NativeProbeOverlay, MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-probe.slint";
 export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
@@ -42,6 +42,42 @@ component SidebarTab inherits FocusScope {
         return reject;
     }
 }
+component QuickSettingsTab inherits FocusScope {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> selected;
+    in property <bool> dark-theme: true;
+    callback activated();
+    width: selected ? 86px : 32px;
+    height: 28px;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { activated(); }
+    Rectangle {
+        border-radius: 14px;
+        background: root.selected ? (root.dark-theme ? #ffffff20 : #00000012) :
+            touch.has-hover ? (root.dark-theme ? #ffffff0c : #00000008) : transparent;
+        border-width: root.has-focus ? 1px : 0px;
+        border-color: #90b7ef;
+        HorizontalLayout {
+            padding-left: root.selected ? 9px : 8px;
+            padding-right: root.selected ? 9px : 8px;
+            spacing: root.selected ? 5px : 0px;
+            alignment: center;
+            Image { source: root.icon; image-fit: contain; width: 15px; height: 15px;
+                colorize: root.dark-theme ? #e3e3e8 : #45454b; }
+            if root.selected : Text { text: root.label;
+                color: root.dark-theme ? #f2f2f5 : #202024;
+                font-size: 11px; font-weight: 600; vertical-alignment: center; }
+        }
+        touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { activated(); return accept; }
+        return reject;
+    }
+}
 
 export component AboutWindow inherits Window {
     title: "About Riina";
@@ -49,8 +85,8 @@ export component AboutWindow inherits Window {
     height: 400px;
     background: #f5f5f7;
     in property <string> version-label: "Version";
-    in property <string> engine-label: "libmpv version unavailable";
-    in property <string> ffmpeg-label: "FFmpeg version unavailable";
+    in property <string> engine-label: "Waiting for libmpv version…";
+    in property <string> ffmpeg-label: "Waiting for FFmpeg version…";
     in property <bool> dark-theme: false;
     in-out property <int> selected-tab: 0;
     callback open-license();
@@ -171,8 +207,24 @@ component LayoutChoice inherits FocusScope {
         return reject;
     }
 }
+component SidebarSectionTitle inherits Rectangle {
+    in property <string> label;
+    in property <bool> dark-theme: true;
+    height: 18px;
+    background: transparent;
+    HorizontalLayout {
+        spacing: 8px;
+        Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
+            horizontal-stretch: 1; }
+        Text { text: root.label; color: root.dark-theme ? #bdbdc5 : #707078;
+            font-size: 11px; font-weight: 700; vertical-alignment: center; }
+        Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
+            horizontal-stretch: 1; }
+    }
+}
 component SidebarPositionToggle inherits FocusScope {
     in property <string> label;
+    in property <image> icon;
     in property <bool> leading;
     in property <bool> dark-theme: true;
     callback changed(bool);
@@ -183,6 +235,12 @@ component SidebarPositionToggle inherits FocusScope {
     accessible-checked: leading;
     accessible-action-default => { changed(!leading); }
     HorizontalLayout {
+        spacing: 8px;
+        if root.icon.width > 0 : Image {
+            source: root.icon; image-fit: contain;
+            width: 16px; height: 16px;
+            colorize: root.dark-theme ? #bdbdc5 : #73737a;
+        }
         Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
             font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
         Rectangle {
@@ -198,6 +256,58 @@ component SidebarPositionToggle inherits FocusScope {
     TouchArea { clicked => { root.changed(!root.leading); } }
     key-pressed(event) => {
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { changed(!leading); return accept; }
+        return reject;
+    }
+}
+component SidebarSideChoice inherits FocusScope {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> leading;
+    in property <bool> dark-theme: true;
+    callback changed(bool);
+    height: 30px;
+    accessible-role: checkbox;
+    accessible-label: label + " on leading side";
+    accessible-checkable: true;
+    accessible-checked: leading;
+    accessible-action-default => { changed(!leading); }
+    HorizontalLayout {
+        spacing: 8px;
+        Image { source: root.icon; image-fit: contain; width: 16px; height: 16px;
+            colorize: root.dark-theme ? #bdbdc5 : #73737a; }
+        Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
+            font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+        Rectangle {
+            width: 58px; height: 24px; border-radius: 7px;
+            background: root.dark-theme ? #ffffff16 : #0000000d;
+            HorizontalLayout {
+                padding: 2px; spacing: 2px;
+                for side in [true, false] : Rectangle {
+                    width: 25px; height: 20px; border-radius: 5px;
+                    background: (root.leading == side) ? #168bff : transparent;
+                    Rectangle {
+                        x: 5px; y: 4px; width: 15px; height: 12px;
+                        border-radius: 2px; border-width: 1px;
+                        border-color: (root.leading == side) ? #ffffffd0 :
+                            (root.dark-theme ? #c5c5cc : #77777e);
+                        background: transparent;
+                        Rectangle {
+                            x: side ? 1px : parent.width - 3px;
+                            width: 2px; height: parent.height - 2px;
+                            background: (root.leading == side) ? #ffffffd0 :
+                                (root.dark-theme ? #c5c5cc : #77777e);
+                        }
+                    }
+                    TouchArea { clicked => { root.changed(side); } }
+                }
+            }
+        }
+    }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.LeftArrow { changed(true); return accept; }
+        if event.text == Key.RightArrow { changed(false); return accept; }
         if event.text == Key.Return || event.text == " " { changed(!leading); return accept; }
         return reject;
     }
@@ -677,8 +787,13 @@ export component PlayerWindow inherits Window {
     callback window-title-changed(string);
     callback open-application-menu();
     callback open-preferences();
+    in-out property <int> preferences-target-pane: -1;
+    callback reload-plugins();
+    callback activate-plugin-menu-item(string);
+    callback plugin-menu-will-open();
     callback find-online-subtitles();
     callback find-online-subtitles-with-provider(int);
+    callback native-menu-will-open();
     changed reflection-known => { root.video-menu-changed(); }
     changed video-mirrored => { root.video-menu-changed(); }
     changed video-flipped => { root.video-menu-changed(); }
@@ -802,6 +917,7 @@ export component PlayerWindow inherits Window {
                 activated => { root.open-screenshot-folder(); } }
             MenuSeparator {}
             MenuItem { title: "A-B Loop"; enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(46);
                 activated => { root.cycle-ab-loop(); } }
             MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
                 enabled: root.loaded && !root.crop-editing;
@@ -1099,9 +1215,23 @@ export component PlayerWindow inherits Window {
                 activated => { root.choose-subtitle-font(); } }
         }
         Menu { title: "Plugin";
+            MenuItem { title: "Manage Plugins…"; enabled: !root.crop-editing;
+                activated => { root.preferences-target-pane = 9; root.open-preferences(); } }
             MenuItem { title: (root.sidebar == 7 || root.leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.crop-editing;
                 shortcut: root.menu-shortcut(45);
                 activated => { root.toggle-plugins-pane(); } }
+            MenuSeparator {}
+            for row in root.plugin-menu-rows : MenuItem {
+                title: row.label;
+                enabled: row.enabled && !row.section-header && !root.crop-editing;
+                checkable: false;
+                checked: row.selected;
+                shortcut: row.shortcut;
+                activated => { root.activate-plugin-menu-item(row.token); }
+            }
+            if root.plugin-menu-rows.length > 0 : MenuSeparator {}
+            MenuItem { title: "Reload All Plugins"; enabled: !root.crop-editing;
+                activated => { root.reload-plugins(); } }
         }
         Menu { title: "Window";
             MenuItem { title: "Minimize";
@@ -1162,6 +1292,7 @@ export component PlayerWindow inherits Window {
     // Native output sits behind this window even while loading or between files.
     background: native-video ? transparent : #111111;
     in property <image> video-frame;
+    in property <image> video-blurred-frame;
     in property <bool> loaded: false;
     in-out property <bool> reveal-current-media-available: false;
     in-out property <bool> delete-current-media-available: false;
@@ -1173,6 +1304,9 @@ export component PlayerWindow inherits Window {
     in property <float> thumbnail-preview-width: 120;
     callback timeline-hovered(float);
     in-out property <string> plugin-osd-message: "";
+    in property <[PluginMenuRow]> plugin-menu-rows: [];
+    in property <[string]> plugin-menu-order: [];
+    changed plugin-menu-rows => { root.video-menu-changed(); }
     in-out property <bool> hdr-enabled: true;
     in property <bool> hdr-display-active: false;
     in property <bool> hdr-source-detected: false;
@@ -1182,7 +1316,11 @@ export component PlayerWindow inherits Window {
     changed live-text-available => { root.video-menu-changed(); root.toolbar-settings-changed(); }
     in-out property <bool> disable-animations: false;
     in property <bool> system-reduce-motion: false;
-    private property <bool> animations-disabled: root.disable-animations || root.system-reduce-motion;
+    in property <bool> platform-macos: false;
+    private property <bool> animations-disabled: root.disable-animations ||
+        (root.system-reduce-motion && !root.platform-macos);
+    private property <bool> macos-sidebar-reduce-motion-fade:
+        root.platform-macos && root.system-reduce-motion && !root.disable-animations;
     in property <duration> osd-fade-duration: animations-disabled || !osd-enabled ? 0ms : 500ms;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
@@ -1199,6 +1337,7 @@ export component PlayerWindow inherits Window {
     private property <bool> music-mode-volume-open: false;
     callback toggle-music-mode();
     callback close-player();
+    callback window-will-close();
     callback quit-riina();
     callback minimize-window();
     callback zoom-window();
@@ -1208,6 +1347,11 @@ export component PlayerWindow inherits Window {
     callback music-mode-changed();
     callback auto-switch-music-mode-changed(bool);
     changed music-mode => {
+        if root.music-mode {
+            // IINA's compact audio surface is independent of main-window sidebars.
+            root.leading-sidebar = 0;
+            root.sidebar = 0;
+        }
         if !root.music-mode { root.music-mode-volume-open = false; }
         root.music-mode-changed(); root.video-menu-changed();
     }
@@ -1363,7 +1507,7 @@ export component PlayerWindow inherits Window {
     in-out property <bool> control-disable-play-slider-scrolling: false;
     in-out property <bool> control-disable-volume-slider-scrolling: false;
     in-out property <int> control-seek-type-index: 0;
-    in-out property <int> control-seek-sensitivity: 3;
+    in-out property <int> control-relative-seek-amount: 3;
     in-out property <int> control-volume-sensitivity: 3;
     in-out property <int> control-speed-sensitivity: 3;
     in-out property <string> key-binding-current-profile: "IINA Default";
@@ -1468,6 +1612,7 @@ export component PlayerWindow inherits Window {
     in-out property <int> remembered-playlist-pane: 4;
     in-out property <bool> settings-at-leading: false;
     in-out property <bool> playlist-at-leading: true;
+    in-out property <bool> plugins-at-leading: true;
     in-out property <float> leading-sidebar-width: 360;
     in-out property <float> trailing-sidebar-width: 360;
     in-out property <bool> compact-ui: false;
@@ -1497,12 +1642,15 @@ export component PlayerWindow inherits Window {
     in-out property <float> video-window-height: 0;
     in-out property <int> video-window-rotation: 0;
     in property <string> window-geometry-source: "";
+    in-out property <int> window-size-adjusted-event: 0;
     changed always-float-on-top => { root.window-level-changed(); root.video-menu-changed(); }
     in-out property <bool> edge-to-edge-video: true;
     in-out property <bool> docked-controls: false;
     in-out property <bool> unlock-window-aspect-ratio: false;
     in property <float> video-display-aspect-ratio: 0;
     in-out property <int> osc-position: 0;
+    in-out property <float> control-bar-position-horizontal: 0.5;
+    in-out property <float> control-bar-position-vertical: 0.1;
     callback layout-settings-changed();
     callback window-aspect-changed();
     callback window-level-changed();
@@ -1514,11 +1662,16 @@ export component PlayerWindow inherits Window {
     callback toggle-settings-pane(int);
     callback toggle-playlist-pane(int);
     callback toggle-plugins-pane();
+    callback select-plugin-sidebar-tab(string);
     callback select-settings-pane(int);
     callback select-playlist-pane(int);
     callback sidebar-resize-finished();
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
+    in-out property <[string]> plugin-sidebar-identifiers: [];
+    in-out property <[string]> plugin-sidebar-labels: [];
+    in-out property <string> plugin-sidebar-selected-identifier: "";
+    in-out property <int> plugin-sidebar-selected-index: -1;
     in-out property <string> playlist-drag-token: "";
     in-out property <float> playlist-drag-start-x: 0;
     in-out property <float> playlist-drag-start-y: 0;
@@ -1530,6 +1683,7 @@ export component PlayerWindow inherits Window {
     callback select-playlist-row(int, bool, bool) -> [string];
     in property <float> audio-delay: 0;
     in property <string> audio-delay-text: "0";
+    in-out property <string> audio-delay-preview-text: "0";
     changed audio-delay-text => { root.video-menu-changed(); }
     in property <float> subtitle-delay: 0;
     in property <string> subtitle-delay-text: "0";
@@ -1615,6 +1769,16 @@ export component PlayerWindow inherits Window {
     private property <length> osc-row-gap: root.music-mode ? 2px : root.width < 64px ? 0px : 4px;
     private property <length> osc-timeline-gap: root.width < 64px ? 0px :
         root.small-video-controller ? 4px : 8px;
+    private property <length> sidebar-leading-extent: root.leading-sidebar == 0 ? 0px :
+        min(root.leading-sidebar-width * 1px, root.width * 0.8);
+    private property <length> sidebar-trailing-extent: root.sidebar == 0 ? 0px :
+        min(root.trailing-sidebar-width * 1px, root.width * 0.8);
+    // IINA shifts the title bar and bottom OSC constraints with a sliding
+    // sidebar. Reduce Motion keeps those surfaces in place while the sidebar fades.
+    private property <length> macos-sidebar-leading-inset:
+        root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-leading-extent : 0px;
+    private property <length> macos-sidebar-trailing-inset:
+        root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-trailing-extent : 0px;
     // Keep enough room for both 30px neighbor buttons, their gaps, and the
     // centered bar's inner padding before exposing them in a narrow window.
     private property <bool> transport-neighbor-actions-fit: root.music-mode ||
@@ -1633,6 +1797,21 @@ export component PlayerWindow inherits Window {
     out property <length> video-origin-y: video-inset-top;
     out property <length> video-width: max(1px, root.width - video-inset-leading - video-inset-trailing);
     out property <length> video-height: max(1px, root.height - video-inset-top - video-inset-bottom);
+    out property <length> plugin-sidebar-view-x: {
+        let inset = root.compact-ui ? 9px : 12px;
+        if root.leading-sidebar == 7 { inset }
+        else { root.width - min(root.trailing-sidebar-width * 1px, root.width * 0.8) + inset }
+    }
+    out property <length> plugin-sidebar-view-y: root.title-row-height +
+        (root.osc-position == 1 ? root.osc-height : 0px) +
+        (root.compact-ui ? 9px : 12px) + 28px + (root.compact-ui ? 6px : 8px);
+    out property <length> plugin-sidebar-view-width: max(0px,
+        min((root.leading-sidebar == 7 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
+            root.width * 0.8) - 2 * (root.compact-ui ? 9px : 12px));
+    out property <length> plugin-sidebar-view-height: max(0px,
+        root.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
+        (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px) -
+        2 * (root.compact-ui ? 9px : 12px) - 28px - (root.compact-ui ? 6px : 8px));
     in property <float> crop-picture-x;
     in property <float> crop-picture-y;
     in property <float> crop-picture-width;
@@ -1736,6 +1915,7 @@ export component PlayerWindow inherits Window {
     callback browse-files(int);
     callback set-delay(int, float);
     callback set-delay-text(int, string) -> bool;
+    callback preview-audio-delay(float);
     callback toggle-subtitle-visibility();
     callback playlist-action(int, string);
     callback reorder-playlist([string], int);
@@ -1835,12 +2015,26 @@ export component PlayerWindow inherits Window {
         }
 
         if root.show-player-title-row && controls-rendered && loaded && !crop-editing && !music-mode : Rectangle {
-            x: 0; y: 0; width: parent.width; height: root.compact-ui ? 30px : 34px;
+            clip: true;
+            x: macos-sidebar-leading-inset;
+            width: max(0px, parent.width - macos-sidebar-leading-inset - macos-sidebar-trailing-inset);
+            animate x { duration: root.animations-disabled ? 0ms : 240ms; }
+            animate width { duration: root.animations-disabled ? 0ms : 240ms; }
+            y: 0; height: root.compact-ui ? 30px : 34px;
             opacity: root.controls-visible ? 1 : 0;
             animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
                 : (root.dark-theme ? #151519 : #f2f2f2);
+            if root.liquid-glass-osc && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             TouchArea {
                 width: parent.width; height: parent.height;
                 changed has-hover => { root.title-bar-hovered = self.has-hover; }
@@ -1880,15 +2074,43 @@ export component PlayerWindow inherits Window {
         for side in [0, 1] : Rectangle {
             // Each side owns its selected pane; catalog callbacks retain their original kind.
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
-            visible: pane-kind != 0 && !root.crop-editing;
+            private property <bool> sidebar-open: pane-kind != 0 && !root.crop-editing;
+            private property <bool> reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
+            private property <bool> close-transition-pending: false;
+            changed sidebar-open => {
+                self.close-transition-pending = !sidebar-open && !root.animations-disabled;
+            }
+            changed reduce-motion-fade => {
+                if root.animations-disabled { self.close-transition-pending = false; }
+            }
+            Timer {
+                interval: 260ms; running: parent.close-transition-pending;
+                triggered => { parent.close-transition-pending = false; }
+            }
+            visible: sidebar-open || (close-transition-pending && !root.animations-disabled);
+            x: side == 0
+                ? ((sidebar-open || reduce-motion-fade) ? 0px : -self.width)
+                : ((sidebar-open || reduce-motion-fade) ? parent.width - self.width : parent.width);
+            animate x { duration: root.animations-disabled || reduce-motion-fade ? 0ms : 240ms; }
+            opacity: !reduce-motion-fade || sidebar-open ? 1 : 0;
+            animate opacity { duration: reduce-motion-fade ? 240ms : 0ms; }
+            clip: true;
             background: root.liquid-glass-sidebar
                 ? (root.dark-theme ? #151515b0 : #f2f2f2ed)
                 : (root.dark-theme ? #151519 : #f2f2f2);
-            x: side == 0 ? 0px : parent.width - self.width;
             y: root.title-row-height + (root.osc-position == 1 ? root.osc-height : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
                 (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px);
+            if root.liquid-glass-sidebar && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             // Track row height and None entry follow SidebarTrackSelector.swift.
             // Saved widths are independent; opening clamps to 80% without overwriting intent.
             // Playlist/chapters default leading; settings default trailing.
@@ -1899,16 +2121,27 @@ export component PlayerWindow inherits Window {
                 HorizontalLayout {
                     // Tabs switch the visible pane without closing it or changing catalog tokens.
                     // Layout is still pending; do not expose an empty reference tab.
-                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : HorizontalLayout {
-                        spacing: 4px;
-                        SidebarTab { label: "Layout"; selected: pane-kind == 5; dark-theme: root.dark-theme;
-                            activated => { root.select-settings-pane(5); } }
-                        SidebarTab { label: "Video"; selected: pane-kind == 6; dark-theme: root.dark-theme;
-                            activated => { root.select-settings-pane(6); } }
-                        SidebarTab { label: "Audio"; selected: pane-kind == 1; dark-theme: root.dark-theme;
-                            activated => { root.select-settings-pane(1); } }
-                        SidebarTab { label: "Subtitles"; selected: pane-kind == 2; dark-theme: root.dark-theme;
-                            activated => { root.select-settings-pane(2); } }
+                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : Rectangle {
+                        width: 205px; height: 34px; border-radius: 17px;
+                        background: root.dark-theme ? #ffffff14 : #0000000b;
+                        HorizontalLayout { spacing: 2px; padding: 3px;
+                            QuickSettingsTab { label: "Layout";
+                                icon: @image-url("../../../assets/icons/interface.svg");
+                                selected: pane-kind == 5; dark-theme: root.dark-theme;
+                                activated => { root.select-settings-pane(5); } }
+                            QuickSettingsTab { label: "Video";
+                                icon: @image-url("../../../assets/icons/video.svg");
+                                selected: pane-kind == 6; dark-theme: root.dark-theme;
+                                activated => { root.select-settings-pane(6); } }
+                            QuickSettingsTab { label: "Audio";
+                                icon: @image-url("../../../assets/icons/audio.svg");
+                                selected: pane-kind == 1; dark-theme: root.dark-theme;
+                                activated => { root.select-settings-pane(1); } }
+                            QuickSettingsTab { label: "Subtitles";
+                                icon: @image-url("../../../assets/icons/subtitles-page.svg");
+                                selected: pane-kind == 2; dark-theme: root.dark-theme;
+                                activated => { root.select-settings-pane(2); } }
+                        }
                     }
                     if pane-kind == 3 || pane-kind == 4 : HorizontalLayout {
                         spacing: 4px;
@@ -1917,8 +2150,21 @@ export component PlayerWindow inherits Window {
                         SidebarTab { label: "Chapters"; selected: pane-kind == 3;
                             activated => { root.select-playlist-pane(3); } }
                     }
-                    if pane-kind == 7 : Text { text: "Plugins"; color: root.dark-theme ? #dddddd : #29292d;
-                        font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                    if pane-kind == 7 : HorizontalLayout {
+                        Text { text: "Plugins"; color: root.dark-theme ? #dddddd : #29292d;
+                            font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                        if root.plugin-sidebar-labels.length > 0 : ComboBox {
+                            horizontal-stretch: 1;
+                            height: 24px;
+                            model: root.plugin-sidebar-labels;
+                            current-index: max(0, root.plugin-sidebar-selected-index);
+                            selected => {
+                                if self.current-index >= 0 && self.current-index < root.plugin-sidebar-identifiers.length {
+                                    root.select-plugin-sidebar-tab(root.plugin-sidebar-identifiers[self.current-index]);
+                                }
+                            }
+                        }
+                    }
                     Tool { dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/close.svg"); hint: "Close sidebar";
                         activated => {
                             // Retire focus before hiding a pane so later shortcuts reach the player.
@@ -1933,63 +2179,106 @@ export component PlayerWindow inherits Window {
                     content-width: self.visible-width;
                     horizontal-scrollbar-policy: always-off;
                     VerticalLayout {
-                    spacing: 10px;
+                    spacing: 12px;
                     Rectangle {
                         width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
-                        height: 30px; accessible-role: checkbox;
-                        accessible-label: "Compact interface"; accessible-checkable: true;
-                        accessible-checked: root.compact-ui;
-                        accessible-action-default => { root.compact-ui = !root.compact-ui; root.layout-settings-changed(); }
-                        Text { x: 26px; text: "Compact interface"; color: root.dark-theme ? #dddddd : #29292d;
-                            font-size: 12px; vertical-alignment: center; }
-                        Rectangle { x: 2px; y: 7px; width: 16px; height: 16px; border-radius: 3px;
-                            border-width: 1px; border-color: #888892;
-                            background: root.compact-ui ? #90b7ef : #ffffff10;
-                            if root.compact-ui : Text { text: "✓"; color: #17202e;
-                                horizontal-alignment: center; vertical-alignment: center; font-size: 12px; } }
-                        TouchArea { clicked => { root.compact-ui = !root.compact-ui; root.layout-settings-changed(); } }
+                        height: 142px; border-radius: 10px;
+                        border-width: 1px;
+                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        background: root.dark-theme ? #ffffff08 : #ffffff88;
+                        VerticalLayout {
+                            padding: 10px; spacing: 5px;
+                            HorizontalLayout {
+                                height: 26px; spacing: 8px;
+                                Image { source: @image-url("../../../assets/icons/interface.svg");
+                                    image-fit: contain; width: 18px; height: 18px;
+                                    colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+                                Text { text: "Theme"; color: root.dark-theme ? #dddddd : #29292d;
+                                    font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                                Rectangle {
+                                    width: 156px; height: 26px; border-radius: 7px;
+                                    background: root.dark-theme ? #ffffff14 : #0000000d;
+                                    HorizontalLayout {
+                                        padding: 2px; spacing: 2px;
+                                        SidebarTab { label: "Dark"; selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
+                                            activated => { root.appearance-mode = 0; root.layout-settings-changed(); } }
+                                        SidebarTab { label: "Light"; selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
+                                            activated => { root.appearance-mode = 1; root.layout-settings-changed(); } }
+                                        SidebarTab { label: "Auto"; selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
+                                            activated => { root.appearance-mode = 2; root.layout-settings-changed(); } }
+                                    }
+                                }
+                            }
+                            HorizontalLayout {
+                                height: 24px; spacing: 8px;
+                                Image { source: @image-url("../../../assets/icons/settings.svg");
+                                    image-fit: contain; width: 18px; height: 18px;
+                                    colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+                                Text { text: root.surface-material-title; color: root.dark-theme ? #dddddd : #29292d;
+                                    font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
+                            }
+                            VerticalLayout {
+                                padding-left: 24px; spacing: 2px;
+                                SidebarPositionToggle { label: "On Screen Display";
+                                    icon: @image-url("../../../assets/icons/mpv-osd.svg");
+                                    leading: root.liquid-glass-osd; dark-theme: root.dark-theme;
+                                    height: 23px;
+                                    changed(value) => { root.liquid-glass-osd = value; root.layout-settings-changed(); } }
+                                SidebarPositionToggle { label: "On Screen Controller";
+                                    icon: @image-url("../../../assets/icons/control.svg");
+                                    leading: root.liquid-glass-osc; dark-theme: root.dark-theme;
+                                    height: 23px;
+                                    changed(value) => { root.liquid-glass-osc = value; root.layout-settings-changed(); } }
+                                SidebarPositionToggle { label: "Sidebar";
+                                    icon: @image-url("../../../assets/icons/playlist.svg");
+                                    leading: root.liquid-glass-sidebar; dark-theme: root.dark-theme;
+                                    height: 23px;
+                                    changed(value) => { root.liquid-glass-sidebar = value; root.layout-settings-changed(); } }
+                            }
+                        }
                     }
-                    Text { text: "Theme"; color: root.dark-theme ? #bdbdc5 : #707078;
-                        font-size: 11px; font-weight: 700; }
-                    HorizontalLayout {
+                    Rectangle {
                         width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
-                        spacing: 4px;
-                        SidebarTab { label: "Dark"; selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
-                            activated => { root.appearance-mode = 0; root.layout-settings-changed(); } }
-                        SidebarTab { label: "Light"; selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
-                            activated => { root.appearance-mode = 1; root.layout-settings-changed(); } }
-                        SidebarTab { label: "Auto"; selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
-                            activated => { root.appearance-mode = 2; root.layout-settings-changed(); } }
+                        height: 48px; border-radius: 10px;
+                        border-width: 1px;
+                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        background: root.dark-theme ? #ffffff08 : #ffffff88;
+                        VerticalLayout { padding: 9px; alignment: center;
+                            SidebarPositionToggle { label: "Compact Interface";
+                                icon: @image-url("../../../assets/icons/interface.svg");
+                                leading: root.compact-ui; dark-theme: root.dark-theme;
+                                changed(value) => { root.compact-ui = value; root.layout-settings-changed(); } }
+                        }
                     }
-                    Text { text: root.surface-material-title; color: root.dark-theme ? #bdbdc5 : #707078;
-                        font-size: 11px; font-weight: 700; }
-                    SidebarPositionToggle { label: "On-Screen Display"; leading: root.liquid-glass-osd;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.liquid-glass-osd = value; root.layout-settings-changed(); } }
-                    SidebarPositionToggle { label: "On-Screen Controller"; leading: root.liquid-glass-osc;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.liquid-glass-osc = value; root.layout-settings-changed(); } }
-                    SidebarPositionToggle { label: "Sidebar"; leading: root.liquid-glass-sidebar;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.liquid-glass-sidebar = value; root.layout-settings-changed(); } }
-                    Text { text: "Video"; color: root.dark-theme ? #bdbdc5 : #707078; font-size: 11px; font-weight: 700; }
-                    SidebarPositionToggle { label: "Edge-to-edge video"; leading: root.edge-to-edge-video;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.edge-to-edge-video = value; root.layout-settings-changed(); } }
-                    if root.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
-                        leading: !root.unlock-window-aspect-ratio; dark-theme: root.dark-theme;
-                        changed(value) => { root.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
-                    if (root.unlock-window-aspect-ratio || !root.edge-to-edge-video) && root.video-display-aspect-ratio > 0 : SidebarAction {
-                        label: "Fit Window to Video";
-                        icon: @image-url("../../../assets/icons/fit-window-to-video.svg");
-                        enabled: root.loaded && !root.fullscreen;
-                        activated => { root.fit-window-to-video(); }
+                    Rectangle {
+                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
+                        height: (root.unlock-window-aspect-ratio || !root.edge-to-edge-video) &&
+                            root.video-display-aspect-ratio > 0 ? 112px : 78px;
+                        border-radius: 10px; border-width: 1px;
+                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        background: root.dark-theme ? #ffffff08 : #ffffff88;
+                        VerticalLayout { padding: 9px; spacing: 1px;
+                            SidebarPositionToggle { label: "Edge-to-Edge Video";
+                                icon: @image-url("../../../assets/icons/video.svg");
+                                leading: root.edge-to-edge-video; dark-theme: root.dark-theme;
+                                changed(value) => { root.edge-to-edge-video = value; root.layout-settings-changed(); } }
+                            if root.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
+                                icon: @image-url("../../../assets/icons/video-aspect-ratio.svg");
+                                leading: !root.unlock-window-aspect-ratio; dark-theme: root.dark-theme;
+                                changed(value) => { root.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
+                            if !root.edge-to-edge-video : SidebarPositionToggle { label: "Dock Control Bar and Titlebar";
+                                icon: @image-url("../../../assets/icons/control.svg");
+                                leading: root.docked-controls; dark-theme: root.dark-theme;
+                                changed(value) => { root.docked-controls = value; root.layout-settings-changed(); } }
+                            if (root.unlock-window-aspect-ratio || !root.edge-to-edge-video) && root.video-display-aspect-ratio > 0 : SidebarAction {
+                                label: "Fit Window to Video";
+                                icon: @image-url("../../../assets/icons/fit-window-to-video.svg");
+                                enabled: root.loaded && !root.fullscreen;
+                                activated => { root.fit-window-to-video(); }
+                            }
+                        }
                     }
-                    if !root.edge-to-edge-video : SidebarPositionToggle { label: "Dock control bar and titlebar"; leading: root.docked-controls;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.docked-controls = value; root.layout-settings-changed(); } }
-                    Text { text: "On-Screen Controller"; color: root.dark-theme ? #bdbdc5 : #707078;
-                        font-size: 11px; font-weight: 700; }
+                    SidebarSectionTitle { label: "On Screen Controller"; dark-theme: root.dark-theme; }
                     HorizontalLayout {
                         width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
                         spacing: 6px;
@@ -2000,13 +2289,25 @@ export component PlayerWindow inherits Window {
                         LayoutChoice { label: "Bottom"; position: 2; dark-theme: root.dark-theme; card-width: (parent.width - 12px) / 3; selected: root.osc-position == 2;
                             activated => { root.osc-position = 2; root.layout-settings-changed(); } }
                     }
-                    Text { text: "Sidebar Position"; color: root.dark-theme ? #bdbdc5 : #707078; font-size: 11px; font-weight: 700; }
-                    SidebarPositionToggle { label: "Settings on leading side"; leading: root.settings-at-leading;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.settings-at-leading = value; root.layout-settings-changed(); } }
-                    SidebarPositionToggle { label: "Playlist on leading side"; leading: root.playlist-at-leading;
-                        dark-theme: root.dark-theme;
-                        changed(value) => { root.playlist-at-leading = value; root.layout-settings-changed(); } }
+                    SidebarSectionTitle { label: "Sidebar Position"; dark-theme: root.dark-theme; }
+                    Rectangle {
+                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px);
+                        height: 116px; border-radius: 10px;
+                        border-width: 1px;
+                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        background: root.dark-theme ? #ffffff08 : #ffffff88;
+                        VerticalLayout { padding: 8px; spacing: 2px;
+                            SidebarSideChoice { label: "Settings"; icon: @image-url("../../../assets/icons/settings.svg");
+                                leading: root.settings-at-leading; dark-theme: root.dark-theme;
+                                changed(value) => { root.settings-at-leading = value; root.layout-settings-changed(); } }
+                            SidebarSideChoice { label: "Playlist and Chapters"; icon: @image-url("../../../assets/icons/playlist.svg");
+                                leading: root.playlist-at-leading; dark-theme: root.dark-theme;
+                                changed(value) => { root.playlist-at-leading = value; root.layout-settings-changed(); } }
+                            SidebarSideChoice { label: "Plugins"; icon: @image-url("../../../assets/icons/plugins.svg");
+                                leading: root.plugins-at-leading; dark-theme: root.dark-theme;
+                                changed(value) => { root.plugins-at-leading = value; root.layout-settings-changed(); } }
+                        }
+                    }
                     }
                 }
                 if pane-kind == 1 : ScrollView {
@@ -2016,9 +2317,12 @@ export component PlayerWindow inherits Window {
                     horizontal-scrollbar-policy: always-off;
                     VerticalLayout { width: parent.width; spacing: 1px;
                         for row[index] in root.audio-tracks : Rectangle {
-                            height: 26px; background: row.selected ? #ffffff15 : transparent;
+                            height: 26px; background: transparent;
                             accessible-role: button; accessible-label: row.label;
                             accessible-action-default => { root.select-item(1, row.token); }
+                            Rectangle { x: 0; y: parent.height - 1px;
+                                width: parent.width; height: 1px;
+                                background: root.dark-theme ? #ffffff20 : #00000020; }
                             if row.selected : Rectangle {
                                 x: 0; width: 4px; y: 5px; height: parent.height - 10px;
                                 background: #90b7ef; border-radius: 2px;
@@ -2026,14 +2330,16 @@ export component PlayerWindow inherits Window {
                             Text { x: 12px;
                                 width: parent.width - 18px - (row.language != "" ? 42px : 0px);
                                 text: row.label;
-                                color: row.token == "no" ? #a7a7ad : #dddddd;
+                                color: row.token == "no"
+                                    ? (root.dark-theme ? #a7a7ad : #6b6b70)
+                                    : (root.dark-theme ? #dddddd : #29292d);
                                 font-size: 12px; vertical-alignment: center; overflow: elide;
                             }
                             if row.language != "" : Rectangle {
                                 width: 38px; height: 16px; x: parent.width - self.width - 3px;
                                 y: (parent.height - self.height) / 2;
-                                border-radius: 3px; background: #ffffff20;
-                                Text { text: row.language; color: #dddddd; font-size: 11px;
+                                border-radius: 3px; background: root.dark-theme ? #ffffff20 : #00000010;
+                                Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d; font-size: 11px;
                                     horizontal-alignment: center; vertical-alignment: center; }
                             }
                             TouchArea { clicked => {
@@ -2093,10 +2399,15 @@ export component PlayerWindow inherits Window {
                             activated => { root.reset-audio-delay(); } }
                     }
                     HorizontalLayout { height: 24px; spacing: 8px;
-                        PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.audio-delay;
+                        audio-delay-slider := PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.audio-delay;
+                            commit-on-release: true;
                             enabled: root.loaded; neutral-mark: true; hint: "Audio delay";
-                            changed(value) => { root.set-delay(1, round(value * 20) / 20); } }
-                        DelayInput { value: root.audio-delay; formatted-value: root.audio-delay-text;
+                            draft-changed(value) => { root.preview-audio-delay(value); }
+                            changed(value) => { root.set-delay(1, round(value * 20) / 20); }
+                            committed(value) => { root.set-delay(1, round(value * 20) / 20); } }
+                        DelayInput { value: root.audio-delay;
+                            formatted-value: audio-delay-slider.previewing
+                                ? root.audio-delay-preview-text : root.audio-delay-text;
                             enabled: root.loaded; hint: "Audio delay in seconds";
                             committed(text) => { if root.set-delay-text(1, text) { keys.focus(); } } }
                     }
@@ -2141,12 +2452,13 @@ export component PlayerWindow inherits Window {
                 }
                 if pane-kind != 5 : ScrollView {
                     VerticalLayout { alignment: start; spacing: 1px;
-                        if pane-kind == 7 : VerticalLayout {
+                        if pane-kind == 7 && root.plugin-sidebar-selected-identifier == "" : VerticalLayout {
                             spacing: 6px;
                             Text { text: "Plugins can provide content in this panel.";
                                 color: root.dark-theme ? #dddddd : #29292d;
                                 font-size: 12px; wrap: word-wrap; }
-                            Text { text: "Plugin sidebar content is not available yet.";
+                            if root.plugin-sidebar-labels.length == 0 : Text {
+                                text: "Enabled plugins with sidebar tabs appear here.";
                                 color: root.dark-theme ? #aaaaaa : #66666b;
                                 font-size: 11px; wrap: word-wrap; }
                         }
@@ -2207,9 +2519,14 @@ export component PlayerWindow inherits Window {
                             property <int> current-playlist-focus-index: root.playlist-focus-index;
                             height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
                                 : (root.playlist-metadata-visible ? 38px : 30px);
-                            background: row.selected ? #ffffff15 : transparent;
+                            background: (pane-kind == 2 || pane-kind == 6) ? transparent
+                                : row.selected ? #ffffff15 : transparent;
                     accessible-role: button; accessible-label: pane-kind == 4 && row.path != ""
                         ? row.label + (row.detail != "" ? ", " + row.detail : "") + ", " + row.path : row.label;
+                            if pane-kind == 2 || pane-kind == 6 : Rectangle {
+                                x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
+                                background: root.dark-theme ? #ffffff20 : #00000020;
+                            }
                             if pane-kind == 4 && root.playlist-drag-active && root.playlist-drop-index == index : Rectangle {
                                 x: 0; y: 0; width: parent.width; height: 2px; background: #90b7ef;
                             }
@@ -2229,11 +2546,17 @@ export component PlayerWindow inherits Window {
                             }
                             if pane-kind != 4 || row.detail == "" : Text { x: 12px;
                                 width: parent.width - 18px - (row.language != "" ? 42px : 0px);
-                                text: row.label; color: #dddddd; font-size: 12px;
+                                text: row.label;
+                                color: row.token == "no"
+                                    ? (root.dark-theme ? #a7a7ad : #6b6b70)
+                                    : (root.dark-theme ? #dddddd : #29292d);
+                                font-size: 12px;
                                 vertical-alignment: center; overflow: elide; }
                             if row.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
-                                y: (parent.height - self.height) / 2; border-radius: 3px; background: #ffffff20;
-                                Text { text: row.language; color: #dddddd; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
+                                y: (parent.height - self.height) / 2; border-radius: 3px;
+                                background: root.dark-theme ? #ffffff20 : #00000010;
+                                Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d;
+                                    font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
                             TouchArea {
                                 clicked => { row-focus.focus(); if pane-kind < 3 { root.select-item(pane-kind, row.token); }
                                     if pane-kind == 4 { root.selected-playlist-token = row.token; } }
@@ -2599,28 +2922,46 @@ export component PlayerWindow inherits Window {
             }
         }
         if controls-rendered && loaded && !crop-editing : osc-bar := Rectangle {
+            clip: true;
             private property <length> toolbar-width: root.toolbar-visible-order.length * 30px +
                 max(0, root.toolbar-visible-order.length - 1) * 4px;
             private property <length> side-width: max(116px, toolbar-width);
             private property <bool> side-controls-fit: self.width >= 98px + side-width * 2 + 40px;
+            private property <length> bottom-sidebar-leading-inset:
+                !root.music-mode && root.osc-position == 2 ? macos-sidebar-leading-inset : 0px;
+            private property <length> bottom-sidebar-trailing-inset:
+                !root.music-mode && root.osc-position == 2 ? macos-sidebar-trailing-inset : 0px;
             width: root.music-mode ? parent.width :
-                root.osc-position == 0 ? min(parent.width, min(460px, max(48px, parent.width - 24px))) : parent.width;
+                root.osc-position == 0 ? min(parent.width, min(460px, max(48px, parent.width - 24px))) :
+                max(0px, parent.width - bottom-sidebar-leading-inset - bottom-sidebar-trailing-inset);
             height: root.osc-height;
             x: root.music-mode ? 0px :
-                root.osc-position == 0 ? (parent.width - self.width) / 2 : 0px;
+                root.osc-position == 0 && parent.width >= 460px ? clamp(
+                    parent.width * root.control-bar-position-horizontal - self.width / 2,
+                    0px, max(0px, parent.width - self.width)) : bottom-sidebar-leading-inset;
             // Keep the transport row outside the playlist's hit-test surface
             // in the compact music layout so Play/Pause remains directly usable.
             y: root.music-mode ? parent.height -
                     (root.music-mode-show-playlist ? 300px : 0px) - self.height :
                 root.osc-position == 1 ? min(max(0px, parent.height - self.height), root.compact-ui ? 30px : 34px) :
                 root.osc-position == 2 ? max(0px, parent.height - self.height) :
-                    max(0px, min(parent.height - self.height, parent.height * 0.9 - self.height));
+                    max(0px, min(max(0px, parent.height - self.height - 25px),
+                        parent.height * (1 - root.control-bar-position-vertical) - self.height));
             opacity: root.music-mode || root.controls-visible ? 1 : 0;
             animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
             border-radius: root.music-mode ? 0px : root.osc-position == 0 ? 12px : 4px;
             background: root.liquid-glass-osc
                 ? (root.dark-theme ? #202025e8 : #f2f2f2ed)
                 : (root.dark-theme ? #202025 : #f2f2f2);
+            if root.liquid-glass-osc && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             border-width: 1px; border-color: #ffffff25;
             // This is a tinted SDR spike, not a claim of matching AppKit video blur.
             // Keep the outer baseline separate from glyph/material estimates. A
@@ -2628,6 +2969,38 @@ export component PlayerWindow inherits Window {
             // panel with spacious 14/8 insets and an 8-point row separation.
             TouchArea {
                 width: parent.width; height: parent.height;
+                private property <float> drag-start-x: 0;
+                private property <float> drag-start-y: 0;
+                private property <float> drag-origin-x: 0;
+                private property <float> drag-origin-y: 0;
+                moved => {
+                    if self.pressed && root.osc-position == 0 && !root.music-mode {
+                        let available-x = max(0px, root.width - osc-bar.width);
+                        let available-y = max(0px, root.height - osc-bar.height - 25px);
+                        let requested-x = drag-origin-x + self.mouse-x / 1px - drag-start-x;
+                        let requested-y = drag-origin-y + self.mouse-y / 1px - drag-start-y;
+                        let bounded-x = clamp(requested-x, 0, available-x / 1px);
+                        let bounded-y = clamp(requested-y, 0, available-y / 1px);
+                        let center-x = (root.width / 1px - osc-bar.width / 1px) / 2;
+                        let snapped-x = abs(bounded-x - center-x) <= 5 ? center-x : bounded-x;
+                        root.control-bar-position-horizontal = (snapped-x + osc-bar.width / 2 / 1px) / max(1, root.width / 1px);
+                        root.control-bar-position-vertical = (root.height / 1px - bounded-y - osc-bar.height / 1px) / max(1, root.height / 1px);
+                        root.control-bar-dragging = true;
+                    }
+                }
+                pointer-event(event) => {
+                    if event.button == PointerEventButton.left && event.kind == PointerEventKind.down
+                        && root.osc-position == 0 && !root.music-mode {
+                        drag-start-x = self.mouse-x / 1px;
+                        drag-start-y = self.mouse-y / 1px;
+                        drag-origin-x = osc-bar.x / 1px;
+                        drag-origin-y = osc-bar.y / 1px;
+                    } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up
+                        && root.control-bar-dragging {
+                        root.control-bar-dragging = false;
+                        root.layout-settings-changed();
+                    }
+                }
                 changed has-hover => {
                     root.control-bar-hovered = self.has-hover;
                     if root.music-mode && !self.has-hover { root.music-mode-volume-open = false; }
@@ -2849,11 +3222,21 @@ export component PlayerWindow inherits Window {
         }
         // Geometry is estimated from the reviewed 320×180 reference capture.
         if loaded && !crop-editing : Rectangle {
+            clip: true;
             x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
             opacity: root.seek-osd-visible && root.osd-enabled ? 1 : 0;
             animate opacity { duration: root.osd-fade-duration; }
             border-radius: 14px;
             background: root.liquid-glass-osd ? #181818dc : #181818;
+            if root.liquid-glass-osd && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             seek-clock := HorizontalLayout {
                 x: 16px; y: 8px; width: parent.width - 32px; height: 25px; spacing: 5px;
                 Text { text: seek-position-label; color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
@@ -2864,12 +3247,22 @@ export component PlayerWindow inherits Window {
                 background: #168bff; border-radius: 1px; }
         }
         if !root.plugin-osd-message.is-empty && !crop-editing : Rectangle {
+            clip: true;
             x: (parent.width - self.width) / 2;
             y: max(8px,
                 parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
             width: min(420px, parent.width - 32px); height: 40px;
             border-radius: 8px; background: #17171be8;
             border-width: 1px; border-color: #ffffff24;
+            if root.liquid-glass-osd && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             Text {
                 x: 14px; y: 5px; width: parent.width - 28px; height: parent.height - 10px;
                 text: root.plugin-osd-message; color: #ffffff; font-size: 13px;
@@ -2924,6 +3317,7 @@ export component PlayerWindow inherits Window {
             }
         }
         if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : Rectangle {
+            clip: true;
             private property <length> card-width: min(340px, parent.width - 16px -
                 (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
             x: parent.width - self.card-width -
@@ -2934,6 +3328,15 @@ export component PlayerWindow inherits Window {
             border-radius: root.liquid-glass-osd ? 16px : 10px;
             background: root.liquid-glass-osd ? #1b1b20d8 : #1b1b20;
             border-width: 1px; border-color: #ffffff22;
+            if root.liquid-glass-osd && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             Text { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
                 text: root.media-title; color: white; font-size: 18px; overflow: elide; }
             HorizontalLayout { x: 16px; y: 39px; width: parent.width - 32px; height: 24px; spacing: 4px;
@@ -2956,12 +3359,22 @@ export component PlayerWindow inherits Window {
             }
         }
         if loaded : Rectangle {
+            clip: true;
             x: 8px; y: 49px; width: video-message.preferred-width + 32px;
             height: video-osd-progress >= 0 ? 50px : 41px;
             opacity: root.video-osd-visible && root.osd-enabled ? 1 : 0;
             animate opacity { duration: root.osd-fade-duration; }
             border-radius: 14px;
             background: root.liquid-glass-osd ? #181818dc : #181818;
+            if root.liquid-glass-osd && !root.native-video : Image {
+                source: root.video-blurred-frame;
+                x: video-inset-leading - parent.x;
+                y: video-inset-top - parent.y;
+                width: root.render-width;
+                height: root.render-height;
+                opacity: 0.32;
+                image-fit: contain;
+            }
             video-message := Text { x: 16px; y: 8px; text: root.video-osd-text;
                 color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
             if root.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;

@@ -2,7 +2,8 @@
 use crate::LiveTextRegion;
 use crate::seek_osd::{self, Change, SeekOsd};
 use crate::{
-    CatalogRow, MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
+    CatalogRow, MenuCatalogRow, PlayerWindow, PluginMenuRow, RecentMediaRow, WelcomeWindow,
+    media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, Preferences, TrackKind, time_label};
@@ -22,6 +23,12 @@ use std::{
     },
     time::{Duration, Instant},
 };
+
+// Slint 1.18.1 converts this private title sentinel in dynamic menu models to
+// an actual MenuSeparator on every backend.
+const SLINT_MENU_SEPARATOR_TITLE: &str = "\u{e001}⸺";
+const PLUGIN_MENU_GROUP_SEPARATOR_TOKEN: &str = "\u{1f}group-separator";
+static NEXT_PLAYER_WINDOW_REGISTRATION: AtomicU64 = AtomicU64::new(1);
 
 const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
 const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
@@ -109,6 +116,513 @@ fn set_audio_equalizer_controls(
     app.set_audio_equalizer_can_save_profile(current == "custom");
 }
 
+fn plugin_sidebar_tab_added(app: &PlayerWindow, identifier: &str, label: &str) {
+    let mut identifiers = (0..app.get_plugin_sidebar_identifiers().row_count())
+        .filter_map(|row| app.get_plugin_sidebar_identifiers().row_data(row))
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    let mut labels = (0..app.get_plugin_sidebar_labels().row_count())
+        .filter_map(|row| app.get_plugin_sidebar_labels().row_data(row))
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    if let Some(index) = identifiers.iter().position(|current| current == identifier) {
+        labels[index] = label.to_owned();
+    } else {
+        identifiers.push(identifier.to_owned());
+        labels.push(label.to_owned());
+    }
+    app.set_plugin_sidebar_identifiers(slint::ModelRc::new(slint::VecModel::from(
+        identifiers
+            .iter()
+            .map(|value| slint::SharedString::from(value.as_str()))
+            .collect::<Vec<_>>(),
+    )));
+    app.set_plugin_sidebar_labels(slint::ModelRc::new(slint::VecModel::from(
+        labels
+            .iter()
+            .map(|value| slint::SharedString::from(value.as_str()))
+            .collect::<Vec<_>>(),
+    )));
+    let selected = app.get_plugin_sidebar_selected_identifier().to_string();
+    app.set_plugin_sidebar_selected_index(
+        identifiers
+            .iter()
+            .position(|current| current == &selected)
+            .map_or(-1, |index| index as i32),
+    );
+}
+
+fn plugin_menu_rows_for_plugin(
+    identifier: &str,
+    global: bool,
+    items: &[riina_core::plugin_menu::PluginMenuItem],
+) -> Vec<PluginMenuRow> {
+    let scope = if global { "global" } else { "player" };
+    fn append(
+        identifier: &str,
+        scope: &str,
+        items: &[riina_core::plugin_menu::PluginMenuItem],
+        parents: &mut Vec<String>,
+        rows: &mut Vec<PluginMenuRow>,
+    ) {
+        for item in items {
+            if item.separator {
+                rows.push(PluginMenuRow {
+                    token: format!("{identifier}\u{1f}{scope}\u{1f}").into(),
+                    label: SLINT_MENU_SEPARATOR_TITLE.into(),
+                    enabled: false,
+                    selected: false,
+                    shortcut: Default::default(),
+                    section_header: false,
+                });
+                continue;
+            }
+            parents.push(item.title.clone());
+            rows.push(PluginMenuRow {
+                token: format!("{identifier}\u{1f}{scope}\u{1f}{}", item.id).into(),
+                label: parents.join(" › ").into(),
+                enabled: item.enabled && item.items.is_empty(),
+                selected: item.selected,
+                shortcut: item
+                    .key_binding
+                    .as_deref()
+                    .and_then(crate::key_binding_preferences::shortcut_keys)
+                    .unwrap_or_default(),
+                // A submenu container is navigational in IINA; only its leaves
+                // represent actions. The breadcrumb fallback must not invoke it.
+                section_header: !item.items.is_empty(),
+            });
+            append(identifier, scope, &item.items, parents, rows);
+            parents.pop();
+        }
+    }
+    let mut rows = Vec::new();
+    append(identifier, scope, items, &mut Vec::new(), &mut rows);
+    rows
+}
+
+fn replace_plugin_menu_rows(
+    app: &PlayerWindow,
+    identifier: &str,
+    plugin_name: &str,
+    global: bool,
+    items: &[riina_core::plugin_menu::PluginMenuItem],
+) {
+    let current_rows = (0..app.get_plugin_menu_rows().row_count())
+        .filter_map(|index| app.get_plugin_menu_rows().row_data(index))
+        .collect();
+    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+        updated_plugin_menu_rows(current_rows, identifier, plugin_name, global, items),
+    )));
+    let order = (0..app.get_plugin_menu_order().row_count())
+        .filter_map(|index| app.get_plugin_menu_order().row_data(index))
+        .map(|identifier| identifier.to_string())
+        .collect::<Vec<_>>();
+    reorder_plugin_menu_rows(app, &order);
+}
+
+fn updated_plugin_menu_rows(
+    current_rows: Vec<PluginMenuRow>,
+    identifier: &str,
+    plugin_name: &str,
+    global: bool,
+    items: &[riina_core::plugin_menu::PluginMenuItem],
+) -> Vec<PluginMenuRow> {
+    let mut groups = BTreeMap::<String, Vec<PluginMenuRow>>::new();
+    for row in current_rows {
+        if row.token.as_str() == PLUGIN_MENU_GROUP_SEPARATOR_TOKEN {
+            continue;
+        }
+        if let Some((plugin, _)) = row.token.as_str().split_once('\u{1f}') {
+            groups.entry(plugin.to_owned()).or_default().push(row);
+        }
+    }
+
+    let mut global_rows = Vec::new();
+    let mut player_rows = Vec::new();
+    if let Some(old_rows) = groups.remove(identifier) {
+        for row in old_rows {
+            if row.token.as_str().split('\u{1f}').nth(1) == Some("header") {
+                continue;
+            }
+            match row
+                .token
+                .as_str()
+                .split_once('\u{1f}')
+                .and_then(|(_, rest)| rest.split_once('\u{1f}'))
+                .map(|(scope, _)| scope)
+            {
+                Some("global") if !global => global_rows.push(row),
+                Some("player") if global => player_rows.push(row),
+                _ => {}
+            }
+        }
+    }
+    let new_rows = plugin_menu_rows_for_plugin(identifier, global, items);
+    if global {
+        global_rows.extend(new_rows);
+    } else {
+        player_rows.extend(new_rows);
+    }
+
+    if !global_rows.is_empty() || !player_rows.is_empty() {
+        let mut plugin_rows = vec![PluginMenuRow {
+            token: format!("{identifier}\u{1f}header\u{1f}").into(),
+            label: plugin_name.into(),
+            enabled: false,
+            selected: false,
+            shortcut: Default::default(),
+            section_header: true,
+        }];
+        plugin_rows.extend(global_rows);
+        plugin_rows.extend(player_rows);
+        groups.insert(identifier.to_owned(), plugin_rows);
+    }
+    flatten_plugin_menu_groups(groups)
+}
+
+pub(crate) fn reorder_plugin_menu_rows(app: &PlayerWindow, order: &[String]) {
+    let mut groups = BTreeMap::<String, Vec<PluginMenuRow>>::new();
+    for row in (0..app.get_plugin_menu_rows().row_count())
+        .filter_map(|index| app.get_plugin_menu_rows().row_data(index))
+    {
+        if row.token.as_str() == PLUGIN_MENU_GROUP_SEPARATOR_TOKEN {
+            continue;
+        }
+        if let Some((identifier, _)) = row.token.as_str().split_once('\u{1f}') {
+            groups.entry(identifier.to_owned()).or_default().push(row);
+        }
+    }
+    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+        flatten_plugin_menu_groups_in_order(groups, order),
+    )));
+}
+
+pub(crate) fn reorder_all_open_plugin_menus(order: &[String]) {
+    let windows = PLAYER_WINDOWS.with(|registered| {
+        let mut registered = registered.borrow_mut();
+        registered.retain(|(_, weak)| weak.upgrade().is_some());
+        registered
+            .iter()
+            .filter_map(|(_, weak)| weak.upgrade())
+            .collect::<Vec<_>>()
+    });
+    let model = slint::ModelRc::new(slint::VecModel::from(
+        order
+            .iter()
+            .cloned()
+            .map(slint::SharedString::from)
+            .collect::<Vec<_>>(),
+    ));
+    for app in windows {
+        app.set_plugin_menu_order(model.clone());
+        reorder_plugin_menu_rows(&app, order);
+    }
+}
+
+fn remove_plugin_menu_rows(app: &PlayerWindow, identifier: &str) {
+    let mut groups = BTreeMap::<String, Vec<PluginMenuRow>>::new();
+    for row in (0..app.get_plugin_menu_rows().row_count())
+        .filter_map(|index| app.get_plugin_menu_rows().row_data(index))
+    {
+        if row.token.as_str() == PLUGIN_MENU_GROUP_SEPARATOR_TOKEN {
+            continue;
+        }
+        if let Some((plugin, _)) = row.token.as_str().split_once('\u{1f}')
+            && plugin != identifier
+        {
+            groups.entry(plugin.to_owned()).or_default().push(row);
+        }
+    }
+    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+        flatten_plugin_menu_groups(groups),
+    )));
+    let order = (0..app.get_plugin_menu_order().row_count())
+        .filter_map(|index| app.get_plugin_menu_order().row_data(index))
+        .map(|identifier| identifier.to_string())
+        .collect::<Vec<_>>();
+    reorder_plugin_menu_rows(app, &order);
+}
+
+fn flatten_plugin_menu_groups(groups: BTreeMap<String, Vec<PluginMenuRow>>) -> Vec<PluginMenuRow> {
+    flatten_plugin_menu_groups_in_order(groups, &[])
+}
+
+fn flatten_plugin_menu_groups_in_order(
+    mut groups: BTreeMap<String, Vec<PluginMenuRow>>,
+    order: &[String],
+) -> Vec<PluginMenuRow> {
+    let mut rows = Vec::new();
+    let mut fallback = groups.keys().cloned().collect::<Vec<_>>();
+    fallback.sort_by(|left, right| {
+        let left_title = groups
+            .get(left)
+            .and_then(|rows| rows.first())
+            .map(|row| row.label.as_str())
+            .unwrap_or(left);
+        let right_title = groups
+            .get(right)
+            .and_then(|rows| rows.first())
+            .map(|row| row.label.as_str())
+            .unwrap_or(right);
+        left_title.cmp(right_title).then_with(|| left.cmp(right))
+    });
+    let identifiers = order
+        .iter()
+        .filter(|identifier| groups.contains_key(identifier.as_str()))
+        .cloned()
+        .chain(
+            fallback
+                .into_iter()
+                .filter(|identifier| !order.contains(identifier)),
+        )
+        .collect::<Vec<_>>();
+    for identifier in identifiers {
+        let Some(group) = groups.remove(&identifier) else {
+            continue;
+        };
+        if group.is_empty() {
+            continue;
+        }
+        if !rows.is_empty() {
+            rows.push(PluginMenuRow {
+                token: PLUGIN_MENU_GROUP_SEPARATOR_TOKEN.into(),
+                label: SLINT_MENU_SEPARATOR_TITLE.into(),
+                enabled: false,
+                selected: false,
+                shortcut: Default::default(),
+                section_header: false,
+            });
+        }
+        rows.extend(group);
+    }
+    rows
+}
+
+#[cfg(test)]
+mod plugin_menu_row_tests {
+    use super::{PluginMenuRow, flatten_plugin_menu_groups_in_order, updated_plugin_menu_rows};
+    use riina_core::plugin_menu::PluginMenuItem;
+    use std::collections::BTreeMap;
+
+    fn menu_item(id: &str, title: &str) -> PluginMenuItem {
+        PluginMenuItem {
+            id: id.into(),
+            title: title.into(),
+            enabled: true,
+            selected: false,
+            separator: false,
+            key_binding: None,
+            items: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn global_and_player_items_share_one_display_name_heading() {
+        let rows = updated_plugin_menu_rows(
+            Vec::<PluginMenuRow>::new(),
+            "org.example.test",
+            "Example Plugin",
+            true,
+            &[menu_item("global-action", "Global action")],
+        );
+        let rows = updated_plugin_menu_rows(
+            rows,
+            "org.example.test",
+            "Example Plugin",
+            false,
+            &[menu_item("player-action", "Player action")],
+        );
+
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.label.as_str())
+                .collect::<Vec<_>>(),
+            ["Example Plugin", "Global action", "Player action"]
+        );
+        assert!(rows[0].section_header);
+        assert!(rows[1].token.as_str().contains("\u{1f}global\u{1f}"));
+        assert!(rows[2].token.as_str().contains("\u{1f}player\u{1f}"));
+    }
+
+    #[test]
+    fn replacing_one_scope_preserves_the_other_scope_and_single_heading() {
+        let mut global_parent = menu_item("global-tools", "Global tools");
+        global_parent
+            .items
+            .push(menu_item("global-child", "Run global tool"));
+        let rows = updated_plugin_menu_rows(
+            Vec::<PluginMenuRow>::new(),
+            "org.example.test",
+            "Example Plugin",
+            true,
+            &[menu_item("global-action", "Global action"), global_parent],
+        );
+        let rows = updated_plugin_menu_rows(
+            rows,
+            "org.example.test",
+            "Example Plugin",
+            false,
+            &[menu_item("old-player-action", "Old player action")],
+        );
+        let rows = updated_plugin_menu_rows(
+            rows,
+            "org.example.test",
+            "Example Plugin",
+            false,
+            &[menu_item("new-player-action", "New player action")],
+        );
+
+        assert_eq!(
+            rows.iter()
+                .filter(|row| row.token.as_str().split('\u{1f}').nth(1) == Some("header"))
+                .count(),
+            1
+        );
+        assert_eq!(rows.len(), 5);
+        assert!(rows.iter().any(|row| row.label == "Global action"));
+        assert!(
+            rows.iter()
+                .any(|row| row.label == "Global tools" && row.section_header)
+        );
+        assert!(
+            rows.iter()
+                .any(|row| row.label == "Global tools › Run global tool")
+        );
+        assert!(rows.iter().any(|row| row.label == "New player action"));
+        assert!(!rows.iter().any(|row| row.label == "Old player action"));
+    }
+
+    #[test]
+    fn submenu_containers_are_not_actions_but_nested_leaves_remain_routable() {
+        let mut parent = menu_item("parent", "Tools");
+        parent.items.push(menu_item("child", "Run tool"));
+        let rows = updated_plugin_menu_rows(
+            Vec::<PluginMenuRow>::new(),
+            "org.example.test",
+            "Example Plugin",
+            false,
+            &[parent],
+        );
+
+        let container = rows
+            .iter()
+            .find(|row| row.label == "Tools")
+            .expect("submenu breadcrumb is visible");
+        assert!(container.section_header);
+        assert!(!container.enabled);
+
+        let leaf = rows
+            .iter()
+            .find(|row| row.label == "Tools › Run tool")
+            .expect("nested action is visible");
+        assert!(!leaf.section_header);
+        assert!(leaf.token.as_str().ends_with("\u{1f}child"));
+    }
+
+    #[test]
+    fn plugin_menu_order_follows_persisted_order_before_identifier_fallback() {
+        let row = |identifier: &str| PluginMenuRow {
+            token: format!("{identifier}\u{1f}header\u{1f}").into(),
+            label: identifier.into(),
+            enabled: false,
+            selected: false,
+            shortcut: Default::default(),
+            section_header: true,
+        };
+        let groups = BTreeMap::from([
+            ("a.plugin".into(), vec![row("a.plugin")]),
+            ("b.plugin".into(), vec![row("b.plugin")]),
+            ("c.plugin".into(), vec![row("c.plugin")]),
+        ]);
+        let rows =
+            flatten_plugin_menu_groups_in_order(groups, &["c.plugin".into(), "a.plugin".into()]);
+        let headers = rows
+            .iter()
+            .filter(|row| row.section_header)
+            .map(|row| row.token.split('\u{1f}').next().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(headers, ["c.plugin", "a.plugin", "b.plugin"]);
+    }
+
+    #[test]
+    fn plugin_menu_default_order_matches_the_name_sorted_preferences_list() {
+        let row = |identifier: &str, name: &str| PluginMenuRow {
+            token: format!("{identifier}\u{1f}header\u{1f}").into(),
+            label: name.into(),
+            enabled: false,
+            selected: false,
+            shortcut: Default::default(),
+            section_header: true,
+        };
+        let groups = BTreeMap::from([
+            ("a.plugin".into(), vec![row("a.plugin", "Zulu")]),
+            ("z.plugin".into(), vec![row("z.plugin", "Alpha")]),
+        ]);
+        let rows = flatten_plugin_menu_groups_in_order(groups, &[]);
+        let headers = rows
+            .iter()
+            .filter(|row| row.section_header)
+            .map(|row| row.token.split('\u{1f}').next().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(headers, ["z.plugin", "a.plugin"]);
+    }
+}
+
+fn plugin_sidebar_tab_removed(app: &PlayerWindow, identifier: &str) {
+    let mut identifiers = (0..app.get_plugin_sidebar_identifiers().row_count())
+        .filter_map(|row| app.get_plugin_sidebar_identifiers().row_data(row))
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    let mut labels = (0..app.get_plugin_sidebar_labels().row_count())
+        .filter_map(|row| app.get_plugin_sidebar_labels().row_data(row))
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>();
+    if let Some(index) = identifiers.iter().position(|current| current == identifier) {
+        identifiers.remove(index);
+        labels.remove(index);
+    }
+    if app.get_plugin_sidebar_selected_identifier().as_str() == identifier {
+        app.set_plugin_sidebar_selected_identifier("".into());
+    }
+    app.set_plugin_sidebar_identifiers(slint::ModelRc::new(slint::VecModel::from(
+        identifiers
+            .iter()
+            .map(|value| slint::SharedString::from(value.as_str()))
+            .collect::<Vec<_>>(),
+    )));
+    app.set_plugin_sidebar_labels(slint::ModelRc::new(slint::VecModel::from(
+        labels
+            .iter()
+            .map(|value| slint::SharedString::from(value.as_str()))
+            .collect::<Vec<_>>(),
+    )));
+    let selected = app.get_plugin_sidebar_selected_identifier().to_string();
+    app.set_plugin_sidebar_selected_index(
+        identifiers
+            .iter()
+            .position(|current| current == &selected)
+            .map_or(-1, |index| index as i32),
+    );
+}
+
+fn select_plugin_sidebar_tab(app: &PlayerWindow, identifier: &str) {
+    app.set_plugin_sidebar_selected_identifier(identifier.into());
+    if app.get_leading_sidebar() != 7 && app.get_sidebar() != 7 {
+        // Use the configured IINA placement while leaving an already-open
+        // Plugins panel on its current side when a different tab is selected.
+        crate::sidebar_preferences::show_plugins_panel(app);
+    }
+    let index = (0..app.get_plugin_sidebar_identifiers().row_count())
+        .find(|row| {
+            app.get_plugin_sidebar_identifiers()
+                .row_data(*row)
+                .is_some_and(|value| value.as_str() == identifier)
+        })
+        .map_or(-1, |row| row as i32);
+    app.set_plugin_sidebar_selected_index(index);
+}
+
 pub(crate) fn show_osd_message(
     app: &PlayerWindow,
     text: impl Into<slint::SharedString>,
@@ -155,6 +669,7 @@ fn plugin_window_properties(
 ) -> BTreeMap<String, serde_json::Value> {
     let mut properties = BTreeMap::from([
         ("loaded".into(), serde_json::Value::Bool(false)),
+        ("music-mode".into(), serde_json::json!(app.get_music_mode())),
         ("fullscreen".into(), serde_json::json!(app.get_fullscreen())),
         (
             "pip".into(),
@@ -171,8 +686,13 @@ fn plugin_window_properties(
                 .map_or(serde_json::Value::Null, |name| serde_json::json!(name)),
         ),
         ("visible".into(), serde_json::Value::Null),
+        ("main".into(), serde_json::Value::Null),
         ("miniaturized".into(), serde_json::Value::Null),
         ("frame".into(), serde_json::Value::Null),
+        (
+            "window-size-adjusted-event".into(),
+            serde_json::json!(app.get_window_size_adjusted_event()),
+        ),
         ("screens".into(), serde_json::Value::Array(Vec::new())),
     ]);
     let read = |window: &slint::Window| {
@@ -216,6 +736,7 @@ fn plugin_window_properties(
                     .map(serde_json::Value::Bool)
                     .unwrap_or(serde_json::Value::Null),
                 screens,
+                native.has_focus(),
             )
         })
     };
@@ -229,6 +750,7 @@ fn plugin_window_properties(
                 serde_json::Value::Null,
                 serde_json::Value::Null,
                 Vec::new(),
+                false,
             )
         });
     properties.insert("loaded".into(), serde_json::Value::Bool(true));
@@ -236,6 +758,7 @@ fn plugin_window_properties(
     properties.insert("visible".into(), state.1);
     properties.insert("miniaturized".into(), state.2);
     properties.insert("screens".into(), serde_json::Value::Array(state.3));
+    properties.insert("main".into(), serde_json::json!(state.4));
     properties
 }
 
@@ -1703,6 +2226,8 @@ pub(crate) struct UiSession {
     pub(crate) player: Option<Player>,
     #[cfg(target_os = "windows")]
     _plugin_overlay_presenter: Rc<RefCell<platform::PluginOverlayPresenter>>,
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    _plugin_sidebar_presenter: Rc<RefCell<platform::PluginSidebarPresenter>>,
     #[cfg(target_os = "macos")]
     _system_media_controls: Rc<RefCell<platform::SystemMediaControls>>,
     #[cfg(target_os = "macos")]
@@ -1713,6 +2238,8 @@ pub(crate) struct UiSession {
     _picture_in_picture_timer: Rc<slint::Timer>,
     #[cfg(target_os = "macos")]
     _mac_scroll_event_monitor: Option<platform::MacScrollEventMonitor>,
+    #[cfg(target_os = "macos")]
+    _mac_plugin_menu_observer: Option<platform::MacPluginMenuObserver>,
     _plugin_host: Option<crate::plugin_host::PluginHost>,
     _plugin_host_timer: Option<Rc<slint::Timer>>,
     _plugin_osd_timer: Option<Rc<slint::Timer>>,
@@ -1760,8 +2287,13 @@ thread_local! {
     static FOCUSED_PLAYER_WINDOW_COUNT: Cell<usize> = const { Cell::new(0) };
 }
 
+thread_local! {
+    static PLAYER_WINDOWS: RefCell<Vec<(u64, slint::Weak<PlayerWindow>)>> = const { RefCell::new(Vec::new()) };
+}
+
 struct PlayerWindowFocusRegistration {
     focused: Rc<Cell<bool>>,
+    registry_id: u64,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -1780,6 +2312,11 @@ struct ScrollInputState {
 
 impl Drop for PlayerWindowFocusRegistration {
     fn drop(&mut self) {
+        PLAYER_WINDOWS.with(|registered| {
+            registered
+                .borrow_mut()
+                .retain(|(id, _)| *id != self.registry_id);
+        });
         set_player_window_focus(&self.focused, false);
     }
 }
@@ -1814,6 +2351,10 @@ fn install_file_drop(
     trackpad_pause_generation: Rc<Cell<Option<u64>>>,
     _scroll_input: Rc<Cell<ScrollInputState>>,
 ) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
+    let registry_id = NEXT_PLAYER_WINDOW_REGISTRATION.fetch_add(1, Ordering::Relaxed);
+    PLAYER_WINDOWS.with(|registered| {
+        registered.borrow_mut().push((registry_id, app.as_weak()));
+    });
     let pending_paths = Rc::new(RefCell::new(Vec::<std::ffi::OsString>::new()));
     let flush_paths = pending_paths.clone();
     let weak_app = app.as_weak();
@@ -1934,7 +2475,13 @@ fn install_file_drop(
         }
         EventResult::Propagate
     });
-    (timer, PlayerWindowFocusRegistration { focused })
+    (
+        timer,
+        PlayerWindowFocusRegistration {
+            focused,
+            registry_id,
+        },
+    )
 }
 
 fn scroll_action_handler(
@@ -1975,21 +2522,19 @@ fn scroll_action_handler(
             return false;
         };
         let precise = input.precise.unwrap_or_else(|| delta.abs() < 60.0);
-        let effect = match override_action {
-            Some(action) => riina_core::control_preferences::scroll_effect_for_action(
-                &settings,
-                action,
-                horizontal,
-                f64::from(delta),
-                precise,
-            ),
-            None => riina_core::control_preferences::scroll_effect(
-                &settings,
-                horizontal,
-                f64::from(delta),
-                precise,
-            ),
-        };
+        let action = override_action.unwrap_or(if horizontal {
+            settings.horizontal_scroll_action
+        } else {
+            settings.vertical_scroll_action
+        });
+        let effect = riina_core::control_preferences::scroll_effect_for_input(
+            &settings,
+            action,
+            horizontal,
+            f64::from(delta),
+            precise,
+            input.phase_empty,
+        );
         let command = match effect {
             riina_core::control_preferences::ScrollEffect::None => return false,
             riina_core::control_preferences::ScrollEffect::AdjustVolume(delta) => {
@@ -2270,6 +2815,7 @@ impl UiSession {
             trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
             settings_at_leading: app.get_settings_at_leading(),
             playlist_at_leading: app.get_playlist_at_leading(),
+            plugins_at_leading: app.get_plugins_at_leading(),
             edge_to_edge_video: app.get_edge_to_edge_video(),
             docked_controls: app.get_docked_controls(),
             unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
@@ -2281,6 +2827,8 @@ impl UiSession {
             music_mode_show_playlist: app.get_music_mode_show_playlist(),
             music_mode_show_album_art: app.get_music_mode_show_album_art(),
             osc_position: app.get_osc_position() as u8,
+            control_bar_position_horizontal: f64::from(app.get_control_bar_position_horizontal()),
+            control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
             hardware_decoder: crate::codec_preferences::hardware_decoder(
                 app.get_hardware_decoder_index(),
             )
@@ -2495,6 +3043,16 @@ pub(crate) fn configure_player(
         });
     }
     let prefs_path = platform::preferences_path()?;
+    let plugin_menu_order = std::fs::read_to_string(prefs_path.with_file_name("plugin-order.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
+        .unwrap_or_default();
+    app.set_plugin_menu_order(slint::ModelRc::new(slint::VecModel::from(
+        plugin_menu_order
+            .into_iter()
+            .map(slint::SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
     let saved_preferences = match std::fs::read_to_string(&prefs_path) {
         Ok(text) => Some(text),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
@@ -2554,15 +3112,108 @@ pub(crate) fn configure_player(
     let plugin_host_handle = plugin_host
         .as_ref()
         .map(crate::plugin_host::PluginHost::handle);
+    #[cfg(target_os = "macos")]
+    let mac_plugin_menu_observer = plugin_host_handle.as_ref().and_then(|host| {
+        match platform::MacPluginMenuObserver::new(app, host.clone()) {
+            Ok(observer) => Some(observer),
+            Err(error) => {
+                app.set_status(format!("Could not observe the Plugin menu: {error}").into());
+                None
+            }
+        }
+    });
+    let menu_action_host = plugin_host_handle.clone();
+    let menu_action_app = app.as_weak();
+    app.on_activate_plugin_menu_item(move |token| {
+        let Some((identifier, scope_and_id)) = token.as_str().split_once('\u{1f}') else {
+            return;
+        };
+        let Some((scope, item_id)) = scope_and_id.split_once('\u{1f}') else {
+            return;
+        };
+        let global = match scope {
+            "global" => true,
+            "player" => false,
+            _ => return,
+        };
+        let Some(host) = &menu_action_host else {
+            if let Some(app) = menu_action_app.upgrade() {
+                app.set_status("The plugin runtime is unavailable.".into());
+            }
+            return;
+        };
+        if let Err(error) =
+            host.activate_plugin_menu_item(identifier.into(), global, item_id.into())
+            && let Some(app) = menu_action_app.upgrade()
+        {
+            app.set_status(format!("Could not run plugin menu action: {error}").into());
+        }
+    });
+    let menu_update_host = plugin_host_handle.clone();
+    let menu_update_app = app.as_weak();
+    app.on_plugin_menu_will_open(move || {
+        if let Some(host) = &menu_update_host
+            && let Err(error) = host.notify_menu_update()
+            && let Some(app) = menu_update_app.upgrade()
+        {
+            app.set_status(
+                format!("Could not notify plugins that their menu is opening: {error}").into(),
+            );
+        }
+    });
+    let reload_plugins_host = plugin_host_handle.clone();
+    let reload_plugins_app = app.as_weak();
+    app.on_reload_plugins(move || {
+        let Some(host) = &reload_plugins_host else {
+            if let Some(app) = reload_plugins_app.upgrade() {
+                app.set_status("The plugin runtime is unavailable.".into());
+            }
+            return;
+        };
+        if let Err(error) = host.reload_all()
+            && let Some(app) = reload_plugins_app.upgrade()
+        {
+            app.set_status(format!("Could not reload plugins: {error}").into());
+        }
+    });
+    let close_event_sent = Rc::new(Cell::new(false));
+    let close_event_sent_once = close_event_sent.clone();
+    let close_event_host = plugin_host_handle.clone();
+    let weak = app.as_weak();
+    app.on_window_will_close(move || {
+        if close_event_sent_once.replace(true) {
+            return;
+        }
+        if let Some(host) = &close_event_host
+            && let Err(error) = host.notify_window_will_close()
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(format!("Could not notify plugins before closing: {error}").into());
+        }
+    });
     let plugin_window_host = native.as_ref().map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     #[cfg(target_os = "windows")]
     let plugin_overlay_presenter =
         Rc::new(RefCell::new(platform::PluginOverlayPresenter::default()));
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    let plugin_sidebar_presenter =
+        Rc::new(RefCell::new(platform::PluginSidebarPresenter::default()));
     #[cfg(target_os = "windows")]
     let plugin_overlay_parent = native
         .as_ref()
         .map(platform::NativePresentation::webview_parent_window);
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    {
+        let weak = app.as_weak();
+        let presenter = plugin_sidebar_presenter.clone();
+        app.on_select_plugin_sidebar_tab(move |identifier| {
+            let Some(app) = weak.upgrade() else { return };
+            let identifier = identifier.to_string();
+            select_plugin_sidebar_tab(&app, &identifier);
+            presenter.borrow_mut().select(Some(identifier));
+        });
+    }
     let plugin_osd_timer = plugin_host_handle
         .as_ref()
         .map(|_| Rc::new(slint::Timer::default()));
@@ -2571,6 +3222,10 @@ pub(crate) fn configure_player(
     let plugin_host_timer = plugin_host_handle.as_ref().map(|handle| {
         let timer = Rc::new(slint::Timer::default());
         let messages = handle.clone();
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+        let sidebar_host = handle.clone();
+        let window_loaded_host = handle.clone();
+        let window_loaded_sent = Rc::new(Cell::new(false));
         let window_messages = handle.clone();
         let window_host = plugin_window_host.clone();
         let last_window_properties =
@@ -2582,6 +3237,8 @@ pub(crate) fn configure_player(
         let osd_generation = plugin_osd_generation.clone();
         #[cfg(target_os = "windows")]
         let overlay = plugin_overlay_presenter.clone();
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+        let sidebar_presenter = plugin_sidebar_presenter.clone();
         #[cfg(target_os = "windows")]
         let overlay_host = handle.clone();
         #[cfg(target_os = "windows")]
@@ -2591,6 +3248,11 @@ pub(crate) fn configure_player(
             Duration::from_millis(25),
             move || {
                 let Some(app) = weak.upgrade() else { return };
+                #[cfg(target_os = "linux")]
+                platform::pump_linux_webview_events();
+                if !window_loaded_sent.get() && window_loaded_host.notify_window_loaded().is_ok() {
+                    window_loaded_sent.set(true);
+                }
                 if last_window_update.get().elapsed() >= Duration::from_millis(125) {
                     last_window_update.set(Instant::now());
                     let properties = plugin_window_properties(&app, window_host.as_ref());
@@ -2669,6 +3331,27 @@ pub(crate) fn configure_player(
                                 .set_buttons(rfd::MessageButtons::Ok)
                                 .show();
                         }
+                        crate::plugin_host::PluginHostMessage::SidebarTabAdded {
+                            plugin_identifier,
+                            label,
+                        } => {
+                            plugin_sidebar_tab_added(&app, &plugin_identifier, &label);
+                        }
+                        crate::plugin_host::PluginHostMessage::PluginMenuUpdated {
+                            plugin_identifier,
+                            plugin_name,
+                            global,
+                            items,
+                        } => replace_plugin_menu_rows(
+                            &app,
+                            &plugin_identifier,
+                            &plugin_name,
+                            global,
+                            &items,
+                        ),
+                        crate::plugin_host::PluginHostMessage::RemovePluginMenu(identifier) => {
+                            remove_plugin_menu_rows(&app, &identifier);
+                        }
                         #[cfg(target_os = "windows")]
                         message @ crate::plugin_host::PluginHostMessage::Overlay { .. } => {
                             let result = if let Some(parent) = overlay_parent.as_ref() {
@@ -2689,6 +3372,44 @@ pub(crate) fn configure_player(
                         crate::plugin_host::PluginHostMessage::RemoveOverlay(identifier) => {
                             overlay.borrow_mut().remove(&identifier);
                         }
+                        #[cfg(any(
+                            target_os = "windows",
+                            target_os = "macos",
+                            target_os = "linux"
+                        ))]
+                        message @ crate::plugin_host::PluginHostMessage::Sidebar { .. } => {
+                            if let crate::plugin_host::PluginHostMessage::Sidebar {
+                                plugin_identifier,
+                                effect,
+                                ..
+                            } = &message
+                            {
+                                match effect {
+                                    riina_core::plugin_sidebar::PluginSidebarEffect::Show => {
+                                        select_plugin_sidebar_tab(&app, plugin_identifier);
+                                    }
+                                    riina_core::plugin_sidebar::PluginSidebarEffect::Hide => {
+                                        if app.get_sidebar() == 7 {
+                                            app.set_sidebar(0);
+                                        }
+                                        if app.get_leading_sidebar() == 7 {
+                                            app.set_leading_sidebar(0);
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            let result = app.window().with_winit_window(|parent| {
+                                sidebar_presenter.borrow_mut().apply_host_message(
+                                    parent,
+                                    &sidebar_host,
+                                    message,
+                                )
+                            });
+                            if let Some(Err(error)) = result {
+                                app.set_status(error.into());
+                            }
+                        }
                         #[cfg(not(target_os = "windows"))]
                         crate::plugin_host::PluginHostMessage::Overlay { .. } => {
                             app.set_status(
@@ -2697,6 +3418,15 @@ pub(crate) fn configure_player(
                         }
                         #[cfg(not(target_os = "windows"))]
                         crate::plugin_host::PluginHostMessage::RemoveOverlay(_) => {}
+                        #[cfg(any(
+                            target_os = "windows",
+                            target_os = "macos",
+                            target_os = "linux"
+                        ))]
+                        crate::plugin_host::PluginHostMessage::RemoveSidebar(identifier) => {
+                            sidebar_presenter.borrow_mut().remove(&identifier);
+                            plugin_sidebar_tab_removed(&app, &identifier);
+                        }
                     }
                 }
                 #[cfg(target_os = "windows")]
@@ -2705,6 +3435,22 @@ pub(crate) fn configure_player(
                     app.get_window_height(),
                     f64::from(app.window().scale_factor()),
                 );
+                #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+                {
+                    let selected = if app.get_sidebar() == 7 || app.get_leading_sidebar() == 7 {
+                        let identifier = app.get_plugin_sidebar_selected_identifier();
+                        (!identifier.is_empty()).then(|| identifier.to_string())
+                    } else {
+                        None
+                    };
+                    sidebar_presenter.borrow_mut().update(
+                        app.get_plugin_sidebar_view_x(),
+                        app.get_plugin_sidebar_view_y(),
+                        app.get_plugin_sidebar_view_width(),
+                        app.get_plugin_sidebar_view_height(),
+                        selected,
+                    );
+                }
             },
         );
         timer
@@ -2808,6 +3554,7 @@ pub(crate) fn configure_player(
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.set_disable_animations(prefs.disable_animations);
     app.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
+    app.set_platform_macos(cfg!(target_os = "macos"));
     app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
     let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
@@ -2986,6 +3733,7 @@ pub(crate) fn configure_player(
     app.set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
     app.set_settings_at_leading(prefs.settings_at_leading);
     app.set_playlist_at_leading(prefs.playlist_at_leading);
+    app.set_plugins_at_leading(prefs.plugins_at_leading);
     app.set_edge_to_edge_video(prefs.edge_to_edge_video);
     app.set_docked_controls(prefs.docked_controls);
     app.set_unlock_window_aspect_ratio(prefs.unlock_window_aspect_ratio);
@@ -3000,6 +3748,8 @@ pub(crate) fn configure_player(
     app.set_dark_theme(appearance.dark_for(prefs.dark));
     let appearance_timer = crate::appearance_preferences::connect(app);
     app.set_osc_position(i32::from(prefs.osc_position));
+    app.set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);
+    app.set_control_bar_position_vertical(prefs.control_bar_position_vertical as f32);
     app.set_show_chapter_pos(prefs.show_chapter_pos);
     crate::pip_preferences::install_player(app, prefs.picture_in_picture);
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
@@ -3565,6 +4315,7 @@ pub(crate) fn configure_player(
     let thumbnail_playback = latest_playback.clone();
     let thumbnail_tick = thumbnail_controller.clone();
     let thumbnail_library = platform::playback_library();
+    let thumbnail_plugin_host = plugin_host_handle.clone();
     thumbnail_preview_timer.start(
         slint::TimerMode::Repeated,
         Duration::from_millis(80),
@@ -3578,9 +4329,13 @@ pub(crate) fn configure_player(
             let Ok(state) = thumbnail_playback.lock().map(|state| state.clone()) else {
                 return;
             };
-            thumbnail_tick
-                .borrow_mut()
-                .observe(&app, &state, &settings, &thumbnail_library);
+            let ready =
+                thumbnail_tick
+                    .borrow_mut()
+                    .observe(&app, &state, &settings, &thumbnail_library);
+            if ready && let Some(host) = &thumbnail_plugin_host {
+                let _ = host.notify_thumbnails_ready();
+            }
         },
     );
     let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
@@ -5057,6 +5812,14 @@ pub(crate) fn configure_player(
         }
     });
     let delay_player = player.command_sender();
+    let preview_weak = app.as_weak();
+    app.on_preview_audio_delay(move |value| {
+        if let Some(app) = preview_weak.upgrade() {
+            app.set_audio_delay_preview_text(
+                crate::localized_number::format_delay(f64::from(value)).into(),
+            );
+        }
+    });
     let weak = app.as_weak();
     app.on_set_delay(move |category, value| {
         let command = match category {
@@ -5790,6 +6553,7 @@ pub(crate) fn configure_player(
     let close_player = app.as_weak();
     app.on_close_player(move || {
         if let Some(app) = close_player.upgrade() {
+            app.invoke_window_will_close();
             app.invoke_stop();
         }
         let _ = slint::quit_event_loop();
@@ -5875,6 +6639,8 @@ pub(crate) fn configure_player(
             player: Some(player),
             #[cfg(target_os = "windows")]
             _plugin_overlay_presenter: plugin_overlay_presenter,
+            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+            _plugin_sidebar_presenter: plugin_sidebar_presenter,
             #[cfg(target_os = "macos")]
             _system_media_controls: system_media_controls,
             #[cfg(target_os = "macos")]
@@ -5885,6 +6651,8 @@ pub(crate) fn configure_player(
             _picture_in_picture_timer: picture_in_picture_timer,
             #[cfg(target_os = "macos")]
             _mac_scroll_event_monitor: mac_scroll_event_monitor,
+            #[cfg(target_os = "macos")]
+            _mac_plugin_menu_observer: mac_plugin_menu_observer,
             _presentation: native,
             _hdr_display_timer: hdr_display_timer,
             _live_text_timer: live_text_timer,
@@ -5927,6 +6695,7 @@ pub(crate) fn configure_player(
     let render_player = player.clone();
     let render_resume_position = pending_resume_position.clone();
     let mut surface: Option<VideoSurface> = None;
+    let mut blur_surface: Option<crate::video_blur::VideoBlurSurface> = None;
     let render_generation = Rc::new(Cell::new(0_u64));
     let mut started = false;
     let repaint_pending = Arc::new(AtomicBool::new(false));
@@ -5985,6 +6754,14 @@ pub(crate) fn configure_player(
                             )
                         } {
                             Ok(video) => {
+                                // The video-backed material is an optional visual enhancement:
+                                // failure to create it must not prevent playback.
+                                match unsafe {
+                                    crate::video_blur::VideoBlurSurface::new(&get_proc_address)
+                                } {
+                                    Ok(blur) => blur_surface = Some(blur),
+                                    Err(error) => eprintln!("Could not initialize video blur: {error}"),
+                                }
                                 #[cfg(target_os = "macos")]
                                 if let Some(manager) =
                                     render_picture_in_picture.borrow_mut().as_mut()
@@ -6020,6 +6797,46 @@ pub(crate) fn configure_player(
                         // SAFETY: the notifier uses the same context throughout its lifetime.
                         match unsafe { video.render(width, height) } {
                             Ok(()) => {
+                                let sidebar_blur = app.get_liquid_glass_sidebar()
+                                    && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
+                                let controller_blur = app.get_liquid_glass_osc()
+                                    && app.get_loaded()
+                                    && (app.get_controls_visible() || app.get_music_mode());
+                                let osd_blur = app.get_liquid_glass_osd()
+                                    && app.get_loaded()
+                                    && (app.get_video_osd_visible()
+                                        || app.get_seek_osd_visible()
+                                        || !app.get_plugin_osd_message().is_empty()
+                                        || (app.get_fullscreen()
+                                            && app.get_controls_visible()
+                                            && app.get_display_time_and_battery_in_fullscreen()));
+                                let blur_enabled = sidebar_blur || controller_blur || osd_blur;
+                                if blur_enabled {
+                                    if let Some(blur) = blur_surface.as_mut() {
+                                        // SAFETY: both textures belong to this window's current GL context.
+                                        match unsafe {
+                                            blur.render(
+                                                glow::NativeTexture(video.texture_id()),
+                                                width,
+                                                height,
+                                            )
+                                        } {
+                                            Ok(()) => {
+                                                let image = unsafe {
+                                                    slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
+                                                        blur.texture_id(),
+                                                        (width.div_ceil(4), height.div_ceil(4)).into(),
+                                                    )
+                                                    .build()
+                                                };
+                                                app.set_video_blurred_frame(image);
+                                            }
+                                            Err(error) => eprintln!("Could not render video blur: {error}"),
+                                        }
+                                    }
+                                } else {
+                                    app.set_video_blurred_frame(slint::Image::default());
+                                }
                                 let image = unsafe {
                                     slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
                                         video.texture_id(),
@@ -6071,6 +6888,7 @@ pub(crate) fn configure_player(
                         // SAFETY: RenderingTeardown runs before Slint releases its GL context.
                         unsafe { manager.teardown_rendering() };
                     }
+                    drop(blur_surface.take());
                     drop(surface.take());
                     // Context loss also needs UI invalidation, but only after
                     // the backend releases its mutable window borrow. A later
@@ -6084,6 +6902,7 @@ pub(crate) fn configure_player(
                             && !app.get_native_video()
                         {
                             app.set_video_frame(slint::Image::default());
+                            app.set_video_blurred_frame(slint::Image::default());
                             app.set_engine_ready(false);
                         }
                     });
@@ -6095,6 +6914,8 @@ pub(crate) fn configure_player(
         player: Some(player),
         #[cfg(target_os = "windows")]
         _plugin_overlay_presenter: plugin_overlay_presenter,
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+        _plugin_sidebar_presenter: plugin_sidebar_presenter,
         #[cfg(target_os = "macos")]
         _system_media_controls: system_media_controls,
         #[cfg(target_os = "macos")]
@@ -6105,6 +6926,8 @@ pub(crate) fn configure_player(
         _picture_in_picture_timer: picture_in_picture_timer,
         #[cfg(target_os = "macos")]
         _mac_scroll_event_monitor: mac_scroll_event_monitor,
+        #[cfg(target_os = "macos")]
+        _mac_plugin_menu_observer: mac_plugin_menu_observer,
         _presentation: None,
         _hdr_display_timer: None,
         _live_text_timer: live_text_timer,

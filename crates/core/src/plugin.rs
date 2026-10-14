@@ -129,7 +129,7 @@ impl OverlayState {
     pub fn apply(&mut self, intent: OverlayIntent) -> Result<Vec<OverlayEffect>, String> {
         let effect = match intent {
             OverlayIntent::LoadFile(path) => {
-                validate_overlay_path(&path)?;
+                validate_plugin_relative_path(&path)?;
                 self.loaded = true;
                 self.simple_mode = false;
                 self.message_listeners.clear();
@@ -213,7 +213,7 @@ impl OverlayState {
     }
 }
 
-fn validate_overlay_path(path: &Path) -> Result<(), String> {
+pub(crate) fn validate_plugin_relative_path(path: &Path) -> Result<(), String> {
     if path.as_os_str().is_empty()
         || path.is_absolute()
         || path
@@ -232,14 +232,14 @@ fn validate_overlay_text(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_message_name(name: &str) -> Result<(), String> {
+pub(crate) fn validate_message_name(name: &str) -> Result<(), String> {
     if name.is_empty() || name.len() > MAX_OVERLAY_MESSAGE_NAME_BYTES {
         return Err("Overlay message names must contain 1–256 UTF-8 bytes".into());
     }
     Ok(())
 }
 
-fn validate_message_data(data: &serde_json::Value) -> Result<(), String> {
+pub(crate) fn validate_message_data(data: &serde_json::Value) -> Result<(), String> {
     let bytes = serde_json::to_vec(data).map_err(|error| error.to_string())?;
     if bytes.len() > MAX_OVERLAY_TEXT_BYTES {
         return Err("Overlay message data exceeds the 1 MiB limit".into());
@@ -277,6 +277,7 @@ pub struct Manifest {
     pub allowed_domains: Vec<String>,
     pub github_repo: Option<String>,
     pub github_version: Option<u64>,
+    pub sidebar_tab_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -296,6 +297,9 @@ struct RawManifest {
     github_repo: Option<String>,
     #[serde(rename = "ghVersion")]
     github_version: Option<u64>,
+    #[serde(rename = "sidebarTab")]
+    sidebar_tab: Option<serde_json::Value>,
+    localized: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -307,6 +311,10 @@ struct RawAuthor {
 
 impl Manifest {
     pub fn parse(json: &str) -> Result<Self, String> {
+        Self::parse_with_locale(json, None)
+    }
+
+    pub fn parse_with_locale(json: &str, locale: Option<&str>) -> Result<Self, String> {
         let raw: RawManifest = serde_json::from_str(json).map_err(|error| error.to_string())?;
         let name = nonempty(raw.name, "name")?;
         let version = nonempty(raw.version, "version")?;
@@ -331,6 +339,7 @@ impl Manifest {
         }
         let permissions = raw.permissions.unwrap_or_default();
         let allowed_domains = raw.allowed_domains.unwrap_or_default();
+        let sidebar_tab_name = parse_sidebar_tab_name(raw.sidebar_tab, raw.localized, locale)?;
         if permissions.iter().any(|value| value.trim().is_empty()) {
             return Err("Plugin permission names cannot be empty".into());
         }
@@ -352,10 +361,18 @@ impl Manifest {
             allowed_domains,
             github_repo: raw.github_repo,
             github_version: raw.github_version,
+            sidebar_tab_name,
         })
     }
 
     pub fn load_from_directory(root: &Path) -> Result<Self, String> {
+        Self::load_from_directory_with_locale(root, None)
+    }
+
+    pub fn load_from_directory_with_locale(
+        root: &Path,
+        locale: Option<&str>,
+    ) -> Result<Self, String> {
         let root = root
             .canonicalize()
             .map_err(|error| format!("Could not open plugin directory: {error}"))?;
@@ -367,7 +384,7 @@ impl Manifest {
             .map_err(|error| format!("Could not read plugin manifest: {error}"))?;
         let text = std::str::from_utf8(&bytes)
             .map_err(|_| "Plugin manifest is not valid UTF-8".to_owned())?;
-        let manifest = Self::parse(text)?;
+        let manifest = Self::parse_with_locale(text, locale)?;
         verify_package_file(&root, &manifest.entry)?;
         if let Some(path) = manifest.global_entry.as_deref() {
             verify_package_file(&root, path)?;
@@ -387,6 +404,59 @@ impl Manifest {
             .filter(|value| Permission::parse(value).is_none())
             .map(String::as_str)
     }
+}
+
+fn parse_sidebar_tab_name(
+    value: Option<serde_json::Value>,
+    localized: Option<serde_json::Value>,
+    locale: Option<&str>,
+) -> Result<Option<String>, String> {
+    let base_name = value
+        .as_ref()
+        .and_then(|tab| tab.get("name"))
+        .and_then(serde_json::Value::as_str);
+    let localized_name = locale
+        .and_then(|locale| localized_sidebar_entry(localized.as_ref(), locale))
+        .and_then(|entry| entry.get("sidebarTab"))
+        .and_then(|tab| tab.get("name"))
+        .and_then(serde_json::Value::as_str);
+    let Some(name) = localized_name.or(base_name) else {
+        return Ok(None);
+    };
+    let name = name.trim();
+    if name.is_empty() {
+        return Ok(None);
+    }
+    if name.len() > 128 || name.chars().any(char::is_control) {
+        return Err(
+            "Plugin sidebar tab name must be at most 128 bytes without control characters".into(),
+        );
+    }
+    Ok(Some(name.to_owned()))
+}
+
+fn localized_sidebar_entry<'a>(
+    localized: Option<&'a serde_json::Value>,
+    locale: &str,
+) -> Option<&'a serde_json::Value> {
+    let localized = localized?.as_object()?;
+    let locale = locale.split(['.', '@']).next()?.replace('_', "-");
+    let language = locale.split('-').next()?;
+    for candidate in [Some(locale.as_str()), Some(language), Some("en")]
+        .into_iter()
+        .flatten()
+    {
+        if let Some(entry) = localized.get(candidate) {
+            return Some(entry);
+        }
+        if let Some((_, entry)) = localized
+            .iter()
+            .find(|(key, _)| key.split(['-', '_']).next() == Some(candidate))
+        {
+            return Some(entry);
+        }
+    }
+    None
 }
 
 impl Manifest {
@@ -539,6 +609,69 @@ mod tests {
         );
         assert!(Permission::NetworkRequest.is_dangerous());
         assert!(!Permission::ShowOsd.is_dangerous());
+    }
+
+    #[test]
+    fn manifest_reads_a_bounded_sidebar_tab_label() {
+        let json = MANIFEST.replace(
+            "\"ghVersion\":1",
+            "\"ghVersion\":1,\"sidebarTab\":{\"name\":\" Online Media \"}",
+        );
+        assert_eq!(
+            Manifest::parse(&json).unwrap().sidebar_tab_name.as_deref(),
+            Some("Online Media")
+        );
+
+        for name in ["x".repeat(129), "invalid\nlabel".to_owned()] {
+            let json = MANIFEST.replace(
+                "\"ghVersion\":1",
+                &format!(
+                    "\"ghVersion\":1,\"sidebarTab\":{{\"name\":{}}}",
+                    serde_json::json!(name)
+                ),
+            );
+            assert!(Manifest::parse(&json).is_err(), "accepted label {name:?}");
+        }
+
+        let json = MANIFEST.replace(
+            "\"ghVersion\":1",
+            "\"ghVersion\":1,\"sidebarTab\":{\"name\":23}",
+        );
+        assert_eq!(Manifest::parse(&json).unwrap().sidebar_tab_name, None);
+
+        let json = MANIFEST.replace(
+            "\"ghVersion\":1",
+            "\"ghVersion\":1,\"sidebarTab\":{\"name\":\" \"}",
+        );
+        assert_eq!(Manifest::parse(&json).unwrap().sidebar_tab_name, None);
+    }
+
+    #[test]
+    fn manifest_sidebar_labels_follow_the_selected_locale_and_fallbacks() {
+        let json = MANIFEST.replace(
+            "\"ghVersion\":1",
+            "\"ghVersion\":1,\"sidebarTab\":{\"name\":\"Sidebar\"},\
+                \"localized\":{\
+                    \"fr-CA\":{\"sidebarTab\":{\"name\":\"Médias\"}},\
+                    \"fr\":{\"sidebarTab\":{\"name\":\"French\"}},\
+                    \"en\":{\"sidebarTab\":{\"name\":\"Online\"}}\
+                }",
+        );
+        for (locale, expected) in [
+            (Some("fr-CA"), "Médias"),
+            (Some("fr-BE"), "French"),
+            (Some("de-DE"), "Online"),
+            (None, "Sidebar"),
+        ] {
+            assert_eq!(
+                Manifest::parse_with_locale(&json, locale)
+                    .unwrap()
+                    .sidebar_tab_name
+                    .as_deref(),
+                Some(expected),
+                "locale {locale:?}"
+            );
+        }
     }
 
     #[test]

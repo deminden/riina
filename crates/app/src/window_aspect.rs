@@ -80,6 +80,7 @@ fn connect_with_target(
                 resize_generation.set(generation);
                 let initial = !initial_state.get();
                 if !media_resize_applies(initial, settings.timing, manually_opened) {
+                    mark_window_size_adjusted(&app);
                     // The configured timing also governs automatic playlist
                     // changes. Reshaping for the new video's aspect here can
                     // clear the native Windows swap chain while the next
@@ -89,6 +90,7 @@ fn connect_with_target(
                 }
                 #[cfg(target_os = "windows")]
                 if !windows_media_resize_applies(initial, manually_opened) {
+                    mark_window_size_adjusted(&app);
                     // Playlist handoffs can replace the native D3D11 surface
                     // even when the new frame is larger. Keep the Windows
                     // player frame stable for the entire automatic sequence;
@@ -197,6 +199,9 @@ fn connect_with_target(
                         media_resize_state.set(size);
                     }
                 });
+                // IINA emits windowSizeAdjusted after applying its geometry policy,
+                // including playlist changes where the frame stays the same.
+                mark_window_size_adjusted(&app);
             });
         }
     });
@@ -418,6 +423,10 @@ fn defer_window_update(
             action(app);
         }
     });
+}
+
+fn mark_window_size_adjusted(app: &PlayerWindow) {
+    app.set_window_size_adjusted_event(app.get_window_size_adjusted_event().wrapping_add(1));
 }
 
 fn apply_window_level(app: &PlayerWindow, target: &WindowTarget) {

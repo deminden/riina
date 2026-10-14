@@ -114,6 +114,7 @@ pub(crate) fn stage_archive(
     path: &Path,
     plugins_directory: &Path,
 ) -> Result<StagedPackage, String> {
+    let locale = crate::platform::language::current_locale_identifier();
     let metadata =
         fs::metadata(path).map_err(|error| format!("Could not read package: {error}"))?;
     if !metadata.is_file() {
@@ -124,7 +125,7 @@ pub(crate) fn stage_archive(
     let stage_directory = plugins_directory.join(unique_stage_name());
     fs::create_dir(&stage_directory).map_err(|error| error.to_string())?;
     let result = extract_validate(archive, &stage_directory).and_then(|package_directory| {
-        Manifest::load_from_directory(&package_directory)
+        Manifest::load_from_directory_with_locale(&package_directory, locale.as_deref())
             .map(|manifest| (package_directory, manifest))
     });
     match result {
@@ -144,12 +145,13 @@ pub(crate) fn stage_archive_bytes(
     bytes: Vec<u8>,
     plugins_directory: &Path,
 ) -> Result<StagedPackage, String> {
+    let locale = crate::platform::language::current_locale_identifier();
     fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
     let stage_directory = plugins_directory.join(unique_stage_name());
     fs::create_dir(&stage_directory).map_err(|error| error.to_string())?;
     let result = extract_validate(std::io::Cursor::new(bytes), &stage_directory).and_then(
         |package_directory| {
-            Manifest::load_from_directory(&package_directory)
+            Manifest::load_from_directory_with_locale(&package_directory, locale.as_deref())
                 .map(|manifest| (package_directory, manifest))
         },
     );

@@ -480,7 +480,7 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies native watch-later save and restore policy"]
-fn resume_last_position_saves_and_restores_only_when_enabled() {
+fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
@@ -528,15 +528,19 @@ fn resume_last_position_saves_and_restores_only_when_enabled() {
     let saved = wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 2.0)
     });
-    drop(player);
+    player.send(Command::Stop).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Stopped && state.save_position_on_quit == Some(true)
+    });
     let saved_entries: Vec<_> = std::fs::read_dir(&enabled_watch_later)
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .collect();
     assert!(
         !saved_entries.is_empty(),
-        "mpv must write a watch-later file"
+        "explicit Stop must write a watch-later file before the player is dropped"
     );
+    drop(player);
 
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player_with_options(
@@ -572,6 +576,17 @@ fn resume_last_position_saves_and_restores_only_when_enabled() {
     wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 1.0)
     });
+    player.send(Command::Stop).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Stopped && state.save_position_on_quit == Some(false)
+    });
+    assert!(
+        std::fs::read_dir(&disabled_watch_later)
+            .unwrap()
+            .next()
+            .is_none(),
+        "explicit Stop must not create a watch-later file when resume is disabled"
+    );
     drop(player);
     assert!(
         std::fs::read_dir(&disabled_watch_later)
@@ -1888,6 +1903,22 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
         let _ = sender.send(state);
     })
     .unwrap();
+    let startup_versions = wait_for(&receiver, |state| {
+        state.phase == Phase::Stopped
+            && state
+                .mpv_version
+                .as_deref()
+                .is_some_and(|version| !version.trim().is_empty())
+            && state
+                .ffmpeg_version
+                .as_deref()
+                .is_some_and(|version| !version.trim().is_empty())
+    });
+    assert_eq!(
+        startup_versions.error, None,
+        "unexpected native error while observing engine versions before media: {:?}",
+        startup_versions.error
+    );
     player
         .send(Command::Load(
             root.join("tests/fixtures/moving-square.avi")
@@ -1898,6 +1929,21 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
     wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
     });
+    let versions = wait_for(&receiver, |state| {
+        state
+            .mpv_version
+            .as_deref()
+            .is_some_and(|version| !version.trim().is_empty())
+            && state
+                .ffmpeg_version
+                .as_deref()
+                .is_some_and(|version| !version.trim().is_empty())
+    });
+    assert_eq!(
+        versions.error, None,
+        "unexpected native error while observing engine versions: {:?}",
+        versions.error
+    );
     player
         .send(Command::ObserveMpvProperty("container-fps".into()))
         .unwrap();
@@ -1913,6 +1959,40 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
         observed.error
     );
     drop(player);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies native event names reach playback snapshots"]
+fn generic_mpv_events_are_retained_for_plugin_listeners() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let playback = wait_for(&receiver, |state| {
+        state
+            .mpv_events
+            .iter()
+            .any(|event| event.name == "file-loaded")
+    });
+    assert!(
+        playback
+            .mpv_events
+            .iter()
+            .any(|event| event.name == "start-file")
+    );
+    assert!(playback.mpv_event_sequence >= 2);
 }
 
 struct TemporaryMedia(PathBuf);

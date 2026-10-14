@@ -92,6 +92,7 @@ pub(crate) struct PluginPlayerFileContext {
     external_tracks: BTreeMap<String, PathBuf>,
     core_properties: BTreeMap<String, serde_json::Value>,
     observed_mpv_properties: BTreeMap<String, serde_json::Value>,
+    mpv_events: Vec<riina_core::MpvEventRecord>,
     chapters: Vec<serde_json::Value>,
     core_version: serde_json::Value,
     core_window_properties: BTreeMap<String, serde_json::Value>,
@@ -117,15 +118,18 @@ impl PluginPlayerFileContext {
             external_tracks,
             core_properties: BTreeMap::new(),
             observed_mpv_properties: BTreeMap::new(),
+            mpv_events: Vec::new(),
             chapters: Vec::new(),
             core_version: serde_json::Value::Null,
             core_window_properties: BTreeMap::from([
                 ("loaded".into(), serde_json::Value::Bool(false)),
+                ("music-mode".into(), serde_json::json!(false)),
                 ("frame".into(), serde_json::Value::Null),
                 ("fullscreen".into(), serde_json::Value::Null),
                 ("pip".into(), serde_json::Value::Null),
                 ("ontop".into(), serde_json::Value::Null),
                 ("visible".into(), serde_json::Value::Null),
+                ("main".into(), serde_json::json!(false)),
                 ("sidebar".into(), serde_json::Value::Null),
                 ("screens".into(), serde_json::Value::Null),
                 ("miniaturized".into(), serde_json::Value::Null),
@@ -147,6 +151,22 @@ impl PluginPlayerFileContext {
 
     pub(crate) fn player_events_to(&self, next: &Self) -> Vec<(String, serde_json::Value)> {
         let mut events = Vec::new();
+        if self
+            .core_version
+            .get("mpv")
+            .and_then(serde_json::Value::as_str)
+            .is_none()
+            && next
+                .core_version
+                .get("mpv")
+                .and_then(serde_json::Value::as_str)
+                .is_some()
+        {
+            events.push(("iina.mpv-initialized".into(), serde_json::Value::Null));
+        }
+        if self.media_generation != next.media_generation {
+            events.push(("iina.file-started".into(), serde_json::Value::Null));
+        }
         if next.media_ready
             && (self.media_generation != next.media_generation || !self.media_ready)
             && let Some(url) = next
@@ -184,6 +204,93 @@ impl PluginPlayerFileContext {
                 events.push((format!("mpv.{property}.changed"), value.clone()));
             }
         }
+        let last_event_sequence = self.mpv_events.last().map_or(0, |event| event.sequence);
+        for event in next
+            .mpv_events
+            .iter()
+            .filter(|event| event.sequence > last_event_sequence)
+        {
+            events.push((format!("mpv.{}", event.name), serde_json::Value::Null));
+        }
+        events
+    }
+
+    pub(crate) fn window_events_to(
+        &self,
+        next: &BTreeMap<String, serde_json::Value>,
+    ) -> Vec<(String, serde_json::Value)> {
+        let mut events = Vec::new();
+        let previous_frame = self.core_window_properties.get("frame");
+        let next_frame = next.get("frame");
+        if let (Some(previous), Some(current)) = (previous_frame, next_frame)
+            && previous.is_object()
+            && current.is_object()
+        {
+            let changed = |key| previous.get(key) != current.get(key);
+            if ["x", "y"].into_iter().any(changed) {
+                events.push(("iina.window-moved".into(), current.clone()));
+            }
+            if ["width", "height"].into_iter().any(changed) {
+                events.push(("iina.window-resized".into(), current.clone()));
+            }
+        }
+        if let (Some(previous), Some(current)) = (
+            self.core_window_properties
+                .get("window-size-adjusted-event"),
+            next.get("window-size-adjusted-event"),
+        ) && previous != current
+            && let Some(frame) = next.get("frame").filter(|frame| frame.is_object())
+        {
+            events.push(("iina.window-size-adjusted".into(), frame.clone()));
+        }
+        for (property, event) in [
+            ("fullscreen", "iina.window-fs.changed"),
+            ("pip", "iina.pip.changed"),
+            ("music-mode", "iina.music-mode.changed"),
+            ("main", "iina.window-main.changed"),
+        ] {
+            if let (Some(previous), Some(current)) = (
+                self.core_window_properties
+                    .get(property)
+                    .and_then(serde_json::Value::as_bool),
+                next.get(property).and_then(serde_json::Value::as_bool),
+            ) && previous != current
+            {
+                events.push((event.into(), serde_json::json!(current)));
+            }
+        }
+        if let (Some(previous), Some(current)) = (
+            self.core_window_properties
+                .get("miniaturized")
+                .and_then(serde_json::Value::as_bool),
+            next.get("miniaturized")
+                .and_then(serde_json::Value::as_bool),
+        ) && previous != current
+        {
+            events.push((
+                if current {
+                    "iina.window-miniaturized"
+                } else {
+                    "iina.window-deminiaturized"
+                }
+                .into(),
+                serde_json::Value::Null,
+            ));
+        }
+        if let Some(previous) = self
+            .core_window_properties
+            .get("screens")
+            .filter(|screens| {
+                screens
+                    .as_array()
+                    .is_some_and(|screens| !screens.is_empty())
+            })
+            && next
+                .get("screens")
+                .is_some_and(|current| current != previous)
+        {
+            events.push(("iina.window-screen.changed".into(), serde_json::Value::Null));
+        }
         events
     }
 
@@ -192,6 +299,11 @@ impl PluginPlayerFileContext {
         properties: BTreeMap<String, serde_json::Value>,
     ) -> Self {
         self.observed_mpv_properties = properties;
+        self
+    }
+
+    pub(crate) fn with_mpv_events(mut self, events: Vec<riina_core::MpvEventRecord>) -> Self {
+        self.mpv_events = events;
         self
     }
 
@@ -224,6 +336,13 @@ impl PluginPlayerFileContext {
     pub(crate) fn with_core_version(mut self, version: serde_json::Value) -> Self {
         self.core_version = version;
         self
+    }
+
+    pub(crate) fn mpv_initialized(&self) -> bool {
+        self.core_version
+            .get("mpv")
+            .and_then(serde_json::Value::as_str)
+            .is_some()
     }
 
     pub(crate) fn set_core_window_properties(
@@ -877,6 +996,7 @@ mod tests {
         let previous = PluginPlayerFileContext::default()
             .with_media_generation(4)
             .with_media_ready(true)
+            .with_core_version(serde_json::json!({"mpv": null}))
             .with_core_snapshot(
                 BTreeMap::from([
                     ("url".into(), serde_json::json!("file:///media/old.mkv")),
@@ -892,6 +1012,7 @@ mod tests {
         let next = PluginPlayerFileContext::default()
             .with_media_generation(5)
             .with_media_ready(true)
+            .with_core_version(serde_json::json!({"mpv": "mpv 0.41.0-git"}))
             .with_core_snapshot(
                 BTreeMap::from([
                     ("url".into(), serde_json::json!("file:///media/new.mkv")),
@@ -908,6 +1029,8 @@ mod tests {
         assert_eq!(
             previous.player_events_to(&next),
             [
+                ("iina.mpv-initialized".into(), serde_json::Value::Null),
+                ("iina.file-started".into(), serde_json::Value::Null),
                 (
                     "iina.file-loaded".into(),
                     serde_json::json!("file:///media/new.mkv"),
@@ -927,7 +1050,10 @@ mod tests {
                 BTreeMap::from([("url".into(), serde_json::json!("file:///media/new.mkv"))]),
                 Vec::new(),
             );
-        assert!(previous.player_events_to(&loading).is_empty());
+        assert_eq!(
+            previous.player_events_to(&loading),
+            [("iina.file-started".into(), serde_json::Value::Null)]
+        );
         let loaded = loading.clone().with_media_ready(true);
         assert_eq!(
             loading.player_events_to(&loaded),
@@ -935,6 +1061,110 @@ mod tests {
                 "iina.file-loaded".into(),
                 serde_json::json!("file:///media/new.mkv"),
             )]
+        );
+    }
+
+    #[test]
+    fn player_context_reports_window_geometry_and_mode_changes() {
+        let previous = PluginPlayerFileContext::default();
+        let initial = BTreeMap::from([
+            (
+                "frame".into(),
+                serde_json::json!({"x": 10, "y": 20, "width": 640, "height": 360}),
+            ),
+            ("fullscreen".into(), serde_json::json!(false)),
+            ("pip".into(), serde_json::json!(false)),
+            ("music-mode".into(), serde_json::json!(false)),
+            ("miniaturized".into(), serde_json::Value::Null),
+            ("main".into(), serde_json::json!(false)),
+            ("window-size-adjusted-event".into(), serde_json::json!(0)),
+            ("screens".into(), serde_json::json!([])),
+        ]);
+        assert!(previous.window_events_to(&initial).is_empty());
+
+        let settled = PluginPlayerFileContext {
+            core_window_properties: initial,
+            ..PluginPlayerFileContext::default()
+        };
+        let changed = BTreeMap::from([
+            (
+                "frame".into(),
+                serde_json::json!({"x": 35, "y": 42, "width": 800, "height": 450}),
+            ),
+            ("fullscreen".into(), serde_json::json!(true)),
+            ("pip".into(), serde_json::json!(true)),
+            ("music-mode".into(), serde_json::json!(true)),
+            ("miniaturized".into(), serde_json::json!(false)),
+            ("main".into(), serde_json::json!(true)),
+            ("window-size-adjusted-event".into(), serde_json::json!(1)),
+            (
+                "screens".into(),
+                serde_json::json!([{"frame":{"x":0,"y":0,"width":1920,"height":1080}}]),
+            ),
+        ]);
+
+        assert_eq!(
+            settled.window_events_to(&changed),
+            [
+                (
+                    "iina.window-moved".into(),
+                    serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
+                ),
+                (
+                    "iina.window-resized".into(),
+                    serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
+                ),
+                (
+                    "iina.window-size-adjusted".into(),
+                    serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
+                ),
+                ("iina.window-fs.changed".into(), serde_json::json!(true)),
+                ("iina.pip.changed".into(), serde_json::json!(true)),
+                ("iina.music-mode.changed".into(), serde_json::json!(true)),
+                ("iina.window-main.changed".into(), serde_json::json!(true)),
+            ]
+        );
+
+        let adjusted_without_frame_change = BTreeMap::from([
+            (
+                "frame".into(),
+                serde_json::json!({"x":10,"y":20,"width":640,"height":360}),
+            ),
+            ("window-size-adjusted-event".into(), serde_json::json!(1)),
+        ]);
+        assert_eq!(
+            settled.window_events_to(&adjusted_without_frame_change),
+            [(
+                "iina.window-size-adjusted".into(),
+                serde_json::json!({"x":10,"y":20,"width":640,"height":360}),
+            )]
+        );
+
+        let with_screen = PluginPlayerFileContext {
+            core_window_properties: changed,
+            ..PluginPlayerFileContext::default()
+        };
+        let next_screen = BTreeMap::from([
+            (
+                "frame".into(),
+                serde_json::json!({"x": 35, "y": 42, "width": 800, "height": 450}),
+            ),
+            ("fullscreen".into(), serde_json::json!(true)),
+            ("pip".into(), serde_json::json!(true)),
+            ("music-mode".into(), serde_json::json!(true)),
+            ("miniaturized".into(), serde_json::json!(true)),
+            ("main".into(), serde_json::json!(true)),
+            (
+                "screens".into(),
+                serde_json::json!([{"frame":{"x":0,"y":0,"width":2560,"height":1440}}]),
+            ),
+        ]);
+        assert_eq!(
+            with_screen.window_events_to(&next_screen),
+            [
+                ("iina.window-miniaturized".into(), serde_json::Value::Null,),
+                ("iina.window-screen.changed".into(), serde_json::Value::Null,),
+            ]
         );
     }
 
@@ -1254,5 +1484,34 @@ mod tests {
                 .contains("Unknown or unsupported")
         );
         let _ = fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(test)]
+mod mpv_event_bridge_tests {
+    use super::*;
+
+    #[test]
+    fn player_context_delivers_each_native_mpv_event_once_across_coalesced_updates() {
+        let initial = PluginPlayerFileContext::default();
+        let playback = PluginPlayerFileContext::default().with_mpv_events(vec![
+            riina_core::MpvEventRecord {
+                sequence: 1,
+                name: "start-file".into(),
+            },
+            riina_core::MpvEventRecord {
+                sequence: 2,
+                name: "file-loaded".into(),
+            },
+        ]);
+
+        assert_eq!(
+            initial.player_events_to(&playback),
+            vec![
+                ("mpv.start-file".into(), serde_json::Value::Null),
+                ("mpv.file-loaded".into(), serde_json::Value::Null),
+            ]
+        );
+        assert!(playback.player_events_to(&playback).is_empty());
     }
 }

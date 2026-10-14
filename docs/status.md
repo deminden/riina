@@ -2,6 +2,30 @@
 
 ## Application state
 
+The Stop intent now writes MPV's watch-later position before stopping active
+playback when `save-position-on-quit` is enabled, matching IINA's explicit
+`savePlaybackPosition()` call. It skips the write when resume saving is disabled
+or media is not active. This is covered by core command-plan checks and native
+property decoding. The focused Windows libmpv test confirms the record is written
+before the player is dropped and that reopening restores the saved position; the
+shared menu's live GUI interaction remains unverified.
+
+The font picker now reads OpenType static width classes and uses a centered
+horizontal preview scale when the selected condensed/expanded face has a normal-
+width sibling. It prefers a normal-width face when family and weight choices are
+otherwise equal. This compensates for Slint's lack of a font-stretch property;
+variable-width axes and exact native glyph matching remain open. Unit coverage is
+in place; rendered font-picker comparison is still required.
+
+On macOS, system Reduce Motion now selects the IINA-style sidebar fade while the
+explicit Riina Disable Animations preference still makes that transition
+instantaneous. Reduce Motion remains a global animation-disable signal on Windows
+and Linux, where that is the platform adaptation. macOS source and runtime
+verification are still pending. Ordinary motion now slides the panel from its
+edge over 240 ms and shifts the title row and bottom controls by the sidebar
+width. Reduce Motion keeps those bounds in place during its fade; exact AppKit
+spacing and live geometry still need runtime comparison.
+
 ### Current window and controller work
 
 Small video windows keep the transport centered and the timeline visible. The
@@ -30,6 +54,14 @@ height below 24 points. A fresh 180×72 Windows autoplay audit stayed on-screen
 with aligned host and video surfaces through a clip change and shut down normally.
 The captured viewport showed video but not the controller, so tiny-state control
 pixels and interaction remain unverified.
+
+The floating controller now stores normalized horizontal center and bottom-gap
+positions, following IINA's 0.5/0.1 defaults. Drag updates are bounded to the video
+surface, snap to the center within five logical points, and save at release; the
+bar recenters when the viewport is narrower than its 460-point minimum. Position
+values are validated and carried through player, layout, sidebar, and screenshot
+preference saves. Pointer routing during child-control interaction, post-resize
+placement, and GUI comparison remain unverified.
 
 Windows aspect constraints now apply to the native user resize gesture rather
 than every `WM_SIZE` notification. Unchanged menu row models remain stable across
@@ -79,7 +111,7 @@ registration, IINA's direct-result download behavior, live service playback and
 native dialog visuals remain open.
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.5. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.6. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
@@ -197,6 +229,9 @@ source-wired. Frame-step, fine speed, fine volume, and fine audio-delay alternat
 now replace their primary rows while Alt/Option is held, matching IINA's menu
 alternate behavior in the shared menu and Windows native-video menu. Live modifier
 interaction and matched visual verification remain open.
+The Windows native-video menu also refreshes pause, speed, volume/mute and audio
+delay synchronously on `WM_INITMENU`, before the first menu rows paint; live menu
+opening and matched platform visuals still need verification.
 Audio, Subtitles and Plugin menus route their
 implemented actions to existing player commands. The File menu's Open in New
 Window action is source-wired to the multi-file picker and separate-player
@@ -289,7 +324,7 @@ identity and the disabled `#0 <None>` choice, rotation, reciprocal subtitle scal
 and playlist-loop feedback. Track-selection feedback includes the selected track
 ID and localized language name. When one native observation contains both updated
 A/B loop endpoints, Riina queues feedback for both in A-then-B order; a simultaneous
-removal of both points produces one clear message. Matched OSD rendering, live
+removal of both points produces one clear message. The A-B Loop menu label now follows the active profile binding in both player surfaces. Matched OSD rendering, live
 locale changes, and native timing remain open. Stop, chapter selection, playlist
 append, paste, and clear confirmations now share typed action-feedback messages
 with regression coverage for the IINA reference text; action acceptance timing and
@@ -309,6 +344,11 @@ preferences and appear in Interface > On Screen Controller; when enabled they
 swallow wheel input over their slider while preserving click and drag. AppKit
 integration, native event timing, paused-seek progress, live wheel behavior, and
 matched settings visuals remain unverified.
+Scroll action math now keeps native delta precision separate from the gesture
+class: phase-empty precise mouse wheels use IINA's mouse seek/volume curves, while
+trackpad gestures use the configured trackpad sensitivities. The Control pane's
+four-step Relative Seek Amount maps to IINA's independent mouse and trackpad seek
+tables. Existing local `seek_sensitivity` values remain readable as an alias.
 macOS pinch gestures now route through each player's Winit event filter: the
 default action resizes around the window center within monitor and minimum-size
 bounds, while the alternate action toggles fullscreen in the pinch direction.
@@ -554,12 +594,12 @@ Riina's original source is MIT. The combined application package is GPL-3.0-only
 The v0.3.0 package includes the exact third-party notices and corresponding
 sources for its pinned native engine and Cargo dependencies.
 
-The latest published GitHub release is Riina 0.3.3 and includes a Windows x86_64
+The latest published GitHub release is Riina 0.3.5 and includes a Windows x86_64
 portable application, checksums, and a release verification record. Its successful
 workflow reused a previously verified native engine, passed native playback and
 shutdown checks, and audited the exact package against its tagged application source
-and native source manifest. The [v0.3.3 release](https://github.com/deminden/riina/releases/tag/v0.3.3)
-and [successful release workflow](https://github.com/deminden/riina/actions/runs/38332824004)
+and native source manifest. The [v0.3.5 release](https://github.com/deminden/riina/releases/tag/v0.3.5)
+and [successful release workflow](https://github.com/deminden/riina/actions/runs/38472242460)
 are available online.
 
 The v0.3.0 source archive measured 1.60 GB compressed and 2.57 GB expanded.
@@ -572,14 +612,25 @@ and source-file hash. `SOURCE-ACCESS.md` provides retrieval and rebuild directio
 The audit also found a 166 MB Opus DNN model archive among the native build inputs;
 the pinned builder recipe retrieves it from its upstream source.
 
-Release assets:
+Current release assets:
 
-- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.3/riina-0.3.3-windows-x86_64.zip)
-- [Tagged source code at v0.3.3](https://github.com/deminden/riina/archive/refs/tags/v0.3.3.tar.gz)
-- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.3/SHA256SUMS.txt)
-- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.3/RELEASE-VERIFICATION.json)
+- [Windows portable ZIP](https://github.com/deminden/riina/releases/download/v0.3.5/riina-0.3.5-windows-x86_64.zip)
+- [Tagged source code at v0.3.5](https://github.com/deminden/riina/archive/refs/tags/v0.3.5.tar.gz)
+- [SHA-256 checksums](https://github.com/deminden/riina/releases/download/v0.3.5/SHA256SUMS.txt)
+- [Verification record](https://github.com/deminden/riina/releases/download/v0.3.5/RELEASE-VERIFICATION.json)
 
-v0.3.3 is published with its Windows portable binary. The exact 72.6 MB package
+The published v0.3.5 Windows ZIP is 69.8 MB and has SHA-256
+`970a2e755449ee00f35acd93a3b2d2ac7f003f9d76672adc41253813743c13b9`.
+Its verification record identifies immutable source commit
+`7ad5cec27c4de0a8addb93e0c3d53319971c3178`, 101,748 indexed native source files
+across 88 repositories, libmpv SHA-256
+`1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`, and Cargo.lock
+SHA-256 `5ceee2866d9afb49677a120b7c88c667277604696bd6b0414c732922094ab1b5`.
+The exact package and notices were verified; native playback and lifecycle checks
+passed. Workflow `38472242460` skipped rebuilding the unchanged native engine and
+reused its successful artifact from run `38138622911`.
+
+Earlier v0.3.3 shipped its Windows portable binary. Its exact 72.6 MB package
 matches SHA-256 `2a72ded17b01c928cd0bdc5aec9be31c1ca286ef743bdba5201587b7910d2a74`,
 identifies immutable source commit `8cf9cc2`, contains no duplicate native or
 vendored Rust source trees, and passes the package audit with 101,748 native
@@ -725,6 +776,20 @@ The debug app reached playback with this call in place, but capture still fails,
 visible Mica, other persistent surfaces, Acrylic dialogs, and video-backed overlays
 remain unverified.
 
+## macOS plugin-menu update event · 2026-10-14
+
+The macOS player now observes AppKit menu tracking and sends IINA's
+`iina.menu-update` event when the active player's Plugin menu begins tracking.
+Because Slint installs the active player's menu on the process menu bar, the
+observer filters by both menu title and key-window identity so inactive player
+sessions do not receive duplicate menu-open events. The observer is retained and
+removed with its player UI session. AppKit exposes this as a did-begin-tracking
+notification, slightly later than IINA's `menuWillOpen` delegate callback; live
+macOS interaction must verify whether changed items appear on the first open.
+The observer source passed an isolated Apple-target compile and strict Clippy
+check against a generated Slint player component. A full app Apple-target build
+and macOS runtime remain unverified.
+
 IINA's Audio > Audio Device menu was still a disabled placeholder. Riina now builds
 that submenu from libmpv's observed device IDs and descriptions, filters devices by
 the active output driver, marks the observed selection, and sends the selected native
@@ -743,6 +808,13 @@ track switching is covered by the full native playback suite. The Slint
 layout compiles and the workspace test suite passes; the matched live capture
 remains unverified because the current monitor-capture request fails with
 `0x80070057`.
+
+Audio Delay pointer input now keeps the scrubbed value local while dragging,
+snaps it to 50 ms increments, and sends one native update on release, following
+IINA's `AudioDelayView.sliderAction()`. Keyboard and accessibility adjustments
+still apply through the immediate change path. The adjacent numeric field now
+previews the draft using the active locale's delay formatter. Release timing,
+native property synchronization, and matched GUI behavior remain unverified.
 
 ## Verification sweep and Windows last-window lifecycle · 2026-10-13
 
@@ -941,6 +1013,14 @@ and stable catalogs. A 25-second Windows mixed-media autoplay run retained the s
 window size for four video items, then switched to Music Mode for the audio item;
 it recorded no fully dark video samples or host/child mismatches and exited normally.
 The user's affected media and macOS runtime remain unverified.
+
+The pinned v1.5.0 mini-player transition hides all main-window sidebars before
+the compact surface is resized. A live Windows check exposed that Riina retained
+the active Video Quick Settings pane while same-folder autoplay entered Music
+Mode, leaving the pane clipped over the compact player. The Slint Music Mode
+transition now clears both sidebars before resizing. Workspace tests and build
+pass; strict Clippy and GUI verification of the corrected transition are pending.
+The affected media and macOS runtime remain unverified.
 
 ## Windows video-switch flash follow-up · 2026-10-13
 
@@ -1173,4 +1253,220 @@ The native handoff gate now restarts its stability interval when the visible
 mpv child HWND set, child dimensions, or window title changes. This catches a
 same-size renderer replacement that host-size-only tracking could miss. The
 Windows player build and strict app Clippy pass. Playback on the user's affected
-clips remains unverified, and the reported flash stays open.
+clips remains unverified. A later user check reports no current flashing; repeated
+transitions across the affected clips remain unverified.
+
+## Native menu first-paint state · 2026-10-13
+
+The Windows `WM_INITMENU` callback now synchronously refreshes both playback
+labels and the Video, Audio, Subtitles and Plugins panel show/hide labels from
+the shared window state. Menus therefore do not depend on the coalesced
+80-millisecond menu-state update to display current toggle titles. Workspace
+check, formatting and strict Clippy pass. A live Windows native-video check
+confirmed the first Video-menu item changes to “Hide Video Panel” after opening
+the panel. Audio/Subtitles, Plugins, playback labels and macOS menu behavior
+remain unverified; see `docs/verification.md`.
+
+## Font family default face · 2026-10-13
+
+Font catalog rows are now ordered with an upright face nearest regular weight
+first, so selecting a family defaults to Regular rather than the lightest
+installed face. Focused tests cover regular preference, deterministic fallback
+and empty families; the complete workspace test run passes (277 app tests, 50
+native integration tests ignored because the pinned DLL is unavailable here).
+Rendered row order, pointer routing, native-video and macOS font enumeration
+remain unverified.
+
+## Plugin sidebar manifest discovery · 2026-10-14
+
+The pinned plugin contract lets `Info.json` declare a sidebar tab name. Riina's
+manifest loader previously discarded that field, blocking discovery of plugins
+that contribute sidebar content. The shared manifest now retains a bounded,
+validated label, chooses localized labels using the system locale, and ignores
+absent or non-string labels. The installer, enabled-plugin inventory and runtime
+loader all use that locale. A portable sidebar state machine now validates
+package-relative documents, gates visibility and messages on document loading,
+and resets listeners when a document changes. The persistent QuickJS player
+session now exposes `iina.sidebar.loadFile`, `show`, `hide`, `postMessage`, and
+`onMessage`; its typed effects pass through the bounded plugin event queue, and
+registered callbacks receive host messages on the plugin worker. Focused tests
+cover confined paths, visibility ordering, effect emission, and callback delivery.
+Windows now builds a selector from enabled plugins' localized labels, opens the
+selected plugin's package page in a child WebView, serves package-relative files
+through a confined custom scheme, and returns JSON messages to the plugin worker.
+The player sends `iina.window-loaded` after its UI event loop starts so plugins
+can initialize the view at the expected lifecycle point. The plugin host now
+remembers this transition and sends it to player plugins enabled or reloaded
+after the window has loaded; a focused host test exercises that late-activation
+path and idempotent startup notification. A fresh Windows debug-build smoke test
+showed an enabled plugin tab and its package page in the child WebView. The
+confined child-WebView adapter now also builds on the macOS target path; an
+Apple-target build and live Mac run are still required. Linux player sidebars now
+use the same presenter on X11, with GTK initialized on the player thread and its
+event queue pumped by the UI timer. Wayland child embedding remains unsupported
+by this adapter. The Windows-host Linux cross-check is blocked before Riina
+compilation because no Linux pkg-config sysroot is configured. A native Linux
+build/runtime and matched IINA sidebar geometry remain open.
+
+## Quick Settings Video pane live check · 2026-10-14
+
+A fresh Windows debug build and isolated profile opened the Quick Settings pane
+from its toolbar gear while `track-languages.mkv` was paused. The Video pane was
+selected by default. Its selector displayed the active video track before the
+aspect-ratio, crop, rotation, speed, hardware-decoding, and picture controls; the
+tab sequence was Layout, Video, Audio, Subtitles. This confirms the Windows
+interaction path and default pane choice. Track switching, other tab behavior,
+matched IINA pixels, and macOS/Linux runtime remain open. A separate attempt to
+verify the `v` subtitle-visibility shortcut was inconclusive after the live
+window changed size and the computer-use coordinates no longer matched.
+
+Aspect-ratio and crop preset strips now reserve IINA's trailing scroll indicator
+space and show a directional chevron when the choices overflow. Activating it
+moves to the opposite edge; it flips to the return direction after scrolling.
+Keyboard navigation between segments remains available. Workspace compilation
+and strict formatting checks pass. The Windows app build also passes; live
+interaction remains unverified after the Windows capture bridge failed.
+
+The Audio, Video, and Subtitle track tables now follow IINA's plain-table
+selection treatment: the chosen row keeps its narrow accent marker without a full
+row fill, and rows have subtle horizontal grid lines. Active row sizing and
+language badges remain unchanged. Track, None, and language-badge colors now follow
+the active Light/Dark appearance. Native selection behavior is covered elsewhere;
+matched pixels and live track scrolling still need GUI verification.
+
+## Plugin file-started lifecycle event · 2026-10-14
+
+Player plugins now receive `iina.file-started` when Riina begins a new media generation, followed by `iina.file-loaded` once media metadata is ready. The new event is emitted on the generation transition even if the UI coalesces the short Loading snapshot. It uses IINA's event spelling and player-session scope. Focused context/runtime tests and the complete workspace test suite pass (282 app tests; 50 native libmpv tests remain ignored by default). The broader IINA event catalogue, global controller events, and live plugin interaction remain open.
+## Plugin window lifecycle events · 2026-10-14
+
+The plugin host now diffs observed player-window properties and sends IINA-compatible player-scoped events for movement, resize, fullscreen changes, Picture in Picture and music-mode changes, minimization/restoration, and screen changes. Initial geometry is treated as a baseline so opening the player does not produce false movement events. Geometry and mode-diff tests and a QuickJS listener-delivery test pass. Live window/plugin interaction, exact event cadence, and macOS runtime verification remain open.
+## Plugin pre-close lifecycle notification · 2026-10-14
+
+Player-window shutdown now sends subscribed plugins `iina.window-will-close` before stopping playback or tearing down the plugin host. The host waits for each bounded QuickJS callback barrier and drains its resulting messages before plugin sessions are destroyed. This covers shared-player and Windows native-video close paths through one guarded player callback. The focused host lifecycle test and full workspace checks pass; live close behavior remains unverified.
+## Plugin engine-initialized replay · 2026-10-14
+
+Riina now dispatches `iina.mpv-initialized` when the observed libmpv version first enters the plugin player context. Plugins enabled after engine initialization receive the event during activation, alongside the late `window-loaded` replay. This follows IINA's `mpvInit()` event and AppDelegate reload behavior. A host integration test verifies late-event delivery exactly once, including delivery before the pre-close lifecycle callback. All 283 workspace app tests, strict Clippy, workspace build, formatting, parity traceability and diff checks pass. macOS/Linux runtime behavior and the broader IINA event catalog remain open.
+## Plugin main-window focus event · 2026-10-14
+
+IINA's `iina.window-main.changed` event now follows the focused native player window. Riina samples Winit focus alongside its existing window snapshot; the initial state is false so the first focus gain is delivered. Context and QuickJS listener tests pass. Workspace tests (283 app tests), strict Clippy, workspace build, formatting, diff and parity checks pass. Live focus switching and rapid focus changes that occur between snapshots remain unverified; the wider event catalogue remains open.
+## Plugin automatic window-size event · 2026-10-14
+
+Riina now queues `iina.window-size-adjusted` when a media geometry update reaches the configured window-size policy. It reports the sampled player frame and still fires when the policy retains the current frame, matching IINA's event distinction from an ordinary user-driven resize. The frame-retained regression assertion and full workspace suite pass (283 app tests; 50 native tests ignored by default), as does the final workspace build. Strict Clippy, workspace build, formatting, diff, and parity checks pass. GUI plugin behavior and macOS runtime remain unverified.
+
+## Plugin overlay-loaded event · 2026-10-14
+
+Riina now reports `iina.plugin-overlay-loaded` to player-plugin sessions when a confined plugin sidebar document finishes loading. This follows the pinned source's sidebar and overlay load callbacks. The late-plugin host test passes with exactly the event delivery path covered; Windows and macOS WebView runtime behavior remains unverified.
+
+### Plugin event gate results · 2026-10-14
+
+The full workspace suite passes (283 app tests; 50 provisioned-native tests ignored), strict Clippy, workspace build, formatting, diff check, and parity traceability. The ignored libmpv native smoke test also passes with the bundled Windows engine: it decodes the local moving-square fixture and observes `container-fps`. This proves the development DLL works; it does not diagnose a different installed or already-running instance.
+
+## Plugin thumbnails-ready event · 2026-10-14
+
+The timeline preview controller now marks thumbnails ready only after a successful complete sample set, including a complete cache hit; partial sets and failed/cancelled tasks do not notify plugins. Completion is routed to player-plugin sessions as `iina.thumbnails-ready`. The full workspace test suite passes (284 app tests; 50 native tests ignored by default), as do the workspace build, strict Clippy, formatting, diff, and parity checks. GUI playback and plugin WebView delivery remain unverified.
+
+## Plugin manager menu entry · 2026-10-14
+
+The Plugin menu now includes “Manage Plugins…” on both the shared player and
+Windows native-video surfaces. It opens Settings directly to the existing Plugins
+page; normal Settings opening preserves its current page. The IINA menu audit now
+records this implemented command. “Reload All Plugins” now shuts down current
+plugin sessions, removes their sidebar/overlay content, and reactivates enabled
+packages with their window/engine initialization events replayed. A host integration
+test proves the plugin entry executes again. Menu actions contributed by both the
+global and player entries are now shown and return to their owning runtime.
+Per-plugin Developer Tool actions and matched visual verification remain open. See
+`PLUGIN-MENU-001` and `REF-40`.
+
+## Plugin-contributed menu actions · 2026-10-14
+
+Player plugins can now create, remove, update, and force-refresh menu items using
+the IINA-shaped `iina.menu` API. Bounded recursive snapshots carry titles,
+enabled/selected state and key bindings through the host to the shared and
+Windows-native Plugin menus; activating an item calls its retained JavaScript
+callback on the owning plugin worker. Nested items remain flattened as breadcrumb
+rows; plugin separators use the Slint 1.18.1 dynamic-menu separator sentinel.
+Each plugin now has one display-name heading, with global actions before player
+actions. The Plugins settings list now supports row drag-and-drop and persists
+plugin identifiers in `plugin-order.json`; plugin startup, reload, and the live
+player menu use that order. Reordering updates the invoking player's menu; order
+changes are broadcast to all live player windows, pruning closed windows through
+weak registrations. Global actions still route to their owning runtime within one
+player host; sharing the global runtime across multiple player windows remains
+open. Nested submenu hierarchy, Developer Tool actions, live drag/drop interaction
+and matched visual comparison remain open. Windows native Plugin opening sends
+`iina.menu-update` to subscribed player sessions; shared Slint and macOS menu-open
+event delivery remain unverified.
+
+## About version labels · 2026-10-14
+
+The About window says “Waiting for…” while the stopped player is waiting for its
+first engine-version snapshot, and “Reading…” after playback begins if metadata
+has not arrived yet. It then displays the observed libmpv and FFmpeg versions.
+These are metadata states, not an indication that the playback engine is
+unavailable. If About opens before the properties arrive, a visibility-gated
+timer refreshes the labels while the window remains open.
+A bundled-libmpv integration check verifies both version properties reach the
+stopped player snapshot before any media opens, then remain available during
+playback. This separates version-reporting delays from library load failures.
+
+## Plugin submenu action routing · 2026-10-14
+
+Flattened plugin-menu breadcrumb rows for items with children are now disabled,
+matching IINA's behavior where submenu containers navigate and only leaf items
+invoke callbacks. Nested leaf rows retain their plugin/scope/item tokens. A player
+UI regression test covers this routing rule; visual submenu hierarchy remains open.
+
+## Generic mpv plugin event delivery · 2026-10-14
+
+Plugin `event.on("mpv.<event>", callback)` subscriptions now receive generic
+libmpv event notifications in addition to `mpv.<property>.changed`. The player
+worker copies each event name before the next native wait call and keeps a bounded
+256-event sequence in playback state; the plugin host emits every retained event
+after its last delivered sequence, so coalesced UI snapshots do not drop bursts.
+The native libmpv integration test covers start-file and file-loaded delivery,
+and a bridge unit test covers ordered exactly-once dispatch. Full plugin GUI use,
+event behavior under more than 256 undrained events, and macOS/Linux runtime
+remain unverified.
+
+## A–B timeline marker colors · 2026-10-14
+
+The A and B loop markers now use the pinned IINA `MainSliderLoopKnob` asset's
+appearance values: `#696969` in light appearance and `#a6a6a6` in dark appearance.
+The marker size, 75% height, and rounded shape continue to follow
+`PlaySliderLoopKnob`. Source-derived colors are wired, but live marker rendering,
+native drag interaction, and matched Windows/macOS captures remain unverified.
+
+## Plugin sidebar placement · 2026-10-14
+
+Quick Settings now includes the IINA-compatible Plugins leading-side preference.
+It defaults to the leading side, persists with the other layout settings, and
+relocates an already open plugin panel when changed. The toolbar/menu toggle now
+opens it on the saved side, and sidebar-resize persistence retains this preference.
+The focused app test verifies both saved-side choices. Playback behavior and the
+matched panel presentation still need GUI verification.
+
+The Layout pane now groups Theme/material options, Compact Interface, and Video
+settings into separate rounded cards, matching the reference's hierarchy. Sidebar
+placement rows now show icon-led Leading/Trailing choices for Settings, Playlist
+and Chapters, and Plugins. Slint compiles, but the current debug build has not yet
+been captured; card proportions, translucency, tab geometry, and native-material
+rendering remain open for matched visual review. The selected Quick Settings tab
+now pairs an icon with its label while the other settings tabs use compact icons,
+matching the captured IINA tab strip at the source-layout level. Sidebar-side
+choices expose their leading-side meaning to accessibility and support arrow-key
+selection.
+
+## Video-backed translucent surfaces · 2026-10-14
+
+Shared-OpenGL playback now renders a quarter-resolution, sampled blur of the
+current video frame and composites it beneath the enabled translucent sidebar,
+title-row, floating-controller, seek/video/plugin OSD, and fullscreen-information
+tints. It only renders while at least one enabled material surface is visible. The
+pass preserves framebuffer, texture, viewport, and relevant GL enable state, and
+its objects are destroyed while the player context is current. It is optional:
+shader/setup/render failure does not stop playback. Workspace compilation,
+strict lint, and tests pass (297 application tests; 51 native tests ignored by
+default). Native Windows D3D composition, GPU cost, side-by-side visual
+comparison, and macOS runtime/material appearance still need live verification;
+Windows D3D does not use this GL pass.

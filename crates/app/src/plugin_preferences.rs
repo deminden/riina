@@ -39,6 +39,10 @@ pub(crate) fn connect(
         &enabled.borrow(),
         runtime_available,
     );
+    window.on_plugin_id_transfer(slint::DataTransfer::from);
+    window.on_plugin_id_from_transfer(|transfer| {
+        transfer.plain_text().unwrap_or_default().to_string().into()
+    });
 
     let weak = window.as_weak();
     let parent = app.as_weak();
@@ -273,6 +277,37 @@ pub(crate) fn connect(
                 );
             }
         }
+    });
+    let weak = window.as_weak();
+    let entries = inventory.clone();
+    let enabled_plugins = enabled.clone();
+    let order_file = plugins_directory.with_file_name("plugin-order.json");
+    let plugins = plugins_directory.clone();
+    window.on_plugin_reordered(move |dragged, target| {
+        let Some(window) = weak.upgrade() else { return };
+        let installed = entries
+            .borrow()
+            .iter()
+            .map(|plugin| plugin.manifest.identifier.clone())
+            .collect::<Vec<_>>();
+        let mut order =
+            riina_core::plugin_order::normalize(&load_plugin_order(&order_file), &installed);
+        if !riina_core::plugin_order::move_before(&mut order, dragged.as_str(), target.as_str()) {
+            return;
+        }
+        if let Err(error) = save_plugin_order(&order_file, &order) {
+            window.set_plugin_update_status(format!("Could not save plugin order: {error}").into());
+            return;
+        }
+        refresh(
+            &window,
+            &plugins,
+            &entries,
+            &enabled_plugins.borrow(),
+            runtime_available,
+        );
+        crate::player_ui::reorder_all_open_plugin_menus(&order);
+        window.set_plugin_update_status("Plugin order saved.".into());
     });
 
     let weak = window.as_weak();
@@ -630,6 +665,7 @@ fn refresh(
 ) {
     let mut loaded = Vec::new();
     let mut invalid = 0;
+    let locale = crate::platform::language::current_locale_identifier();
     if let Ok(entries) = fs::read_dir(directory) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -637,7 +673,7 @@ fn refresh(
                 .extension()
                 .is_some_and(|extension| extension == "iinaplugin")
             {
-                match Manifest::load_from_directory(&path) {
+                match Manifest::load_from_directory_with_locale(&path, locale.as_deref()) {
                     Ok(manifest) => loaded.push(InstalledPlugin {
                         manifest,
                         directory: path,
@@ -648,6 +684,23 @@ fn refresh(
         }
     }
     loaded.sort_by(|left, right| left.manifest.name.cmp(&right.manifest.name));
+    let installed = loaded
+        .iter()
+        .map(|plugin| plugin.manifest.identifier.clone())
+        .collect::<Vec<_>>();
+    let order_path = directory.with_file_name("plugin-order.json");
+    let order = riina_core::plugin_order::normalize(&load_plugin_order(&order_path), &installed);
+    let order_positions = order
+        .iter()
+        .enumerate()
+        .map(|(position, identifier)| (identifier.as_str(), position))
+        .collect::<BTreeMap<_, _>>();
+    loaded.sort_by_key(|plugin| {
+        order_positions
+            .get(plugin.manifest.identifier.as_str())
+            .copied()
+            .unwrap_or(usize::MAX)
+    });
     let unavailable = loaded
         .iter()
         .filter(|plugin| !runtime_available || !current_runtime_supports(&plugin.manifest))
@@ -681,6 +734,7 @@ fn plugin_rows(
         plugins
             .iter()
             .map(|plugin| PluginPreferencesRow {
+                identifier: plugin.manifest.identifier.clone().into(),
                 name: plugin.manifest.name.clone().into(),
                 version: plugin.manifest.version.clone().into(),
                 description: plugin
@@ -694,6 +748,18 @@ fn plugin_rows(
             })
             .collect::<Vec<_>>(),
     ))
+}
+
+fn load_plugin_order(path: &Path) -> Vec<String> {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
+        .unwrap_or_default()
+}
+
+fn save_plugin_order(path: &Path, order: &[String]) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(order).map_err(|error| error.to_string())?;
+    crate::platform::save_preferences(path, &text).map_err(|error| error.to_string())
 }
 
 fn check_update_status(plugins: &[InstalledPlugin]) -> (String, BTreeMap<String, String>) {

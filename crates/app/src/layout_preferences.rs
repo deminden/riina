@@ -17,6 +17,9 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         baseline.liquid_glass.osd,
         baseline.liquid_glass.osc,
         baseline.liquid_glass.sidebar,
+        baseline.control_bar_position_horizontal as f32,
+        baseline.control_bar_position_vertical as f32,
+        baseline.plugins_at_leading,
     )));
     let weak = app.as_weak();
     let path_for_window_level = path.clone();
@@ -35,14 +38,20 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.get_liquid_glass_osd(),
             app.get_liquid_glass_osc(),
             app.get_liquid_glass_sidebar(),
+            app.get_control_bar_position_horizontal(),
+            app.get_control_bar_position_vertical(),
+            app.get_plugins_at_leading(),
         );
         let previous = saved.get();
         let result = screenshot_preferences::current(&app).and_then(|screenshot| {
             let mut preferences = Preferences {
                 compact_ui: selected.0,
                 osc_position: selected.1 as u8,
+                control_bar_position_horizontal: f64::from(selected.11),
+                control_bar_position_vertical: f64::from(selected.12),
                 settings_at_leading: selected.2,
                 playlist_at_leading: selected.3,
+                plugins_at_leading: selected.13,
                 edge_to_edge_video: selected.4,
                 docked_controls: selected.5,
                 unlock_window_aspect_ratio: selected.6,
@@ -104,6 +113,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.set_osc_position(previous.1);
             app.set_settings_at_leading(previous.2);
             app.set_playlist_at_leading(previous.3);
+            app.set_plugins_at_leading(previous.13);
             app.set_edge_to_edge_video(previous.4);
             app.set_docked_controls(previous.5);
             app.set_unlock_window_aspect_ratio(previous.6);
@@ -111,6 +121,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.set_liquid_glass_osd(previous.8);
             app.set_liquid_glass_osc(previous.9);
             app.set_liquid_glass_sidebar(previous.10);
+            app.set_control_bar_position_horizontal(previous.11);
+            app.set_control_bar_position_vertical(previous.12);
             app.set_status(error.into());
         } else {
             // IINA relocates a changed pane and dismisses other open sidebars.
@@ -140,6 +152,21 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                     app.set_leading_sidebar(0);
                     app.set_sidebar(0);
                     if selected.3 {
+                        app.set_leading_sidebar(kind);
+                    } else {
+                        app.set_sidebar(kind);
+                    }
+                }
+            } else if selected.13 != previous.13 {
+                let kind = if previous.13 {
+                    app.get_leading_sidebar()
+                } else {
+                    app.get_sidebar()
+                };
+                if kind == 7 {
+                    app.set_leading_sidebar(0);
+                    app.set_sidebar(0);
+                    if selected.13 {
                         app.set_leading_sidebar(kind);
                     } else {
                         app.set_sidebar(kind);

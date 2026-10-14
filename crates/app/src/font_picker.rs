@@ -36,6 +36,22 @@ fn selection_for_name(
     })
 }
 
+fn preferred_face_index(faces: &[font_catalog::FontFace]) -> Option<usize> {
+    faces
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, face)| {
+            (
+                face.style != "Normal",
+                face.weight.abs_diff(400),
+                face.weight,
+                face.stretch.abs_diff(5),
+                face.postscript_name.as_str(),
+            )
+        })
+        .map(|(index, _)| index)
+}
+
 fn preview_face(
     picker: &FontPicker,
     family: &font_catalog::FontFamily,
@@ -46,6 +62,28 @@ fn preview_face(
     picker.set_preview_font_family(family.name.clone().into());
     picker.set_preview_font_weight(i32::from(face.weight).clamp(1, 1000));
     picker.set_preview_font_italic(face.style != "Normal");
+    picker.set_preview_font_stretch(preview_width_scale(family, face));
+}
+
+fn preview_width_scale(family: &font_catalog::FontFamily, face: &font_catalog::FontFace) -> f32 {
+    // Slint exposes weight and slant but not font stretch. Approximate static
+    // OpenType width classes only when a normal-width face gives the renderer a
+    // stable base face; a family with no normal face already resolves narrowly
+    // or broadly through the platform font matcher.
+    if face.stretch == 5 || !family.faces.iter().any(|candidate| candidate.stretch == 5) {
+        return 1.0;
+    }
+    match face.stretch {
+        1 => 0.5,
+        2 => 0.625,
+        3 => 0.75,
+        4 => 0.875,
+        6 => 1.125,
+        7 => 1.25,
+        8 => 1.5,
+        9 => 2.0,
+        _ => 1.0,
+    }
 }
 
 fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
@@ -190,6 +228,7 @@ pub fn connect(app: &PlayerWindow) {
                         picker.set_preview_font_family("".into());
                         picker.set_preview_font_weight(400);
                         picker.set_preview_font_italic(false);
+                        picker.set_preview_font_stretch(1.0);
                         let rows = items(indices.iter().map(|index| data[*index].name.clone()));
                         *map.borrow_mut() = indices;
                         picker.set_faces(items(std::iter::empty()));
@@ -226,8 +265,13 @@ pub fn connect(app: &PlayerWindow) {
                         picker.set_faces(items(
                             data[index].faces.iter().map(|face| face.label.clone()),
                         ));
-                        if let Some(face) = data[index].faces.first() {
-                            picker.invoke_restore_selection(picker.get_family_index(), 0);
+                        if let Some(face_index) = preferred_face_index(&data[index].faces)
+                            && let Some(face) = data[index].faces.get(face_index)
+                        {
+                            picker.invoke_restore_selection(
+                                picker.get_family_index(),
+                                face_index as i32,
+                            );
                             picker.set_custom_name(face.postscript_name.clone().into());
                             preview_face(&picker, &data[index], face);
                         }
@@ -276,6 +320,7 @@ mod tests {
                 .iter()
                 .map(|name| font_catalog::FontFace {
                     weight: 400,
+                    stretch: 5,
                     style: "Normal".into(),
                     postscript_name: (*name).into(),
                     label: (*name).into(),
@@ -303,5 +348,92 @@ mod tests {
             selection_for_name(&data, &[99, 0], "Alpha-Regular"),
             Some((1, 0, 0))
         );
+    }
+
+    #[test]
+    fn family_selection_prefers_upright_regular_face() {
+        let face = |weight, style: &str, name: &str| font_catalog::FontFace {
+            weight,
+            stretch: 5,
+            style: style.into(),
+            postscript_name: name.into(),
+            label: name.into(),
+        };
+        let faces = [
+            face(100, "Normal", "Sample-Thin"),
+            face(700, "Normal", "Sample-Bold"),
+            face(400, "Italic", "Sample-Italic"),
+            face(400, "Normal", "Sample-Regular"),
+        ];
+
+        assert_eq!(preferred_face_index(&faces), Some(3));
+    }
+
+    #[test]
+    fn family_selection_falls_back_to_nearest_upright_face() {
+        let face = |weight, style: &str, name: &str| font_catalog::FontFace {
+            weight,
+            stretch: 5,
+            style: style.into(),
+            postscript_name: name.into(),
+            label: name.into(),
+        };
+        let faces = [
+            face(400, "Italic", "Sample-Italic"),
+            face(700, "Normal", "Sample-Bold"),
+            face(300, "Normal", "Sample-Light"),
+            face(500, "Normal", "Sample-Medium"),
+        ];
+
+        assert_eq!(preferred_face_index(&faces), Some(2));
+    }
+
+    #[test]
+    fn family_selection_prefers_normal_width_when_weight_and_slant_match() {
+        let face = |stretch, name: &str| font_catalog::FontFace {
+            weight: 400,
+            stretch,
+            style: "Normal".into(),
+            postscript_name: name.into(),
+            label: name.into(),
+        };
+        let faces = [face(3, "Sample-Condensed"), face(5, "Sample-Regular")];
+        assert_eq!(preferred_face_index(&faces), Some(1));
+    }
+
+    #[test]
+    fn preview_stretches_static_width_variants_only_with_a_normal_base_face() {
+        let face = |stretch| font_catalog::FontFace {
+            weight: 400,
+            stretch,
+            style: "Normal".into(),
+            postscript_name: format!("Sample-{stretch}"),
+            label: format!("Width {stretch}"),
+        };
+        let family = |faces: Vec<font_catalog::FontFace>| font_catalog::FontFamily {
+            name: "Sample".into(),
+            aliases: vec![],
+            faces,
+        };
+        let widths = [0.5, 0.625, 0.75, 0.875, 1.0, 1.125, 1.25, 1.5, 2.0];
+        let faces: Vec<_> = (1..=9).map(face).collect();
+        let family_with_normal = family(faces.clone());
+        for (index, selected) in faces.iter().enumerate() {
+            assert_eq!(
+                preview_width_scale(&family_with_normal, selected),
+                widths[index]
+            );
+        }
+
+        let condensed_only = family(vec![face(3)]);
+        assert_eq!(
+            preview_width_scale(&condensed_only, &condensed_only.faces[0]),
+            1.0
+        );
+    }
+
+    #[test]
+    fn family_without_faces_has_no_default_selection() {
+        assert_eq!(preferred_face_index(&[]), None);
     }
 }
