@@ -4272,3 +4272,7 @@ The focused `cargo test -p riina --locked help_menu_tests` passed. It checks the
 ## 0.3.6 release workflow and headless sidebar test · 2026-10-14
 
 GitHub release run [38550745763](https://github.com/deminden/riina/actions/runs/38550745763) reused the previously verified Windows native engine and its native playback/lifecycle step passed. The later Windows lint-and-unit-test step failed one unrelated UI test because it constructed a Slint player window on a runner without an OpenGL 2.0 renderer (298 passed, 1 failed, 2 ignored). The plugin-sidebar test now checks the extracted pure placement decision instead of creating a window. The local full workspace suite passes with 302 application tests; 51 native tests are ignored by default and are exercised separately in the release workflow.
+
+## 0.3.7 corresponding-source size and package scope · 2026-10-14
+
+The release candidate Git tree contains 455 tracked files totaling approximately 17 MB before compression. The large local IINA reference checkout is not tracked in that tree. The release workflow attaches the Windows ZIP, checksum file, and package-verification record; it does not attach a duplicate source tarball or native/vendored source trees. The exact application source is available from the immutable v0.3.7 tag, with native source revisions and rebuild steps identified inside the binary package.
