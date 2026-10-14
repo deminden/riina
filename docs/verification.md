@@ -4155,6 +4155,16 @@ avoids presenting a short metadata delay as an unavailable engine. Three focused
 About-window mapping tests and `cargo fmt --all -- --check` pass; visible GUI text
 and packaged-engine failure reporting remain unverified.
 
+## Idle libmpv version check · 2026-10-14
+
+After a report that mpv appeared unavailable, the existing native integration test
+`dynamic_mpv_property_observation_publishes_generic_node_values` was run directly
+against the bundled Windows DLL. It passed and observed non-empty mpv and FFmpeg
+version properties while playback remained stopped and before media was loaded.
+The player window starts the engine before media opens, so the About window's
+pending label represents an asynchronous property update, not an intentionally
+deferred engine start. No live About-window capture was available in this check.
+
 ## Video quick-settings overflow controls · 2026-10-14
 
 Riina's Video pane aspect-ratio and crop strips now expose a directional chevron
@@ -4276,3 +4286,7 @@ GitHub release run [38550745763](https://github.com/deminden/riina/actions/runs/
 ## 0.3.7 corresponding-source size and package scope · 2026-10-14
 
 The release candidate Git tree contains 455 tracked files totaling approximately 17 MB before compression. The large local IINA reference checkout is not tracked in that tree. The release workflow attaches the Windows ZIP, checksum file, and package-verification record; it does not attach a duplicate source tarball or native/vendored source trees. The exact application source is available from the immutable v0.3.7 tag, with native source revisions and rebuild steps identified inside the binary package.
+
+## 0.3.7 local verification · 2026-10-14
+
+For the v0.3.7 application source, `cargo test --workspace --locked` passed with 302 application tests and 51 provisioned-native tests ignored by the local default run. `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo build --workspace --locked`, `cargo fmt --all -- --check`, and `git diff --check` passed. The test that failed on the prior headless runner now uses the pure sidebar-placement decision; hosted native playback and final package checks are tracked by release run 38552722145.

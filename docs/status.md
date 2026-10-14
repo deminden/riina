@@ -111,7 +111,7 @@ registration, IINA's direct-result download behavior, live service playback and
 native dialog visuals remain open.
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.6. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.7. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
