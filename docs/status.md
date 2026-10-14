@@ -1502,3 +1502,18 @@ video without re-entering PiP. Focused geometry tests, the full workspace suite,
 formatting, and strict application Clippy pass. Live DWM rendering and interaction
 remain unverified because the current computer-control surface exposes no Windows
 application for GUI testing.
+
+### Native Open Recent destinations
+
+The shared Recent list now also updates the platform-native recent destinations.
+Windows sets a stable AppUserModelID at startup, records existing local media with
+the Shell, and clears only this app's Recent and Frequent Jump List categories.
+macOS records and clears through NSDocumentController. Manual file selection,
+successful playback, and opening an existing Recent item follow their separate
+preference gates and refresh recency. All 305 workspace app tests, strict workspace
+Clippy, workspace build, formatting, and parity traceability pass. Windows taskbar
+behavior, macOS menu activation/runtime, and Linux desktop recent
+file integration remain open.
+The Apple-target source check stops in the `ring` build because this Windows host
+does not provide the target C compiler (`cc`); no macOS source-check result is
+claimed.

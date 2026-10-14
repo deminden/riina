@@ -4,6 +4,43 @@ use std::{
 };
 
 #[cfg(target_os = "macos")]
+pub fn remember_recent_document(path: &str) -> std::io::Result<()> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSDocumentController;
+    use objc2_foundation::{NSString, NSURL};
+
+    let Ok(path) = Path::new(path).canonicalize() else {
+        return Ok(());
+    };
+    if !path.is_file() {
+        return Ok(());
+    }
+    let main_thread = MainThreadMarker::new().ok_or_else(|| {
+        std::io::Error::other("Recent documents must be updated on the macOS main thread")
+    })?;
+    let path = NSString::from_str(&path.to_string_lossy());
+    let url = NSURL::fileURLWithPath(&path);
+    NSDocumentController::sharedDocumentController(main_thread).noteNewRecentDocumentURL(&url);
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub fn clear_recent_documents() -> std::io::Result<()> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSDocumentController;
+
+    let main_thread = MainThreadMarker::new().ok_or_else(|| {
+        std::io::Error::other("Recent documents must be cleared on the macOS main thread")
+    })?;
+    // SAFETY: the AppKit shared document controller is called on the main thread;
+    // an absent sender is supported for a programmatic clear action.
+    unsafe {
+        NSDocumentController::sharedDocumentController(main_thread).clearRecentDocuments(None)
+    };
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 pub fn register_default_file_types(
     video: bool,
     audio: bool,

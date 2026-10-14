@@ -4309,3 +4309,24 @@ version asynchronously. The full workspace suite passes (303 app tests; 51 nativ
 tests ignored by default), as do strict all-target Clippy, `cargo build --workspace
 --locked`, formatting, diff, and parity checks. GUI menu interaction and the
 source-defined Help row's absence from the reviewed capture remain unverified.
+
+## Native Open Recent integration
+
+The Open Recent menu's persisted app entries follow the record-recent preference.
+File-picker selections are noted immediately; successful media loads are added only
+when Track all played files is enabled; opening an existing menu entry moves it to
+the front. Clearing the menu also clears the platform's app-specific recent list.
+On Windows, Riina assigns `org.riina.player`, submits existing local media paths
+through [`SHAddToRecentDocs`](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shaddtorecentdocs),
+and clears the app's Recent/Frequent Jump List categories through
+[`IApplicationDestinations::RemoveAllDestinations`](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-iapplicationdestinations-removealldestinations).
+The Shell API preserves user-pinned destinations. On macOS, entries and Clear use
+[`NSDocumentController`](https://developer.apple.com/documentation/appkit/nsdocumentcontroller).
+A Windows unit test checks local-file filtering and canonical paths; native Shell
+interaction, macOS runtime and Open Recent activation through AppKit remain
+unverified. The focused test, full workspace suite (305 app tests), strict workspace
+Clippy, workspace build, formatting, and parity traceability check pass. Linux desktop
+recent-file integration remains open.
+The attempted Apple-target app check stopped while building the `ring` dependency:
+this Windows host has no target C compiler (`cc`), so Riina's macOS source was not
+type-checked by that command.

@@ -152,6 +152,45 @@ pub(crate) fn system_trash_name() -> &'static str {
     }
 }
 
+/// Assign the stable Shell identity used by Windows automatic Jump Lists.
+pub(crate) fn initialize_recent_documents() {
+    #[cfg(target_os = "windows")]
+    let _ = windows::recent_documents::initialize();
+}
+
+/// Add a locally opened media file to the platform's native recent documents.
+pub(crate) fn remember_recent_document(path: &str) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        windows::recent_documents::remember(path)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unix::services::remember_recent_document(path)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = path;
+        Ok(())
+    }
+}
+
+/// Clear this application's native recent-document list where the OS supports it.
+pub(crate) fn clear_recent_documents() -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        windows::recent_documents::clear()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unix::services::clear_recent_documents()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Ok(())
+    }
+}
+
 /// Uses each operating system's mounted-volume metadata for IINA's remote-drive policy.
 pub(crate) fn is_remote_volume(path: &std::path::Path) -> bool {
     #[cfg(target_os = "windows")]

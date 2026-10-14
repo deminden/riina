@@ -1048,6 +1048,7 @@ fn remember_recent_open_document(
     if !app.get_record_recent_files() || path.is_empty() {
         return;
     }
+    let native_path = path.clone();
     let mut documents = documents.borrow_mut();
     documents.retain(|document| document.path != path);
     documents.insert(
@@ -1059,12 +1060,17 @@ fn remember_recent_open_document(
         },
     );
     documents.truncate(10);
+    let recent = documents.clone();
+    drop(documents);
     app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        recent_open_menu_rows(&documents),
+        recent_open_menu_rows(&recent),
     )));
     app.invoke_video_menu_changed();
-    if let Err(error) = persist_recent_open_documents(preferences_path, &documents) {
+    if let Err(error) = persist_recent_open_documents(preferences_path, &recent) {
         app.set_status(format!("Could not save Open Recent: {error}").into());
+    }
+    if let Err(error) = platform::remember_recent_document(&native_path) {
+        app.set_status(format!("Could not update the system recent documents: {error}").into());
     }
 }
 
@@ -6417,6 +6423,7 @@ pub(crate) fn configure_player(
         }
     });
     let open_recent_documents = recent_open_documents.clone();
+    let open_recent_preferences_path = prefs_path.clone();
     let recent_player = player.command_sender();
     let open_recent_app = app.as_weak();
     app.on_open_recent_path(move |path| {
@@ -6431,6 +6438,13 @@ pub(crate) fn configure_player(
         else {
             return;
         };
+        remember_recent_open_document(
+            &app,
+            &open_recent_documents,
+            &open_recent_preferences_path,
+            media.path.clone(),
+            media.title.clone(),
+        );
         media_open::open_recent(
             &app,
             media,
@@ -6456,6 +6470,9 @@ pub(crate) fn configure_player(
                 &clear_recent_documents.borrow(),
             ) {
                 app.set_status(format!("Could not clear Open Recent: {error}").into());
+            }
+            if let Err(error) = platform::clear_recent_documents() {
+                app.set_status(format!("Could not clear system recent documents: {error}").into());
             }
         }
     });

@@ -90,6 +90,7 @@ struct StartupArguments {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    platform::initialize_recent_documents();
     prepare_online_video_path()?;
     let action_after_launch = player_ui::action_after_launch()?;
     let startup = take_startup_arguments(std::env::args_os().skip(1))?;

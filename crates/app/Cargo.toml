@@ -62,7 +62,7 @@ percent-encoding = "=2.3.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"
 objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSData", "NSError", "NSObject", "NSString", "NSURL", "NSUserDefaults", "NSValue", "NSGeometry", "NSObjCRuntime", "NSLocale", "NSProcessInfo", "NSNotification", "NSOperation", "block2"] }
-objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["NSWorkspace", "NSApplication", "NSResponder", "NSAccessibility", "NSImage", "NSEvent", "NSMenu", "NSView", "NSWindow", "NSPasteboard", "NSPasteboardItem", "block2", "objc2-core-graphics"] }
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["NSWorkspace", "NSApplication", "NSResponder", "NSAccessibility", "NSImage", "NSEvent", "NSMenu", "NSView", "NSWindow", "NSPasteboard", "NSPasteboardItem", "NSDocumentController", "block2", "objc2-core-graphics"] }
 objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["CGColorSpace", "CGDataProvider", "CGGeometry", "CGImage"] }
 objc2-core-foundation = { version = "=0.3.2", default-features = false, features = ["CFArray", "CFData", "CFDictionary", "CFNumber", "CFString", "CFURL", "std"] }
 objc2-image-io = { version = "=0.3.2", default-features = false, features = ["std", "CGImageSource", "CGImageDestination", "objc2-core-graphics"] }
