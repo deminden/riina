@@ -2497,9 +2497,9 @@ export component PlayerWindow inherits Window {
                                     selected => { root.select-audio-equalizer-profile(self.current-index); }
                                 }
                             }
-                            HorizontalLayout { height: 122px; spacing: 2px;
+                            HorizontalLayout { height: 122px; spacing: 1px;
                                 for label[index] in ["32", "64", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"] : VerticalLayout {
-                                    width: 28px; spacing: 2px;
+                                    width: 24px; spacing: 2px;
                                     VerticalEqualizerSlider { horizontal-stretch: 1;
                                         dark-theme: root.dark-theme; minimum: -12; maximum: 12;
                                         step: 0.1; value: root.audio-equalizer-values[index];
@@ -2509,6 +2509,20 @@ export component PlayerWindow inherits Window {
                                     Text { text: label; width: parent.width; height: 14px;
                                         color: #aaaaaa; font-size: 9px;
                                         horizontal-alignment: center; }
+                                }
+                                Rectangle { width: 48px; height: 120px; background: transparent;
+                                    Text { x: 0px; y: -3px; width: parent.width; text: "+12 dB"; height: 14px;
+                                        color: root.dark-theme ? #aaaaaa : #66666b;
+                                        font-size: 10px; vertical-alignment: center;
+                                        horizontal-alignment: right; }
+                                    Text { x: 0px; y: 45px; width: parent.width; text: "0 dB"; height: 14px;
+                                        color: root.dark-theme ? #aaaaaa : #66666b;
+                                        font-size: 10px; vertical-alignment: center;
+                                        horizontal-alignment: right; }
+                                    Text { x: 0px; y: 93px; width: parent.width; text: "-12 dB"; height: 14px;
+                                        color: root.dark-theme ? #aaaaaa : #66666b;
+                                        font-size: 10px; vertical-alignment: center;
+                                        horizontal-alignment: right; }
                                 }
                             }
                             HorizontalLayout { height: 24px; spacing: 6px;

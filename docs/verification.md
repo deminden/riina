@@ -4409,3 +4409,14 @@ range are unchanged; the opt-in volume boost remains a separate Riina row.
 tests; 51 native tests ignored by default), strict all-target Clippy, formatting,
 diff validation, and parity traceability pass. The playback-window capture bridge
 failed, so card geometry/materials and live audio selection remain unverified.
+
+## Audio equalizer scale labels · 2026-10-14
+
+The Audio equalizer shows `+12 dB`, `0 dB`, and `-12 dB` labels at the right of
+the ten faders, aligned with the slider range endpoints and midpoint in the pinned
+IINA Audio-pane capture. The full workspace suite passed (311 application tests;
+51 native tests ignored by default) with the labels present; after their final
+position adjustment, `cargo check --workspace --locked`, strict all-target Clippy,
+formatting, diff validation, and parity traceability passed. Live spacing and
+rendered pixel matching remain unverified because the playback-window capture
+bridge is unavailable.

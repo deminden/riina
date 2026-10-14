@@ -1560,3 +1560,10 @@ track selector retains its fixed 98-point viewport and single-click selection; t
 delay and equalizer controls keep their existing ranges and actions. The opt-in
 volume-boost extension remains a separate row. Slint compilation and workspace
 tests pass; matched live pixels and audio interaction remain unverified.
+
+The Audio equalizer now shows IINA's `+12 dB`, `0 dB`, and `-12 dB` scale beside
+the ten vertical gain sliders; slider columns were narrowed to make room for the
+scale in the same card. Workspace compilation and strict Clippy, formatting, and
+parity traceability pass; the full workspace test suite passed before the final
+coordinate alignment. Matched spacing, typography, and rendered pixels still need
+a live capture.
