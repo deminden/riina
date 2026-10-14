@@ -81,12 +81,12 @@ pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
 
 fn engine_version_labels(playback: &Playback) -> (String, String) {
     let engine_pending = if playback.phase == Phase::Stopped {
-        "Waiting for libmpv version…"
+        "Checking libmpv version…"
     } else {
         "Reading libmpv version…"
     };
     let ffmpeg_pending = if playback.phase == Phase::Stopped {
-        "Waiting for FFmpeg version…"
+        "Checking FFmpeg version…"
     } else {
         "Reading FFmpeg version…"
     };
@@ -135,8 +135,8 @@ mod tests {
         assert_eq!(
             engine_version_labels(&Playback::default()),
             (
-                "Waiting for libmpv version…".to_owned(),
-                "Waiting for FFmpeg version…".to_owned()
+                "Checking libmpv version…".to_owned(),
+                "Checking FFmpeg version…".to_owned()
             )
         );
     }

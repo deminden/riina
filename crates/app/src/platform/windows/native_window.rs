@@ -756,6 +756,12 @@ pub fn run(
                     app.set_status(format!("Could not open the Help link: {error}").into());
                 }
             });
+            let debug_app = app.as_weak();
+            host.on_dump_debug_info(move || {
+                if let Some(app) = debug_app.upgrade() {
+                    app.invoke_dump_debug_info();
+                }
+            });
             let menu_app = app.as_weak();
             host.on_quit_riina(move || {
                 if let Some(app) = menu_app.upgrade() {

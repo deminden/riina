@@ -28,6 +28,7 @@ export component NativeVideoHost inherits Window {
     callback save-downloaded-subtitle();
     callback show-about();
     callback open-help-link(string);
+    callback dump-debug-info();
     callback show-playback-history();
     callback close-player();
     callback quit-riina();
@@ -594,6 +595,7 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Riina Help";
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/");
                 activated => { root.open-help-link("help"); } }
+            MenuItem { title: "Dump Debug Info"; activated => { root.dump-debug-info(); } }
             MenuSeparator {}
             MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
                 activated => { root.open-preferences(); } }

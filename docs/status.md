@@ -111,7 +111,7 @@ registration, IINA's direct-result download behavior, live service playback and
 native dialog visuals remain open.
 
 Riina is an established Rust media-player application, beyond its initial feasibility
-and playback milestones. The current development version is 0.3.7. It opens and plays local media through libmpv on Windows,
+and playback milestones. The current development version is 0.3.8. It opens and plays local media through libmpv on Windows,
 with native D3D11 video presentation, working transport controls, and broad player
 and preferences workflows. Regression tests cover shared state, playback, settings,
 file handling, and lifecycle behavior. The pinned Windows libmpv also passes a
@@ -1400,8 +1400,8 @@ event delivery remain unverified.
 
 ## About version labels · 2026-10-14
 
-The About window says “Waiting for…” while the stopped player is waiting for its
-first engine-version snapshot, and “Reading…” after playback begins if metadata
+The About window says “Checking…” while the stopped player awaits its first
+engine-version snapshot, and “Reading…” after playback begins if metadata
 has not arrived yet. It then displays the observed libmpv and FFmpeg versions.
 These are metadata states, not an indication that the playback engine is
 unavailable. If About opens before the properties arrive, a visibility-gated
@@ -1479,9 +1479,11 @@ project README.
 The Help menu marks “Use New Settings Window” checked because the new settings
 window is the only settings interface currently implemented; selecting it opens
 Settings without changing the active mode.
-The verified capture omits “Dump Debug Info” even though the pinned XIB includes
-it, so Riina follows the captured menu. Native Help-menu Search behavior remains
-macOS-specific; the menu still needs matched GUI comparison.
+The pinned XIB's “Dump Debug Info” action is now wired on the shared player and
+Windows-native Help menus. It writes a bounded current-player snapshot to Downloads
+and warns that playlist filenames and URLs may be sensitive. The verified capture
+omits this source-defined item, so matched menu captures must resolve that visual
+difference. Native Help-menu Search remains macOS-specific.
 
 ### Headless sidebar placement check
 

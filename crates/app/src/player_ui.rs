@@ -6509,6 +6509,33 @@ pub(crate) fn configure_player(
             app.set_status(format!("Could not open the Help link: {error}").into());
         }
     });
+    let weak = app.as_weak();
+    let debug_playback = latest_playback.clone();
+    app.on_dump_debug_info(move || {
+        let Some(app) = weak.upgrade() else {
+            return;
+        };
+        let snapshot = match debug_playback.lock() {
+            Ok(playback) => playback.clone(),
+            Err(_) => {
+                app.set_status("Could not read player state for the debug dump".into());
+                return;
+            }
+        };
+        match crate::debug_dump::write_download(&snapshot) {
+            Ok(path) => {
+                let _ = rfd::MessageDialog::new()
+                    .set_title("Debug Info Saved")
+                    .set_description(format!(
+                        "Debug information was saved to {}. The file may contain media filenames and URLs. Review it before sharing.",
+                        path.display()
+                    ))
+                    .set_buttons(rfd::MessageButtons::Ok)
+                    .show();
+            }
+            Err(error) => app.set_status(format!("Could not save debug information: {error}").into()),
+        }
+    });
     let recent_player = player.command_sender();
     let recent_host = open_host.clone();
     let recent_media_for_open = recent_media.clone();

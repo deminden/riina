@@ -4149,9 +4149,9 @@ early About placeholder is a brief asynchronous update rather than an unavailabl
 engine. It does not verify the packaged release or the About window's live GUI
 refresh.
 
-The About window's pending labels now say “Waiting for…” while the stopped player
+The About window's pending labels now say “Checking…” while the stopped player
 awaits its first version snapshot, and “Reading…” after playback begins. This
-avoids presenting a short metadata delay as an unavailable engine. Three focused
+describes the short metadata read without implying that libmpv is absent. Three focused
 About-window mapping tests and `cargo fmt --all -- --check` pass; visible GUI text
 and packaged-engine failure reporting remain unverified.
 
@@ -4290,3 +4290,17 @@ The release candidate Git tree contains 455 tracked files totaling approximately
 ## 0.3.7 local verification · 2026-10-14
 
 For the v0.3.7 application source, `cargo test --workspace --locked` passed with 302 application tests and 51 provisioned-native tests ignored by the local default run. `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo build --workspace --locked`, `cargo fmt --all -- --check`, and `git diff --check` passed. The test that failed on the prior headless runner now uses the pure sidebar-placement decision; hosted native playback and final package checks are tracked by release run 38552722145.
+
+## 0.3.8 Help diagnostics and About metadata wording · 2026-10-14
+
+The source-defined Dump Debug Info action is wired into the shared and Windows-
+native Help menus. Its Downloads report includes playback and selected media
+metadata, limits each collection to 512 items and each text field to 1,024
+characters, and omits captured pixel buffers. The success dialog warns that
+filenames and URLs may be private. A focused test verifies output, privacy-bearing
+paths, field clipping, and collection bounds. Stopped-state About labels now say
+“Checking…” because the bundled engine initializes before media and reports its
+version asynchronously. The full workspace suite passes (303 app tests; 51 native
+tests ignored by default), as do strict all-target Clippy, `cargo build --workspace
+--locked`, formatting, diff, and parity checks. GUI menu interaction and the
+source-defined Help row's absence from the reviewed capture remain unverified.

@@ -9,6 +9,7 @@ mod auto_playlist;
 mod codec_preferences;
 mod control_preferences;
 mod crop_editor;
+mod debug_dump;
 mod file_actions;
 mod file_selection;
 mod file_types;
