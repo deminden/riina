@@ -10,8 +10,14 @@ verification work.
 The same profile now seeds IINA's primary-section bindings for frame stepping,
 subtitle seeking, file-loop toggle, audio/subtitle delay adjustments and reset,
 fullscreen Escape/Enter, and online subtitle search. The shortcut labels use
-platform primary-modifier conventions. The alternative mpv bindings and live
-shortcut delivery still need parity work and runtime checks.
+platform primary-modifier conventions. Live shortcut delivery and appearance
+still need GUI verification.
+
+The remaining Alternative mpv bindings are now represented too, including app
+quit, explicit progress OSD, long seeks, subtitle scaling and secondary subtitle
+visibility. The full input-file map and its additional system-media keys each
+resolve to a player or application action; physical keyboard and remote-key
+interaction remain unverified.
 
 The Stop intent now writes MPV's watch-later position before stopping active
 playback when `save-position-on-quit` is enabled, matching IINA's explicit

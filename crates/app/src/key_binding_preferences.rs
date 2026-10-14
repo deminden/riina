@@ -11,7 +11,7 @@ const BUILTIN_PROFILES: [&str; 5] = [
     "Movist v2 Default",
 ];
 
-const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 66] = [
+const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 76] = [
     ("Shift+Meta+v", "video-panel", ActionKind::Riina),
     ("Shift+Meta+a", "audio-panel", ActionKind::Riina),
     ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
@@ -34,8 +34,8 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 66] = [
     ("Meta+/", "cycle mute", ActionKind::Mpv),
     ("v", "cycle sub-visibility", ActionKind::Mpv),
     ("r", "add sub-pos -1", ActionKind::Mpv),
-    ("R", "add sub-pos 1", ActionKind::Mpv),
-    ("t", "add sub-pos 1", ActionKind::Mpv),
+    ("R", "add sub-pos +1", ActionKind::Mpv),
+    ("t", "add sub-pos +1", ActionKind::Mpv),
     (".", "frame-step", ActionKind::Mpv),
     (",", "frame-back-step", ActionKind::Mpv),
     ("f", "cycle fullscreen", ActionKind::Mpv),
@@ -86,6 +86,16 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 66] = [
         "cycle-values loop \"inf\" \"no\"",
         ActionKind::Mpv,
     ),
+    ("q", "quit", ActionKind::Mpv),
+    ("p", "cycle pause", ActionKind::Mpv),
+    ("o", "show-progress", ActionKind::Mpv),
+    ("P", "show-progress", ActionKind::Mpv),
+    ("Shift+PGUP", "seek 600", ActionKind::Mpv),
+    ("Shift+PGDWN", "seek -600", ActionKind::Mpv),
+    ("G", "add sub-scale +0.1", ActionKind::Mpv),
+    ("F", "add sub-scale -0.1", ActionKind::Mpv),
+    ("Alt+v", "cycle secondary-sub-visibility", ActionKind::Mpv),
+    ("E", "cycle edition", ActionKind::Mpv),
 ];
 
 const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 27] = [
@@ -191,7 +201,7 @@ const MOVIST_V2_DEFAULT_ROWS: [(&str, &str, ActionKind); 24] = [
     ("Meta+s", "screenshot", ActionKind::Mpv),
 ];
 
-const SYSTEM_MEDIA_ROWS: [(&str, &str); 13] = [
+const SYSTEM_MEDIA_ROWS: [(&str, &str); 15] = [
     ("PLAY", "cycle pause"),
     ("PAUSE", "cycle pause"),
     ("PLAYPAUSE", "cycle pause"),
@@ -205,6 +215,8 @@ const SYSTEM_MEDIA_ROWS: [(&str, &str); 13] = [
     ("VOLUME_UP", "add volume 2"),
     ("VOLUME_DOWN", "add volume -2"),
     ("MUTE", "cycle mute"),
+    ("POWER", "quit"),
+    ("CLOSE_WIN", "quit"),
 ];
 
 fn builtin_mappings(name: &str) -> Vec<Mapping> {
@@ -667,9 +679,10 @@ fn menu_shortcut_rows(mappings: &[Mapping]) -> Vec<MenuShortcutRow> {
     MENU_SHORTCUT_ACTIONS
         .iter()
         .map(|(kind, action)| {
+            // IINA binds the first matching profile entry to the visible menu
+            // item; later aliases remain available without replacing its hint.
             let shortcut = mappings
                 .iter()
-                .rev()
                 .find(|mapping| mapping.kind == *kind && mapping.action.trim() == *action)
                 .and_then(|mapping| shortcut_keys(&mapping.key))
                 .unwrap_or_default();
@@ -717,7 +730,9 @@ pub(crate) fn shortcut_keys(key: &str) -> Option<slint::Keys> {
 enum RuntimeAction {
     TogglePause,
     SetPaused(bool),
+    Quit,
     Stop,
+    ShowProgress,
     Seek(f32),
     Volume(f32),
     Mute,
@@ -765,6 +780,8 @@ fn is_system_media_key(key: &str) -> bool {
             | "VOLUME_UP"
             | "VOLUME_DOWN"
             | "MUTE"
+            | "POWER"
+            | "CLOSE_WIN"
     )
 }
 
@@ -796,7 +813,9 @@ fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
         ["cycle", "pause"] => Some(RuntimeAction::TogglePause),
         ["set", "pause", "yes"] => Some(RuntimeAction::SetPaused(true)),
         ["set", "pause", "no"] => Some(RuntimeAction::SetPaused(false)),
+        ["quit"] => Some(RuntimeAction::Quit),
         ["stop"] => Some(RuntimeAction::Stop),
+        ["show-progress"] => Some(RuntimeAction::ShowProgress),
         ["cycle", "mute"] => Some(RuntimeAction::Mute),
         ["cycle", "sub-visibility"] => Some(RuntimeAction::SubtitleVisibility),
         ["cycle", "fullscreen"] => Some(RuntimeAction::Fullscreen(None)),
@@ -917,7 +936,19 @@ fn dispatch_mapping(
     match action {
         RuntimeAction::TogglePause => app.invoke_toggle_pause(),
         RuntimeAction::SetPaused(paused) => app.invoke_set_paused(paused),
+        RuntimeAction::Quit => app.invoke_quit_riina(),
         RuntimeAction::Stop => app.invoke_stop(),
+        RuntimeAction::ShowProgress => {
+            let message = latest_playback.lock().ok().and_then(|playback| {
+                crate::video_osd::progress_message(playback.position, playback.duration)
+            });
+            if let Some(message) = message {
+                app.set_video_osd_request_feedback(false);
+                app.set_video_osd_text(message.text.into());
+                app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+                app.invoke_show_video_osd();
+            }
+        }
         RuntimeAction::Seek(seconds) => app.invoke_seek_relative(seconds),
         RuntimeAction::Volume(amount) => app.invoke_adjust_volume(amount),
         RuntimeAction::Mute => app.invoke_toggle_mute(),
@@ -1213,6 +1244,56 @@ mod tests {
             assert!(
                 runtime_action(mapping).is_some(),
                 "IINA default action has no runtime route: {key} {action}"
+            );
+        }
+    }
+
+    #[test]
+    fn iina_alternative_bindings_route_supported_player_actions() {
+        let mappings = builtin_mappings("IINA Default");
+        let alternatives = [
+            ("q", "quit"),
+            ("p", "cycle pause"),
+            ("o", "show-progress"),
+            ("P", "show-progress"),
+            ("Shift+PGUP", "seek 600"),
+            ("Shift+PGDWN", "seek -600"),
+            ("G", "add sub-scale +0.1"),
+            ("F", "add sub-scale -0.1"),
+            ("Alt+v", "cycle secondary-sub-visibility"),
+            ("E", "cycle edition"),
+        ];
+
+        for (key, action) in alternatives {
+            let mapping = mappings
+                .iter()
+                .find(|mapping| mapping.key == key && mapping.action == action)
+                .unwrap_or_else(|| panic!("missing alternative mapping {key} {action}"));
+            assert!(
+                runtime_action(mapping).is_some(),
+                "alternative mapping has no runtime route: {key} {action}"
+            );
+        }
+        assert!(is_system_media_key("POWER"));
+        assert!(is_system_media_key("CLOSE_WIN"));
+    }
+
+    #[test]
+    fn every_iina_default_and_system_key_has_a_runtime_route() {
+        let mut mappings = builtin_mappings("IINA Default");
+        mappings.extend(SYSTEM_MEDIA_ROWS.iter().map(|(key, action)| Mapping {
+            key: (*key).into(),
+            action: (*action).into(),
+            kind: ActionKind::Mpv,
+            comment: None,
+        }));
+
+        for mapping in mappings {
+            assert!(
+                runtime_action(&mapping).is_some(),
+                "IINA default key has no runtime route: {} {}",
+                mapping.key,
+                mapping.action
             );
         }
     }

@@ -8,7 +8,7 @@ subtitle seeks, Shift+Meta+L file-loop toggle, audio-delay reset, subtitle-delay
 adjustments/reset, and fullscreen Escape/Enter commands. `Meta+D` now routes to
 the existing online-subtitle search callback. A focused regression test checks
 each added mapping resolves to a supported runtime action; GUI key delivery and
-the separate Alternative mpv bindings remain open.
+the rendered key-entry behavior remain unverified.
 
 ## IINA Default online subtitle shortcut · 2026-10-14
 
@@ -20,10 +20,13 @@ used by live dispatch. The focused regression test confirms the mapping, action
 route, normalized key and display. Physical key delivery and the search window's
 live GUI behavior remain unverified.
 
-The source-to-seed comparison also confirmed all 58 mappings in the primary
-section of the pinned input file are present in the 66-row IINA Default profile;
-the profile also retains selected alternate mpv aliases. The separate
-Alternative mpv key-binding section is not yet fully represented.
+The source-to-seed comparison confirmed all 58 primary-section entries and all
+33 Alternative mpv entries are represented by the seeded profile and system-key
+defaults. Riina routes `quit` through its application lifecycle, renders
+`show-progress` in its own OSD, and sends the remaining mpv commands through the
+embedded engine. Regression tests check each alternative binding and ensure all
+IINA/system defaults resolve to a runtime action. Physical keyboard/media-key
+delivery and GUI appearance remain unverified.
 
 ## IINA Default mute shortcut · 2026-10-14
 

@@ -25,6 +25,7 @@ pub(crate) enum Kind {
     SecondarySubtitleDelay,
     SecondarySubtitlePosition,
     SecondarySubtitleVisibility,
+    Progress,
     Stop,
     Chapter,
     PlaylistAdd,
@@ -37,6 +38,34 @@ pub(crate) struct Message {
     pub kind: Kind,
     pub text: String,
     pub progress: Option<f32>,
+}
+
+pub(crate) fn progress_message(position: Option<f64>, duration: Option<f64>) -> Option<Message> {
+    let position = position.filter(|value| value.is_finite() && *value >= 0.0)?;
+    let duration = duration.filter(|value| value.is_finite() && *value > 0.0)?;
+    Some(Message {
+        kind: Kind::Progress,
+        text: format!(
+            "{} / {}",
+            precise_time_label(position),
+            precise_time_label(duration)
+        ),
+        progress: Some((position / duration).clamp(0.0, 1.0) as f32),
+    })
+}
+
+fn precise_time_label(seconds: f64) -> String {
+    let total_milliseconds = (seconds * 1000.0).round().min(u64::MAX as f64) as u64;
+    let total_seconds = total_milliseconds / 1000;
+    let milliseconds = total_milliseconds % 1000;
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+    if hours > 0 {
+        format!("{hours}:{minutes:02}:{seconds:02}.{milliseconds:03}")
+    } else {
+        format!("{minutes}:{seconds:02}.{milliseconds:03}")
+    }
 }
 
 pub(crate) enum ActionFeedback {
@@ -253,7 +282,12 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
             baseline.secondary_subtitle_visible = state.secondary_subtitle_visible;
         }
         Kind::Track => baseline.tracks.clone_from(&state.tracks),
-        Kind::FileStart | Kind::Stop | Kind::Chapter | Kind::PlaylistAdd | Kind::PlaylistClear => {}
+        Kind::FileStart
+        | Kind::Progress
+        | Kind::Stop
+        | Kind::Chapter
+        | Kind::PlaylistAdd
+        | Kind::PlaylistClear => {}
     }
 }
 
@@ -647,6 +681,20 @@ mod tests {
             hardware_decoding: Some("auto".into()),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn explicit_progress_feedback_uses_precise_clock_and_bounded_progress() {
+        let message = progress_message(Some(3661.2345), Some(3662.0)).unwrap();
+        assert_eq!(message.kind, Kind::Progress);
+        assert_eq!(message.text, "1:01:01.235 / 1:01:02.000");
+        assert_eq!(message.progress, Some((3661.2345_f64 / 3662.0) as f32));
+
+        let beyond_end = progress_message(Some(20.0), Some(10.0)).unwrap();
+        assert_eq!(beyond_end.progress, Some(1.0));
+        assert_eq!(progress_message(Some(1.0), None), None);
+        assert_eq!(progress_message(Some(f64::NAN), Some(2.0)), None);
+        assert_eq!(progress_message(Some(0.0), Some(0.0)), None);
     }
 
     #[test]
