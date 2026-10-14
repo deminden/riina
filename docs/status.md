@@ -1470,3 +1470,15 @@ strict lint, and tests pass (297 application tests; 51 native tests ignored by
 default). Native Windows D3D composition, GPU cost, side-by-side visual
 comparison, and macOS runtime/material appearance still need live verification;
 Windows D3D does not use this GL pass.
+
+## Help menu destinations · 2026-10-14
+
+Riina Help opens the Status section of the project README; Release Highlights
+opens the latest release; GitHub opens the source repository; Website opens the
+project README.
+The Help menu marks “Use New Settings Window” checked because the new settings
+window is the only settings interface currently implemented; selecting it opens
+Settings without changing the active mode.
+The verified capture omits “Dump Debug Info” even though the pinned XIB includes
+it, so Riina follows the captured menu. Native Help-menu Search behavior remains
+macOS-specific; the menu still needs matched GUI comparison.

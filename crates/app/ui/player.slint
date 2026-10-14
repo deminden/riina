@@ -1246,16 +1246,17 @@ export component PlayerWindow inherits Window {
             }
         }
         Menu { title: "Help";
-            MenuItem { title: "Riina Help"; enabled: false;
-                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/"); }
-            MenuItem { title: "Dump Debug Info"; enabled: false; }
+            MenuItem { title: "Riina Help";
+                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/");
+                activated => { root.open-help-link("help"); } }
             MenuSeparator {}
-            MenuItem { title: "Use New Settings Window"; enabled: false; }
+            MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
+                activated => { root.open-preferences(); } }
             MenuSeparator {}
-            MenuItem { title: "Release Highlights"; enabled: false; }
+            MenuItem { title: "Release Highlights"; activated => { root.open-help-link("release-highlights"); } }
             MenuSeparator {}
-            MenuItem { title: "GitHub"; enabled: false; }
-            MenuItem { title: "Website"; enabled: false; }
+            MenuItem { title: "GitHub"; activated => { root.open-help-link("github"); } }
+            MenuItem { title: "Website"; activated => { root.open-help-link("website"); } }
         }
     }
     in property <string> window-title: "riina";
@@ -1840,6 +1841,7 @@ export component PlayerWindow inherits Window {
     callback show-about();
     callback show-playback-history();
     callback open-url(string);
+    callback open-help-link(string);
     callback open-recent(int);
     callback toggle-pause();
     callback set-paused(bool);

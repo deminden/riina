@@ -745,6 +745,18 @@ pub fn run(
                 }
             });
             let menu_app = app.as_weak();
+            host.on_open_help_link(move |destination| {
+                let Some(app) = menu_app.upgrade() else {
+                    return;
+                };
+                let Some(url) = crate::player_ui::help_menu_url(destination.as_str()) else {
+                    return;
+                };
+                if let Err(error) = crate::platform::open_http_url_in_browser(url) {
+                    app.set_status(format!("Could not open the Help link: {error}").into());
+                }
+            });
+            let menu_app = app.as_weak();
             host.on_quit_riina(move || {
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_quit_riina();

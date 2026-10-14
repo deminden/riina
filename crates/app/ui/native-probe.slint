@@ -27,6 +27,7 @@ export component NativeVideoHost inherits Window {
     callback save-current-playlist();
     callback save-downloaded-subtitle();
     callback show-about();
+    callback open-help-link(string);
     callback show-playback-history();
     callback close-player();
     callback quit-riina();
@@ -590,12 +591,17 @@ export component NativeVideoHost inherits Window {
                 activated => { root.bring-all-to-front(); } }
         }
         Menu { title: "Help";
-            MenuItem { title: "Riina Help"; enabled: false;
-                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/"); }
-            MenuItem { title: "Release Highlights"; enabled: false; }
+            MenuItem { title: "Riina Help";
+                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/");
+                activated => { root.open-help-link("help"); } }
             MenuSeparator {}
-            MenuItem { title: "GitHub"; enabled: false; }
-            MenuItem { title: "Website"; enabled: false; }
+            MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
+                activated => { root.open-preferences(); } }
+            MenuSeparator {}
+            MenuItem { title: "Release Highlights"; activated => { root.open-help-link("release-highlights"); } }
+            MenuSeparator {}
+            MenuItem { title: "GitHub"; activated => { root.open-help-link("github"); } }
+            MenuItem { title: "Website"; activated => { root.open-help-link("website"); } }
         }
     }
     in property <string> display-title: "riina — D3D11 experiment";

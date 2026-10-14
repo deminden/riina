@@ -4264,3 +4264,7 @@ ignored by default), and `git diff --check` pass. A live desktop capture is
 unavailable because the computer-control surface reports no available apps.
 Runtime GPU behavior and material pixels remain unverified, and native Windows
 D3D playback does not use this GL pass.
+
+## Help menu links · 2026-10-14
+
+The focused `cargo test -p riina --locked help_menu_tests` passed. It checks the four fixed project destinations and rejects unknown actions. `cargo fmt --all -- --check`, `git diff --check`, and the 17-column parity CSV validation passed. The test build compiled both the shared player menu and the Windows-native menu callback. No GUI interaction or matched screenshot was captured, so presentation and actual browser launch remain unverified. The 0.3.6 tag predates this local parity follow-up.

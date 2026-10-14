@@ -34,6 +34,43 @@ const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
 const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
 
+pub(crate) fn help_menu_url(destination: &str) -> Option<&'static str> {
+    match destination {
+        "help" => Some("https://github.com/deminden/riina#status"),
+        "release-highlights" => Some("https://github.com/deminden/riina/releases/latest"),
+        "github" => Some("https://github.com/deminden/riina"),
+        // The repository README is the project's user-facing homepage.
+        "website" => Some("https://github.com/deminden/riina#readme"),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod help_menu_tests {
+    use super::help_menu_url;
+
+    #[test]
+    fn documented_help_destinations_map_to_project_pages() {
+        assert_eq!(
+            help_menu_url("help"),
+            Some("https://github.com/deminden/riina#status")
+        );
+        assert_eq!(
+            help_menu_url("release-highlights"),
+            Some("https://github.com/deminden/riina/releases/latest")
+        );
+        assert_eq!(
+            help_menu_url("github"),
+            Some("https://github.com/deminden/riina")
+        );
+        assert_eq!(
+            help_menu_url("website"),
+            Some("https://github.com/deminden/riina#readme")
+        );
+        assert_eq!(help_menu_url("unknown"), None);
+    }
+}
+
 fn queue_playlist_navigation(
     sender: &riina_mpv::CommandSender,
     pending: &PendingNavigation,
@@ -6458,6 +6495,18 @@ pub(crate) fn configure_player(
             } else {
                 media_open::url(&app, value.as_str(), open_url.clone());
             }
+        }
+    });
+    let weak = app.as_weak();
+    app.on_open_help_link(move |destination| {
+        let Some(app) = weak.upgrade() else {
+            return;
+        };
+        let Some(url) = help_menu_url(destination.as_str()) else {
+            return;
+        };
+        if let Err(error) = crate::platform::open_http_url_in_browser(url) {
+            app.set_status(format!("Could not open the Help link: {error}").into());
         }
     });
     let recent_player = player.command_sender();
