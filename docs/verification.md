@@ -1840,9 +1840,14 @@ preserves playback state, while its explicit Stop action pauses, matching IINA's
 separate exit and stop semantics. Core lifecycle tests cover restoration without an
 implicit pause. Entry checks the pause command and restores its prior pause state if
 hiding the main window fails; the renderer is moved only after that fallible window
-action succeeds. Windows app compilation covers this path, but DWM projection, live
-PiP controls, minimized/hidden restoration, display changes and visual parity have
-not been GUI-tested. macOS PiP remains pending.
+action succeeds. While active, the Windows host now re-queries the DWM source size
+and recomputes the aspect-fit destination at the PiP refresh cadence. This keeps the
+projection fitted when the PiP window is resized or autoplay changes source geometry.
+Focused tests cover unchanged, resized, and changed-aspect destinations; app strict
+Clippy and workspace tests pass. Live DWM rendering, PiP controls, minimized/hidden
+restoration, display changes and visual parity remain unverified. The desktop
+automation surface currently exposes no controllable Windows app, so no GUI pass is
+claimed. macOS PiP remains pending.
 
 ## Headless Windows native playback tests
 

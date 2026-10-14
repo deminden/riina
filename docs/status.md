@@ -1492,3 +1492,13 @@ selection, so its unit test does not create a renderer-backed player window.
 The player still applies that placement to the same leading/trailing sidebar
 properties; this keeps the Windows CI test independent of a desktop OpenGL
 driver.
+
+### PiP projection sizing
+
+The Windows DWM PiP projection now re-queries the source video dimensions and
+recomputes its aspect-fit rectangle while the PiP surface is active. Resizing the
+PiP window and autoplaying a clip with a different aspect ratio update the projected
+video without re-entering PiP. Focused geometry tests, the full workspace suite,
+formatting, and strict application Clippy pass. Live DWM rendering and interaction
+remain unverified because the current computer-control surface exposes no Windows
+application for GUI testing.

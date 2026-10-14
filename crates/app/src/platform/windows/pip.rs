@@ -28,6 +28,7 @@ use windows::{
 pub(crate) struct DwmThumbnail {
     handle: isize,
     source_size: SIZE,
+    destination_rect: Option<RECT>,
 }
 
 impl DwmThumbnail {
@@ -52,6 +53,7 @@ impl DwmThumbnail {
         Ok(Self {
             handle,
             source_size,
+            destination_rect: None,
         })
     }
 
@@ -70,6 +72,26 @@ impl DwmThumbnail {
         };
         unsafe { DwmUpdateThumbnailProperties(self.handle, &properties) }
             .map_err(|error| format!("Could not update the PiP video surface: {error}"))
+    }
+
+    fn refresh_layout(&mut self, width: u32, height: u32, scale_factor: f64) -> Result<(), String> {
+        let source_size = unsafe { DwmQueryThumbnailSourceSize(self.handle) }
+            .map_err(|error| format!("Could not inspect the PiP video surface: {error}"))?;
+        if source_size.cx <= 0 || source_size.cy <= 0 {
+            return Ok(());
+        }
+        let video_height = height.saturating_sub((54.0 * scale_factor).round() as u32);
+        if video_height == 0 {
+            return Ok(());
+        }
+        let destination = fit_source_in_rect(source_size, width, video_height);
+        if same_rect(self.destination_rect, Some(destination)) && self.source_size == source_size {
+            return Ok(());
+        }
+        self.set_visible(destination, true)?;
+        self.source_size = source_size;
+        self.destination_rect = Some(destination);
+        Ok(())
     }
 }
 
@@ -230,6 +252,26 @@ impl Controller {
             if is_active && let Some(pip) = weak_pip.upgrade() {
                 pip.set_media_title(player.get_media_title());
                 pip.set_paused(player.get_paused());
+                let layout = pip
+                    .window()
+                    .with_winit_window(|window| (window.inner_size(), window.scale_factor()));
+                let refresh_error = if let Some((size, scale_factor)) = layout {
+                    let controller = controller.borrow();
+                    let mut active = controller.active.borrow_mut();
+                    active.as_mut().and_then(|session| {
+                        session
+                            ._thumbnail
+                            .refresh_layout(size.width, size.height, scale_factor)
+                            .err()
+                    })
+                } else {
+                    None
+                };
+                if let Some(error) = refresh_error
+                    && let Some(player) = player_weak.upgrade()
+                {
+                    player.set_status(error.into());
+                }
             }
         });
         controller.borrow_mut()._playback_timer = playback_timer;
@@ -305,7 +347,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             }
             destination.set_window_level(WindowLevel::AlwaysOnTop);
             let destination_hwnd = raw_hwnd(&destination)?;
-            let thumbnail = DwmThumbnail::register(destination_hwnd, source)?;
+            let mut thumbnail = DwmThumbnail::register(destination_hwnd, source)?;
             let client = destination.inner_size();
             let video_bottom = client
                 .height
@@ -316,6 +358,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             let destination_rect =
                 fit_source_in_rect(thumbnail.source_size(), client.width, video_bottom);
             thumbnail.set_visible(destination_rect, true)?;
+            thumbnail.destination_rect = Some(destination_rect);
 
             let was_paused = player.get_paused();
             if effects.pause_playback {
@@ -470,9 +513,22 @@ fn fit_source_in_rect(source: SIZE, width: u32, height: u32) -> RECT {
     }
 }
 
+fn same_rect(left: Option<RECT>, right: Option<RECT>) -> bool {
+    match (left, right) {
+        (Some(left), Some(right)) => {
+            left.left == right.left
+                && left.top == right.top
+                && left.right == right.right
+                && left.bottom == right.bottom
+        }
+        (None, None) => true,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::fit_source_in_rect;
+    use super::{fit_source_in_rect, same_rect};
     use windows::Win32::Foundation::{RECT, SIZE};
 
     #[test]
@@ -503,5 +559,16 @@ mod tests {
                 bottom: 350
             }
         );
+    }
+
+    #[test]
+    fn destination_rect_comparison_detects_resize_and_source_layout_changes() {
+        let initial = fit_source_in_rect(SIZE { cx: 16, cy: 9 }, 800, 400);
+        let resized = fit_source_in_rect(SIZE { cx: 16, cy: 9 }, 600, 400);
+        let source_changed = fit_source_in_rect(SIZE { cx: 4, cy: 3 }, 800, 400);
+
+        assert!(same_rect(Some(initial), Some(initial)));
+        assert!(!same_rect(Some(initial), Some(resized)));
+        assert!(!same_rect(Some(initial), Some(source_changed)));
     }
 }
