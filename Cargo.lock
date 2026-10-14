@@ -5044,7 +5044,7 @@ dependencies = [
 
 [[package]]
 name = "riina"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "arboard",
  "base64 0.23.1",
@@ -5105,7 +5105,7 @@ dependencies = [
 
 [[package]]
 name = "riina-core"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "regex",
  "serde",
@@ -5115,7 +5115,7 @@ dependencies = [
 
 [[package]]
 name = "riina-mpv"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "glow",
  "libloading 0.9.0",

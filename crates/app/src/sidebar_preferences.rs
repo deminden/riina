@@ -5,10 +5,24 @@ use slint::ComponentHandle;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
 pub(crate) fn show_plugins_panel(app: &PlayerWindow) {
-    if app.get_plugins_at_leading() {
-        app.set_leading_sidebar(7);
+    let (leading, trailing) = plugin_panel_destination(
+        app.get_plugins_at_leading(),
+        app.get_leading_sidebar(),
+        app.get_sidebar(),
+    );
+    app.set_leading_sidebar(leading);
+    app.set_sidebar(trailing);
+}
+
+fn plugin_panel_destination(
+    plugins_at_leading: bool,
+    leading_sidebar: i32,
+    trailing_sidebar: i32,
+) -> (i32, i32) {
+    if plugins_at_leading {
+        (7, trailing_sidebar)
     } else {
-        app.set_sidebar(7);
+        (leading_sidebar, 7)
     }
 }
 
@@ -177,22 +191,11 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
 
 #[cfg(test)]
 mod tests {
-    use super::show_plugins_panel;
-    use crate::PlayerWindow;
+    use super::plugin_panel_destination;
 
     #[test]
     fn plugin_panel_opens_on_the_saved_side() {
-        let app = PlayerWindow::new().expect("create player window");
-
-        app.set_plugins_at_leading(true);
-        show_plugins_panel(&app);
-        assert_eq!(app.get_leading_sidebar(), 7);
-        assert_eq!(app.get_sidebar(), 0);
-
-        app.set_leading_sidebar(0);
-        app.set_plugins_at_leading(false);
-        show_plugins_panel(&app);
-        assert_eq!(app.get_leading_sidebar(), 0);
-        assert_eq!(app.get_sidebar(), 7);
+        assert_eq!(plugin_panel_destination(true, 0, 2), (7, 2));
+        assert_eq!(plugin_panel_destination(false, 3, 0), (3, 7));
     }
 }

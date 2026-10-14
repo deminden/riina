@@ -1482,3 +1482,11 @@ Settings without changing the active mode.
 The verified capture omits “Dump Debug Info” even though the pinned XIB includes
 it, so Riina follows the captured menu. Native Help-menu Search behavior remains
 macOS-specific; the menu still needs matched GUI comparison.
+
+### Headless sidebar placement check
+
+Plugin-panel placement now has a pure decision helper for leading/trailing side
+selection, so its unit test does not create a renderer-backed player window.
+The player still applies that placement to the same leading/trailing sidebar
+properties; this keeps the Windows CI test independent of a desktop OpenGL
+driver.

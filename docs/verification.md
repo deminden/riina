@@ -4268,3 +4268,7 @@ D3D playback does not use this GL pass.
 ## Help menu links · 2026-10-14
 
 The focused `cargo test -p riina --locked help_menu_tests` passed. It checks the four fixed project destinations and rejects unknown actions. `cargo fmt --all -- --check`, `git diff --check`, and the 17-column parity CSV validation passed. The test build compiled both the shared player menu and the Windows-native menu callback. No GUI interaction or matched screenshot was captured, so presentation and actual browser launch remain unverified. The 0.3.6 tag predates this local parity follow-up.
+
+## 0.3.6 release workflow and headless sidebar test · 2026-10-14
+
+GitHub release run [38550745763](https://github.com/deminden/riina/actions/runs/38550745763) reused the previously verified Windows native engine and its native playback/lifecycle step passed. The later Windows lint-and-unit-test step failed one unrelated UI test because it constructed a Slint player window on a runner without an OpenGL 2.0 renderer (298 passed, 1 failed, 2 ignored). The plugin-sidebar test now checks the extracted pure placement decision instead of creating a window. The local full workspace suite passes with 302 application tests; 51 native tests are ignored by default and are exercised separately in the release workflow.
