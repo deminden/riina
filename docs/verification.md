@@ -4367,3 +4367,24 @@ recent-file integration remains open.
 The attempted Apple-target app check stopped while building the `ring` dependency:
 this Windows host has no target C compiler (`cc`), so Riina's macOS source was not
 type-checked by that command.
+
+## Video track row activation and current binary · 2026-10-14
+
+The Quick Settings Video pane's shared track-row handler now selects video tracks
+on a single click; it previously selected them on double-click, unlike the Audio
+and Subtitle selectors. `cargo check --workspace --locked`,
+`cargo test --workspace --locked` (311 application tests; 51 native tests ignored
+by default), strict all-target Clippy, formatting, diff validation, and the parity
+traceability check pass. Multi-track click behavior still needs live verification.
+The test-launched 0.3.8 window reported `moving-square.avi — riina`, the `mpv`
+child surface, and a playback clock; Windows.Graphics.Capture then failed with
+`IGraphicsCaptureItemInterop.CreateForMonitor failed (0x80070057)`. The exact test
+instance was closed and confirmed absent, so no visible playback or Quick Settings
+pixels are claimed.
+
+GitHub's current published release is v0.3.7 with its Windows x64 ZIP,
+`SHA256SUMS.txt`, and `RELEASE-VERIFICATION.json`; the Windows package and
+verification jobs succeeded while the native-engine build was skipped for reuse.
+The immutable v0.3.6 source tag has no GitHub release object. Since v0.3.7 is
+already the current release and contains the later fixes, do not publish v0.3.6 as
+the latest release or move its tag.

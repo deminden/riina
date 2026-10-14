@@ -1534,3 +1534,12 @@ file integration remain open.
 The Apple-target source check stops in the `ring` build because this Windows host
 does not provide the target C compiler (`cc`); no macOS source-check result is
 claimed.
+
+## Quick Settings video track selection · 2026-10-14
+
+Clicking a video-track row in Quick Settings now selects it immediately, matching
+IINA's track selector and Riina's existing accessibility action. The shared row
+handler previously selected video tracks only on double-click, even though Audio
+and Subtitle rows selected on a single click. A live multi-track switch still needs
+verification; the current desktop capture bridge failed during the playback-window
+capture, so no click-through result is claimed.

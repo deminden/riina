@@ -2562,7 +2562,7 @@ export component PlayerWindow inherits Window {
                                 Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d;
                                     font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
                             TouchArea {
-                                clicked => { row-focus.focus(); if pane-kind < 3 { root.select-item(pane-kind, row.token); }
+                                clicked => { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-item(pane-kind, row.token); }
                                     if pane-kind == 4 { root.selected-playlist-token = row.token; } }
                                 double-clicked => { if pane-kind >= 3 { root.select-item(pane-kind, row.token); root.selected-playlist-token = ""; root.selected-playlist-tokens = []; } }
                                 pointer-event(event) => {
