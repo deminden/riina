@@ -1,5 +1,14 @@
 # Verification record · native Windows · 2026-10-09
 
+## IINA Default mute shortcut · 2026-10-14
+
+The pinned IINA input map binds mute to both `m` and `Meta+/`. Riina's IINA
+Default profile now seeds both; the existing platform modifier conversion maps
+`Meta+/` to Command+/ on macOS and Ctrl+/ on Windows/Linux. The focused regression
+test checks the seeded mappings, displayed shortcut, and normalized key on the
+current platform. Physical key delivery and native-menu appearance remain GUI
+verification items.
+
 ## Stop saves the configured resume position · 2026-10-14
 
 Playback Stop now checks the observed `save-position-on-quit` option and active

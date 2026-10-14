@@ -2,6 +2,11 @@
 
 ## Application state
 
+The pinned IINA Default input profile includes both `m` and `Meta+/` for mute.
+Riina now seeds both bindings; the primary modifier displays as Command on macOS
+and Control on Windows/Linux. Runtime shortcut interaction remains platform-GUI
+verification work.
+
 The Stop intent now writes MPV's watch-later position before stopping active
 playback when `save-position-on-quit` is enabled, matching IINA's explicit
 `savePlaybackPosition()` call. It skips the write when resume saving is disabled

@@ -11,7 +11,7 @@ const BUILTIN_PROFILES: [&str; 5] = [
     "Movist v2 Default",
 ];
 
-const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 51] = [
+const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 52] = [
     ("Shift+Meta+v", "video-panel", ActionKind::Riina),
     ("Shift+Meta+a", "audio-panel", ActionKind::Riina),
     ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
@@ -27,6 +27,7 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 51] = [
     ("Alt+UP", "add volume 1", ActionKind::Mpv),
     ("Alt+DOWN", "add volume -1", ActionKind::Mpv),
     ("m", "cycle mute", ActionKind::Mpv),
+    ("Meta+/", "cycle mute", ActionKind::Mpv),
     ("v", "cycle sub-visibility", ActionKind::Mpv),
     ("r", "add sub-pos -1", ActionKind::Mpv),
     ("R", "add sub-pos 1", ActionKind::Mpv),
@@ -243,6 +244,7 @@ fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
             "Ctrl+Meta+s" => shortcut("⌃⌘S", "Ctrl⌥S"),
             "Ctrl+Meta+a" => shortcut("⌃⌘A", "Ctrl⌥A"),
             "Meta+." => shortcut("⌘.", "Ctrl."),
+            "Meta+/" => shortcut("⌘/", "Ctrl+/"),
             "SPACE" => "Space".into(),
             "RIGHT" => "→".into(),
             "LEFT" => "←".into(),
@@ -1104,6 +1106,34 @@ mod tests {
                 ("SPACE", "cycle pause", ActionKind::Mpv),
             ]
         );
+    }
+
+    #[test]
+    fn iina_default_profile_includes_both_mute_shortcuts() {
+        let mappings = builtin_mappings("IINA Default");
+        let mute_keys: Vec<_> = mappings
+            .iter()
+            .filter(|mapping| mapping.action == "cycle mute")
+            .map(|mapping| mapping.key.as_str())
+            .collect();
+
+        assert_eq!(mute_keys, ["m", "Meta+/"]);
+        assert_eq!(
+            normalize_profile_key("Meta+/"),
+            if cfg!(target_os = "macos") {
+                "Meta+/"
+            } else {
+                "Ctrl+/"
+            }
+        );
+        let displayed = display_row(
+            mappings
+                .iter()
+                .find(|mapping| mapping.key == "Meta+/")
+                .unwrap(),
+            false,
+        );
+        assert_eq!(displayed.key.as_str(), shortcut("⌘/", "Ctrl+/"));
     }
 
     #[test]
