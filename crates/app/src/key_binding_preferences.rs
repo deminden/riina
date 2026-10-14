@@ -11,7 +11,7 @@ const BUILTIN_PROFILES: [&str; 5] = [
     "Movist v2 Default",
 ];
 
-const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 52] = [
+const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 66] = [
     ("Shift+Meta+v", "video-panel", ActionKind::Riina),
     ("Shift+Meta+a", "audio-panel", ActionKind::Riina),
     ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
@@ -22,6 +22,10 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 52] = [
     ("Meta+.", "stop", ActionKind::Mpv),
     ("RIGHT", "seek 5", ActionKind::Mpv),
     ("LEFT", "seek -5", ActionKind::Mpv),
+    ("Alt+RIGHT", "frame-step", ActionKind::Mpv),
+    ("Alt+LEFT", "frame-back-step", ActionKind::Mpv),
+    ("Shift+LEFT", "sub-seek -1", ActionKind::Mpv),
+    ("Shift+RIGHT", "sub-seek 1", ActionKind::Mpv),
     ("UP", "add volume 5", ActionKind::Mpv),
     ("DOWN", "add volume -5", ActionKind::Mpv),
     ("Alt+UP", "add volume 1", ActionKind::Mpv),
@@ -40,6 +44,7 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 52] = [
     ("Meta+3", "fit-to-screen", ActionKind::Riina),
     ("Ctrl+Meta+p", "toggle-pip", ActionKind::Riina),
     ("Alt+Meta+m", "toggle-music-mode", ActionKind::Riina),
+    ("Meta+D", "find-online-subs", ActionKind::Riina),
     (
         "Shift+Meta+r",
         "show-current-file-in-finder",
@@ -67,7 +72,20 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 52] = [
     ("Shift+)", "add audio-delay -0.5", ActionKind::Mpv),
     ("Alt+Shift+(", "add audio-delay 0.1", ActionKind::Mpv),
     ("Alt+Shift+)", "add audio-delay -0.1", ActionKind::Mpv),
+    ("Shift+_", "set audio-delay 0", ActionKind::Mpv),
+    ("Z", "add sub-delay -0.5", ActionKind::Mpv),
+    ("X", "add sub-delay 0.5", ActionKind::Mpv),
+    ("Alt+Z", "add sub-delay -0.1", ActionKind::Mpv),
+    ("Alt+X", "add sub-delay 0.1", ActionKind::Mpv),
+    ("C", "set sub-delay 0", ActionKind::Mpv),
+    ("ESC", "set fullscreen no", ActionKind::Mpv),
+    ("ENTER", "set fullscreen yes", ActionKind::Mpv),
     ("Meta+l", "ab-loop", ActionKind::Mpv),
+    (
+        "Meta+L",
+        "cycle-values loop \"inf\" \"no\"",
+        ActionKind::Mpv,
+    ),
 ];
 
 const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 27] = [
@@ -245,6 +263,7 @@ fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
             "Ctrl+Meta+a" => shortcut("⌃⌘A", "Ctrl⌥A"),
             "Meta+." => shortcut("⌘.", "Ctrl."),
             "Meta+/" => shortcut("⌘/", "Ctrl+/"),
+            "Meta+D" => shortcut("⇧⌘D", "Ctrl⇧D"),
             "SPACE" => "Space".into(),
             "RIGHT" => "→".into(),
             "LEFT" => "←".into(),
@@ -721,6 +740,7 @@ enum RuntimeAction {
     FitToScreen,
     ResizeWindow(i32),
     TogglePluginsPanel,
+    FindOnlineSubs,
     RevealCurrentMedia,
     ToggleLiveText,
     AbLoop,
@@ -763,6 +783,7 @@ fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             "smaller-window" => Some(RuntimeAction::ResizeWindow(5)),
             "toggle-pip" => Some(RuntimeAction::TogglePictureInPicture),
             "toggle-music-mode" => Some(RuntimeAction::ToggleMusicMode),
+            "find-online-subs" => Some(RuntimeAction::FindOnlineSubs),
             "show-current-file-in-finder" => Some(RuntimeAction::RevealCurrentMedia),
             "live-text" => Some(RuntimeAction::ToggleLiveText),
             "plugin-panel" => Some(RuntimeAction::TogglePluginsPanel),
@@ -923,6 +944,7 @@ fn dispatch_mapping(
         RuntimeAction::FitToScreen => app.invoke_resize_window_command(3),
         RuntimeAction::ResizeWindow(command) => app.invoke_resize_window_command(command),
         RuntimeAction::TogglePluginsPanel => app.invoke_toggle_plugins_pane(),
+        RuntimeAction::FindOnlineSubs => app.invoke_find_online_subtitles(),
         RuntimeAction::ToggleLiveText => app.invoke_toggle_live_text(),
         RuntimeAction::RevealCurrentMedia => reveal_current_media(app, latest_playback),
         RuntimeAction::AbLoop => app.invoke_cycle_ab_loop(),
@@ -1137,6 +1159,65 @@ mod tests {
     }
 
     #[test]
+    fn iina_default_profile_routes_online_subtitle_search() {
+        let mappings = builtin_mappings("IINA Default");
+        let mapping = mappings
+            .iter()
+            .find(|mapping| mapping.action == "find-online-subs")
+            .unwrap();
+
+        assert_eq!(mapping.key, "Meta+D");
+        assert_eq!(mapping.kind, ActionKind::Riina);
+        assert!(matches!(
+            runtime_action(mapping),
+            Some(RuntimeAction::FindOnlineSubs)
+        ));
+        assert_eq!(
+            normalize_profile_key(&mapping.key),
+            if cfg!(target_os = "macos") {
+                "Shift+Meta+d"
+            } else {
+                "Ctrl+Shift+d"
+            }
+        );
+        assert_eq!(
+            display_row(mapping, false).key.as_str(),
+            shortcut("⇧⌘D", "Ctrl⇧D")
+        );
+    }
+
+    #[test]
+    fn iina_default_profile_covers_primary_source_mappings() {
+        let mappings = builtin_mappings("IINA Default");
+        let source_mappings = [
+            ("Alt+RIGHT", "frame-step"),
+            ("Alt+LEFT", "frame-back-step"),
+            ("Shift+LEFT", "sub-seek -1"),
+            ("Shift+RIGHT", "sub-seek 1"),
+            ("Meta+L", "cycle-values loop \"inf\" \"no\""),
+            ("Shift+_", "set audio-delay 0"),
+            ("Z", "add sub-delay -0.5"),
+            ("X", "add sub-delay 0.5"),
+            ("Alt+Z", "add sub-delay -0.1"),
+            ("Alt+X", "add sub-delay 0.1"),
+            ("C", "set sub-delay 0"),
+            ("ESC", "set fullscreen no"),
+            ("ENTER", "set fullscreen yes"),
+        ];
+
+        for (key, action) in source_mappings {
+            let mapping = mappings
+                .iter()
+                .find(|mapping| mapping.key == key && mapping.action == action)
+                .unwrap_or_else(|| panic!("missing IINA default mapping {key} {action}"));
+            assert!(
+                runtime_action(mapping).is_some(),
+                "IINA default action has no runtime route: {key} {action}"
+            );
+        }
+    }
+
+    #[test]
     fn key_binding_search_matches_visible_and_raw_values_case_insensitively() {
         let mapping = &builtin_mappings("IINA Default")[0];
         assert!(matches_query(mapping, false, "video panel"));
@@ -1150,7 +1231,7 @@ mod tests {
         assert_eq!(visible_source_indices(&mappings, false, "cycle audio"), [5]);
         assert_eq!(
             visible_source_indices(&mappings, true, "META+S"),
-            [2, 4, 29]
+            [2, 4, 35]
         );
         assert_eq!(
             visible_source_indices(&mappings, false, "missing"),
@@ -1262,6 +1343,10 @@ mod tests {
         assert!(matches!(
             runtime_action(&mapping("fit-to-screen", ActionKind::Riina)),
             Some(RuntimeAction::FitToScreen)
+        ));
+        assert!(matches!(
+            runtime_action(&mapping("find-online-subs", ActionKind::Riina)),
+            Some(RuntimeAction::FindOnlineSubs)
         ));
         assert!(matches!(
             runtime_action(&mapping("bigger-window", ActionKind::Riina)),

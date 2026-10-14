@@ -1,5 +1,30 @@
 # Verification record · native Windows · 2026-10-09
 
+## IINA Default primary input map · 2026-10-14
+
+Compared the seeded profile against the primary section of the pinned
+`iina-default-input.conf`. Added its missing Alt+arrow frame steps, Shift+arrow
+subtitle seeks, Shift+Meta+L file-loop toggle, audio-delay reset, subtitle-delay
+adjustments/reset, and fullscreen Escape/Enter commands. `Meta+D` now routes to
+the existing online-subtitle search callback. A focused regression test checks
+each added mapping resolves to a supported runtime action; GUI key delivery and
+the separate Alternative mpv bindings remain open.
+
+## IINA Default online subtitle shortcut · 2026-10-14
+
+The pinned IINA input map assigns `Meta+D` to `find-online-subs`. The default
+profile now seeds that application action and dispatches it to the existing
+online-subtitle search callback. The preferences row shows Shift+Command+D on
+macOS and Ctrl+Shift+D on Windows/Linux, following the profile key normalization
+used by live dispatch. The focused regression test confirms the mapping, action
+route, normalized key and display. Physical key delivery and the search window's
+live GUI behavior remain unverified.
+
+The source-to-seed comparison also confirmed all 58 mappings in the primary
+section of the pinned input file are present in the 66-row IINA Default profile;
+the profile also retains selected alternate mpv aliases. The separate
+Alternative mpv key-binding section is not yet fully represented.
+
 ## IINA Default mute shortcut · 2026-10-14
 
 The pinned IINA input map binds mute to both `m` and `Meta+/`. Riina's IINA
