@@ -1551,3 +1551,12 @@ the narrow IINA accent marker without a full-row fill, with horizontal separator
 and appearance-aware track/language colors. The reference shows both lanes with the
 same table treatment. Workspace tests and strict Clippy pass; matched live captures
 remain unavailable through the current Windows capture bridge.
+
+## Audio Quick Settings card hierarchy · 2026-10-14
+
+The Audio pane now frames track selection, external-audio loading, delay, and the
+equalizer in separate rounded cards, following the captured IINA Audio pane. The
+track selector retains its fixed 98-point viewport and single-click selection; the
+delay and equalizer controls keep their existing ranges and actions. The opt-in
+volume-boost extension remains a separate row. Slint compilation and workspace
+tests pass; matched live pixels and audio interaction remain unverified.

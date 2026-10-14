@@ -4398,3 +4398,14 @@ passed (311 application tests; 51 native tests ignored by default), strict
 all-target Clippy, formatting, diff validation, and parity traceability passed.
 The current Windows capture bridge still fails on the playback window, so matched
 live pixels and interaction are not verified.
+
+## Audio Quick Settings card grouping · 2026-10-14
+
+The Audio pane now uses separate rounded surfaces for the track selector, external
+audio loading, delay controls, and ten-band equalizer, based on the pinned IINA
+capture `23-playback-audio-panel.png`. The existing audio-track viewport and delay
+range are unchanged; the opt-in volume boost remains a separate Riina row.
+`cargo check --workspace --locked`, the full workspace tests (311 application
+tests; 51 native tests ignored by default), strict all-target Clippy, formatting,
+diff validation, and parity traceability pass. The playback-window capture bridge
+failed, so card geometry/materials and live audio selection remain unverified.

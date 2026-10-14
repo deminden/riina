@@ -2314,8 +2314,14 @@ export component PlayerWindow inherits Window {
                     }
                     }
                 }
-                if pane-kind == 1 : ScrollView {
-                    height: 98px; vertical-stretch: 0;
+                if pane-kind == 1 : Rectangle {
+                    width: parent.width; height: 98px; border-radius: 10px; border-width: 1px;
+                    border-color: root.dark-theme ? #ffffff18 : #00000014;
+                    background: root.dark-theme ? #ffffff08 : #ffffff88;
+                    clip: true;
+                    ScrollView { x: 1px; y: 1px;
+                    width: parent.width - 2px; height: parent.height - 2px;
+                    vertical-stretch: 0;
                     content-height: root.audio-tracks.length * 27px;
                     content-width: self.visible-width;
                     horizontal-scrollbar-policy: always-off;
@@ -2372,8 +2378,13 @@ export component PlayerWindow inherits Window {
                             }
                         }
                     }
+                    }
                 }
-                if pane-kind == 1 : HorizontalLayout {
+                if pane-kind == 1 : Rectangle {
+                    width: parent.width; height: 48px; border-radius: 10px; border-width: 1px;
+                    border-color: root.dark-theme ? #ffffff18 : #00000014;
+                    background: root.dark-theme ? #ffffff08 : #ffffff88;
+                    HorizontalLayout { padding: 8px;
                     Rectangle { height: 30px; horizontal-stretch: 1; border-radius: 4px; background: #ffffff15;
                         accessible-role: button; accessible-label: pane-kind == 1 ? "Load external audio" : "Load subtitle";
                         accessible-enabled: root.loaded;
@@ -2391,9 +2402,13 @@ export component PlayerWindow inherits Window {
                             }
                         }
                     }
+                    }
                 }
-                if pane-kind == 1 : VerticalLayout {
-                    height: 68px; vertical-stretch: 0; spacing: 4px;
+                if pane-kind == 1 : Rectangle {
+                    width: parent.width; height: 86px; border-radius: 10px; border-width: 1px;
+                    border-color: root.dark-theme ? #ffffff18 : #00000014;
+                    background: root.dark-theme ? #ffffff08 : #ffffff88;
+                    VerticalLayout { padding: 8px; spacing: 4px;
                     HorizontalLayout { height: 24px; spacing: 8px;
                         Text { text: "Delay"; color: #dddddd; font-size: 12px; font-weight: 700; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; background: transparent; }
@@ -2424,6 +2439,7 @@ export component PlayerWindow inherits Window {
                             Text { width: 32px; text: "+5s"; color: #aaaaaa; font-size: 10px; horizontal-alignment: right; }
                         }
                         Rectangle { width: 72px; background: transparent; }
+                    }
                     }
                 }
                 if pane-kind == 1 : Rectangle {
@@ -2466,7 +2482,11 @@ export component PlayerWindow inherits Window {
                                 color: root.dark-theme ? #aaaaaa : #66666b;
                                 font-size: 11px; wrap: word-wrap; }
                         }
-                        if pane-kind == 1 : VerticalLayout { spacing: 4px;
+                        if pane-kind == 1 : Rectangle {
+                            height: 196px; border-radius: 10px; border-width: 1px;
+                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            background: root.dark-theme ? #ffffff08 : #ffffff88;
+                            VerticalLayout { padding: 8px; spacing: 4px;
                             HorizontalLayout { height: 24px; spacing: 8px;
                                 Text { text: "Equalizer"; color: #dddddd; font-size: 12px;
                                     font-weight: 700; vertical-alignment: center; }
@@ -2511,6 +2531,7 @@ export component PlayerWindow inherits Window {
                                     hint: "Delete selected user equalizer profile";
                                     enabled: root.audio-equalizer-can-delete-profile;
                                     activated => { root.delete-audio-equalizer-profile(); } }
+                            }
                             }
                         }
                         if pane-kind == 2 : HorizontalLayout {
