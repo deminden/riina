@@ -2734,17 +2734,23 @@ export component PlayerWindow inherits Window {
                         }
                         for row in (pane-kind == 2 ? root.secondary-subtitle-tracks : []): Rectangle {
                             height: 26px;
-                            background: row.selected ? #ffffff15 : transparent;
+                            background: transparent;
                             accessible-role: button; accessible-label: "Secondary subtitle: " + row.label;
                             accessible-enabled: root.loaded;
                             accessible-action-default => { if root.loaded { root.select-item(5, row.token); } }
+                            Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
+                                background: root.dark-theme ? #ffffff20 : #00000020; }
                             if secondary-row-focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
                             if row.selected : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: #90b7ef; border-radius: 2px; }
-                            Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label; color: #dddddd;
+                            Text { x: 12px; width: parent.width - 18px - (row.language != "" ? 42px : 0px); text: row.label;
+                                color: row.token == "no" ? (root.dark-theme ? #a7a7ad : #6b6b70) :
+                                    (root.dark-theme ? #dddddd : #29292d);
                                 font-size: 12px; vertical-alignment: center; overflow: elide; }
                             if row.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
-                                y: (parent.height - self.height) / 2; border-radius: 3px; background: #ffffff20;
-                                Text { text: row.language; color: #dddddd; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
+                                y: (parent.height - self.height) / 2; border-radius: 3px;
+                                background: root.dark-theme ? #ffffff20 : #00000010;
+                                Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d;
+                                    font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
                             TouchArea { enabled: root.loaded; clicked => { secondary-row-focus.focus(); root.select-item(5, row.token); } }
                             secondary-row-focus := FocusScope {
                                 enabled: root.loaded;

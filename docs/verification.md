@@ -4388,3 +4388,13 @@ verification jobs succeeded while the native-engine build was skipped for reuse.
 The immutable v0.3.6 source tag has no GitHub release object. Since v0.3.7 is
 already the current release and contains the later fixes, do not publish v0.3.6 as
 the latest release or move its tag.
+
+## Secondary subtitle selector appearance · 2026-10-14
+
+The secondary track list now shares the primary list's selected-row accent,
+separator, and appearance-aware text and language-badge colors, matching the two
+lanes in the pinned Subtitles-pane capture. `cargo test --workspace --locked`
+passed (311 application tests; 51 native tests ignored by default), strict
+all-target Clippy, formatting, diff validation, and parity traceability passed.
+The current Windows capture bridge still fails on the playback window, so matched
+live pixels and interaction are not verified.

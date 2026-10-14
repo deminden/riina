@@ -1543,3 +1543,11 @@ handler previously selected video tracks only on double-click, even though Audio
 and Subtitle rows selected on a single click. A live multi-track switch still needs
 verification; the current desktop capture bridge failed during the playback-window
 capture, so no click-through result is claimed.
+
+## Secondary subtitle track rows · 2026-10-14
+
+The Secondary subtitle selector now matches the Primary selector: selected rows use
+the narrow IINA accent marker without a full-row fill, with horizontal separators
+and appearance-aware track/language colors. The reference shows both lanes with the
+same table treatment. Workspace tests and strict Clippy pass; matched live captures
+remain unavailable through the current Windows capture bridge.
