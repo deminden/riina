@@ -50,6 +50,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         } else {
             app.set_sidebar(next);
         }
+        app.invoke_activity();
     });
     let weak_settings = app.as_weak();
     app.on_select_settings_pane(move |kind| {

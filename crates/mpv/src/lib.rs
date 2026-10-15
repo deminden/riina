@@ -303,6 +303,7 @@ impl Player {
                 let mut pending_frame_captures = HashSet::new();
                 let mut pending_transition_captures = HashSet::new();
                 let mut pending_incoming_transition_captures = HashSet::new();
+                let mut pending_material_captures = HashSet::new();
                 let mut pending_drop_subtitles = Vec::<String>::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
@@ -434,8 +435,12 @@ impl Player {
                                         seek_feedback.clear();
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
-                                        state.error = Some(error);
-                                        resume_on_load = false;
+                                        if matches!(command, Command::CaptureMaterialFrame) {
+                                            eprintln!("Could not request a Windows video material frame: {error}");
+                                        } else {
+                                            state.error = Some(error);
+                                            resume_on_load = false;
+                                        }
                                         command_issue_succeeded = false;
                                         break;
                                     }
@@ -471,6 +476,8 @@ impl Player {
                                         pending_transition_captures.insert(next_id);
                                     } else if matches!(command, Command::CaptureIncomingTransitionFrame) {
                                         pending_incoming_transition_captures.insert(next_id);
+                                    } else if matches!(command, Command::CaptureMaterialFrame) {
+                                        pending_material_captures.insert(next_id);
                                     }
                                 }
                                 if command_issue_succeeded
@@ -500,6 +507,7 @@ impl Player {
                                     pending_transition_captures.remove(&event.userdata);
                                 let incoming_transition_capture = pending_incoming_transition_captures
                                     .remove(&event.userdata);
+                                let material_capture = pending_material_captures.remove(&event.userdata);
                                 if let Some(pending_command) = pending.remove(&event.userdata)
                                     && (pending_command.generation == state.generation
                                         || (transition_capture
@@ -512,7 +520,13 @@ impl Player {
                                                     generation <= pending_command.generation
                                                 }))) {
                                     if event.error < 0 {
-                                        if !frame_capture
+                                        if material_capture {
+                                            let reason = worker_api
+                                                .check(event.error)
+                                                .err()
+                                                .unwrap_or_else(|| format!("mpv error {}", event.error));
+                                            eprintln!("Could not capture the Windows video material frame: {reason}");
+                                        } else if !frame_capture
                                             && !transition_capture
                                             && !incoming_transition_capture
                                         {
@@ -521,16 +535,31 @@ impl Player {
                                             });
                                             resume_on_load = false;
                                         }
-                                    } else if frame_capture || transition_capture || incoming_transition_capture {
+                                    } else if frame_capture || transition_capture || incoming_transition_capture || material_capture {
                                         if event.data.is_null() {
-                                            eprintln!("mpv returned no frame for an asynchronous frame capture");
+                                            if material_capture {
+                                                eprintln!("mpv returned no result data for the Windows video material frame");
+                                            } else {
+                                                eprintln!("mpv returned no frame for an asynchronous frame capture");
+                                            }
                                         } else {
                                             // SAFETY: COMMAND_REPLY keeps this raw frame alive only until
                                             // the next wait_event, so copy its pixels before continuing.
                                             let reply = &*event.data.cast::<ffi::CommandReply>();
                                             match reply.result.copy_rgba_frame() {
                                                 Ok(frame) => {
-                                                    let frame = Arc::new(frame);
+                                                    let frame = if material_capture {
+                                                        frame.downsample_to_fit(320, 180)
+                                                    } else {
+                                                        Ok(frame)
+                                                    };
+                                                    let frame = match frame {
+                                                        Ok(frame) => Arc::new(frame),
+                                                        Err(error) => {
+                                                            eprintln!("Could not reduce an asynchronous material frame: {error}");
+                                                            continue;
+                                                        }
+                                                    };
                                                     if incoming_transition_capture {
                                                         state.incoming_transition_frame = Some(frame);
                                                         state.incoming_transition_frame_revision = state
@@ -542,6 +571,17 @@ impl Player {
                                                             state.position;
                                                         state.incoming_transition_frame_captured_at =
                                                             Some(std::time::Instant::now());
+                                                    } else if material_capture {
+                                                        state.material_frame = Some(frame);
+                                                        state.material_frame_generation =
+                                                            Some(state.generation);
+                                                        state.material_frame_position =
+                                                            state.position;
+                                                        state.material_frame_captured_at =
+                                                            Some(std::time::Instant::now());
+                                                        state.material_frame_revision = state
+                                                            .material_frame_revision
+                                                            .wrapping_add(1);
                                                     } else if transition_capture {
                                                         state.transition_frame = Some(frame);
                                                         state.transition_frame_generation =
@@ -555,6 +595,9 @@ impl Player {
                                                         state.captured_frame = Some(frame);
                                                         state.completed_frame_captures = state.completed_frame_captures.wrapping_add(1);
                                                     }
+                                                }
+                                                Err(error) if material_capture => {
+                                                    eprintln!("Could not decode the Windows video material frame: {error}");
                                                 }
                                                 Err(error) => eprintln!("Could not copy an asynchronous frame capture: {error}"),
                                             }

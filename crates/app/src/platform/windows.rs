@@ -1,5 +1,6 @@
 pub(crate) mod bring_to_front;
 pub(crate) mod file_dialog;
+mod frame_capture;
 pub(crate) mod materials;
 mod menu_focus;
 pub(crate) mod native_window;
@@ -10,6 +11,7 @@ pub(crate) mod recent_documents;
 pub(crate) mod window_geometry;
 pub(crate) mod window_position;
 pub(crate) mod window_sizing;
+pub(crate) use frame_capture::FrameCapture as NativeVideoMaterialCapture;
 pub(crate) use plugin_overlay::PluginOverlayPresenter;
 pub(crate) use presentation::NativePresentation;
 pub(crate) mod services;

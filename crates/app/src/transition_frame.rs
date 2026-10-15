@@ -132,6 +132,13 @@ pub fn should_display_until_incoming_stable(
     if should_display_at(playback, playlist_auto_play_next, now) {
         return true;
     }
+    // The Slint cover paints an opaque black backing beneath the retained
+    // image. Never enable that surface unless the outgoing image exists: an
+    // incoming-frame timeout alone must not leave a black rectangle over live
+    // playback (or strand it at the overlay's previous screen position).
+    if playback.transition_frame.is_none() {
+        return false;
+    }
     let Some(outgoing_generation) = playback.transition_frame_generation else {
         return false;
     };

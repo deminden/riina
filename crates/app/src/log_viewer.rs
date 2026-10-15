@@ -334,6 +334,7 @@ pub(crate) fn connect(
                     return;
                 }
             };
+            crate::appearance_preferences::install_system_typography(&viewer);
             connect_window(
                 &app,
                 &viewer,
@@ -351,6 +352,8 @@ pub(crate) fn connect(
         refresh_view(&viewer, &show_reader, &show_subsystems);
         if let Err(error) = viewer.show() {
             app.set_status(format!("Could not show Log Viewer: {error}").into());
+        } else {
+            crate::platform::enable_log_viewer_acrylic(&viewer);
         }
     });
 }

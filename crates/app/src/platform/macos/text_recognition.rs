@@ -12,7 +12,9 @@ pub(crate) struct Region {
     pub width: f32,
     pub height: f32,
 }
-use objc2_foundation::{NSDictionary, NSOperatingSystemVersion, NSProcessInfo};
+use objc2_foundation::{
+    NSDictionary, NSOperatingSystemVersion, NSProcessInfo, NSString, NSUserDefaults,
+};
 use objc2_vision::{
     VNImageOption, VNImageRequestHandler, VNRecognizeTextRequest, VNRequest,
     VNRequestTextRecognitionLevel,
@@ -36,8 +38,21 @@ pub(crate) fn check_availability(
                 minorVersion: 0,
                 patchVersion: 0,
             };
-            complete(NSProcessInfo::processInfo().isOperatingSystemAtLeastVersion(version));
+            complete(
+                NSProcessInfo::processInfo().isOperatingSystemAtLeastVersion(version)
+                    && live_text_enabled_by_system(),
+            );
         })
+}
+
+/// Match IINA's availability gate: the user can disable Live Text globally,
+/// and an unset system preference means the feature remains available.
+fn live_text_enabled_by_system() -> bool {
+    let defaults = NSUserDefaults::standardUserDefaults();
+    let key = NSString::from_str("AppleLiveTextEnabled");
+    defaults
+        .objectForKey(&key)
+        .is_none_or(|_| defaults.boolForKey(&key))
 }
 
 /// Keep Vision's synchronous analysis away from playback and the window event loop.

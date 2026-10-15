@@ -1,4 +1,6 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// The player is a GUI in debug builds too. Leaving the debug executable as a
+// console-subsystem process creates a second black conhost window behind it.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 mod about_window;
 mod advanced_preferences;
@@ -113,6 +115,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("femtovg".into());
+    #[cfg(target_os = "windows")]
+    let backend = {
+        // Slint only derives native alpha-window attributes from its scene on
+        // macOS. Create Windows auxiliary windows alpha-capable up front so a
+        // later DWM material request can reveal Mica or Acrylic. Slint keeps
+        // windows with its native menu opaque after this hook.
+        backend.with_winit_window_attributes_hook(|attributes| attributes.with_transparent(true))
+    };
     #[cfg(target_os = "macos")]
     let backend = {
         use slint::winit_030::winit::platform::macos::WindowAttributesExtMacOS;
@@ -133,18 +143,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
+    if let Some(welcome) = welcome.as_ref() {
+        crate::appearance_preferences::install_system_typography(welcome);
+    }
     let session = configure_player(&app, None, media, welcome.as_ref(), resume_position)?;
     player_manager.attach(
         &app,
         welcome.as_ref().map(|window| window.clone_strong()),
         session,
     );
+    #[cfg(target_os = "macos")]
+    let application_menu_observer = platform::MacApplicationMenuObserver::new();
     window_aspect::connect(&app);
     if let Some(welcome) = &welcome {
         platform::center_auxiliary_window(welcome, &app);
         welcome.show()?;
+        #[cfg(target_os = "macos")]
+        application_menu_observer.normalize();
     } else {
         app.show()?;
+        #[cfg(target_os = "macos")]
+        application_menu_observer.normalize();
         if action_after_launch.open_file_panel(supplied_media_argument) {
             app.invoke_open_file();
         }

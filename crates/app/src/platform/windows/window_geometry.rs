@@ -271,17 +271,27 @@ pub(crate) fn native_video_surface_signature(window: &Window) -> Option<u64> {
 /// Keep the transparent controls over the native video client in one window
 /// manager operation. Separate Slint size and position calls expose an
 /// intermediate overlay frame while playlist items change aspect ratio.
-pub(crate) fn align_surfaces(
-    host: &Window,
-    overlay: &Window,
-    position: slint::PhysicalPosition,
-    client_size: slint::PhysicalSize,
-) -> Result<(), String> {
+pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), String> {
     let host_handle = host.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(host_handle) = host_handle.as_raw() else {
         return Err("Video surface alignment requires a Windows host".into());
     };
     let host = HWND(host_handle.hwnd.get() as *mut _);
+    // Winit's geometry can be stale or DPI-virtualized while the owner and
+    // transparent overlay are settling after a monitor move or media resize.
+    // Win32 client coordinates are the source of truth for the embedded video.
+    let mut host_client = RECT::default();
+    // SAFETY: host is the live native video HWND and host_client is writable.
+    unsafe { GetClientRect(host, &mut host_client) }.map_err(|error| error.to_string())?;
+    let mut position = POINT {
+        x: host_client.left,
+        y: host_client.top,
+    };
+    // SAFETY: ClientToScreen converts the live host's client origin in place.
+    if !unsafe { ClientToScreen(host, &mut position) }.as_bool() {
+        return Err("Could not locate the native video client origin".into());
+    }
+    let client_size = size(host_client);
     let handle = overlay.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(handle) = handle.as_raw() else {
         return Err("Overlay alignment requires a Windows surface".into());
@@ -293,11 +303,9 @@ pub(crate) fn align_surfaces(
     let width = client_size.width.saturating_add(frame_width);
     let height = client_size.height.saturating_add(frame_height);
     let video_windows = visible_mpv_child_windows(host);
-    let video_is_aligned = video_windows.iter().all(|video| {
-        rectangles(*video).is_ok_and(|(_, client)| {
-            size(client).width == client_size.width && size(client).height == client_size.height
-        })
-    });
+    let video_is_aligned = video_windows
+        .iter()
+        .all(|video| video_surface_is_aligned(*video, position, client_size));
     if outer.left == position.x
         && outer.top == position.y
         && size(outer).width == width
@@ -306,18 +314,13 @@ pub(crate) fn align_surfaces(
     {
         return Ok(());
     }
-    let batch = unsafe {
-        BeginDeferWindowPos(
-            1_i32.saturating_add(i32::try_from(video_windows.len()).unwrap_or(i32::MAX)),
-        )
-    }
-    .map_err(|error| error.to_string())?;
-    // SAFETY: the overlay is a live Slint-owned HWND and dimensions are
-    // measured from the native client surface. Align it with every mpv child
-    // in one window-manager operation after the host's WM_SIZE notification.
-    let mut batch = unsafe {
-        DeferWindowPos(
-            batch,
+    // Moving the owned Slint popup through a deferred batch can report success
+    // while leaving its old screen origin intact. Position this single overlay
+    // directly so WM_WINDOWPOSCHANGED reaches its Winit surface immediately.
+    // SAFETY: hwnd is the live controls popup; all geometry comes from the
+    // native host's client rectangle and its measured popup frame.
+    unsafe {
+        SetWindowPos(
             hwnd,
             None,
             position.x,
@@ -328,22 +331,60 @@ pub(crate) fn align_surfaces(
         )
     }
     .map_err(|error| error.to_string())?;
-    for video in video_windows {
-        batch = unsafe {
-            DeferWindowPos(
-                batch,
-                video,
-                None,
-                0,
-                0,
-                i32::try_from(client_size.width).unwrap_or(i32::MAX),
-                i32::try_from(client_size.height).unwrap_or(i32::MAX),
-                SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER,
-            )
+    if !video_windows.is_empty() {
+        let mut batch =
+            unsafe { BeginDeferWindowPos(i32::try_from(video_windows.len()).unwrap_or(i32::MAX)) }
+                .map_err(|error| error.to_string())?;
+        for video in video_windows {
+            batch = unsafe {
+                DeferWindowPos(
+                    batch,
+                    video,
+                    None,
+                    0,
+                    0,
+                    i32::try_from(client_size.width).unwrap_or(i32::MAX),
+                    i32::try_from(client_size.height).unwrap_or(i32::MAX),
+                    SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER,
+                )
+            }
+            .map_err(|error| error.to_string())?;
         }
-        .map_err(|error| error.to_string())?;
+        // SAFETY: every child HWND was collected from the live host above.
+        unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())?;
     }
-    unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())
+
+    // DeferWindowPos can succeed while Windows is still reconciling an owned
+    // popup after a cross-monitor move. Report incomplete alignment so the
+    // caller can retry from the host's native client geometry on the next tick.
+    let (actual_outer, actual_client) = rectangles(hwnd)?;
+    if actual_outer.left != position.x
+        || actual_outer.top != position.y
+        || size(actual_outer).width != width
+        || size(actual_outer).height != height
+        || size(actual_client) != client_size
+    {
+        return Err("Native video controls did not reach the host client bounds".into());
+    }
+    if visible_mpv_child_windows(host)
+        .iter()
+        .any(|video| !video_surface_is_aligned(*video, position, client_size))
+    {
+        return Err("Native video child did not reach the host client bounds".into());
+    }
+    Ok(())
+}
+
+fn video_surface_is_aligned(
+    video: HWND,
+    host_client_origin: POINT,
+    expected_size: PixelSize,
+) -> bool {
+    rectangles(video).is_ok_and(|(outer, client)| {
+        outer.left == host_client_origin.x
+            && outer.top == host_client_origin.y
+            && size(client) == expected_size
+    })
 }
 
 fn rectangles(hwnd: HWND) -> Result<(RECT, RECT), String> {

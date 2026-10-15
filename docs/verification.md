@@ -1919,15 +1919,66 @@ an autorelease pool; the captured RGBA storage remains alive until the synchrono
 request completes. Vision's normalized bottom-left boxes are clipped and converted
 inside the macOS adapter to top-left pixel coordinates. Recognition results are dropped
 if the media generation, paused state, or interactive crop/music mode changes.
+Availability now also follows macOS's `AppleLiveTextEnabled` preference: an explicit
+system opt-out hides/disables the feature, while an unset key keeps it available, as in
+IINA's source availability gate.
 
 The adapter API was source-checked for `aarch64-apple-darwin` using the pinned Rust
 toolchain; macOS runtime and GUI tests are deferred until an Apple test environment is
 available. A full application cross-check from Windows could not build `rquickjs-sys`
 because this host has no Apple-target C compiler or SDK. This is source/API evidence
 only: macOS application linking, real frame recognition, and rendering are still
-unverified. The reference uses VisionKit's `ImageAnalysisOverlayView`;
-Riina's current shared clickable-region overlay still lacks its native text-selection
-interaction, context menu, accessibility behavior, and matched appearance.
+unverified. On macOS, recognized regions now use read-only selectable text so users
+can drag-select within each recognized line and copy the selection with the standard
+shortcut. This remains a shared-renderer approximation: the reference uses VisionKit's
+`ImageAnalysisOverlayView`, whose native selection, context menu, accessibility behavior,
+and video-aligned geometry are not yet reproduced.
+
+## macOS system typography inheritance
+
+Each Slint text window now receives AppKit's system font family through its own
+shared typography global: Player, Settings, Welcome, About, font picker, video
+filters, history, online subtitles, and log viewer. macOS Picture in Picture uses
+AVKit's native surface, so it does not use this Slint path. Text with an explicit font
+family keeps that choice. On Windows the global receives an empty family, preserving
+the normal toolkit fallback. Workspace compilation checks the installer for each root;
+an Apple-target check was attempted from Windows but stopped in `ring`'s C build
+script because a Darwin C compiler is unavailable here, before compiling Riina's
+macOS code. Matched Mac captures have not verified family resolution, weight mapping,
+metrics, or line wraps.
+
+## macOS represented media titlebar
+
+The player routes the current local media URL to AppKit's
+`NSWindow.representedURL`, and keeps non-local media unrepresented. This is the
+document-icon/path-menu surface used by IINA. The exact `window_document.rs` module
+cross-compiles against the aarch64-apple-darwin AppKit and Slint Winit APIs in a
+minimal probe. The full application target still stops in `ring`'s C build script
+because this Windows host lacks a Darwin compiler, before compiling Riina's macOS
+application. The titlebar label, icon, path menu and network-title behavior remain
+unverified on macOS. On the current Windows tree, workspace check and strict
+all-target Clippy pass; workspace tests pass with 312 app tests and 51 provisioned-
+native tests ignored.
+
+## macOS display ICC profile delivery · 2026-10-14
+
+The shared libmpv render surface now accepts the documented ICC-profile render
+parameter. On macOS, the player resolves its active `NSScreen`, extracts that
+screen's ICC bytes through CoreGraphics, and refreshes the render parameter when
+the player moves to a different display. The default-on Load ICC profile setting
+is persisted and updates the live render policy. Automatic ICC selection is enabled
+only after a display profile has been installed; explicit HDR output turns it off,
+and a display without ICC data disables the path. The default-on Enable HDR mode
+setting is persisted separately from the current player's HDR switch and reapplied
+when a new source starts or its HDR metadata becomes available. The native library
+symbol is optional so an older compatible libmpv can continue rendering without
+this enhancement.
+
+Windows workspace compilation covers the shared render API, settings UI, persistence,
+and ABI declarations, but not the macOS-only AppKit/CoreGraphics adapter. Apple-target
+compilation, live ICC setting interaction on macOS, profile switching on multiple
+displays, visual color validation, and matched preference-card geometry remain
+unverified.
 
 ## Multi-selection playlist removal
 
@@ -4385,9 +4436,11 @@ pixels are claimed.
 GitHub's current published release is v0.3.7 with its Windows x64 ZIP,
 `SHA256SUMS.txt`, and `RELEASE-VERIFICATION.json`; the Windows package and
 verification jobs succeeded while the native-engine build was skipped for reuse.
-The immutable v0.3.6 source tag has no GitHub release object. Since v0.3.7 is
-already the current release and contains the later fixes, do not publish v0.3.6 as
-the latest release or move its tag.
+The v0.3.6 GitHub release was created after v0.3.7 by a historical source-tag
+backfill. At the time, the release workflow always passed `--latest`, so that
+backfill incorrectly promoted an older release; commit `26060a6` fixes the
+workflow to preserve the newer latest release. Keep v0.3.7 latest and do not
+rerun the v0.3.6 backfill.
 
 ## Secondary subtitle selector appearance · 2026-10-14
 
@@ -4420,3 +4473,1446 @@ position adjustment, `cargo check --workspace --locked`, strict all-target Clipp
 formatting, diff validation, and parity traceability passed. Live spacing and
 rendered pixel matching remain unverified because the playback-window capture
 bridge is unavailable.
+
+## Audio equalizer profile menu · 2026-10-14
+
+The permanent profile-name field and adjacent Save/Rename/Remove buttons were
+replaced with a profile menu ordered like IINA v1.5.0's `SidebarAudioPane`:
+Save, Rename, Remove, separator, Manual, separator, built-in presets and user
+profiles. Save is available for the custom curve; Rename and Remove are available
+only for a saved user profile. The menu separates Manual, built-in presets, and
+saved profiles. Save and Rename open a name prompt, and the menu scrolls when its
+profiles exceed the visible area. Invalid names leave the prompt open for
+correction; Rename rejects the current name as a duplicate, matching IINA's
+prompt validator. Profile names now preserve the exact prompt text, including
+leading and trailing spaces, as IINA does. Rename begins with an empty field;
+the input validator updates an inline error and disables Save until the name is
+valid. The validator also checks names against the visible preset and saved-profile
+labels, following IINA's duplicate-name list rather than only internal profile
+identifiers. Preset, Manual, and user-profile selection now use distinct typed
+identities. Legacy saved-profile settings without the new kind flag still infer
+their selection from their stored name when that name cannot refer to a preset.
+The focused audio-equalizer core tests and complete Windows workspace test suite
+pass (51 provisioned-native tests remain ignored in this run). Strict all-target
+Clippy, formatting, and the 255-requirement parity CSV traceability check pass.
+An initial Windows GUI pass verified panel/menu rendering and
+exposed a prompt dismissal bug; the prompt now opens after its menu closes, but a
+fresh interaction pass could not reacquire the test window because the Windows
+automation bridge stopped reporting its process id. The test instance was closed.
+The macOS target check still stops in `ring` before application sources because
+this Windows host lacks an Apple-target C compiler. Native macOS menu/prompt
+behavior, matched pixels, and GUI interaction remain unverified.
+
+## macOS application menu composition · 2026-10-14
+
+The pinned IINA menu has one application menu containing About, Update, Preferences,
+Services, Hide, Hide Others, Show All, and Quit. Slint 1.18.1's Winit/Muda backend
+adds its standard macOS application menu before the Slint menu tree. A macOS AppKit
+normalizer now moves Riina's About, update, Preferences, and quit entries into that
+native menu, retains AppKit Services and visibility actions, removes the duplicate
+`riina` top-level menu, and labels the remaining app menu `Riina`. The generated
+Slint action items stay intact so their menu identifiers continue to dispatch.
+On macOS, the Preferences item is presented as `Settings…` with AppKit's named
+general-preferences image, matching the captured macOS 27 menu. `Check for Updates…`
+now opens the current Riina release page; a native version comparison/updater is
+still absent.
+Normalization runs after the player is shown and when a native menu begins tracking,
+so a Slint menu rebuild is repaired before the next menu interaction. The user
+reference at `reference/new/Screenshot 2026-10-12 at 19.17.33.png` confirms the
+single IINA application menu on macOS 27. The Windows workspace build, strict
+Clippy, formatting, full tests (51 provisioned-native tests ignored), and
+256-requirement parity check pass. A focused Apple-target probe compiles all 11 exact
+`platform/macos/` source modules with strict Clippy. The sweep caught and resolved an
+unsafe AppKit image-name symbol use, deprecated ICC API usage, and two strict-Clippy
+issues in Now Playing artwork handling. A full local Apple-target application check
+still stops in `ring` because this Windows host has no C compiler for the Apple
+target. Live item order/shortcuts, activation, and titlebar rendering still need the
+macOS application workflow and a Mac GUI capture.
+
+## Windows DWM Mica host transparency · 2026-10-14
+
+The native-video host now opts into Winit alpha composition. Its Slint background
+stays black until `DwmSetWindowAttribute(DWMWA_SYSTEMBACKDROP_TYPE,
+DWMSBT_MAINWINDOW)` succeeds and a readback confirms that type; it then becomes
+  transparent so the DWM system backdrop can show through. The readback confirms
+  the requested type, not visible Mica pixels; Windows can use an opaque fallback
+  under system policy. If the request fails, the host keeps its black surface.
+  `cargo clippy --workspace --all-targets
+--locked -- -D warnings`, `cargo fmt --all -- --check`, `git diff --check`, and the
+256-row `scripts/check-parity.py` traceability check pass. The computer-control
+surface returned no available Windows apps, so there is no live screenshot or
+visible-Mica claim. Transient Acrylic and the separate video-controls overlay
+  still need material and playback comparison. The Welcome surface now uses the
+  same request/readback gate and has not yet been visually captured. About uses
+  `DWMSBT_TRANSIENTWINDOW` with an opaque theme fallback; its Acrylic rendering
+  also awaits a live capture.
+
+## macOS subtitle color panel source · 2026-10-14
+
+The shared subtitle color well selects AppKit's alpha-enabled `NSColorPanel` on
+macOS and keeps the existing custom RGBA editor elsewhere. The new native module
+passes the isolated aarch64-apple-darwin strict-Clippy probe. The Windows workspace
+strict-Clippy build and Slint UI generation pass; the Mac-only Preferences callback
+wiring was not part of that Windows build. Full application Apple-target linking,
+color-panel runtime, picker-mode behavior, save/cancel behavior and rendered output
+remain unverified.
+
+## Windows DWM material surface initialization · 2026-10-14
+
+The regular Windows Winit backend now requests alpha-capable native windows before
+creation; the Slint backend still forces windows with native menus opaque. About
+and Welcome keep full-client fallback fills and expose translucent content only
+after their DWM Acrylic/Mica requests succeed. `cargo build -p riina --locked`,
+strict workspace Clippy, formatting, and `git diff --check` pass. The desktop
+control surface currently exposes no Windows application windows, so actual DWM
+material pixels and playback composition remain unverified.
+
+## Windows Settings Mica surface · 2026-10-14
+
+The Preferences window now requests the DWM persistent-window Mica backdrop after
+creation. Its window surface becomes transparent only after DWM accepts the
+request. The page/navigation surfaces use the 50% WinUI light Mica content-layer
+fill while cards preserve their solid contrast and the no-Mica fallback. A live
+Settings window returned DWM backdrop type 2 (`DWMSBT_MAINWINDOW`) with a
+successful readback. `cargo build -p riina --locked`, strict workspace Clippy,
+formatting, `git diff --check`, and the parity traceability script pass. The
+desktop capture returned a black frame, so rendered Mica pixels and matched-window
+appearance remain unverified.
+
+## Windows native-video overlay material sampling · 2026-10-14
+
+Native D3D11 playback now requests `screenshot-raw video rgba` only while an
+enabled translucent overlay is visible. Sampling is limited to one request per
+500 ms during playback and one per position while paused. The mpv worker
+bilinearly downsamples directly from the owned RGBA buffer to at most 320×180
+before retaining it in playback state. The UI applies blur and low-amplitude
+grain, then places the SDR image
+beneath Slint's translucent controller, sidebar and OSD tints. HDR output skips
+the SDR sample. `cargo fmt --all -- --check`, `git diff --check`,
+`cargo clippy --workspace --all-targets --locked -- -D warnings`,
+`cargo build --workspace --locked`, and `cargo test --workspace --locked` pass.
+Two material-sample unit tests verify the 320×180 output bound, uniform-color
+preservation, and rejection of inconsistent RGBA storage. Synchronous as well as
+asynchronous optional capture failures are kept out of playback's fatal error state.
+The desktop automation currently exposes no Windows applications, so native
+playback composition, capture cost, and matched material pixels remain unverified.
+
+## Windows auxiliary Acrylic surfaces · 2026-10-14
+
+The Video Filters, Playback History, Log Viewer, Online Subtitles and Font Picker
+windows now request the DWM transient backdrop when shown. Each switches its root
+tint to alpha only after DWM accepts the request; existing opaque controls remain
+unchanged, and an error leaves the prior solid fill. The About window uses the
+same shared request path. `cargo fmt --all -- --check`, `git diff --check`,
+`cargo clippy --workspace --all-targets --locked -- -D warnings`,
+`cargo build --workspace --locked`, `cargo test --workspace --locked`, and the
+256-row parity traceability check pass. The desktop surface has no Windows app
+available, so Acrylic pixels, backdrop policy fallback and readability remain
+unverified. A later live window probe opened About from the app menu and read
+DWM backdrop type 3 (`DWMSBT_TRANSIENTWINDOW`) successfully; it closed the exact
+Riina process afterward. That confirms DWM accepted Desktop Acrylic, not that
+the expected pixels are visible.
+
+## Windows native video material strength and capture diagnostics · 2026-10-14
+
+Native-video Slint overlays now use a 58% sampled-blur layer rather than the
+shared-renderer/macOS 32% layer. The native Windows sidebar uses a 60%-opaque dark
+tint or 78%-opaque light tint, 12 px corners, and a subtle one-pixel edge; macOS's calibrated 32% layer and
+tint are unchanged. The 320×180 Windows sample now uses an 8 px Gaussian blur
+before display scaling. The worker reports mpv's error text for failed material
+captures, and distinguishes missing result data, decode failure, and downsample
+failure from ordinary screenshots. `cargo build -p riina --locked`,
+`cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets --locked -- -D warnings`, and
+`cargo test --workspace --locked` pass. `git diff --check` and the 256-row parity
+traceability check pass. A brief local fixture playback completed without a
+material-capture error. Windows Computer Use exposed the Riina Welcome and a fresh
+moving-square playback window, but screenshot capture failed on both at
+`CreateForMonitor` with `0x80070057`; GDI returned a black GPU surface.
+Therefore the opacity change has not been visually verified. The exact GUI test
+process was closed after observation.
+
+## Windows sampled Acrylic blur spread · 2026-10-14
+
+The native Windows material image now uses an 8 px Gaussian sigma on the
+320×180 sample before scaling to player-video bounds. The new synthetic-edge test
+verifies the blur carries into a wider shoulder; the focused `video_blur` test
+group passes (3 passed). `cargo build -p riina --locked`, strict package Clippy,
+formatting, diff validation, and parity traceability pass. The material pixels
+remain unverified because Windows Graphics Capture still fails with
+`CreateForMonitor` (`0x80070057`) on the current desktop.
+
+## Windows system material policy · 2026-10-14
+
+Windows' `UISettings.AdvancedEffectsEnabled` and `GetSystemPowerStatus` now gate
+Mica/Acrylic requests and the custom sampled-video overlay. The player polls the
+cached policy while open; turning effects off or entering Battery Saver restores
+opaque overlay fills, stops video-frame sampling, and clears the persistent host's
+DWM Mica attribute. Re-enabling effects reapplies Mica and the configured glass
+surfaces. Policy reads are cached for two seconds. Windows compile and strict app
+Clippy checks pass. A
+Windows GUI comparison with transparency enabled/disabled and Battery Saver
+transitions remains required; it is not claimed as visually verified.
+The rebuilt player launched against `moving-square.avi` and initially showed that
+filename in its title. Folder auto-play advanced to other fixtures before the
+accessibility observation; the tree exposed transport controls and Quick
+Settings, but the material could not be held on one frame. The desktop screenshot
+request still failed at `CreateForMonitor` (`0x80070057`). The exact test process
+was closed and the desktop surface confirmed no Riina window remained.
+
+## Windows Acrylic grain stability · 2026-10-14
+
+The native-video sample grain now uses a stable coordinate pattern rather than
+the playback frame revision as its seed. This keeps the noise layer anchored to
+the material while sampled video changes. The focused `video_blur` test group
+passes (4 passed), including a check that two different source frames receive
+the same per-pixel noise offset. `cargo build -p riina --locked` and strict app
+Clippy pass. Pixel-level live output remains unverified because desktop capture
+still fails on this machine.
+
+## Windows persistent-host backdrop policy changes · 2026-10-14
+
+The persistent player host now polls the cached material policy every 500 ms and clears
+`DWMSBT_MAINWINDOW` when Windows disables transparency effects or enters Battery
+Saver. Its Slint background becomes opaque after DWM accepts the cleared type.
+When effects are allowed again, the host requests Mica, checks the applied DWM
+type, then restores the transparent client tint. A shared UI-thread monitor now
+tracks weak handles for registered Mica and Acrylic windows, clears
+their DWM backdrop and uses their solid fill when policy disables materials, and
+restores the selected backdrop when policy allows it again. All three platform
+policy reads must succeed and High Contrast must be off; otherwise custom
+translucency uses the opaque fallback. The cache and
+live-window monitors refresh at 500 ms. The focused policy tests pass (2 passed)
+and `cargo test --workspace --locked` passes (318 app tests; 51 native libmpv
+tests remain ignored because their DLL is not provisioned). The app build, strict
+Clippy, formatting and diff checks pass. A live launch returned DWM backdrop
+type 2 (`DWMSBT_MAINWINDOW`) with a successful readback for both the player host
+and Settings window; by the six-second
+observation the player had advanced to `track-languages.mkv`, and no Riina process
+remained after shutdown. The Preferences window now uses the 50% light WinUI Mica
+layer fill on page and navigation backgrounds only while the DWM backdrop is
+accepted, leaving its solid fallback and content cards intact. The desktop capture
+API still returned a black 1280×720
+frame, so visible Mica/Acrylic pixels, live policy transitions and fallback
+readability remain unverified.
+
+## Windows material pixel calibration · 2026-10-14
+
+Sampled the pinned REF-21 PNG directly: the solid green video region at
+`(2000, 400)` is `#65C466`; a blank Quick Settings sidebar region at
+`(2300, 800)` is `#459546`. A 53% video sample layered over the existing 60%-opaque
+`#151515` Windows sidebar tint predicts `#4E934F`, closer to the measured sidebar
+than the previous 58% strength. Only the Windows Quick Settings sidebar changes;
+other native-video surfaces remain at 58%, shared-renderer and macOS layers at
+32%. The nested Online Media Preferences page now reveals the existing Mica layer
+through its body background as well. `cargo build -p riina --locked` passes after
+these UI changes. No live Windows pixel capture was available; this source-image
+calibration does not establish rendered parity.
+
+The Windows Welcome Mica client now layers WinUI's dark default content fill,
+`#4C3A3A3A` ARGB (Slint RGBA `#3A3A3A4C`), over its native backdrop. Its solid
+fallback remains unchanged. `cargo build -p riina --locked` passes after this UI
+adjustment; live Mica pixels remain unverified.
+
+The fresh Windows launch exposed the Welcome controls in the accessibility tree,
+but screenshot capture failed twice at `CreateForMonitor` (`0x80070057`), and
+control input failed with `coordinate input geometry is unavailable`. No playback
+material pixel check was possible. The exact Riina test process was stopped after
+normal close failed; process and window inventories then confirmed it was closed.
+
+The Quick Settings Windows card fill now follows WinUI's dark/light Acrylic layer
+values (`#09FFFFFF` / `#40FFFFFF`) only while video-backed material is active.
+`cargo build -p riina --locked` passes after this adjustment; live pixels
+remain unavailable.
+
+The Quick Settings `Fit Window to Video` action now uses WinUI dark/light
+control-layer values and theme-appropriate foregrounds while Windows video-backed
+sidebar material is active. Shared and opaque fallback styling is unchanged.
+`cargo build --workspace --locked` passes; this source-derived adjustment has not
+yet been visually verified in a live Windows capture.
+
+For a fresh Windows GUI check, debug Riina launched and exposed its main window,
+but Computer Use could not capture it: `IGraphicsCaptureItemInterop.CreateForMonitor`
+failed twice with `0x80070057`. Normal close did not retire the test window, so
+only the exact debug process started for this check (PID 13992) was ended. The
+process and Riina window inventory are now empty; no rendered-pixel result is
+claimed.
+
+The native video overlay no longer requests legacy DWM blur; realization now
+restores Winit's `WS_EX_LAYERED` alpha if needed and clears the mouse-transparent
+style. [Microsoft documents](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmenableblurbehindwindow)
+that `DwmEnableBlurBehindWindow` no longer produces blur starting with Windows 8.
+The WinUI/DWM materials and the sampled video blur remain separate mechanisms.
+This alpha path was later corrected: the player overlay had set `WS_EX_LAYERED`
+without a layered-window update surface. See the Windows native overlay alpha
+entry below; the legacy API is retained there only for its documented alpha
+composition behavior.
+After this change, `cargo build --workspace --locked`,
+`cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
+and `git diff --check` pass. No GUI test passed because screen capture remains
+unavailable.
+
+The About window's full-size content, sidebar and main pane now use transparent
+fills after the shared DWM path accepts Desktop Acrylic; the solid dark/light
+fills remain the rejection fallback. This makes the native backdrop visible
+throughout its content surface. `cargo build --workspace --locked` passes. Live
+contrast and acrylic pixels remain unverified because Windows screen capture is
+still unavailable.
+
+The Video Filters, Playback History, Log Viewer, Online Subtitles and Font Picker
+windows now expose transparent roots only after the shared DWM path accepts
+Desktop Acrylic; solid fallback colors remain. Utility toolbar, header, backing
+panel and unselected row fills now use WinUI Acrylic layer values, while data-entry
+fields and selected rows retain solid contrast fills. The reusable Font Picker's
+live theme-following behavior is recorded below. Workspace build, formatting and
+diff verification for this earlier adjustment passed: `cargo build --workspace --locked`,
+`cargo fmt --all -- --check`, and `git diff --check`. Live appearance and text
+contrast remain unverified because Windows screen capture is still unavailable.
+
+The Windows PiP window now registers for the shared Desktop Acrylic policy monitor
+on its first successful show. The client background becomes transparent only after
+DWM accepts the backdrop; the video rectangle stays black behind the DWM thumbnail,
+and the controls strip receives a dark translucent tint. The workspace build,
+formatting and diff checks pass. Live thumbnail/control composition remains
+unverified because desktop capture is unavailable.
+
+The 46 outer Preferences cards now switch from their original opaque gray to the
+existing 50% light WinUI Mica fill only when the DWM backdrop is accepted. Input
+fields and selected rows stay solid. `cargo build --workspace --locked`,
+`cargo fmt --all -- --check` and `git diff --check` pass. Live text contrast remains
+unverified.
+
+The registered Windows auxiliary windows now synchronize Winit's native theme
+with their Slint palette when shown and when About/Video Filters change their
+`dark-theme` property. Fixed light utility surfaces request light; Welcome and
+Font Picker use the resolved player theme. `cargo build --workspace --locked`,
+`cargo fmt --all -- --check` and `git diff --check` pass. Live DWM caption tint,
+Acrylic pixels and theme-transition appearance remain unverified because Windows
+screen capture is unavailable.
+
+The Font Picker now follows the resolved player theme while visible. Its root tint,
+native frame, headings, list text/selection, and preview change between matching
+light and dark palettes; preview contrast and opaque selection are retained. Winit's
+macOS implementation maps the same theme choice to AppKit `NSAppearance`.
+Workspace build, formatting, strict Clippy and diff checks pass. Live theme/material
+appearance and text contrast remain unverified without Windows screen capture.
+
+The auxiliary DWM material watcher no longer treats an unchanged policy value as
+proof that the backdrop is active. It retries while Riina's root transparency state
+differs from that policy, allowing transient DWM failures to recover without a
+system-setting change. Retry delays grow to 30 seconds and identical failures are
+logged once until recovery or a policy change. Workspace build, strict Clippy,
+formatting and diff checks pass; live recovery/pixels remain unverified without
+Windows capture.
+
+The persistent Windows player host now applies the same bounded retry and error
+deduplication policy to Mica. Its confirmed DWM state is tracked separately from
+the current OS policy and client alpha, so rejected operations do not prematurely
+mark the backdrop current. The workspace build, strict Clippy, formatting and diff
+checks pass. Disabling effects hides client alpha immediately if the Winit callback
+cannot provide a native handle, while the DWM clear retries. Live recovery and
+visible Mica remain unverified without capture.
+
+About now tracks the live player theme while open; the shared Windows policy watcher
+uses the resulting `dark-theme` value to update its native Winit theme. The workspace
+build, strict Clippy, formatting and diff checks pass. Theme changes and caption/Acrylic
+pixels remain unverified in a live Windows capture.
+
+## Quick Settings sidebar dismiss control · 2026-10-14
+
+The sidebar header now matches IINA's source-derived directional dismiss affordance:
+36 pt circular control (28 pt compact), placed beside the tabs according to sidebar
+side, with original Riina backward/forward chevrons. The header distributes the
+control and tab group across the available width, matching IINA's equal-spacing
+layout. The active Windows video-backed Acrylic surface applies a WinUI control-layer
+fill and subtle edge to that button, with the secondary control fill on hover. REF-21
+pixel scans suggest 150/42/74-point Theme, Compact Interface, and two-row video-layout
+card heights with 20-point gaps. The 2 px/point scale is inferred from IINA's 360-point
+sidebar default because capture scale was not recorded; inner row sizes were adjusted
+to fit the estimated card bounds.
+`cargo build --workspace --locked`, strict all-target Clippy, workspace tests
+(318 app tests; 51 native tests ignored without the provisioned DLL), formatting,
+and `git diff --check` pass. The two new SVG hashes match their manifest entries.
+The full checkout asset check stops on the unchanged
+`assets/icons/music-mode-placeholder.svg` raw-byte hash; the indexed/canonical-byte
+check must be run after staging. A new live Windows render is unavailable, so the
+control's final appearance and hit target remain unverified.
+
+## Quick Settings video cards and WinUI controls · 2026-10-14
+
+REF-24's video track list and four control groups now render as rounded cards,
+with 18-point inter-card spacing and source-sized height estimates derived from
+the inferred 2 px/point capture scale. Selected aspect, crop, and rotation presets
+use the Windows blue accent on the native Windows surface and the macOS default
+blue on shared rendering. Video labels, custom inputs, switches, and reset controls
+follow the active theme and use WinUI-style translucent fills while the Windows
+video-backed Acrylic sidebar is active. The same panel edits extend the prior
+Audio and Subtitle light-theme controls. `cargo build -p riina --locked`, formatting,
+and `git diff --check` pass. No live Windows GUI test was possible because the
+screen-control tool exposed no application windows; REF-23, REF-24, and REF-25
+remain open for matched capture comparison.
+
+## Quick Settings subtitle cards · 2026-10-14
+
+REF-25 now has separate scrollable primary and secondary track cards, paired
+Load Subtitle and Search Online actions, and distinct timing/position and style
+cards. Search Online calls the existing subtitle-search flow. The source screenshot
+was measured at the inferred 2 px/point scale: track cards about 98 pt, Load/Search
+about 46–48 pt, timing/position about 188 pt, and styling about 198 pt, spaced by
+about 20 pt. The implementation uses 98/48/190/200 pt cards and 18 pt gaps. These
+remain scale-derived estimates until a matched live capture is available.
+`cargo build -p riina --locked` passed. A desktop capture could not be made because
+the screen-control surface exposed no application windows; visual appearance and
+interaction remain unverified against a live Windows build.
+
+## Quick Settings audio card spacing · 2026-10-14
+
+REF-23's saved capture gives estimated card heights of 98/48/92/246 pt for the
+track list, external-track action, delay, and equalizer, with roughly 18–20 pt
+between cards. Riina now matches those heights and uses 18 pt card gaps. The
+selected track marker follows the Windows or macOS accent. Formatting and diff
+checks and `cargo build -p riina --locked` pass. Live rendering remains open
+because the desktop capture surface exposed no application windows.
+
+## Music Mode compact window geometry · 2026-10-14
+
+The REF-22 capture is 824×742 pixels; its player bounds measure about 600×518
+pixels. The existing 300-point window width implies a 2× reference scale, giving
+an estimated 300×259-point window with about 168 points of 16:9 artwork and a
+90-point lower title/transport region. Riina's compact controller/window height
+and the Windows host minimum now use 90 points instead of 72. Existing music-mode
+layout test expectations were updated but not run. `cargo build -p riina --locked`,
+formatting, and `git diff --check` pass. Matched visual capture checks remain open.
+
+## Windows current-build player launch · 2026-10-14
+
+Launched the current debug build with the reference test-pattern GIF. Windows
+reported the title `sample-test-pattern.gif — riina`, confirming the filename is
+present in the native title. The desktop bridge exposed no app windows, so no
+rendered pixels or pointer interactions were verified. Closed the exact test
+instance and confirmed no Riina process remained.
+
+## Windows transport Acrylic tint · 2026-10-14
+
+The native-video transport's dark fill changed from 76% to 60% opacity to match
+the calibrated Windows title-bar and Quick Settings sidebar material over the
+sampled video blur. `cargo fmt --all -- --check`, `git diff --check`, and
+`cargo build -p riina --locked` pass. The desktop bridge exposed no app windows,
+and the saved controller screenshot predates this change; rendered pixels and
+text contrast remain unverified.
+
+## Windows hardware-rendered material capture · 2026-10-14
+
+Launched the current player with `tests/fixtures/moving-square.avi`, but its
+native title reported `track-languages.mkv — riina`, so the requested fixture
+was not confirmed as the displayed media. A foreground `CopyFromScreen` capture
+returned an all-black frame for the hardware-rendered window and could not verify
+material pixels. Closed the exact test process and confirmed it exited.
+
+## Windows Music Mode menu visibility · 2026-10-14
+
+A PrintWindow capture of the previous 300-point Music Mode window showed the
+application menu wrapping into multiple rows and leaving the compact player
+covered. A 60-point height reserve did not fix the wrapped menu. The current
+Windows build hides that menu row only while Music Mode is active; the capture of
+the native host confirms the headings are gone. The separately composited alpha
+controls window returned black through per-window PrintWindow, so transport pixels
+remain unverified. The exact test process exited, with no Riina process remaining.
+
+## Windows shared-renderer Acrylic policy · 2026-10-14
+
+The optional shared-GL Windows player now initializes and refreshes the system
+material policy, gates sampled blur on that policy, and uses the same Windows
+Acrylic card/control treatment as native-video playback. When effects are disabled,
+it clears the cached blur and returns to solid surfaces. `cargo fmt --all -- --check`,
+`git diff --check`, and `cargo build -p riina --locked` pass. No live shared-GL
+material pixel comparison was available.
+
+## Windows material transparency across renderer paths · 2026-10-14
+
+The Windows shared-GL path now uses the same 53% Quick Settings and 58% other
+video-backed sample strengths as native-video playback. Light-theme title,
+sidebar and controller fills, plus dark OSD fills, use Windows translucency
+values regardless of renderer. macOS retains its existing sample strength and
+tint. `cargo build -p riina --locked`, `cargo fmt --all -- --check`, and
+`git diff --check` pass. Matched Windows pixels and text contrast remain
+unverified because the desktop surface capture is unavailable.
+
+Selected track markers and Video/Subtitle preset controls now follow
+`UISettings.GetColorValue(UIColorType::Accent)` on both Windows renderer paths,
+with a `#0078d4` fallback; macOS keeps `#0a84ff`. Live system-color changes
+refresh during playback, and selected labels switch between black and white
+based on the accent's relative luminance. Layout toggles, progress bars, and
+selected playlist markers use the same Windows accent. macOS colors are unchanged.
+`cargo build -p riina --locked`, `cargo fmt --all -- --check`, and
+`git diff --check` pass. The desktop capture tool currently exposes no Windows
+app surface for matched pixel review.
+
+## Windows native video overlay bounds and full-display capture · 2026-10-14
+
+Alignment now reads the host HWND's live Win32 client rectangle and converts its
+client origin to screen coordinates before positioning the controls overlay and
+mpv child. `cargo fmt --all -- --check`, `git diff --check`, and
+`cargo build --workspace --locked` passed. A DPI-aware 3840×2160 full-desktop
+capture showed a separate debug console obscuring the player when the debug build
+was launched visibly; hiding that console exposed the app window. Runtime window
+inspection measured the overlay and video child on the host client bounds. The
+media state changed to an audio-only Music Mode window during capture, so this
+confirms native geometry but not video pixels or visual parity. The exact test
+process was closed and no Riina process remained.
+
+## Windows native player capture scope · 2026-10-14
+
+The Windows computer-use helper returned a 918×619 host-window screenshot and a
+separate 916×570 transparent-controls screenshot for `moving-square.avi`. The
+playback accessibility state advanced from 0 to 0.125 seconds with Pause shown,
+but neither window capture contained the rendered video. These are per-window
+images, not a whole-desktop composite; the missing GPU child pixels make the
+black viewport inconclusive and cannot show whether the video is confined to the
+transport bar. A full-screen, DWM-composited capture is still required for that
+question and for material pixel checks. The test window was closed, and a fresh
+application inventory returned no Riina window.
+
+## Windows player menu appearance · 2026-10-14
+
+The app's saved explicit theme is Dark while Windows AppsUseLightTheme is enabled.
+The native player host now receives the app's explicit Winit theme in its initial
+window attributes, before Slint creates the Muda menu. `cargo build --workspace
+--locked` and formatting passed. A live Computer Use capture showed a dark title
+bar and menu strip on first player paint; opening Playback showed the native
+dropdown still rendered in the OS light style. This improves initial frame/menu
+strip alignment but leaves the menu popup's appearance open. The native window
+capture still omits the GPU video child. Riina was closed after the check and a
+fresh app inventory returned no Riina process.
+
+## Windows native video overlay follows moved host · 2026-10-14
+
+The controls overlay could stay at its former desktop position when the native
+video host moved, leaving a black rectangle over the playback area. Alignment
+now checks the realized overlay HWND bounds after the native move and reapplies
+Winit's physical client geometry when Windows has not moved it yet. A live
+`moving-square.avi` check moved the host by 300×300 screen pixels; the controls
+surface moved by the same amount and retained its relative offset. The strict
+workspace build and `git diff --check` passed. Per-window capture still omits
+the GPU video child, so this confirms surface movement rather than the
+composited video pixels. The test process was closed and no Riina window or
+process remained.
+
+## Windows DWM alpha and video-backed Acrylic · 2026-10-14
+
+The native controls HWND no longer adds `WS_EX_LAYERED` without an
+`UpdateLayeredWindow` backing surface. After Slint realization, Riina clears the
+layered/mouse-transparent styles and re-applies DWM's per-pixel alpha contract;
+the legacy blur-behind API is used for alpha handling, not visual blur. The
+locked workspace build, `cargo fmt --all -- --check`, and `git diff --check`
+passed. A live `moving-square.avi` capture showed the moving video visible
+through both the native controls overlay and the tinted Windows Quick Settings
+material. Moving the host by 300×150 screen pixels moved the overlay by the
+same amount while preserving its offset. This verifies video visibility and
+tracking on the native-video path; matched IINA pixels, OS-policy transitions,
+and other display configurations remain open. Riina was closed after testing.
+
+## Windows debug console no longer leaves a black desktop window · 2026-10-14
+
+The Windows debug executable previously used the console subsystem while the
+release executable used the GUI subsystem. Launching the debug player therefore
+created a second `conhost.exe` window titled with the executable path. A live
+window inventory showed that black console at screen origin (87, 72), separate
+from the player at (543, 72), matching the reported fixed black region when the
+player moved. The Windows player entry point now uses the GUI subsystem in debug
+and release builds; standalone diagnostic binaries retain their console behavior.
+`cargo build --workspace --locked`, `cargo fmt --all -- --check`, and
+`git diff --check` passed. After rebuilding, a live playback launch exposed only
+one Riina window and its green video test pattern filled the player viewport; no
+separate console window appeared. The test instance was closed and a fresh
+inventory returned no Riina window or process.
+
+## Whole-desktop Windows capture · 2026-10-14
+
+`scripts/capture-windows-desktop.ps1` sets per-monitor DPI awareness before
+reading the virtual desktop bounds and captures every display at physical pixel
+resolution. On this 3840×2160 desktop it captured the complete desktop; the
+earlier DPI-unaware attempt returned only a scaled corner and was not used for
+visual conclusions. The full capture showed the moving-square clip in Riina's
+playback viewport and no separate black patch over it. This sample was at the
+end of the five-second clip and the window was stationary, so it does not verify
+the earlier screen-fixed patch report or a clip transition. A separate full
+capture with Quick Settings open at 0:01 showed moving video visible through the
+tinted sidebar and its translucent card fills, confirming video-backed Acrylic
+composition; matched IINA pixels and Windows policy fallbacks remain unverified.
+NVIDIA's performance readout remained anchored to the desktop edge. Riina was
+closed normally after the inspection, with no process remaining.
+
+## Windows Quick Settings category material · 2026-10-14
+
+REF-24 shows a neutral glass capsule behind the selected Video category, unlike
+the blue accent reserved for selected aspect/crop presets. The shared UI now uses
+the neutral themed capsule on Windows as well; preset accents, focus rings, and
+system-accent controls remain unchanged. `cargo build -p riina --locked` passed.
+A post-build test used an isolated copy of `moving-square.avi` so autoplay could
+not enter neighboring fixtures. UI Automation opened Quick Settings and selected
+Video. The full 3840×2160 desktop capture and its player-window crop show the
+neutral Video capsule, blue selected presets, and the paused video frame visible
+through the tinted Acrylic panel. The crop is 2748×1856 physical pixels at 300%
+scale; it is recorded at `reference/captures/riina-live-2026-10-14/` and described
+in `tests/visual/windows-captures.json`. The frame was paused at the five-second
+clip's end, so motion during this post-change capture was not verified. The
+player size differs from fullscreen REF-24; total panel bounds, lower controls,
+light-theme contrast, exact blur and system-policy fallbacks remain open. The
+test instance was closed normally and no Riina process remains.
+
+## Windows video-backed Acrylic sampling cadence · 2026-10-14
+
+UI Automation opened Quick Settings/Audio during playback of a fresh isolated
+copy of the reference 4 fps GIF. DPI-aware full-desktop captures show video under
+the Audio panel and controller, confirming that the native overlay and sampled
+material are visible together. Pixel probes across six captures at about 220 ms
+intervals showed the panel color out of phase with the video at the 20 Hz
+sampling experiment. The desktop performance overlay showed 10 fps and 18% CPU
+in one capture; this was not a controlled benchmark. Raising capture cadence did
+not resolve the phase gap, so the code was restored to its 10 Hz limit. The
+restored `cargo build -p riina --locked` passed. Full-desktop and player-window
+captures are recorded under `reference/captures/riina-live-2026-10-14/` and
+indexed in `tests/visual/windows-captures.json`. The test instance was closed
+normally and no Riina process remains. REF-23 remains open until material
+sampling follows the presented frame with acceptable readback cost.
+
+## Windows native overlay alignment retry · 2026-10-15
+
+The alignment error path no longer writes possibly stale Winit outer-window
+coordinates over the overlay's Win32 client-derived placement; the existing
+16 ms alignment loop retries from the host HWND. `cargo build -p riina --locked`
+passed. A DPI-aware move reproduced the stale overlay: the host client moved to
+(686, 305), while its popup remained at (546, 215). A direct `SetWindowPos`
+corrected it, while the old deferred batch reported success without moving the
+owned popup. The 16 ms alignment retry now positions the controls popup directly
+and batches only mpv child sizing; the separate aspect-ratio resize path retains
+its existing batch. After rebuilding, the same move left the popup at exactly
+(686, 305), size 2747×1711, matching the host client. The 3840×2160 desktop
+capture shows the video and controls together without the old-position gray
+strip. The test instance was closed and no Riina process remained.
+
+## Windows controller volume visibility and live proportions · 2026-10-15
+
+The REF-20 sample is the no-audio `sample-test-pattern.gif`. Pinned IINA's
+`PlayerCore.aidChanged()` hides both mute and volume when the selected audio id
+is zero. Riina now derives `has-active-audio-track` from the selected primary
+audio track and hides that controller group when none is active, retaining its
+leading spacer so transport remains centered. `cargo build -p riina --locked`,
+`cargo fmt --all -- --check`, and targeted `git diff --check` passed. A full
+3840×2160 desktop capture of the same GIF shows no mute/volume group; a fresh
+isolated `moving-square.avi` capture with selected stereo audio keeps both
+controls visible. Both GUI instances were closed and no Riina process remains.
+The live 300%-scale controller measures about 460×66 points, centered with its
+bottom 57 points above the 570-point host client bottom, consistent with IINA's
+460×67-point controller and 10% vertical fraction. The Windows material remains
+visibly out of phase in the animated GIF capture: a gold sampled controller
+surface sits over a blue video frame. Material frame synchronization and exact
+Windows Acrylic appearance remain open.
+
+## Windows playback material scope and reply latency · 2026-10-15
+
+A live Windows 11 trial applied `DWMSBT_TRANSIENTWINDOW` to the native full-size
+controls popup; DWM accepted the attribute. A second trial placed a compact,
+rounded, owned Win32 popup between mpv's video child and the controls window.
+That popup rendered as a solid gray block over the moving-square video rather
+than showing the video through Acrylic. The trial surface was destroyed and the
+player closed. Its full-desktop capture is indexed in
+`tests/visual/windows-captures.json`. The DWM backdrop path is not a valid
+video-backed control material on this presentation path without a compositor
+bridge that can sample the native video output.
+
+Native material capture requests remain limited to one per 100 ms. The Slint
+poller now checks for asynchronous replies every 16 ms, reducing the worst-case
+wait between a capture reply and its display without increasing screenshot-raw
+readback frequency. `cargo build -p riina --locked` passed. A fresh isolated GIF
+playback and twenty 100 ms full-desktop pixel probes still showed different
+source and controller colors; the inspected frame was about one GIF frame apart.
+This rules out the UI reply-poll interval as the sole cause. The capture sequence
+is indexed in `tests/visual/windows-captures.json`. The test instance was closed
+and no Riina process remains. Frame synchronization and exact Acrylic appearance
+remain open.
+
+The pinned mpv source at `reference/mpv-upstream` documents
+`--screenshot-sw=no` as rendering screenshots through the active VO; that path
+may reinitialize its renderer and interrupt playback. Riina's normal screenshot
+settings deliberately keep that path for output fidelity, and the material
+sampler uses the same `screenshot-raw` command. This is a plausible readback-latency
+and performance contributor, not yet a proven cause of the one-frame offset.
+Do not change the global screenshot mode without preserving native screenshot
+semantics and HDR behavior.
+
+## Windows playback viewport and moved-window capture · 2026-10-15
+
+Launched the current debug executable with an isolated copy of
+`moving-square.avi` so folder autoplay could not change media during the check.
+A 3840×2160 full-desktop capture showed the video across the playback viewport;
+the black top/bottom bands were inside the player and moved with the video
+window. Moving the native host by 100×70 screen pixels kept the video and
+controls aligned, with no stationary black patch in the capture. A previous
+non-isolated attempt had advanced through neighboring audio fixtures and
+produced an ambiguous capture, so it is not used as evidence. The isolated
+player was closed and no Riina process remains. The previously reported fixed
+black debug console is already prevented by the Windows GUI-subsystem entry
+point in `crates/app/src/main.rs`.
+
+A separate desktop-fixed black banner appeared during the playback-window visual check. Its live capture showed the NVIDIA eye icon and the text “Press Alt+Z to open NVIDIA Overlay”; it belongs to the installed NVIDIA Overlay, not Riina's native video or controls windows. The banner remained screen-positioned while Riina was behind another window. Do not adjust player geometry to compensate for this external overlay.
+
+## Windows presented-frame capture research · 2026-10-15
+
+The native-player material sampler remained one displayed frame behind in the
+4 fps reference clip after reducing its UI reply-poll delay. Checked Microsoft's
+Windows Graphics Capture contract against the pinned `windows` 0.62.2 bindings:
+`IGraphicsCaptureItemInterop::CreateForWindow` can target a native HWND;
+`Direct3D11CaptureFramePool::CreateFreeThreaded` raises `FrameArrived` off the
+UI dispatcher; and each `Direct3D11CaptureFrame` exposes a D3D surface plus
+QPC-based `SystemRelativeTime`. These APIs provide a concrete path to compare
+presented-frame timing with mpv's `screenshot-raw` route. Sources: [Microsoft screen capture guide](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture),
+[CreateFreeThreaded](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded),
+[CreateForWindow](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow).
+
+## Windows window-scoped material capture implementation · 2026-10-15
+
+Added an optional Windows Graphics Capture session owned by the native player
+presentation. Its free-threaded callback reads the host window's D3D11 surface,
+uses a D3D11 staging crop for the client area, converts the captured BGRA pixels,
+and retains only a 320×180-or-smaller sample. Material UI updates prefer fresh
+window-capture frames and retain the existing mpv `screenshot-raw` request as a
+fallback; capture is disabled and its last sample cleared when the material is
+hidden, playback ends, or the video generation changes. HDR keeps its tint path.
+`cargo check -p riina --locked` and `cargo build -p riina --locked` passed after
+binding and thread-ownership fixes. A full-desktop check with an isolated
+`moving-square.avi` showed the video viewport and its black letterbox bands move
+with the player; no desktop-fixed black square remained at the old position. The
+image is indexed in `tests/visual/windows-captures.json`. Because mpv sampling
+remains enabled as a fallback, this screenshot does not establish that WGC supplied
+the displayed material sample. Exact sampler-source delivery, timing, transitions,
+and shutdown during a capture-active session remain unverified. Closed the exact
+test instance and confirmed no Riina process remains. `cargo fmt --all -- --check`
+and `cargo clippy -p riina --all-targets --locked -- -D warnings` passed.
+
+## Windows native video position guard and screen-fixed patch recheck · 2026-10-15
+
+The 16 ms native-surface alignment loop previously considered an mpv child
+aligned when its client size matched the host, without checking its screen
+origin. It now checks both the host client origin and size, and retries its
+existing child-window placement when either differs. `cargo check -p riina
+--locked`, `cargo build -p riina --locked`, and `cargo fmt --all -- --check`
+passed. A full-desktop playback check with an isolated `moving-square.avi`
+fixture moved the host from (528,72) to (648,172). The host client origin,
+controls popup, and mpv child all measured (666,315) at 2747×1711; a full-desktop
+capture showed the square and controls inside the player with no screen-fixed
+black patch. The capture is indexed in `tests/visual/windows-captures.json`.
+This sample was near the clip's final frame, so transition flashes and the
+user's affected media remain unverified. Riina was closed after the check.
+
+## Quick Settings Layout geometry · 2026-10-15
+
+The Layout pane uses IINA source-defined outer spacing (18 points spacious,
+16 compact), card padding (12/10), group spacing (12/8), and material-switch
+row spacing (6/5). On the rebuilt Windows 11 app, opened Quick Settings >
+Layout and inspected both Spacious and Compact Interface states over an
+isolated moving-square fixture. Both full-desktop captures are indexed in
+`tests/visual/windows-captures.json`; controls fit without clipping. The
+spacious card remains about 4 points taller than the previous screenshot
+estimate. This was a visual review, not a pixel-scored comparison. The final
+`cargo build -p riina --locked` passed (42.99 seconds), and
+`cargo fmt --all -- --check` passed. The exact test process was closed and no
+Riina process remains. Workspace Clippy and tests were not run for this visual
+adjustment.
+
+
+## OSC follows video viewport around sidebars · 2026-10-15
+
+The pinned `MainWindowController.setupVideoContainerConstraints()` bounds the
+video container between open sidebars unless Edge-to-Edge Video is enabled;
+`OSCFloatingView` sizes and centers its controller inside that container. Riina's
+floating and docked controller now use the same conditional horizontal viewport
+for width, position, center snapping, and normalized drag persistence, and animate
+viewport changes over the sidebar's 240 ms transition. `cargo build -p riina
+--locked` passed (59.27 seconds); `cargo fmt --all -- --check` passed. A rebuilt
+Windows GUI check opened Quick Settings/Layout, disabled Edge-to-Edge Video, and
+confirmed the centered floating controller ends before the trailing sidebar. The
+pre-test preference was restored, a full-desktop capture is indexed, and the exact
+test process was closed. Drag persistence and custom-position behavior were not
+exercised; no test suite or Clippy run was requested for this visual adjustment.
+
+## Full-desktop playback patch check · 2026-10-15
+
+Captured the full 3840×2160 desktop while `sample-test-pattern.gif` played in the
+0.3.8 debug build, then moved the player host by 120×90 physical pixels and
+captured again. In both frames the video is visible across the playback viewport.
+The only black regions are horizontal aspect-fit matte bands inside the player;
+they move with the video window. The vacated screen area shows the browser, with
+no stationary black square. Both captures are indexed in
+`tests/visual/windows-captures.json`. This does not reproduce the report on the
+user's media or verify rapid playlist transitions. Closed the exact test process
+and confirmed no Riina process remains.
+
+## Windows Quick Settings Video material calibration · 2026-10-15
+
+Matched the pinned REF-24 Video panel against the same green test-pattern fixture
+on a full 3840×2160 Windows desktop. With card fills excluded, the un-carded
+trailing strip measured 54.2% relative linear-sRGB luminance at 28% tint and
+49.1% at 32%; the sampled IINA panel/video pair measures 52.1%. Set the Windows
+dark sidebar tint to 29% (`#1515154A`); the rebuilt capture measured 52.5%, a
+0.4-point difference from that reference sample. The live capture is indexed in
+`tests/visual/windows-captures.json`. Sidebar width is 360 points on both surfaces
+(Windows at 300% scale and REF-24 at 2×). This verifies tint and width only; blur
+timing, the remaining panel geometry, light appearance, and policy fallbacks remain
+open. The build and formatting check passed, and no Riina process remains.
+
+## Windows floating controller material calibration · 2026-10-15
+
+Compared the floating controller against pinned REF-20 over the green test
+pattern. REF-20's background sample retains 71.8% relative linear-sRGB luminance;
+the previous Windows 33% tint retained 47.4%. The Windows dark controller and
+in-app title strip now use 15.7% tint (`#15151528`). The rebuilt full-desktop
+capture measured 72.0% in the same controller region, a 0.2-point difference.
+The capture is indexed in `tests/visual/windows-captures.json`. Pixel scans put
+the visible bar width at about 458 points on Windows and 461 in REF-20; the
+source-defined width is 460 points. Moving-video blur phase, vertical silhouette,
+text contrast, light appearance and Mac runtime remain open. The workspace build
+and formatting check passed, and the test process was closed with no Riina
+process remaining.
+
+## Windows sampled Acrylic transform cost · 2026-10-15
+
+Rebuilt after moving the native CPU blur to half-sized samples, then restoring
+the 320×180 material image before grain. Launched an isolated copy of
+`sample-test-pattern.gif` and captured the full 3840×2160 desktop; the complete
+player window and video viewport are visible in
+`reference/captures/riina-live-2026-10-15/windows-material-halfsample-full-desktop.png`.
+The trace confirmed Windows Graphics Capture supplied 43 displayed samples.
+Readback took 84–93 ms, the UI-thread material transform took 50–56 ms, and
+sample age at display was 137–160 ms. The previous full-size transform measured
+123–130 ms with 220–344 ms sample age, so the half-size transform reduced CPU
+work and improved freshness. The transform still blocks the UI thread and the
+capture readback remains costly; asynchronous or GPU-side processing and matched
+pixel comparison against Windows Acrylic remain open. `cargo build -p riina
+--locked`, `cargo fmt --all -- --check`, and `git diff --check` passed. The test
+instance was closed normally and no Riina process remains.
+
+## Windows mapped-frame downsampling cost · 2026-10-15
+
+The WGC readback now bilinearly samples the mapped BGRA staging surface directly
+into the bounded 320×180 RGBA image. This removes a full client-size RGBA
+allocation and conversion followed by a second CPU downsample, while retaining
+the same pixel-center bilinear mapping as `CapturedFrame::downsample_to_fit`.
+An isolated animated GIF ran in the rebuilt 0.3.8 debug app. Its full 3840×2160
+desktop capture is indexed at
+`reference/captures/riina-live-2026-10-15/windows-material-direct-downsample-full-desktop.png`.
+WGC tracing measured 5–7 ms readback, 51–58 ms worker transform, and 75–117 ms
+capture-to-display age, compared with 95–105 ms readback and 169–181 ms age
+before direct downsampling. The controller shows sampled video through its
+translucent surface in the full-desktop image. Exact material matching, rapid
+clip transitions, and sub-100 ms worst-case age remain open. The app was closed
+and no Riina process remains.
+
+## Windows sampled Acrylic work moved off the UI thread · 2026-10-15
+
+The Windows material transform now runs on one bounded worker thread. Its input
+queue holds at most one waiting sample and drains to the newest frame before
+processing, avoiding an ever-growing queue of stale images. Pixel buffers return
+to the UI thread; only Slint image creation and property updates remain there.
+The UI discards results from old playback generations and expired samples.
+
+Built and played the isolated animated test pattern with material tracing. A
+3840×2160 full-desktop capture at
+`reference/captures/riina-live-2026-10-15/windows-material-worker-full-desktop-1.png`
+shows the video across the playback viewport and the translucent controller
+over it. Three WGC samples were transformed in 51–57 ms each; readback measured
+95–105 ms and sample age at display measured 169–181 ms. Moving the transform
+off the UI thread addresses the 50 ms synchronous UI stall, but does not reduce
+capture-to-display age; the GPU readback remains the dominant delay. Rapid clip
+changes and quantitative UI responsiveness still need a dedicated check. Build,
+format, and capture-manifest validation passed. Closed the test instance and
+confirmed no Riina process remains.
+
+## REF-20 right-toolbar frame geometry on Windows · 2026-10-15
+
+IINA's `OSCToolbarButton.swift` assigns 24×24-point frames; its playback
+`NSStackView` uses zero spacing. Riina's four default right-side actions
+previously occupied 132 points as 30×17-point controls with 4-point gaps. They
+now occupy the source-derived 96-point cluster, with 24-point frames and zero
+spacing; compact rows use the same width while constraining button height to the
+available row. `cargo build -p riina --locked` passed in 1m46s and
+`cargo fmt --all -- --check` passed. The rebuilt 918×619 target-window capture
+shows the four action glyphs in place over the green test pattern; it is indexed
+in `tests/visual/windows-captures.json`. This verifies bounds and visibility,
+not glyph matching or full-desktop pixels. Closed the exact test instance and
+confirmed no Riina process remains.
+
+## Windows quarter-resolution material blur and controller check · 2026-10-15
+
+The sampled material blur now reduces the 320×180 frame to quarter dimensions
+before applying the same wide 5×5 kernel and restoring the texture for stable
+grain. This preserves the full-frame blur radius while cutting worker pixels by
+four compared with the half-size pass. On the isolated paused GIF, a full
+3840×2160 desktop capture shows the complete player and controller, with the
+controller over the playback image. WGC readback measured 5–6 ms, transforms
+28–31 ms, and capture-to-display age 39–54 ms, improving from 51–58 ms and
+75–117 ms respectively. The live controller remains about 460×66 points,
+centered with its default 10% bottom offset. This does not establish exact
+Windows Acrylic pixel parity or rapid transition behavior. The build and format
+check passed; the app was closed and no Riina process remains.
+
+## Windows material source identity and fixed-screen artifact check · 2026-10-15
+
+Material transform keys now include their source as well as playback generation
+and frame revision, so WGC sequence 1 cannot be mistaken for mpv material frame
+revision 1. Paused frames now expire under the same 750 ms freshness limit as
+playing frames. When native capture is available, mpv fallback waits 500 ms for
+its initial WGC sample. The rebuilt debug app displayed five traced WGC samples;
+readback took 5–7 ms, transforms 31–41 ms, and capture-to-display age 57–73 ms.
+No stale mpv fallback result was displayed. The full 3840×2160 desktop capture is
+indexed at `reference/captures/riina-live-2026-10-15/windows-material-source-identity-full-desktop.png`.
+
+A separate movement check on the previous build moved the player from its
+initial desktop position; the playback surface and controls moved with it, and
+no black patch remained at the old coordinates in the full-desktop capture. The
+desktop does show a fixed NVIDIA performance overlay, so an external screen
+overlay remains a plausible explanation if the reported black square appears
+again. This run did not reproduce that square. Build, format and diff checks
+passed, and the exact test instance was closed with no Riina process remaining.
+
+## Windows transport spacing and full-desktop playback check · 2026-10-15
+
+IINA's `MainWindowController.swift` creates three 24-point playback buttons and
+sets their floating stack spacing to 24 points (16 docked). Riina now uses
+24-point-wide transport controls with the matching floating/docked spacing. The
+rebuilt debug app opened the recent `sample-test-pattern.gif`; the video remained
+visible across the playback viewport and the controller showed Previous, Play,
+Next, then the four configured right-side actions. Visual inspection confirmed
+the wider center spacing. The captured screen is the full 3840×2160 desktop; the
+smaller 1280×720 CUA image is the target window's logical screenshot at the
+300%-scaled display, not a desktop crop. Capture and hash are recorded in
+`tests/visual/windows-captures.json`. `cargo fmt --all -- --check` and
+`cargo build -p riina --locked` passed. Closed the test instance and confirmed no
+Riina process remains. Matched icon shape, exact bar height, material blur and
+pixel-scored comparison remain open.
+
+## REF-20 controller proportions on Windows · 2026-10-15
+
+The original 2940×1898 REF-20 image measures about 920 pixels wide and 156
+pixels across the controller's material fill, or approximately 460×78 points at
+the inferred 2× capture scale. Its source layout accounts for that height:
+14-point top inset, 24-point controls, 8-point gap, 24-point timeline and
+8-point bottom inset. Riina previously allocated only 67 points and rendered a
+roughly 64-point material fill. The rebuilt Windows layout now uses 78 points
+spacious and 71 compact; small-window compression remains unchanged. On the
+300%-scaled Windows display, the full-screen 1280×720 logical capture measures
+the Riina controller at about 459×77 points, and the green video fills the
+entire display behind it. This verifies outer proportions and placement, not
+pixel-level tint or blur phase. Capture and hash are in
+`tests/visual/windows-captures.json`. `cargo fmt --all -- --check` and
+`cargo build -p riina --locked` passed. Closed the exact test instance and
+confirmed no Riina process remains.
+
+## REF-20 playlist and PiP toolbar symbols on Windows · 2026-10-15
+
+The pinned IINA toolbar uses `list.bullet.rectangle` for Playlist and `pip.enter`
+for PiP. Riina's previous icons were a list/play arrow and a monitor stand. The
+original MIT SVGs now show a bulleted list in a rounded rectangle and a nested
+picture window, respectively. `cargo build -p riina --locked` passed in 39.67s;
+`cargo fmt --all -- --check` passed. The rebuilt 918×619 target-window capture
+shows both icons at playback size with the green video visible through the
+translucent controller. The capture and SHA-256 are indexed in
+`tests/visual/windows-captures.json`. This is a qualitative shape comparison,
+not pixel-level matching. The full local asset checker stopped at the unrelated
+`music-mode-placeholder.svg` checkout-byte hash; the two edited icon hashes
+match their provenance entries. Riina was closed and no process remains.
+
+## REF-20 timeline label spacing on Windows · 2026-10-15
+
+IINA's `MainWindowController.swift` gives elapsed and duration labels a
+46-point minimum width, centers their text, separates them from the slider by
+2 points, and keeps an 8-point outer inset. Riina had content-sized left-aligned
+labels with an 8-point gap. The Windows timeline now uses those source values;
+small-video mode reduces the minimum label width to 34 points. `cargo build
+-p riina --locked` passed in 1m32s and `cargo fmt --all -- --check` passed.
+The rebuilt 918×619 target-window capture shows centered labels, the shortened
+seek track, and the video visible behind the 78-point controller. It is indexed
+in `tests/visual/windows-captures.json`. This is a source-geometry and visibility
+check, not a pixel-scored comparison; exact digit typography remains open. No
+Riina process remains.
+
+## Isolated full-desktop black-patch movement recheck · 2026-10-15
+
+A controlled 0.3.8 debug playback check opened a temporary isolated copy of
+`tests/fixtures/moving-square.avi`. Full-desktop captures before and after moving
+the native host 160×100 physical pixels show the moving square and horizontal
+black aspect-fit bands following the player, with no stationary black patch at
+the previous coordinates. NVIDIA's performance metrics stayed fixed at the
+upper-right. No Riina code change was made because this fixture does not reproduce
+the user's media or playlist handoff; those cases remain open. Both full-desktop
+images and their SHA-256 hashes are indexed in `tests/visual/windows-captures.json`.
+The exact GUI test process was closed and no Riina process remains. No build or
+automated tests were run for this visual-only recheck.
+
+## REF-21 Layout icon sizing and full-desktop capture · 2026-10-15
+
+`cargo fmt --all -- --check`, `cargo check -p riina --locked`,
+`cargo build --workspace --locked`, and
+`cargo clippy --workspace --all-targets --locked -- -D warnings` passed after the
+16/20-point icon-size correction. The full-desktop script initially failed at its
+C# DPI helper; its block-bodied replacement ran successfully and returned
+3840×2160 with non-black probes. The isolated-video capture shows the video across
+the player surface, the controller at the bottom, and Quick Settings/Layout at the
+right. Capture hash and state are indexed. GUI behavior was inspected at the final
+frame of the five-second fixture, so transitions are not verified. `cargo test
+--workspace --locked` passed in 1m35s. Its 51 native libmpv integration cases are
+ignored by default; the provisioned `tools/mpv/libmpv-2.dll` still matches the
+SHA-256 in `reference/native-lock.json`, but no ignored native test was run. The
+GUI test instance was closed and no Riina process remains.
+
+After all builds, checks, and GUI testing ended, `target/debug` measured 50.55 GB.
+The package-scoped `cargo clean -p riina` removed 39.7 GiB of generated Riina
+outputs. `target/debug` is now 10.89 GB, C: has 128.76 GB free, and the shared
+Cargo registry was not touched. Cargo incremental compilation remains enabled.
+
+## Screen-fixed overlay triage · 2026-10-15
+
+Rebuilt and opened the current debug player with an isolated copy of
+`moving-square.avi`. The five-second fixture had reached its final frame by the
+time the window was moved, so motion during the drag was not verified. The video
+image, title bar, menu, and controls remained together in the moved player. A
+large stationary desktop panel was also visible before launch and remained after
+Riina had exited; its lower strip reads “Default IME” and “MSCTFIME UI”. The
+Windows `TextInputHost` process was present, while the panel's owning HWND was not
+identified. NVIDIA performance metrics were also visible at the fixed upper-right
+desktop position. This capture does not reproduce a Riina-owned black patch; the
+user's affected media remains unverified. No source change was made. The exact
+debug player was closed and no Riina process remains.
+
+## Native video surface opacity and Audio delay ticks · 2026-10-15
+
+The first full-desktop capture reproduced desktop content showing through the
+native playback surface. `NativeVideoHost` made its client background transparent
+to expose Mica, which is unsuitable for the HWND receiving native video. Its
+background is now opaque black; the independent controls HWND retains its
+translucent Windows material. `cargo build -p riina --locked` passed in 1m12s.
+The rebuilt app played an isolated `moving-square.avi`. A 3840×2160 full-desktop
+capture shows no browser content through the video, while Quick Settings remains
+translucent over it. Quick Settings/Audio also shows 21 delay tick positions and
+the centered `0s` value label. Both captures and hashes are indexed in
+`tests/visual/windows-captures.json`. This was visual inspection, not a
+pixel-scored REF-24 comparison; the unrelated stationary IME surface remains in
+the desktop, and the user's original media/black-patch report is not reproduced.
+The exact debug process was closed and no Riina window or process remains.
+
+## REF-23 Audio pane details on Windows · 2026-10-15
+
+Compared the delay control to the pinned IINA Audio panel and
+`SidebarSliderView.swift`. Riina now uses 2-point round low-contrast marks at
+the 21 delay positions, matching IINA's small native tick dots; its neutral
+indicator remains centered and the live `0s` value sits above the slider.
+Added original 16-point clock-delay and three-band Equalizer symbols, and matched
+the sidebar action label to `Load External Audio Track…`. The exact assets and
+MIT provenance hashes are recorded in `assets/provenance.json`. `cargo build -p
+riina --locked` passed in 1m44s; a follow-up build passed in 54s after matching
+the external-audio button's 24-point height and 12-point side insets. The rebuilt
+Audio pane was inspected during isolated-fixture playback on the full 3840×2160
+desktop. The playback image is opaque, while the Acrylic Quick Settings cards
+reveal the video beneath them.
+Capture hash and state are indexed in `tests/visual/windows-captures.json`.
+This is a source-based visual review, not a pixel-scored comparison. Audio
+card-bound measurements, light appearance, and WGC material lag/cost remain open.
+The exact test window was closed and no Riina process remains.
+
+## REF-20 Windows transport glyph proportions · 2026-10-15
+
+The pinned `MainWindowController` gives its speed-down, play/pause, and
+speed-up buttons 24×24-point frames; the speed controls are double chevrons by
+default. Riina's `Tool` component previously limited their artwork to 17 points,
+making all three center glyphs visibly undersized. The icon-size limit is now
+configurable: the floating and docked transport controls use 24 points, while
+other tools retain their existing 17-point default. Added independently drawn
+double-chevron speed icons and large play/pause symbols. `cargo fmt --all --
+--check` and `cargo build -p riina --locked` passed. The rebuilt Windows debug
+player opened the isolated 4-fps pattern; a live target-window capture confirms
+the larger center icons, double-chevron speed arrows, video behind the
+translucent controller, and four right-side actions. Separate paused and playing
+captures confirm the large play triangle and pause bars. During active playback,
+WGC samples followed the changing pattern colors; readback measured 5–6 ms,
+transform 30–32 ms, and capture-to-display age 42–68 ms. This check is not
+pixel-scored and did not inspect the compact layout. The exact test process was
+closed and no Riina window or process remains.
+
+## Timeline preview and screen-fixed black-patch recheck · 2026-10-15
+
+During a live check of `sample-test-pattern.gif`, a dark rectangle appeared only
+while the pointer hovered over the seek bar. It contained the `0:00` preview
+label and disappeared as soon as the pointer moved into the video. The Slint
+timeline intentionally renders its thumbnail-preview card at the pointer, which
+explains this transient rectangle; it was not over the video surface. The video
+and its aspect-fit bands remained together when the player window moved, and a
+full-desktop capture showed no black patch fixed at the former player position.
+After closing the exact debug process, a pale desktop panel remained with the
+labels “Default IME” and “MSCTFIME UI”; its owner is still unconfirmed and it is
+outside Riina. The user's reported media and playlist transition still need a
+reproduction. WGC diagnostics for this run measured 5–6 ms readback, 31–41 ms
+transform, and 57–76 ms sample age. No code change or build was made. No Riina
+window or process remains.
+
+## REF-21 keyboard tab focus and black-patch recheck · 2026-10-15
+
+`cargo build -p riina --locked` passed in 1m37s and `cargo fmt --all -- --check`
+passed. On the rebuilt debug player, mouse-selecting Layout leaves the Quick
+Settings tab without a focus outline; pressing Space shows the keyboard focus
+ring. With `sample-test-pattern.gif` playing, I moved the Riina window twice and
+checked full-desktop captures near the right display edge. The separate mpv
+video HWND followed the main window by the same offsets, and the test pattern
+stayed visible. Its narrow black bands remained aligned with the player and are
+aspect-fit letterboxing. The fixed dark strip was at the far desktop edge,
+outside the playback image; no Riina-owned black patch was reproduced. The
+strip's owner is still unidentified, and the user's original media remains
+unverified. The exact debug player was closed; no Riina window or process
+remains.
+
+## Windows sampled-video material and controller alignment · 2026-10-15
+
+The Windows sampled-video material filter evaluates the existing 5×5 weight
+matrix as two separable passes with five exact center-line corrections. Its final
+quarter-size-to-display enlargement now precomputes bilinear sample coordinates
+instead of invoking the generic image resizer for every output frame. The focused
+`native_material_enlargement_matches_triangle_resampling` test passed, with every
+channel within one level of the previous Triangle resizer. `cargo fmt --all --
+--check` and `cargo build -p riina --locked` passed. In the debug build,
+WGC readback measured 5–6 ms, material transform 17–19 ms, and capture-to-display
+sample age 39–66 ms; the previous transform trace measured 26–30 ms. A live
+isolated `sample-test-pattern.gif` check showed the WGC material following the
+animated colors beneath the translucent controls. Center RGB samples stayed within
+two levels per channel of the captured uniform color after stable grain. The
+3840×2160 full-desktop capture and player-window crop are indexed in
+`docs/visual-reference-audit.csv`; the crop SHA-256 is
+`56B4212A7B2580ACC897CE9E83E936F5C1E7E52D35C637669432162305FB0BE3` and the
+full-desktop SHA-256 is
+`33E96E805B4E488B25D7D29A3C2E604DCFB337E127A984C603B33FC1F5377E0D`. The live
+window measures 918×619 logical points; the controller fill spans approximately
+458 points against IINA's 460-point source width. Its video image and narrow black
+aspect-fit bands move with the player; no stationary black patch was reproduced.
+The isolated GUI instance was closed and no Riina window or process remains.
+Nonuniform video blur, exact controller vertical bounds and glyph contours, light
+appearance, system-policy transitions, and native macOS rendering remain open.
+
+## REF-20 Windows controller geometry correction · 2026-10-15
+
+Source review found that IINA's `OSCFloatingView.swift` uses 67 points only for
+vertical position clamping. `MainWindowController.swift` wraps the small native
+seek slider in 6-point top and bottom padding, making the visible timeline row
+24 points. With its 14/8-point spacious and 10/5-point compact insets, the visible
+panel measures about 78 points spacious and 71 compact. Riina's intervening
+67/60-point layout omitted that padding and was too short. The Slint layout now
+uses 78/71 points and a 24-point timeline row. `cargo fmt --all -- --check` and
+`cargo build -p riina --locked` passed. The 3840×2160 full-desktop capture at
+300% scale and player crop show the full controls, a 458×78-point visible panel,
+and a 58-point gap in the 619-point client (9.4%). IINA's matched 2× capture
+measures about 460×80 visible points with a 9.7% bottom gap; the remaining panel
+bounds differ by about two points. Capture paths and hashes are recorded in
+`docs/visual-reference-audit.csv`. A separate moving-square playback capture
+shows successive video frames; WGC transform time was 18–19 ms and displayed
+sample age 27–54 ms. The exact test instance was closed and no Riina process
+remained. The controller still needs a moving, high-contrast shape directly
+beneath it to verify nonuniform blur strength and sample phase.
+
+## REF-23 Audio Equalizer layout correction · 2026-10-15
+
+Compared Riina's Quick Settings Equalizer with IINA v1.5.0's `SidebarAudioPane.swift`.
+IINA places the heading, full-width preset selector, 120-point vertical fader bank,
+and 10-point frequency labels in separate rows. Riina previously placed the
+selector beside the heading and shortened each fader column to fit labels below.
+The Windows card now follows the source order, with 12/10-point spacious/compact
+padding and 12/8-point row spacing. Existing card bounds and sampled-video Acrylic
+remain in place.
+
+`cargo fmt --all -- --check` and `cargo build -p riina --locked` passed. The rebuilt
+player was inspected at 3840×2160 / 300% scale over an isolated 4 fps pattern. The
+full-desktop capture shows the separate heading, full-width selector, full-height
+faders, and video through the dark material. A scrolled capture shows all ten
+faders, the dB scale, and frequency labels. Both hashes and states are indexed in
+`tests/visual/windows-captures.json`. The player was closed after inspection.
+Pixel-scored card comparison, light appearance, and live material timing/cost remain
+open.
+
+## REF-21 Layout symbol correction on Windows · 2026-10-15
+
+Compared the live Quick Settings/Layout pane with the pinned `SidebarLayoutPane.swift`
+and REF-21 capture. The source assigns 20-point symbols to Theme, Compact Interface,
+and video rows; its material subheading and mini rows use 16-point symbols. Riina
+previously showed a generic window, gear, chat bubble, mouse, list, and filmstrip in
+these settings. Replaced those with eight independently drawn symbols for appearance,
+Windows material, OSD, OSC, sidebar, compact interface, edge-to-edge video, and
+aspect lock. The new original SVGs are MIT and have matching SHA-256 provenance
+records.
+
+`cargo fmt --all -- --check` and `cargo build -p riina --locked` passed. The rebuilt
+0.3.8 player was opened with an isolated copy of the 4 fps pattern. The full
+3840×2160 capture shows all eight symbols at their source-sized frames and video
+through the Windows sampled Acrylic. The capture and hash are in
+`tests/visual/windows-captures.json`; no pixel-scored glyph/card comparison or light
+theme check was done. The exact test PID exited gracefully and no Riina process
+remains.
+
+## REF-21 Windows theme segment focus behavior · 2026-10-15
+
+Compared the theme selector with IINA's native `NSSegmentedControl` in
+`SidebarLayoutPane.swift`. `SidebarTab` now suppresses its focus border after
+pointer selection and shows it after keyboard navigation or activation, matching
+the platform's pointer-versus-keyboard focus behavior. `cargo fmt --all -- --check`
+and `cargo build -p riina --locked` passed. On Windows 11 at 300% scale, a live
+`sample-test-pattern.gif` session showed the selected Light segment without a
+focus border after a mouse click; pressing Space showed the keyboard focus ring.
+The full 3840×2160 captures are indexed in `tests/visual/windows-captures.json`.
+Light Acrylic remained visible over playback. Card/tab pixel scoring and exact
+material comparison with REF-21 remain open. The test instance was closed and no
+Riina process remains.
+
+## REF-21 Quick Settings category icon parity · 2026-10-15
+
+The pinned `QuickSettingViewController.swift` assigns paintbrush.fill, photo,
+waveform, and captions.bubble.fill to Layout, Video, Audio, and Subtitles;
+`SideBar.swift` renders them at 14 points with bold weight. Riina's tab row now
+uses original MIT equivalents for those four meanings at 14 points. The rebuilt
+3840×2160 Windows capture and a same-scale header crop show the new glyphs in
+place over video-backed Acrylic. The selected label was increased from 11 to 12
+points after the first matched crop measured 69×20 px versus IINA's 78×24 px. The
+final 12-point capture measures 76×22 px; the label fits its segment. Build,
+formatting, provenance hash, JSON and CSV checks passed. The final full capture is
+indexed; exact glyph contours and card/tab pixel scoring stay open. The test
+instance was closed and no Riina process remains.
+
+## Windows transition-cover black-square guard · 2026-10-15
+
+The rendering boundary now independently requires an outgoing transition image
+before enabling its opaque black matte. This closes the empty-image path even if
+the display predicate changes later. `cargo build --workspace --locked` and
+`cargo fmt --all -- --check` passed. A fresh full-desktop 3840×2160 check moved
+the player during `moving-square.avi` playback, then allowed the local fixture
+playlist to advance to another item. Video followed the host; no screen-fixed
+black square appeared. The user's original media and triggering transition
+remain unverified. Closed the exact test process and confirmed no Riina process
+remains.
+
+## User report: black square stays fixed while player moves · 2026-10-15
+
+The user reports that the black square remains at the same desktop location
+when the playback window moves. This points to a separate desktop-anchored
+surface, but does not identify its owner. A current window inventory had no
+Riina process and showed NVIDIA GeForce Overlay windows; the full-desktop GDI
+capture returned uniformly black and is invalid for visual attribution. Do not
+adjust player geometry until the square is reproduced with the player and its
+native host, video child, and controls HWND bounds captured together.
+
+## REF-24 fractional crop rail and native controls geometry · 2026-10-15
+
+The selected Crop `None` segment now uses the measured 56.5-point width. The
+workspace build and formatting pass. UI Automation on an isolated moving-square
+playback at 300% scale reports Aspect `Default` at 204×72 physical pixels and
+Crop `None` at 169×72 pixels; the latter reflects integer screen-bound rounding
+from 56.5 points. The ratio buttons measure 135/150/168/147/135 px, matching
+45/50/56/49/45 points. The native controls HWND aligns to the host client bounds
+(546,215,2747,1711) and receives hit tests over playback. A 3840×2160 desktop
+capture passed non-black validation but omitted the controls/sidebar despite the
+accessible controls being onscreen. Treat geometry as verified and the rendered
+surface/pixel comparison as unresolved. The test instance was closed and no
+Riina process remains.
+
+## REF-20 Windows floating controller position conversion · 2026-10-15
+
+The Windows floating bar now converts IINA's bottom-origin vertical preference
+and AppKit drag rectangle into top-origin layout coordinates. The default
+bottom inset uses IINA's 67-point controller clamp plus its 25-point top margin;
+the drag range keeps the bar 25 points from the video area's top while permitting
+it to touch the bottom. Horizontal dragging matches IINA's 10-point left inset
+and permits the right edge to reach the video boundary. Formatting passed. The
+full workspace build passed. No GUI positioning
+test was run: Windows Graphics Capture is still failing to create a monitor
+capture item (`0x80070057`), and the available prior screenshots do not show the
+new build's position.
+
+## Saved-filter menu shortcut alignment · 2026-10-15
+
+Saved Video and Audio Filter entries now set Slint's typed `shortcut` property
+from their stored key and modifier bits on both menu implementations. Labels no
+longer contain manual spaces. `cargo fmt --all -- --check` passed; the workspace
+build passed. No live native-menu capture was taken, so right-column layout
+and accelerator dispatch remain unverified.
+
+## Fixed-screen black patch move recheck · 2026-10-15
+
+Launched the rebuilt `riina.exe` against an isolated copy of `moving-square.avi`
+so folder autoplay could not replace the fixture. A native host move of 120×80
+screen pixels moved the visible controls window by exactly 120×80 pixels; the
+host-to-controls offset remained 18×143 pixels. The other 36×36 Riina-owned
+window at `(0,0)` is Winit's documented layered, transparent event-target
+helper. Windows Graphics Capture again failed with `CreateForMonitor`
+(`0x80070057`), and the full-desktop GDI capture was uniformly black, so the
+black patch itself could not be visually located or attributed. NVIDIA Overlay
+processes were running, which is only a lead and not proof of cause. Closed the
+exact test process and confirmed no Riina process remained. No renderer change
+was made without a usable capture of the reported patch.
+
+## REF-24 image-adjustment slider geometry · 2026-10-15
+
+Native-resolution crops of the pinned 2× reference and the saved 3× Windows
+capture measure the equalizer cards at approximately 327.5 and 328 points wide.
+The label origins differ by less than one point, while the first slider begins
+about 65 points after its label origin in IINA and 76 points after it in Riina.
+Changed the Riina label column to 56 points (plus the source 8-point row gap) and
+reduced the reset-action slot from 20 to 16 points. This source-derived change
+moves the slider start about nine points left and the reset center about two
+points outward. `cargo fmt --all -- --check` and `cargo build --workspace
+--locked` pass. The rebuilt UI Automation tree exposed the Video pane's upper
+controls, but not the lower image-adjustment rows while they were below the
+viewport. Windows Graphics Capture failed with `CreateForMonitor` (`0x80070057`)
+and the GDI desktop capture was uniformly black, so rendered post-change bounds
+remain unverified. The exact Riina test process was closed.
+
+## REF-24 Speed and image-adjustment bounds · 2026-10-15
+
+The rebuilt native-video player was opened with an isolated moving-square clip.
+At 300% scale, UI Automation measured the Speed slider at 738×60 pixels
+(246×20 pt), matching the 246-point reference track. Its input text region
+remained 42 points inside the 50-point input slot. The lower Video pane measured
+the image-adjustment label column at 56 pt, label-to-slider offset at 64 pt,
+slider/reset row bounds at 14 pt and pitch at 26 pt, and each reset hit target at
+16 pt. The exact test process was closed and no Riina process remained. `cargo
+fmt --all -- --check` and `cargo build --workspace --locked` pass. Windows
+Graphics Capture failed with `CreateForMonitor` (`0x80070057`) and full-desktop
+GDI capture returned uniform black; no visible-pixel or material claim is made.
+
+## REF-21 Layout scrollbar policy · 2026-10-15
+
+The pinned Layout reference has no scrollbar at rest, while the saved Riina
+capture shows a persistent right-edge thumb. The Layout-specific `ScrollView`
+was missing `vertical-scrollbar-policy: always-off`; added it to match IINA's
+autohiding reference while keeping wheel scrolling available. Formatting and
+`cargo build -p riina --locked` pass. The rebuilt isolated-pattern app opened
+Quick Settings > Layout in UI Automation; Layout controls remained available
+and wheel input exposed the lower Settings control. The remaining Sidebar
+Position rows were not confirmed through the current UIA tree. Both full-desktop
+GDI capture and `PrintWindow` of the controls HWND produced black output, and
+Windows Graphics Capture is unavailable (`CreateForMonitor`, `0x80070057`), so
+the idle scrollbar appearance and complete bottom-of-pane reach remain unverified.
+The exact test process was closed and no Riina process remains.
+
+## REF-21 Layout content-derived scroll range · 2026-10-15
+
+Replaced the hard-coded 760-point Layout `ScrollView` extent with
+`max(visible-height, layout-content.preferred-height)`, so its viewport follows
+the rendered card and section heights. `cargo fmt --all -- --check` and
+`cargo build -p riina --locked` pass. The attempted GUI check was invalidated by
+a topmost `ScreenClippingHost` window owned by Windows (`3840×2160`, process
+672) that covered the player and desktop capture. No visual or scrolling claim
+is made from that run. Closed the exact test Riina process; left the Windows
+snipping interface untouched.
+
+To preserve IINA's autohide behavior while using the Windows native scrollbar,
+the Layout scroll view now exposes its `as-needed` indicator after a scroll event
+and hides it 850 ms after the last event; repeated events restart the timer. The
+sidebar pane change also clears the temporary visibility state. The locked
+application build passes. The indicator's appearance and timing remain
+unverified because the full-screen Windows snipping overlay is still present.
+
+## REF-21 Fit Window to Video state · 2026-10-15
+
+Compared the Layout row predicate with IINA's pinned `SidebarLayoutPane`:
+`removeBlackBarBtn` is visible only when window-aspect ratio is unlocked. Riina
+now uses that preference for the Fit Window to Video action; the Docked one-row
+card is 44 points, Edge-to-Edge's two-row card is 76 points, and the unlocked
+32-point action row increases either card accordingly. `cargo fmt --all --
+--check` and `cargo build -p riina --locked` pass. Runtime verification of the
+Edge-to-Edge, Docked, locked, and unlocked states remains pending because the
+full-screen Snipping overlay blocks clean visual inspection.
+
+## REF-21 OSC bounds around open sidebars · 2026-10-15
+
+Source review of the saved 3840×2160 Layout capture found the floating OSC
+underlapping the open trailing sidebar. In Edge-to-Edge mode, the OSC now uses
+the video width after subtracting visible sidebars; the underlying video keeps
+its full edge-to-edge dimensions. `cargo fmt --all -- --check` and
+`cargo build --workspace --locked` pass. Live control-bar placement and
+sidebar bounds are verified by UI Automation; rendered alignment and pointer
+hit-testing need a clean desktop capture with the Quick Settings panel open.
+The saved 3840×2160/300% capture estimates a 915-point player window and
+360-point trailing sidebar, leaving a 555-point OSC span. A centered 460-point
+bar moves from roughly x=228 to x=48, removing an estimated 132-point overlap;
+an isolated-fixture UI Automation run on the rebuilt binary confirms the last
+OSC action ends at x=2033 px and the first Video-panel row begins at x=2264 px,
+leaving 231 physical pixels (77 points) clear. The exact test process closed
+normally and no Riina process remained. `tests/visual/riina-osc-sidebar-geometry-evidence.json`
+records the binary, fixture, bounds, and limitations. This verifies control
+geometry only; further UIA states verified a leading Layout sidebar, Playlist
+leading with Quick Settings trailing, and Plugins leading with Quick Settings
+trailing. With both sides occupied, optional toolbar actions hide instead of
+overlapping the panel while center transport buttons remain in the video span.
+Both test processes exited normally. The topmost snipping overlay still blocks
+visual/material capture and drag-fraction verification.
+The same test measured Quick Settings tab hit rectangles: Subtitles ends at
+x=3311 while the top-level window ends at x=3293, but UIA reports it on-screen
+and its Invoke action opens the Subtitles panel. The older saved full-desktop
+image shows the glyph inside the frame. This is an unresolved UIA/rendered-edge
+coordinate discrepancy, not proof of clipping; keep the measured 192-point
+capsule pending a fresh pixel capture rather than shrinking it speculatively.
+
+## REF-21 On Screen Controller tile geometry · 2026-10-15
+
+The selected tile in the native-resolution pinned screenshot measures 132×148
+px at 2×, or 66×74 points; adjacent tiles are 16 px (8 points) apart, so the
+row spans 214 points. `SidebarLayoutPane.swift` uses the default 8-point gap from
+`UIHelper.hStack`. Riina's prior row was 216 points with 65.33-point tiles and
+10-point gaps. It now uses 214/8/66-point geometry. The incremental `cargo build
+--workspace --locked` passed. The old screenshot's overlapped OSC predates the
+controller/sidebar bounds fix and must not be used to assess current overlap.
+The source also uses a 40×28-point image view, an 8-point vertical stack gap,
+and 12-point item padding. In the pinned crop, the visible preview frame is about
+32.5×25 points. Riina now reserves that 40×28 viewport and draws an inset 32×25
+frame with the source-defined 8-point label gap. `cargo fmt --all -- --check`
+passed. The rebuilt app started and restored a prior `moving-square.avi` session,
+but Computer Use failed twice during window capture with
+`IGraphicsCaptureItemInterop.CreateForMonitor` (`0x80070057`); no screenshot or
+post-change UIA measurements were obtained. The exact Riina process was closed
+and confirmed absent. Tile hitbox geometry and the stationary-black-patch playback
+observation remain visually unverified by this run. A 3840×2160 full-desktop
+baseline captured after exit also returned black at all 25 probe points, so it
+cannot establish whether the reported patch persists without Riina.
+
+`OSCLayoutSelector.Item` also specifies an 8-point corner radius, a 2-point
+selected outline, and a 1-point outline for inactive tiles. Riina's inactive
+tiles previously had no outline and used 7-point corners. The component now uses
+the measured radii and widths with a low-contrast theme-aware inactive stroke;
+`cargo fmt --all -- --check` and the incremental workspace build passed. A fresh
+capture is pending.
+
+`createOSCSettingsView()` adds 8 points below the OSC tiles, then the outer
+sidebar stack adds its 18-point section spacing before the Sidebar Position
+heading. Riina previously applied only the 18-point gap. The Layout pane now
+reserves the additional 8 points without changing the other section gaps.
+Formatting and the locked workspace build passed. The desktop capture path still
+returns an all-black baseline, so the rebuilt 26-point rendered gap is not yet
+visually confirmed.
+
+The same matched-scale crops measured the section-title glyphs at about 19 px in
+IINA and 16 px in the prior Riina capture. The pinned `createSectionTitle` uses
+a bold 12-point system font; Riina used 11 points. Its `SidebarSectionTitle`
+caption now uses 12 points. The locked workspace build and formatting check
+passed with the final layout changes; rendered glyph bounds are pending.
+The source also pads the Sidebar Position container 8 points below its card.
+Riina keeps that inset in a transparent wrapper below the source-derived
+spacious/compact material card heights, extending the scroll range by 8 points.
+The scroll-end pixels remain unverified.
+
+## REF-21 Sidebar Position row geometry · 2026-10-15
+
+The source uses `SidebarPosSwitch` rows in a vertical stack with 10/6-point
+spacious/compact spacing and 12/10-point container padding. Riina now uses
+24-point rows and source-derived card heights of 118/106 points, replacing its
+30-point rows, 2-point gaps, 8-point padding, and fixed 114-point height.
+`cargo fmt --all -- --check` and `cargo build --workspace --locked` pass. The
+GUI launch did not use the documented `-- <media>` argument separator, and the
+resulting window title reported `track-languages.mkv`; fixture playback was not
+verified. Computer Use then failed twice with `CreateForMonitor` (`0x80070057`),
+and the full-desktop fallback returned black at all 25 probes. `ScreenClippingHost`
+PID 672 was present; it was left untouched. No rendered geometry is claimed. The
+exact test process closed normally and no Riina process remained.

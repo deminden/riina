@@ -1,11 +1,13 @@
 //! Shared picker lifetime and background font discovery.
 use crate::{FontPicker, PlayerWindow, font_catalog};
 use slint::{
-    ComponentHandle, ModelRc, StandardListViewItem, VecModel, winit_030::WinitWindowAccessor,
+    ComponentHandle, ModelRc, StandardListViewItem, VecModel,
+    winit_030::{WinitWindowAccessor, winit::window::Theme},
 };
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
+    time::Duration,
 };
 
 fn items(values: impl Iterator<Item = String>) -> ModelRc<StandardListViewItem> {
@@ -87,6 +89,7 @@ fn preview_width_scale(family: &font_catalog::FontFamily, face: &font_catalog::F
 }
 
 fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
+    apply_theme(picker, app.get_dark_theme());
     let font = app.get_subtitle_font();
     picker.set_custom_name(
         if font == riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT {
@@ -100,8 +103,54 @@ fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
     }
 }
 
+fn apply_theme(picker: &FontPicker, dark_theme: bool) {
+    picker.set_dark_theme(dark_theme);
+    let native_theme = if dark_theme {
+        Theme::Dark
+    } else {
+        Theme::Light
+    };
+    picker
+        .window()
+        .with_winit_window(|window| window.set_theme(Some(native_theme)));
+}
+
+fn follow_player_theme(picker: &FontPicker, app: &PlayerWindow, timer: &Rc<slint::Timer>) {
+    apply_theme(picker, app.get_dark_theme());
+    let weak_picker = picker.as_weak();
+    let weak_app = app.as_weak();
+    let weak_timer = Rc::downgrade(timer);
+    timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(250),
+        move || {
+            let Some(app) = weak_app.upgrade() else {
+                if let Some(timer) = weak_timer.upgrade() {
+                    timer.stop();
+                }
+                return;
+            };
+            let Some(picker) = weak_picker
+                .upgrade()
+                .filter(|picker| picker.get_picker_active())
+            else {
+                if let Some(timer) = weak_timer.upgrade() {
+                    timer.stop();
+                }
+                return;
+            };
+            let dark_theme = app.get_dark_theme();
+            if picker.get_dark_theme() != dark_theme {
+                apply_theme(&picker, dark_theme);
+            }
+        },
+    );
+}
+
 pub fn connect(app: &PlayerWindow) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
+    let appearance_timer = Rc::new(slint::Timer::default());
+    let show_appearance_timer = appearance_timer.clone();
     let owned = current.clone();
     app.on_dismiss_font_picker(move || {
         if let Some(picker) = owned.borrow_mut().take() {
@@ -128,6 +177,8 @@ pub fn connect(app: &PlayerWindow) {
                 app.set_status(error.to_string().into());
                 return;
             }
+            crate::platform::enable_font_picker_acrylic(&picker);
+            follow_player_theme(&picker, &app, &show_appearance_timer);
             let window = picker.as_weak();
             let _ = slint::spawn_local(async move {
                 if let Some(picker) = window.upgrade()
@@ -146,6 +197,7 @@ pub fn connect(app: &PlayerWindow) {
                 return;
             }
         };
+        crate::appearance_preferences::install_system_typography(&picker);
         refresh_selection(&picker, &app);
         let parent = app.as_weak();
         let window = picker.as_weak();
@@ -191,6 +243,8 @@ pub fn connect(app: &PlayerWindow) {
             app.set_status(error.to_string().into());
             return;
         }
+        crate::platform::enable_font_picker_acrylic(&picker);
+        follow_player_theme(&picker, &app, &show_appearance_timer);
         crate::platform::center_auxiliary_window(&picker, &app);
         let window = picker.as_weak();
         *current.borrow_mut() = Some(picker);

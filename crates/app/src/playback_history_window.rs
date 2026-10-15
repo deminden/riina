@@ -65,6 +65,7 @@ pub(crate) fn install(
                     return;
                 }
             };
+            crate::appearance_preferences::install_system_typography(&window);
             connect_window(
                 &app,
                 &window,
@@ -88,6 +89,8 @@ pub(crate) fn install(
         show_last_revision.set(Some(revision(&show_history)));
         if let Err(error) = window.show() {
             app.set_status(format!("Could not show Playback History: {error}").into());
+        } else {
+            crate::platform::enable_history_acrylic(&window);
         }
     });
 

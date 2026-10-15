@@ -154,6 +154,14 @@ pub fn output_commands(
     enabled: bool,
     source_primaries: Option<&str>,
 ) -> Result<Vec<Vec<String>>, String> {
+    output_commands_with_icc(enabled, source_primaries, true)
+}
+
+pub fn output_commands_with_icc(
+    enabled: bool,
+    source_primaries: Option<&str>,
+    load_icc_profile: bool,
+) -> Result<Vec<Vec<String>>, String> {
     if enabled {
         let primaries = match source_primaries {
             Some("bt.2020") => "bt.2020",
@@ -173,7 +181,11 @@ pub fn output_commands(
         ])
     } else {
         Ok(vec![
-            vec!["set".into(), "icc-profile-auto".into(), "yes".into()],
+            vec![
+                "set".into(),
+                "icc-profile-auto".into(),
+                if load_icc_profile { "yes" } else { "no" }.into(),
+            ],
             vec!["set".into(), "target-prim".into(), "auto".into()],
             vec!["set".into(), "target-trc".into(), "auto".into()],
             vec![

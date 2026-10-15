@@ -133,6 +133,7 @@ fn install_for_kind(
                     return;
                 }
             };
+            crate::appearance_preferences::install_system_typography(&window);
             window.set_is_audio(is_audio);
             window.set_window_title(if is_audio {
                 "Audio Filters".into()
@@ -172,6 +173,8 @@ fn install_for_kind(
         refresh(&app, &window, &show_latest, &show_settings, is_audio);
         if let Err(error) = window.show() {
             app.set_status(format!("Could not show filter window: {error}").into());
+        } else {
+            crate::platform::enable_video_filters_acrylic(&window);
         }
     };
     if is_audio {
@@ -700,11 +703,65 @@ pub(crate) fn saved_filter_rows(
             token: saved.filter.clone().into(),
             label: saved.name.clone().into(),
             selected: video_filters::is_active(&saved.filter, active_filters),
+            shortcut: saved_filter_menu_shortcut(&saved.shortcut_key, saved.shortcut_modifiers),
             shortcut_label: format_shortcut(&saved.shortcut_key, saved.shortcut_modifiers).into(),
             shortcut_key: saved.shortcut_key.clone().into(),
             shortcut_modifiers: i32::from(saved.shortcut_modifiers),
         })
         .collect()
+}
+
+fn saved_filter_menu_shortcut(key: &str, modifiers: u8) -> slint::Keys {
+    if key.is_empty() {
+        return slint::Keys::default();
+    }
+    let mut parts = Vec::with_capacity(5);
+    for (flag, name) in [
+        (video_filters::SHORTCUT_META, "Meta"),
+        (video_filters::SHORTCUT_CONTROL, "Control"),
+        (video_filters::SHORTCUT_ALT, "Alt"),
+        (video_filters::SHORTCUT_SHIFT, "Shift"),
+    ] {
+        if modifiers & flag != 0 {
+            parts.push(name.to_owned());
+        }
+    }
+    let mut key = match key.to_ascii_uppercase().as_str() {
+        "SPACE" => "Space".to_owned(),
+        "TAB" => "Tab".to_owned(),
+        "LEFT" | "LEFTARROW" => "LeftArrow".to_owned(),
+        "RIGHT" | "RIGHTARROW" => "RightArrow".to_owned(),
+        "UP" | "UPARROW" => "UpArrow".to_owned(),
+        "DOWN" | "DOWNARROW" => "DownArrow".to_owned(),
+        "ENTER" | "RETURN" => "Return".to_owned(),
+        "ESC" | "ESCAPE" => "Escape".to_owned(),
+        "BS" | "BACKSPACE" => "Backspace".to_owned(),
+        "DEL" | "DELETE" => "Delete".to_owned(),
+        "-" => "HyphenMinus".to_owned(),
+        "=" => "Equals".to_owned(),
+        "[" => "OpenBracket".to_owned(),
+        "]" => "CloseBracket".to_owned(),
+        "\\" => "BackSlash".to_owned(),
+        "`" => "BackQuote".to_owned(),
+        "," => "Comma".to_owned(),
+        "." => "Period".to_owned(),
+        "/" => "Slash".to_owned(),
+        "<" => "LessThan".to_owned(),
+        ">" => "GreaterThan".to_owned(),
+        "(" => "OpenParen".to_owned(),
+        ")" => "CloseParen".to_owned(),
+        "+" => "Plus".to_owned(),
+        "_" => "Underscore".to_owned(),
+        _ if key.chars().count() == 1 && key.chars().next().is_some_and(char::is_uppercase) => {
+            if modifiers & video_filters::SHORTCUT_SHIFT == 0 {
+                parts.push("Shift".to_owned());
+            }
+            key.to_lowercase()
+        }
+        _ => key.to_owned(),
+    };
+    parts.push(std::mem::take(&mut key));
+    slint::Keys::from_parts(parts.iter().map(String::as_str)).unwrap_or_default()
 }
 
 fn format_shortcut(key: &str, modifiers: u8) -> String {

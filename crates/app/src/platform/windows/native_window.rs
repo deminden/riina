@@ -15,41 +15,45 @@ use std::{
         Arc,
         atomic::{AtomicIsize, Ordering},
     },
+    time::{Duration, Instant},
 };
-use windows::{
-    Win32::{
-        Foundation::{HWND, RECT},
-        Graphics::{
-            Dwm::{DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BLURBEHIND, DwmEnableBlurBehindWindow},
-            Gdi::{CreateRectRgn, DeleteObject, HGDIOBJ},
-        },
-        UI::WindowsAndMessaging::{
-            GWL_EXSTYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED, SWP_NOACTIVATE,
-            SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW,
-            SetWindowPos, WS_EX_TRANSPARENT,
-        },
+use windows::Win32::{
+    Foundation::{HWND, LPARAM, RECT},
+    Graphics::Dwm::{DWM_BB_ENABLE, DWM_BLURBEHIND, DwmEnableBlurBehindWindow},
+    UI::WindowsAndMessaging::{
+        GWL_EXSTYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+        SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetWindowLongPtrW,
+        SetWindowPos, WS_EX_LAYERED, WS_EX_TRANSPARENT,
     },
-    core::BOOL,
 };
+use windows::core::BOOL;
 use winit::platform::windows::WindowAttributesExtWindows;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-// Slint registers even the hidden shared-renderer menu, then forces its HWND
-// opaque. The native owner already hosts the menu, so restore the chrome's alpha
-// after realization using the same DWM region as Winit's transparent windows.
+thread_local! {
+    // Surface alignment retries run every 16 ms. Report each new failure once
+    // so a persistent native-window mismatch stays diagnosable without flooding logs.
+    static LAST_OVERLAY_ALIGNMENT_ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
+    #[cfg(debug_assertions)]
+    static ALIGNMENT_WINDOWS_REPORTED: Cell<bool> = const { Cell::new(false) };
+}
+
+// Slint can change the popup's native styles while creating its shared menu.
+// Preserve Winit's layered composition surface, but restore interactive hit
+// testing after the shared menu has made the popup click-through.
 fn enable_video_transparency(window: &winit::window::Window) -> Result<(), String> {
     let handle = window.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(handle) = handle.as_raw() else {
         return Err("Native video transparency requires a Windows window".into());
     };
     let hwnd = HWND(handle.hwnd.get() as *mut _);
-    // Keep Winit's layered alpha for video composition, but remove its input
-    // transparency so the controls remain part of the hit-test surface.
+    // Winit may provide WS_EX_LAYERED for per-pixel alpha composition. Preserve
+    // its style and remove only the click-through flag that blocks control input.
     let extended_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
     let interactive_style = extended_style & !(WS_EX_TRANSPARENT.0 as isize);
     if interactive_style != extended_style {
         // SAFETY: hwnd is the retained, realized Slint chrome window. The style
-        // is updated without replacing its owner, alpha, or taskbar attributes.
+        // change leaves its owner and taskbar attributes intact.
         unsafe {
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, interactive_style);
             SetWindowPos(
@@ -73,54 +77,143 @@ fn enable_video_transparency(window: &winit::window::Window) -> Result<(), Strin
     if effective_style & (WS_EX_TRANSPARENT.0 as isize) != 0 {
         return Err("The native video overlay is still mouse-transparent".into());
     }
-    // SAFETY: This creates a locally owned GDI region with no borrowed pointers.
-    let region = unsafe { CreateRectRgn(0, 0, -1, -1) };
-    if region.0.is_null() {
-        return Err("Could not create the transparent video region".into());
+    if (effective_style ^ extended_style) & (WS_EX_LAYERED.0 as isize) != 0 {
+        return Err("The native video overlay lost its layered composition style".into());
     }
-    let blur = DWM_BLURBEHIND {
-        dwFlags: DWM_BB_ENABLE | DWM_BB_BLURREGION,
+    let blur_behind = DWM_BLURBEHIND {
+        dwFlags: DWM_BB_ENABLE,
         fEnable: BOOL(1),
-        hRgnBlur: region,
-        fTransitionOnMaximized: BOOL(0),
+        ..Default::default()
     };
-    // SAFETY: The retained Winit window owns this live HWND. DWM reads the
-    // descriptor synchronously and does not take ownership of the GDI region.
-    let result = unsafe { DwmEnableBlurBehindWindow(hwnd, &blur) };
-    // SAFETY: Release our region after DWM has consumed it, including on failure.
-    unsafe {
-        let _ = DeleteObject(HGDIOBJ(region.0));
-    }
-    result.map_err(|error| format!("Could not make the native video overlay transparent: {error}"))
+    // Windows 8+ no longer blurs with this legacy API, but Microsoft documents
+    // that it still enables DWM to honor this window's per-pixel alpha values.
+    // The actual Windows material comes from the sampled-video Acrylic layer.
+    unsafe { DwmEnableBlurBehindWindow(hwnd, &blur_behind) }
+        .map_err(|error| format!("Could not restore video-overlay alpha composition: {error}"))?;
+    Ok(())
 }
 
-fn align(host: &slint::Window, chrome: &slint::Window) {
+fn dismiss_unaligned_transition_cover(app: &PlayerWindow) {
+    if app.get_native_transition_frame() {
+        // A retained frame is opaque by design. If the controls HWND cannot be
+        // verified over its video host, discard it before it can remain painted
+        // at the overlay's previous desktop coordinates.
+        app.set_native_transition_frame(false);
+        app.set_video_frame(slint::Image::default());
+        app.window().request_redraw();
+    }
+}
+
+fn set_overlay_visibility(app: &PlayerWindow, visible: bool) {
+    app.window()
+        .with_winit_window(|overlay| overlay.set_visible(visible));
+}
+
+fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
+    let mut aligned = true;
     host.with_winit_window(|window| {
-        if let Ok(origin) = window.inner_position() {
-            // Both values are physical: never multiply a physical size by DPI again.
-            let size =
-                slint::PhysicalSize::new(window.inner_size().width, window.inner_size().height);
-            let position = slint::PhysicalPosition::new(origin.x, origin.y);
-            chrome.with_winit_window(|overlay| {
-                if let Err(error) =
-                    super::window_geometry::align_surfaces(window, overlay, position, size)
-                {
-                    // The overlay adapter may not have an HWND during its
-                    // initial construction. Keep queued Slint geometry there;
-                    // realized windows use one native move/resize operation.
-                    if chrome.size() != size {
-                        chrome.set_size(size);
-                    }
-                    if chrome.position() != position {
-                        chrome.set_position(position);
-                    }
-                    if !error.contains("not initialized") {
-                        eprintln!("Could not align native video controls atomically: {error}");
-                    }
+        chrome.window().with_winit_window(|overlay| {
+            #[cfg(debug_assertions)]
+            ALIGNMENT_WINDOWS_REPORTED.with(|reported| {
+                if !reported.replace(true) {
+                    let hwnd = |window: &winit::window::Window| {
+                        window.window_handle().ok().and_then(|handle| match handle.as_raw() {
+                            RawWindowHandle::Win32(handle) => Some(HWND(handle.hwnd.get() as *mut _)),
+                            _ => None,
+                        })
+                    };
+                    let host_hwnd = hwnd(window);
+                    let overlay_hwnd = hwnd(overlay);
+                    let bounds = |hwnd: HWND| {
+                        let mut rect = RECT::default();
+                        // SAFETY: Each handle was read from its live Winit window.
+                        unsafe { GetWindowRect(hwnd, &mut rect) }
+                            .ok()
+                            .map(|_| (rect.left, rect.top, rect.right, rect.bottom))
+                    };
+                    eprintln!(
+                        "Native video alignment HWNDs: host={host_hwnd:?} bounds={:?}; controls={overlay_hwnd:?} bounds={:?}",
+                        host_hwnd.and_then(bounds),
+                        overlay_hwnd.and_then(bounds),
+                    );
                 }
             });
-        }
+            if let Err(error) = super::window_geometry::align_surfaces(window, overlay) {
+                aligned = false;
+                dismiss_unaligned_transition_cover(chrome);
+                // Winit can still report pre-move coordinates while Windows is
+                // reconciling an owned popup. Writing those stale coordinates
+                // back here can detach the black-backed transparent surface
+                // from playback. Keep the Win32 client bounds authoritative;
+                // the next alignment tick retries after the move settles.
+                let should_report = LAST_OVERLAY_ALIGNMENT_ERROR.with(|previous| {
+                    let mut previous = previous.borrow_mut();
+                    if previous.as_deref() == Some(error.as_str()) {
+                        false
+                    } else {
+                        *previous = Some(error.clone());
+                        true
+                    }
+                });
+                if should_report {
+                    eprintln!("Could not align native video controls atomically: {error}");
+                }
+            }
+        });
     });
+    if aligned {
+        LAST_OVERLAY_ALIGNMENT_ERROR.with(|previous| *previous.borrow_mut() = None);
+    }
+    aligned
+}
+
+fn sync_native_theme(
+    host: &winit::window::Window,
+    dark_theme: bool,
+    last_native_theme: &Cell<Option<bool>>,
+) {
+    // Native-video playback uses separate HWNDs for the framed host and
+    // transparent controls. Keep the Windows caption/menu and Mica tone in the
+    // same appearance as the controls when the user's theme changes.
+    if last_native_theme.get() == Some(dark_theme) {
+        return;
+    }
+    let Ok(handle) = host.window_handle() else {
+        return;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return;
+    };
+    // Slint 1.18 does not expose WindowAdapter::set_color_scheme publicly, so
+    // its Muda menubar misses app-driven theme changes. Muda 0.19.3's public
+    // Menu::set_theme_for_hwnd sends this private update message; mirror that
+    // call for the known live HWND and keep the crate version pinned above.
+    const MUDA_MENU_UPDATE_THEME: u32 = 201;
+    let menu_theme = if dark_theme {
+        muda::MenuTheme::Dark
+    } else {
+        muda::MenuTheme::Light
+    };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    // SAFETY: this HWND is the live Winit host whose Slint Muda menubar is
+    // attached before this synchronization timer starts.
+    unsafe {
+        SendMessageW(
+            hwnd,
+            MUDA_MENU_UPDATE_THEME,
+            None,
+            Some(LPARAM(menu_theme as isize)),
+        );
+    }
+    // Winit's `theme()` reports the cached system scheme, not the explicit
+    // app-selected override. Apply only on transitions, after Muda's redraw
+    // request so non-client activation cannot leave the caption in the old tone.
+    host.set_theme(Some(if dark_theme {
+        winit::window::Theme::Dark
+    } else {
+        winit::window::Theme::Light
+    }));
+    last_native_theme.set(Some(dark_theme));
 }
 
 fn center_host_in_work_area(window: &winit::window::Window, owner_center: Option<(i32, i32)>) {
@@ -204,7 +297,7 @@ fn schedule_startup_center(
             }
             host.window()
                 .with_winit_window(|window| center_host_in_work_area(window, owner_center));
-            align(host.window(), app.window());
+            align(host.window(), &app);
             pending.set(false);
         }
     });
@@ -216,6 +309,7 @@ pub fn run(
     owner_center: Option<(i32, i32)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let action_after_launch = crate::player_ui::action_after_launch()?;
+    let initial_native_theme = crate::player_ui::windows_initial_theme()?;
     let supplied_media_argument = !media.is_empty();
     let owner = Arc::new(AtomicIsize::new(0));
     let hook_owner = owner.clone();
@@ -227,7 +321,15 @@ pub fn run(
             // styles auxiliary windows as transparent, taskbar-hidden overlays.
             let handle = hook_owner.swap(0, Ordering::Relaxed);
             if handle == 0 {
+                // The first window is the persistent host. Its transparent
+                // client reveals the requested backdrop only after DWM accepts
+                // its attribute; actual pixels remain subject to OS policy.
+                // Initialize the native menu in the saved app theme before Slint
+                // creates its Muda menu; later frame-theme changes cannot restyle
+                // a menu that was born with the OS's initial color scheme.
                 attributes
+                    .with_theme(initial_native_theme)
+                    .with_transparent(true)
             } else {
                 attributes
                     .with_owner_window(handle)
@@ -244,6 +346,10 @@ pub fn run(
     let chrome: Rc<RefCell<Option<PlayerWindow>>> = Rc::new(RefCell::new(None));
     let surface_alignment_timer = Rc::new(slint::Timer::default());
     let startup_surface_alignment_timer = surface_alignment_timer.clone();
+    let overlay_hidden_for_alignment = Rc::new(Cell::new(false));
+    let startup_overlay_hidden = overlay_hidden_for_alignment.clone();
+    let material_policy_timer = Rc::new(slint::Timer::default());
+    let startup_material_policy_timer = material_policy_timer.clone();
     let welcome_window: Rc<RefCell<Option<crate::WelcomeWindow>>> = Rc::new(RefCell::new(None));
     let session: Rc<RefCell<Option<UiSession>>> = Rc::new(RefCell::new(None));
     let pip_controller: Rc<RefCell<Option<Rc<RefCell<super::pip::Controller>>>>> =
@@ -281,11 +387,104 @@ pub fn run(
             // player and playback session are still being initialized.
             center_host_in_work_area(&window, owner_center);
             window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(285.0, 120.0)));
-            if let Err(error) = super::materials::apply_main_window_mica(&window) {
-                eprintln!(
-                    "Windows system backdrop unavailable; keeping the renderer fallback: {error}"
-                );
-            }
+            let initial_material_policy = super::materials::native_mica_enabled();
+            let mica_attribute_applied = match initial_material_policy
+                .then(|| super::materials::apply_main_window_mica(&window))
+            {
+                Some(Ok(())) => true,
+                Some(Err(error)) => {
+                    eprintln!(
+                        "Windows system backdrop unavailable; keeping the renderer fallback: {error}"
+                    );
+                    false
+                }
+                None => false,
+            };
+            host.set_mica_backdrop_enabled(mica_attribute_applied);
+            let material_host = host.as_weak();
+            let last_material_policy = Rc::new(Cell::new(initial_material_policy));
+            let applied_material_policy = Rc::new(Cell::new(if initial_material_policy {
+                mica_attribute_applied.then_some(true)
+            } else {
+                Some(false)
+            }));
+            let material_retry_delay = Rc::new(Cell::new(Duration::from_millis(500)));
+            let material_retry_after = Rc::new(Cell::new(Instant::now()));
+            let material_last_error = Rc::new(RefCell::new(None::<String>));
+            let timer_material_host = material_host.clone();
+            let timer_last_material_policy = last_material_policy.clone();
+            let timer_applied_material_policy = applied_material_policy.clone();
+            let timer_material_retry_delay = material_retry_delay.clone();
+            let timer_material_retry_after = material_retry_after.clone();
+            let timer_material_last_error = material_last_error.clone();
+            startup_material_policy_timer.start(
+                slint::TimerMode::Repeated,
+                Duration::from_millis(500),
+                move || {
+                    let policy_enabled = super::materials::native_mica_enabled();
+                    let policy_changed = timer_last_material_policy.get() != policy_enabled;
+                    if policy_changed {
+                        timer_last_material_policy.set(policy_enabled);
+                        timer_material_retry_delay.set(Duration::from_millis(500));
+                        timer_material_retry_after.set(Instant::now());
+                        *timer_material_last_error.borrow_mut() = None;
+                    }
+                    let Some(host) = timer_material_host.upgrade() else {
+                        return;
+                    };
+                    if timer_applied_material_policy.get() == Some(policy_enabled)
+                        && host.get_mica_backdrop_enabled() == policy_enabled
+                    {
+                        return;
+                    }
+                    if Instant::now() < timer_material_retry_after.get() {
+                        return;
+                    }
+                    let mut update_result = None;
+                    host.window().with_winit_window(|window| {
+                        update_result = Some(if policy_enabled {
+                            super::materials::apply_main_window_mica(window)
+                        } else {
+                            super::materials::clear_main_window_backdrop(window)
+                        });
+                    });
+                    match update_result {
+                        Some(Ok(())) => {
+                            timer_applied_material_policy.set(Some(policy_enabled));
+                            host.set_mica_backdrop_enabled(policy_enabled);
+                            timer_material_retry_delay.set(Duration::from_millis(500));
+                            *timer_material_last_error.borrow_mut() = None;
+                        }
+                        Some(Err(error)) => {
+                            timer_applied_material_policy.set(None);
+                            if !policy_enabled {
+                                host.set_mica_backdrop_enabled(false);
+                            }
+                            let mut last_error = timer_material_last_error.borrow_mut();
+                            if last_error.as_deref() != Some(error.as_str()) {
+                                eprintln!("Could not update the Windows system backdrop policy: {error}");
+                                *last_error = Some(error);
+                            }
+                            let retry_delay = timer_material_retry_delay.get();
+                            timer_material_retry_after.set(Instant::now() + retry_delay);
+                            timer_material_retry_delay.set(
+                                retry_delay.saturating_mul(2).min(Duration::from_secs(30)),
+                            );
+                        }
+                        None => {
+                            timer_applied_material_policy.set(None);
+                            if !policy_enabled {
+                                host.set_mica_backdrop_enabled(false);
+                            }
+                            let retry_delay = timer_material_retry_delay.get();
+                            timer_material_retry_after.set(Instant::now() + retry_delay);
+                            timer_material_retry_delay.set(
+                                retry_delay.saturating_mul(2).min(Duration::from_secs(30)),
+                            );
+                        }
+                    }
+                },
+            );
             let presentation = super::NativePresentation::new(window, host.as_weak())
                 .map_err(std::io::Error::other)?;
             let video_hwnd = presentation.owner_handle();
@@ -294,8 +493,12 @@ pub fn run(
             // Construct only after its owner HWND exists, as in the verified probe.
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
+            app.set_system_materials_enabled(super::materials::native_materials_enabled());
             let alignment_host = host.as_weak();
             let alignment_chrome = app.as_weak();
+            let timer_overlay_hidden = startup_overlay_hidden.clone();
+            let last_native_theme = Rc::new(Cell::new(None));
+            let alignment_native_theme = last_native_theme.clone();
             startup_surface_alignment_timer.start(
                 slint::TimerMode::Repeated,
                 std::time::Duration::from_millis(16),
@@ -303,10 +506,28 @@ pub fn run(
                     if let (Some(host), Some(chrome)) =
                         (alignment_host.upgrade(), alignment_chrome.upgrade())
                     {
+                        host.window().with_winit_window(|window| {
+                            sync_native_theme(
+                                window,
+                                chrome.get_dark_theme(),
+                                &alignment_native_theme,
+                            );
+                        });
                         // mpv can resize or hide its child HWND during a
                         // playlist handoff without resizing the host. Repair
                         // that transient independently of host WM_SIZE events.
-                        align(host.window(), chrome.window());
+                        let aligned = align(host.window(), &chrome);
+                        if aligned && timer_overlay_hidden.get() {
+                            set_overlay_visibility(&chrome, true);
+                            timer_overlay_hidden.set(false);
+                        } else if !aligned && !timer_overlay_hidden.get() {
+                            // The retry loop is also the fallback when Winit
+                            // misses a host move notification. Never leave a
+                            // detached transparent surface visible at its old
+                            // desktop coordinates while geometry catches up.
+                            set_overlay_visibility(&chrome, false);
+                            timer_overlay_hidden.set(true);
+                        }
                     }
                 },
             );
@@ -356,7 +577,7 @@ pub fn run(
                             app.get_music_mode_show_playlist(),
                             f64::from(app.get_music_mode_artwork_aspect_ratio()),
                         );
-                        window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(260.0, 72.0)));
+                        window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(260.0, 90.0)));
                         winit::dpi::PhysicalSize::new(
                             (crate::music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
                             (height * scale).round() as u32,
@@ -403,7 +624,7 @@ pub fn run(
                                         app.set_status(error.into());
                                     }
                                 });
-                                align(host.window(), app.window());
+                                align(host.window(), &app);
                             }
                         });
                     }
@@ -432,14 +653,14 @@ pub fn run(
                         // The welcome surface is the only visible native window at
                         // startup. Keep a usable player window when the user closes
                         // it but has asked the application to remain available.
-                        align(host.window(), app.window());
+                        align(host.window(), &app);
                         host.window()
                             .with_winit_window(|window| window.set_visible(true));
                         let _ = app.show();
                         host.window().with_winit_window(|window| {
                             center_host_in_work_area(window, owner_center)
                         });
-                        align(host.window(), app.window());
+                        align(host.window(), &app);
                     }
                     slint::CloseRequestResponse::HideWindow
                 });
@@ -1293,7 +1514,7 @@ pub fn run(
             // The shared controls are a separate transparent HWND layered over
             // the native video host. Give it the host's realized bounds before
             // its first show so Winit never exposes it at its default position.
-            align(host.window(), app.window());
+            align(host.window(), &app);
             app.show()?;
             // The native host otherwise keeps Winit's default placement until
             // playback loads. That leaves idle launches and cancelled open
@@ -1314,13 +1535,14 @@ pub fn run(
                 let chrome_window = app.window().winit_window().await?;
                 enable_video_transparency(&chrome_window).map_err(std::io::Error::other)?;
             }
-            align(host.window(), app.window());
+            align(host.window(), &app);
             if let Some(welcome) = &welcome {
                 app.hide()?;
                 // A visible native host owns the menu/video surface and would
                 // cover the independent welcome window with its black idle frame.
                 crate::platform::center_auxiliary_window(welcome, &app);
                 welcome.show()?;
+                crate::platform::enable_welcome_mica(welcome);
                 // NativePresentation retains the Winit handle for mpv's HWND
                 // lifetime, so hide the OS surface directly instead of asking
                 // Slint to destroy a still-referenced adapter window.
@@ -1344,6 +1566,7 @@ pub fn run(
         }
     })?;
     let event_chrome = chrome.clone();
+    let event_overlay_hidden = overlay_hidden_for_alignment.clone();
     let scroll_transition = Rc::new(Cell::new(0_u64));
     let event_scroll_transition = scroll_transition.clone();
     host.window().on_winit_window_event(move |host, event| {
@@ -1396,8 +1619,29 @@ pub fn run(
                 | winit::event::WindowEvent::ScaleFactorChanged { .. }
         ) && let Some(app) = event_chrome.borrow().as_ref()
         {
+            let host_moved = matches!(event, winit::event::WindowEvent::Moved(_));
+            if host_moved {
+                // A retained opaque transition image belongs to the old client
+                // geometry. Also hide the transparent HWND before alignment:
+                // an owned popup can briefly report stale bounds as current and
+                // otherwise leave its old desktop rectangle visible over other
+                // windows while the host is moving.
+                dismiss_unaligned_transition_cover(app);
+                set_overlay_visibility(app, false);
+                event_overlay_hidden.set(true);
+            }
             app.set_hdr_display_active(super::presentation::hdr_display_active_for_slint(host));
-            align(host, app.window());
+            let aligned = align(host, app);
+            if host_moved && !aligned {
+                // A failed move-time alignment leaves the transparent popup at
+                // stale desktop coordinates. Hide it until the retry timer can
+                // confirm that its client bounds match the native video host.
+                set_overlay_visibility(app, false);
+                event_overlay_hidden.set(true);
+            } else if aligned && event_overlay_hidden.get() {
+                set_overlay_visibility(app, true);
+                event_overlay_hidden.set(false);
+            }
         }
         result
     });
@@ -1426,6 +1670,7 @@ pub fn run(
     });
     slint::run_event_loop()?;
     surface_alignment_timer.stop();
+    material_policy_timer.stop();
     close(&session, &pip_controller, chrome.borrow().as_ref());
     Ok(())
 }

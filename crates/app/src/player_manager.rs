@@ -308,6 +308,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     let app = PlayerWindow::new()?;
     app.set_native_video(false);
     let welcome = WelcomeWindow::new()?;
+    crate::appearance_preferences::install_system_typography(&welcome);
     let session = crate::player_ui::configure_player(&app, None, Vec::new(), Some(&welcome), None)?;
     let manager = PlayerManager {
         state: state.clone(),
@@ -316,6 +317,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     crate::window_aspect::connect(&app);
     crate::platform::center_auxiliary_window(&welcome, &app);
     welcome.show()?;
+    crate::platform::enable_welcome_mica(&welcome);
     Ok(())
 }
 

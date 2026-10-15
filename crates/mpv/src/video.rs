@@ -37,6 +37,7 @@ pub struct VideoSurface {
     texture: glow::NativeTexture,
     fbo: glow::NativeFramebuffer,
     size: (u32, u32),
+    icc_profile: Option<Vec<u8>>,
 }
 
 impl VideoSurface {
@@ -109,7 +110,38 @@ impl VideoSurface {
             texture,
             fbo,
             size: (0, 0),
+            icc_profile: None,
         })
+    }
+
+    /// Install the active display's ICC profile for libmpv automatic color management.
+    ///
+    /// # Safety
+    /// Call only from the same current GL context used to create this surface.
+    pub unsafe fn set_icc_profile(&mut self, profile: &[u8]) -> Result<(), String> {
+        if self.icc_profile.as_deref() == Some(profile) {
+            return Ok(());
+        }
+        let set_parameter =
+            self.player.api.render_set_parameter.ok_or_else(|| {
+                "The native engine does not support render ICC profiles".to_owned()
+            })?;
+        if profile.is_empty() {
+            return Err("The active display returned an empty ICC profile".into());
+        }
+        let mut bytes = crate::ffi::ByteArray {
+            data: profile.as_ptr().cast_mut().cast(),
+            size: profile.len(),
+        };
+        let parameter = Param {
+            kind: 6,
+            data: (&mut bytes as *mut crate::ffi::ByteArray).cast(),
+        };
+        self.player
+            .api
+            .check(unsafe { set_parameter(self.context, parameter) })?;
+        self.icc_profile = Some(profile.to_vec());
+        Ok(())
     }
 
     pub fn texture_id(&self) -> NonZeroU32 {

@@ -12,6 +12,8 @@ use slint::{
     ComponentHandle, Model,
     winit_030::{EventResult, WinitWindowAccessor, winit},
 };
+#[cfg(not(target_os = "macos"))]
+use std::path::Path;
 use std::{
     cell::{Cell, RefCell},
     collections::BTreeMap,
@@ -32,7 +34,382 @@ static NEXT_PLAYER_WINDOW_REGISTRATION: AtomicU64 = AtomicU64::new(1);
 
 const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
 const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
+// A 4 fps clip changes frames every 250 ms; sampling at 10 Hz avoids skipping
+// alternating frames while keeping screenshot-raw readback below display rate.
+const NATIVE_MATERIAL_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
+// Material-frame replies arrive asynchronously. Poll them at the UI cadence so
+// a completed capture does not wait another full sampling interval to display.
+const NATIVE_MATERIAL_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
+const NATIVE_MATERIAL_SAMPLE_TIMEOUT: Duration = Duration::from_millis(750);
+const NATIVE_MATERIAL_CAPTURE_STARTUP_GRACE: Duration = Duration::from_millis(500);
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
+
+fn set_video_material_sample(app: &PlayerWindow, image: slint::Image, ready: bool) {
+    app.set_video_blurred_frame(image);
+    app.set_video_material_sample_ready(ready);
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MaterialSampleSource {
+    Wgc,
+    Mpv,
+}
+
+#[cfg(target_os = "windows")]
+impl MaterialSampleSource {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Wgc => "wgc",
+            Self::Mpv => "mpv",
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct MaterialFrameKey {
+    generation: u64,
+    revision: u64,
+    source: MaterialSampleSource,
+}
+
+#[cfg(target_os = "windows")]
+struct MaterialTransformRequest {
+    key: MaterialFrameKey,
+    frame: Arc<riina_core::CapturedFrame>,
+    captured_at: Option<Instant>,
+}
+
+#[cfg(target_os = "windows")]
+struct MaterialTransformResult {
+    key: MaterialFrameKey,
+    captured_at: Option<Instant>,
+    transform_time: Duration,
+    pixels: Result<crate::video_blur::SampledFramePixels, String>,
+}
+
+#[cfg(target_os = "windows")]
+fn start_material_transform_worker() -> (
+    std::sync::mpsc::SyncSender<MaterialTransformRequest>,
+    std::sync::mpsc::Receiver<MaterialTransformResult>,
+) {
+    let (request_sender, request_receiver) =
+        std::sync::mpsc::sync_channel::<MaterialTransformRequest>(1);
+    let (result_sender, result_receiver) =
+        std::sync::mpsc::sync_channel::<MaterialTransformResult>(1);
+    let worker = std::thread::Builder::new()
+        .name("riina-material-transform".to_owned())
+        .spawn(move || {
+            while let Ok(mut request) = request_receiver.recv() {
+                // A slow sample should not build a queue of obsolete video
+                // frames. Prefer the newest waiting sample before processing.
+                while let Ok(newer) = request_receiver.try_recv() {
+                    request = newer;
+                }
+                let started = Instant::now();
+                let input_width = request.frame.width;
+                let input_height = request.frame.height;
+                let input_offset = ((input_height / 2 * input_width + input_width / 2) * 4) as usize;
+                let input_center = request
+                    .frame
+                    .rgba
+                    .get(input_offset..input_offset + 3)
+                    .map(|rgb| [rgb[0], rgb[1], rgb[2]]);
+                let pixels = crate::video_blur::sampled_frame_pixels(request.frame.as_ref());
+                if std::env::var_os("RIINA_TRACE_MATERIAL_PIXELS").is_some()
+                    && let (Some(input_center), Ok(output)) = (input_center, pixels.as_ref())
+                {
+                    let output_offset =
+                        ((output.height / 2 * output.width + output.width / 2) * 4) as usize;
+                    if let Some(rgb) = output.rgba.get(output_offset..output_offset + 3) {
+                        eprintln!(
+                            "Windows material center source={} input={:02X}{:02X}{:02X} blurred={:02X}{:02X}{:02X}",
+                            request.key.source.label(),
+                            input_center[0], input_center[1], input_center[2],
+                            rgb[0], rgb[1], rgb[2],
+                        );
+                    }
+                }
+                let result = MaterialTransformResult {
+                    key: request.key,
+                    captured_at: request.captured_at,
+                    transform_time: started.elapsed(),
+                    pixels,
+                };
+                let _ = result_sender.try_send(result);
+            }
+        });
+    if let Err(error) = worker {
+        eprintln!("Could not start the Windows material transform worker: {error}");
+    }
+    (request_sender, result_receiver)
+}
+
+#[cfg(target_os = "windows")]
+fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<slint::Timer> {
+    let timer = Rc::new(slint::Timer::default());
+    let weak = app.as_weak();
+    timer.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(100),
+        move || {
+            let Some(app) = weak.upgrade() else { return };
+            let enabled = crate::platform::native_materials_enabled();
+            if let Some(accent) = crate::platform::windows_accent_color()
+                && app.get_windows_accent_color() != accent
+            {
+                app.set_windows_accent_color(accent);
+            }
+            if let Some(foreground) = crate::platform::windows_accent_foreground()
+                && app.get_windows_accent_foreground() != foreground
+            {
+                app.set_windows_accent_foreground(foreground);
+            }
+            if app.get_system_materials_enabled() != enabled {
+                app.set_system_materials_enabled(enabled);
+                if !enabled {
+                    set_video_material_sample(&app, slint::Image::default(), false);
+                }
+            }
+        },
+    );
+    timer
+}
+
+#[cfg(target_os = "windows")]
+fn install_native_video_material_sampler(
+    app: &PlayerWindow,
+    sender: riina_mpv::CommandSender,
+    latest: Arc<std::sync::Mutex<Playback>>,
+    capture: Option<platform::NativeVideoMaterialCapture>,
+) -> Rc<slint::Timer> {
+    let timer = Rc::new(slint::Timer::default());
+    let weak = app.as_weak();
+    let last_request = Rc::new(Cell::new(None::<(u64, u64, Instant)>));
+    let displayed_frame = Rc::new(Cell::new(None::<MaterialFrameKey>));
+    let displayed_at = Rc::new(Cell::new(None::<Instant>));
+    let displayed_position = Rc::new(Cell::new(None::<f64>));
+    let submitted_frame = Rc::new(Cell::new(None::<MaterialFrameKey>));
+    let capture_generation = Rc::new(Cell::new(None::<u64>));
+    let capture_generation_started = Rc::new(Cell::new(None::<Instant>));
+    let timer_request = last_request.clone();
+    let timer_displayed = displayed_frame.clone();
+    let timer_displayed_at = displayed_at.clone();
+    let timer_displayed_position = displayed_position.clone();
+    let timer_submitted = submitted_frame.clone();
+    let timer_capture_generation = capture_generation.clone();
+    let timer_capture_generation_started = capture_generation_started.clone();
+    let timer_capture = capture;
+    let (transform_sender, transform_results) = start_material_transform_worker();
+    let trace_material_samples = std::env::var_os("RIINA_TRACE_MATERIAL").is_some();
+    timer.start(
+        slint::TimerMode::Repeated,
+        NATIVE_MATERIAL_UPDATE_INTERVAL,
+        move || {
+            let Some(app) = weak.upgrade() else { return };
+            let materials_enabled = app.get_system_materials_enabled();
+            let Ok(state) = latest.lock().map(|state| state.clone()) else {
+                return;
+            };
+            let completed_transform = transform_results.try_recv().ok();
+            let material_visible = materials_enabled
+                && app.get_native_video()
+                && !app.get_native_transition_frame()
+                && !app.get_crop_editing()
+                // The Slint overlay is SDR. Keep the native HDR composition
+                // on its existing tint instead of mixing an 8-bit screenshot.
+                && !(app.get_hdr_source_detected() && app.get_hdr_enabled())
+                && ((app.get_liquid_glass_osc()
+                    && app.get_loaded()
+                    && (app.get_controls_visible() || app.get_music_mode()))
+                    || (app.get_liquid_glass_sidebar()
+                        && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0))
+                    || (app.get_liquid_glass_osd()
+                        && app.get_loaded()
+                        && (app.get_video_osd_visible()
+                            || app.get_seek_osd_visible()
+                            || !app.get_plugin_osd_message().is_empty()
+                            || (app.get_fullscreen()
+                                && app.get_controls_visible()
+                                && app.get_display_time_and_battery_in_fullscreen()))));
+            if timer_capture_generation.get() != Some(state.generation) {
+                if let Some(capture) = &timer_capture {
+                    capture.clear_latest();
+                }
+                timer_capture_generation.set(Some(state.generation));
+                timer_capture_generation_started.set(Some(Instant::now()));
+                timer_displayed.set(None);
+                timer_displayed_at.set(None);
+                timer_displayed_position.set(None);
+                timer_submitted.set(None);
+                set_video_material_sample(&app, slint::Image::default(), false);
+            }
+            let playback_active = state.video.is_some()
+                && matches!(state.phase, Phase::Playing | Phase::Paused | Phase::Seeking);
+            if !material_visible || !playback_active {
+                if let Some(capture) = &timer_capture {
+                    capture.set_enabled(false);
+                }
+                if timer_displayed.take().is_some() {
+                    set_video_material_sample(&app, slint::Image::default(), false);
+                }
+                timer_displayed_at.set(None);
+                timer_displayed_position.set(None);
+                timer_submitted.set(None);
+                timer_request.set(None);
+                return;
+            }
+
+            if let Some(result) = completed_transform {
+                let key = result.key;
+                if timer_submitted.get() == Some(key) {
+                    timer_submitted.set(None);
+                }
+                if key.generation == state.generation
+                    && timer_displayed.get() != Some(key)
+                    && result.captured_at.is_some_and(|captured_at| {
+                        captured_at.elapsed() <= NATIVE_MATERIAL_SAMPLE_TIMEOUT
+                    })
+                {
+                    match result.pixels {
+                        Ok(pixels) => {
+                            let image = crate::video_blur::slint_image_from_sampled_pixels(pixels);
+                            set_video_material_sample(&app, image, true);
+                            timer_displayed.set(Some(key));
+                            timer_displayed_at.set(result.captured_at);
+                            timer_displayed_position.set(state.position);
+                            if trace_material_samples {
+                                eprintln!(
+                                    "Windows material sample source={} generation={} revision={} age_ms={} transform_ms={}",
+                                    key.source.label(),
+                                    key.generation,
+                                    key.revision,
+                                    result.captured_at.map_or(0, |captured_at| {
+                                        captured_at.elapsed().as_millis()
+                                    }),
+                                    result.transform_time.as_millis(),
+                                );
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("Could not prepare the Windows video material frame: {error}");
+                        }
+                    }
+                }
+            }
+
+            if let Some(capture) = &timer_capture {
+                capture.set_enabled(true);
+                let sample = capture.latest().filter(|sample| {
+                    sample.captured_at.elapsed() <= NATIVE_MATERIAL_SAMPLE_TIMEOUT
+                });
+                if let Some(sample) = sample.as_ref() {
+                    let key = MaterialFrameKey {
+                        generation: state.generation,
+                        revision: sample.sequence,
+                        source: MaterialSampleSource::Wgc,
+                    };
+                    if timer_displayed.get() != Some(key)
+                        && timer_submitted.get() != Some(key)
+                    {
+                        let request = MaterialTransformRequest {
+                            key,
+                            frame: sample.frame.clone(),
+                            captured_at: Some(sample.captured_at),
+                        };
+                        if transform_sender.try_send(request).is_ok() {
+                            timer_submitted.set(Some(key));
+                        }
+                    }
+                    timer_request.set(None);
+                    return;
+                }
+                let capture_warmup = timer_capture_generation_started
+                    .get()
+                    .is_some_and(|started| started.elapsed() < NATIVE_MATERIAL_CAPTURE_STARTUP_GRACE);
+                if capture_warmup {
+                    return;
+                }
+            }
+
+            let now = Instant::now();
+            let frame_key = MaterialFrameKey {
+                generation: state.generation,
+                revision: state.material_frame_revision,
+                source: MaterialSampleSource::Mpv,
+            };
+            if state.material_frame_generation == Some(state.generation)
+                && state.material_frame_captured_at.is_some_and(|captured_at| {
+                    now.saturating_duration_since(captured_at) <= NATIVE_MATERIAL_SAMPLE_TIMEOUT
+                })
+                && timer_displayed.get() != Some(frame_key)
+                && timer_submitted.get() != Some(frame_key)
+                && let Some(frame) = state.material_frame.as_ref()
+            {
+                let request = MaterialTransformRequest {
+                    key: frame_key,
+                    frame: frame.clone(),
+                    captured_at: state.material_frame_captured_at,
+                };
+                if transform_sender.try_send(request).is_ok() {
+                    timer_submitted.set(Some(frame_key));
+                }
+            }
+            // A paused video can stop producing WGC frames; its last sample is
+            // still valid while the playhead stays within one 4 fps frame.
+            let paused_frame_still_matches = state.paused
+                && state.position.is_some_and(|position| {
+                    timer_displayed_position
+                        .get()
+                        .is_some_and(|displayed| (position - displayed).abs() <= 0.25)
+                });
+            if !paused_frame_still_matches && timer_displayed.get().is_some_and(|key| {
+                key.generation == state.generation
+                    && timer_displayed_at.get().is_none_or(|captured_at| {
+                        now.saturating_duration_since(captured_at)
+                            > NATIVE_MATERIAL_SAMPLE_TIMEOUT
+                    })
+            }) {
+                timer_displayed.set(None);
+                timer_displayed_at.set(None);
+                timer_displayed_position.set(None);
+                set_video_material_sample(&app, slint::Image::default(), false);
+            }
+
+            let paused_sample_current = state.paused
+                && state.material_frame_generation == Some(state.generation)
+                && state.material_frame_position == state.position
+                && state.material_frame_captured_at.is_some_and(|captured_at| {
+                    now.saturating_duration_since(captured_at) <= NATIVE_MATERIAL_SAMPLE_TIMEOUT
+                });
+            if paused_sample_current {
+                timer_request.set(None);
+                return;
+            }
+            let request_due =
+                timer_request
+                    .get()
+                    .is_none_or(|(generation, revision, requested_at)| {
+                        let elapsed = now.saturating_duration_since(requested_at);
+                        generation != state.generation
+                            || (elapsed >= NATIVE_MATERIAL_SAMPLE_INTERVAL
+                                && (state.material_frame_revision > revision
+                                    || elapsed >= NATIVE_MATERIAL_SAMPLE_TIMEOUT))
+                    });
+            if request_due {
+                let result = sender.send(Command::CaptureMaterialFrame);
+                // Also throttle a rejected enqueue so a busy command queue cannot
+                // turn this visual-only sampler into a 10 Hz log/command loop.
+                timer_request.set(Some((state.generation, state.material_frame_revision, now)));
+                if let Err(error) = result {
+                    eprintln!("Could not request a Windows video material sample: {error}");
+                }
+            }
+        },
+    );
+    timer
+}
 
 pub(crate) fn help_menu_url(destination: &str) -> Option<&'static str> {
     match destination {
@@ -117,40 +494,80 @@ fn set_audio_equalizer_controls(
     app: &PlayerWindow,
     settings: &riina_core::audio_equalizer::Settings,
 ) {
-    let names = settings.profile_names();
-    let current = settings.selected_profile.as_deref().unwrap_or("custom");
+    let profile_ids = settings.profile_ids();
     app.set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
         settings.gains_db.map(|gain| gain as f32).to_vec(),
     )));
     app.set_audio_equalizer_profile_names(slint::ModelRc::new(slint::VecModel::from(
-        names
+        profile_ids
             .iter()
-            .map(|name| {
-                if name == "custom" {
-                    "Custom".into()
-                } else {
-                    name.replace('_', " ")
-                        .split_whitespace()
-                        .map(|part| {
-                            let mut chars = part.chars();
-                            chars
-                                .next()
-                                .map(|first| first.to_uppercase().to_string() + chars.as_str())
-                                .unwrap_or_default()
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                        .into()
-                }
+            .map(|id| match id {
+                riina_core::audio_equalizer::ProfileId::Manual => "Manual".to_owned(),
+                riina_core::audio_equalizer::ProfileId::Preset(name) => name
+                    .replace('_', " ")
+                    .split_whitespace()
+                    .map(|part| {
+                        let mut chars = part.chars();
+                        chars
+                            .next()
+                            .map(|first| first.to_uppercase().to_string() + chars.as_str())
+                            .unwrap_or_default()
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                riina_core::audio_equalizer::ProfileId::User(name) => name.clone(),
             })
-            .collect::<Vec<slint::SharedString>>(),
+            .map(slint::SharedString::from)
+            .collect::<Vec<_>>(),
     )));
-    app.set_audio_equalizer_profile_index(
-        names.iter().position(|name| name == current).unwrap_or(0) as i32,
+    app.set_audio_equalizer_profile_index(settings.selected_profile_index().unwrap_or(0) as i32);
+    app.set_audio_equalizer_user_profile_start_index(
+        profile_ids
+            .iter()
+            .position(|id| matches!(id, riina_core::audio_equalizer::ProfileId::User(_)))
+            .unwrap_or(profile_ids.len()) as i32,
     );
-    app.set_audio_equalizer_can_delete_profile(settings.is_user_profile(current));
-    app.set_audio_equalizer_can_edit_profile(settings.is_user_profile(current));
-    app.set_audio_equalizer_can_save_profile(current == "custom");
+    app.set_audio_equalizer_can_delete_profile(settings.selected_profile_is_user());
+    app.set_audio_equalizer_can_edit_profile(settings.selected_profile_is_user());
+    app.set_audio_equalizer_can_save_profile(settings.is_manual_selected());
+}
+
+fn audio_equalizer_visible_profile_names(app: &PlayerWindow) -> Vec<String> {
+    let names = app.get_audio_equalizer_profile_names();
+    (1..names.row_count())
+        .filter_map(|index| names.row_data(index))
+        .map(|name| name.to_string())
+        .collect()
+}
+
+fn audio_equalizer_name_is_display_duplicate(name: &str, visible_names: &[String]) -> bool {
+    visible_names.iter().any(|visible| visible == name)
+}
+
+#[cfg(test)]
+mod audio_equalizer_name_tests {
+    use super::audio_equalizer_name_is_display_duplicate;
+
+    #[test]
+    fn duplicate_check_uses_the_visible_preset_and_user_profile_labels() {
+        let visible_names = vec!["Flat".into(), "Rock".into(), "My mix".into()];
+        assert!(audio_equalizer_name_is_display_duplicate(
+            "Rock",
+            &visible_names
+        ));
+        assert!(audio_equalizer_name_is_display_duplicate(
+            "My mix",
+            &visible_names
+        ));
+        assert!(!audio_equalizer_name_is_display_duplicate(
+            "Manual",
+            &visible_names
+        ));
+        assert!(!audio_equalizer_name_is_display_duplicate(
+            "rock",
+            &visible_names
+        ));
+    }
 }
 
 fn plugin_sidebar_tab_added(app: &PlayerWindow, identifier: &str, label: &str) {
@@ -965,18 +1382,24 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
     let weak = app.as_weak();
     // IINA's controller deadline is interaction-driven; pausing does not pin its chrome.
     timer.start(slint::TimerMode::SingleShot, timeout, move || {
-        if let Some(app) = weak.upgrade()
-            && control_hide_is_allowed(
-                app.get_control_auto_hide_enabled(),
-                app.get_loaded(),
-                app.get_dialog_open(),
-                app.get_crop_editing(),
-                app.get_title_bar_hovered(),
-                app.get_control_bar_hovered(),
-                app.get_control_bar_dragging(),
-            )
-        {
-            app.set_controls_visible(false);
+        if let Some(app) = weak.upgrade() {
+            // The native controls HWND can retain hover while a separate
+            // Quick Settings surface covers it. Do not let that stale hover
+            // keep the transport tray over the panel indefinitely.
+            let settings_panel_open = app.get_sidebar() != 0 || app.get_leading_sidebar() != 0;
+            if settings_panel_open
+                || control_hide_is_allowed(
+                    app.get_control_auto_hide_enabled(),
+                    app.get_loaded(),
+                    app.get_dialog_open(),
+                    app.get_crop_editing(),
+                    app.get_title_bar_hovered(),
+                    app.get_control_bar_hovered(),
+                    app.get_control_bar_dragging(),
+                )
+            {
+                app.set_controls_visible(false);
+            }
         }
     });
 }
@@ -1386,6 +1809,12 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
     app.set_downloaded_subtitle_save_available(
         crate::file_actions::downloaded_subtitle_path(state).is_some(),
     );
+    app.set_has_active_audio_track(
+        state
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Audio && track.is_primary_selected()),
+    );
     app.set_audio_device_menu_rows(slint::ModelRc::new(slint::VecModel::from(
         audio_device_menu_rows(state),
     )));
@@ -1748,6 +2177,7 @@ fn install_macos_control_gestures(app: &PlayerWindow, player: riina_mpv::Command
 
 struct UiUpdateResources<'a> {
     audio_device_player: Option<&'a riina_mpv::CommandSender>,
+    hdr_player: Option<&'a riina_mpv::CommandSender>,
     saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     transition_overlay: &'a AtomicU64,
@@ -1785,6 +2215,11 @@ fn update_ui(
                 crate::transition_frame::should_display(&state, app.get_playlist_auto_play_next())
             }
         };
+        // The transition surface has an opaque black matte beneath its image.
+        // Keep the surface disabled unless the retained frame is present, so
+        // a missing capture can never become a black rectangle over playback.
+        let show_transition =
+            show_transition && crate::transition_frame::cover_frame(&state).is_some();
         let source_generation = state.transition_frame_generation.unwrap_or(u64::MAX);
         let incoming_generation = state
             .incoming_transition_frame_generation
@@ -1815,12 +2250,12 @@ fn update_ui(
             } else {
                 None
             };
-            if show_transition {
+            if let Some(image) = image {
                 // Install the opaque image before exposing its cover rectangle.
                 // Slint can schedule a render between property updates; enabling
                 // the cover first would briefly show its black backing instead of
                 // the retained frame during a native-output handoff.
-                app.set_video_frame(image.unwrap_or_default());
+                app.set_video_frame(image);
                 app.set_native_transition_frame(true);
             } else {
                 // Keep the last opaque frame until the cover is disabled. Clearing
@@ -1848,20 +2283,44 @@ fn update_ui(
             |rows| app.set_saved_audio_filter_rows(rows),
         );
     }
-    let filename = state
+    #[cfg(target_os = "macos")]
+    let current_media_path = match crate::key_binding_preferences::current_media_location(&state) {
+        crate::key_binding_preferences::CurrentMediaLocation::Local(path) => {
+            std::path::absolute(path).ok()
+        }
+        crate::key_binding_preferences::CurrentMediaLocation::NoMedia
+        | crate::key_binding_preferences::CurrentMediaLocation::NonLocal => None,
+    };
+    #[cfg(not(target_os = "macos"))]
+    let current_media_path = state
         .playlist
         .iter()
         .find(|entry| entry.current || entry.playing)
-        .map(|entry| {
-            PathBuf::from(&entry.filename).file_name().map_or_else(
-                || entry.filename.clone(),
-                |name| name.to_string_lossy().into_owned(),
-            )
-        })
+        .map(|entry| PathBuf::from(&entry.filename));
+    #[cfg(target_os = "macos")]
+    platform::set_represented_file(&app.window(), current_media_path.as_deref());
+    #[cfg(target_os = "macos")]
+    let title_path = current_media_path.as_deref();
+    #[cfg(target_os = "macos")]
+    let filename = title_path
+        .and_then(platform::display_name_for_path)
+        .unwrap_or_else(|| state.title.clone());
+    #[cfg(not(target_os = "macos"))]
+    let title_path = current_media_path.as_deref();
+    #[cfg(not(target_os = "macos"))]
+    let filename = title_path
+        .and_then(Path::file_name)
+        .map(|name| name.to_string_lossy().into_owned())
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| state.title.clone());
     let window_title = if filename.is_empty() {
-        "riina".to_owned()
+        if cfg!(target_os = "macos") {
+            "Riina".to_owned()
+        } else {
+            "riina".to_owned()
+        }
+    } else if cfg!(target_os = "macos") {
+        filename
     } else {
         format!("{filename} — riina")
     };
@@ -2244,14 +2703,28 @@ fn update_ui(
         }
         .into(),
     );
-    app.set_hdr_source_detected(
-        state
-            .video
-            .as_ref()
-            .or(state.video_target.as_ref())
-            .or(state.video_output.as_ref())
-            .is_some_and(riina_core::VideoParameters::is_hdr),
-    );
+    let hdr_source_detected = state
+        .video
+        .as_ref()
+        .or(state.video_target.as_ref())
+        .or(state.video_output.as_ref())
+        .is_some_and(riina_core::VideoParameters::is_hdr);
+    let hdr_source_changed = app.get_hdr_source_detected() != hdr_source_detected;
+    app.set_hdr_source_detected(hdr_source_detected);
+    if first_loaded || hdr_source_changed {
+        let enable_hdr = app.get_default_hdr_mode_enabled()
+            && app.get_hdr_source_detected()
+            && app.get_hdr_display_active();
+        app.set_hdr_enabled(enable_hdr);
+        if let Some(player) = resources.hdr_player
+            && let Err(error) = player.send(Command::SetHdrEnabledWithIcc {
+                enabled: enable_hdr,
+                load_icc_profile: app.get_load_icc_profile(),
+            })
+        {
+            app.set_status(format!("Could not apply the HDR output preference: {error}").into());
+        }
+    }
     app.set_media_title(state.title.into());
     app.set_music_artist(state.artist.unwrap_or_default().into());
     app.set_music_album(state.album.unwrap_or_default().into());
@@ -2294,6 +2767,9 @@ pub(crate) struct UiSession {
     _pause_resume_timer: Rc<slint::Timer>,
     _thumbnail_preview_timer: Rc<slint::Timer>,
     _transition_frame_timer: Option<Rc<slint::Timer>>,
+    _native_material_timer: Option<Rc<slint::Timer>>,
+    #[cfg(target_os = "windows")]
+    _windows_materials_policy_timer: Rc<slint::Timer>,
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
     _online_subtitles_timer: Rc<slint::Timer>,
@@ -2816,7 +3292,7 @@ impl UiSession {
                 app.get_launch_action_index(),
             )
             .ok_or_else(|| std::io::Error::other("Invalid launch action selection"))?,
-            hdr_enabled: app.get_hdr_enabled(),
+            hdr_enabled: app.get_default_hdr_mode_enabled(),
             live_text_enabled: app.get_live_text_enabled(),
             always_float_on_top: app.get_always_float_on_top(),
             always_show_on_top_icon: app.get_always_show_on_top_icon(),
@@ -3047,13 +3523,28 @@ impl Drop for UiSession {
 
 pub(crate) fn action_after_launch()
 -> Result<riina_core::ActionAfterLaunch, Box<dyn std::error::Error>> {
+    Ok(load_preferences()?.action_after_launch)
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn windows_initial_theme()
+-> Result<Option<winit::window::Theme>, Box<dyn std::error::Error>> {
+    Ok(match load_preferences()?.effective_theme_material() {
+        riina_core::ThemeMaterial::Dark => Some(winit::window::Theme::Dark),
+        riina_core::ThemeMaterial::Light => Some(winit::window::Theme::Light),
+        riina_core::ThemeMaterial::System => None,
+    })
+}
+
+fn load_preferences() -> Result<Preferences, Box<dyn std::error::Error>> {
     let path = platform::preferences_path()?;
-    let preferences = match std::fs::read_to_string(path) {
-        Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
-        Err(error) => return Err(error.into()),
-    };
-    Ok(preferences.action_after_launch)
+    match std::fs::read_to_string(path) {
+        Ok(text) => Preferences::parse(&text)
+            .map_err(std::io::Error::other)
+            .map_err(Into::into),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Preferences::default()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -3501,6 +3992,8 @@ pub(crate) fn configure_player(
     app.set_live_text_enabled(prefs.live_text_enabled);
     app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
     app.set_live_text_available(false);
+    #[cfg(target_os = "macos")]
+    app.set_live_text_selectable(true);
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         let weak = app.as_weak();
@@ -3516,6 +4009,8 @@ pub(crate) fn configure_player(
         });
     }
     app.set_hdr_enabled(prefs.hdr_enabled);
+    app.set_default_hdr_mode_enabled(prefs.hdr_enabled);
+    app.set_load_icc_profile(prefs.load_icc_profile);
     app.set_hdr_display_active(
         native
             .as_ref()
@@ -3589,6 +4084,11 @@ pub(crate) fn configure_player(
     if !prefs.hdr_enabled {
         engine_options.extend(riina_core::hdr_preferences::disabled_output_options());
     }
+    #[cfg(target_os = "macos")]
+    {
+        engine_options.retain(|(name, _)| name != "icc-profile-auto");
+        engine_options.push(("icc-profile-auto".into(), "no".into()));
+    }
     engine_options.extend(
         crate::advanced_preferences::engine_options(&prefs.advanced, &prefs_path)
             .map_err(std::io::Error::other)?,
@@ -3598,6 +4098,18 @@ pub(crate) fn configure_player(
     app.set_disable_animations(prefs.disable_animations);
     app.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
     app.set_platform_macos(cfg!(target_os = "macos"));
+    app.set_platform_windows(cfg!(target_os = "windows"));
+    #[cfg(target_os = "windows")]
+    {
+        app.set_system_materials_enabled(crate::platform::native_materials_enabled());
+        if let Some(accent) = crate::platform::windows_accent_color() {
+            app.set_windows_accent_color(accent);
+        }
+        if let Some(foreground) = crate::platform::windows_accent_foreground() {
+            app.set_windows_accent_foreground(foreground);
+        }
+    }
+    crate::appearance_preferences::install_system_typography(app);
     app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
     let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
@@ -4015,6 +4527,7 @@ pub(crate) fn configure_player(
                     state,
                     UiUpdateResources {
                         audio_device_player: audio_device_sender.as_ref(),
+                        hdr_player: audio_device_sender.as_ref(),
                         saved_video_filters: &notify_saved_video_filters,
                         saved_audio_filters: &notify_saved_audio_filters,
                         transition_overlay: transition_overlay.as_ref(),
@@ -4562,6 +5075,21 @@ pub(crate) fn configure_player(
     } else {
         None
     };
+    #[cfg(target_os = "windows")]
+    let native_material_timer = native.is_some().then(|| {
+        install_native_video_material_sampler(
+            app,
+            player.command_sender(),
+            latest_playback.clone(),
+            native
+                .as_ref()
+                .and_then(platform::NativePresentation::material_capture),
+        )
+    });
+    #[cfg(not(target_os = "windows"))]
+    let native_material_timer = None;
+    #[cfg(target_os = "windows")]
+    let windows_materials_policy_timer = install_windows_material_policy_monitor(app);
     #[cfg(target_os = "macos")]
     {
         *system_media_sender.borrow_mut() = Some(player.command_sender());
@@ -5160,7 +5688,10 @@ pub(crate) fn configure_player(
             app.set_status("HDR needs an HDR source and an HDR-enabled display".into());
             return;
         }
-        match hdr_player.send(Command::SetHdrEnabled(enabled)) {
+        match hdr_player.send(Command::SetHdrEnabledWithIcc {
+            enabled,
+            load_icc_profile: app.get_load_icc_profile(),
+        }) {
             Ok(()) => {
                 app.set_hdr_enabled(enabled);
                 app.invoke_activity();
@@ -5462,6 +5993,7 @@ pub(crate) fn configure_player(
             }
             settings.gains_db[index] = f64::from(value);
             settings.selected_profile = Some("custom".into());
+            settings.selected_profile_is_user = false;
             settings.clone()
         };
         if let Err(error) = audio_eq_player.send(Command::AudioEqualizer(settings.gains_db)) {
@@ -5480,14 +6012,11 @@ pub(crate) fn configure_player(
             app.set_status("Audio equalizer settings are unavailable".into());
             return;
         };
-        let Some(name) = usize::try_from(index)
-            .ok()
-            .and_then(|index| settings.profile_names().get(index).cloned())
-        else {
+        let Some(index) = usize::try_from(index).ok() else {
             app.set_status("Unknown audio equalizer profile".into());
             return;
         };
-        if let Err(error) = settings.select(&name) {
+        if let Err(error) = settings.select_profile_at(index) {
             app.set_status(error.into());
             return;
         }
@@ -5501,36 +6030,73 @@ pub(crate) fn configure_player(
         }
         set_audio_equalizer_controls(&app, &snapshot);
     });
+    let audio_eq_settings_for_validation = audio_equalizer.clone();
+    let weak = app.as_weak();
+    app.on_validate_audio_equalizer_profile_name(move |name, mode| {
+        let Some(app) = weak.upgrade() else {
+            return "Audio equalizer settings are unavailable".into();
+        };
+        let visible_names = audio_equalizer_visible_profile_names(&app);
+        if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
+            return "An audio equalizer profile already has that name".into();
+        }
+        let Ok(settings) = audio_eq_settings_for_validation.lock() else {
+            return "Audio equalizer settings are unavailable".into();
+        };
+        let validation = match mode {
+            1 => settings.validate_new_profile_name(name.as_str()),
+            2 => {
+                let current = settings.selected_profile.as_deref().unwrap_or_default();
+                settings.validate_renamed_profile_name(current, name.as_str())
+            }
+            _ => return "".into(),
+        };
+        validation.err().unwrap_or("").into()
+    });
     let audio_eq_settings_for_save = audio_equalizer.clone();
     let weak = app.as_weak();
     app.on_save_audio_equalizer_profile(move |name| {
-        let Some(app) = weak.upgrade() else { return };
+        let Some(app) = weak.upgrade() else {
+            return false;
+        };
+        let visible_names = audio_equalizer_visible_profile_names(&app);
+        if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
+            app.set_status("An audio equalizer profile already has that name".into());
+            return false;
+        }
         let Ok(mut settings) = audio_eq_settings_for_save.lock() else {
             app.set_status("Audio equalizer settings are unavailable".into());
-            return;
+            return false;
         };
-        if let Err(error) = settings.save_profile(name.trim()) {
+        if let Err(error) = settings.save_profile(name.as_str()) {
             app.set_status(error.into());
-            return;
+            return false;
         }
         set_audio_equalizer_controls(&app, &settings);
-        app.set_audio_equalizer_new_profile_name("".into());
+        true
     });
     let audio_eq_settings_for_rename = audio_equalizer.clone();
     let weak = app.as_weak();
     app.on_rename_audio_equalizer_profile(move |replacement| {
-        let Some(app) = weak.upgrade() else { return };
+        let Some(app) = weak.upgrade() else {
+            return false;
+        };
+        let visible_names = audio_equalizer_visible_profile_names(&app);
+        if audio_equalizer_name_is_display_duplicate(replacement.as_str(), &visible_names) {
+            app.set_status("An audio equalizer profile already has that name".into());
+            return false;
+        }
         let Ok(mut settings) = audio_eq_settings_for_rename.lock() else {
             app.set_status("Audio equalizer settings are unavailable".into());
-            return;
+            return false;
         };
         let current = settings.selected_profile.clone().unwrap_or_default();
-        if let Err(error) = settings.rename_profile(&current, replacement.trim()) {
+        if let Err(error) = settings.rename_profile(&current, replacement.as_str()) {
             app.set_status(error.into());
-            return;
+            return false;
         }
         set_audio_equalizer_controls(&app, &settings);
-        app.set_audio_equalizer_new_profile_name("".into());
+        true
     });
     let audio_eq_settings_for_delete = audio_equalizer.clone();
     let weak = app.as_weak();
@@ -6753,6 +7319,9 @@ pub(crate) fn configure_player(
             _pause_resume_timer: pause_resume_timer,
             _thumbnail_preview_timer: thumbnail_preview_timer,
             _transition_frame_timer: transition_frame_timer,
+            _native_material_timer: native_material_timer,
+            #[cfg(target_os = "windows")]
+            _windows_materials_policy_timer: windows_materials_policy_timer,
             _subtitle_priority_timer: subtitle_priority_timer.clone(),
             _online_subtitles_window: online_subtitles_window,
             _online_subtitles_timer: online_subtitles_timer,
@@ -6788,6 +7357,10 @@ pub(crate) fn configure_player(
     let render_player = player.clone();
     let render_resume_position = pending_resume_position.clone();
     let mut surface: Option<VideoSurface> = None;
+    #[cfg(target_os = "macos")]
+    let mut icc_profile_display: Option<(usize, Option<Vec<u8>>, bool)> = None;
+    #[cfg(target_os = "macos")]
+    let mut icc_profile_auto_active: Option<bool> = None;
     let mut blur_surface: Option<crate::video_blur::VideoBlurSurface> = None;
     let render_generation = Rc::new(Cell::new(0_u64));
     let mut started = false;
@@ -6884,6 +7457,54 @@ pub(crate) fn configure_player(
                 }
                 slint::RenderingState::BeforeRendering => {
                     if let (Some(video), Some(app)) = (surface.as_mut(), render_weak.upgrade()) {
+                        #[cfg(target_os = "macos")]
+                        if let Some(display) = platform::display_identity(&app.window()) {
+                            if !app.get_load_icc_profile()
+                                && let Some((cached_display, profile, _)) =
+                                    icc_profile_display.take()
+                            {
+                                icc_profile_display =
+                                    Some((cached_display, profile, false));
+                            }
+                            let needs_profile = icc_profile_display
+                                .as_ref()
+                                .is_none_or(|(cached_display, _, attempted)| {
+                                    *cached_display != display
+                                        || (app.get_load_icc_profile() && !attempted)
+                                });
+                            if needs_profile {
+                                let attempted = app.get_load_icc_profile();
+                                let mut profile = attempted
+                                    .then(|| platform::icc_profile_for_window(&app.window()))
+                                    .flatten();
+                                if let Some(bytes) = profile.as_deref() {
+                                    // SAFETY: this callback runs on Slint's current GL render context.
+                                    if let Err(error) = unsafe { video.set_icc_profile(bytes) } {
+                                        eprintln!("Could not install the macOS display ICC profile: {error}");
+                                        profile = None;
+                                    }
+                                }
+                                icc_profile_display = Some((display, profile, attempted));
+                            }
+                            let profile_available = icc_profile_display
+                                .as_ref()
+                                .is_some_and(|(_, profile, _)| profile.is_some());
+                            let hdr_output_active = app.get_hdr_source_detected()
+                                && app.get_hdr_enabled()
+                                && app.get_hdr_display_active();
+                            let should_use_icc = app.get_load_icc_profile()
+                                && profile_available
+                                && !hdr_output_active;
+                            if icc_profile_auto_active != Some(should_use_icc) {
+                                if let Err(error) = render_player
+                                    .send(Command::SetIccProfileAuto(should_use_icc))
+                                {
+                                    eprintln!("Could not update macOS display ICC processing: {error}");
+                                } else {
+                                    icc_profile_auto_active = Some(should_use_icc);
+                                }
+                            }
+                        }
                         let scale = app.window().scale_factor();
                         let width = (app.get_render_width() * scale).clamp(1.0, 8192.0) as u32;
                         let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
@@ -6903,7 +7524,8 @@ pub(crate) fn configure_player(
                                         || (app.get_fullscreen()
                                             && app.get_controls_visible()
                                             && app.get_display_time_and_battery_in_fullscreen()));
-                                let blur_enabled = sidebar_blur || controller_blur || osd_blur;
+                                let blur_enabled = app.get_system_materials_enabled()
+                                    && (sidebar_blur || controller_blur || osd_blur);
                                 if blur_enabled {
                                     if let Some(blur) = blur_surface.as_mut() {
                                         // SAFETY: both textures belong to this window's current GL context.
@@ -6922,13 +7544,13 @@ pub(crate) fn configure_player(
                                                     )
                                                     .build()
                                                 };
-                                                app.set_video_blurred_frame(image);
+                                                set_video_material_sample(&app, image, true);
                                             }
                                             Err(error) => eprintln!("Could not render video blur: {error}"),
                                         }
                                     }
                                 } else {
-                                    app.set_video_blurred_frame(slint::Image::default());
+                                    set_video_material_sample(&app, slint::Image::default(), false);
                                 }
                                 let image = unsafe {
                                     slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
@@ -6983,6 +7605,11 @@ pub(crate) fn configure_player(
                     }
                     drop(blur_surface.take());
                     drop(surface.take());
+                    #[cfg(target_os = "macos")]
+                    {
+                        icc_profile_display = None;
+                        icc_profile_auto_active = None;
+                    }
                     // Context loss also needs UI invalidation, but only after
                     // the backend releases its mutable window borrow. A later
                     // setup must not have its new frame cleared by stale work.
@@ -6995,7 +7622,7 @@ pub(crate) fn configure_player(
                             && !app.get_native_video()
                         {
                             app.set_video_frame(slint::Image::default());
-                            app.set_video_blurred_frame(slint::Image::default());
+                            set_video_material_sample(&app, slint::Image::default(), false);
                             app.set_engine_ready(false);
                         }
                     });
@@ -7028,6 +7655,9 @@ pub(crate) fn configure_player(
         _pause_resume_timer: pause_resume_timer,
         _thumbnail_preview_timer: thumbnail_preview_timer,
         _transition_frame_timer: transition_frame_timer,
+        _native_material_timer: native_material_timer,
+        #[cfg(target_os = "windows")]
+        _windows_materials_policy_timer: windows_materials_policy_timer,
         _subtitle_priority_timer: subtitle_priority_timer,
         _online_subtitles_window: online_subtitles_window,
         _online_subtitles_timer: online_subtitles_timer,

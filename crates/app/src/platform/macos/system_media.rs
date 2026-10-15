@@ -410,10 +410,7 @@ impl SystemMediaControls {
             .artwork_task
             .as_ref()
             .filter(|task| task.generation == snapshot.generation)
-            .and_then(|task| match task.try_recv() {
-                Ok(result) => Some(result),
-                Err(mpsc::TryRecvError::Empty | mpsc::TryRecvError::Disconnected) => None,
-            });
+            .and_then(|task| task.try_recv().ok());
         let artwork_changed = if let Some(result) = artwork_finished {
             self.artwork_task.take();
             match result {
@@ -947,7 +944,7 @@ fn encode_artwork_jpeg(frame: &riina_core::CapturedFrame) -> Result<Vec<u8>, Str
         return Err("The artwork frame has incomplete RGBA pixels".into());
     }
     let mut rgb = Vec::with_capacity(expected / 4 * 3);
-    for pixel in frame.rgba.chunks_exact(4) {
+    for pixel in frame.rgba.as_chunks::<4>().0 {
         rgb.extend_from_slice(&pixel[..3]);
     }
     let mut jpeg = Vec::new();

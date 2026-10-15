@@ -1,10 +1,17 @@
 import { LineEdit, Button } from "std-widgets.slint";
 import { FontList } from "font-list.slint";
+import { NativeTypography } from "shared-controls.slint";
 
 export component FontPicker inherits Window {
+    default-font-family: NativeTypography.system-font-family;
     title: "Choose a Font";
     width: 458px; height: 524px;
-    background: #29292e;
+    in-out property <bool> acrylic-backdrop-enabled: false;
+    in-out property <bool> dark-theme: true;
+    // Match WinUI's light/dark Acrylic layer fill so the accepted DWM backdrop stays visible.
+    background: acrylic-backdrop-enabled
+        ? (dark-theme ? #3a3a3a4c : #ffffff40)
+        : (dark-theme ? #29292e : #f5f5f7);
     in property <[StandardListViewItem]> families;
     in property <[StandardListViewItem]> faces;
     in property <bool> ready: false;
@@ -65,7 +72,7 @@ export component FontPicker inherits Window {
     // Pinned XIB records 12pt margins, a 268pt table block and preview before
     // custom entry. Native table materials and exact glyph metrics remain open.
     VerticalLayout { padding: 12px; spacing: 0px;
-        Text { text: "Choose a font:"; height: 16px; color: #dddddd; font-size: 13px; }
+        Text { text: "Choose a font:"; height: 16px; color: root.dark-theme ? #dddddd : #404046; font-size: 13px; }
         Rectangle { height: 8px; }
         LineEdit { placeholder-text: "Type to filter..."; height: 24px;
             text <=> root.filter-text;
@@ -75,15 +82,19 @@ export component FontPicker inherits Window {
         Rectangle { height: 8px; }
         HorizontalLayout { spacing: 0px; height: 268px;
             VerticalLayout { spacing: 0px;
-                Text { text: "Family"; height: 23px; color: #dddddd; font-size: 12px; }
+                Text { text: "Family"; height: 23px; color: root.dark-theme ? #dddddd : #505056; font-size: 12px; }
                 family-list := FontList { model: root.families; enabled: root.ready;
+                    acrylic-backdrop-enabled: root.acrylic-backdrop-enabled;
+                    dark-theme: root.dark-theme;
                     select-on-focus: !root.reveal-pending;
                     current-item <=> root.family-index;
                     current-item-changed(index) => { if !root.restoring-selection { root.family-selected(index); } } }
             }
             VerticalLayout { spacing: 0px;
-                Text { text: "Typeface"; height: 23px; color: #dddddd; font-size: 12px; }
+                Text { text: "Typeface"; height: 23px; color: root.dark-theme ? #dddddd : #505056; font-size: 12px; }
                 face-list := FontList { model: root.faces; enabled: root.ready;
+                    acrylic-backdrop-enabled: root.acrylic-backdrop-enabled;
+                    dark-theme: root.dark-theme;
                     select-on-focus: !root.reveal-pending;
                     current-item <=> root.face-index;
                     activated(index) => {
@@ -94,29 +105,33 @@ export component FontPicker inherits Window {
             }
         }
         Rectangle { height: 8px; }
-        Rectangle { height: 36px; background: #202024; border-radius: 4px;
+        Rectangle { height: 36px;
+            background: root.dark-theme
+                ? (root.acrylic-backdrop-enabled ? #202024d9 : #202024)
+                : (root.acrylic-backdrop-enabled ? #ffffffd9 : #ffffff);
+            border-radius: 4px;
             TextInput { text <=> root.preview-text; single-line: true;
                 accessible-label: "Font preview text";
                 accessible-action-set-value(value) => { self.text = value; }
                 accepted => { root.accept-font(root.custom-name); }
                 font-family: root.preview-font-family;
                 font-weight: root.preview-font-weight; font-italic: root.preview-font-italic;
-                color: #eeeeee; font-size: 24px; horizontal-alignment: center;
+                color: root.dark-theme ? #eeeeee : #242428; font-size: 24px; horizontal-alignment: center;
                 vertical-alignment: center;
                 x: 10px; width: parent.width - 20px; height: parent.height;
                 transform-origin: { x: self.width / 2, y: self.height / 2 };
                 transform-scale-x: root.preview-font-stretch; }
-            Text { text: "Preview"; x: 8px; y: 4px; color: #bbbbbb; font-size: 11px; }
+            Text { text: "Preview"; x: 8px; y: 4px; color: root.dark-theme ? #bbbbbb : #66666d; font-size: 11px; }
         }
         Rectangle { height: 12px; }
-        Text { text: "Or enter the font name:"; height: 16px; color: #dddddd; font-size: 13px; }
+        Text { text: "Or enter the font name:"; height: 16px; color: root.dark-theme ? #dddddd : #404046; font-size: 13px; }
         Rectangle { height: 8px; }
         LineEdit { text <=> root.custom-name; placeholder-text: "sans-serif"; height: 24px;
             accessible-label: "Custom font name";
             accepted => { root.accept-font(root.custom-name); } }
         Rectangle { min-height: 16px; vertical-stretch: 1; }
         HorizontalLayout { spacing: 12px; height: 24px;
-            Text { text: root.ready ? "" : "Loading fonts…"; color: #bbbbbb; font-size: 11px; }
+            Text { text: root.ready ? "" : "Loading fonts…"; color: root.dark-theme ? #bbbbbb : #73737a; font-size: 11px; }
             Button { text: "Cancel"; width: 80px; clicked => { root.cancel(); } }
             Button { text: "OK"; width: 80px; primary: true; clicked => { root.accept-font(root.custom-name); } }
         }

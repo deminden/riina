@@ -15,7 +15,12 @@ staged = parser.parse_args().staged
 def read_asset(name):
     if staged:
         return subprocess.check_output(["git", "show", f":{name}"], cwd=root)
-    return (root / name).read_bytes()
+    content = (root / name).read_bytes()
+    # The repository enforces LF in Git while Windows may check out CRLF under
+    # core.autocrlf=true. Provenance hashes describe the canonical asset bytes.
+    if b"\0" not in content:
+        content = content.replace(b"\r\n", b"\n")
+    return content
 
 
 manifest = json.loads(read_asset("assets/provenance.json"))

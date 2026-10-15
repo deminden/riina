@@ -125,6 +125,7 @@ pub(crate) struct Controller {
     active: Rc<RefCell<Option<ActiveSession>>>,
     entering: Rc<Cell<bool>>,
     closed: Rc<Cell<bool>>,
+    acrylic_monitor_started: Rc<Cell<bool>>,
     _playback_timer: Timer,
 }
 
@@ -139,6 +140,7 @@ impl Controller {
         let active = Rc::new(RefCell::new(None));
         let entering = Rc::new(Cell::new(false));
         let closed = Rc::new(Cell::new(false));
+        let acrylic_monitor_started = Rc::new(Cell::new(false));
         let player_weak = player.as_weak();
         let host_weak = host.as_weak();
         let pip_weak = pip.as_weak();
@@ -151,6 +153,7 @@ impl Controller {
             active: active.clone(),
             entering: entering.clone(),
             closed: closed.clone(),
+            acrylic_monitor_started: acrylic_monitor_started.clone(),
             _playback_timer: Timer::default(),
         }));
 
@@ -293,7 +296,17 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
         return;
     }
 
-    let (player_weak, host_weak, pip_weak, source, active, entering, closed, commands) = {
+    let (
+        player_weak,
+        host_weak,
+        pip_weak,
+        source,
+        active,
+        entering,
+        closed,
+        acrylic_monitor_started,
+        commands,
+    ) = {
         let controller = controller.borrow();
         (
             controller.player.clone(),
@@ -303,6 +316,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             controller.active.clone(),
             controller.entering.clone(),
             controller.closed.clone(),
+            controller.acrylic_monitor_started.clone(),
             controller.commands.clone(),
         )
     };
@@ -337,6 +351,9 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             pip.set_media_title(player.get_media_title());
             pip.set_paused(player.get_paused());
             pip.show().map_err(|error| error.to_string())?;
+            if !acrylic_monitor_started.replace(true) {
+                crate::platform::enable_pip_acrylic(&pip);
+            }
             let destination = pip
                 .window()
                 .winit_window()

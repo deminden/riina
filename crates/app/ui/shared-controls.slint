@@ -1,5 +1,9 @@
 // Shared Slint controls keep playback and Preferences behavior aligned across
 // the platform backends without tying widgets to a native window API.
+export global NativeTypography {
+    in-out property <string> system-font-family: "";
+}
+
 export component PlayerSlider inherits Rectangle {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
@@ -8,6 +12,10 @@ export component PlayerSlider inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> hint;
     in property <bool> neutral-mark: false;
+    in property <int> tick-count: 0;
+    in property <bool> show-value-label: false;
+    in property <bool> value-label-above-control: false;
+    in property <string> value-label: "";
     in property <bool> dark-theme: true;
     in property <length> knob-width: 6px;
     in property <length> knob-height: 8px;
@@ -73,50 +81,69 @@ export component PlayerSlider inherits Rectangle {
     private property <float> fraction: clamp((display-value - minimum) / max(0.001, maximum - minimum), 0, 1);
     private property <float> loop-a-fraction: clamp((loop-a-value - minimum) / max(0.001, maximum - minimum), 0, 1);
     private property <float> loop-b-fraction: clamp((loop-b-value - minimum) / max(0.001, maximum - minimum), 0, 1);
+    private property <length> track-inset: root.knob-width / 2;
+    private property <length> track-width: max(1px, root.width - root.knob-width);
+    private property <length> track-center-y: show-value-label && value-label-above-control
+        ? root.height / 2 - 1px
+        : show-value-label ? root.height - 6px : root.height / 2;
     private property <color> loop-knob-color: root.dark-theme ? #a6a6a6 : #696969;
-    private property <float> pointer-value: root.minimum + clamp((touch.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
+    private property <float> pointer-value: root.minimum + clamp((touch.mouse-x - track-inset) / track-width, 0, 1) * (root.maximum - root.minimum);
     private property <length> preview-height: root.preview-width * 1px / max(0.001, root.preview-aspect-ratio);
-    private property <length> play-knob-x: clamp(3px + (root.width - 6px) * fraction - knob-width / 2,
+    private property <length> play-knob-x: clamp(track-inset + track-width * fraction - knob-width / 2,
         0px, root.width - knob-width);
-    private property <length> loop-a-x: clamp(3px + (root.width - 6px) * loop-a-fraction - knob-width / 2,
+    private property <length> loop-a-x: clamp(track-inset + track-width * loop-a-fraction - knob-width / 2,
         0px, root.width - knob-width);
-    private property <length> loop-b-x: clamp(3px + (root.width - 6px) * loop-b-fraction - knob-width / 2,
+    private property <length> loop-b-x: clamp(track-inset + track-width * loop-b-fraction - knob-width / 2,
         0px, root.width - knob-width);
     private property <length> loop-a-grab-offset: 0px;
     private property <length> loop-b-grab-offset: 0px;
     private property <length> loop-hit-width: max(8px, knob-width);
-    Rectangle { x: 3px; y: 9px; width: parent.width - 6px; height: 2px;
+    Rectangle { x: track-inset; y: track-center-y - 1px; width: track-width; height: 2px;
         background: root.dark-theme ? #ffffff40 : #00000030; border-radius: 1px; }
-    if neutral-mark : Rectangle { x: parent.width / 2 - 0.5px; y: 6px;
-        width: 1px; height: 8px; background: #ffffff60; }
-    Rectangle { x: 3px; y: 9px; width: (parent.width - 6px) * fraction; height: 2px;
+    if neutral-mark : Rectangle { x: parent.width / 2 - 0.5px; y: track-center-y - 4px;
+        width: 1px; height: 8px; background: root.dark-theme ? #ffffff60 : #00000060; }
+    Rectangle { x: track-inset; y: track-center-y - 1px; width: track-width * fraction; height: 2px;
         background: enabled ? #dddde5 : #666666; border-radius: 1px; }
+    for tick-index in root.tick-count : Rectangle {
+        visible: root.tick-count > 1;
+        x: track-inset - 1px + track-width * ((tick-index * 1.0) / (root.tick-count - 1));
+        y: track-center-y + 2px; width: 2px; height: 2px; border-radius: 1px;
+        background: root.dark-theme ? #ffffff30 : #00000035;
+    }
     // Chapter ticks reveal the underlying track through both progress fills,
     // matching the reference's one-pixel cutouts without changing seek math.
     for chapter-time in root.chapter-times : Rectangle {
         visible: root.show-chapter-positions && chapter-time > root.minimum && chapter-time < root.maximum;
-        x: clamp(3px + (root.width - 6px) *
+        x: clamp(track-inset + track-width *
             (chapter-time - root.minimum) / max(0.001, root.maximum - root.minimum) - 0.5px,
-            3px, root.width - 4px);
-        y: 9px; width: 1px; height: 2px;
+            track-inset, root.width - track-inset - 1px);
+        y: track-center-y - 1px; width: 1px; height: 2px;
         background: root.dark-theme ? #202025 : #f2f2f2;
     }
     if loop-a-visible : Rectangle {
-        x: loop-a-x; y: (parent.height - round(knob-height / 1px * 0.75) * 1px) / 2;
+        x: loop-a-x; y: track-center-y - round(knob-height / 1px * 0.75) * 1px / 2;
         width: knob-width; height: round(knob-height / 1px * 0.75) * 1px;
         border-radius: knob-radius; background: root.loop-knob-color;
     }
     if loop-b-visible : Rectangle {
-        x: loop-b-x; y: (parent.height - round(knob-height / 1px * 0.75) * 1px) / 2;
+        x: loop-b-x; y: track-center-y - round(knob-height / 1px * 0.75) * 1px / 2;
         width: knob-width; height: round(knob-height / 1px * 0.75) * 1px;
         border-radius: knob-radius; background: root.loop-knob-color;
     }
     Rectangle {
         x: play-knob-x;
-        y: (parent.height - root.knob-height) / 2;
+        y: track-center-y - root.knob-height / 2;
         width: root.knob-width; height: root.knob-height;
         border-radius: root.knob-radius;
         background: enabled ? (root.dark-theme ? #f4f4f7 : #3b3b40) : #777777;
+    }
+    if show-value-label : Text {
+        x: clamp(track-inset + track-width * fraction - 18px, 0px, parent.width - 36px);
+        y: value-label-above-control ? -12px : 0px;
+        width: 36px; height: value-label-above-control ? 10px : 12px;
+        text: root.value-label;
+        color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px;
+        horizontal-alignment: center; vertical-alignment: center;
     }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
     touch := TouchArea {
@@ -129,7 +156,7 @@ export component PlayerSlider inherits Rectangle {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 root.is-dragging = true;
                 focus.focus();
-                let pointer-value = root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
+                let pointer-value = root.minimum + clamp((self.mouse-x - root.track-inset) / root.track-width, 0, 1) * (root.maximum - root.minimum);
                 if root.commit-on-release {
                     root.drag-value = clamp(round(pointer-value / max(0.0001, root.step)) * root.step,
                         root.minimum, root.maximum);
@@ -156,7 +183,7 @@ export component PlayerSlider inherits Rectangle {
         }
         moved => {
             if self.pressed {
-                let pointer-value = root.minimum + clamp((self.mouse-x - 3px) / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum);
+                let pointer-value = root.minimum + clamp((self.mouse-x - root.track-inset) / root.track-width, 0, 1) * (root.maximum - root.minimum);
                 if root.commit-on-release {
                     root.drag-value = clamp(round(pointer-value / max(0.0001, root.step)) * root.step,
                         root.minimum, root.maximum);
@@ -211,8 +238,8 @@ export component PlayerSlider inherits Rectangle {
             }
         }
         moved => { if self.pressed {
-            root.loop-a-moved(root.minimum + clamp((self.x + self.mouse-x - loop-a-grab-offset - 3px)
-                / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+            root.loop-a-moved(root.minimum + clamp((self.x + self.mouse-x - loop-a-grab-offset - root.track-inset)
+                / root.track-width, 0, 1) * (root.maximum - root.minimum));
         } }
     }
     loop-b-touch := TouchArea {
@@ -230,8 +257,8 @@ export component PlayerSlider inherits Rectangle {
             }
         }
         moved => { if self.pressed {
-            root.loop-b-moved(root.minimum + clamp((self.x + self.mouse-x - loop-b-grab-offset - 3px)
-                / max(1px, root.width - 6px), 0, 1) * (root.maximum - root.minimum));
+            root.loop-b-moved(root.minimum + clamp((self.x + self.mouse-x - loop-b-grab-offset - root.track-inset)
+                / root.track-width, 0, 1) * (root.maximum - root.minimum));
         } }
     }
 }
@@ -313,17 +340,24 @@ export component SubtitleColorWell inherits Rectangle {
     in property <color> observed-color;
     in property <bool> enabled: true;
     in property <string> hint;
+    in property <bool> native-color-panel: false;
+    in property <int> color-target: 0;
     property <float> red-channel;
     property <float> green-channel;
     property <float> blue-channel;
     property <float> alpha-channel;
     callback edited(color);
+    callback native-color-requested(int, color);
     function open-editor() {
-        self.red-channel = self.observed-color.red;
-        self.green-channel = self.observed-color.green;
-        self.blue-channel = self.observed-color.blue;
-        self.alpha-channel = self.observed-color.alpha;
-        editor.show();
+        if self.native-color-panel {
+            self.native-color-requested(self.color-target, self.observed-color);
+        } else {
+            self.red-channel = self.observed-color.red;
+            self.green-channel = self.observed-color.green;
+            self.blue-channel = self.observed-color.blue;
+            self.alpha-channel = self.observed-color.alpha;
+            editor.show();
+        }
     }
     function submit() {
         self.edited(rgba(round(self.red-channel), round(self.green-channel),

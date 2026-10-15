@@ -230,6 +230,12 @@ pub struct Fbo {
     pub format: c_int,
 }
 
+#[repr(C)]
+pub struct ByteArray {
+    pub data: *mut c_void,
+    pub size: usize,
+}
+
 #[derive(Clone)]
 pub struct Api {
     // Holding the library keeps every copied function pointer valid through renderer teardown.
@@ -247,6 +253,7 @@ pub struct Api {
     pub error: unsafe extern "C" fn(c_int) -> *const c_char,
     pub render_create: unsafe extern "C" fn(*mut *mut c_void, *mut c_void, *mut Param) -> c_int,
     pub render: unsafe extern "C" fn(*mut c_void, *mut Param) -> c_int,
+    pub render_set_parameter: Option<unsafe extern "C" fn(*mut c_void, Param) -> c_int>,
     pub render_callback:
         unsafe extern "C" fn(*mut c_void, Option<unsafe extern "C" fn(*mut c_void)>, *mut c_void),
     pub render_report_swap: unsafe extern "C" fn(*mut c_void),
@@ -324,6 +331,12 @@ impl Api {
                 error: symbol!("mpv_error_string"),
                 render_create: symbol!("mpv_render_context_create"),
                 render: symbol!("mpv_render_context_render"),
+                render_set_parameter: library
+                    .get::<unsafe extern "C" fn(*mut c_void, Param) -> c_int>(
+                        b"mpv_render_context_set_parameter\0",
+                    )
+                    .ok()
+                    .map(|symbol| *symbol),
                 render_callback: symbol!("mpv_render_context_set_update_callback"),
                 render_report_swap: symbol!("mpv_render_context_report_swap"),
                 render_free: symbol!("mpv_render_context_free"),

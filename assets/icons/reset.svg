@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <mask id="counterclockwise-cutout" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
+      <circle cx="8" cy="8" r="7.2" fill="#fff"/>
+      <path d="M11.2 4.8a4.55 4.55 0 1 0-6.4 0" fill="none" stroke="#000" stroke-width="1.45" stroke-linecap="round"/>
+      <path d="M4.8 4.8 4.7 7.05 6.65 5.75Z" fill="#000"/>
+    </mask>
+  </defs>
+  <circle cx="8" cy="8" r="7.2" fill="#dddddd" mask="url(#counterclockwise-cutout)"/>
+</svg>

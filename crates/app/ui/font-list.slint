@@ -18,10 +18,12 @@ export component FontList inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> select-on-focus: true;
     out property <length> viewport-height <=> rows.content-height;
+    in property <bool> acrylic-backdrop-enabled: false;
+    in property <bool> dark-theme: true;
     private property <length> visible-height <=> rows.visible-height;
     private property <length> visible-width <=> rows.visible-width;
     private property <length> viewport-y <=> rows.content-y;
-    background: #202024;
+    background: root.acrylic-backdrop-enabled ? transparent : (root.dark-theme ? #202024 : #ffffff);
     changed model => {
         root.accessible-cursor = -1;
         root.focus-pending = keys.has-focus && root.model.length > 0;
@@ -80,7 +82,9 @@ export component FontList inherits Rectangle {
     VerticalLayout { spacing: 0px;
     for item[index] in root.model: Rectangle {
         width: root.visible-width; height: root.row-pitch;
-        background: root.current-item == index ? #365c98 : transparent;
+        background: root.current-item == index
+            ? (root.dark-theme ? #365c98 : #dceaff)
+            : transparent;
         border-width: keys.has-focus && root.cursor == index ? 1px : 0px;
         border-color: #a5bfe9;
         accessible-role: list-item;
@@ -92,7 +96,7 @@ export component FontList inherits Rectangle {
         Text {
             accessible-role: none;
             text: item.text; x: 4px; width: parent.width - 8px;
-            height: parent.height; font-size: 13px; color: #eeeeee;
+            height: parent.height; font-size: 13px; color: root.dark-theme ? #eeeeee : #242428;
             vertical-alignment: center; overflow: elide;
         }
         TouchArea {

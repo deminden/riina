@@ -1,17 +1,24 @@
 import { ScrollView } from "std-widgets.slint";
 
-// Original segmented controls. Native materials and text metrics need captures;
-// sidebar option order and the 24px control row follow the pinned requirements.
+// NSSegmentedControl uses one joined rail, not individually spaced buttons.
+// This keeps the WinUI-like equivalent compact over the video-backed material.
 component VideoSegment inherits Rectangle {
     in property <string> label;
     in property <string> hint;
     in property <bool> selected;
     in property <bool> enabled: true;
+    in property <bool> dark-theme: true;
+    in property <bool> windows-acrylic-surface: false;
+    in property <color> accent-color: #0a84ff;
+    in property <color> accent-foreground: #ffffff;
+    in property <color> focus-accent-color: #90b7ef;
+    in property <bool> separator-visible: false;
+    in property <bool> wheel-scroll-enabled: false;
     callback chosen();
     callback navigate(int);
+    callback scroll-request(float) -> bool;
     height: 24px;
-    border-radius: 3px;
-    background: selected ? #ffffff28 : touch.has-hover && enabled ? #ffffff14 : #ffffff08;
+    background: transparent;
     accessible-role: button;
     accessible-label: hint;
     accessible-enabled: enabled;
@@ -20,11 +27,44 @@ component VideoSegment inherits Rectangle {
     accessible-item-selectable: true;
     accessible-item-selected: selected;
     accessible-action-default => { if enabled { chosen(); } }
-    Text { text: label; font-size: 12px; color: root.enabled ? #eeeeee : #777777;
-        horizontal-alignment: center; vertical-alignment: center; }
+    if touch.has-hover && root.enabled && !root.selected : Rectangle {
+        x: 1px; y: 2px; width: max(0px, parent.width - 2px); height: parent.height - 4px;
+        border-radius: 3px;
+        background: root.windows-acrylic-surface
+            ? (root.dark-theme ? #ffffff15 : #f9f9f980)
+            : (root.dark-theme ? #ffffff14 : #0000000c);
+    }
+    if root.selected : Rectangle {
+        x: 1px; y: 2px; width: max(0px, parent.width - 2px); height: parent.height - 4px;
+        border-radius: 3px; background: root.accent-color;
+    }
+    if root.separator-visible && !root.selected : Rectangle {
+        x: 0px; y: 6px; width: 1px; height: parent.height - 12px;
+        background: root.windows-acrylic-surface
+            ? (root.dark-theme ? #ffffff28 : #0000001c)
+            : (root.dark-theme ? #ffffff24 : #00000020);
+    }
+    HorizontalLayout { x: 0px; y: 0px; width: parent.width; height: parent.height;
+        alignment: center;
+        Text { text: label; horizontal-stretch: 1; horizontal-alignment: center; font-size: 12px;
+            color: root.selected ? root.accent-foreground : root.enabled
+                ? (root.dark-theme ? #eeeeee : #29292d)
+                : (root.dark-theme ? #777777 : #8a8a90);
+            vertical-alignment: center; }
+    }
     if focus.has-focus : Rectangle { background: transparent; border-radius: 3px;
-        border-width: 1px; border-color: #90b7ef; }
-    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.chosen(); } }
+        border-width: 1px; border-color: root.focus-accent-color; }
+    touch := TouchArea {
+        enabled: true;
+        clicked => { if root.enabled { focus.focus(); root.chosen(); } }
+        scroll-event(event) => {
+            if root.wheel-scroll-enabled && event.delta-y != 0px && event.delta-x == 0px
+                && root.scroll-request(event.delta-y / 1px) {
+                return accept;
+            }
+            return reject;
+        }
+    }
     focus := FocusScope { enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -38,22 +78,63 @@ component VideoSegment inherits Rectangle {
 
 component ScrollArrow inherits Rectangle {
     in property <bool> overflow: false;
+    in property <bool> at-leading-edge: false;
+    in property <bool> at-trailing-edge: true;
     in property <bool> toward-end: true;
+    in property <bool> dark-theme: true;
     callback clicked(bool);
+    private property <bool> active:
+        root.overflow && (root.at-leading-edge || root.at-trailing-edge);
     width: 8px;
     height: 24px;
     background: transparent;
-    visible: root.overflow;
+    // Keep the indicator slot and its 4-point gap reserved while its glyph is
+    // hidden, as in IINA's constrained NSButton/scroll-view pair.
+    opacity: root.active ? 1 : 0;
     accessible-role: button;
     accessible-label: root.toward-end ? "Scroll to more choices" : "Scroll to earlier choices";
-    accessible-action-default => { root.clicked(root.toward-end); }
+    accessible-enabled: root.active;
+    accessible-action-default => { if root.active { root.clicked(root.toward-end); } }
     Text { text: root.toward-end ? "›" : "‹"; font-size: 16px; font-weight: 600;
-        color: touch.has-hover ? #ffffff : #cccccc;
+        color: touch.has-hover ? (root.dark-theme ? #ffffff : #202024)
+            : (root.dark-theme ? #cccccc : #66666b);
         horizontal-alignment: center; vertical-alignment: center; }
-    touch := TouchArea { clicked => { root.clicked(root.toward-end); } }
+    touch := TouchArea {
+        enabled: root.active;
+        clicked => { root.clicked(root.toward-end); }
+    }
+}
+
+component PresetRailScrollView inherits ScrollView {
+    in property <bool> animations-disabled: false;
+    private property <bool> programmatic-scroll: false;
+    callback scroll-to(length);
+    callback scroll-by(float) -> bool;
+    animate content-x {
+        duration: root.programmatic-scroll && !root.animations-disabled ? 300ms : 0ms;
+    }
+    Timer {
+        interval: 300ms;
+        running: root.programmatic-scroll;
+        triggered => { root.programmatic-scroll = false; }
+    }
+    scroll-to(position) => {
+        root.programmatic-scroll = true;
+        root.content-x = position;
+    }
+    scroll-by(amount) => {
+        let maximum-offset = max(0px, root.content-width - root.visible-width);
+        if maximum-offset <= 0px { return false; }
+        root.programmatic-scroll = false;
+        root.content-x = max(-maximum-offset,
+            min(0px, root.content-x + amount * 1px));
+        return true;
+    }
 }
 
 export component VideoControls inherits Rectangle {
+    in property <bool> compact-ui: false;
+    in property <bool> animations-disabled: false;
     in property <[string]> aspect-presets;
     in property <int> aspect-index: 0;
     in property <int> rotation-index: -1;
@@ -63,39 +144,86 @@ export component VideoControls inherits Rectangle {
     callback crop-changed(int);
     in property <bool> aspect-enabled: false;
     in property <bool> rotation-enabled: false;
+    in property <bool> dark-theme: true;
+    in property <bool> windows-acrylic-surface: false;
+    in property <color> accent-color: #0a84ff;
+    in property <color> accent-foreground: #ffffff;
+    in property <color> focus-accent-color: #90b7ef;
+    in property <color> card-fill: #ffffff08;
+    in property <color> card-edge: #ffffff18;
+    // IINA animates its horizontal preset rails over 300 ms when the trailing
+    // or leading chevron is pressed. Keep the destination separate so Slint
+    // interpolates the ScrollView offset instead of jumping to the edge.
     callback aspect-changed(string);
     callback rotation-changed(int);
-    height: 160px;
-    background: transparent;
-    VerticalLayout { spacing: 8px;
+    // The six source rows occupy 120 points. Add IINA's five 12/8-point
+    // inter-row gaps and its 12/10-point container padding for each layout.
+    height: root.compact-ui ? 180px : 204px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: root.card-edge;
+    background: root.card-fill;
+    VerticalLayout {
+        padding: root.compact-ui ? 10px : 12px;
+        spacing: root.compact-ui ? 8px : 12px;
         HorizontalLayout { height: 16px; spacing: 8px;
-            Image { source: @image-url("../../../assets/icons/video-aspect-ratio.svg"); width: 16px; height: 16px; }
-            Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
+            Image { source: @image-url("../../../assets/icons/video-aspect-ratio.svg");
+                width: 16px; height: 16px; colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+            Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700;
+                color: root.dark-theme ? #dddddd : #29292d; vertical-alignment: center; }
         }
         Rectangle { height: 24px;
             HorizontalLayout { spacing: 4px;
-                aspect-scroll := ScrollView { horizontal-stretch: 1; min-width: 0px; height: 24px;
+                aspect-scroll := PresetRailScrollView {
+                    horizontal-stretch: 1; min-width: 0px; height: 24px;
+                    animations-disabled: root.animations-disabled;
                     horizontal-scrollbar-policy: always-off;
                     vertical-scrollbar-policy: always-off;
                     content-height: self.visible-height;
                     HorizontalLayout { spacing: 8px;
-                        HorizontalLayout { spacing: 1px;
-                            for label[index] in root.aspect-presets : VideoSegment {
-                                width: index == 0 ? 54px : 43px;
-                                label: label; hint: "Aspect ratio " + label;
-                                enabled: root.aspect-enabled;
-                                selected: root.aspect-index == index;
-                                chosen => { root.aspect-changed(label); }
-                                navigate(direction) => {
-                                    root.aspect-changed(root.aspect-presets[clamp(
-                                        (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
-                                        0, root.aspect-presets.length - 1)]);
+                        Rectangle {
+                            // REF-24's native segments measure 68/45/50/56/49/45
+                            // points in English; preserve each label's width.
+                            width: 314px;
+                            height: 24px; border-radius: 4px; border-width: 1px;
+                            border-color: root.dark-theme ? #ffffff20 : #00000020;
+                            background: root.windows-acrylic-surface
+                                ? (root.dark-theme ? #ffffff16 : #f9f9f96b)
+                                : (root.dark-theme ? #ffffff10 : #0000000b);
+                            HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
+                                for label[index] in root.aspect-presets : VideoSegment {
+                                    width: index == 0 ? 68px : index == 1 ? 45px
+                                        : index == 2 ? 50px : index == 3 ? 56px
+                                        : index == 4 ? 49px : 45px;
+                                    label: label; hint: "Aspect ratio " + label;
+                                    enabled: root.aspect-enabled;
+                                    wheel-scroll-enabled: true;
+                                    dark-theme: root.dark-theme;
+                                    windows-acrylic-surface: root.windows-acrylic-surface;
+                                    accent-color: root.accent-color;
+                                    accent-foreground: root.accent-foreground;
+                                    focus-accent-color: root.focus-accent-color;
+                                    selected: root.aspect-index == index;
+                                    scroll-request(amount) => { aspect-scroll.scroll-by(amount); }
+                                    separator-visible: index > 0 && root.aspect-index != index &&
+                                        root.aspect-index != index - 1;
+                                    chosen => { root.aspect-changed(label); }
+                                    navigate(direction) => {
+                                        root.aspect-changed(root.aspect-presets[clamp(
+                                            (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
+                                            0, root.aspect-presets.length - 1)]);
+                                    }
                                 }
                             }
                         }
-                        Rectangle { width: 40px; height: 24px; background: #ffffff10;
+                        Rectangle { width: 40px; height: 24px;
+                            background: root.windows-acrylic-surface
+                                ? (root.dark-theme ? #ffffff0f : #f9f9f94d)
+                                : (root.dark-theme ? #ffffff10 : #ffffff);
                             border-radius: 4px; border-width: 1px;
-                            border-color: custom.has-focus ? #90b7ef : #ffffff20;
+                            border-color: custom.has-focus
+                                ? root.focus-accent-color
+                                : (root.dark-theme ? #ffffff20 : #00000020);
                             forward-focus: custom;
                             FocusScope {
                                 width: parent.width; height: parent.height;
@@ -110,7 +238,10 @@ export component VideoControls inherits Rectangle {
                                 }
                                 custom := TextInput { x: 3px; width: parent.width - 6px; height: parent.height;
                                     single-line: true; enabled: root.aspect-enabled;
-                                    color: root.aspect-enabled ? #eeeeee : #777777; font-size: 12px;
+                                    color: root.aspect-enabled
+                                        ? (root.dark-theme ? #eeeeee : #29292d)
+                                        : (root.dark-theme ? #777777 : #8a8a90);
+                                    font-size: 12px;
                                     vertical-alignment: center; accessible-label: "Custom aspect ratio";
                                     accessible-action-set-value(value) => { self.text = value; }
                                     accepted => { if self.text != "" { root.aspect-changed(self.text); } }
@@ -120,59 +251,113 @@ export component VideoControls inherits Rectangle {
                     }
                 }
                 ScrollArrow {
+                    dark-theme: root.dark-theme;
+                    at-trailing-edge: aspect-scroll.content-x >= -1px;
+                    at-leading-edge: aspect-scroll.content-x + aspect-scroll.visible-width >=
+                        aspect-scroll.content-width - 1px;
                     toward-end: aspect-scroll.content-x >= -1px;
                     overflow: aspect-scroll.content-width > aspect-scroll.visible-width + 1px;
                     clicked(toward_end) => {
-                        aspect-scroll.content-x = toward_end ?
-                            min(0px, aspect-scroll.visible-width - aspect-scroll.content-width) : 0px;
+                        aspect-scroll.scroll-to(
+                            toward_end
+                                ? min(0px, aspect-scroll.visible-width - aspect-scroll.content-width)
+                                : 0px);
                     }
                 }
             }
         }
         HorizontalLayout { height: 16px; spacing: 8px;
-            Image { source: @image-url("../../../assets/icons/video-crop.svg"); width: 16px; height: 16px; }
-            Text { text: "Crop"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
+            Image { source: @image-url("../../../assets/icons/video-crop.svg");
+                width: 16px; height: 16px; colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+            Text { text: "Crop"; font-size: 12px; font-weight: 700;
+                color: root.dark-theme ? #dddddd : #29292d; vertical-alignment: center; }
         }
         Rectangle { height: 24px;
             HorizontalLayout { spacing: 4px;
-                crop-scroll := ScrollView { horizontal-stretch: 1; min-width: 0px; height: 24px;
+                crop-scroll := PresetRailScrollView {
+                    horizontal-stretch: 1; min-width: 0px; height: 24px;
+                    animations-disabled: root.animations-disabled;
                     horizontal-scrollbar-policy: always-off;
                     vertical-scrollbar-policy: always-off;
                     content-height: self.visible-height;
-                    HorizontalLayout { spacing: 1px;
-                        for label[index] in root.crop-presets : VideoSegment {
-                            width: index == 6 ? 76px : 43px;
-                            label: label; hint: "Crop " + label;
-                            enabled: root.crop-enabled;
-                            selected: root.crop-index == index;
-                            chosen => { root.crop-changed(index); }
-                            navigate(direction) => { root.crop-changed(clamp(
-                                (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
+                    HorizontalLayout {
+                    Rectangle {
+                        // REF-24's six standard labels measure 57/45/50/56/49/45
+                        // points; the 76-point Custom segment remains scrollable.
+                        width: 378.5px;
+                        height: 24px; border-radius: 4px; border-width: 1px;
+                        border-color: root.dark-theme ? #ffffff20 : #00000020;
+                        background: root.windows-acrylic-surface
+                            ? (root.dark-theme ? #ffffff16 : #f9f9f96b)
+                            : (root.dark-theme ? #ffffff10 : #0000000b);
+                        HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
+                            for label[index] in root.crop-presets : VideoSegment {
+                                width: index == 6 ? 76px : index == 0 ? 56.5px
+                                    : index == 1 ? 45px : index == 2 ? 50px
+                                    : index == 3 ? 56px : index == 4 ? 49px : 45px;
+                                label: label; hint: "Crop " + label;
+                                enabled: root.crop-enabled;
+                                wheel-scroll-enabled: true;
+                                dark-theme: root.dark-theme;
+                                windows-acrylic-surface: root.windows-acrylic-surface;
+                                accent-color: root.accent-color;
+                                accent-foreground: root.accent-foreground;
+                                selected: root.crop-index == index;
+                                scroll-request(amount) => { crop-scroll.scroll-by(amount); }
+                                separator-visible: index > 0 && root.crop-index != index &&
+                                    root.crop-index != index - 1;
+                                chosen => { root.crop-changed(index); }
+                                navigate(direction) => { root.crop-changed(clamp(
+                                    (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
+                            }
                         }
+                    }
                     }
                 }
                 ScrollArrow {
+                    dark-theme: root.dark-theme;
+                    at-trailing-edge: crop-scroll.content-x >= -1px;
+                    at-leading-edge: crop-scroll.content-x + crop-scroll.visible-width >=
+                        crop-scroll.content-width - 1px;
                     toward-end: crop-scroll.content-x >= -1px;
                     overflow: crop-scroll.content-width > crop-scroll.visible-width + 1px;
                     clicked(toward_end) => {
-                        crop-scroll.content-x = toward_end ?
-                            min(0px, crop-scroll.visible-width - crop-scroll.content-width) : 0px;
+                        crop-scroll.scroll-to(
+                            toward_end
+                                ? min(0px, crop-scroll.visible-width - crop-scroll.content-width)
+                                : 0px);
                     }
                 }
             }
         }
         HorizontalLayout { height: 16px; spacing: 8px;
-            Image { source: @image-url("../../../assets/icons/video-rotate.svg"); width: 16px; height: 16px; }
-            Text { text: "Rotation"; font-size: 12px; font-weight: 700; color: #dddddd; vertical-alignment: center; }
+            Image { source: @image-url("../../../assets/icons/video-rotate.svg");
+                width: 16px; height: 16px; colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+            Text { text: "Rotation"; font-size: 12px; font-weight: 700;
+                color: root.dark-theme ? #dddddd : #29292d; vertical-alignment: center; }
         }
-        HorizontalLayout { height: 24px; spacing: 1px;
-            for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
-                label: label; hint: "Video rotation " + label;
-                enabled: root.rotation-enabled;
-                selected: root.rotation-index == index;
-                chosen => { root.rotation-changed(index * 90); }
-                navigate(direction) => { root.rotation-changed(clamp(
-                    (root.rotation-index >= 0 ? root.rotation-index : index) + direction, 0, 3) * 90); }
+        Rectangle {
+            width: 190px; height: 24px; border-radius: 4px; border-width: 1px;
+            border-color: root.dark-theme ? #ffffff20 : #00000020;
+            background: root.windows-acrylic-surface
+                ? (root.dark-theme ? #ffffff16 : #f9f9f96b)
+                : (root.dark-theme ? #ffffff10 : #0000000b);
+            HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
+                for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
+                    width: 47px;
+                    label: label; hint: "Video rotation " + label;
+                    enabled: root.rotation-enabled;
+                    dark-theme: root.dark-theme;
+                    windows-acrylic-surface: root.windows-acrylic-surface;
+                    accent-color: root.accent-color;
+                    accent-foreground: root.accent-foreground;
+                    selected: root.rotation-index == index;
+                    separator-visible: index > 0 && root.rotation-index != index &&
+                        root.rotation-index != index - 1;
+                    chosen => { root.rotation-changed(index * 90); }
+                    navigate(direction) => { root.rotation-changed(clamp(
+                        (root.rotation-index >= 0 ? root.rotation-index : index) + direction, 0, 3) * 90); }
+                }
             }
         }
     }
@@ -181,23 +366,40 @@ export component VideoControls inherits Rectangle {
 export component HardwareDecodingControls inherits Rectangle {
     in property <bool> hardware-enabled: false;
     in property <bool> hardware-known: false;
+    in property <bool> dark-theme: true;
+    in property <bool> windows-acrylic-surface: false;
+    in property <color> accent-color: #0a84ff;
+    in property <color> focus-accent-color: #90b7ef;
     callback hardware-changed(bool);
-    height: 24px;
+    height: 20px;
     background: transparent;
-        HorizontalLayout { height: 24px; spacing: 8px;
-            Text { text: "Hardware Decoding"; font-size: 12px; color: #dddddd;
+    VerticalLayout { alignment: center;
+        HorizontalLayout { height: 20px; spacing: 8px;
+            Image { source: @image-url("../../../assets/icons/hardware-decoding.svg");
+                width: 16px; height: 16px;
+                colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+            Text { text: "Hardware Decoding"; font-size: 13px;
+                color: root.dark-theme ? #dddddd : #29292d;
                 vertical-alignment: center; horizontal-stretch: 1; }
-            hardware := Rectangle { width: 30px; height: 18px; border-radius: 9px;
-                background: root.hardware-enabled ? #478adc : #ffffff28;
+            // REF-24's 2× capture measures a 44×20-point switch and a
+            // 26×16-point thumb with a 2-point vertical inset.
+            hardware := Rectangle { width: 44px; height: 20px; border-radius: 10px;
+                background: root.hardware-enabled ? root.accent-color
+                    : (root.windows-acrylic-surface
+                        ? (root.dark-theme ? #ffffff15 : #f9f9f980)
+                        : (root.dark-theme ? #ffffff28 : #00000016));
                 accessible-role: switch; accessible-label: "Hardware Decoding";
                 accessible-enabled: root.hardware-known;
                 accessible-checkable: true; accessible-checked: root.hardware-enabled;
                 accessible-action-default => { if root.hardware-known { root.hardware-changed(!root.hardware-enabled); } }
-                Rectangle { x: root.hardware-enabled ? 14px : 2px; y: 2px;
-                    width: 14px; height: 14px; border-radius: 7px;
-                    background: root.hardware-known ? #eeeeee : #777777; }
+                Rectangle { x: root.hardware-enabled ? 16px : 2px; y: 2px;
+                    width: 26px; height: 16px; border-radius: 8px;
+                    background: root.hardware-known
+                        ? (root.dark-theme ? #eeeeee : #ffffff)
+                        : (root.dark-theme ? #777777 : #8a8a90); }
                 if hardware-focus.has-focus : Rectangle { background: transparent;
-                    border-radius: 9px; border-width: 1px; border-color: #90b7ef; }
+                    border-radius: 10px; border-width: 1px;
+                    border-color: root.focus-accent-color; }
                 TouchArea { enabled: root.hardware-known;
                     clicked => { hardware-focus.focus(); root.hardware-changed(!root.hardware-enabled); } }
                 hardware-focus := FocusScope { enabled: root.hardware-known;
@@ -211,30 +413,47 @@ export component HardwareDecodingControls inherits Rectangle {
                 }
             }
         }
+    }
 }
 
 export component HdrControls inherits Rectangle {
     in property <bool> hdr-enabled: true;
     in property <bool> hdr-available: false;
+    in property <bool> dark-theme: true;
+    in property <bool> windows-acrylic-surface: false;
+    in property <color> accent-color: #0a84ff;
+    in property <color> focus-accent-color: #90b7ef;
     callback hdr-changed(bool);
-    height: 24px;
+    height: 18px;
     background: transparent;
-    HorizontalLayout { height: 24px; spacing: 8px;
-        Text { text: "HDR"; font-size: 12px; color: #dddddd;
+    VerticalLayout { alignment: center;
+    HorizontalLayout { height: 18px; spacing: 8px;
+        Image { source: @image-url("../../../assets/icons/hdr-sun.svg");
+            width: 16px; height: 16px;
+            colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+        Text { text: "HDR"; font-size: 13px; color: root.dark-theme ? #dddddd : #29292d;
             vertical-alignment: center; horizontal-stretch: 1; }
-        toggle := Rectangle { width: 30px; height: 18px; border-radius: 9px;
-            background: root.hdr-enabled ? #478adc : #ffffff28;
+        // The pinned HDR row uses a small NSSwitch. At 2×, the HDR reference
+        // measures its track at 72×32 px and the selected thumb at 42×24 px.
+        toggle := Rectangle { width: 36px; height: 16px; border-radius: 8px;
+            background: root.hdr-enabled ? root.accent-color
+                : (root.windows-acrylic-surface
+                    ? (root.dark-theme ? #ffffff15 : #f9f9f980)
+                    : (root.dark-theme ? #ffffff28 : #00000016));
             accessible-role: switch; accessible-label: "HDR";
             accessible-enabled: root.hdr-available;
             accessible-checkable: true; accessible-checked: root.hdr-enabled;
             accessible-action-default => {
                 if root.hdr-available { root.hdr-changed(!root.hdr-enabled); }
             }
-            Rectangle { x: root.hdr-enabled ? 14px : 2px; y: 2px;
-                width: 14px; height: 14px; border-radius: 7px;
-                background: root.hdr-available ? #eeeeee : #777777; }
+            Rectangle { x: root.hdr-enabled ? 13.5px : 1.5px; y: 2px;
+                width: 21px; height: 12px; border-radius: 6px;
+                background: root.hdr-available
+                    ? (root.dark-theme ? #eeeeee : #ffffff)
+                    : (root.dark-theme ? #777777 : #8a8a90); }
             if toggle-focus.has-focus : Rectangle { background: transparent;
-                border-radius: 9px; border-width: 1px; border-color: #90b7ef; }
+                border-radius: 8px; border-width: 1px;
+                border-color: root.focus-accent-color; }
             toggle-focus := FocusScope { enabled: root.hdr-available;
                 key-pressed(event) => {
                     if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -249,5 +468,6 @@ export component HdrControls inherits Rectangle {
             TouchArea { enabled: root.hdr-available;
                 clicked => { toggle-focus.focus(); root.hdr-changed(!root.hdr-enabled); } }
         }
+    }
     }
 }

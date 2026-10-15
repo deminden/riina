@@ -6,6 +6,7 @@ export struct SavedFilterMenuRow {
     token: string,
     label: string,
     selected: bool,
+    shortcut: keys,
     shortcut-label: string,
     shortcut-key: string,
     shortcut-modifiers: int,
@@ -37,6 +38,7 @@ export component NativeVideoHost inherits Window {
     callback bring-all-to-front();
     in property <bool> bring-all-to-front-available: false;
     in property <[MenuShortcutRow]> menu-shortcuts: [];
+    in-out property <bool> mica-backdrop-enabled: false;
     callback menu-shortcuts-changed();
     changed menu-shortcuts => { root.menu-shortcuts-changed(); }
     function menu-shortcut(index: int) -> keys {
@@ -173,7 +175,7 @@ export component NativeVideoHost inherits Window {
     in property <int> video-rotation-index: -1;
     callback set-menu-video-rotation(int);
     in property <bool> fullscreen-mode: false;
-    if !root.fullscreen-mode : MenuBar {
+    if !root.fullscreen-mode && !root.music-mode : MenuBar {
         Menu { title: "riina";
             MenuItem { title: "About Riina"; activated => { root.show-about(); } }
             MenuItem { title: "Check for Updates…"; enabled: false; }
@@ -434,6 +436,7 @@ export component NativeVideoHost inherits Window {
             Menu { title: "Saved Video Filters"; enabled: root.playback-loaded;
                 for row in root.saved-video-filter-rows : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
+                    shortcut: row.shortcut;
                     activated => { root.toggle-saved-video-filter(row.token); }
                 }
             }
@@ -488,6 +491,7 @@ export component NativeVideoHost inherits Window {
             Menu { title: "Saved Audio Filters"; enabled: root.playback-loaded;
                 for row in root.saved-audio-filter-rows : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
+                    shortcut: row.shortcut;
                     activated => { root.toggle-saved-audio-filter(row.token); }
                 }
             }
@@ -612,6 +616,10 @@ export component NativeVideoHost inherits Window {
     preferred-height: 600px;
     min-width: 285px;
     min-height: 120px;
+    // The native video target must stay opaque: transparency here exposes
+    // unrelated desktop windows through decoded video on some DWM paths.
+    // Controls keep their own transparent HWND and can still use video-backed
+    // materials without making the playback surface itself see-through.
     background: black;
 }
 

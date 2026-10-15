@@ -48,6 +48,8 @@ pub(crate) fn connect(
                     return;
                 }
             };
+            crate::appearance_preferences::install_system_typography(&window);
+            crate::platform::enable_preferences_mica(&window);
             crate::settings_search::connect(&window);
             let assrt_token_page_parent = app.as_weak();
             window.on_open_assrt_token_page(move || {
@@ -78,6 +80,8 @@ pub(crate) fn connect(
                 .unwrap_or_default();
             crate::audio_preferences::install_window(&window, &baseline.audio, &available_devices);
             crate::tone_mapping_preferences::install_window(&window, &baseline.hdr_tone_mapping);
+            window.set_load_icc_profile(baseline.load_icc_profile);
+            window.set_default_hdr_mode_enabled(baseline.hdr_enabled);
             window.set_video_threads_text(baseline.video_threads.to_string().into());
             crate::control_preferences::install_window(&window, &baseline.controls);
             if let Err(error) =
@@ -106,6 +110,54 @@ pub(crate) fn connect(
             window.set_playlist_auto_add(baseline.playlist_auto_add);
             let parent = app.as_weak();
             let weak = window.as_weak();
+            #[cfg(target_os = "macos")]
+            {
+                let active_color_panel = Rc::new(RefCell::new(None));
+                let active_panel_slot = active_color_panel.clone();
+                let color_panel_window = window.as_weak();
+                let color_panel_parent = app.as_weak();
+                window.on_native_subtitle_color_requested(move |target, color| {
+                    let Some(window) = color_panel_window.upgrade() else {
+                        return;
+                    };
+                    let initial = [color.red(), color.green(), color.blue(), color.alpha()];
+                    let weak_window = window.as_weak();
+                    let panel =
+                        crate::platform::MacSubtitleColorPanel::open(initial, move |channels| {
+                            let Some(window) = weak_window.upgrade() else {
+                                return;
+                            };
+                            let color = slint::Color::from_argb_u8(
+                                channels[3],
+                                channels[0],
+                                channels[1],
+                                channels[2],
+                            );
+                            match target {
+                                1 => window.set_subtitle_text_color(color),
+                                2 => {
+                                    window.set_subtitle_background_color(color);
+                                    window.set_subtitle_shadow_color(color);
+                                }
+                                3 => window.set_subtitle_outline_color(color),
+                                4 => {
+                                    window.set_subtitle_shadow_color(color);
+                                    window.set_subtitle_background_color(color);
+                                }
+                                _ => return,
+                            }
+                            window.invoke_settings_changed();
+                        });
+                    match panel {
+                        Ok(panel) => *active_panel_slot.borrow_mut() = Some(panel),
+                        Err(error) => {
+                            if let Some(app) = color_panel_parent.upgrade() {
+                                app.set_status(error.into());
+                            }
+                        }
+                    }
+                });
+            }
             let path = path.clone();
             let baseline = baseline.clone();
             let saved_open_policy = Rc::new(RefCell::new((
@@ -1078,6 +1130,8 @@ pub(crate) fn connect(
                         quit_when_no_opened_window: selected_quit_when_no_windows,
                         keep_open_on_file_end: selected_keep_open,
                         live_text_enabled: window.get_live_text_enabled(),
+                        load_icc_profile: window.get_load_icc_profile(),
+                        hdr_enabled: window.get_default_hdr_mode_enabled(),
                         disable_animations: window.get_disable_animations(),
                         theme_material: Some(selected_theme),
                         always_float_on_top: window.get_always_float_on_top(),
@@ -1222,6 +1276,8 @@ pub(crate) fn connect(
                         }
                         crate::pip_preferences::install_player(&app, selected_picture_in_picture);
                         app.set_live_text_enabled(window.get_live_text_enabled());
+                        app.set_load_icc_profile(window.get_load_icc_profile());
+                        app.set_default_hdr_mode_enabled(window.get_default_hdr_mode_enabled());
                         app.set_disable_animations(window.get_disable_animations());
                         *saved_tone_mapping_for_change.borrow_mut() = selected_tone_mapping.clone();
                         *saved_video_threads_for_change.borrow_mut() = selected_video_threads;
@@ -1572,6 +1628,8 @@ fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::thumbnail_preferences::install_window(window, &settings);
     }
     window.set_live_text_enabled(app.get_live_text_enabled());
+    window.set_load_icc_profile(app.get_load_icc_profile());
+    window.set_default_hdr_mode_enabled(app.get_default_hdr_mode_enabled());
     window.set_disable_animations(app.get_disable_animations());
     window.set_platform_macos(cfg!(target_os = "macos"));
     window.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());

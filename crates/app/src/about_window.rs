@@ -14,8 +14,12 @@ pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
     let version_playback = playback.clone();
     let version_timer = Rc::new(slint::Timer::default());
     let version_timer_weak = Rc::downgrade(&version_timer);
+    let appearance_timer = Rc::new(slint::Timer::default());
+    let appearance_slot = about_slot.clone();
+    let appearance_app = app.as_weak();
     let slot = about_slot.clone();
     let weak_app = app.as_weak();
+    let show_appearance_timer = appearance_timer.clone();
     app.on_show_about(move || {
         let Some(app) = weak_app.upgrade() else {
             return;
@@ -27,6 +31,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
                 app.set_status("Could not open About Riina".into());
                 return;
             };
+            crate::appearance_preferences::install_system_typography(&window);
             connect_links(&window, app.as_weak());
             crate::platform::center_auxiliary_window(&window, &app);
             *slot.borrow_mut() = Some(window.clone_strong());
@@ -44,6 +49,38 @@ pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
             app.set_status(format!("Could not show About Riina: {error}").into());
             return;
         }
+        crate::platform::enable_about_acrylic(&window);
+        let timer = show_appearance_timer.clone();
+        let timer_weak = Rc::downgrade(&timer);
+        let timer_slot = appearance_slot.clone();
+        let timer_app = appearance_app.clone();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(250),
+            move || {
+                let Some(app) = timer_app.upgrade() else {
+                    if let Some(timer) = timer_weak.upgrade() {
+                        timer.stop();
+                    }
+                    return;
+                };
+                let Some(window) = timer_slot
+                    .borrow()
+                    .as_ref()
+                    .filter(|window| window.window().is_visible())
+                    .map(slint::ComponentHandle::clone_strong)
+                else {
+                    if let Some(timer) = timer_weak.upgrade() {
+                        timer.stop();
+                    }
+                    return;
+                };
+                let dark_theme = app.get_dark_theme();
+                if window.get_dark_theme() != dark_theme {
+                    window.set_dark_theme(dark_theme);
+                }
+            },
+        );
         let timer_slot = version_slot.clone();
         let timer_playback = version_playback.clone();
         let timer_handle = version_timer_weak.clone();

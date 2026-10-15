@@ -3,10 +3,30 @@
 use crate::PlayerWindow;
 use riina_core::ThemeMaterial;
 use slint::{
-    ComponentHandle,
+    ComponentHandle, Global,
     winit_030::{WinitWindowAccessor, winit::window::Theme},
 };
 use std::{cell::Cell, rc::Rc, time::Duration};
+
+/// Install the platform font in this component's own Slint global state.
+pub(crate) fn install_system_typography<T: ComponentHandle>(component: &T)
+where
+    for<'a> crate::NativeTypography<'a>: Global<'a, T>,
+{
+    let family = {
+        #[cfg(target_os = "macos")]
+        {
+            crate::platform::system_font_family_name()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            String::new()
+        }
+    };
+    component
+        .global::<crate::NativeTypography>()
+        .set_system_font_family(family.into());
+}
 
 /// Apply explicit themes on choice changes, and refresh native appearance and
 /// motion preferences while following system changes.

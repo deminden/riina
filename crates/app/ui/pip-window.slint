@@ -1,9 +1,12 @@
 import { Button, HorizontalBox } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
 
 export component PictureInPictureWindow inherits Window {
+    default-font-family: NativeTypography.system-font-family;
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     in property <string> media-title: "riina";
     in property <bool> paused: false;
+    in-out property <bool> acrylic-backdrop-enabled: false;
     callback play-pause();
     callback stop();
     callback skip(float);
@@ -14,10 +17,10 @@ export component PictureInPictureWindow inherits Window {
     preferred-height: 326px;
     min-width: 360px;
     min-height: 258px;
-    background: #09090b;
+    background: acrylic-backdrop-enabled ? transparent : #09090b;
 
     Rectangle {
-        background: #09090b;
+        background: root.acrylic-backdrop-enabled ? transparent : #09090b;
         Rectangle {
             x: 0;
             y: 0;
@@ -30,7 +33,7 @@ export component PictureInPictureWindow inherits Window {
             y: parent.height - 54px;
             width: parent.width;
             height: 54px;
-            background: #17171b;
+            background: root.acrylic-backdrop-enabled ? #17171bd9 : #17171b;
 
             HorizontalBox {
                 padding-left: 8px;

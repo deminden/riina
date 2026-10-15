@@ -85,6 +85,20 @@
       "sha256": "5e1838f9f2b222af7db14edf8fb5749ab7d14e8518c2b1f179f470b76291b673"
     },
     {
+      "path": "assets/icons/chevron-backward.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "b98a03fc747987e2a9de7132a3d23079b4f5356e15795bd95de190cedff5930c"
+    },
+    {
+      "path": "assets/icons/chevron-forward.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "151f0067a3256223d127911f43595ed6f7cf54f69e7b10e842100789827024a5"
+    },
+    {
       "path": "assets/icons/close.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -106,6 +120,20 @@
       "sha256": "c73eddfab88faa0e9a29b8a80340a9e263859f64d396ae9b8d7c02630ecef4a7"
     },
     {
+      "path": "assets/icons/delay.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original clock-and-return SVG authored for riina; no external artwork copied or traced",
+      "sha256": "c8dae74b0fe46ba258533d4b247d2dfbf9317f1beb8cae90645419e90220146a"
+    },
+    {
+      "path": "assets/icons/equalizer.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original three-band equalizer SVG authored for riina; no external artwork copied or traced",
+      "sha256": "523f9ad30e0dc4ed5db8f2cd7efb266c50957dd3d30fd05dfddcbeec52335efd"
+    },
+    {
       "path": "assets/icons/fit-window-to-video.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -125,6 +153,13 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "bcf7571bae2b574d179a524f14ec51e28b21a2ecde94f1902266f8c163644604"
+    },
+    {
+      "path": "assets/icons/hdr-sun.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric sun symbol authored independently for riina; no external artwork copied or traced",
+      "sha256": "32ad1be150496c6c64a0b57fda8bb18e2022513f99b9b7f1973768463d04e201"
     },
     {
       "path": "assets/icons/interface.svg",
@@ -197,6 +232,20 @@
       "sha256": "68dec13a0e47b34698b0af4ad6d6f139dbe3762d769307410f96ac344beb64a8"
     },
     {
+      "path": "assets/icons/osc-pause.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Large transport pause symbol drawn for the IINA-sized floating controller; no external artwork copied or traced",
+      "sha256": "e63dc0d7a838c74377f1706a146be7e6a4414bafdb87f1e7ca4468775a3e92d9"
+    },
+    {
+      "path": "assets/icons/osc-play.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Large transport play symbol drawn for the IINA-sized floating controller; no external artwork copied or traced",
+      "sha256": "ed82ea815b8b78338d6b64a0a587dfe1f281b1733f2cba79e26dee7afce08d45"
+    },
+    {
       "path": "assets/icons/pause.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -225,6 +274,13 @@
       "sha256": "89105962a4b3e0ff84deb6d722369120af6d65867b7447992d75b41fb2896d87"
     },
     {
+      "path": "assets/icons/pip.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "bc37f8c81d907db129c569cd6ae4d7eac759380bd1e697f8e142fd287f63b54a"
+    },
+    {
       "path": "assets/icons/play.svg",
       "author": "riina contributors",
       "license": "MIT",
@@ -232,18 +288,11 @@
       "sha256": "8807810edfc8440c47890ba9a13532c8d4a168a4ee945d5866cc82b4ea07f76c"
     },
     {
-      "path": "assets/icons/pip.svg",
-      "author": "riina contributors",
-      "license": "MIT",
-      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "5f78ee7ced26e25e7eabceab5c74957672bc500ce7ca4b95b1b3d3da894e89ed"
-    },
-    {
       "path": "assets/icons/playlist.svg",
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
-      "sha256": "1d5ad5986920147c957a172e246c3d238d753f0a341faa3b376b7475dae0fe36"
+      "sha256": "ee42d470d8058c53f09de3f0937dc0ae0a2eff79fb33100d117f674a7c9ee270"
     },
     {
       "path": "assets/icons/plugins.svg",
@@ -251,6 +300,20 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "e0438abaa0fd7eb8f59d43e811df98d6d4b14e058ec5d1fd42809bf6fb97f673"
+    },
+    {
+      "path": "assets/icons/quick-layout-paintbrush.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric paintbrush symbol authored for the Quick Settings Layout tab; not copied or traced from an Apple symbol",
+      "sha256": "bd6f090291b2e4ef96eaedd2967af5f94dfa4738edc6f8a398d9a0a17637a074"
+    },
+    {
+      "path": "assets/icons/reset.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric reset symbol authored for riina; no external artwork copied or traced",
+        "sha256": "72daf6b419c61886126699dac9841249567fd765ac866383c71a15396ab2078d"
     },
     {
       "path": "assets/icons/resume-history.svg",
@@ -300,6 +363,27 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "da00c80a3c06fa1ff46517a4d1d1386bbacf98df0f333be07212d2181c3c837d"
+    },
+    {
+      "path": "assets/icons/speed-down.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Double-chevron speed reduction symbol drawn independently for riina; no external artwork copied or traced",
+      "sha256": "37b4536e640eb9a3bfb5faf6748243e2f10229901ffa79b1d842305cc2e6990a"
+    },
+    {
+      "path": "assets/icons/playback-speed.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric speed symbol drawn independently for riina; no external artwork copied or traced",
+      "sha256": "4680d5ca4e89b297be04e3843de473d7666053f4edcde54210b3828067fccf3c"
+    },
+    {
+      "path": "assets/icons/speed-up.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Double-chevron speed increase symbol drawn independently for riina; no external artwork copied or traced",
+      "sha256": "71591f4eea0c35901a16040556ae3aa55dc947ab10bc5b6683c317c40dd38a6d"
     },
     {
       "path": "assets/icons/stop.svg",
@@ -363,6 +447,69 @@
       "license": "MIT",
       "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
       "sha256": "97007dbdb618c0aa72c2861c25d4df13325fb9feeba54d4e017aad236219fa6e"
+    },
+    {
+      "path": "assets/icons/appearance-half.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original half-filled circle drawn independently for appearance selection; no Apple artwork copied or traced",
+      "sha256": "70707bdd420a264456eb5cfd1c696ec7a83d2ff4bd13488c5eead4e6c0b6e3bc"
+    },
+    {
+      "path": "assets/icons/glass-cards.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original overlapping rounded-card symbol drawn independently for Windows material settings; no Apple artwork copied or traced",
+      "sha256": "4de6fbff093d14e58e1c78cdece665d33994a9dac5988048a6d767cfc7b8808a"
+    },
+    {
+      "path": "assets/icons/overlay-screen.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original display-overlay symbol drawn independently; no Apple artwork copied or traced",
+      "sha256": "271d6af3b8f99621b8f327d65832ae925c27f1df92d8b28fb249c2962ac6c0a2"
+    },
+    {
+      "path": "assets/icons/osc-panel.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original playback-controller panel symbol drawn independently; no Apple artwork copied or traced",
+      "sha256": "93a8702e831c7bb30e0203eb072368c6b6848fc9611ca8408690adab68e68e00"
+    },
+    {
+      "path": "assets/icons/sidebar-panel.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original split-panel symbol drawn independently for sidebar material settings; no Apple artwork copied or traced",
+      "sha256": "582e8f238956f69de11cc221801c543a3e27bfc8e1d2ab94dec42a8d68af55ad"
+    },
+    {
+      "path": "assets/icons/compact-grid.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original six-cell grid symbol drawn independently for compact interface settings; no Apple artwork copied or traced",
+      "sha256": "e1d66c99e0602591e6d6dfffc594a97205d43ac1e9444907a7af6774f6b19244"
+    },
+    {
+      "path": "assets/icons/edge-video.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original screen-edge symbol drawn independently for edge-to-edge video settings; no Apple artwork copied or traced",
+      "sha256": "bda1dd01d7395a0448340c9687e071322700654325ab5efec597fecf04122b9b"
+    },
+    {
+      "path": "assets/icons/aspect-lock.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original framed-lock symbol drawn independently for aspect locking; no Apple artwork copied or traced",
+      "sha256": "7f7b04ff4bcc0bf1a6aae4f397264dee3680e8afa076c05bda00e0cfd8c60b9b"
+    },
+    {
+      "path": "assets/icons/hardware-decoding.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original chip-outline symbol drawn independently for the Hardware Decoding row; no Apple artwork copied or traced",
+      "sha256": "0ad8962654dd28a81e74c2b606b625db677e67932a24936652cff3893b01d545"
     }
   ],
   "notes": "Original vector player icons replace font-dependent controls. Remaining Unicode symbols, system typography, exact reference geometry and material matching still need review. Riina brand logos and icons are documented in assets/branding; the Inter source font is not bundled. No Apple artwork or SF Symbols are bundled."

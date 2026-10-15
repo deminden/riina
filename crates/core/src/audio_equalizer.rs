@@ -8,6 +8,13 @@ pub const MIN_GAIN_DB: f64 = -12.0;
 pub const MAX_GAIN_DB: f64 = 12.0;
 pub const FILTER_LABEL: &str = "riina-audio-equalizer";
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProfileId {
+    Manual,
+    Preset(String),
+    User(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
@@ -15,6 +22,8 @@ pub struct Settings {
     pub gains_db: [f64; 10],
     #[serde(default)]
     pub selected_profile: Option<String>,
+    #[serde(default)]
+    pub selected_profile_is_user: bool,
     #[serde(default)]
     pub user_profiles: BTreeMap<String, [f64; 10]>,
 }
@@ -24,6 +33,7 @@ impl Default for Settings {
         Self {
             gains_db: [0.0; 10],
             selected_profile: Some("custom".into()),
+            selected_profile_is_user: false,
             user_profiles: BTreeMap::new(),
         }
     }
@@ -33,16 +43,11 @@ impl Settings {
     pub fn validate(&self) -> Result<(), &'static str> {
         validate_gains(&self.gains_db)?;
         if self.user_profiles.iter().any(|(name, gains)| {
-            !valid_profile_name(name)
-                || name == "custom"
-                || preset(name).is_some()
-                || validate_gains(gains).is_err()
+            !valid_profile_name(name) || name == "custom" || validate_gains(gains).is_err()
         }) {
             return Err("Audio equalizer profiles have an invalid name or gain");
         }
-        if let Some(name) = &self.selected_profile
-            && !self.profile_names().iter().any(|known| known == name)
-        {
+        if self.selected_profile.is_some() && self.selected_profile_index().is_none() {
             return Err("Selected audio equalizer profile does not exist");
         }
         Ok(())
@@ -51,29 +56,114 @@ impl Settings {
     pub fn select(&mut self, name: &str) -> Result<(), &'static str> {
         if name == "custom" {
             self.selected_profile = Some(name.to_owned());
+            self.selected_profile_is_user = false;
             return Ok(());
         }
-        let gains = preset(name)
-            .or_else(|| self.user_profiles.get(name).copied())
+        if let Some(gains) = preset(name) {
+            if self.user_profiles.contains_key(name) {
+                return Err("Profile name is ambiguous; select the preset or saved profile by ID");
+            }
+            self.gains_db = gains;
+            self.selected_profile = Some(name.to_owned());
+            self.selected_profile_is_user = false;
+            return Ok(());
+        }
+        self.select_user_profile(name)
+    }
+
+    pub fn select_id(&mut self, id: &ProfileId) -> Result<(), &'static str> {
+        match id {
+            ProfileId::Manual => {
+                self.selected_profile = Some("custom".to_owned());
+                self.selected_profile_is_user = false;
+                Ok(())
+            }
+            ProfileId::Preset(name) => {
+                let gains = preset(name).ok_or("Unknown audio equalizer profile")?;
+                self.gains_db = gains;
+                self.selected_profile = Some(name.to_owned());
+                self.selected_profile_is_user = false;
+                Ok(())
+            }
+            ProfileId::User(name) => self.select_user_profile(name),
+        }
+    }
+
+    fn select_user_profile(&mut self, name: &str) -> Result<(), &'static str> {
+        let gains = self
+            .user_profiles
+            .get(name)
+            .copied()
             .ok_or("Unknown audio equalizer profile")?;
         self.gains_db = gains;
         self.selected_profile = Some(name.to_owned());
+        self.selected_profile_is_user = true;
         Ok(())
     }
 
-    pub fn save_profile(&mut self, name: &str) -> Result<(), &'static str> {
+    pub fn profile_ids(&self) -> Vec<ProfileId> {
+        let mut ids = vec![ProfileId::Manual];
+        ids.extend(
+            PRESETS
+                .iter()
+                .map(|(name, _)| ProfileId::Preset((*name).to_owned())),
+        );
+        ids.extend(self.user_profiles.keys().cloned().map(ProfileId::User));
+        ids
+    }
+
+    pub fn selected_profile_index(&self) -> Option<usize> {
+        let selected = self.selected_profile.as_deref()?;
+        self.profile_ids().iter().position(|id| match id {
+            ProfileId::Manual => !self.selected_profile_is_user && selected == "custom",
+            ProfileId::Preset(name) => !self.selected_profile_is_user && selected == name,
+            ProfileId::User(name) => {
+                selected == name
+                    && (self.selected_profile_is_user
+                        || (preset(selected).is_none()
+                            && self.user_profiles.contains_key(selected)))
+            }
+        })
+    }
+
+    pub fn selected_profile_is_user(&self) -> bool {
+        self.selected_profile_index()
+            .and_then(|index| self.profile_ids().get(index).cloned())
+            .is_some_and(|id| matches!(id, ProfileId::User(_)))
+    }
+
+    pub fn is_manual_selected(&self) -> bool {
+        self.selected_profile_index() == Some(0)
+    }
+
+    pub fn select_profile_at(&mut self, index: usize) -> Result<(), &'static str> {
+        let id = self
+            .profile_ids()
+            .get(index)
+            .cloned()
+            .ok_or("Unknown audio equalizer profile")?;
+        self.select_id(&id)
+    }
+
+    pub fn validate_new_profile_name(&self, name: &str) -> Result<(), &'static str> {
         if !valid_profile_name(name) {
             return Err("Profile name must be 1 to 64 printable characters");
         }
-        if name == "custom" || preset(name).is_some() {
+        if name == "custom" {
             return Err("A built-in profile already has that name");
         }
         if self.user_profiles.contains_key(name) {
             return Err("A saved profile already has that name");
         }
+        Ok(())
+    }
+
+    pub fn save_profile(&mut self, name: &str) -> Result<(), &'static str> {
+        self.validate_new_profile_name(name)?;
         validate_gains(&self.gains_db)?;
         self.user_profiles.insert(name.to_owned(), self.gains_db);
         self.selected_profile = Some(name.to_owned());
+        self.selected_profile_is_user = true;
         Ok(())
     }
 
@@ -82,31 +172,36 @@ impl Settings {
             return Err("Only saved audio equalizer profiles can be removed");
         }
         self.selected_profile = Some("custom".into());
+        self.selected_profile_is_user = false;
         Ok(())
     }
 
     pub fn rename_profile(&mut self, current: &str, replacement: &str) -> Result<(), &'static str> {
+        self.validate_renamed_profile_name(current, replacement)?;
+        let gains = self
+            .user_profiles
+            .remove(current)
+            .ok_or("Saved audio equalizer profile disappeared")?;
+        self.user_profiles.insert(replacement.to_owned(), gains);
+        self.selected_profile = Some(replacement.to_owned());
+        self.selected_profile_is_user = true;
+        Ok(())
+    }
+
+    pub fn validate_renamed_profile_name(
+        &self,
+        current: &str,
+        replacement: &str,
+    ) -> Result<(), &'static str> {
         if !self.user_profiles.contains_key(current) {
             return Err("Only saved audio equalizer profiles can be renamed");
         }
         if !valid_profile_name(replacement) {
             return Err("Profile name must be 1 to 64 printable characters");
         }
-        if replacement != current
-            && (replacement == "custom"
-                || preset(replacement).is_some()
-                || self.user_profiles.contains_key(replacement))
-        {
+        if replacement == "custom" || self.user_profiles.contains_key(replacement) {
             return Err("An audio equalizer profile already has that name");
         }
-        if replacement != current {
-            let gains = self
-                .user_profiles
-                .remove(current)
-                .ok_or("Saved audio equalizer profile disappeared")?;
-            self.user_profiles.insert(replacement.to_owned(), gains);
-        }
-        self.selected_profile = Some(replacement.to_owned());
         Ok(())
     }
 
@@ -295,11 +390,80 @@ mod tests {
         settings.save_profile("My mix").unwrap();
         settings.gains_db = [0.; 10];
         settings.select("My mix").unwrap();
+        assert_eq!(
+            settings.rename_profile("My mix", "My mix"),
+            Err("An audio equalizer profile already has that name")
+        );
         assert_eq!(settings.gains_db[0], 1.5);
         settings.rename_profile("My mix", "Renamed").unwrap();
         assert_eq!(settings.user_profiles.get("Renamed").unwrap()[0], 1.5);
         settings.remove_profile("Renamed").unwrap();
         assert!(settings.user_profiles.is_empty());
+    }
+
+    #[test]
+    fn saved_profile_names_preserve_exact_prompt_input() {
+        let mut settings = Settings::default();
+        assert!(settings.validate_new_profile_name("").is_err());
+        assert!(settings.validate_new_profile_name("  ").is_ok());
+        settings.save_profile("  ").unwrap();
+        assert!(settings.user_profiles.contains_key("  "));
+        assert_eq!(settings.selected_profile.as_deref(), Some("  "));
+        assert!(settings.rename_profile("  ", " Padded ").is_ok());
+        assert!(settings.user_profiles.contains_key(" Padded "));
+        assert!(
+            settings
+                .validate_renamed_profile_name(" Padded ", " Padded ")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn user_profiles_can_share_an_internal_preset_key() {
+        let mut settings = Settings::default();
+        settings.gains_db[0] = 3.5;
+        settings.save_profile("rock").unwrap();
+        assert!(settings.validate().is_ok());
+        assert!(settings.selected_profile_is_user());
+        assert_eq!(
+            settings.select("rock"),
+            Err("Profile name is ambiguous; select the preset or saved profile by ID")
+        );
+
+        let ids = settings.profile_ids();
+        let preset_index = ids
+            .iter()
+            .position(|id| *id == ProfileId::Preset("rock".into()))
+            .unwrap();
+        let user_index = ids
+            .iter()
+            .position(|id| *id == ProfileId::User("rock".into()))
+            .unwrap();
+        settings.select_profile_at(preset_index).unwrap();
+        assert!(!settings.selected_profile_is_user());
+        assert_eq!(settings.gains_db, preset("rock").unwrap());
+        settings.select_profile_at(user_index).unwrap();
+        assert!(settings.selected_profile_is_user());
+        assert_eq!(settings.gains_db[0], 3.5);
+
+        let encoded = serde_json::to_string(&settings).unwrap();
+        let decoded: Settings = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded.profile_ids(), settings.profile_ids());
+        assert_eq!(decoded.selected_profile_index(), Some(user_index));
+        assert_eq!(decoded.gains_db, settings.gains_db);
+    }
+
+    #[test]
+    fn legacy_saved_profile_selection_is_inferred_without_the_kind_field() {
+        let encoded = serde_json::json!({
+            "gains_db": vec![0.0; 10],
+            "selected_profile": "Cinema",
+            "user_profiles": {"Cinema": vec![0.0; 10]}
+        });
+        let settings: Settings = serde_json::from_value(encoded).unwrap();
+        assert!(settings.validate().is_ok());
+        assert!(settings.selected_profile_is_user());
+        assert_eq!(settings.selected_profile_index(), Some(23));
     }
 
     #[test]

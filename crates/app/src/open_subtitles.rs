@@ -333,6 +333,7 @@ pub(crate) fn connect_player(
                     return;
                 }
             };
+            crate::appearance_preferences::install_system_typography(&window);
             let weak_window = window.as_weak();
             let weak_app = app.as_weak();
             let search_context = context_callback.clone();
@@ -575,8 +576,11 @@ pub(crate) fn connect_player(
         );
         if let Err(error) = window.show() {
             app.set_status(format!("Could not show online subtitle search: {error}").into());
-        } else if should_search_after_open {
-            window.invoke_search();
+        } else {
+            crate::platform::enable_online_subtitles_acrylic(&window);
+            if should_search_after_open {
+                window.invoke_search();
+            }
         }
     });
     let requested_provider_for_menu = requested_provider.clone();

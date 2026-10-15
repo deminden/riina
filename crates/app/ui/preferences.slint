@@ -1,5 +1,5 @@
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
-import { PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
+import { NativeTypography, PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
 
 global MotionSettings {
     in-out property <bool> animations-disabled: false;
@@ -1152,13 +1152,17 @@ component AssOverrideSlider inherits Rectangle {
 // The captured IINA settings window has a 600×480 client area and 200px sidebar.
 // Keep those measured content coordinates independent of platform title bars.
 export component PreferencesWindow inherits Window {
+    default-font-family: NativeTypography.system-font-family;
     title: "Settings";
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     preferred-width: 600px;
     preferred-height: 480px;
     min-width: 600px;
     min-height: 480px;
-    background: #ffffff;
+    in-out property <bool> mica-backdrop-enabled: false;
+    // Layer the Settings surfaces over Windows Mica and preserve their solid
+    // colors when the native backdrop is unavailable.
+    background: mica-backdrop-enabled ? transparent : #ffffff;
     in-out property <int> selected-pane: 0;
     in-out property <bool> disable-animations: false;
     in property <bool> system-reduce-motion: false;
@@ -1275,6 +1279,8 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> pip-toggle-by-minimizing: false;
     in-out property <bool> pip-minimize-toggle-video-only: false;
     in-out property <int> hardware-decoder-index: 1;
+    in-out property <bool> load-icc-profile: true;
+    in-out property <bool> default-hdr-mode-enabled: true;
     in-out property <string> video-threads-text: "0";
     in-out property <bool> tone-mapping-enabled: true;
     in-out property <bool> tone-mapping-expanded: false;
@@ -1477,6 +1483,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> utilities-default-audio: true;
     in-out property <bool> utilities-default-playlist: true;
     callback settings-changed();
+    callback native-subtitle-color-requested(int, color);
     callback open-assrt-token-page();
     callback toolbar-move(int, int);
     callback toolbar-drag-finished();
@@ -1526,7 +1533,8 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> folder-dialog-open: false;
     // IINA v1.5.0 enables its newer settings window by default; preserve its
     // page order even while some individual Riina pages are still in progress.
-    Rectangle { x: 0; y: 0; width: 200px; height: parent.height; background: #f6f6f6;
+    Rectangle { x: 0; y: 0; width: 200px; height: parent.height;
+        background: root.mica-backdrop-enabled ? #f6f6f680 : #f6f6f6;
         PreferenceSearchField { x: 8px; y: 10px; query <=> root.search-query;
             result-count: root.search-results.length;
             selected-index: root.selected-search-index;
@@ -1631,14 +1639,14 @@ export component PreferencesWindow inherits Window {
         width: parent.width;
         height: 1048px + (root.when-media-opened-expanded ? 166px : 0px)
             + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
-        background: #ffffff;
+        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
         Text { x: 20px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
         Rectangle {
             x: 12px; y: 81px; width: parent.width - 24px;
             height: 122px + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 38px; y: 0; width: 120px; height: 40px; text: "At launch";
                 font-size: 13px; color: #222222; vertical-alignment: center; }
             ComboBox { x: 180px; y: 7px; width: parent.width - 192px; height: 26px;
@@ -1724,7 +1732,7 @@ export component PreferencesWindow inherits Window {
                 + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
             width: parent.width - 24px; height: 212px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             GeneralSettingToggle { x: 12px; y: 8px; width: parent.width - 24px; height: 36px;
                 label: "Always open media in new window";
                 checked <=> root.allow-multiple-windows; toggled => { root.settings-changed(); } }
@@ -1753,7 +1761,7 @@ export component PreferencesWindow inherits Window {
         Rectangle { x: 12px; y: 488px + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
             width: parent.width - 24px; height: 164px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             CheckBox { x: 16px; y: 6px; height: 32px; text: "Resume last position";
                 checked <=> root.resume-last-position; toggled => { root.settings-changed(); } }
             Rectangle { x: 12px; y: 43px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
@@ -1774,7 +1782,7 @@ export component PreferencesWindow inherits Window {
         Rectangle { x: 12px; y: 708px + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
             width: parent.width - 24px; height: 160px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             CheckBox { x: 16px; y: 2px; height: 28px; text: "Add files in the same folder automatically";
                 checked <=> root.playlist-auto-add; toggled => { root.settings-changed(); } }
             Rectangle { x: 12px; y: 32px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
@@ -1805,7 +1813,7 @@ export component PreferencesWindow inherits Window {
         Rectangle { x: 12px; y: 924px + (root.when-media-opened-expanded ? 166px : 0px)
                 + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
             width: parent.width - 24px; height: 184px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
         Text { x: 16px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
         Text { x: 16px; y: 112px; text: "Options:"; font-size: 13px; color: #222222; }
         CheckBox { x: 120px; y: 28px; height: 24px; text: "Save to";
@@ -1855,13 +1863,14 @@ export component PreferencesWindow inherits Window {
             else if root.interface-scroll-position > root.interface-pip-threshold { root.selected-interface-section = 5; }
             else { root.selected-interface-section = 6; }
         }
-        Rectangle { width: parent.width; height: root.interface-content-height; background: #ffffff;
+        Rectangle { width: parent.width; height: root.interface-content-height;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 28px; y: 16px; text: "Interface"; font-size: 15px; font-weight: 600; color: #222222; }
         Text { x: 28px; y: 52px; text: "Appearance";
             font-size: 13px; font-weight: 600; color: #7a7a80; }
         Rectangle { x: 20px; y: root.interface-appearance-card-y;
             width: parent.width - 40px; height: root.interface-appearance-card-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 36px; y: 8px; text: "Appearance";
                 font-size: 12px; color: #222222; vertical-alignment: center; }
             ComboBox { x: 160px; y: 4px; width: 190px; height: 24px;
@@ -1897,7 +1906,7 @@ export component PreferencesWindow inherits Window {
         Text { x: 28px; y: root.interface-window-title-y; text: "Window";
             font-size: 13px; font-weight: 600; color: #7a7a80; }
         Rectangle { x: 20px; y: root.interface-window-y; width: parent.width - 40px; height: root.interface-window-card-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             PreferenceToggle { x: 24px; y: 4px; width: parent.width - 48px;
                 label: "Initial window size"; checked <=> root.initial-window-size-enabled;
                 toggled => { root.settings-changed(); }
@@ -1979,7 +1988,7 @@ export component PreferencesWindow inherits Window {
             }
         }
         Rectangle { x: 20px; y: root.interface-resize-y; width: parent.width - 40px; height: 118px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 36px; y: 7px; width: 150px; height: 24px; text: "Resize window to:";
                 font-size: 12px; color: #222222; vertical-alignment: center; }
             ComboBox { x: 232px; y: 4px; width: parent.width - 252px; height: 24px;
@@ -2001,14 +2010,14 @@ export component PreferencesWindow inherits Window {
             }
         }
         Rectangle { x: 20px; y: root.interface-physical-resolution-y; width: parent.width - 40px; height: 40px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px; label: "Use physical resolution on Retina displays";
                 checked <=> root.use-physical-resolution;
                 toggled => { root.settings-changed(); }
             }
         }
         Rectangle { x: 20px; y: root.interface-float-y; width: parent.width - 40px; height: 80px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Always float on top";
                 checked <=> root.always-float-on-top;
                 toggled => { root.settings-changed(); }
@@ -2019,7 +2028,7 @@ export component PreferencesWindow inherits Window {
             }
         }
         Rectangle { x: 20px; y: root.interface-osc-y; width: parent.width - 40px; height: root.interface-osc-card-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 0; y: 8px; text: "On-Screen Controller:";
                 font-weight: 600; font-size: 13px; color: #222222; }
             ComboBox { x: 160px; y: 4px; width: 150px; height: 24px;
@@ -2125,7 +2134,7 @@ export component PreferencesWindow inherits Window {
         }
         Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;
             height: 92px + root.osd-suppression-detail-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Enable OSD";
                 checked <=> root.osd-enabled;
                 toggled => { root.settings-changed(); }
@@ -2156,7 +2165,7 @@ export component PreferencesWindow inherits Window {
         }
         Rectangle { x: 20px; y: root.interface-osd-y + 108px + root.osd-suppression-detail-height;
             width: parent.width - 40px; height: 112px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 36px; y: 4px; text: "On-Screen Display";
                 font-size: 12px; color: #222222; vertical-alignment: center; }
             Text { x: 36px; y: 39px; width: 132px; height: 24px; text: "Auto hide after:";
@@ -2192,7 +2201,7 @@ export component PreferencesWindow inherits Window {
         Rectangle {
             x: 20px; y: root.interface-pip-y + 28px; width: parent.width - 40px;
             height: root.interface-pip-card-height;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: #f8f8f8;
+            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             VerticalLayout { x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px; spacing: 0px;
                 PreferenceChoiceRow { width: parent.width; label: "Window after entering";
                     options: ["Do nothing", "Hide", "Minimize"];
@@ -2218,7 +2227,7 @@ export component PreferencesWindow inherits Window {
         Rectangle {
             x: 20px; y: root.interface-thumbnail-y;
             width: parent.width - 40px; height: 220px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 0; y: 8px; text: "Thumbnail Preview";
                 font-weight: 600; font-size: 13px; color: #222222; }
             PreferenceSwitch { x: 16px; y: 36px; width: parent.width - 32px;
@@ -2259,7 +2268,7 @@ export component PreferencesWindow inherits Window {
         Rectangle {
             x: 20px; y: root.interface-accessibility-y;
             width: parent.width - 40px; height: 80px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: #f8f8f8;
+            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             Text { x: 0; y: 8px; text: "Accessibility";
                 font-weight: 600; font-size: 13px; color: #222222; }
             PreferenceSwitch { x: 16px; y: 29px; width: parent.width - 32px;
@@ -2274,23 +2283,31 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 2 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-y <=> root.video-scroll-position;
-        content-height: root.tone-mapping-expanded
-            ? (root.live-text-available ? 930px : 820px)
-            : (root.live-text-available ? 670px : 560px);
+        content-height: root.platform-macos
+            ? (root.tone-mapping-expanded
+                ? (root.live-text-available ? 1130px : 1020px)
+                : (root.live-text-available ? 870px : 760px))
+            : (root.tone-mapping-expanded
+                ? (root.live-text-available ? 1030px : 920px)
+                : (root.live-text-available ? 770px : 660px));
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
         Rectangle {
             width: parent.width;
-            height: root.tone-mapping-expanded
-                ? (root.live-text-available ? 930px : 820px)
-                : (root.live-text-available ? 670px : 560px);
+            height: root.platform-macos
+                ? (root.tone-mapping-expanded
+                    ? (root.live-text-available ? 1130px : 1020px)
+                    : (root.live-text-available ? 870px : 760px))
+                : (root.tone-mapping-expanded
+                    ? (root.live-text-available ? 1030px : 920px)
+                    : (root.live-text-available ? 770px : 660px));
             Text { x: 22px; y: 16px; text: "Video";
                 font-size: 15px; font-weight: 600; color: #222222; }
             Text { x: 20px; y: 52px; text: "Decoding";
                 font-size: 12px; font-weight: 600; color: #737379; }
             Rectangle {
                 x: 20px; y: 76px; width: parent.width - 40px; height: 282px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Text { x: 16px; y: 10px; text: "Number of threads";
                     font-size: 11px; color: #252529; }
                 PreferenceNumericInput { x: parent.width - 62px; y: 7px; width: 42px; height: 24px;
@@ -2324,7 +2341,7 @@ export component PreferencesWindow inherits Window {
                 Text { x: 8px; y: 0px; text: "Live Text";
                     font-size: 12px; font-weight: 600; color: #737379; }
                 Rectangle { x: 0px; y: 24px; width: parent.width; height: 64px;
-                    border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                    border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                     PreferenceSwitch { x: 16px; y: 7px; width: parent.width - 32px; height: 24px;
                         label: "Live Text"; checked <=> root.live-text-enabled;
                         toggled => { root.settings-changed(); }
@@ -2336,10 +2353,41 @@ export component PreferencesWindow inherits Window {
             }
             Text { x: 20px; y: root.live-text-available ? 492px : 378px; text: "Color and HDR";
                 font-size: 12px; font-weight: 600; color: #737379; }
+            if root.platform-macos : Rectangle {
+                x: 20px; y: root.live-text-available ? 516px : 402px;
+                width: parent.width - 40px; height: 84px;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                PreferenceSwitch { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
+                    label: "Load ICC profile"; checked <=> root.load-icc-profile;
+                    toggled => { root.settings-changed(); }
+                }
+                Text { x: 36px; y: 38px; width: parent.width - 52px; height: 38px;
+                    text: "Load the current display profile to transform video RGB to screen output. (Only for SDR mode)";
+                    font-size: 9px; color: #77777d; wrap: word-wrap;
+                }
+            }
             Rectangle {
-                x: 20px; y: root.live-text-available ? 516px : 402px; width: parent.width - 40px;
+                x: 20px;
+                y: (root.live-text-available ? 516px : 402px)
+                    + (root.platform-macos ? 100px : 0px);
+                width: parent.width - 40px; height: 84px;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                PreferenceSwitch { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
+                    label: "Enable HDR mode"; checked <=> root.default-hdr-mode-enabled;
+                    toggled => { root.settings-changed(); }
+                }
+                Text { x: 36px; y: 38px; width: parent.width - 52px; height: 38px;
+                    text: "Enable HDR mode by default when playing HDR videos.";
+                    font-size: 9px; color: #77777d; wrap: word-wrap;
+                }
+            }
+            Rectangle {
+                x: 20px;
+                y: (root.live-text-available ? 516px : 402px)
+                    + (root.platform-macos ? 200px : 100px);
+                width: parent.width - 40px;
                 height: root.tone-mapping-expanded ? 376px : 84px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 PreferenceToggle { x: 12px; y: 8px; width: parent.width - 24px;
                     label: "Tone Mapping"; checked <=> root.tone-mapping-enabled;
                     toggled => { root.settings-changed(); }
@@ -2401,7 +2449,7 @@ export component PreferencesWindow inherits Window {
         horizontal-scrollbar-policy: always-off;
         Rectangle { width: parent.width;
         height: 1220px;
-        background: #ffffff;
+        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 28px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: #222222; }
         Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 193px; background: transparent;
             Text { x: 0; y: 8px; text: "Auto Load:";
@@ -2526,13 +2574,15 @@ export component PreferencesWindow inherits Window {
                 Text { x: 16px; y: 87px; text: "Color:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
                 SubtitleColorWell { x: 60px; y: 80px; observed-color: root.subtitle-text-color;
-                    hint: "Subtitle text color";
+                    hint: "Subtitle text color"; native-color-panel: root.platform-macos; color-target: 1;
+                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                     edited(value) => { root.subtitle-text-color = value; root.settings-changed(); }
                 }
                 Text { x: 116px; y: 87px; text: "Background:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
                 SubtitleColorWell { x: 188px; y: 80px; observed-color: root.subtitle-background-color;
-                    hint: "Subtitle background color";
+                    hint: "Subtitle background color"; native-color-panel: root.platform-macos; color-target: 2;
+                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                     edited(value) => {
                         root.subtitle-background-color = value;
                         root.subtitle-shadow-color = value;
@@ -2556,7 +2606,8 @@ export component PreferencesWindow inherits Window {
                 Text { x: 112px; y: 21px; text: "Color:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
                 SubtitleColorWell { x: 157px; y: 15px; observed-color: root.subtitle-outline-color;
-                    hint: "Subtitle border color";
+                    hint: "Subtitle border color"; native-color-panel: root.platform-macos; color-target: 3;
+                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                     edited(value) => { root.subtitle-outline-color = value; root.settings-changed(); }
                 }
             }
@@ -2580,7 +2631,8 @@ export component PreferencesWindow inherits Window {
                 Text { x: 119px; y: 21px; text: "Color:";
                     font-size: 11px; color: #222222; vertical-alignment: center; }
                 SubtitleColorWell { x: 164px; y: 15px; observed-color: root.subtitle-shadow-color;
-                    hint: "Subtitle shadow color";
+                    hint: "Subtitle shadow color"; native-color-panel: root.platform-macos; color-target: 4;
+                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                     edited(value) => {
                         root.subtitle-shadow-color = value;
                         root.subtitle-background-color = value;
@@ -2751,12 +2803,12 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 3 : Rectangle {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        background: #ffffff;
+        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 28px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
         Text { x: 28px; y: 50px; text: root.selected-audio-section == 0 ? "Hardware" : root.selected-audio-section == 1 ? "Volume" : "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
         if root.selected-audio-section == 0 : Rectangle {
             x: 20px; y: 76px; width: parent.width - 40px; height: 360px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text { x: 14px; y: 8px; width: 150px; height: 26px; text: "Number of threads"; font-size: 12px; color: #252529; vertical-alignment: center; }
             TextInput { x: 250px; y: 9px; width: 70px; height: 24px; text <=> root.audio-threads-text; accepted => { root.settings-changed(); } }
             Text { x: 176px; y: 32px; width: parent.width - 194px; height: 16px; text: "Default: 0 (Auto)"; font-size: 10px; color: #77777d; vertical-alignment: center; }
@@ -2773,7 +2825,7 @@ export component PreferencesWindow inherits Window {
         }
         if root.selected-audio-section == 1 : Rectangle {
             x: 20px; y: 76px; width: parent.width - 40px; height: 388px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             CheckBox { x: 14px; y: 12px; height: 24px; text: "Allow volume boost (up to 200%)"; checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
             Text { x: 14px; y: 48px; width: 150px; height: 26px; text: "Initial volume"; font-size: 12px; color: #252529; vertical-alignment: center; }
             CheckBox { x: 168px; y: 48px; text: "Enable"; checked <=> root.audio-initial-volume-enabled; toggled => { root.settings-changed(); } }
@@ -2788,7 +2840,7 @@ export component PreferencesWindow inherits Window {
         }
         if root.selected-audio-section == 2 : Rectangle {
             x: 20px; y: 76px; width: parent.width - 40px; height: 220px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text { x: 14px; y: 14px; width: 150px; height: 26px; text: "Gapless playback"; font-size: 12px; color: #252529; vertical-alignment: center; }
             ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px; model: root.audio-gapless-options; current-index <=> root.audio-gapless-index; selected => { root.settings-changed(); } }
             Text { x: 14px; y: 52px; width: 150px; height: 34px; text: "Preferred languages"; font-size: 12px; color: #252529; vertical-alignment: center; }
@@ -2802,12 +2854,12 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 5 : Rectangle {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        background: #ffffff;
+        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 28px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
         Text { x: 28px; y: 54px; text: root.selected-network-section == 0 ? "Cache" : root.selected-network-section == 1 ? "Network" : "Online Videos (yt-dlp)"; font-size: 13px; font-weight: 600; color: #77777d; }
         if root.selected-network-section == 0 : Rectangle {
         Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 390px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             // Match the reference's compact rows; explanations stay with the control they qualify.
             Rectangle { x: 0; y: 0; width: parent.width; height: 40px; background: transparent;
                 Text { x: 12px; y: 0; width: 18px; height: parent.height; text: "▤"; font-size: 14px; color: #77777d; vertical-alignment: center; }
@@ -2884,7 +2936,7 @@ export component PreferencesWindow inherits Window {
         }
         if root.selected-network-section == 1 : Rectangle {
             x: 20px; y: 80px; width: parent.width - 40px; height: 205px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text { x: 12px; y: 8px; text: "Network"; font-size: 13px; font-weight: 600; color: #252529; }
             Text { x: 12px; y: 44px; width: 94px; height: 24px; text: "User agent";
                 font-size: 12px; color: #252529; vertical-alignment: center; }
@@ -2919,9 +2971,10 @@ export component PreferencesWindow inherits Window {
                 font-size: 10px; color: #77777d; vertical-alignment: center; }
         }
         if root.selected-network-section == 2 : Rectangle {
-            x: 0; y: 0; width: parent.width; height: parent.height; background: #ffffff;
+            x: 0; y: 0; width: parent.width; height: parent.height;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
             Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 78px;
-                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
                 Image { x: 12px; y: 14px; width: 18px; height: 18px;
                     source: @image-url("../../../assets/icons/plugins.svg"); image-fit: contain; }
                 Text { x: 42px; y: 10px; width: parent.width - 58px; height: 22px;
@@ -2931,7 +2984,7 @@ export component PreferencesWindow inherits Window {
                     font-size: 10px; color: #77777d; wrap: word-wrap; }
             }
             Rectangle { x: 20px; y: 170px; width: parent.width - 40px; height: 220px;
-                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: #fafafa;
+                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
                 PreferenceSwitch { x: 12px; y: 6px; width: parent.width - 24px;
                     label: "Enable mpv's youtube-dl script";
                     checked <=> root.network-ytdl-ui-enabled;
@@ -2971,11 +3024,12 @@ export component PreferencesWindow inherits Window {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-height: 760px; content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: 760px; background: #ffffff;
+        Rectangle { width: parent.width; height: 760px;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
             Text { x: 28px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: #222222; }
             Text { x: 28px; y: 52px; text: "Trackpad"; font-size: 13px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: 82px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: #f8f8f8;
+                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 VerticalLayout { spacing: 0px;
                     PreferenceChoiceRow { label: "Pinch to"; options: ["Adjust window size", "Fullscreen", "None"];
                         selected-index <=> root.control-pinch-index;
@@ -2990,7 +3044,7 @@ export component PreferencesWindow inherits Window {
 
             Text { x: 28px; y: 174px; text: "Mouse"; font-size: 13px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 200px; width: parent.width - 40px; height: 204px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: #f8f8f8;
+                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 VerticalLayout { spacing: 0px;
                     PreferenceChoiceRow { label: "Single click to"; options: ["None", "Pause/Resume", "Hide OSC"];
                         selected-index <=> root.control-single-click-choice;
@@ -3017,7 +3071,7 @@ export component PreferencesWindow inherits Window {
 
             Text { x: 28px; y: 418px; text: "Scroll"; font-size: 13px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 444px; width: parent.width - 40px; height: 80px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: #f8f8f8;
+                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 VerticalLayout { spacing: 0px;
                     PreferenceChoiceRow { label: "Scroll vertically to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
                         selected-index <=> root.control-vertical-scroll-index;
@@ -3032,7 +3086,7 @@ export component PreferencesWindow inherits Window {
 
             Text { x: 28px; y: 538px; text: "Scrolling sensitivity"; font-size: 13px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 564px; width: parent.width - 40px; height: 152px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: #f8f8f8;
+                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 VerticalLayout { spacing: 0px;
                     PreferenceChoiceRow { label: "Seek type"; options: ["Keyframe seek", "Exact seek", "Auto"];
                         selected-index <=> root.control-seek-type-index;
@@ -3059,13 +3113,13 @@ export component PreferencesWindow inherits Window {
         horizontal-scrollbar-policy: always-off;
         Rectangle {
             width: parent.width; height: max(parent.height, root.key-binding-rows.length == 0 ? 310px : 290px + root.key-binding-rows.length * 32px);
-            background: #ffffff;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
             Text { x: 28px; y: 16px; text: "Key Bindings";
                 font-size: 15px; font-weight: 600; color: #222222; }
             Rectangle {
                 x: 20px; y: 52px; width: parent.width - 40px; height: 42px;
                 border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
-                background: #f8f8f8;
+                background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 12px; y: 13px; width: 16px; height: 16px;
                     source: @image-url("../../../assets/icons/keybindings.svg"); }
                 Text { x: 37px; y: 0; width: 178px; height: parent.height;
@@ -3085,7 +3139,7 @@ export component PreferencesWindow inherits Window {
                 x: 20px; y: 110px; width: parent.width - 40px;
                 height: root.key-binding-rows.length == 0 ? 200px : 180px + root.key-binding-rows.length * 32px;
                 border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
-                background: #f8f8f8;
+                background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Text { x: 12px; y: 8px; width: 66px; height: 36px;
                     text: "Key binding set"; font-size: 11px; color: #29292d;
                     vertical-alignment: center; wrap: word-wrap; }
@@ -3227,11 +3281,12 @@ export component PreferencesWindow inherits Window {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-height: 760px; content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: 760px; background: #ffffff;
+        Rectangle { width: parent.width; height: 760px;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
             Text { x: 28px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
 
             Rectangle { x: 20px; y: 53px; width: parent.width - 40px; height: 74px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 34px; y: 10px; width: 16px; height: 16px;
                     source: @image-url("../../../assets/icons/advanced.svg"); image-fit: contain; }
                 Text { x: 57px; y: 8px; width: parent.width - 110px; height: 23px;
@@ -3247,7 +3302,7 @@ export component PreferencesWindow inherits Window {
 
             Text { x: 28px; y: 146px; text: "Logging"; font-size: 13px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 181px; width: parent.width - 40px; height: 90px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 35px; y: 8px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/log-level.svg"); image-fit: contain; }
                 Text { x: 57px; y: 0px; width: 120px; height: 40px;
@@ -3271,7 +3326,7 @@ export component PreferencesWindow inherits Window {
                 }
             }
             Rectangle { x: 20px; y: 287px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 35px; y: 13px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/log-viewer.svg"); image-fit: contain; }
                 Text { x: 57px; y: 0px; width: parent.width - 122px; height: parent.height;
@@ -3283,7 +3338,7 @@ export component PreferencesWindow inherits Window {
 
             Text { x: 28px; y: 348px; text: "mpv Settings"; font-size: 13px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 375px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 35px; y: 13px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/mpv-osd.svg"); image-fit: contain; }
                 Text { x: 57px; y: 0px; width: parent.width - 110px; height: parent.height;
@@ -3295,7 +3350,7 @@ export component PreferencesWindow inherits Window {
                 }
             }
             Rectangle { x: 20px; y: 433px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 35px; y: 13px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/config-directory.svg"); image-fit: contain; }
                 Text { x: 57px; y: 0px; width: 112px; height: parent.height;
@@ -3321,7 +3376,7 @@ export component PreferencesWindow inherits Window {
                 text: "Paste an option in key=value format to fill both fields automatically. Changes take effect after restarting Riina.";
                 font-size: 10px; color: #74747a; wrap: word-wrap; }
             Rectangle { x: 20px; y: 591px; width: parent.width - 40px; height: 150px;
-                border-width: 1px; border-color: #dedee1; border-radius: 8px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 8px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Text { x: 8px; y: 3px; width: 164px; height: 20px; text: "Key"; font-size: 10px; font-weight: 600; color: #77777d; vertical-alignment: center; }
                 Text { x: 179px; y: 3px; width: parent.width - 224px; height: 20px; text: "Value"; font-size: 10px; font-weight: 600; color: #77777d; vertical-alignment: center; }
                 for option[index] in root.advanced-mpv-options: Rectangle {
@@ -3348,11 +3403,11 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 9 : Rectangle {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        background: #ffffff;
+        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 20px; y: 16px; text: "Plugins"; font-size: 15px; font-weight: 600; color: #222222; }
         Rectangle {
             x: 12px; y: 52px; width: parent.width - 24px; height: 104px;
-            border-width: 1px; border-color: #dedee1; border-radius: 13px; background: #fafafa;
+            border-width: 1px; border-color: #dedee1; border-radius: 13px; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text {
                 x: 12px; y: 10px; width: parent.width - 24px; height: 42px;
                 text: "You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically.";
@@ -3381,7 +3436,7 @@ export component PreferencesWindow inherits Window {
         if root.plugin-rows.length > 0 : Rectangle {
             x: 12px; y: 196px; width: parent.width - 24px;
             height: root.plugin-rows.length * 60px;
-            border-width: 1px; border-color: #dedee1; border-radius: 13px; background: #fafafa;
+            border-width: 1px; border-color: #dedee1; border-radius: 13px; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             for row[index] in root.plugin-rows : PluginPreferencesRowView {
                 x: 0px; y: index * 60px; width: parent.width;
                 entry: row; row-index: index; last-row: index == root.plugin-rows.length - 1;
@@ -3398,11 +3453,12 @@ export component PreferencesWindow inherits Window {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-height: 700px; content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: 700px; background: #ffffff;
+        Rectangle { width: parent.width; height: 700px;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
             Text { x: 28px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: #222222; }
             Text { x: 20px; y: 52px; text: "Default Application"; font-size: 12px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 UtilitiesActionRow { width: parent.width; height: parent.height;
                     symbol: "▣"; title: "Set Riina as the Default Application";
                     activated => { root.utilities-open-default-apps(); }
@@ -3410,7 +3466,7 @@ export component PreferencesWindow inherits Window {
             }
             Text { x: 20px; y: 144px; text: "Restore Alerts"; font-size: 12px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 168px; width: parent.width - 40px; height: 76px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 UtilitiesActionRow { width: parent.width; height: parent.height;
                     symbol: "↻"; title: "Restore Suppressed Alerts";
                     description: "Restore alerts hidden with ‘Do not show this message again’.";
@@ -3419,7 +3475,7 @@ export component PreferencesWindow inherits Window {
             }
             Text { x: 20px; y: 268px; text: "Clear Cache"; font-size: 12px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 290px; width: parent.width - 40px; height: 202px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 UtilitiesActionRow { width: parent.width; height: 87px;
                     symbol: "◷"; title: "Clear Saved Playback Progress";
                     description: "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.";
@@ -3439,7 +3495,7 @@ export component PreferencesWindow inherits Window {
             }
             Text { x: 20px; y: 514px; text: "Browser Extensions"; font-size: 12px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 536px; width: parent.width - 40px; height: 116px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: #f8f8f8;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Text { x: 16px; y: 12px; width: parent.width - 32px; height: 20px;
                     text: "Get Browser Extensions for Riina"; font-size: 12px; color: #29292d; }
                 Text { x: 16px; y: 34px; width: parent.width - 32px; height: 34px;

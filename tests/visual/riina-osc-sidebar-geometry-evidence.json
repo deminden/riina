@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-15",
+  "application": "Riina 0.3.8 debug build",
+  "binary_sha256": "BE8483AE135F7AD5B2CD362E1287751C6E76E5C93223E1947455C7CA15BFD17F",
+  "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied alone to a unique temporary directory",
+  "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+  "display": {
+    "size_physical_px": [3840, 2160],
+    "scale_factor": 3
+  },
+  "test_state": "Video Quick Settings sidebar open; Edge-to-Edge enabled; floating OSC visible",
+  "window_bounds_physical_px": [546, 215, 2747, 1711],
+  "uia_bounds_physical_px": {
+    "osc_rightmost_action": {
+      "name": "Quick Settings",
+      "bounds": [1961, 1562, 72, 72],
+      "right": 2033
+    },
+    "sidebar_first_track_row": {
+      "name": "<None>",
+      "bounds": [2264, 386, 978, 78],
+      "left": 2264
+    },
+    "sidebar_close_button": {
+      "name": "Close sidebar",
+      "bounds": [2243, 251, 108, 108]
+    }
+  },
+  "observed_clearance": {
+    "to_sidebar_content_physical_px": 231,
+    "to_sidebar_content_points": 77,
+    "osc_sidebar_overlap": false
+  },
+  "observed_layouts": [
+    {
+      "state": "Quick Settings/Video trailing",
+      "osc_last_action_right_px": 2033,
+      "sidebar_first_row_left_px": 2264,
+      "clearance_px": 231,
+      "optional_toolbar_actions": "visible"
+    },
+    {
+      "state": "Quick Settings/Layout leading",
+      "last_visible_setting_control_right_px": 1551,
+      "osc_first_action_left_px": 2309,
+      "clearance_px": 758,
+      "optional_toolbar_actions": "visible"
+    },
+    {
+      "state": "Playlist leading + Quick Settings trailing",
+      "left_sidebar_close_button": [1554, 251, 108, 108],
+      "right_sidebar_close_button": [2243, 251, 108, 108],
+      "osc_center_controls_span_px": [1739, 2099],
+      "optional_toolbar_actions": "hidden when the remaining video span is too narrow"
+    },
+    {
+      "state": "Plugins leading + Quick Settings trailing",
+      "plugins_panel_first_text": [582, 251, 132, 108],
+      "left_sidebar_close_button": [1554, 251, 108, 108],
+      "right_sidebar_close_button": [2243, 251, 108, 108],
+      "osc_center_controls_span_px": [1739, 2099],
+      "optional_toolbar_actions": "hidden when the remaining video span is too narrow"
+    }
+  ],
+  "quick_settings_tab_geometry": {
+    "window_right_px": 3293,
+    "previous_measurement_before_content-width-fix": {
+      "Layout": [2756, 260, 96, 84],
+      "Video_selected": [2855, 260, 258, 84],
+      "Audio": [3116, 260, 96, 84],
+      "Subtitles": [3215, 260, 96, 84]
+    },
+    "previous_subtitles_button_right_px": 3311,
+    "updated_measurement_after-content-width-fix": {
+      "binary_sha256": "999893D375DD8D2E5EDB195CDE77E06F3AC3B928C45DEF020852CF586FD0920E",
+      "display_size_physical_px": [3840, 2160],
+      "scale_factor": 3,
+      "Layout": [2696, 260, 96, 84],
+      "Video_selected": [2795, 260, 258, 84],
+      "Audio": [3056, 260, 96, 84],
+      "Subtitles": [3155, 260, 96, 84],
+      "Subtitles_right_px": 3251,
+      "inferred_capsule_right_px": 3263,
+      "capsule_to_window_inset_px": 30,
+      "capsule_to_window_inset_points": 10,
+      "subtitle_lane_headers": {
+        "Primary subtitles": [2261, 383, 984, 48],
+        "Secondary subtitles": [2261, 815, 984, 48],
+        "height_points": 16
+      },
+      "activation": "Quick Settings opened through UI Automation; Subtitles tab opened and exposed primary and secondary lanes.",
+      "interpretation": "The old row placed the 192-point capsule 10 points beyond the sidebar edge. The updated row preserves the 192-point capsule and returns its outer edge to the source-derived 10-point inset. The accessible Subtitles hit target ends 14 points inside the window because the capsule has internal padding."
+    },
+    "capture_validation": "Full-desktop GDI capture probed black at all 25 points and was discarded; no rendered-pixel claim is made.",
+    "recheck_lifecycle": {
+      "test_process_id": 16592,
+      "closed_normally": true,
+      "no_riina_process_after_test": true
+    }
+  },
+  "speed_card_geometry": {
+    "binary_sha256": "999893D375DD8D2E5EDB195CDE77E06F3AC3B928C45DEF020852CF586FD0920E",
+    "display_size_physical_px": [3840, 2160],
+    "scale_factor": 3,
+    "window_title": "moving-square.avi — riina",
+    "window_bounds_physical_px": [546, 215, 2747, 1711],
+    "uia_bounds_physical_px": {
+      "speed_title": [2369, 1430, 111, 48],
+      "speed_slider": [2297, 1532, 738, 60],
+      "current_speed_indicator": [2494, 1496, 108, 30],
+      "custom_speed_input": [3071, 1532, 126, 54],
+      "tick_0_25x": [2297, 1592, 105, 42],
+      "tick_1x": [2501, 1592, 90, 42],
+      "tick_4x": [2741, 1592, 90, 42],
+      "tick_16x": [2930, 1592, 105, 42],
+      "hardware_decoding_label": [2297, 1763, 798, 54],
+      "hardware_decoding_switch": [3119, 1763, 90, 54]
+    },
+    "points_at_300_percent": {
+      "speed_slider_width": 246,
+      "speed_value_field_outer_width": 50,
+      "speed_indicator_font_size": 10,
+      "speed_slider_row_height": 20,
+      "tick_label_row_height": 14
+    },
+    "interpretation": "UI Automation geometry matches the source-derived 246-point slider width, 50-point value field, and tick positions. Speed title, slider, indicator, and tick row are present in the expected card sequence; this validates layout bounds only, not rendered glyphs or material.",
+    "capture_validation": "Rendered-pixel capture was not available; no pixel-parity claim is made.",
+    "recheck_lifecycle": {
+      "test_process_id": 12916,
+      "closed_normally": true,
+      "no_riina_process_after_test": true
+    }
+  },
+  "ref24_hardware_switch_reference": {
+    "capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+    "capture_sha256": "37F6C8224CD344D8388133ED3C6ABAACF39C031B6C4079FEC7FD82151C8CD9DD",
+    "capture_size_physical_px": [2940, 1898],
+    "scale_factor": 2,
+    "hardware_label_bounds_physical_px_in_capture": [2326, 1096, 235, 25],
+    "switch_track_bounds_physical_px_in_capture": [2796, 1086, 88, 40],
+    "selected_thumb_bounds_physical_px_in_capture": [2828, 1090, 52, 32],
+    "dimensions_points": {
+      "switch_track": [44, 20],
+      "selected_thumb": [26, 16],
+      "hardware_label_font_size": 13,
+      "hardware_label_text_width_approx": 117.5,
+      "hardware_row_leading_content_inset": 36,
+      "thumb_inset_left_or_right_when_on": 2,
+      "thumb_vertical_inset": 2
+    },
+    "measurement_method": "Sampled the blue switch track and light thumb pixels from the original PNG; bounds are inclusive pixel extents converted at the established 2x reference scale.",
+    "riina_change": "HardwareDecodingControls now uses a new original 16-point chip icon, 13-point system-label size, 8-point icon gap, measured track and selected-thumb dimensions; spacious/compact switch-row card heights are updated accordingly.",
+    "verification": "The workspace build passed. Post-change Riina UIA bounds and rendered pixels remain unverified."
+  },
+  "ref11d_small_nsswitch_reference": {
+    "capture": "reference/captures/iina-reference-set-2026-10-12/11d-preferences-video-color-hdr-detail.png",
+    "capture_sha256": "68F105AB99534C5E63AB69C1AB79944F551BB645E27450F917B36EA567AE40B2",
+    "capture_size_physical_px": [1424, 1224],
+    "scale_factor": 2,
+    "switch_bounds_physical_px": [1198, 326, 72, 32],
+    "enabled_thumb_bounds_physical_px": [1225, 330, 42, 24],
+    "dimensions_points": {
+      "switch_track": [36, 16],
+      "enabled_thumb": [21, 12],
+      "thumb_leading_position_when_enabled": 13.5,
+      "thumb_horizontal_inset": 1.5,
+      "thumb_vertical_inset": 2
+    },
+    "source_control": "SidebarVideoPane.createSwitchesView creates NSSwitch and sets controlSize to .small on macOS 26 and later for the optional HDR row.",
+    "measurement_method": "Sampled the crisp selected tone-mapping NSSwitch in the pinned HDR preferences capture as a system-control size reference; pixel bounds are inclusive and converted at 2x.",
+    "riina_change": "HdrControls now uses a 36x16-point track and 21x12-point thumb rather than the previous 30x18-point track and 14x14-point thumb.",
+    "verification": "The locked workspace build and formatting check passed. HDR-row UIA and rendered-pixel confirmation remain pending. REF-24 itself has no HDR row."
+  },
+  "lifecycle": {
+    "test_process_ids": [6272, 9632, 12436],
+    "closed_normally": true,
+    "no_riina_process_after_test": true
+  },
+  "limitations": [
+    "The topmost ScreenClippingHost prevented a trustworthy full-desktop pixel capture, so Acrylic transparency, blur, and rendered edge positions were not verified in this run.",
+    "UI Automation bounds establish non-overlap and control geometry, not pixel-perfect visual parity."
+  ]
+}

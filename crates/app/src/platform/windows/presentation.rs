@@ -1,4 +1,5 @@
 //! A presentation owns its native target; the shared controller never handles HWNDs.
+use super::frame_capture::FrameCapture;
 use crate::NativeVideoHost;
 use riina_core::Playback;
 use riina_mpv::Player;
@@ -30,6 +31,7 @@ pub(crate) struct NativePresentation {
     hwnd: isize,
     wid: u32,
     host: slint::Weak<NativeVideoHost>,
+    material_capture: Option<FrameCapture>,
 }
 
 impl NativePresentation {
@@ -46,11 +48,21 @@ impl NativePresentation {
             _ => return Err("Native video requires a Windows HWND".into()),
         };
         let wid = u32::try_from(hwnd as usize).map_err(|error| error.to_string())?;
+        let material_capture = match FrameCapture::start(HWND(hwnd as *mut _)) {
+            Ok(capture) => Some(capture),
+            Err(error) => {
+                eprintln!(
+                    "Windows video material capture unavailable; using mpv sampling: {error}"
+                );
+                None
+            }
+        };
         Ok(Self {
             _window: window,
             hwnd,
             wid,
             host,
+            material_capture,
         })
     }
 
@@ -64,6 +76,10 @@ impl NativePresentation {
 
     pub(crate) fn host(&self) -> slint::Weak<NativeVideoHost> {
         self.host.clone()
+    }
+
+    pub(crate) fn material_capture(&self) -> Option<FrameCapture> {
+        self.material_capture.clone()
     }
 
     pub(crate) fn hdr_display_active(&self) -> bool {

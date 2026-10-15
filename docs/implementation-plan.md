@@ -27,14 +27,111 @@ priorities, not a project timeline. The traceable requirement inventory is
    Current state: the Windows native player host requests and reads back
    `DWMSBT_MAINWINDOW`, which Windows 11 maps to Mica on build 22621 and later
    ([Microsoft DWM backdrop types](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type)).
-   Unsupported systems keep the renderer surface. Debug playback works. Fresh
-   per-window captures show Welcome and the empty player, but the helper still
-   loses the active playback window, so visible Mica remains unverified. Slint
-   surfaces remain opaque, transient Acrylic and video-backed overlays are open,
-   and the shared switches still select RGBA tint/opacity. macOS 27.0.1 Liquid Glass
-   rendering remains open. Inspect Slint/Winit transparency and per-surface compositor
-   boundaries before wiring effects; one window-wide backdrop does not prove parity
-   for OSD, controller and sidebar.
+   Microsoft's material guidance defines Mica as an opaque wallpaper-tinted base
+   material and Desktop Acrylic as a translucent backdrop that samples content
+   behind the app; in-app Acrylic blurs content inside the app instead
+   ([materials overview](https://learn.microsoft.com/en-us/windows/apps/develop/ui/materials),
+   [Acrylic guidance](https://learn.microsoft.com/en-us/windows/apps/design/style/acrylic)).
+   Riina therefore uses Mica for the persistent window foundation, Desktop
+   Acrylic for selected auxiliary/transient windows, and video-backed in-app
+   Acrylic for playback overlays. Desktop Acrylic cannot reveal or blur Riina's
+   video surface behind its own child controls, so the measured video-sample
+   path is the correct Windows material equivalent there; it is not claimed to
+   be literal DWM Acrylic.
+   Its Winit client is now alpha-capable; the Slint host stays solid until DWM accepts
+   the requested type and returns it on readback, then exposes transparent client
+   pixels. This confirms the attribute only; Windows may show its opaque fallback
+   under system policy. Unsupported systems keep the previous solid host surface.
+   The Winit-backed Welcome and Preferences windows now request the same persistent
+   backdrop; Welcome layers its dark WinUI Mica fill over that backdrop. About and
+   selected auxiliary windows request Desktop Acrylic. About exposes the accepted
+   backdrop through transparent content panes; other utility windows expose it
+   through transparent roots and WinUI-tinted toolbar, header and unselected-list
+   surfaces while preserving solid data-entry and selected-item contrast fills.
+   The Windows PiP viewport remains black behind its DWM video thumbnail while
+   its controls use a tinted Acrylic fill. Solid platform colors remain when DWM
+   rejects the request. The persistent player host refreshes its Mica attribute when the
+   cached transparency, Battery Saver or High Contrast policy changes, and retries
+   failed operations with increasing delays up to 30 seconds while keeping its solid
+   client fallback. Disabling effects switches the client to opaque immediately even
+   if Winit temporarily cannot provide the native window. A full-desktop live capture
+   now shows video beneath the translucent native-player Quick Settings material.
+   Persistent Mica and auxiliary Desktop Acrylic still need visible-pixel
+   confirmation. The player
+   host, Welcome and Preferences Mica, and
+   registered auxiliary Acrylic windows refresh their DWM backdrop when transparency,
+   Battery Saver or High Contrast policy changes. The Preferences page and navigation
+   surfaces and Preferences card containers use the WinUI light Mica content-layer
+   fill only while the backdrop is accepted, including the nested Online Media page;
+   edit fields and selected rows retain solid fills.
+   The auxiliary policy watcher retries a backdrop operation when the visible client
+   state does not match the current system policy, even if that policy has not changed
+   since a prior DWM request failed. Retries back off to 30 seconds and repeated
+   identical DWM errors are logged once until recovery or a policy change.
+   Registered auxiliary windows now synchronize their Winit native theme with the
+   Slint palette (fixed light or dark, or live dark-theme state for About and Video
+   Filters), so Windows caption and Acrylic treatment follow client appearance.
+   The native player's Muda menu bar and caption now receive app-driven Light/Dark
+   changes; the caption is reapplied after Muda's non-client redraw. Full-desktop
+   captures verify both transitions while the window stays open. Muda's
+   theme API covers the menu bar only, so dark-app dropdowns still inherit the Windows
+   system popup theme and remain a tracked platform difference.
+   The reusable Font Picker now follows the resolved player theme in content and
+   its native frame (Winit/AppKit appearance), with DWM Acrylic on Windows.
+   Light/dark WinUI layer fills and matching list, selection and preview colors
+   preserve contrast across theme changes.
+   Verify live transitions and pixels on Windows.
+   The native player-controls overlay remains a separate transparent surface. Its
+   enabled materials now receive throttled, downsampled SDR video samples and
+   render an in-app video blur; HDR continues to use its tint fallback. Whole-desktop
+   captures confirm transparency over playback. A five-frame 24fps moving-pattern
+   sequence shows the material changing with the video, while earlier 4fps captures
+   still show a one-frame offset. The native player now owns an optional Windows
+   Graphics Capture session for its host HWND. It receives free-threaded D3D11
+   frames, crops the client area into a CPU-readable staging texture, then bounds
+   samples to 320×180. The Slint material sampler prefers these window-scoped frames and
+   falls back to mpv's `screenshot-raw` when capture is unavailable or stale; HDR
+   still uses its tint fallback. An isolated full-desktop playback check showed no
+   stationary black patch after moving the player; the black letterbox bands moved
+   with the viewport. A matched animated-pattern run confirms that Windows Graphics
+   Capture supplies changing video frames to the translucent control surface. The
+   rebuilt controller follows the 4 fps color cycle; its center sample remains within
+   two 8-bit color levels of the captured video after stable grain is applied. See
+   [Microsoft's screen capture guide](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture), [`CreateFreeThreaded`](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded), and [`CreateForWindow`](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow).
+   Its Quick Settings
+   cards now use WinUI's dark/light Acrylic layer fill only while sampled-video
+   material is active, and the `Fit Window to Video` action uses theme-specific
+   WinUI control fills in the same state. The native controls popup uses DWM
+   per-pixel alpha composition; after Slint realization it clears incompatible
+   layered-window styles and reapplies the DWM alpha contract. The legacy
+   `DwmEnableBlurBehindWindow` API does not blur on Windows 8 and later, but its
+   documented alpha behavior is still needed for this transparent top-level
+   surface. Video blur comes from sampled video frames, not this legacy API. A live
+   native-video capture now shows the video through the controls overlay and
+   tinted Quick Settings surface while the overlay follows host movement. Dark
+   flat-pattern luminance is calibrated to the pinned IINA Quick Settings and
+   controller samples, and both default sidebar and controller widths measure
+   within a few points of source. The Windows material transform now uses a
+   precomputed-coordinate bilinear enlargement after quarter-size blur; debug
+   transform time fell from 26–30 ms to 17–19 ms. Captured sample age at display is
+   39–66 ms. The separate native-video transform now precomputes its clamped
+   horizontal and vertical blur taps and sums the fixed kernel corrections
+   directly, preserving its existing integer weights. Workspace build and format
+   checks pass. A 105-sample debug trace measured 5–7 ms for WGC readback,
+   17–20 ms for transform, and 30–63 ms from compositor capture to display;
+   the earlier transform trace was 28–31 ms. This confirms a shorter transform in
+   this run, but not lower end-to-end latency or acceptable system cost. Nonuniform
+   moving-video blur strength, other OSD materials, light appearance, system-policy
+   transitions, exact glyph contours, and macOS runtime remain open. The floating
+   controller now uses a 78-point spacious panel and
+   71-point compact panel: IINA's 67-point value is its position-clamp constant,
+   while the visible timeline row is 24 points after the seek slider's 6-point
+   vertical padding is included. The 300%-scale capture shows the timeline and all
+   eight actions without clipping. Controller offset still needs a matched-video-size
+   comparison.
+   A window backdrop alone does not prove feature parity.
+   macOS 27.0.1 Liquid Glass
+   rendering remains open.
 3. Build macOS and Linux application ports alongside Windows feature and visual work.
    Windows 11 x64 is the only supported application target until each port has a full
    app build, visible playback, input, dialogs, window lifecycle, and shutdown evidence.
@@ -61,6 +158,13 @@ Windows controller now shortens its height and timeline at small viewport sizes;
 hover/focus interaction and matched macOS appearance remain unverified.
 The embedded Windows mpv output now has `auto-window-resize=no` because Riina owns
 resize policy and synchronizes its own host and child geometry. A 25-second mixed-size autoplay run completed with no fully dark samples, host/child mismatches, or off-screen samples. The user's affected media and flashes shorter than capture intervals still need direct verification.
+The Windows alignment loop now validates the mpv child against both the host
+client's screen origin and its size; size-only checks could miss a detached,
+same-sized child. An isolated full-desktop recheck moved the player by 120×100
+physical pixels and found the host client, controls popup, and mpv child at the
+same resulting origin and size; no screen-fixed black patch appeared. Rapid clip
+transitions and the user's affected media still need direct verification.
+A later isolated 0.3.8 GUI recheck with moving-square captured the full desktop before and after moving the window about 100 logical points right; video and controls followed with no stationary black patch. This does not rule out the user media or playlist handoffs. If the symptom recurs, capture the visible player and its host, mpv child and controls-surface bounds together before changing alignment behavior.
 
 - Every implemented behavior has typed intent, observed backend state where applicable,
   and tests at the layer that owns the behavior.

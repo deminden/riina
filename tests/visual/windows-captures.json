@@ -157,6 +157,26 @@
       "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
     },
     {
+      "file": "tests/visual/quick-settings-gear-windows.png",
+      "date": "2026-10-13 (file timestamp)",
+      "os": "Windows 11; exact build not recorded for this capture",
+      "application": "Riina development build; exact version not recorded",
+      "media": "05-return-video.avi",
+      "state": "Video Quick Settings open with the gear-triggered OSC visible; Video tab selected",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "capture_size": [
+        1280,
+        672
+      ],
+      "scale": null,
+      "implementation_revision": "pre-2026-10-14 card pass; screenshot shows ungrouped controls",
+      "matching_upstream_capture": "REF-24-playback-video-panel (not matched by client size or capture state)",
+      "tolerances": "not set; source and target scale/state are unmatched"
+    },
+    {
       "file": "tests/visual/windows-playlist-layout.png",
       "accessibility": "tests/visual/windows-playlist-layout-accessibility.txt",
       "date": "2026-10-09",
@@ -188,6 +208,1396 @@
       "tolerances": "not set; upstream reference capture pending",
       "media_location_note": "Workspace tools/ui-smoke copies; bytes match named fixture hashes; matching-basename SRT loaded by mpv",
       "scale_note": "Earlier value 1 described normalized screenshot geometry; actual window DPI was not measured for this capture. Later native probe measured scale 3 on the same desktop."
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-14/windows-video-panel-neutral-tab.png",
+      "capture_kind": "player-window crop from a DPI-aware full-desktop capture",
+      "date": "2026-10-14",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 development build after neutral Quick Settings category selection",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 4,
+      "state": "Quick Settings Video open; Video tab selected with a neutral capsule; playback paused at the end frame",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "capture_size": [
+        2748,
+        1856
+      ],
+      "desktop_capture_size": [
+        3840,
+        2160
+      ],
+      "scale": 3,
+      "logical_window_size_estimate": [
+        916,
+        619
+      ],
+      "matching_upstream_capture": "REF-24-playback-video-panel; panel state matches, player size does not",
+      "observations": "Selected category capsule is neutral rather than Windows accent blue; selected aspect and crop presets keep the Windows accent. The sampled video frame remains visible through the tinted Acrylic sidebar and card fills. The player is narrower and shorter than IINA REF-24, so the lower image-adjustment controls are outside the matched visual comparison.",
+      "tolerances": "not set; partial visual comparison only"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-14/windows-audio-material-20hz-trial/full-desktop.png",
+      "player_window_crop": "reference/captures/riina-live-2026-10-14/windows-audio-material-20hz-trial/player-window.png",
+      "capture_kind": "full-desktop capture plus player-window crop",
+      "date": "2026-10-14",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 development build with a temporary 20 Hz material-sampling experiment",
+      "fixture": "IINA reference sample-test-pattern.gif copied to a unique isolated temporary path",
+      "state": "Quick Settings Audio open during animated 4 fps playback; capture sequence taken at ~220 ms intervals",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Audio",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "player_window_crop_size": [
+        2783,
+        1872
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-23-playback-audio-panel; state matches, player size and frame phase do not",
+      "observations": "Full-desktop capture shows the playing frame and controls. At probes (2000,600) outside and (2300,600) inside the panel, consecutive frame colors remained out of phase despite 20 Hz requests; a single desktop performance-overlay reading during capture showed 10 fps and 18% CPU, so this is cautionary rather than a controlled benchmark. The 20 Hz experiment was reverted; keep the 10 Hz implementation until a frame-synchronized, lower-cost sample path is available.",
+      "tolerances": "not set; timing experiment only"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-overlay-alignment-full-desktop.png",
+      "capture_kind": "full-desktop capture",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug after direct native controls-popup alignment fix",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "state": "DPI-aware host move by 140×90 physical pixels; moving video and OSC visible",
+      "theme": "dark",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "host_client_bounds_after_move": [
+        686,
+        305,
+        2747,
+        1711
+      ],
+      "controls_popup_bounds_after_move": [
+        686,
+        305,
+        2747,
+        1711
+      ],
+      "matching_upstream_capture": "REF-20-playback-frame; alignment only, window state differs",
+      "observations": "After the move, direct native popup alignment placed the controls HWND at the exact host client origin and size. Full desktop capture shows the controls over moving video with no stale gray strip.",
+      "tolerances": "exact Win32 bounds; visual comparison not pixel-scored"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-no-audio-controller-full-desktop.png",
+      "capture_kind": "full-desktop capture",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug after audio-dependent OSC control visibility change",
+      "fixture": "IINA reference sample-test-pattern.gif copied to an isolated temporary folder",
+      "position_seconds": 1.3,
+      "state": "Animated no-audio GIF playing; OSC visible",
+      "theme": "dark",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-20-playback-frame; no-audio controller state matches, window position/time differ",
+      "observations": "Mute and volume slider are hidden with no selected primary audio track; centered transport and four right-side controls remain. The controller sample is gold while the underlying video is blue, exposing an out-of-phase Windows sampled-material frame.",
+      "tolerances": "not set; visual inspection only"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-audio-controller-full-desktop.png",
+      "capture_kind": "full-desktop capture",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug after audio-dependent OSC control visibility change",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 0.5,
+      "state": "Audio track selected; moving video and OSC visible",
+      "theme": "dark",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-20-playback-frame; selected-audio control behavior only",
+      "observations": "Mute and volume slider remain visible with an active selected audio track. Playback material sampling is visibly out of phase with the blue frame in this sample.",
+      "tolerances": "not set; visual inspection only"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-fast-poll-full-desktop.png",
+      "capture_kind": "full-desktop capture with temporal pixel probes",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug with 16 ms asynchronous material reply polling and 100 ms capture requests",
+      "fixture": "sample-test-pattern.gif copied to a fresh isolated temporary path",
+      "position_seconds": 2.0,
+      "state": "Animated no-audio GIF playing; OSC visible",
+      "theme": "dark",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-20-playback-frame; sample timing only",
+      "observations": "The live video and sampled controller material still show different GIF color frames. Twenty 100 ms pixel probes confirm the mismatch persists with faster reply polling; the controller sample lags the live video by roughly one frame in the inspected capture. Capture cadence was unchanged.",
+      "tolerances": "not set; temporal pixel probes and visual inspection"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-dwm-acrylic-overlay-trial-full-desktop.png",
+      "capture_kind": "full-desktop capture with temporary native material surface",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug with a temporary owned HWND using DWMSBT_TRANSIENTWINDOW",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary path",
+      "position_seconds": 1.0,
+      "state": "Moving-square video playing; temporary 460×67-point acrylic probe centered over playback",
+      "theme": "dark",
+      "panels": [
+        "temporary acrylic probe"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "None; compositor feasibility probe",
+      "observations": "DWM accepted the transient-backdrop attribute. The compact owned HWND rendered as a solid gray rounded rectangle and covered the native video beneath it instead of exposing video-backed Acrylic. A separate trial of the full-size popup also did not preserve normal controls. The temporary HWND was destroyed before the player was closed.",
+      "tolerances": "not set; visual inspection of full desktop"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-moving-square-position-recheck.png",
+      "capture_kind": "full-desktop playback and native-window-position check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug with native child screen-position validation",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 4.0,
+      "state": "Moving-square clip near its final frame; player moved 120×100 physical pixels",
+      "theme": "dark",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "host_client_bounds_after_move": [
+        666,
+        315,
+        2747,
+        1711
+      ],
+      "controls_popup_bounds_after_move": [
+        666,
+        315,
+        2747,
+        1711
+      ],
+      "mpv_child_bounds_after_move": [
+        666,
+        315,
+        2747,
+        1711
+      ],
+      "matching_upstream_capture": "REF-20-playback-frame; position only, playback state differs",
+      "observations": "After moving the host from (528,72) to (648,172), the host client, controls popup, and visible mpv child all shared the exact client origin and size. Full-desktop capture showed the playback frame and controls together; no screen-fixed black patch was visible. The clip was near its final frame, so transition flashes and the user's affected media remain unverified.",
+      "tolerances": "exact Win32 bounds; visual inspection, not pixel-scored",
+      "sha256": "E15C6DA9F2E8B620B844F8E07FD39FFAE93B7BFE2FAF71429ECE580799EA847F"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/wgc-material-full-desktop-moved.png",
+      "capture_kind": "full-desktop playback and moved-window check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with optional window-scoped Windows Graphics Capture sampler",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "state": "Moving-square fixture at its final frame after playback and host movement",
+      "theme": "dark",
+      "panels": [
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "matching_upstream_capture": "REF-20-playback-frame; movement and screen-fixed artifact check only",
+      "observations": "The isolated clip ran without folder autoplay and was moved across the desktop. The black bands remained attached to the player viewport; no black square remained at its previous screen location. The screenshot establishes visible playback alignment, not which sampler source produced the material image; mpv screenshot fallback remains enabled.",
+      "tolerances": "visual inspection of the full desktop, not pixel-scored",
+      "sha256": "76AF905F80CE9DE16C43813239EE63668E0B6B367B35D7DC1726431735706462"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-sidebar-spacing-full-desktop.png",
+      "capture_kind": "full-desktop playback and Quick Settings Layout visual review",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after source-derived Layout sidebar geometry update",
+      "fixture": "tests/fixtures/moving-square.avi resumed from local history",
+      "position_seconds": 5.0,
+      "state": "Quick Settings Layout open; spacious Layout and playback controls visible",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21-playback-quick-settings; state and default sidebar width correspond, full window/background differ",
+      "observations": "The full-desktop capture shows the Layout pane over playback. The default 360-point sidebar and 328-point card width match the source-derived REF-21 geometry. Live checks switched Compact Interface on and back off; the build uses source-defined 16-point compact stack spacing and 14-point side margins. Visual review only; no pixel-scored diff was performed.",
+      "tolerances": "visual inspection of the full desktop, not pixel-scored",
+      "sha256": "3224AB1B14734FE6AC7571E30104D298557B69F831BC03A73AE6B66F74747DD8"
+    },
+    {
+      "capture_kind": "full-desktop playback and Quick Settings Layout visual review",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after source-derived Quick Settings Layout spacing update",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21-playback-quick-settings; internal spacing and card bounds inspected; window/background differ",
+      "tolerances": "visual inspection of the full desktop, not pixel-scored",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-source-spacing-spacious-full-desktop.png",
+      "state": "Quick Settings Layout open; Spacious Interface enabled",
+      "observations": "The full desktop shows the Layout pane over playback. Theme and material controls fit; the three compact switches use source-derived 6-point row spacing and the card uses source-derived 12-point padding and 12-point group spacing. Card height is about 4 points above the prior screenshot estimate; exact source/reference pixel comparison remains open.",
+      "sha256": "AB9C704A1197FDE687D93E8C6E275E1FB4FA16A7367314ABFB8D411AAC540F38"
+    },
+    {
+      "capture_kind": "full-desktop playback and Quick Settings Layout visual review",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after source-derived Quick Settings Layout spacing update",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21-playback-quick-settings; internal spacing and card bounds inspected; window/background differ",
+      "tolerances": "visual inspection of the full desktop, not pixel-scored",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-source-spacing-compact-full-desktop.png",
+      "state": "Quick Settings Layout open; Compact Interface enabled",
+      "observations": "The full desktop shows the compact Layout pane over playback. Rows remain visible without clipping and the card shrinks relative to spacious mode. Source-derived compact 10-point padding, 8-point group spacing, and 5-point row spacing are applied. Visual review only; no pixel-scored diff.",
+      "sha256": "C4867FBACD17DA163D83786F92DF1445E3B1AC616FE2E23D3D150CC6B13C3DEE"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-osc-video-viewport-off-full-desktop.png",
+      "capture_kind": "full-desktop playback and Quick Settings controller-boundary check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug app after viewport-relative OSC positioning",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 3.0,
+      "state": "Quick Settings/Layout open; Edge-to-Edge Video off; floating OSC centered within video viewport",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21 for panel; OSC bounds follow OSCFloatingView/MainWindowController source. Edge-to-edge state differs from REF-21.",
+      "observations": "With Edge-to-Edge Video disabled and the trailing Quick Settings pane open, the video viewport ends before the sidebar and the floating controller is centered within that viewport; it no longer extends beneath the sidebar. The setting was restored to its previous enabled state before closing. This verifies one default centered Windows state, not drag persistence or material pixel parity.",
+      "tolerances": "visual inspection of full desktop; no pixel-scored comparison",
+      "sha256": "F8276C6D2A76BA62233793407132DC74C349ECCED71FF5FCCE8DFBC38CCB3E1C"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-quick-settings-material-full-desktop.png",
+      "capture_kind": "full-desktop playback and Windows video-backed material inspection",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 current-workspace debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "frame": 119,
+      "state": "Quick Settings/Video open; clip ended on its final frame; native video, controls, and sidebar composited in full desktop",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        918,
+        619
+      ],
+      "matching_upstream_capture": "REF-21 Quick Settings; Windows uses sampled-video Acrylic rather than macOS Liquid Glass",
+      "observations": "The whole-desktop capture shows the video filling the playback viewport. The right Quick Settings pane measures about 1,080 physical pixels (360 logical points at 300% display scale), matching REF-21's 360-point default sidebar. The blurred gold square remains visible through the dark translucent surface, confirming the video-backed sample is composited there. The clip is on its final frame, so this does not verify material refresh during motion, exact opacity, or pixel parity. The player window is smaller than the IINA reference; do not compare overall screen proportions.",
+      "tolerances": "visual inspection of full desktop; no pixel-scored comparison",
+      "sha256": "AD1470DDF81F53D2368B893F8099A1CC4458D4163399F12A09DB7E56904185F8"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-motion-01.png",
+      "sequence_files": [
+        "reference/captures/riina-live-2026-10-15/windows-material-motion-01.png",
+        "reference/captures/riina-live-2026-10-15/windows-material-motion-02.png",
+        "reference/captures/riina-live-2026-10-15/windows-material-motion-03.png",
+        "reference/captures/riina-live-2026-10-15/windows-material-motion-04.png",
+        "reference/captures/riina-live-2026-10-15/windows-material-motion-05.png"
+      ],
+      "sequence_sha256": [
+        "AC9EA4FF32034AF21879CC2909C73AA070086CBAA90C5A8B8692515BB1D76BE6",
+        "7A236883F175D051FCFE5FB183A3324C7FF04AE6FE46A2E5E4D76F2DC3A0433E",
+        "C8F96635BA75A4FEF0E0CF3553711186C555467C5B73A8ABB51B783D07863F64",
+        "3D620134F3B46A08DADA9F8105F965149E60EBB6E0AF12AA418210721A7B6E08",
+        "B8744189A6A5FAC8C81C0CFC5C6913B3E60A8B599AD8E63FB2D8E480AA6794D0"
+      ],
+      "frame_sequence": [
+        116,
+        12,
+        27,
+        43,
+        58
+      ],
+      "capture_kind": "five-frame full-desktop Windows video-backed Acrylic motion sequence",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 current-workspace debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder; File Loop enabled for this visual check",
+      "state": "Quick Settings/Video open; active 24fps playback; five full-desktop captures about 650ms apart, including the file-loop transition",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        918,
+        619
+      ],
+      "matching_upstream_capture": "REF-21 Quick Settings; Windows uses sampled-video Acrylic rather than macOS Liquid Glass",
+      "observations": "Across frames 116, 12, 27, 43, and 58, the square moves through the playback viewport and the blurred gold area visible through the right Acrylic sidebar changes with it. This confirms qualitatively that the material responds during motion while the whole desktop is composited. The about 650ms capture spacing cannot establish exact frame offset, and the image does not distinguish Windows Graphics Capture from mpv screenshot fallback.",
+      "tolerances": "visual sequence inspection; no pixel-scored diff or sub-frame timing measurement",
+      "sha256": "AC9EA4FF32034AF21879CC2909C73AA070086CBAA90C5A8B8692515BB1D76BE6"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-menu-theme-dark.png",
+      "capture_kind": "full-desktop native player theme synchronization check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 locked debug build after native menu theme synchronization",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "state": "Quick Settings/Layout open; Dark selected; clip ended on final frame",
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21 for Quick Settings; theme transition is Windows-specific native chrome evidence",
+      "observations": "The full-desktop capture shows the title bar and native menu strip in the selected dark appearance. This is the reverse-transition result after switching Light to Dark in the same running session.",
+      "tolerances": "visual inspection of full desktop; no pixel-scored comparison",
+      "sha256": "2DC8ED9870ED2B8A4708CDD7FEAADE93A350A6A6D6B642C2BC73ECD69B164F7F"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-menu-theme-light.png",
+      "capture_kind": "full-desktop native player theme synchronization check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 locked debug build after native menu theme synchronization",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "state": "Quick Settings/Layout open; Light selected; clip ended on final frame",
+      "theme": "light",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21 for Quick Settings; theme transition is Windows-specific native chrome evidence",
+      "observations": "Changing the app from Dark to Light updates the Windows title bar, native menu strip, and Quick Settings appearance together without recreating the player window.",
+      "tolerances": "visual inspection of full desktop; no pixel-scored comparison",
+      "sha256": "259EB1453453050594167CB51BCFD9AAAFD3E94FD6BA049CBF4D211F6383D863"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-menu-dropdown-dark.png",
+      "capture_kind": "full-desktop native player menu dropdown appearance check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64; Windows app theme Light",
+      "application": "Riina 0.3.8 locked debug build after native menu theme synchronization",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "state": "Dark selected; File dropdown open; clip ended on final frame",
+      "theme": "dark app appearance; light native dropdown surface",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC",
+        "File menu"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-27 File menu, but capture size and native platform menu differ",
+      "observations": "The native menu bar follows Dark, while the File dropdown stays light under Windows' Light app theme. Muda 0.19.3 documents its theme setting as applying to the menu bar only, not submenus or context menus. Preserve this as a remaining Windows popup-theme difference.",
+      "tolerances": "visual inspection of full desktop; no pixel-scored comparison",
+      "sha256": "34D482195469808D61E01604ACF749499C89C1FA9DBFCAEB972F1CF600B1E06B"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-black-patch-before-move.png",
+      "capture_kind": "full-desktop playback surface movement check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "state": "Moving-square video before moving the player",
+      "matching_upstream_capture": "not applicable; Windows surface-alignment behavior",
+      "observations": "Full 3840x2160 desktop capture before the native window Move command. Playback fills the video viewport; black bars are the video aspect-fit matte.",
+      "tolerances": "visual inspection of full desktop; not pixel-scored",
+      "sha256": "B16ACF7BA7A8BFAFC0B021CE7F7526F522F5AA8AC55912FB98E2DC01AAA38847"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-black-patch-after-move.png",
+      "capture_kind": "full-desktop playback surface movement check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "moving-square.avi copied to an isolated temporary folder",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "state": "Moving-square video after moving the player approximately 100 logical points right",
+      "matching_upstream_capture": "not applicable; Windows surface-alignment behavior",
+      "observations": "Full 3840x2160 desktop capture after moving the player. The video, letterbox bands and controls follow the new position; the previously occupied area reveals the browser with no fixed black patch. This isolated single-clip check does not cover playlist handoffs or user media.",
+      "tolerances": "visual inspection of full desktop; not pixel-scored",
+      "sha256": "EC2E27317E1660106BDB6D9273EC53F703696F5F8C0716ADD0B2BCBD0DD2C3B0"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-adjusted-spacious-full-desktop.png",
+      "capture_kind": "full-desktop Quick Settings Layout comparison",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "moving-square.avi copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Quick Settings Layout pane with spacious card spacing",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "observations": "Full 3840x2160 desktop capture. After REF-21 source/layout corrections: 36x16-point mini material switch tracks; Theme/material card 152 points; Compact Interface card 44 points; two-row Video card 76 points. No clipped controls. Captures document layout only; geometry has not been pixel-scored and Windows Acrylic pixels are not matched to macOS material.",
+      "tolerances": "visual inspection of full desktop; not pixel-scored",
+      "sha256": "3B1897424E8A5090A9A90707F8F75681B57F8D890D619EE646F761CE3C03635F"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-adjusted-compact-full-desktop.png",
+      "capture_kind": "full-desktop Quick Settings Layout comparison",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "moving-square.avi copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Quick Settings Layout pane with compact interface enabled",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "observations": "Full 3840x2160 desktop capture. Compact Layout pane rendered after the REF-21 spacing and mini-switch corrections; all three per-surface material rows and the cards fit without clipping. The temporary compact setting was restored to spacious before closing the test app. Geometry has not been pixel-scored.",
+      "tolerances": "visual inspection of full desktop; not pixel-scored",
+      "sha256": "7E3D09367DCA55A2936BF7240A75971535EE0BD266D73A11EE543911B8C44206"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-user-report-full-desktop.png",
+      "capture_kind": "full-desktop playback black-patch check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "state": "Playback before moving the player window",
+      "matching_upstream_capture": "not applicable; Windows surface-alignment behavior",
+      "observations": "Full desktop capture shows the video filling the playback viewport. The visible black bands are horizontal aspect-fit matte inside the player; no black square obscures the video in this frame.",
+      "tolerances": "visual inspection of full desktop; not pixel-scored",
+      "sha256": "720D0A30E6F6B91F18B6E9070A590705EA5FD0FC091DBCEDA48390AAAF52001A"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-user-report-full-desktop-after-move.png",
+      "capture_kind": "full-desktop playback black-patch check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "state": "Playback after moving the player window by 120x90 physical pixels",
+      "matching_upstream_capture": "not applicable; Windows surface-alignment behavior",
+      "observations": "The video, controls, and horizontal black aspect-fit bands all moved with the host from (528,72) to (648,162). The vacated desktop area shows the browser; no screen-fixed black square remained. The reported media and playlist handoffs are not covered.",
+      "tolerances": "visual inspection of full desktop; not pixel-scored",
+      "sha256": "C4A9DE6B8556CDABB31A79354B089698E344F17E763DBDFDEC7B740C7802625F"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-panel-29pct-tint-full-desktop.png",
+      "capture_kind": "full-desktop Quick Settings Video panel material calibration",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Quick Settings Video panel open over the green test pattern",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "observations": "At 29% dark tint (#1515154A), the un-carded trailing strip measured #4C845F over video #62B27D, 52.5% relative linear-sRGB luminance. The sampled REF-24 pair (#449345 over #65C466) is 52.1%. Full desktop capture confirms video remains visible through Acrylic. The panel spans 1,080 physical pixels (360 points) at 300% scale, matching REF-24's 720 pixels (360 points) at 2x. Other panel geometry, blur phase, and light-theme behavior remain open.",
+      "tolerances": "material luminance sampled at x=3260-3280 and y=900,1100,1300; width measured at y=1300; visual inspection of full desktop; no pixel-scored layout diff",
+      "sha256": "3B8FD6441ADF6E37A14D985C48A08F74E4E258BC41211CA9A95BF451B78D98CC"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-controller-16pct-tint-full-desktop.png",
+      "capture_kind": "full-desktop playback controller material calibration iteration",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback paused near 0:09 with floating controller visible; 16.1% tint iteration",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The 16.1% Windows tint measured 70.9% relative linear-sRGB luminance, slightly below REF-20's 71.8%. A one-byte alpha adjustment produced the final indexed 15.7% capture.",
+      "tolerances": "material luminance samples at (1300,1600)-(1800,1620); video base at (1000,900) and (1300,1200); full-desktop visual inspection",
+      "sha256": "6867130A1188760C169AB82C39CADFA11605C76E779E1D7A1B43BCAD4AE0D688"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-controller-15-7pct-tint-full-desktop.png",
+      "capture_kind": "full-desktop playback controller material calibration",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback paused near 0:09 with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The 15.7% Windows dark tint (#15151528) measured #56996C over video #62B27D, 72.0% relative linear-sRGB luminance. REF-20's controller sample (#50AA50 over #65C466) is 71.8%. The Windows bar's visible fill is about 458 points at 300% scale; REF-20 spans 461 points at 2x, against the source-defined 460-point width. This is a flat-frame tint and width check; moving-video blur timing, vertical bounds, light appearance, and text contrast remain open.",
+      "tolerances": "material luminance samples at (1300,1600)-(1800,1620); video base at (1000,900) and (1300,1200); visible width scan at y=1662 Windows and y=1625 REF-20; full-desktop visual inspection",
+      "sha256": "40620628547B3FF76F8F7E7D1BF0211D0F9FE06E994C378AA9DA7D3F5B5DD8F6"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-halfsample-full-desktop.png",
+      "capture_kind": "full-desktop sampled Acrylic transform timing check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build with material trace",
+      "fixture": "sample-test-pattern.gif copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Animated playback with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "Full desktop, including the complete Riina window. WGC supplied 43 displayed samples; readback was 84–93 ms, transform 50–56 ms, and sample age at display 137–160 ms. The transform improved from 123–130 ms and age 220–344 ms in the previous full-size implementation. This is a timing/qualitative composition check; the UI-thread stall and exact Windows Acrylic pixel match remain open.",
+      "tolerances": "visual inspection of the full desktop; timings from RIINA_TRACE_MATERIAL; no pixel-scored material comparison",
+      "sha256": "86067B2C6FBC2D20FC90CCE792D0FB3368925528CB724029E9FDF110DF87D811"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-worker-full-desktop-1.png",
+      "capture_kind": "full-desktop sampled Acrylic worker responsiveness check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with asynchronous material transform",
+      "fixture": "sample-test-pattern.gif copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Animated playback with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "Full desktop, including the entire player window and video viewport. The WGC trace recorded three displayed samples with 51–57 ms transforms, 95–105 ms readbacks, and 169–181 ms capture-to-display age. Transformation is now off the Slint UI thread. This is a qualitative material and playback check; exact Acrylic pixels, rapid clip transitions, and quantitative UI responsiveness remain open.",
+      "tolerances": "full-desktop visual inspection and RIINA_TRACE_MATERIAL timings; no pixel-scored material comparison",
+      "sha256": "04D1CBDC79BA7EC7E2EBA3BDB3E8099DF881520044C0092B3050E3D26B17E10A"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-direct-downsample-full-desktop.png",
+      "capture_kind": "full-desktop mapped-frame Acrylic sample performance check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with asynchronous material transform",
+      "fixture": "sample-test-pattern.gif copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Animated playback with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "Full desktop, including the full Riina window and video viewport. Direct bilinear conversion from mapped BGRA reduced WGC readback to 5–7 ms; the worker transform measured 51–58 ms and capture-to-display age 75–117 ms. The sampled video is visible through the translucent controller. Exact Windows Acrylic pixels and transition timing remain open.",
+      "tolerances": "full-desktop visual inspection; timings from RIINA_TRACE_MATERIAL; no pixel-scored material comparison",
+      "sha256": "7121A7B55BFF727EDAF413BCE20393E79C521657E701D9B7F96C1CFD97530409"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-quarter-blur-full-desktop.png",
+      "capture_kind": "full-desktop quarter-resolution material and controller check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with asynchronous material transform",
+      "fixture": "sample-test-pattern.gif copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback paused near 0:03 with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "Full desktop, including the full Riina playback window. Controller remains centered at about 460×66 points, with the default 10% bottom offset. WGC readback measured 5–6 ms; quarter-resolution worker blur 28–31 ms; capture-to-display age 39–54 ms. This is qualitative Windows-material evidence, not a pixel-scored Acrylic match.",
+      "tolerances": "full-desktop inspection and RIINA_TRACE_MATERIAL timing; controller geometry compared with IINA source values, not pixel-scored",
+      "sha256": "B12D1C7FB6F04A6DF071C723397C3ACA446430F7E639BD3B8DDF7F22D4767B45"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-material-source-identity-full-desktop.png",
+      "capture_kind": "full-desktop material sampler source identity and live playback check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with material tracing",
+      "fixture": "sample-test-pattern.gif copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Animated playback with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "Full desktop shows the playback viewport and controller. Five displayed material samples all came from WGC; no stale mpv fallback result was displayed. Readback measured 5–7 ms, quarter-resolution transforms 31–41 ms, and capture-to-display age 57–73 ms. A separate pre-fix movement check showed the player and video moving together without a fixed black patch; the NVIDIA performance overlay remains fixed to the desktop and is an external artifact candidate. This is qualitative material evidence, not a pixel-scored Acrylic match.",
+      "tolerances": "full-desktop inspection and RIINA_TRACE_MATERIAL timings; no pixel-scored material comparison",
+      "sha256": "555AFE0FCB1D55071849F504E45475B8D03F3264F8DBDEF417496F7920BC794A"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-transport-spacing-controls-full-desktop.png",
+      "capture_kind": "full-desktop playback transport geometry check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback paused near 0:09 with floating controller visible in a windowed player",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The complete Windows desktop shows the full Riina window and video viewport. The green sample video fills the viewport above and below the floating controller. Its three center transport controls render with source-matched 24-point widths and approximately 48-point center-to-center spacing. IINA specifies 24-point controls with 24-point floating spacing. This confirms visibility and horizontal geometry qualitatively; bar height, exact icon silhouettes, timeline geometry, material blur and a pixel-scored comparison remain open.",
+      "tolerances": "3840×2160 full-desktop visual inspection; transport spacing compared qualitatively with IINA source and REF-20; no pixel-scored comparison",
+      "sha256": "1B0356904BC9398175B60A858617DF55692530B469F017242740D31CD8942616"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-controller-78pt-full-screen-1280x720.jpg",
+      "capture_kind": "full-display controller size comparison at 300% logical scale",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        1280,
+        720
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Paused at 0:09 with floating controller visible in full-screen playback",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "This capture covers the entire 3840×2160 display at the screen API's 1280×720 logical resolution. The controller material measures about 459×77 logical points, compared with REF-20's approximately 460×78-point interior at the inferred 2× scale. The full player surface shows the green video through and around the controller. The rebuilt layout now allocates 24-point transport and timeline rows, 8-point separation, and 14/8-point vertical insets. This confirms full-screen placement and overall size; exact color, icon shape, blur phase, and pixel-scored alignment remain open.",
+      "tolerances": "Full-display screenshot at Windows 300% scale; REF-20 original 2940×1898 image at inferred 2×; rounded shadow excluded from material bounds",
+      "sha256": "CF4D2C59E2C38B1762DE207FD562A5C6D26D309326A0036388B5C04FA053A88A"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-controller-toolbar-24pt-target-window.jpg",
+      "capture_kind": "target-window playback toolbar geometry check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        918,
+        619
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback paused near 0:09 with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The target-window capture shows the green video surface and the floating controller. IINA source assigns 24×24-point frames to its right-side actions and zero spacing. Riina now uses the same 24-point frames and zero gaps; the four-action cluster is 96 points wide versus the previous 132-point allocation. This is source-geometry verification at the current debug window size, not a full-desktop pixel-scored comparison.",
+      "tolerances": "918×619 target-window screenshot; source bounds from OSCToolbarButton.swift and MainWindowController.swift; no pixel-scored comparison",
+      "sha256": "f2d094eaf6d27b9cf5906217226571baad386050ae8212c2dad0e521c85786ea"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-controller-symbols-ref20-target-window.jpg",
+      "capture_kind": "target-window playback toolbar symbol comparison",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        918,
+        619
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback paused near 0:09 with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The playlist action now uses an original bullet-list-in-rounded-rectangle glyph based on IINA's list.bullet.rectangle symbol; the PiP action uses an original nested-picture window rather than a monitor stand. Rebuilt playback capture confirms both glyphs render inside the source-sized 24-point action frames and retain the green video-backed translucent controller. Glyph details are improved approximations; no SF Symbols or Apple artwork are bundled.",
+      "tolerances": "918×619 target-window screenshot; visual comparison with REF-20; source symbol identifiers from Preference.swift; no pixel-scored comparison",
+      "sha256": "5200749a89d2e4ed5db4084ae32c123ef9889f016cebe0b0eeb1296316a542f6"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-controller-timeline-labels-ref20-target-window.jpg",
+      "capture_kind": "target-window playback timeline geometry comparison",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 rebuilt debug build",
+      "fixture": "sample-test-pattern.gif",
+      "capture_size": [
+        918,
+        619
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback at 0:09 with floating controller visible",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The timeline uses 46-point centered time-label slots, 2-point label-to-slider gaps, and 8-point outer insets from IINA source. The rebuilt capture shows the centered labels and shortened seek track in the 78-point controller, with the video visible behind it. Small-video mode uses 34-point minimum label widths to retain slider room. This confirms source geometry and visibility, not pixel-scored alignment or exact digit typography.",
+      "tolerances": "918×619 target-window screenshot; geometry derived from MainWindowController.swift; no pixel-scored comparison",
+      "sha256": "7de4b78cf1407e1fa5e0ffc987e25087be0014b7ad56d1d29d2af875cdd4ee31"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-fixed-screen-black-patch-isolated-before.png",
+      "capture_kind": "full-desktop isolated playback and screen-move check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback frame 014 with controller visible before moving player",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "Full-desktop capture shows the test video and controller. Black horizontal aspect-fit bands are attached to the playback viewport. No black square is visible over the active video.",
+      "tolerances": "3840x2160 full-desktop visual inspection; no pixel-scored comparison",
+      "sha256": "692755A5576D6AC4B8AFC12034B78886590A8B3B2B26745835125CFA3B54714A"
+    },
+    {
+      "file": "reference/captures/riina-live-2026-10-15/windows-fixed-screen-black-patch-isolated-after.png",
+      "capture_kind": "full-desktop isolated playback and screen-move check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "appearance": "dark",
+      "state": "Playback frame 030 after moving native host by 160x100 physical pixels",
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "observations": "The video content and black horizontal aspect-fit bands move with the Riina window. The previously occupied screen area reveals the background with no stationary black square. NVIDIA performance metrics remain screen-fixed at the upper right. This isolated clip does not reproduce the user media or playlist transitions.",
+      "tolerances": "3840x2160 full-desktop before/after visual inspection; no pixel-scored comparison",
+      "sha256": "F9DA82B95C811352D6931D8F8AAEB261852A25814F67B58E4AEBCDDB24B54E4F"
+    },
+    {
+      "capture_kind": "full-desktop playback and Quick Settings Layout visual review",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after REF-21 setting-icon sizing correction",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "position_seconds": 5.0,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "logical_window_size_estimate": [
+        928,
+        624
+      ],
+      "matching_upstream_capture": "REF-21-playback-quick-settings; full desktop captured, setting icon bounds visually inspected; video and background differ",
+      "tolerances": "visual inspection of the full desktop, not pixel-scored",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-icon-sizes-full-desktop.png",
+      "state": "Quick Settings Layout open; Spacious Interface enabled; short video at end frame",
+      "observations": "The full 3840x2160 desktop shows the entire 960x540 video within the player surface and the floating controller overlaid at the bottom. Layout settings show the corrected 20-point Theme, Compact Interface and video-setting icons, and 16-point Liquid Glass heading/mini-row icons. The isolated copy prevents auto-advance to neighboring audio fixtures. This confirms full-screen capture and visual layout only; transition behavior and a pixel-scored REF-21 comparison remain open.",
+      "sha256": "411E990450AB19C5352DABD9A318904112E1A1EB9315CA59EB39D18D1EFCF196"
+    },
+    {
+      "capture_kind": "full-desktop native playback surface opacity and Quick Settings Audio review",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with opaque native video host",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Audio",
+        "OSC"
+      ],
+      "matching_upstream_capture": "REF-23-playback-audio-panel; qualitative layout review",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-audio-delay-ticks-full-desktop.png",
+      "state": "Quick Settings Audio open; isolated fixture at final frame",
+      "observations": "After the playback host background was made opaque, the browser behind the window no longer shows through the video. The Audio delay slider shows 21 tick positions and a centered 0s indicator. Its Quick Settings materials remain translucent over the opaque video as intended.",
+      "sha256": "C0A139176D0283452742A02359283E2F44BF2764D1D6959A01CD5884420E5ADE"
+    },
+    {
+      "capture_kind": "full-desktop REF-23 Audio controls and Windows Acrylic comparison",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after Audio icon and tick geometry update",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Audio",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/23-playback-audio-panel.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-audio-reference-details-full-desktop.png",
+      "state": "Quick Settings Audio open; moving-square fixture at final frame",
+      "observations": "The delay slider shows 21 low-contrast round marks with the centered 0s indicator. Delay and Equalizer have 16-point symbols, and the external-audio action uses the reference label. The playback surface is opaque while sampled-video Acrylic remains visible in the controls and sidebar. The separate screen-fixed IME panel and NVIDIA metrics remain behind the player.",
+      "sha256": "2492CC60F5AD589E28F28C63D9B19809BB42A594AB65651560F974C3AA795867"
+    },
+    {
+      "capture_kind": "full-desktop REF-23 external-audio button sizing check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with 24-point external-audio action",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Audio",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/23-playback-audio-panel.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-audio-action-24pt-full-desktop.png",
+      "state": "Quick Settings Audio open; moving-square fixture at final frame",
+      "observations": "The external-audio action now uses a 24-point inner control and 12-point side insets. Its enclosing card remains 48 points high. The other Audio refinements are present and sampled-video Acrylic still shows the video beneath the controls.",
+      "sha256": "ADD8054FB9219900E33D2E22A5A16B25D3689E4E0EAEDD56DEE9BDBD81595D20"
+    },
+    {
+      "capture_kind": "full-desktop REF-23 Audio Equalizer layout reflow",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with IINA-stacked Audio Equalizer layout",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Audio",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/23-playback-audio-panel.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-audio-equalizer-reflow-final.png",
+      "state": "Audio panel open on a 4 fps pattern; Equalizer heading, full-width preset picker, and fader group visible",
+      "observations": "The Equalizer heading and 23-point profile control now occupy separate rows. The selector is inset to the card's 12-point content bounds, and Windows video-backed Acrylic remains visible over the moving pattern. The bottom frequency-label row requires scrolling at this 619-point player height.",
+      "sha256": "0151ED74C43A08C20E6951E1751E82C077BB4107C6E74722D47EA913DE9F1E6F"
+    },
+    {
+      "capture_kind": "full-desktop REF-23 Audio Equalizer scrolled layout",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build with IINA-stacked Audio Equalizer layout",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Audio",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/23-playback-audio-panel.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-audio-equalizer-reflow-scrolled.png",
+      "state": "Audio panel scrolled to the complete 120-point equalizer faders and frequency labels",
+      "observations": "All ten 120-point faders, their +12/0/-12 dB scale and 10-point frequency labels are visible. The Audio cards retain source-sized bounds and scroll without clipping; sampled-video Acrylic remains visible over the pattern.",
+      "sha256": "8957FE70C0EF8EF2FB33F9A72CB204CB4A278C2828B00953C7814D19EA17743B"
+    },
+    {
+      "capture_kind": "full-desktop REF-21 Layout icon and material review",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after Layout symbol correction",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-purpose-icons-full-desktop.png",
+      "state": "Layout pane open over the isolated 4 fps green test pattern",
+      "observations": "The Theme, material, OSD, OSC, sidebar, compact-interface, edge-to-edge, and aspect-lock rows use purpose-drawn symbols with measured 16/20-point sizes. Windows sampled-video Acrylic remains visible over the live test pattern; this capture does not score exact paths, card edges, tint, or light appearance.",
+      "sha256": "8516B58A861F06ABC5F9034E98732E446069F0093C0AC55947EA39DB3D83F83D"
+    },
+    {
+      "capture_kind": "full-desktop REF-21 light theme selected by pointer",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after theme-segment focus correction",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "light",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-light-pointer-full-desktop.png",
+      "state": "Light theme selected with the mouse; pointer moved away from the control",
+      "observations": "The selected Light segment has no keyboard focus outline after mouse selection. The Layout card and sidebar remain translucent over the live green video in the Windows light appearance.",
+      "sha256": "4D17A69F4166E2C36D2F4F8C7C3AA40AD291F03BC80116EC9E5A171691AB31E9"
+    },
+    {
+      "capture_kind": "full-desktop REF-21 keyboard focus on Light theme segment",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after theme-segment focus correction",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "light",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-light-keyboard-focus-full-desktop.png",
+      "state": "Space pressed while Light theme segment held focus; pointer moved away",
+      "observations": "The Light segment shows a keyboard focus outline after Space while retaining selection. This complements the pointer-selected capture with keyboard-accessible focus feedback.",
+      "sha256": "C73AAA6A4F32F4E9CB935854BAFA4A8EB0A82527FC52ABA75BA5B6063DF854AE"
+    },
+    {
+      "capture_kind": "full-desktop REF-21 Quick Settings tab icon correction",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after Quick Settings tab icon and label sizing correction",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Layout",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "tolerances": "Full-desktop and matched-scale header-crop visual comparison; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-layout-source-tab-icons-full-desktop.png",
+      "state": "Layout selected; four Quick Settings category icons shown over the live green pattern",
+      "observations": "The tabs use original 14-point paintbrush, landscape photo, waveform, and caption-bubble vectors matching IINA's source symbol roles. The selected Layout label measures 76×22 px versus IINA's 78×24 px in the same-scale crop and fits its pill. Windows video-backed Acrylic remains visible.",
+      "sha256": "1706027A72189ABD65CD2FAFFE9335D283D7BEB996497186FDA295B3A9244DCF"
+    },
+    {
+      "capture_kind": "full-desktop REF-24 centered Video segment text diagnostic",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after centered VideoSegment text layout",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Matched 360-point sidebar width and full-desktop visual review; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-segment-text-layout-full-desktop.png",
+      "state": "Video selected; default aspect, crop, and rotation; paused at 00:09/00:10",
+      "observations": "Dark video-backed Acrylic keeps the flat green sample visible. Aspect, crop, and rotation are joined single-select rails. UI Automation reports Crop None, but the rendered label clips its initial N and appears as one. A centered full-cell text layout rebuild leaves the clip unchanged; the matched visual close remains open.",
+      "sha256": "460AC20BFB90606194F75D729AE2950B07C655F1AEC12DE71E661A2F769E6A56"
+    },
+    {
+      "capture_kind": "full-desktop REF-24 Video crop rail leading inset and overflow check",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after crop rail content-layout correction",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Matched 360-point sidebar width; full-desktop visual inspection and UI Automation; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-leading-scroll-layout-fixed-full-desktop.png",
+      "state": "Video selected; moving-square fixture paused at 00:05/00:05; aspect/crop/rotation at defaults",
+      "observations": "The Crop None label is fully visible after adding a leading inset within the measured scroll-content layout and restoring the 43-point segment width. The crop rail now reports its trailing Scroll to more choices button in UI Automation; Custom is clipped at the viewport edge with the chevron visible, as in the IINA scroller. Aspect Ratio still reports its own overflow control. Video-backed Windows Acrylic shows the moving fixture beneath the panel. Lower image controls, light appearance, and exact pixel matching remain open.",
+      "sha256": "E8497B7EF2E3E3FED5DC4E2C8EDEC4F5020291E973D3DBEAD707C42F1D16EE99"
+    },
+    {
+      "capture_kind": "full-desktop REF-24 Video Equalizer before row-height correction",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build before Video Equalizer row-height correction",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Full-desktop visual inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-equalizer-176pt-before-full-desktop.png",
+      "state": "Video selected and scrolled to image adjustments; isolated moving-square fixture paused at 00:05/00:05",
+      "observations": "Baseline before reducing the five slider/reset rows from 20 to 14 points. Original spacious Equalizer card height was 176 points, with 32-point row pitch. Capture is retained locally for before/after visual review.",
+      "sha256": "66754E11EACFBB6A88DE54736CECC8C05D758D40428C2051E22AE4643BDD381B"
+    },
+    {
+      "capture_kind": "full-desktop REF-24 Video Equalizer row-height correction",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build after Video Equalizer row-height correction",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Matched 360-point sidebar width; full-desktop visual inspection and UI Automation; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-equalizer-146pt-after-full-desktop.png",
+      "state": "Video selected and scrolled to image adjustments; isolated moving-square fixture paused at 00:05/00:05",
+      "observations": "The spacious Equalizer card measures about 146 points with five 14-point slider/reset rows and 26-point row pitch. The full card and all labels, sliders, and reset icons are visible; UI Automation reports all five sliders and reset buttons. Video-backed Acrylic remains visible over playback. Compact mode and exact icon pixel comparison remain open.",
+      "sha256": "7A1084C77095AB6D660A5A708C69887CBCD269494C5282E5D1366EA779133724"
+    },
+    {
+      "capture_kind": "full-desktop fixed-screen black patch recheck before window movement",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "matching_upstream_capture": null,
+      "tolerances": "Full-desktop screen-coordinate inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-black-overlay-investigation-full-desktop.png",
+      "state": "Video selected and scrolled to image adjustments; fixture paused at 00:05/00:05",
+      "observations": "No independent black square was visible in this frame. The black aspect-fit bars move with the player in the paired moved-window capture. Screen-fixed NVIDIA performance metrics remain visible. The reported patch is still not reproduced.",
+      "sha256": "4F5C937CAECD47AD612B22B24C132CA25FFB466DF2DA307AF08B77500EA22FBC"
+    },
+    {
+      "capture_kind": "full-desktop fixed-screen black patch recheck after moving player",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "position_seconds": 5.0,
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": [
+        "Quick Settings/Video",
+        "OSC"
+      ],
+      "matching_upstream_capture": null,
+      "tolerances": "Full-desktop screen-coordinate inspection; no pixel-scored comparison",
+      "file": "reference/captures/riina-live-2026-10-15/windows-black-overlay-investigation-moved-full-desktop.png",
+      "state": "Player moved by 180×110 physical pixels while fixture remained paused at 00:05/00:05",
+      "observations": "The video, controls, sidebar material, and black aspect-fit bars all followed the player. No black patch stayed at the old desktop coordinates in this capture. This paused-fixture check does not cover playlist transitions or other media.",
+      "sha256": "EDADA808FD1AC0B005417D561FABFC1DA7DDB278AC7D73DF6EC40EAD76F67FF2"
+    },
+    {
+      "capture_kind": "full-desktop REF-24 compact Equalizer geometry and light Windows material",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "reference/captures/iina-reference-set-2026-10-12/sample-test-pattern.gif copied to an isolated temporary folder",
+      "fixture_sha256": "5084CEF216A115B823E058A5B4BEA1ED02B351E3DC358F6461B5F23CD274302A",
+      "capture_size": [
+        3840,
+        2160
+      ],
+      "display_scale": 3,
+      "theme": "light",
+      "panels": [
+        "Quick Settings/Video"
+      ],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Full-desktop visual inspection and UI Automation; light appearance lacks a matched IINA video-panel capture and is not pixel-scored",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-equalizer-compact-light-full-desktop.png",
+      "state": "Compact Interface enabled; Light theme; Video selected and scrolled to image adjustments; sample-test-pattern.gif",
+      "observations": "The compact Equalizer card measures about 126 points with five 14-point rows at a 22-point pitch; the five labels, sliders, and reset controls are visible and reported by UI Automation. The Light Windows video-backed material visibly transmits the moving pattern through the panel and cards. Exact light-material color and contrast remain unscored without a matched source capture.",
+      "sha256": "E71C605EF5F697BC578C084F019CA62B3760F665D61FB238716ADB4AA387C7C2"
+    },
+    {
+      "capture_kind": "window-bounded REF-24 spacious Video switch card geometry",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "capture_size": [918, 619],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": ["Quick Settings/Video", "OSC"],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Window-bounded visual inspection; not pixel-scored and does not include desktop context",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-switch-card-spacious-window.jpg",
+      "state": "Spacious Interface; Video selected; moving-square.avi paused at 00:05/00:05",
+      "observations": "The Aspect/Crop/Rotation and Hardware Decoding cards render with source-matched 8-point corner radii. Hardware Decoding is one row in the shared Windows material card, with no clipping. The native video remains visible beneath Windows Acrylic. The reference screenshot has no HDR row; live HDR row geometry remains open.",
+      "sha256": "42D5BF5335A7F32B848914101AD85D0C5CA956B8D0375AB250FC01A04D4DF6AF"
+    },
+    {
+      "capture_kind": "window-bounded REF-24 compact Video switch card geometry",
+      "date": "2026-10-15",
+      "os": "Windows 11 Home 10.0.26300 x64",
+      "application": "Riina 0.3.8 debug build",
+      "fixture": "tests/fixtures/moving-square.avi copied to an isolated temporary folder",
+      "fixture_sha256": "A3011EA6EEE2F31F086D7E74D8F200DF48D105A7F7880AAF97AC5E0BF6546636",
+      "capture_size": [918, 619],
+      "display_scale": 3,
+      "theme": "dark",
+      "panels": ["Quick Settings/Video", "OSC"],
+      "matching_upstream_capture": "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "tolerances": "Window-bounded visual inspection; not pixel-scored and does not include desktop context",
+      "file": "reference/captures/riina-live-2026-10-15/windows-video-switch-card-compact-window.jpg",
+      "state": "Compact Interface enabled; Video selected; moving-square.avi paused at 00:05/00:05",
+      "observations": "The Aspect/Crop/Rotation and Hardware Decoding cards render with source-matched 8-point corner radii. The single-row Hardware Decoding card fits the compact spacing, and the panel scrolls to the remaining Video controls. The native video remains visible beneath Windows Acrylic. The reference screenshot has no HDR row; live HDR row geometry remains open.",
+      "sha256": "FC54CF12D5942E0A9D2F534AFE5AB851FEE9A482BBBDA3873008804C050BEC11"
     }
   ]
 }

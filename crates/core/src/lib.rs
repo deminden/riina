@@ -112,6 +112,8 @@ pub enum Command {
     CaptureFrame,
     CaptureTransitionFrame,
     CaptureIncomingTransitionFrame,
+    /// Sample the live video without presenting a second render surface.
+    CaptureMaterialFrame,
     /// Observe an arbitrary, validated libmpv property for plugin events.
     ObserveMpvProperty(String),
     Screenshot {
@@ -158,7 +160,12 @@ pub enum Command {
     HardwareDecoding(video_controls::HardwareDecoder),
     VideoThreads(u32),
     SetToneMapping(hdr_preferences::Settings),
+    SetIccProfileAuto(bool),
     SetHdrEnabled(bool),
+    SetHdrEnabledWithIcc {
+        enabled: bool,
+        load_icc_profile: bool,
+    },
     SubtitleAssOverride {
         lane: subtitle_controls::SubtitleLane,
         level: subtitle_controls::AssOverrideLevel,
@@ -351,6 +358,9 @@ impl Command {
                 vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
             }
             Self::CaptureIncomingTransitionFrame => {
+                vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
+            }
+            Self::CaptureMaterialFrame => {
                 vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
             }
             Self::ObserveMpvProperty(_) => {
@@ -627,7 +637,9 @@ impl Command {
             | Self::SetAbLoop { .. }
             | Self::SetAbLoopPoint { .. }
             | Self::SetToneMapping(_)
+            | Self::SetIccProfileAuto(_)
             | Self::SetHdrEnabled(_)
+            | Self::SetHdrEnabledWithIcc { .. }
             | Self::VideoThreads(_)
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
@@ -648,7 +660,9 @@ impl Command {
         }
         if matches!(
             self,
-            Self::CaptureTransitionFrame | Self::CaptureIncomingTransitionFrame
+            Self::CaptureTransitionFrame
+                | Self::CaptureIncomingTransitionFrame
+                | Self::CaptureMaterialFrame
         ) && (state.video.is_none()
             || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed))
         {
@@ -1015,6 +1029,11 @@ impl Command {
                 vec![vec!["set".into(), name.into(), value]]
             }
             Self::SetToneMapping(settings) => settings.engine_commands()?,
+            Self::SetIccProfileAuto(enabled) => vec![vec![
+                "set".into(),
+                "icc-profile-auto".into(),
+                if *enabled { "yes" } else { "no" }.into(),
+            ]],
             Self::SetHdrEnabled(enabled) => {
                 let primaries = if *enabled {
                     let source = state
@@ -1029,6 +1048,24 @@ impl Command {
                     None
                 };
                 hdr_preferences::output_commands(*enabled, primaries)?
+            }
+            Self::SetHdrEnabledWithIcc {
+                enabled,
+                load_icc_profile,
+            } => {
+                let primaries = if *enabled {
+                    let source = state
+                        .video
+                        .as_ref()
+                        .or(state.video_target.as_ref())
+                        .or(state.video_output.as_ref())
+                        .filter(|video| video.is_hdr())
+                        .ok_or("HDR output is available only for a recognized HDR source")?;
+                    source.primaries.as_deref()
+                } else {
+                    None
+                };
+                hdr_preferences::output_commands_with_icc(*enabled, primaries, *load_icc_profile)?
             }
             Self::VideoThreads(threads) if *threads <= i32::MAX as u32 => vec![vec![
                 "set".into(),
@@ -1630,6 +1667,88 @@ impl CapturedFrame {
             rgba: rgba.into(),
         })
     }
+
+    /// Bilinearly reduce a packed frame to fit within a bounded pixel size.
+    ///
+    /// Material snapshots can be captured from 4K/8K sources, while the UI only
+    /// needs a small blurred backdrop. This keeps large decoded frames out of
+    /// long-lived playback state without adding an image-processing dependency.
+    pub fn downsample_to_fit(&self, max_width: u32, max_height: u32) -> Result<Self, String> {
+        const MAX_DIMENSION: u32 = 16_384;
+        const MAX_BYTES: usize = 512 * 1024 * 1024;
+        if max_width == 0
+            || max_height == 0
+            || max_width > MAX_DIMENSION
+            || max_height > MAX_DIMENSION
+            || self.width == 0
+            || self.height == 0
+            || self.width > MAX_DIMENSION
+            || self.height > MAX_DIMENSION
+        {
+            return Err("The captured frame dimensions are invalid".into());
+        }
+        let source_width = self.width as usize;
+        let source_height = self.height as usize;
+        let source_len = source_width
+            .checked_mul(source_height)
+            .and_then(|pixels| pixels.checked_mul(4))
+            .ok_or("The captured frame is too large")?;
+        if source_len > MAX_BYTES || self.rgba.len() != source_len {
+            return Err("The captured frame buffer is incomplete".into());
+        }
+        let scale = (max_width as f64 / f64::from(self.width))
+            .min(max_height as f64 / f64::from(self.height))
+            .min(1.0);
+        let width = (f64::from(self.width) * scale).round().max(1.0) as u32;
+        let height = (f64::from(self.height) * scale).round().max(1.0) as u32;
+        if width == self.width && height == self.height {
+            return Ok(self.clone());
+        }
+
+        let packed_len = (width as usize)
+            .checked_mul(height as usize)
+            .and_then(|pixels| pixels.checked_mul(4))
+            .ok_or("The captured frame is too large")?;
+        if packed_len > MAX_BYTES {
+            return Err("The captured frame is too large".into());
+        }
+        let mut rgba = vec![0; packed_len];
+        for y in 0..height {
+            let source_y = ((f64::from(y) + 0.5) * f64::from(self.height) / f64::from(height)
+                - 0.5)
+                .clamp(0.0, f64::from(self.height - 1));
+            let y0 = source_y.floor() as u32;
+            let y1 = (y0 + 1).min(self.height - 1);
+            let fy = source_y - f64::from(y0);
+            for x in 0..width {
+                let source_x = ((f64::from(x) + 0.5) * f64::from(self.width) / f64::from(width)
+                    - 0.5)
+                    .clamp(0.0, f64::from(self.width - 1));
+                let x0 = source_x.floor() as u32;
+                let x1 = (x0 + 1).min(self.width - 1);
+                let fx = source_x - f64::from(x0);
+                let indices = [
+                    (y0 as usize * source_width + x0 as usize) * 4,
+                    (y0 as usize * source_width + x1 as usize) * 4,
+                    (y1 as usize * source_width + x0 as usize) * 4,
+                    (y1 as usize * source_width + x1 as usize) * 4,
+                ];
+                let destination = (y as usize * width as usize + x as usize) * 4;
+                for channel in 0..4 {
+                    let top = f64::from(self.rgba[indices[0] + channel]) * (1.0 - fx)
+                        + f64::from(self.rgba[indices[1] + channel]) * fx;
+                    let bottom = f64::from(self.rgba[indices[2] + channel]) * (1.0 - fx)
+                        + f64::from(self.rgba[indices[3] + channel]) * fx;
+                    rgba[destination + channel] = (top * (1.0 - fy) + bottom * fy).round() as u8;
+                }
+            }
+        }
+        Ok(Self {
+            width,
+            height,
+            rgba: rgba.into(),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1707,6 +1826,12 @@ pub struct Playback {
     /// Monotonic capture time used to keep the native-output handoff cover up
     /// for a real settling interval regardless of playback speed.
     pub incoming_transition_frame_captured_at: Option<Instant>,
+    /// Latest optional video sample used only as the D3D11 material backdrop.
+    pub material_frame: Option<Arc<CapturedFrame>>,
+    pub material_frame_generation: Option<u64>,
+    pub material_frame_position: Option<f64>,
+    pub material_frame_captured_at: Option<Instant>,
+    pub material_frame_revision: u64,
     /// Properties requested by active player-scoped plugin event listeners.
     pub observed_mpv_properties: BTreeMap<String, serde_json::Value>,
     /// Recent native mpv event names, retained so coalesced UI snapshots do not
@@ -1919,6 +2044,10 @@ impl Playback {
         self.incoming_transition_frame_generation = None;
         self.incoming_transition_frame_position = None;
         self.incoming_transition_frame_captured_at = None;
+        self.material_frame = None;
+        self.material_frame_generation = None;
+        self.material_frame_position = None;
+        self.material_frame_captured_at = None;
     }
 
     pub fn reconcile(&mut self) {
@@ -2106,6 +2235,8 @@ pub struct Preferences {
     #[serde(default)]
     pub audio_filters: video_filters::Settings,
     pub hdr_enabled: bool,
+    #[serde(default = "default_true")]
+    pub load_icc_profile: bool,
     pub live_text_enabled: bool,
     pub hdr_tone_mapping: hdr_preferences::Settings,
     pub video_threads: u32,
@@ -2291,6 +2422,7 @@ impl Default for Preferences {
             video_filters: video_filters::Settings::default(),
             audio_filters: video_filters::Settings::default(),
             hdr_enabled: true,
+            load_icc_profile: true,
             live_text_enabled: false,
             hdr_tone_mapping: hdr_preferences::Settings::default(),
             video_threads: 0,
@@ -2555,6 +2687,15 @@ mod tests {
         );
         assert!(
             Command::CaptureTransitionFrame
+                .plan(&Playback::default())
+                .is_err()
+        );
+        assert_eq!(
+            Command::CaptureMaterialFrame.plan(&state).unwrap().commands,
+            [["screenshot-raw", "video", "rgba"]]
+        );
+        assert!(
+            Command::CaptureMaterialFrame
                 .plan(&Playback::default())
                 .is_err()
         );

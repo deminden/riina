@@ -46,6 +46,20 @@ After each GUI feature test, close the Riina instance used and confirm no Riina
 window or process remains before rebuilding or testing another version. This avoids
 stale builds remaining open and slowing later development. If normal shutdown fails,
 end only the exact Riina process started for that test.
+For playback-surface, clipping, black-patch, flashing, or compositor reports, capture
+the full virtual desktop with `scripts/capture-windows-desktop.ps1`; an app-window
+crop cannot show screen-fixed artifacts or the surfaces behind Riina. Check the
+returned width and height, inspect the full image, and reject captures whose
+non-black probes fail. Use window-only captures for control detail after the desktop
+context is established, and do not publish raw desktop captures containing unrelated
+private content. Put short video fixtures in an isolated temporary folder and verify
+the active filename, playback state, and selected panel immediately before capture;
+neighboring audio fixtures can auto-advance into Music Mode and make a black video
+canvas look like a playback-surface failure.
+When diagnosing a screen-fixed rectangle or black patch, compare full-desktop
+captures before launch and after the exact Riina process exits. Treat a surface
+that persists without Riina as external; record any visible owner/title before
+changing player composition or geometry.
 After staging asset changes, run `python scripts/check-assets.py --staged` before
 publishing. Provenance hashes must match Git's canonical bytes, not local CRLF files.
 The repository's license choice is settled: original Riina source is MIT and

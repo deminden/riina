@@ -1,19 +1,449 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
 use crate::{NativeVideoHost, PlayerWindow};
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use slint::{
+    ComponentHandle,
+    winit_030::{WinitWindowAccessor, winit::window::Theme as WinitTheme},
+};
+#[cfg(target_os = "windows")]
+use std::{
+    cell::RefCell,
+    time::{Duration, Instant},
+};
 pub(crate) mod clipboard;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
 pub(crate) mod settings_file;
 
-/// Name the enabled material accurately on each platform. Windows currently
-/// composites these sampled-video surfaces in the app rather than using Mica
-/// or Acrylic system backdrops.
+#[cfg(target_os = "windows")]
+type MaterialPolicyMonitor = Box<dyn FnMut(bool) -> bool>;
+#[cfg(target_os = "windows")]
+type RegisteredMaterialPolicyMonitor = (isize, WindowsBackdropKind, MaterialPolicyMonitor);
+
+#[cfg(target_os = "windows")]
+thread_local! {
+    static MATERIAL_POLICY_MONITORS: RefCell<Vec<RegisteredMaterialPolicyMonitor>> = const { RefCell::new(Vec::new()) };
+    static MATERIAL_POLICY_TIMER: RefCell<Option<slint::Timer>> = const { RefCell::new(None) };
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Copy)]
+enum WindowsBackdropKind {
+    Persistent,
+    Transient,
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Copy)]
+struct WindowsBackdrop {
+    title: &'static str,
+    kind: WindowsBackdropKind,
+    initially_ready: bool,
+}
+
+#[cfg(target_os = "windows")]
+fn set_windows_backdrop(
+    kind: WindowsBackdropKind,
+    window: &slint::winit_030::winit::window::Window,
+    enabled: bool,
+) -> Result<(), String> {
+    if !enabled {
+        return windows::materials::clear_system_backdrop(window);
+    }
+    match kind {
+        WindowsBackdropKind::Persistent => windows::materials::apply_main_window_mica(window),
+        WindowsBackdropKind::Transient => {
+            windows::materials::apply_transient_window_acrylic(window)
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn backdrop_policy_enabled(kind: WindowsBackdropKind) -> bool {
+    match kind {
+        WindowsBackdropKind::Persistent => windows::materials::native_mica_enabled(),
+        WindowsBackdropKind::Transient => windows::materials::native_materials_enabled(),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn register_material_policy_monitor(
+    identity: isize,
+    kind: WindowsBackdropKind,
+    monitor: MaterialPolicyMonitor,
+) {
+    MATERIAL_POLICY_MONITORS.with(|monitors| {
+        let mut monitors = monitors.borrow_mut();
+        monitors.retain(|(registered_identity, _, _)| *registered_identity != identity);
+        monitors.push((identity, kind, monitor));
+    });
+    MATERIAL_POLICY_TIMER.with(|timer_slot| {
+        let mut timer_slot = timer_slot.borrow_mut();
+        let timer = timer_slot.get_or_insert_with(slint::Timer::default);
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(500),
+            || {
+                MATERIAL_POLICY_MONITORS.with(|monitors| {
+                    monitors
+                        .borrow_mut()
+                        .retain_mut(|(_, kind, monitor)| monitor(backdrop_policy_enabled(*kind)));
+                    if monitors.borrow().is_empty() {
+                        MATERIAL_POLICY_TIMER.with(|timer| {
+                            if let Some(timer) = timer.borrow().as_ref() {
+                                timer.stop();
+                            }
+                        });
+                    }
+                });
+            },
+        );
+    });
+}
+
+#[cfg(target_os = "windows")]
+fn watch_windows_backdrop_policy<W, Get, Set, GetTheme>(
+    window: &W,
+    identity: isize,
+    backdrop: WindowsBackdrop,
+    initial_policy: bool,
+    get_enabled: Get,
+    set_enabled: Set,
+    get_theme: GetTheme,
+) where
+    W: ComponentHandle + 'static,
+    Get: Fn(&W) -> bool + 'static,
+    Set: Fn(&W, bool) + 'static,
+    GetTheme: Fn(&W) -> WinitTheme + 'static,
+{
+    let weak = window.as_weak();
+    let mut last_policy = initial_policy;
+    let mut last_theme = get_theme(window);
+    let mut backdrop_ready = backdrop.initially_ready;
+    let mut retry_delay = Duration::from_millis(500);
+    let mut retry_after = Instant::now();
+    let mut last_error = None::<String>;
+    let monitor = Box::new(move |policy_enabled| {
+        let Some(window) = weak.upgrade() else {
+            return false;
+        };
+        let theme = get_theme(&window);
+        if theme != last_theme {
+            window
+                .window()
+                .with_winit_window(|native| native.set_theme(Some(theme)));
+            last_theme = theme;
+        }
+        let policy_changed = last_policy != policy_enabled;
+        if policy_changed {
+            last_policy = policy_enabled;
+            backdrop_ready = false;
+            retry_delay = Duration::from_millis(500);
+            retry_after = Instant::now();
+            last_error = None;
+        }
+        if backdrop_ready && get_enabled(&window) == policy_enabled {
+            return true;
+        }
+        if Instant::now() < retry_after {
+            return true;
+        }
+        let mut update_result = None;
+        window.window().with_winit_window(|native| {
+            update_result = Some(set_windows_backdrop(backdrop.kind, native, policy_enabled));
+        });
+        match update_result {
+            Some(Ok(())) => {
+                set_enabled(&window, policy_enabled);
+                backdrop_ready = true;
+                retry_delay = Duration::from_millis(500);
+                last_error = None;
+            }
+            Some(Err(error)) => {
+                if !policy_enabled {
+                    set_enabled(&window, false);
+                }
+                backdrop_ready = false;
+                if last_error.as_deref() != Some(error.as_str()) {
+                    eprintln!(
+                        "Could not update Windows {} backdrop policy: {error}",
+                        backdrop.title
+                    );
+                    last_error = Some(error);
+                }
+                retry_after = Instant::now() + retry_delay;
+                retry_delay = (retry_delay * 2).min(Duration::from_secs(30));
+            }
+            None => {
+                backdrop_ready = false;
+                if !policy_enabled {
+                    set_enabled(&window, false);
+                }
+                retry_after = Instant::now() + retry_delay;
+                retry_delay = (retry_delay * 2).min(Duration::from_secs(30));
+            }
+        }
+        true
+    });
+    register_material_policy_monitor(identity, backdrop.kind, monitor);
+}
+
+/// Name the player surfaces accurately on each platform. Windows uses
+/// sampled-video compositing in playback; its Mica backdrop is separate from
+/// these per-surface controls.
 pub(crate) fn surface_material_title() -> &'static str {
     if cfg!(target_os = "macos") {
         "Liquid Glass"
     } else {
         "Translucent Surfaces"
+    }
+}
+
+/// Reveal the system Mica backdrop under the Windows Welcome surface.
+pub(crate) fn enable_welcome_mica(window: &crate::WelcomeWindow) {
+    #[cfg(target_os = "windows")]
+    enable_windows_backdrop(
+        window,
+        "Welcome",
+        WindowsBackdropKind::Persistent,
+        |window| window.get_mica_backdrop_enabled(),
+        |window, enabled| window.set_mica_backdrop_enabled(enabled),
+        |_| WinitTheme::Dark,
+    );
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+/// Reveal Windows Mica beneath the persistent Preferences window.
+pub(crate) fn enable_preferences_mica(window: &crate::PreferencesWindow) {
+    #[cfg(target_os = "windows")]
+    enable_windows_backdrop(
+        window,
+        "Preferences",
+        WindowsBackdropKind::Persistent,
+        |window| window.get_mica_backdrop_enabled(),
+        |window, enabled| window.set_mica_backdrop_enabled(enabled),
+        |_| WinitTheme::Light,
+    );
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+/// Reveal Windows Desktop Acrylic beneath the transient About window.
+pub(crate) fn enable_about_acrylic(window: &crate::AboutWindow) {
+    #[cfg(target_os = "windows")]
+    enable_transient_acrylic(
+        window,
+        "About",
+        |window| window.get_acrylic_backdrop_enabled(),
+        |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+        |window| {
+            if window.get_dark_theme() {
+                WinitTheme::Dark
+            } else {
+                WinitTheme::Light
+            }
+        },
+    );
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+pub(crate) fn enable_video_filters_acrylic(window: &crate::VideoFiltersWindow) {
+    #[cfg(target_os = "windows")]
+    if !window.get_acrylic_backdrop_enabled() {
+        enable_transient_acrylic(
+            window,
+            "Video Filters",
+            |window| window.get_acrylic_backdrop_enabled(),
+            |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+            |window| {
+                if window.get_dark_theme() {
+                    WinitTheme::Dark
+                } else {
+                    WinitTheme::Light
+                }
+            },
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+pub(crate) fn enable_history_acrylic(window: &crate::PlaybackHistoryWindow) {
+    #[cfg(target_os = "windows")]
+    if !window.get_acrylic_backdrop_enabled() {
+        enable_transient_acrylic(
+            window,
+            "Playback History",
+            |window| window.get_acrylic_backdrop_enabled(),
+            |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+            |_| WinitTheme::Light,
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+pub(crate) fn enable_log_viewer_acrylic(window: &crate::LogViewerWindow) {
+    #[cfg(target_os = "windows")]
+    if !window.get_acrylic_backdrop_enabled() {
+        enable_transient_acrylic(
+            window,
+            "Log Viewer",
+            |window| window.get_acrylic_backdrop_enabled(),
+            |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+            |_| WinitTheme::Light,
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+pub(crate) fn enable_online_subtitles_acrylic(window: &crate::OnlineSubtitlesWindow) {
+    #[cfg(target_os = "windows")]
+    if !window.get_acrylic_backdrop_enabled() {
+        enable_transient_acrylic(
+            window,
+            "Online Subtitles",
+            |window| window.get_acrylic_backdrop_enabled(),
+            |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+            |_| WinitTheme::Light,
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+pub(crate) fn enable_font_picker_acrylic(window: &crate::FontPicker) {
+    #[cfg(target_os = "windows")]
+    if !window.get_acrylic_backdrop_enabled() {
+        enable_transient_acrylic(
+            window,
+            "Font Picker",
+            |window| window.get_acrylic_backdrop_enabled(),
+            |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+            |window| {
+                if window.get_dark_theme() {
+                    WinitTheme::Dark
+                } else {
+                    WinitTheme::Light
+                }
+            },
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+pub(crate) fn enable_pip_acrylic(window: &crate::PictureInPictureWindow) {
+    #[cfg(target_os = "windows")]
+    if !window.get_acrylic_backdrop_enabled() {
+        enable_transient_acrylic(
+            window,
+            "Picture in Picture",
+            |window| window.get_acrylic_backdrop_enabled(),
+            |window, enabled| window.set_acrylic_backdrop_enabled(enabled),
+            |_| WinitTheme::Dark,
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = window;
+}
+
+#[cfg(target_os = "windows")]
+fn enable_transient_acrylic<W, Get, Set, GetTheme>(
+    window: &W,
+    title: &'static str,
+    get_enabled: Get,
+    set_enabled: Set,
+    get_theme: GetTheme,
+) where
+    W: ComponentHandle + 'static,
+    Get: Fn(&W) -> bool + Clone + 'static,
+    Set: Fn(&W, bool) + Clone + 'static,
+    GetTheme: Fn(&W) -> WinitTheme + Clone + 'static,
+{
+    enable_windows_backdrop(
+        window,
+        title,
+        WindowsBackdropKind::Transient,
+        get_enabled,
+        set_enabled,
+        get_theme,
+    );
+}
+
+#[cfg(target_os = "windows")]
+fn enable_windows_backdrop<W, Get, Set, GetTheme>(
+    window: &W,
+    title: &'static str,
+    kind: WindowsBackdropKind,
+    get_enabled: Get,
+    set_enabled: Set,
+    get_theme: GetTheme,
+) where
+    W: ComponentHandle + 'static,
+    Get: Fn(&W) -> bool + Clone + 'static,
+    Set: Fn(&W, bool) + Clone + 'static,
+    GetTheme: Fn(&W) -> WinitTheme + Clone + 'static,
+{
+    let weak = window.as_weak();
+    let get_for_task = get_enabled.clone();
+    let set_for_task = set_enabled.clone();
+    let theme_for_task = get_theme.clone();
+    if let Err(error) = slint::spawn_local(async move {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let policy_enabled = backdrop_policy_enabled(kind);
+        let mut backdrop_ready = get_for_task(&window) == policy_enabled;
+        let native = match window.window().winit_window().await {
+            Ok(native) => native,
+            Err(error) => {
+                eprintln!("Windows {title} window unavailable; keeping its solid surface: {error}");
+                return;
+            }
+        };
+        let identity = match windows::materials::window_identity(&native) {
+            Ok(identity) => identity,
+            Err(error) => {
+                eprintln!("Could not identify the Windows {title} window: {error}");
+                return;
+            }
+        };
+        native.set_theme(Some(theme_for_task(&window)));
+        if get_for_task(&window) != policy_enabled {
+            match set_windows_backdrop(kind, &native, policy_enabled) {
+                Ok(()) => {
+                    set_for_task(&window, policy_enabled);
+                    backdrop_ready = true;
+                }
+                Err(error) => {
+                    if !policy_enabled {
+                        set_for_task(&window, false);
+                    }
+                    backdrop_ready = false;
+                    eprintln!(
+                        "Windows {title} backdrop unavailable; keeping its solid surface: {error}"
+                    );
+                }
+            }
+        }
+        watch_windows_backdrop_policy(
+            &window,
+            identity,
+            WindowsBackdrop {
+                title,
+                kind,
+                initially_ready: backdrop_ready,
+            },
+            policy_enabled,
+            get_enabled,
+            set_enabled,
+            get_theme,
+        );
+    }) {
+        eprintln!("Could not schedule the Windows {title} material: {error}");
     }
 }
 
@@ -587,11 +1017,36 @@ pub(crate) use plugin_sidebar::PluginSidebarPresenter;
 #[cfg(target_os = "linux")]
 pub(crate) use plugin_sidebar::pump_linux_webview_events;
 #[cfg(target_os = "windows")]
+pub(crate) use windows::materials::native_materials_enabled;
+#[cfg(target_os = "windows")]
+pub(crate) fn windows_accent_color() -> Option<slint::Color> {
+    let [alpha, red, green, blue] = windows::materials::native_accent_color()?;
+    Some(slint::Color::from_argb_u8(alpha, red, green, blue))
+}
+#[cfg(target_os = "windows")]
+pub(crate) fn windows_accent_foreground() -> Option<slint::Color> {
+    let [_, red, green, blue] = windows::materials::native_accent_color()?;
+    let linear = |channel: u8| {
+        let channel = f64::from(channel) / 255.0;
+        if channel <= 0.04045 {
+            channel / 12.92
+        } else {
+            ((channel + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    let luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+    let foreground = if luminance > 0.179 { 0 } else { 255 };
+    Some(slint::Color::from_argb_u8(
+        255, foreground, foreground, foreground,
+    ))
+}
+#[cfg(target_os = "windows")]
 pub(crate) use windows::text_recognition;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
-    NativePresentation, PluginOverlayPresenter, file_dialog, native_window, open_dialog,
-    services::*, window_geometry::resize_content, window_sizing::WindowSizing,
+    NativePresentation, NativeVideoMaterialCapture, PluginOverlayPresenter, file_dialog,
+    native_window, open_dialog, services::*, window_geometry::resize_content,
+    window_sizing::WindowSizing,
 };
 
 #[cfg(target_os = "macos")]
@@ -600,8 +1055,10 @@ mod macos;
 pub(crate) use macos::text_recognition;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
-    ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver,
-    MacScrollEventMonitor, RemoteMediaAction, SystemMediaControls, install_control_gestures,
+    ControlGesture, GesturePhase, MacApplicationMenuObserver, MacPictureInPicture,
+    MacPluginMenuObserver, MacScrollEventMonitor, MacSubtitleColorPanel, RemoteMediaAction,
+    SystemMediaControls, display_identity, display_name_for_path, icc_profile_for_window,
+    install_control_gestures, set_represented_file, system_font_family_name,
 };
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
