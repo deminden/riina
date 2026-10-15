@@ -298,7 +298,6 @@ def main():
         token in utilities.group(1)
         for token in (
             "content-height: 700px",
-            "Rectangle { width: parent.width; height: 700px; background: #ffffff;",
             "y: 81px; width: parent.width - 40px; height: 42px",
             "y: 290px; width: parent.width - 40px; height: 202px",
             "height: 87px",
@@ -306,6 +305,10 @@ def main():
             "y: 161px; width: parent.width; height: 41px",
         )
     ), "Utilities content should retain the measured reference card and cache-row geometry"
+    assert (
+        "Rectangle { width: parent.width; height: 700px;" in utilities.group(1)
+        and "background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;" in utilities.group(1)
+    ), "Utilities should retain the measured content surface with the selected Windows material"
     assert (
         "x: parent.width - 50px; y: 0; width: 40px; height: parent.height" in SOURCE
         and "width: 40px; height: 26px; border-radius: 7px" in SOURCE
