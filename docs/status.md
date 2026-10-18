@@ -65,8 +65,8 @@ eleven Preferences categories' initial viewports, Audio section jumps and sideba
 scrolling. Contrast, auxiliary width, Utilities row overlap, Advanced path/button
 overlap and truncated shortcut labels are corrected. A numeric GUI edit survived
 normal exit. Subtitle overflow, disclosure spacing and General section jumps are
-also corrected. The repeat selector uses a separate row. Font-picker contrast,
-theme coverage and matched comparisons remain open in the [visual ledger](visual-reference-audit.csv).
+also corrected. The repeat selector uses a separate row. Theme coverage and
+matched comparisons remain open in the [visual ledger](visual-reference-audit.csv).
 The [Network/font follow-up](../tests/visual/windows-network-font-2026-10-19.json)
 also verifies continuous Network scrolling/search and readable dark font-picker
 contrast with initial keyboard focus and Escape cancellation.

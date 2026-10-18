@@ -2,12 +2,16 @@
 import argparse
 import csv
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import subprocess
+import tempfile
 import tomllib
+import zipfile
 
 
 def readiness(audit):
@@ -28,6 +32,82 @@ def readiness(audit):
 def digest(path):
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def restore_release_runtime(archive, checksums, verification, source, tag, destination):
+    """Reuse only the engine files of a release with the same native build contract."""
+    if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
+        raise ValueError("Native release tag must be an immutable semantic-version tag")
+    if archive.name != f"riina-{tag[1:]}-windows-x86_64.zip":
+        raise ValueError("Native release archive does not match its tag")
+
+    def git_value(revision):
+        return subprocess.check_output(
+            ["git", "-C", str(source), "rev-parse", "--verify", revision], text=True,
+        ).strip()
+
+    commit = git_value(f"refs/tags/{tag}^{{commit}}")
+    contract = git_value(f"refs/tags/{tag}:tools/mpv")
+    if contract != git_value("HEAD:tools/mpv"):
+        raise ValueError("Published engine has a different native build contract")
+    report = json.loads(verification.read_text(encoding="utf-8-sig"))
+    if report.get("source_commit") != commit or report.get("version") != tag[1:]:
+        raise ValueError("Native release verification does not identify its tag commit")
+    checksum_rows = [line.split() for line in checksums.read_text(encoding="utf-8-sig").splitlines()]
+    matching = [row for row in checksum_rows if len(row) == 2 and row[1].lstrip("*") == archive.name]
+    if (len(matching) != 1 or not re.fullmatch(r"[0-9a-f]{64}", matching[0][0])
+            or digest(archive) != matching[0][0]):
+        raise ValueError("Published native release archive checksum differs or is ambiguous")
+    if destination.exists():
+        raise ValueError("Native runtime destination must not already exist")
+
+    # Never unpack the old application or its Rust notices. The runtime inventory
+    # selects just the engine and its notices; the new package regenerates its own.
+    with zipfile.ZipFile(archive) as package:
+        entries = {}
+        folded = set()
+        for entry in package.infolist():
+            name = entry.filename.rstrip("/") if entry.is_dir() else entry.filename
+            path = PurePosixPath(name)
+            if (entry.orig_filename != entry.filename or not name or path.is_absolute() or ".." in path.parts
+                    or "\\" in name or ":" in name or str(path) != name
+                    or name.casefold() in folded or (entry.external_attr >> 16) & 0o170000 == 0o120000):
+                raise ValueError(f"Invalid or duplicate release archive path: {entry.filename!r}")
+            folded.add(name.casefold())
+            if not entry.is_dir():
+                entries[name] = entry
+        manifest_name = "RUNTIME-MANIFEST.tsv"
+        if manifest_name not in entries:
+            raise ValueError("Published release has no runtime manifest")
+        manifest = package.read(entries[manifest_name])
+        rows = csv.DictReader(io.StringIO(manifest.decode("utf-8")), delimiter="\t")
+        if rows.fieldnames != ["path", "sha256"]:
+            raise ValueError("Invalid published runtime manifest header")
+        selected = [row["path"] for row in rows]
+        if (len(selected) != len(set(selected)) or manifest_name in selected
+                or not {"libmpv-2.dll", "SOURCE-MANIFEST.tsv"} <= set(selected)
+                or any(name not in entries for name in selected)):
+            raise ValueError("Published runtime inventory is incomplete or ambiguous")
+        if sum(entries[name].file_size for name in selected) > 1024 * 1024 * 1024:
+            raise ValueError("Published engine exceeds the expected runtime size")
+        with tempfile.TemporaryDirectory(prefix="riina-runtime-", dir=destination.parent) as temporary:
+            staging = Path(temporary) / "runtime"
+            staging.mkdir()
+            (staging / manifest_name).write_bytes(manifest)
+            for name in selected:
+                output = staging.joinpath(*PurePosixPath(name).parts)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                with package.open(entries[name]) as incoming, output.open("wb") as outgoing:
+                    shutil.copyfileobj(incoming, outgoing)
+            verify_runtime(staging)
+            verify_native_source_index(staging, source)
+            engine_digest = digest(staging / "libmpv-2.dll")
+            if report.get("libmpv_sha256") != engine_digest:
+                raise ValueError("Restored engine differs from the published verification")
+            staging.rename(destination)
+    return {"native_release_tag": tag, "native_source_commit": commit,
+            "native_contract_tree": contract, "archive_sha256": digest(archive),
+            "libmpv_sha256": engine_digest}
 
 
 def native_rust_notice_index(binary):
@@ -243,6 +323,13 @@ def main():
     audit.add_argument("--audit", type=Path, default=Path("docs/native-distribution-audit.json"))
     runtime = commands.add_parser("runtime")
     runtime.add_argument("--directory", type=Path, required=True)
+    restore = commands.add_parser("restore-runtime")
+    restore.add_argument("--archive", type=Path, required=True)
+    restore.add_argument("--checksums", type=Path, required=True)
+    restore.add_argument("--verification", type=Path, required=True)
+    restore.add_argument("--source", type=Path, default=Path("."))
+    restore.add_argument("--tag", required=True)
+    restore.add_argument("--destination", type=Path, required=True)
     package = commands.add_parser("package")
     package.add_argument("--binary", type=Path, required=True)
     package.add_argument("--source", type=Path, required=True)
@@ -253,6 +340,11 @@ def main():
     elif args.command == "runtime":
         verify_runtime(args.directory)
         print("Verified complete downloaded native runtime manifest")
+    elif args.command == "restore-runtime":
+        print(json.dumps(restore_release_runtime(
+            args.archive, args.checksums, args.verification, args.source,
+            args.tag, args.destination,
+        ), indent=2))
     else:
         print(json.dumps(verify_package(args.binary, args.source, args.version), indent=2))
 

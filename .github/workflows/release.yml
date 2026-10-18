@@ -28,6 +28,11 @@ on:
         type: string
         required: false
         default: ''
+      native_release_tag:
+        description: Reuse the matching engine from an existing published Windows release, for example v0.3.8
+        type: string
+        required: false
+        default: ''
       publish_release:
         description: Publish this version after package, playback and corresponding-source verification pass
         type: boolean
@@ -47,6 +52,7 @@ jobs:
     outputs:
       release_ready: ${{ steps.readiness.outputs.release_ready }}
       native_run_id: ${{ steps.readiness.outputs.native_run_id }}
+      native_release_tag: ${{ steps.readiness.outputs.native_release_tag }}
       source_ref: ${{ steps.readiness.outputs.source_ref }}
       source_sha: ${{ steps.readiness.outputs.source_sha }}
     steps:
@@ -56,6 +62,7 @@ jobs:
         shell: bash
         env:
           NATIVE_ARTIFACT_RUN_ID: ${{ inputs.native_artifact_run_id }}
+          NATIVE_RELEASE_TAG: ${{ inputs.native_release_tag }}
           PUBLISH_RELEASE: ${{ inputs.publish_release }}
           BUILD_CANDIDATE: ${{ inputs.build_release_candidate }}
           RELEASE_SOURCE_TAG: ${{ inputs.release_source_tag }}
@@ -82,7 +89,15 @@ jobs:
           fi
           echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$NATIVE_ARTIFACT_RUN_ID" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$NATIVE_RELEASE_TAG" ]]; then
+            [[ "$NATIVE_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && -z "$NATIVE_ARTIFACT_RUN_ID" ]] || {
+              echo 'Select one native reuse source; native_release_tag must be a semantic-version tag' >&2
+              exit 1
+            }
+            echo 'release_ready=false' >> "$GITHUB_OUTPUT"
+            echo 'native_run_id=' >> "$GITHUB_OUTPUT"
+            echo "native_release_tag=$NATIVE_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -n "$NATIVE_ARTIFACT_RUN_ID" ]]; then
             [[ "$NATIVE_ARTIFACT_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
               echo 'native_artifact_run_id must be a positive numeric workflow run ID' >&2
               exit 1
@@ -94,7 +109,7 @@ jobs:
           fi
 
   native-engine:
-    if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true' && needs.release-readiness.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.native_artifact_run_id == '') || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
+    if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true' && needs.release-readiness.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.native_artifact_run_id == '' && inputs.native_release_tag == '') || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
     runs-on: ubuntu-24.04
     needs: release-readiness
     container:
@@ -146,7 +161,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   windows-package:
-    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && needs.release-readiness.outputs.native_run_id != ''))
+    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && (needs.release-readiness.outputs.native_run_id != '' || needs.release-readiness.outputs.native_release_tag != '')))
     runs-on: windows-latest
     needs: [release-readiness, native-engine]
     timeout-minutes: 90
@@ -166,13 +181,29 @@ jobs:
           name: windows-native-engine
           path: native-runtime
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # verified v8.0.1
-        if: needs.native-engine.result == 'skipped'
+        if: needs.native-engine.result == 'skipped' && needs.release-readiness.outputs.native_run_id != ''
         with:
           name: windows-native-engine
           path: native-runtime
           repository: ${{ github.repository }}
           run-id: ${{ needs.release-readiness.outputs.native_run_id }}
           github-token: ${{ github.token }}
+      - name: Restore matching engine from a published package
+        if: needs.release-readiness.outputs.native_release_tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NATIVE_RELEASE_TAG: ${{ needs.release-readiness.outputs.native_release_tag }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          git fetch --depth=1 origin "refs/tags/${env:NATIVE_RELEASE_TAG}:refs/tags/${env:NATIVE_RELEASE_TAG}"
+          $archive = "riina-$($env:NATIVE_RELEASE_TAG.Substring(1))-windows-x86_64.zip"
+          gh release download $env:NATIVE_RELEASE_TAG --repo $env:GITHUB_REPOSITORY `
+            --pattern $archive --pattern SHA256SUMS.txt --pattern RELEASE-VERIFICATION.json --dir native-release-input
+          python scripts/check-release-artifacts.py restore-runtime `
+            --archive "native-release-input/$archive" --checksums native-release-input/SHA256SUMS.txt `
+            --verification native-release-input/RELEASE-VERIFICATION.json --tag $env:NATIVE_RELEASE_TAG `
+            --destination native-runtime
       - name: Verify downloaded native runtime hashes
         run: python scripts/check-release-artifacts.py runtime --directory native-runtime
       - name: Pinned Rust toolchain

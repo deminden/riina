@@ -1,9 +1,11 @@
 """Release regressions independent of a native compilation or runner platform."""
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 
@@ -13,6 +15,90 @@ spec.loader.exec_module(release)
 
 
 class ReleaseArtifactTests(unittest.TestCase):
+    def release_archive(self, root, extra=None, manifest_override=None):
+        archive = root / "riina-0.3.8-windows-x86_64.zip"
+        content = {"libmpv-2.dll": b"engine", "SOURCE-MANIFEST.tsv": b"pinned native sources"}
+        manifest = "path\tsha256\n" + "".join(
+            f"{name}\t{hashlib.sha256(data).hexdigest()}\n" for name, data in content.items()
+        )
+        with zipfile.ZipFile(archive, "w") as package:
+            for name, data in content.items():
+                package.writestr(name, data)
+            package.writestr("RUNTIME-MANIFEST.tsv", manifest_override or manifest)
+            package.writestr("riina.exe", b"old application must not be restored")
+            package.writestr("THIRD_PARTY_LICENSES/RUST/old.txt", b"old application notices")
+            if extra:
+                # Set the raw archive spelling after ZipInfo's Windows path
+                # normalization, so the reader really receives the bad bytes.
+                entry = zipfile.ZipInfo("raw-entry")
+                entry.filename = extra[0]
+                package.writestr(entry, extra[1])
+        sums = root / "SHA256SUMS.txt"
+        sums.write_text(f"{release.digest(archive)}  {archive.name}\n", encoding="utf-8")
+        report = root / "RELEASE-VERIFICATION.json"
+        report.write_text(json.dumps({"version": "0.3.8", "source_commit": "a" * 40,
+                                     "libmpv_sha256": hashlib.sha256(b"engine").hexdigest()}), encoding="utf-8")
+        return archive, sums, report
+
+    @staticmethod
+    def native_git_identity(arguments, **_):
+        return ("a" * 40 if arguments[-1].endswith("^{commit}") else "b" * 40) + "\n"
+
+    def restore_archive(self, root, inputs):
+        with patch.object(release.subprocess, "check_output", side_effect=self.native_git_identity), \
+                patch.object(release, "verify_native_source_index") as source_check:
+            result = release.restore_release_runtime(*inputs, root, "v0.3.8", root / "restored")
+            source_check.assert_called_once()
+            return result
+
+    def test_published_runtime_reuse_excludes_old_application_and_app_notices(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = self.restore_archive(root, self.release_archive(root))
+            self.assertEqual({p.name for p in (root / "restored").iterdir()},
+                             {"libmpv-2.dll", "SOURCE-MANIFEST.tsv", "RUNTIME-MANIFEST.tsv"})
+            self.assertEqual(result["native_release_tag"], "v0.3.8")
+            self.assertEqual(result["libmpv_sha256"], hashlib.sha256(b"engine").hexdigest())
+
+    def test_published_runtime_reuse_rejects_archive_aliases_and_incomplete_inventory(self):
+        for name in ("../escaped.dll", "/absolute.dll", "C:/drive.dll", "sub\\file.dll", "LIBMPV-2.DLL"):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                inputs = self.release_archive(root, extra=(name, b"unexpected"))
+                with self.assertRaisesRegex(ValueError, "archive path"):
+                    self.restore_archive(root, inputs)
+                self.assertFalse((root / "restored").exists())
+                self.assertFalse((root.parent / "escaped.dll").exists())
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            inputs = self.release_archive(root, manifest_override="path\tsha256\nmissing.dll\t" + "0" * 64 + "\n")
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                self.restore_archive(root, inputs)
+            self.assertFalse((root / "restored").exists())
+
+    def test_published_runtime_reuse_fails_closed_on_checksum_or_build_identity(self):
+        for failure in ("checksum", "duplicate checksum", "source commit", "engine hash", "build contract"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                archive, sums, report = inputs = self.release_archive(root)
+                if failure == "checksum":
+                    sums.write_text("0" * 64 + f"  {archive.name}\n", encoding="utf-8")
+                elif failure == "duplicate checksum":
+                    sums.write_text(sums.read_text() * 2, encoding="utf-8")
+                elif failure in ("source commit", "engine hash"):
+                    data = json.loads(report.read_text())
+                    data["source_commit" if failure == "source commit" else "libmpv_sha256"] = "0" * 64
+                    report.write_text(json.dumps(data), encoding="utf-8")
+                def identity(arguments, **kwargs):
+                    if failure == "build contract" and arguments[-1] == "HEAD:tools/mpv":
+                        return "c" * 40
+                    return self.native_git_identity(arguments, **kwargs)
+                with patch.object(release.subprocess, "check_output", side_effect=identity), \
+                        patch.object(release, "verify_native_source_index"), self.assertRaises(ValueError):
+                    release.restore_release_runtime(*inputs, root, "v0.3.8", root / "restored")
+                self.assertFalse((root / "restored").exists())
+                self.assertEqual(list(root.glob("riina-runtime-*")), [])
+
     def test_unverified_release_never_selects_artifacts_and_verified_release_uses_engine_run(self):
         self.assertEqual(release.readiness({"release_artifacts_verified": False, "verified_candidate_run_id": None}),
                          "release_ready=false\nnative_run_id=\n")

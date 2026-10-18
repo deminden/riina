@@ -87,6 +87,10 @@ erase shared Cargo downloads. Keep references outside `target/`.
 1. Choose the exact source revision and version; use the configured GitHub account.
 2. Reuse a successful native artifact only if source revisions, patches, scripts,
    architecture and provenance match the candidate's build identity.
+   If its CI artifact has expired, the release workflow's `native_release_tag`
+   input can restore the engine from an existing published package. It verifies
+   the archive checksum, tag/source identity, unchanged `tools/mpv` tree, runtime
+   inventory and native notices. It does not reuse the previous application.
 3. Run portable packaging tests, assemble the archive, and verify runtime contents,
    notices, hashes and source/build manifests.
 4. Extract the archive and run the actual executable through
