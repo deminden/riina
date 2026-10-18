@@ -52,15 +52,18 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Verification summary
 
-The latest local code revision is `775486e`. Its locked build, formatting,
-strict all-target Clippy, 596 workspace tests and 31 Python packaging/report tests
-pass. The default Rust run explicitly ignores native/clipboard checks and a
-helper launched by another test.
+The recorded locked build, formatting and strict all-target Clippy checks cover
+`994f14c`. The latest workspace test run covers `775486e`: 596 Rust tests and
+31 Python packaging/report tests passed. The default Rust run explicitly ignores
+native/clipboard checks and a helper launched by another test.
 
-Earlier native and extracted-application checks are recorded separately in
-[Verification](verification.md), with their revisions and limitations. No new
-GUI/HDR result is implied by the latest unit-test run. Revised CI workflows still
-need remote execution evidence.
+Local GUI checks on `994f14c` passed the playback/fullscreen smoke and inspected
+Quick Settings Video, General and Audio Preferences. They exposed unreadable
+light-appearance widget text and lower sidebar categories clipped by expanded
+sections. These are open interface gaps, not a visual-parity pass.
+
+[Verification](verification.md) records the exact scope and older native/package
+evidence. HDR, other drivers and revised remote CI workflows still need evidence.
 
 ## Remaining acceptance work
 

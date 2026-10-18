@@ -8,10 +8,13 @@ The latest records below are from Windows 11 x64 on 2026-10-18.
 
 | Check | Revision | Result and limits |
 |---|---|---|
-| Locked workspace build, formatting, strict all-target Clippy | `775486e` | Passed with Rust 1.99.0 |
+| Locked workspace build, formatting, strict all-target Clippy | `994f14c` | Passed with Rust 1.99.0 |
 | Workspace tests | `775486e` | 596 passed; 56 ignored in the default invocation |
 | Python packaging/report tests | `775486e` | 31 passed |
-| Parity traceability | `775486e` | Passed for the current, incomplete inventory |
+| Parity traceability | `994f14c` | Passed for the current, incomplete inventory |
+| Local debug-application smoke | `994f14c` | Passed in 5772 ms; preference writers, native playback/Audio Track menu, volume surface identity, fullscreen callback, controller reveal and exit/progress |
+| Local GUI inspection | `994f14c` | Video Quick Settings, app menu, General scrolling, Audio Hardware/Volume inspected; light widget contrast and expanded sidebar clipping fail visual acceptance |
+| Full-desktop smoke captures | `994f14c` | Before/fullscreen/after inspected at 3840 x 2160; non-black probes passed; no persistent Riina surface after exit |
 | Native libmpv integration | `e6c5d70` | 51 passed against the pinned development DLL with null audio |
 | Native library tests | `e6c5d70` | 2 passed against the same DLL |
 | Extracted debug-application smoke | `e6c5d70` | Passed in 6034 ms; playback, controls, preferences and normal exit |
@@ -20,12 +23,20 @@ The latest records below are from Windows 11 x64 on 2026-10-18.
 
 The 56 default ignored entries comprise 53 native checks, two clipboard checks
 and a child-process helper. Its parent explicitly runs that helper four times.
-The latest test changes did not rerun GUI/HDR checks. The stricter report
-validator also accepted the previously recorded real application smoke report.
-The extracted archive was a development package, not a newly published release.
+The workspace test run and older native checks were not repeated for this
+documentation change. The current GUI run used the local executable, not an
+extracted release package. Its fullscreen entry uses the double-click callback;
+it does not prove OS-delivered double-click input. The earlier extracted archive
+was a development package, not a newly published release.
 Revised GitHub workflows still require remote execution evidence.
 
-Local logs: `target/smarter-tests-*` and `target/review-fixes-*`.
+The [dated GUI record](../tests/visual/windows-ledger-review-2026-10-18.json)
+identifies executable/library hashes, scope, observed failures and untested states.
+Null audio and captured pixels do not establish audible output, physical display
+behavior or HDR. Both test processes exited; no Riina process remained.
+
+Local logs: `target/smarter-tests-*`, `target/review-fixes-*` and
+`target/ledger-cleanup-*`.
 Raw desktop images remain untracked and must be reviewed for private content
 before any publication. Older investigations remain in Git history.
 

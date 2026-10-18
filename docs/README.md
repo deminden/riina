@@ -46,6 +46,8 @@ See [port development](port-development.md) for setup and support gates.
   [clipboard dependency audit](clipboard-dependencies.json).
 - [Release notes](release-notes/README.md) are version-specific history, not current status.
   The [initial preview notes](release-notes/0.1.0-preview.1.md) are historical too.
+- [Historical visual evidence](history/README.md) preserves superseded ledger
+  observations separately from the current comparison snapshot.
 - [Brand guide](../assets/branding/BRAND_GUIDE.md),
   [asset provenance](../assets/provenance.json) and
   [third-party notices](../THIRD_PARTY_NOTICES.md).
@@ -54,5 +56,6 @@ See [port development](port-development.md) for setup and support gates.
 
 Update the page that owns the information. Keep status short, the plan actionable,
 and verification tied to a revision and environment. Record individual parity
-results in the CSV ledgers. Superseded investigations belong in Git history;
-release notes and architecture decisions retain their historical context.
+results in the CSV ledgers, replacing current findings rather than appending a
+diary. Superseded investigations belong in Git history or an explicitly labeled
+evidence archive; release notes and architecture decisions retain their context.

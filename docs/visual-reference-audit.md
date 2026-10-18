@@ -1,8 +1,34 @@
 # Visual reference audit
 
-The [CSV ledger](visual-reference-audit.csv) contains per-reference observations,
-SHA-256 hashes, comparison evidence and remaining differences. This guide explains
-the reference sets; it does not repeat their progress history.
+The [current CSV ledger](visual-reference-audit.csv) describes implementation,
+verification scope and remaining gaps for all 69 reference records. It is a
+snapshot, not a progress diary. No row currently establishes full visual parity.
+
+The [historical ledger](history/README.md) preserves the earlier observations and
+capture links separately. Historical capture failures and superseded gaps are
+not current blockers unless reproduced in the current ledger.
+
+## Reading the current ledger
+
+- `id`, reference path, SHA-256 and environment fields preserve capture identity.
+  Paths are relative to the repository root; unknown scale remains unknown.
+- `reference_quality`: `usable`, `near-duplicate`, `failed`, `missing` or
+  `context-only`. Usable does not mean matched to Riina.
+- `current_implementation` describes code present at `994f14c`; source inspection
+  is not runtime or visual acceptance.
+- `verification`: `source-only`, `partial-gui` or `reference-blocked`.
+  `partial-gui` is limited to the named evidence record, not every state in a row.
+- `current_evidence` links a scoped dated record. An empty value means there is
+  no current GUI evidence for that row. Duplicate references may share evidence.
+- `remaining_gaps` and `next_action` describe outstanding work. `historical_evidence`
+  identifies the archived row by ID; CSV fragments are lookup keys, not HTML anchors.
+
+The [2026-10-18 Windows inspection](../tests/visual/windows-ledger-review-2026-10-18.json)
+checks playback and a subset of settings. It reproduces unreadable light-theme
+checkbox/input/combo text in General and Audio, and sidebar clipping when Audio
+is expanded. Fix those before matched visual measurements. The macOS reference
+scale, complete menu states, remaining Preferences pages and other Quick Settings
+tabs still need comparison. A successful build does not close these gaps.
 
 ## Reference sets
 
@@ -33,7 +59,8 @@ point dimensions. Do not merge their OS versions or scale assumptions.
 
 | IDs | Surface |
 |---|---|
-| REF-01-19 | Preferences/reference images; inspect the individual ledger rows for exact state and defects |
+| REF-09-19 and lettered variants | Supplied Preferences images; inspect individual rows for exact state and defects |
+| REF-00 | Missing start-window image |
 | REF-20 | Floating playback controller |
 | REF-21 | Quick Settings Layout |
 | REF-22 | Music Mode |
@@ -46,6 +73,7 @@ point dimensions. Do not merge their OS versions or scale assumptions.
 | REF-41-42 | Native Window/tiling menus |
 | REF-43 | Help |
 | REF-44-45 | Contextual Open/PiP and Welcome windows |
+| WIN-PLAYER-THEME-001 | Windows platform appearance adaptation; historical dark/light evidence |
 
 ## Source anchors
 
@@ -70,8 +98,9 @@ APIs. Keep the narrow Windows equivalents in [platform differences](platform-dif
 3. Capture Riina and inspect the full desktop first for composition reports.
 4. Measure differences by region; distinguish observed, source-derived and
    estimated dimensions. Unknown scale remains unknown.
-5. Update the ledger with evidence and any remaining gap. Source changes or a
-   successful build alone do not close visual parity.
+5. Replace the row's current findings and evidence with the new scoped result.
+   Keep older dated evidence in history; do not append chronological status tags.
+   Source changes or a successful build alone do not close visual parity.
 
 Use the [interface checklist](interface-parity-plan.md) for scope and the
 [visual specification](visual-spec.md) for shared metrics. Keep new observations

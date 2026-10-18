@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-18",
+  "code_revision": "994f14c92a3fe09f81c1f47e102c6cf363016b9a",
+  "environment": {
+    "platform": "Windows 11 x64",
+    "target": "local debug application; not a release package",
+    "desktop_pixels": [
+      3840,
+      2160
+    ],
+    "manual_window_scale": "not independently measured",
+    "audio_output": "null",
+    "isolated_profile": true,
+    "isolated_fixture_folder": true
+  },
+  "identity": {
+    "executable": "target/debug/riina.exe",
+    "executable_sha256": "f1a12862f45bfcd1f06113a156bf7a690299cc143b8b607571c0c666c7add0c6",
+    "native_library": "tools/mpv/libmpv-2.dll",
+    "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+    "fixture": "tests/fixtures/moving-square.avi",
+    "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636"
+  },
+  "automated_smoke": {
+    "success": true,
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5772,
+    "physical_display_verified": false
+  },
+  "manual_observations": [
+    {
+      "surface": "Player and Quick Settings Video",
+      "reference_ids": [
+        "REF-20-playback-frame",
+        "REF-24-playback-video-panel"
+      ],
+      "result": "partial",
+      "observed": "moving-square.avi paused at 2.8333333 seconds; video visible behind floating controller and Video sidebar. Tracks, aspect, crop, rotation, speed and hardware decoding visible. Four right-side controller actions; no square Stop button.",
+      "limits": "No matched macOS geometry or lower Video controls measured; other tabs not verified."
+    },
+    {
+      "surface": "Application menu",
+      "reference_ids": [
+        "REF-26-app-menu"
+      ],
+      "result": "partial",
+      "observed": "Application menu opened, Preferences and Quit shortcut hints visible; Preferences opens a separate Settings window.",
+      "limits": "Does not verify all menus, shortcut dispatch or macOS AppKit ownership."
+    },
+    {
+      "surface": "General Preferences",
+      "reference_ids": [
+        "REF-09-preferences-general",
+        "REF-09b-preferences-general-history"
+      ],
+      "result": "visual-gap",
+      "observed": "Behavior displayed; scrolling reached History and Playlist heading on one continuous page. At launch combo value and History checkbox labels unreadable against light background, although accessibility tree exposes their values/text.",
+      "limits": "Playlist and Screenshots controls were not inspected in this run."
+    },
+    {
+      "surface": "Audio Hardware and Volume Preferences",
+      "reference_ids": [
+        "REF-12a-preferences-audio-hardware",
+        "REF-12b-preferences-audio-volume"
+      ],
+      "result": "visual-gap",
+      "observed": "Hardware and Volume subpages opened. Driver/device combos, S/PDIF labels, ReplayGain value, numeric inputs and checkbox labels unreadable against light background. Accessibility exposes controls and values. Expanded Audio pushes Plugins partly below the window and Utilities out of view.",
+      "limits": "ReplayGain controls exist; this is a contrast failure, not an absent-feature claim. No audible/device/pass-through verification."
+    }
+  ],
+  "desktop_capture_review": {
+    "all_non_black_probes_passed": true,
+    "all_images_inspected": true,
+    "fullscreen_result": "Video visible with revealed controller; no opaque black overlay in the capture.",
+    "before_after_result": "No persistent Riina surface visible after automatic smoke process exits.",
+    "privacy": "Raw full-desktop images contain unrelated private content; remain local and untracked.",
+    "files": [
+      {
+        "path": "target/ledger-cleanup-20261018-smoke.json.before.png",
+        "sha256": "0fc201617f772eed75f81a30fa40c5643f64e58ac3fff593ce5e05d85bfe0ced",
+        "pixels": [
+          3840,
+          2160
+        ]
+      },
+      {
+        "path": "target/ledger-cleanup-20261018-smoke.json.fullscreen.png",
+        "sha256": "021100a3530c2b0ad726ffee46bada71df4321b67837c5ae48e1c38ca687ebb3",
+        "pixels": [
+          3840,
+          2160
+        ]
+      },
+      {
+        "path": "target/ledger-cleanup-20261018-smoke.json.after.png",
+        "sha256": "f17e8be9492b2aaa152cb1451abaa133ddbd16edec5ff795bc44f8cc38910c31",
+        "pixels": [
+          3840,
+          2160
+        ]
+      },
+      {
+        "path": "target/ledger-cleanup-audio-volume.png",
+        "sha256": "6ee2d6f7b6cf92e1381ff039cf48a82fbd719553ad3d796438e8440c90228a24",
+        "pixels": [
+          3840,
+          2160
+        ]
+      }
+    ]
+  },
+  "shutdown": {
+    "automated_pid": 9800,
+    "manual_pid": 2264,
+    "normal_shutdown": true,
+    "remaining_riina_processes": 0
+  },
+  "not_verified": [
+    "Physical HDR/color output",
+    "Audible audio and pass-through",
+    "Full visual parity or pixel scoring",
+    "Other themes, DPI settings and monitors",
+    "All eleven Preferences pages and every scroll state",
+    "Quick Settings Layout, Audio and Subtitles in this manual run",
+    "macOS/Linux application runtime",
+    "Final extracted release package",
+    "OS-delivered double-click fullscreen input"
+  ]
+}
