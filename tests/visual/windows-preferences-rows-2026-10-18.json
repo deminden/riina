@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-18",
+  "source_base_revision": "987a8445fca235f6c2da7874e4aa3625dc01ddf7",
+  "source_files_sha256": {
+    "crates/app/ui/preferences.slint": "0fe80366e10aac07d5c1c689755c21dcb47edf847a37287e443932cf959256e1",
+    "crates/app/src/key_binding_preferences.rs": "563cb1ed7dd1415de2df4200c02de3c3c72faca73f537c6ad02a2709b90e2ce3"
+  },
+  "executable_sha256": "71f2f30941c1c5a252ea25d2f690f28d6f10103a313c0987fdefcbead05ccfc5",
+  "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "environment": {
+    "platform": "Windows 11 x64",
+    "desktop_pixels": [
+      3840,
+      2160
+    ],
+    "profile": "isolated disposable profile",
+    "fixture": "tests/fixtures/moving-square.avi",
+    "audio_output": "null"
+  },
+  "checks": {
+    "locked_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace_tests": {
+      "passed": 600,
+      "ignored": 56,
+      "failed": 0
+    },
+    "settings_navigation_inventory": "passed"
+  },
+  "manual_gui": [
+    {
+      "surface": "Utilities",
+      "result": "Three cache rows separated, titles/descriptions readable, existing vector icons visible; actions not activated."
+    },
+    {
+      "surface": "Advanced",
+      "result": "Config directory field is below its label, separate from Choose button; default path visible. Long-path editing was not exercised."
+    },
+    {
+      "surface": "Key Bindings",
+      "result": "Ctrl+Shift+V, Ctrl+Alt+V, Alt+RightArrow and Alt+LeftArrow fit complete keycaps. Original raw binding text preserved by regression tests."
+    },
+    {
+      "surface": "Audio and Network",
+      "result": "Numeric fields have visible borders and accessible labels. Audio threads edited through the GUI to 2 and accepted; saved value remained 2 after normal exit."
+    },
+    {
+      "surface": "Plugins",
+      "result": "Refresh vector icon visible; refresh/network action not activated."
+    },
+    {
+      "surface": "Control",
+      "result": "First-mouse label inset with the neighboring mouse rows; complete label visible."
+    }
+  ],
+  "desktop_capture": {
+    "path": "target/preferences-rows-audio.png",
+    "sha256": "c84efbdf7c7ad7b72a8d21c5f41bee7a03d21a8c9160f4ff4202487e7db48150",
+    "pixels": [
+      3840,
+      2160
+    ],
+    "non_black_probe": true,
+    "inspected": true,
+    "privacy": "Private local desktop evidence; not included in repository or release assets."
+  },
+  "shutdown": {
+    "pid": 6760,
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "limits": [
+    "No full pixel parity claim",
+    "No audible output/HDR/device testing",
+    "No long-path edit test in this pass",
+    "No native macOS/Linux run",
+    "Fullscreen smoke not repeated for this row-only batch; final package requires a new smoke check"
+  ]
+}

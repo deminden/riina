@@ -26,9 +26,10 @@ not current blockers unless reproduced in the current ledger.
 
 The [Preferences follow-up](../tests/visual/windows-preferences-readability-2026-10-18.json)
 inspects all eleven initial category viewports and records corrected light-widget
-contrast, Audio continuity and auxiliary width. It also records subtitle overflow,
-overlapping Utilities rows and Advanced controls, truncated shortcut keycaps and
-other remaining differences. Lower viewports, dialogs, broader themes, complete
+contrast, Audio continuity and auxiliary width. The [row follow-up](../tests/visual/windows-preferences-rows-2026-10-18.json)
+corrects Utilities/Advanced overlap, numeric-cell affordances, shortcut keycaps
+and glyph visibility, and verifies a saved numeric edit. Subtitle overflow and
+General/Network navigation differences remain open. Lower viewports, dialogs, broader themes, complete
 menu states and matched macOS geometry remain open. A successful build does not
 close these gaps. The [initial inspection](../tests/visual/windows-ledger-review-2026-10-18.json)
 preserves the earlier failures as dated evidence.

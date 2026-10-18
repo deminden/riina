@@ -8,6 +8,8 @@ The latest records below are from Windows 11 x64 on 2026-10-18.
 
 | Check | Revision | Result and limits |
 |---|---|---|
+| Build, formatting, strict all-target Clippy and workspace tests | [Preferences row follow-up identity](../tests/visual/windows-preferences-rows-2026-10-18.json) | Passed; 600 workspace tests, 56 ignored; shortcut presentation/raw-binding regressions added |
+| Preferences row GUI checks | Preferences row follow-up identity | Utilities, Advanced, Key Bindings, Audio, Network, Plugins and Control inspected; numeric edit persisted after normal exit |
 | Locked workspace build, formatting, strict all-target Clippy | [Preferences follow-up identity](../tests/visual/windows-preferences-readability-2026-10-18.json) | Passed with Rust 1.99.0 |
 | Workspace tests | Preferences follow-up identity | 598 passed; 56 ignored in the default invocation; includes auxiliary-axis fitting regressions |
 | Python packaging/report tests and settings navigation inventory | Preferences follow-up identity | 31 tests passed; navigation check passed |
@@ -36,11 +38,13 @@ The [initial GUI record](../tests/visual/windows-ledger-review-2026-10-18.json) 
 dated evidence of the failures before the Preferences fixes. The follow-up record
 identifies exact modified source files, executable/library hashes, scope and
 remaining failures; its source hashes avoid referring to a future commit.
+The newer row follow-up records the additional fixes and its narrower GUI scope;
+earlier failures remain dated evidence rather than current claims.
 Null audio and captured pixels do not establish audible output, physical display
 behavior or HDR. Both test processes exited; no Riina process remained.
 
 Local logs: `target/smarter-tests-*`, `target/review-fixes-*`,
-`target/ledger-cleanup-*` and `target/preferences-sizing-*`.
+`target/ledger-cleanup-*`, `target/preferences-sizing-*` and `target/preferences-rows-*`.
 Raw desktop images remain untracked and must be reviewed for private content
 before any publication. Older investigations remain in Git history.
 

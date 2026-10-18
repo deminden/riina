@@ -45,18 +45,20 @@ component KeyBindingActionRow inherits Rectangle {
     callback activated(int);
     callback edit-requested(int);
     callback remove-requested(int);
+    key-label-measure := Text { text: root.entry.key; font-size: 12px; visible: false; }
+    private property <length> keycap-width: min(160px, max(48px, key-label-measure.preferred-width + 14px));
     height: 32px;
     background: root.selected ? #e5edf7 : touch.has-hover ? #ffffff : transparent;
     accessible-role: list-item;
     accessible-label: root.entry.action + ", " + root.entry.key;
     accessible-action-default => { root.activated(root.row-index); }
     Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: #eeeeef; }
-    Text { x: 12px; y: 0; width: parent.width - 76px; height: parent.height;
+    Text { x: 12px; y: 0; width: max(0px, parent.width - root.keycap-width - 32px); height: parent.height;
         text: root.entry.action; font-size: 12px; color: #29292d;
         vertical-alignment: center; overflow: elide; }
-    Rectangle { x: parent.width - 58px; y: 4px; width: 48px; height: 24px;
+    Rectangle { x: parent.width - root.keycap-width - 10px; y: 4px; width: root.keycap-width; height: 24px;
         border-radius: 5px; border-width: 1px; border-color: #e1e1e5; background: #ffffff; }
-    Text { x: parent.width - 56px; y: 4px; width: 44px; height: 24px;
+    Text { x: parent.width - root.keycap-width - 6px; y: 4px; width: root.keycap-width - 8px; height: 24px;
         text: root.entry.key; font-size: 12px; color: #29292d;
         horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
     if focus.has-focus : Rectangle {
@@ -154,9 +156,10 @@ component PluginPageIconButton inherits FocusScope {
         Rectangle { x: 5px; y: 4px; width: 1px; height: 1px; border-radius: 1px; background: #85858a; }
         Rectangle { x: 5px; y: 7px; width: 1px; height: 4px; border-radius: 1px; background: #85858a; }
     }
-    if root.icon-kind == 2 : Text {
-        width: parent.width; height: parent.height; text: "↻";
-        font-size: 14px; color: #85858a; horizontal-alignment: center; vertical-alignment: center;
+    if root.icon-kind == 2 : Image {
+        x: 5px; y: 5px; width: 16px; height: 16px;
+        source: @image-url("../../../assets/icons/resume-history.svg");
+        colorize: #85858a; image-fit: contain;
     }
     if root.has-focus : Rectangle {
         border-width: 1px; border-color: #7daaf0; border-radius: 7px; background: transparent;
@@ -712,7 +715,9 @@ component PreferenceNumericInput inherits Rectangle {
     in-out property <string> text: "";
     in property <length> font-size: 11px;
     in property <bool> enabled: true;
+    in property <string> label: "";
     callback accepted();
+    clip: true;
     border-radius: 2px;
     border-width: 1px;
     border-color: root.enabled ? #b8b8bc : #d7d7da;
@@ -720,6 +725,8 @@ component PreferenceNumericInput inherits Rectangle {
     TextInput {
         x: 3px; y: 1px; width: parent.width - 6px; height: parent.height - 2px;
         text <=> root.text;
+        accessible-label: root.label;
+        single-line: true;
         font-size: root.font-size;
         color: root.enabled ? #222222 : #8d8d92;
         enabled: root.enabled;
@@ -1036,7 +1043,7 @@ component PreferenceDetailRow inherits FocusScope {
 
 // The trailing action keeps a fixed hit target when a descriptive label wraps.
 component UtilitiesActionRow inherits Rectangle {
-    in property <string> symbol;
+    in property <image> icon;
     in property <string> title;
     in property <string> description: "";
     in property <string> trailing: "→";
@@ -1049,10 +1056,9 @@ component UtilitiesActionRow inherits Rectangle {
     accessible-role: list-item;
     accessible-label: root.title + (root.description.is-empty ? "" : ", " + root.description);
     Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: #dedee1; }
-    Text { x: 12px; y: 0; width: 22px; height: parent.height;
-        text: root.symbol; font-size: 16px; color: #77777e;
-        horizontal-alignment: center; vertical-alignment: center; }
-    Text { x: 36px; y: root.description.is-empty ? 0px : 8px;
+    Image { x: 12px; y: (parent.height - 18px) / 2; width: 18px; height: 18px;
+        source: root.icon; colorize: #77777e; image-fit: contain; }
+    Text { x: 36px; y: root.description.is-empty ? (parent.height - 20px) / 2 : 8px;
         width: parent.width - 108px; height: 20px; text: root.title;
         font-size: 12px; color: root.action-enabled ? #29292d : #8a8a90;
         vertical-alignment: center; overflow: elide; }
@@ -2826,7 +2832,7 @@ export component PreferencesWindow inherits Window {
             x: 20px; y: 76px; width: parent.width - 40px; height: 240px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text { x: 14px; y: 8px; width: 150px; height: 26px; text: "Number of threads"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            TextInput { x: 250px; y: 9px; width: 70px; height: 24px; text <=> root.audio-threads-text; accepted => { root.settings-changed(); } }
+            PreferenceNumericInput { label: "Audio decoding threads"; font-size: 12px; x: 250px; y: 9px; width: 70px; height: 24px; text <=> root.audio-threads-text; accepted => { root.settings-changed(); } }
             Text { x: 176px; y: 32px; width: parent.width - 194px; height: 16px; text: "Default: 0 (Auto)"; font-size: 10px; color: #77777d; vertical-alignment: center; }
             Text { x: 14px; y: 54px; width: 150px; height: 26px; text: "Audio driver"; font-size: 12px; color: #252529; vertical-alignment: center; }
             ComboBox { x: 176px; y: 54px; width: parent.width - 194px; height: 25px; model: root.audio-driver-options; current-index <=> root.audio-driver-index; selected => { root.settings-changed(); } }
@@ -2846,14 +2852,14 @@ export component PreferencesWindow inherits Window {
             CheckBox { x: 14px; y: 12px; height: 24px; text: "Allow volume boost (up to 200%)"; checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
             Text { x: 14px; y: 48px; width: 150px; height: 26px; text: "Initial volume"; font-size: 12px; color: #252529; vertical-alignment: center; }
             CheckBox { x: 168px; y: 48px; text: "Enable"; checked <=> root.audio-initial-volume-enabled; toggled => { root.settings-changed(); } }
-            TextInput { x: 270px; y: 49px; width: 68px; height: 24px; enabled: root.audio-initial-volume-enabled; text <=> root.audio-initial-volume-text; accepted => { root.settings-changed(); } }
+            PreferenceNumericInput { label: "Initial audio volume"; font-size: 12px; x: 270px; y: 49px; width: 68px; height: 24px; enabled: root.audio-initial-volume-enabled; text <=> root.audio-initial-volume-text; accepted => { root.settings-changed(); } }
             Text { x: 14px; y: 86px; width: 150px; height: 26px; text: "ReplayGain"; font-size: 12px; color: #252529; vertical-alignment: center; }
             ComboBox { x: 176px; y: 86px; width: parent.width - 194px; height: 25px; model: root.audio-replay-gain-options; current-index <=> root.audio-replay-gain-index; selected => { root.settings-changed(); } }
             Text { x: 14px; y: 124px; width: 150px; height: 26px; text: "ReplayGain preamp (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            TextInput { x: 176px; y: 125px; width: 68px; height: 24px; text <=> root.audio-replay-gain-preamp-text; accepted => { root.settings-changed(); } }
+            PreferenceNumericInput { label: "ReplayGain preamp in decibels"; font-size: 12px; x: 176px; y: 125px; width: 68px; height: 24px; text <=> root.audio-replay-gain-preamp-text; accepted => { root.settings-changed(); } }
             CheckBox { x: 14px; y: 158px; height: 24px; text: "Prevent clipping"; checked <=> root.audio-replay-gain-clip; toggled => { root.settings-changed(); } }
             Text { x: 14px; y: 194px; width: 150px; height: 38px; text: "ReplayGain fallback (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
-            TextInput { x: 176px; y: 201px; width: 68px; height: 24px; text <=> root.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
+            PreferenceNumericInput { label: "ReplayGain fallback in decibels"; font-size: 12px; x: 176px; y: 201px; width: 68px; height: 24px; text <=> root.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
         }
         Text { x: 28px; y: root.audio-other-title-y; text: "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
         Rectangle {
@@ -2905,9 +2911,9 @@ export component PreferencesWindow inherits Window {
             Rectangle { x: 0; y: 134px; width: parent.width; height: 64px; background: transparent;
                 Text { x: 44px; y: 0; width: parent.width - 170px; height: 32px;
                     text: "Seconds to buffer before restarting"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
-                TextInput { x: parent.width - 94px; y: 9px; width: 66px; height: 24px;
+                PreferenceNumericInput { label: "Seconds to buffer before restarting"; font-size: 12px; x: parent.width - 94px; y: 9px; width: 66px; height: 24px;
                     enabled: root.network-cache-enabled;
-                    text <=> root.network-cache-pause-wait-text; font-size: 11px; color: #222222;
+                    text <=> root.network-cache-pause-wait-text;
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 44px; y: 32px; width: parent.width - 62px; height: 25px;
@@ -2918,9 +2924,9 @@ export component PreferencesWindow inherits Window {
             Rectangle { x: 0; y: 198px; width: parent.width; height: 52px; background: transparent;
                 Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
                     text: "Seconds to prefetch"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                TextInput { x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
+                PreferenceNumericInput { label: "Seconds to prefetch"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
                     enabled: root.network-cache-enabled;
-                    text <=> root.network-cache-prefetch-secs-text; font-size: 11px; color: #222222;
+                    text <=> root.network-cache-prefetch-secs-text;
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
@@ -2929,9 +2935,9 @@ export component PreferencesWindow inherits Window {
             Rectangle { x: 0; y: 250px; width: parent.width; height: 52px; background: transparent;
                 Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
                     text: "Cache buffer size (KiB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                TextInput { x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
+                PreferenceNumericInput { label: "Cache buffer size in KiB"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
                     enabled: root.network-cache-enabled;
-                    text <=> root.network-cache-size-kib-text; font-size: 11px; color: #222222;
+                    text <=> root.network-cache-size-kib-text;
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
@@ -3081,9 +3087,11 @@ export component PreferencesWindow inherits Window {
                         selected-index <=> root.control-middle-click-choice;
                         selected => { root.settings-changed(); }
                     }
-                    PreferenceSwitch { label: "Accepts first mouse click when not focused";
+                    Rectangle { height: 28px;
+                    PreferenceSwitch { x: 35px; width: parent.width - 47px; label: "Accepts first mouse click when not focused";
                         checked <=> root.control-accepts-first-mouse;
                         toggled => { root.settings-changed(); }
+                    }
                     }
                 }
             }
@@ -3368,19 +3376,24 @@ export component PreferencesWindow inherits Window {
                     toggled => { root.advanced-use-mpv-osd = !root.advanced-use-mpv-osd; root.advanced-settings-changed(); }
                 }
             }
-            Rectangle { x: 20px; y: 433px; width: parent.width - 40px; height: 42px;
+            Rectangle { x: 20px; y: 433px; width: parent.width - 40px; height: 74px;
                 border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 Image { x: 35px; y: 13px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/config-directory.svg"); image-fit: contain; }
-                Text { x: 57px; y: 0px; width: 112px; height: parent.height;
+                Text { x: 57px; y: 0px; width: parent.width - 132px; height: 32px;
                     text: "Use config directory"; font-size: 11px;
                     color: root.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
-                TextInput { x: 170px; y: 9px; width: parent.width - 260px; height: 24px;
-                    text <=> root.advanced-config-directory-text;
-                    enabled: root.advanced-enabled && root.advanced-use-config-directory;
-                    accepted => { root.advanced-settings-changed(); }
+                Rectangle { x: 57px; y: 38px; width: parent.width - 138px; height: 24px;
+                    clip: true;
+                    background: #ffffff; border-width: 1px; border-color: #c8c8cd; border-radius: 3px;
+                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                        text <=> root.advanced-config-directory-text;
+                        accessible-label: "mpv config directory"; single-line: true;
+                        enabled: root.advanced-enabled && root.advanced-use-config-directory;
+                        accepted => { root.advanced-settings-changed(); }
+                    }
                 }
-                PreferenceActionButton { x: parent.width - 119px; y: 8px; width: 53px; label: "Choose…";
+                PreferenceActionButton { x: parent.width - 69px; y: 38px; width: 53px; label: "Choose…";
                     enabled: root.advanced-enabled && root.advanced-use-config-directory;
                     activated => { root.advanced-choose-config-directory(); }
                 }
@@ -3479,7 +3492,7 @@ export component PreferencesWindow inherits Window {
             Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 42px;
                 border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 UtilitiesActionRow { width: parent.width; height: parent.height;
-                    symbol: "▣"; title: "Set Riina as the Default Application";
+                    icon: @image-url("../../../assets/icons/interface.svg"); title: "Set Riina as the Default Application";
                     activated => { root.utilities-open-default-apps(); }
                 }
             }
@@ -3487,7 +3500,7 @@ export component PreferencesWindow inherits Window {
             Rectangle { x: 20px; y: 168px; width: parent.width - 40px; height: 76px;
                 border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
                 UtilitiesActionRow { width: parent.width; height: parent.height;
-                    symbol: "↻"; title: "Restore Suppressed Alerts";
+                    icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Restore Suppressed Alerts";
                     description: "Restore alerts hidden with ‘Do not show this message again’.";
                     activated => { root.utilities-restore-alerts(); }
                 }
@@ -3495,19 +3508,19 @@ export component PreferencesWindow inherits Window {
             Text { x: 20px; y: 268px; text: "Clear Cache"; font-size: 12px; font-weight: 600; color: #77777d; }
             Rectangle { x: 20px; y: 290px; width: parent.width - 40px; height: 202px;
                 border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                UtilitiesActionRow { width: parent.width; height: 87px;
-                    symbol: "◷"; title: "Clear Saved Playback Progress";
+                UtilitiesActionRow { y: 0px; width: parent.width; height: 87px;
+                    icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Clear Saved Playback Progress";
                     description: "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.";
                     trash: true; activated => { root.utilities-clear-progress(); }
                 }
                 UtilitiesActionRow { y: 87px; width: parent.width; height: 74px;
-                    symbol: "▤"; title: "Clear Playback History";
+                    icon: @image-url("../../../assets/icons/playlist.svg"); title: "Clear Playback History";
                     description: "Delete all playback histories and entries in \"Open Recent\".";
                     trash: true;
                     activated => { root.utilities-clear-history(); }
                 }
                 UtilitiesActionRow { y: 161px; width: parent.width; height: 41px;
-                    symbol: "▧"; title: "Clear Thumbnail Cache";
+                    icon: @image-url("../../../assets/icons/photo.svg"); title: "Clear Thumbnail Cache";
                     metric: root.utilities-thumbnail-size; trash: true;
                     activated => { root.utilities-clear-thumbnail-cache(); }
                 }

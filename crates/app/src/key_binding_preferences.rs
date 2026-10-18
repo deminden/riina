@@ -265,17 +265,17 @@ pub(crate) fn mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
 fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
     let key = if raw {
         mapping.key.clone()
-    } else {
+    } else if cfg!(target_os = "macos") {
         match mapping.key.as_str() {
-            "Shift+Meta+v" => shortcut("⇧⌘V", "Ctrl⇧V"),
-            "Shift+Meta+a" => shortcut("⇧⌘A", "Ctrl⇧A"),
-            "Shift+Meta+s" => shortcut("⇧⌘S", "Ctrl⇧S"),
-            "Ctrl+Meta+v" => shortcut("⌃⌘V", "Ctrl⌥V"),
-            "Ctrl+Meta+s" => shortcut("⌃⌘S", "Ctrl⌥S"),
-            "Ctrl+Meta+a" => shortcut("⌃⌘A", "Ctrl⌥A"),
-            "Meta+." => shortcut("⌘.", "Ctrl."),
-            "Meta+/" => shortcut("⌘/", "Ctrl+/"),
-            "Meta+D" => shortcut("⇧⌘D", "Ctrl⇧D"),
+            "Shift+Meta+v" => "⇧⌘V".into(),
+            "Shift+Meta+a" => "⇧⌘A".into(),
+            "Shift+Meta+s" => "⇧⌘S".into(),
+            "Ctrl+Meta+v" => "⌃⌘V".into(),
+            "Ctrl+Meta+s" => "⌃⌘S".into(),
+            "Ctrl+Meta+a" => "⌃⌘A".into(),
+            "Meta+." => "⌘.".into(),
+            "Meta+/" => "⌘/".into(),
+            "Meta+D" => "⇧⌘D".into(),
             "SPACE" => "Space".into(),
             "RIGHT" => "→".into(),
             "LEFT" => "←".into(),
@@ -283,6 +283,10 @@ fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
             "DOWN" => "↓".into(),
             _ => mapping.key.clone(),
         }
+    } else {
+        shortcut_keys(&mapping.key)
+            .map(|keys| keys.to_string())
+            .unwrap_or_else(|| mapping.key.clone())
     };
     let action = if raw {
         mapping.action.clone()
@@ -324,6 +328,7 @@ fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
     }
 }
 
+#[cfg(test)]
 fn shortcut(mac: &str, windows: &str) -> String {
     if cfg!(target_os = "macos") {
         mac.to_owned()
@@ -1190,6 +1195,49 @@ mod tests {
     }
 
     #[test]
+    fn settings_shortcuts_show_platform_modifiers_and_preserve_raw_bindings() {
+        for (key, mac, other) in [
+            ("Shift+Meta+v", "⇧⌘V", "Ctrl+Shift+V"),
+            ("Ctrl+Meta+v", "⌃⌘V", "Ctrl+Alt+V"),
+            ("Meta+.", "⌘.", "Ctrl+."),
+            ("Meta+D", "⇧⌘D", "Ctrl+Shift+D"),
+        ] {
+            let mapping = Mapping {
+                key: key.into(),
+                action: "cycle pause".into(),
+                kind: ActionKind::Mpv,
+                comment: None,
+            };
+            assert_eq!(
+                display_row(&mapping, false).key.as_str(),
+                shortcut(mac, other)
+            );
+            assert_eq!(display_row(&mapping, true).key.as_str(), key);
+            assert_eq!(mapping.key, key);
+        }
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn settings_shortcuts_use_the_menu_formatter_for_each_builtin_profile() {
+        for profile in BUILTIN_PROFILES {
+            for mapping in builtin_mappings(profile) {
+                let row = display_row(&mapping, false);
+                assert!(!row.key.is_empty(), "{profile}: {}", mapping.key);
+                if let Some(keys) = shortcut_keys(&mapping.key) {
+                    assert_eq!(
+                        row.key.as_str(),
+                        keys.to_string(),
+                        "{profile}: {}",
+                        mapping.key
+                    );
+                }
+                assert_eq!(display_row(&mapping, true).key.as_str(), mapping.key);
+            }
+        }
+    }
+
+    #[test]
     fn iina_default_profile_routes_online_subtitle_search() {
         let mappings = builtin_mappings("IINA Default");
         let mapping = mappings
@@ -1213,7 +1261,7 @@ mod tests {
         );
         assert_eq!(
             display_row(mapping, false).key.as_str(),
-            shortcut("⇧⌘D", "Ctrl⇧D")
+            shortcut("⇧⌘D", "Ctrl+Shift+D")
         );
     }
 

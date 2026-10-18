@@ -55,16 +55,17 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Verification summary
 
-The [Preferences follow-up](../tests/visual/windows-preferences-readability-2026-10-18.json)
+The [Preferences row follow-up](../tests/visual/windows-preferences-rows-2026-10-18.json)
 records exact source/binary hashes: locked build, formatting, strict all-target
-Clippy, 598 workspace tests and 31 Python tests passed. The default Rust run
+Clippy, 600 workspace tests and 31 Python tests passed. The default Rust run
 explicitly ignores native/clipboard checks and a helper launched by another test.
 
 The local playback/fullscreen smoke passed in 5750 ms. A GUI sweep inspected all
 eleven Preferences categories' initial viewports, Audio section jumps and sidebar
-scrolling. Light control contrast and auxiliary width are corrected. Subtitle
-overflow, Utilities row overlap, Advanced path/button overlap and truncated
-shortcut labels remain open in the [visual ledger](visual-reference-audit.csv).
+scrolling. Contrast, auxiliary width, Utilities row overlap, Advanced path/button
+overlap and truncated shortcut labels are corrected. A numeric GUI edit survived
+normal exit. Subtitle overflow and General/Network navigation differences remain
+open in the [visual ledger](visual-reference-audit.csv).
 
 [Verification](verification.md) records the exact scope and older native/package
 evidence. HDR, other drivers and revised remote CI workflows still need evidence.
