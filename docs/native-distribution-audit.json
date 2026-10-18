@@ -1,156 +1,75 @@
 {
+  "updated": "2026-10-19",
+  "scope": "Current distribution inputs and latest published release; earlier investigations are archived separately.",
   "distribution_license": "GPL-3.0-only",
   "license_decision": {
     "status": "settled",
     "source_license": "MIT",
     "combined_application_license": "GPL-3.0-only",
     "x264": "Excluded from the release engine; built-in H.264 decoding is retained",
-    "unicode_dfs_2016": "Accepted as GPL-compatible; its original notice is required in the source bundle",
+    "unicode_dfs_2016": "Accepted as GPL-compatible; original notice retained in the packaged dependency inventory",
     "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
   },
-  "release_artifacts_verified": true,
-  "workflow_run": "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/37862467302",
-  "build_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
-  "workflow_verification": {
-    "event": "workflow_dispatch",
-    "conclusion": "success",
-    "head_sha": "b2856ee6deed6957380b32465f359e67f67fafd8",
-    "run_attempt": 1,
-    "created_at": "2026-10-09T00:00:03Z"
-  },
-  "runtime": {
+  "release_artifacts_verified": false,
+  "verified_candidate_run_id": null,
+  "verified_native_run_id": 38138622911,
+  "release_verification_remaining": [
+    "Build and verify the next application package and its exact extracted executable. The existing native engine can be reused."
+  ],
+  "development_engine": {
+    "reference_lock": "reference/native-lock.json",
     "dll_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
-    "runtime_properties": {
-      "mpv-version": "mpv v0.41.0-1109-g36abaa32d",
-      "mpv-configuration": "-Dprefix=/__w/mpv-winbuild-cmake/mpv-winbuild-cmake/build_x86_64/x86_64-w64-mingw32 -Dlibdir=/__w/mpv-winbuild-cmake/mpv-winbuild-cmake/build_x86_64/x86_64-w64-mingw32/lib -Ddefault_library=shared -Dprefer_static=true -Ddebug=true -Db_ndebug=true -Doptimization=3 -Db_lto=true -Db_lto_mode=thin -Dlibmpv=true -Dpdf-build=enabled -Dlua=enabled -Djavascript=enabled -Dsdl2-gamepad=enabled -Dlibarchive=enabled -Dlibbluray=enabled -Ddvdnav=enabled -Duchardet=enabled -Drubberband=enabled -Dlcms2=enabled -Dopenal=enabled -Dspirv-cross=enabled -Dvulkan=enabled -Dvapoursynth=enabled -Dsubrandr=enabled -Dsixel=enabled -Dgl=enabled -Degl-angle=enabled -Dlibcurl=enabled -Dc_args=-Wno-error=int-conversion --cross-file=/__w/mpv-winbuild-cmake/mpv-winbuild-cmake/build_x86_64/meson_cross.txt",
-      "ffmpeg-version": "N-127256-g538d10d18"
-    },
-    "embedded_gpl_configuration_strings": [],
-    "limits": [
-      "Embedded strings do not enumerate every linked dependency",
-      "This is the development DLL, not the separately rebuilt release candidate",
-      "Runtime inspection cannot verify package contents or corresponding-source delivery"
-    ],
-    "development_bundle_scope": "Local development input only; the release workflow rebuilds a separate engine."
+    "mpv_version": "mpv v0.41.0-1109-g36abaa32d",
+    "scope": "Development input only; not the engine used in release packages."
   },
   "release_candidate_policy": {
-    "builder_revision": "b2856ee6deed6957380b32465f359e67f67fafd8",
-    "openssl_revision": "d8bf6cdd4849925c30e4f1911c7acb49cb34b702",
-    "x264_encoder": "Removed by tools/mpv/remove-x264.patch; built-in H.264 decoding is retained",
-    "source_capture": "Capture native repository revisions, file hashes, symlink targets, and vendored subrandr Rust dependency sources before compilation. Omit redundant Git object history; restore exact source snapshots and recreate local Git repositories for patch steps before bootstrapping the cross-toolchain on rebuild.",
-    "build_container": "Pinned by digest in .github/workflows/release.yml",
-    "curl_revision": "01346829096c61b372692f6dc43ffa778c6caccd",
-    "curl_version": "8.22.0; latest stable release verified on 2026-10-11",
-    "native_rust_toolchain": "nightly-2026-10-10; required by the upstream subrandr Cargo xtask; official channel manifest verified",
-    "runtime_assembly": "Embed libmpv-2.dll from mpv-dev output and recursively resolve required non-system PE imports from built dependency DLLs. Verify both assembled and extracted Windows ZIP; use static CRT for riina.exe."
+    "native_contract": "tools/mpv/",
+    "native_build_contract_tree": "99f64cc408a303959fbd0cf907904fec9638b33e",
+    "reuse": "A matching CI artifact or published release package; verify source/build identity, manifest hashes and notices.",
+    "runtime_assembly": "Windows x86_64 runtime with static CRT for riina.exe; exact archive import, source-access and extracted-application checks required.",
+    "source_access": "Immutable application tag, Cargo.lock, SOURCE-MANIFEST.tsv and public pinned native repositories. Do not duplicate full native or vendored source trees in download assets."
   },
-  "release_verification_remaining": [],
-  "ffmpeg_revision": "538d10d1878fb546c3a2645efa56119848f9ccfc",
-  "build_repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
-  "recipe_records": [
-    {
-      "url": "https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/b2856ee6deed6957380b32465f359e67f67fafd8/packages/mpv.cmake",
-      "sha256": "cfb9b0fbaaf6013069fe3eeda7e9e9644546f09cd772dbd549f8eb7fa21c7122",
-      "path": "packages/mpv.cmake"
-    },
-    {
-      "url": "https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/b2856ee6deed6957380b32465f359e67f67fafd8/packages/ffmpeg.cmake",
-      "sha256": "359c9c7da360f57d3a438e6fe117af6169cbd9aa3672751fd2bfc31e02be8fff",
-      "path": "packages/ffmpeg.cmake"
-    },
-    {
-      "url": "https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/b2856ee6deed6957380b32465f359e67f67fafd8/.github/workflows/mpv_clang.yml",
-      "sha256": "15a8ced32b685a23baeb6be08b8b58d757056d43c7008386e88e2beea89e4e9f",
-      "path": ".github/workflows/mpv_clang.yml"
-    }
-  ],
-  "findings": [
-    "Pinned mpv configuration explicitly enables dvdnav and prefers static dependencies",
-    "Pinned FFmpeg recipe enables --enable-gpl, --enable-version3, --enable-openssl, --enable-libx264 and --enable-libx265",
-    "Pinned FFmpeg configure source states --enable-version3 upgrades GPL builds to GPLv3-or-later; it also says OpenSSL 3 requires this option in GPL mode",
-    "Pinned FFmpeg configure source describes --enable-libx264 as H.264 encoding; the recipe does not disable the built-in H.264 decoder, so rebuild and fixture tests can verify playback parity without x264",
-    "The development recipe can include x264 and is not the release recipe; the release patch removes x264 while preserving H.264 decoding",
-    "The release recipe selects FFmpeg GPLv3 mode and OpenSSL 3, whose Apache-2.0 terms are compatible with GPLv3",
-    "The development archive contains the DLL and import library but not the native dependency sources, notices or reproducible source bundle",
-    "No embedded FFmpeg GPL configuration string was found; absence is not license evidence",
-    "Cargo metadata resolved 589 packages overall; the Windows-targeted riina dependency traversal reached 344 packages with no missing declared license fields; CI regenerates exact package notices from the release lockfile"
-  ],
-  "latest_candidate_failure": {
-    "run_id": 38179073584,
-    "commit": "039b156b2c4f86b91f0168c1de9dd71651d9be4c",
-    "stage": "package-verification",
-    "failure": "The generated PACKAGE-WINDOWS-IMPORTS.json was included in the engine-only RUNTIME-MANIFEST.tsv. The Linux verification job rewrote its line endings and correctly rejected the changed hash.",
-    "resolution": "Keep the runtime manifest scoped to the original engine files and source-backed native notices. The corrected extracted package passed native playback, package/source/license/hash verification, and publication in run 38180094023.",
-    "evidence": "https://github.com/deminden/riina/actions/runs/38179073584"
-  },
-  "historical_candidate_failures": [
-    {
-      "run_id": 38127346214,
-      "commit": "62adaae",
-      "failure": "curl/libsixel source bootstrap",
-      "resolution": "Source bootstrap was subsequently patched."
-    }
-  ],
-  "previous_application_notice_audit": {
-    "version": "0.2.11",
-    "external_dependency_count": 346,
-    "missing_notice_files": 0,
-    "cargo_lock_sha256": "edb5b5bd5f4a852243d668fb889ecb82442074c645d0453473af7dcf11ff216e",
-    "notice_manifest_sha256": "f2462592c8fa447aabd8d4c244e55ecfd3cec4d1a7d4204ba95a5853836748b8",
-    "evidence": "The application dependency collector passed its selected-license checks and collected notices. The native collector accepts Unicode-DFS-2016 and retains its notice; CI regenerates both notice sets from exact candidate sources."
-  },
-  "previous_windows_app_candidate_verification": {
-    "version": "0.2.11",
-    "build": "cargo build -p riina --release --locked --target x86_64-pc-windows-msvc with target-feature=+crt-static",
-    "result": "success",
-    "import_check": "All required PE imports are in the Windows 11 system set; no vcruntime/MSVC redistributable dependency",
-    "executable_sha256": "36d668af3b5bb51df704cab58785eec2368687f7f94f0364921f451d87312847",
-    "limits": [
-      "Local app link and import evidence only; release native engine and final package playback remain pending"
-    ]
-  },
-  "verified_candidate_run_id": 38472242460,
-  "candidate_in_flight": null,
-  "latest_native_engine_artifact": {
-    "run_id": 38138622911,
-    "artifact_id": 11705630709,
-    "artifact_sha256": "6e44bf0250959ca383a0b7a494b7c53b6fc1fbf4e6739c59a9fdbaad133d9613",
+  "release_engine": {
+    "reusable_release_tag": "v0.3.8",
+    "native_build_run_id": 38138622911,
+    "original_ci_artifact_expired": true,
     "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
-    "runtime_manifest_check": "passed locally; exact downloaded artifact"
+    "source_manifest_sha256": "5677324e64d7edc286dbd44dd0c3c44786ce87dd623c4debc8613fdaaa1ae92b",
+    "native_source_files_indexed": 101748,
+    "native_repositories_indexed": 88,
+    "restoration_verification": "Archive checksum, immutable release source, unchanged native contract, complete runtime hashes and source notices verified locally on 2026-10-19.",
+    "native_tests": {
+      "date": "2026-10-19",
+      "integration_passed": 51,
+      "library_passed": 2,
+      "audio_output": "null",
+      "scope": "Decode/command/lifecycle tests; not physical-display, audible-output or HDR certification."
+    }
   },
-  "verified_native_run_id": 38138622911,
   "published_release": {
-    "tag": "v0.3.0",
-    "title": "Riina 0.3.0",
-    "url": "https://github.com/deminden/riina/releases/tag/v0.3.0",
-    "published_at": "2026-10-11T22:39:29Z",
-    "workflow_run": "https://github.com/deminden/riina/actions/runs/38180094023",
-    "application_source_sha": "687b07540e7e4ca0555a5b4f39c91cef464075ee",
-    "native_engine_run_id": 38138622911,
-    "native_source_files_verified": 101748,
-    "native_repositories_verified": 88,
-    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "tag": "v0.3.8",
+    "title": "Riina 0.3.8",
+    "url": "https://github.com/deminden/riina/releases/tag/v0.3.8",
+    "published_at": "2026-10-15T20:42:16Z",
+    "application_source_sha": "f96dcbeb97c65af940f55d9eb0a8e330ab3e6fd6",
     "assets": {
-      "riina-0.3.0-windows-x86_64.zip": {
-        "size": 66973453,
-        "sha256": "a544af6e48fb2329627616a964df2b5fa440cd5943f962c44c8435fd0e51390d"
-      },
-      "riina-0.3.0-source.tar.zst": {
-        "size": 1598556419,
-        "sha256": "cb768a125f59b5db25fda19f7974c6bb0476d8a5a5d0e718090820c773b95dea"
-      },
       "RELEASE-VERIFICATION.json": {
-        "size": 424,
-        "sha256": "72dbcbd38dc956b0b95b2b92311c80bc1768cce8156f8e93184efaddda3388f6"
+        "size": 581,
+        "sha256": "eadc77f85aca6f5e423c6104295f9701bda3753912c5e652eaa80fdd0864e544"
+      },
+      "riina-0.3.8-windows-x86_64.zip": {
+        "size": 74168312,
+        "sha256": "7544b788270912d288a1b4e42d6c94765c61d6a52ca018b484fbfe53e07c7576"
       },
       "SHA256SUMS.txt": {
-        "size": 190,
-        "sha256": "48b8e51d9ac59df448516f869e6d85b6aad0648b093bc7ec24ec6388becda731"
-      },
-      "riina-0.3.0-source.tar.zst.sha256": {
-        "size": 93,
-        "sha256": "6696bdd47dc39eff07f5b70874a032804858ecb3588b744bf1dc6935bf853d1f"
+        "size": 98,
+        "sha256": "29e1faffb7994a8e0037aff477b587eddd795109c985f76f8006e028667ce6ec"
       }
     }
+  },
+  "historical_evidence": {
+    "path": "docs/history/native-distribution-audit-through-734a883.json",
+    "sha256": "1d69f0339d4fbc349247d150e5a2261bb8e2cf668faf44f3d813ee02d4443a7f",
+    "scope": "Prior development-engine investigations, failed candidates and original 0.3.0 distribution evidence; not current release state."
   }
 }

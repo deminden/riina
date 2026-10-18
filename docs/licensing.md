@@ -92,19 +92,19 @@ the release recipe; the development DLL remains development-only. CI must still
 build the candidate and verify its exact native inventory, notices, source access
 references and final portable package before publication.
 
-The first reproducible native inspection is recorded in
-[native-distribution-audit.json](native-distribution-audit.json). Run
+The first reproducible native inspection is preserved in the
+[historical audit](history/native-distribution-audit-through-734a883.json).
+The [current audit](native-distribution-audit.json) identifies the reusable release
+engine, latest recorded release and outstanding package checks. Run
 `python scripts/audit-native.py` on Windows to inspect the hash-pinned development
 DLL without loading media or user configuration. Its runtime configuration enables
 dvdnav and prefers static libraries. The exact producing workflow revision is
 `b2856ee6deed6957380b32465f359e67f67fafd8`; its FFmpeg recipe explicitly enables
 GPL, x264 and x265. The runtime FFmpeg revision resolves to
-`538d10d1878fb546c3a2645efa56119848f9ccfc`. A Windows-targeted Cargo metadata
-traversal reached 344 packages and found no missing declared license fields.
+`538d10d1878fb546c3a2645efa56119848f9ccfc`.
 Release CI regenerates notices against the exact lockfile and records native
 source access through captured public revisions and the build manifest. The
-remaining checks verify those exact candidate artifacts and their rebuild/playback
-results; they do not reopen the
+package checks verify each exact candidate and its playback results; they do not reopen the
 MIT source and GPLv3 package choice or the x264 exclusion.
 
 ## Windows release build
