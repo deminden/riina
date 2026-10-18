@@ -2,74 +2,121 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/branding/svg/riina-logo-horizontal-dark.svg">
-  <img src="assets/branding/svg/riina-logo-horizontal-light.svg" alt="Riina logo" width="420">
+  <img src="assets/branding/svg/riina-logo-horizontal-light.svg" alt="Riina" width="420">
 </picture>
 
-Riina is a Rust media player targeting the behavior and interface of official
-IINA v1.5.0. Windows 11 x64 is the supported platform. macOS and Linux ports
-are in development and are not yet supported releases.
+**An independent Rust media player bringing the IINA experience to Windows.**
+
+Riina follows the interface and behavior of **IINA 1.5.0**, with libmpv for
+playback and Slint for the interface. Windows 11 x64 is the supported platform;
+macOS and Linux application ports are in development.
 
 [![Latest release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/latest)
 
-The implementation uses Slint for the interface and libmpv for media
-playback. Windows video output uses D3D11; the shared OpenGL route is available
-with `--shared-gl`. The architecture keeps application behavior separate from
-platform-specific windowing and video output.
+[**Download for Windows**](https://github.com/deminden/riina/releases/latest) ·
+[What's working](docs/status.md) ·
+[Build from source](#build-from-source) ·
+[Documentation](docs/README.md)
 
-## Status
+## Watch, listen, adjust
 
-The application includes local and URL playback, playlists and history,
-audio/subtitle selection, video controls, screenshots, Quick Settings and
-Preferences, Music Mode, Picture in Picture and plugin workflows. Coverage and
-verification vary by feature and platform.
-Volume is limited to 100% by default; an optional setting allows up to 200%.
+- **Play files, folders and URLs.** Use playlists, chapters, playback history and
+  resume to pick up where you left off.
+- **Keep playback controls close.** Seek, change speed, repeat a section, or open
+  Quick Settings from the player. Music Mode and Picture in Picture provide
+  alternative ways to keep media playing.
+- **Choose your tracks.** Select audio and subtitles, load external tracks, adjust
+  timing, and change subtitle appearance.
+- **Tune the picture and sound.** Adjust aspect ratio, crop, rotation, video
+  filters and audio equalization. Capture screenshots and preview the timeline.
+- **Make it fit your workflow.** Configure shortcuts, sidebars and Preferences.
+  Volume defaults to 0–100%; an optional boost extends the range to 200%.
 
-Behavioral and visual parity with IINA v1.5.0 remain acceptance goals. Some
-IINA features, interface details, and platform behaviors are not implemented or
-verified yet. Current evidence and known gaps are listed in
-[project status](docs/status.md) and the [parity inventory](docs/parity.csv).
-HDR/color calibration, matched visual comparisons and broader window/DPI
-coverage remain open.
+Plugin support, online subtitles and online-media helpers are implemented, with
+compatibility and service coverage still in progress. See the
+[feature inventory](docs/parity.csv) and [plugin compatibility](docs/plugin-compatibility.csv)
+for individual requirements and limitations.
 
-The [latest GitHub Release](https://github.com/deminden/riina/releases/latest)
-contains the Windows portable binary. Its corresponding Riina source is available
-from the exact release tag; `SOURCE-MANIFEST.tsv` and `SOURCE-ACCESS.md` in the
-package identify the pinned native sources and rebuild instructions.
+## Download and run
 
-## Build on Windows
+1. Open the [latest release](https://github.com/deminden/riina/releases/latest).
+2. Download the **Windows x86_64 ZIP** from the release assets.
+3. Extract the whole archive to a folder, then run `riina.exe`.
+4. Open a media file through the player or drag it onto the window.
 
-Requirements: Windows 11 x64, Rust 1.99.0, MSVC C++ build tools, Windows SDK,
-and 7-Zip.
+Keep the executable beside the libraries and other files supplied in the archive.
+The portable package includes its playback engine; you do not need a separate mpv
+installation. Available formats depend on the bundled engine.
+
+The release page includes checksums, release notes and a verification report.
+GitHub's automatically generated source archives contain source code, not a
+ready-to-run application.
+
+## Where the project stands
+
+Riina is a working player under active development. Full IINA feature, behavior
+and visual parity remain the goal; they are not a claim of completion.
+
+| Platform | Availability |
+|---|---|
+| **Windows 11 x64** | Supported application and portable releases; native D3D11 video by default |
+| macOS | Application port in development; no supported release yet |
+| Linux | Application port in development; no supported release yet |
+| Other Windows versions and ARM64 | Not verified |
+
+Current work includes interface consistency, missing IINA behaviors, plugin
+compatibility and application ports. HDR/color validation, broader DPI and
+multi-monitor coverage, accessibility and localization still need work.
+
+[Current status](docs/status.md) summarizes evidence and known gaps. The
+[implementation plan](docs/implementation-plan.md) tracks the work order;
+[verification](docs/verification.md) records what was actually checked.
+
+## Build from source
+
+On Windows, install **Rust 1.99.0**, **MSVC C++ build tools**, the **Windows SDK**
+and **7-Zip**. The Rust toolchain and dependencies are pinned in the repository.
+
+From the repository root:
 
 ```powershell
-./scripts/fetch-reference.ps1
 ./scripts/fetch-mpv.ps1
 cargo build --workspace --locked
 cargo run -p riina --locked -- "C:\media\movie.mkv"
 ```
 
-See [Development](docs/development.md) for setup details, workspace-local tools,
-repository layout and release preparation.
+The setup script downloads the pinned development engine. To inspect the pinned
+IINA reference for compatibility work, also run `./scripts/fetch-reference.ps1`.
+The reference checkout is separate from the application and is not needed to run it.
 
-## Verification
+See [Development](docs/development.md) for workspace-local tool setup, architecture,
+checks and release packaging. See [Port development](docs/port-development.md) for
+macOS and Linux. The optional `--shared-gl` flag selects the shared SDR renderer.
 
-The [verification guide](docs/verification.md) lists check commands, native
-prerequisites, GUI procedures and revision-specific results. Automated workspace
-checks do not establish physical-display, audible-output or HDR correctness.
+## Help improve Riina
 
-## Documentation
+[Report a bug or request a feature](https://github.com/deminden/riina/issues).
+For a playback or interface problem, include the Riina version, Windows version,
+steps to reproduce and the expected result. Screenshots are useful for layout
+issues; check them for private information before sharing.
 
-- [Documentation index](docs/README.md)
-- [Current status](docs/status.md) and [implementation plan](docs/implementation-plan.md)
-- [Product contract](docs/product-spec.md) and [parity inventory](docs/parity.csv)
+Contributions are welcome. Start with the [development guide](docs/development.md)
+and [project instructions](AGENTS.md). Compatibility work targets the pinned
+IINA 1.5.0 baseline; behavior and visual comparisons should have reproducible evidence.
 
-## Contributors and licensing
+## License and credits
 
-Contributions are welcome. GitHub maintains the
-[contributor record](https://github.com/deminden/riina/graphs/contributors).
+Riina's independently written source is [MIT licensed](LICENSE). The combined
+application package is distributed under [GPLv3 terms](LICENSE-GPL-3.0.txt).
+Third-party components retain their own licenses and
+[notices](THIRD_PARTY_NOTICES.md).
 
-Riina's independently written source is licensed under [MIT](LICENSE). The
-combined application package is distributed under GPLv3; see
-[LICENSE-GPL-3.0.txt](LICENSE-GPL-3.0.txt) and the
-[distribution policy](docs/licensing.md). Third-party components retain their
-own licenses and [notices](THIRD_PARTY_NOTICES.md).
+Riina takes its compatibility baseline from IINA and uses libmpv for playback and
+[Slint](https://slint.dev) for its interface. It is an independent project.
+
+[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
+
+Each release identifies its application source through an immutable Git tag.
+The packaged `SOURCE-MANIFEST.tsv` and `SOURCE-ACCESS.md` identify native sources
+and rebuild instructions; `Cargo.lock` pins Rust dependencies. See
+[licensing](docs/licensing.md) and [source access](docs/SOURCE-ACCESS.md) for details.

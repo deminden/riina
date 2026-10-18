@@ -31,10 +31,10 @@ requests it.
 
 ### Contributor record
 
-The README links to GitHub's contributor graph, which is the maintained record
-of project contributors. Keep contributor documentation inclusive and account-
-based; never describe a single person as the sole developer or name automated
-coding tools as contributors.
+Keep contributor documentation inclusive and account-based. Do not add a
+contributors section or contributor-graph link to the README unless requested.
+Never describe a single person as the sole developer or name automated coding
+tools as contributors.
 
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
