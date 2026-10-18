@@ -6,6 +6,10 @@ explains the selection; it is not the latest verification report. See
 [ADR 0003](0003-native-presentation-boundary.md) for later menu/alpha/fullscreen
 invariants, including the one-scanline controls adjustment.
 
+The standalone `d3d11-probe` binary and its minimal overlay have been removed
+after the production player superseded them. Its dated evidence remains below.
+The current host UI is `crates/app/ui/native-video.slint`.
+
 The Windows application uses this route by default and accepts `--shared-gl` to
 select GL composition for diagnostics. `--native-video` remains an explicit alias.
 The 2026-10-11 black-overlay regression was caused by Slint 1.18.1 registering
@@ -65,7 +69,7 @@ timer alone is insufficient. Host move/resize/scale events reposition the contro
 The ordinary application uses the native D3D11 host on Windows. Non-Windows
 application ports continue using shared OpenGL behind the platform boundary.
 
-`d3d11-probe` requests `vo=gpu-next`, D3D11 API/context, `rgba16f`, and automatic
+The original `d3d11-probe` requested `vo=gpu-next`, D3D11 API/context, `rgba16f`, and automatic
 color-space hints. The pinned manual calls rgba16f a best-effort hint for gpu-next,
 so requested options alone are not evidence. Actual runtime logs report initial
 and hinted swap-chain configuration `R16G16B16A16_FLOAT`,

@@ -54,6 +54,13 @@ For macOS/Linux setup, see [port development](port-development.md).
 prerequisites, GUI procedure and the latest scoped results. Keep implementation
 and verification states separate in the requirement inventories.
 
+The read-only installed-font diagnostic remains available separately from the
+player. It reports counts and discovery timing without listing private font paths:
+
+```powershell
+cargo run -p riina --bin font-catalog-probe --locked
+```
+
 ## GUI sessions
 
 Use an isolated profile and a single short fixture. Confirm the filename,

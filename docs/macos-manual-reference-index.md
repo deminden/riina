@@ -55,7 +55,7 @@ surfaces.
 Use this set with the traceable requirements in `docs/parity.csv` and the pinned
 source tree at `reference/iina-upstream/`. The current source builds the top-level
 menu sequence and platform-specific shortcut hints in
-`crates/app/ui/player.slint` and `crates/app/ui/native-probe.slint`; the
+`crates/app/ui/player.slint` and `crates/app/ui/native-video.slint`; the
 `MENU-BAR-ORDER-001` requirement remains partial because the full live interaction,
 dynamic shortcut states, and matched macOS/Windows captures are still open.
 Compare the indexed states individually after the Riina playback window can be
