@@ -72,11 +72,17 @@ fn merge_changes(latest: &mut Value, previous: &Value, next: &Value) {
         (&mut *latest, previous, next)
     {
         for (key, value) in new {
-            merge_changes(
-                current.entry(key.clone()).or_insert(Value::Null),
-                old.get(key).unwrap_or(&Value::Null),
-                value,
-            );
+            match old.get(key) {
+                Some(previous) if previous == value => {}
+                Some(previous) => merge_changes(
+                    current.entry(key.clone()).or_insert(Value::Null),
+                    previous,
+                    value,
+                ),
+                None => {
+                    current.insert(key.clone(), value.clone());
+                }
+            }
         }
         for key in old.keys().filter(|key| !new.contains_key(*key)) {
             current.remove(key);
@@ -87,87 +93,5 @@ fn merge_changes(latest: &mut Value, previous: &Value, next: &Value) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    fn path(label: &str) -> PathBuf {
-        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        std::env::temp_dir().join(format!(
-            "riina-store-{}-{}-{label}/preferences.json",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        ))
-    }
-    #[test]
-    fn independent_writers_preserve_settings_and_can_return_to_initial_values() {
-        let path = path("interleave");
-        let initial = Preferences::default();
-        let settings = Writer::new(path.clone(), initial.clone());
-        let layout = Writer::new(path.clone(), initial.clone());
-        let session = Writer::new(path.clone(), initial.clone());
-        let mut changed = initial.clone();
-        changed.video_threads = 7;
-        changed.load_icc_profile = !initial.load_icc_profile;
-        settings.save(&changed).unwrap();
-        let mut resized = initial.clone();
-        resized.leading_sidebar_width += 30;
-        layout.save(&resized).unwrap();
-        session.save(&initial).unwrap();
-        let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved.video_threads, 7);
-        assert_eq!(saved.load_icc_profile, changed.load_icc_profile);
-        assert_eq!(saved.leading_sidebar_width, resized.leading_sidebar_width);
-        settings.save(&initial).unwrap();
-        let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved.video_threads, initial.video_threads);
-        assert_eq!(saved.leading_sidebar_width, resized.leading_sidebar_width);
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
-    }
-    #[test]
-    fn concurrent_players_merge_disjoint_changes() {
-        let path = path("concurrent");
-        let workers = (0..2)
-            .map(|index| {
-                let path = path.clone();
-                std::thread::spawn(move || {
-                    let initial = Preferences::default();
-                    let writer = Writer::new(path, initial.clone());
-                    let mut next = initial;
-                    if index == 0 {
-                        next.video_threads = 9;
-                    } else {
-                        next.volume = 42.0;
-                    }
-                    writer.save(&next).unwrap();
-                })
-            })
-            .collect::<Vec<_>>();
-        for worker in workers {
-            worker.join().unwrap();
-        }
-        let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved.video_threads, 9);
-        assert_eq!(saved.volume, 42.0);
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
-    }
-    #[test]
-    fn invalid_existing_file_is_preserved_and_failed_write_can_be_retried() {
-        let path = path("failure");
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(&path, "not json").unwrap();
-        let initial = Preferences::default();
-        let writer = Writer::new(path.clone(), initial.clone());
-        let mut next = initial;
-        next.video_threads = 3;
-        assert!(writer.save(&next).is_err());
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "not json");
-        std::fs::remove_file(&path).unwrap();
-        writer.save(&next).unwrap();
-        assert_eq!(
-            Preferences::parse(&std::fs::read_to_string(&path).unwrap())
-                .unwrap()
-                .video_threads,
-            3
-        );
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
-    }
-}
+#[path = "preference_store_tests.rs"]
+mod tests;

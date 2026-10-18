@@ -14,15 +14,23 @@ CHECKS = {
 
 
 def validate(report, executable, process_id, fixture):
+    if not isinstance(report, dict):
+        raise ValueError("Smoke report must be an object")
     if report.get("success") is not True:
         raise ValueError(f"Application smoke failed: {report.get('error')}")
-    if type(report.get("pid")) is not int or report["pid"] != process_id:
+    if "error" not in report or report["error"] is not None:
+        raise ValueError("Successful smoke report must have no error")
+    if (type(process_id) is not int or process_id <= 0
+            or type(report.get("pid")) is not int or report["pid"] != process_id):
         raise ValueError("Smoke report belongs to another process")
     actual = report.get("executable")
     if not isinstance(actual, str) or Path(actual).resolve() != Path(executable).resolve():
         raise ValueError("Smoke report does not identify the extracted executable")
-    if Path(fixture).name not in str(report.get("title", "")):
+    if report.get("title") != f"{Path(fixture).name} \u2014 riina":
         raise ValueError("Smoke did not open the selected isolated fixture")
+    elapsed = report.get("elapsed_ms")
+    if type(elapsed) is not int or not 0 < elapsed <= 40_000:
+        raise ValueError("Smoke report has no valid duration within its deadline")
     checks = report.get("checks")
     if not isinstance(checks, list) or any(not isinstance(c, str) for c in checks):
         raise ValueError("Smoke checks must be a list of names")

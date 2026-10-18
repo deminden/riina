@@ -1,5 +1,55 @@
 # Verification record · native Windows · 2026-10-09
 
+## Regression test improvements · 2026-10-18
+
+The tests now check interacting operations against explicit expected behavior:
+
+- Four independent child processes start behind a shared gate and perform 48
+  contended read/modify/write updates. The parent enforces a 15-second deadline
+  and owns cleanup of each child. This checks the file lock across processes,
+  rather than merely checking atomic replacement from two threads.
+- Three fixed seeds drive 288 stale-writer saves. An oracle assigns individual
+  typed fields and compares the entire saved preference object after each save.
+  Coverage includes nested siblings, no-op saves, returning to earlier values,
+  optional theme removal, history clearing, cancelled/invalid edits, and retrying
+  the identical candidate after Windows rejects an atomic replacement.
+- Nine command sequences cover 36,864 operations across queue capacities 1, 2
+  and 64. A FIFO model checks admission, explicit rejection, command order,
+  wake coalescing/rearming and final disconnection. A five-second outer deadline
+  also detects an accidentally blocking sender.
+- Thirty loopback HTTP scenarios cover five redirect statuses, three methods
+  and both request/download transports. The recorder checks actual methods,
+  paths, encoded bodies, credentials and framing headers. Additional cases cover
+  origin reentry after credential stripping, exactly ten redirects, non-redirect
+  statuses with a Location header, and invalid/oversized options before I/O.
+- The release smoke validator rejects each missing field/check, malformed roots,
+  contradictory success/error, invalid durations, misleading fixture-name
+  substrings, mismatched process identity, and unknown/duplicate checks. Tests
+  also run its actual command-line entry point with bounded subprocesses.
+
+The new merge cases exposed conflation of absent fields with explicit nulls and
+insertion of null for an unchanged field removed by another writer. The merge
+now distinguishes those cases. Regression tests live beside their owning modules
+in separate test files; no test dependency was added.
+
+An isolated Rust harness using the actual merge/queue functions and their tests
+passes normally and fails for each of four deliberate faults: whole-snapshot
+replacement, the old absent/null handling, silently accepting queue overflow,
+and leaving wake notifications armed after rejection. This is targeted test
+sensitivity evidence, not exhaustive mutation coverage. Harness inputs and logs
+remain untracked under `target/smarter-tests-sensitivity`.
+
+The final locked workspace run passes 596 tests. Its 56 ignored entries are 53
+native checks, two clipboard checks, and the child-process helper that the parent
+test explicitly runs four times. All 31 Python packaging/report tests pass.
+The cross-process scenario also passes eight consecutive repetitions. The locked
+workspace build, formatting, strict all-target Clippy and parity traceability
+check pass. The stricter smoke validator accepts the previously recorded real
+application report; no new GUI run is claimed here.
+The GUI runner and native engine behavior were not changed; this work does not
+replace the separately recorded native/GUI or physical-display verification.
+Check logs are under `target/smarter-tests-*`.
+
 ## Local baseline review fixes · 2026-10-18
 
 Baseline `d1ba5ae` is retained locally. The six review findings have implementations

@@ -2,6 +2,13 @@
 
 ## Application state
 
+Regression coverage now uses stale-writer and bounded-FIFO models, real
+cross-process preference contention, redirect method/body/header matrices, and
+negative command-line checks of release-smoke evidence. The locked workspace
+suite passes 596 tests and Python packaging/report checks pass 31 tests; targeted
+fault injection confirms four known regression classes are detected. See the
+dated [verification record](verification.md) for scope and remaining manual checks.
+
 The local baseline review findings are addressed without changing the pinned native
 engine. Preference writers now serialize field changes against the latest file
 under a cross-process sidecar lock; Layout and sidebar resizing update only their
