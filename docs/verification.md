@@ -2,12 +2,13 @@
 
 Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
-The latest records below are from Windows 11 x64 on 2026-10-18.
+The latest records below are from Windows 11 x64 on 2026-10-19.
 
 ## Latest evidence
 
 | Check | Revision | Result and limits |
 |---|---|---|
+| Network/font build and GUI | [Network/font identity](../tests/visual/windows-network-font-2026-10-19.json) | Build, formatting, strict Clippy and 600 workspace tests passed; continuous section/search routes and dark font-picker contrast/focus/Escape checked |
 | Build, formatting, strict Clippy, workspace/Python checks | [Subtitle and navigation identity](../tests/visual/windows-preferences-subtitles-2026-10-18.json) | Passed; 600 workspace tests, 56 ignored; 31 Python tests and navigation inventory |
 | General/Subtitles GUI follow-up | Subtitle and navigation identity | General repeat row and live section jumps, subtitle disclosures, search, provider layouts and independent ASS lanes inspected; saved lane values confirmed after normal exit |
 | Build, formatting, strict all-target Clippy and workspace tests | [Preferences row follow-up identity](../tests/visual/windows-preferences-rows-2026-10-18.json) | Passed; 600 workspace tests, 56 ignored; shortcut presentation/raw-binding regressions added |
@@ -43,8 +44,9 @@ remaining failures; its source hashes avoid referring to a future commit.
 The newer row follow-up records the additional fixes and its narrower GUI scope;
 earlier failures remain dated evidence rather than current claims.
 The subtitle/navigation record covers two settings builds and identifies which
-checks were repeated after the General-only follow-up. Font-picker contrast and
-Network scrolling remain current findings.
+checks were repeated after the General-only follow-up. The Network/font follow-up
+corrects those two findings; light font-picker appearance and material-policy
+transitions still need verification.
 Null audio and captured pixels do not establish audible output, physical display
 behavior or HDR. Both test processes exited; no Riina process remained.
 

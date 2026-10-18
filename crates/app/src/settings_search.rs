@@ -916,7 +916,7 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         });
     }
     if page == 5 {
-        window.set_selected_network_section(match section {
+        window.invoke_reveal_network_section(match section {
             "Network" => 1,
             "Online Videos (yt-dlp)" => 2,
             _ => 0,

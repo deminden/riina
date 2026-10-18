@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-18. Development version: **0.3.8**. Reference: **IINA v1.5.0**
+Updated 2026-10-19. Development version: **0.3.8**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -66,8 +66,10 @@ scrolling. Contrast, auxiliary width, Utilities row overlap, Advanced path/butto
 overlap and truncated shortcut labels are corrected. A numeric GUI edit survived
 normal exit. Subtitle overflow, disclosure spacing and General section jumps are
 also corrected. The repeat selector uses a separate row. Font-picker contrast,
-Network scrolling, theme coverage and matched comparisons remain open in the
-[visual ledger](visual-reference-audit.csv).
+theme coverage and matched comparisons remain open in the [visual ledger](visual-reference-audit.csv).
+The [Network/font follow-up](../tests/visual/windows-network-font-2026-10-19.json)
+also verifies continuous Network scrolling/search and readable dark font-picker
+contrast with initial keyboard focus and Escape cancellation.
 
 [Verification](verification.md) records the exact scope and older native/package
 evidence. HDR, other drivers and revised remote CI workflows still need evidence.

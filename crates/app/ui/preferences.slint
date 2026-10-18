@@ -1230,6 +1230,15 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-thumbnail-threshold: (interface-thumbnail-target + interface-pip-target) / 2;
     out property <length> interface-pip-threshold: (interface-pip-target + interface-accessibility-target) / 2;
     in-out property <int> selected-network-section: 0;
+    in-out property <length> network-scroll-position: 0px;
+    private property <length> network-connection-y: 588px;
+    private property <length> network-online-y: network-connection-y + 259px;
+    private property <length> network-content-height: max(network-online-y + 390px, root.height + network-online-y - 16px);
+    public function reveal-network-section(section: int) {
+        root.selected-network-section = section;
+        root.network-scroll-position = section == 1 ? 16px - network-connection-y : section == 2 ? 16px - network-online-y : 0px;
+    }
+
     in-out property <int> selected-audio-section: 0;
     in-out property <length> audio-scroll-position: 0px;
     private property <length> audio-volume-title-y: 340px;
@@ -1625,17 +1634,17 @@ export component PreferencesWindow inherits Window {
             activated => { root.reveal-subtitle-section(5); } }
         PreferenceNavItem { x: 10px; y: root.navigation-row-y(5); width: 180px; label: "Network";
             icon: @image-url("../../../assets/icons/network.svg");
-            selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.selected-network-section = 0; } }
+            selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.reveal-network-section(0); } }
         if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: #d3d3d7; }
         if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Cache";
             selected: root.selected-network-section == 0;
-            activated => { root.selected-pane = 5; root.selected-network-section = 0; } }
+            activated => { root.selected-pane = 5; root.reveal-network-section(0); } }
         if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 240px; width: 158px; label: "Network";
             selected: root.selected-network-section == 1;
-            activated => { root.selected-pane = 5; root.selected-network-section = 1; } }
+            activated => { root.selected-pane = 5; root.reveal-network-section(1); } }
         if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 264px; width: 158px; label: "Online Videos (yt-dlp)";
             selected: root.selected-network-section == 2;
-            activated => { root.selected-pane = 5; root.selected-network-section = 2; } }
+            activated => { root.selected-pane = 5; root.reveal-network-section(2); } }
         if root.selected-pane == 3 : Rectangle { x: 24px; y: 148px; width: 2px; height: 66px; background: #d3d3d7; }
         if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 144px; width: 158px; label: "Hardware";
             selected: root.selected-audio-section == 0;
@@ -2701,38 +2710,44 @@ export component PreferencesWindow inherits Window {
         }
         }
     }
-    if root.selected-pane == 5 : Rectangle {
+    if root.selected-pane == 5 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
+        content-height: root.network-content-height; content-width: self.visible-width;
+        content-y <=> root.network-scroll-position;
+        horizontal-scrollbar-policy: always-off;
+        changed content-y => {
+            if root.network-scroll-position > 16px - root.network-connection-y { root.selected-network-section = 0; }
+            else if root.network-scroll-position > 16px - root.network-online-y { root.selected-network-section = 1; }
+            else { root.selected-network-section = 2; }
+        }
+        Rectangle { width: parent.width; height: root.network-content-height;
         background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 28px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 28px; y: 54px; text: root.selected-network-section == 0 ? "Cache" : root.selected-network-section == 1 ? "Network" : "Online Videos (yt-dlp)"; font-size: 13px; font-weight: 600; color: #77777d; }
-        if root.selected-network-section == 0 : Rectangle {
-        Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 390px;
+        Text { x: 28px; y: 54px; text: "Cache"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 482px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             // Match the reference's compact rows; explanations stay with the control they qualify.
             Rectangle { x: 0; y: 0; width: parent.width; height: 40px; background: transparent;
-                Text { x: 12px; y: 0; width: 18px; height: parent.height; text: "▤"; font-size: 14px; color: #77777d; vertical-alignment: center; }
+                Image { x: 12px; y: 12px; width: 16px; height: 16px; source: @image-url("../../../assets/icons/playlist.svg"); colorize: #77777d; image-fit: contain; }
                 PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
                     label: "Prefetch and buffer network data";
                     checked <=> root.network-cache-enabled;
                     toggled => { root.settings-changed(); }
                 }
             }
-            Rectangle { x: 0; y: 40px; width: parent.width; height: 94px; background: transparent;
+            Rectangle { x: 0; y: 40px; width: parent.width; height: 120px; background: transparent;
                 border-width: 0px; border-color: #dedee2;
                 PreferenceSwitch { x: 44px; y: 0; width: parent.width - 58px; height: 26px;
                     label: "Buffer before starting playback";
                     enabled: root.network-cache-enabled;
                     checked <=> root.network-cache-pause-initial; toggled => { root.settings-changed(); }
                 }
-                Text { x: 44px; y: 26px; width: parent.width - 62px; height: 48px;
+                Text { x: 44px; y: 28px; width: parent.width - 62px; height: 80px;
                     text: "Enter buffering mode before playback starts. This can be useful to ensure playback starts smoothly, in exchange for waiting some time to prefetch and buffer network data.";
-                    font-size: 10px; color: #77777d; wrap: word-wrap;
+                    font-size: 11px; color: #77777d; wrap: word-wrap;
                 }
-                Text { x: 44px; y: 75px; width: parent.width - 62px; height: 16px;
-                    text: "Default: 1"; font-size: 10px; color: #77777d; vertical-alignment: center; }
             }
-            Rectangle { x: 0; y: 134px; width: parent.width; height: 64px; background: transparent;
+            Rectangle { x: 0; y: 160px; width: parent.width; height: 130px; background: transparent;
                 Text { x: 44px; y: 0; width: parent.width - 170px; height: 32px;
                     text: "Seconds to buffer before restarting"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
                 PreferenceNumericInput { label: "Seconds to buffer before restarting"; font-size: 12px; x: parent.width - 94px; y: 9px; width: 66px; height: 24px;
@@ -2740,12 +2755,14 @@ export component PreferencesWindow inherits Window {
                     text <=> root.network-cache-pause-wait-text;
                     accepted => { root.settings-changed(); }
                 }
-                Text { x: 44px; y: 32px; width: parent.width - 62px; height: 25px;
+                Text { x: 44px; y: 40px; width: parent.width - 62px; height: 64px;
                     text: "Number of seconds the cache should have buffered before starting playback again if buffering mode was entered. Increase this setting if playback quickly reenters buffering mode.";
-                    font-size: 10px; color: #77777d; wrap: word-wrap;
+                    font-size: 11px; color: #77777d; wrap: word-wrap;
                 }
+                Text { x: 44px; y: 108px; width: parent.width - 62px; height: 18px;
+                    text: "Default: 1"; font-size: 11px; color: #77777d; }
             }
-            Rectangle { x: 0; y: 198px; width: parent.width; height: 52px; background: transparent;
+            Rectangle { x: 0; y: 290px; width: parent.width; height: 56px; background: transparent;
                 Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
                     text: "Seconds to prefetch"; font-size: 12px; color: #252529; vertical-alignment: center; }
                 PreferenceNumericInput { label: "Seconds to prefetch"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
@@ -2754,9 +2771,9 @@ export component PreferencesWindow inherits Window {
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
-                    text: "Default: 36,000"; font-size: 10px; color: #77777d; vertical-alignment: center; }
+                    text: "Default: 36,000"; font-size: 11px; color: #77777d; vertical-alignment: center; }
             }
-            Rectangle { x: 0; y: 250px; width: parent.width; height: 52px; background: transparent;
+            Rectangle { x: 0; y: 346px; width: parent.width; height: 56px; background: transparent;
                 Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
                     text: "Cache buffer size (KiB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
                 PreferenceNumericInput { label: "Cache buffer size in KiB"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
@@ -2765,16 +2782,16 @@ export component PreferencesWindow inherits Window {
                     accepted => { root.settings-changed(); }
                 }
                 Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
-                    text: "Default: 153,600"; font-size: 10px; color: #77777d; vertical-alignment: center; }
+                    text: "Default: 153,600"; font-size: 11px; color: #77777d; vertical-alignment: center; }
             }
-            Rectangle { x: 0; y: 302px; width: parent.width; height: 40px; background: transparent;
+            Rectangle { x: 0; y: 402px; width: parent.width; height: 40px; background: transparent;
                 PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
                     label: "Show throbber when buffering";
                     checked <=> root.network-show-buffering-throbber;
                     toggled => { root.settings-changed(); }
                 }
             }
-            Rectangle { x: 0; y: 342px; width: parent.width; height: 40px; background: transparent;
+            Rectangle { x: 0; y: 442px; width: parent.width; height: 40px; background: transparent;
                 PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
                     label: "Show throbber when seeking";
                     checked <=> root.network-show-seeking-throbber;
@@ -2782,16 +2799,15 @@ export component PreferencesWindow inherits Window {
                 }
             }
         }
-        }
-        if root.selected-network-section == 1 : Rectangle {
-            x: 20px; y: 80px; width: parent.width - 40px; height: 205px;
+        Text { x: 28px; y: root.network-connection-y; text: "Network"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Rectangle {
+            x: 20px; y: root.network-connection-y + 26px; width: parent.width - 40px; height: 205px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            Text { x: 12px; y: 8px; text: "Network"; font-size: 13px; font-weight: 600; color: #252529; }
             Text { x: 12px; y: 44px; width: 94px; height: 24px; text: "User agent";
                 font-size: 12px; color: #252529; vertical-alignment: center; }
             Rectangle { x: 108px; y: 44px; width: parent.width - 122px; height: 24px;
-                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
+                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
                     text <=> root.network-user-agent; font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
@@ -2799,15 +2815,15 @@ export component PreferencesWindow inherits Window {
             Text { x: 12px; y: 82px; width: 94px; height: 24px; text: "HTTP proxy";
                 font-size: 12px; color: #252529; vertical-alignment: center; }
             Rectangle { x: 108px; y: 82px; width: parent.width - 122px; height: 24px;
-                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
+                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
                     text <=> root.network-http-proxy; font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
                 }
             }
             Text { x: 108px; y: 108px; width: parent.width - 122px; height: 30px;
                 text: "Enter a proxy URL, such as http://proxy.example:8080.";
-                font-size: 10px; color: #77777d; wrap: word-wrap; }
+                font-size: 11px; color: #77777d; wrap: word-wrap; }
             Text { x: 12px; y: 146px; width: 94px; height: 24px; text: "RTSP transport";
                 font-size: 12px; color: #252529; vertical-alignment: center; }
             ComboBox { x: 108px; y: 146px; width: parent.width - 122px; height: 25px;
@@ -2817,12 +2833,10 @@ export component PreferencesWindow inherits Window {
             }
             Text { x: 108px; y: 177px; width: parent.width - 122px; height: 16px;
                 text: "Changes take effect after restarting riina.";
-                font-size: 10px; color: #77777d; vertical-alignment: center; }
+                font-size: 11px; color: #77777d; vertical-alignment: center; }
         }
-        if root.selected-network-section == 2 : Rectangle {
-            x: 0; y: 0; width: parent.width; height: parent.height;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-            Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 78px;
+        Text { x: 28px; y: root.network-online-y; text: "Online Videos (yt-dlp)"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: root.network-online-y + 26px; width: parent.width - 40px; height: 90px;
                 border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
                 Image { x: 12px; y: 14px; width: 18px; height: 18px;
                     source: @image-url("../../../assets/icons/plugins.svg"); image-fit: contain; }
@@ -2830,9 +2844,9 @@ export component PreferencesWindow inherits Window {
                     text: root.network-ytdl-plugin-active ? "The Online Media plugin is enabled" : "The Online Media plugin is recommended"; font-size: 12px; font-weight: 600; color: #252529; }
                 Text { x: 42px; y: 34px; width: parent.width - 58px; height: 40px;
                     text: root.network-ytdl-plugin-active ? "The plugin adds quality selection and video downloads. mpv's built-in extractor is disabled while the plugin is enabled." : "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor.";
-                    font-size: 10px; color: #77777d; wrap: word-wrap; }
+                    font-size: 11px; color: #77777d; wrap: word-wrap; }
             }
-            Rectangle { x: 20px; y: 170px; width: parent.width - 40px; height: 220px;
+            Rectangle { x: 20px; y: root.network-online-y + 126px; width: parent.width - 40px; height: 220px;
                 border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
                 PreferenceSwitch { x: 12px; y: 6px; width: parent.width - 24px;
                     label: "Enable mpv's youtube-dl script";
@@ -2843,8 +2857,8 @@ export component PreferencesWindow inherits Window {
                 Text { x: 12px; y: 43px; width: parent.width - 24px; height: 32px;
                     text: "Custom youtube-dl path"; font-size: 12px; color: #252529; }
                 Rectangle { x: 12px; y: 63px; width: parent.width - 24px; height: 24px;
-                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
-                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
+                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
                         text <=> root.network-ytdl-search-path; font-size: 11px; color: #222222;
                         enabled: root.network-ytdl-enabled && !root.network-ytdl-plugin-active;
                         accepted => { root.settings-changed(); }
@@ -2852,12 +2866,12 @@ export component PreferencesWindow inherits Window {
                 }
                 Text { x: 12px; y: 90px; width: parent.width - 24px; height: 24px;
                     text: "Search this folder at startup. Restart required.";
-                    font-size: 10px; color: #77777d; }
+                    font-size: 11px; color: #77777d; }
                 Text { x: 12px; y: 119px; width: parent.width - 24px; height: 22px;
                     text: "Raw options"; font-size: 12px; color: #252529; }
                 Rectangle { x: 12px; y: 141px; width: parent.width - 24px; height: 24px;
-                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff;
-                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
+                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
                         text <=> root.network-ytdl-raw-options; font-size: 11px; color: #222222;
                         enabled: root.network-ytdl-enabled && !root.network-ytdl-plugin-active;
                         accepted => { root.settings-changed(); }
@@ -2865,7 +2879,7 @@ export component PreferencesWindow inherits Window {
                 }
                 Text { x: 12px; y: 168px; width: parent.width - 24px; height: 28px;
                     text: "Format: <key>=<value>[,<key>=<value>[,…]]";
-                    font-size: 10px; color: #77777d; }
+                    font-size: 11px; color: #77777d; }
             }
         }
     }

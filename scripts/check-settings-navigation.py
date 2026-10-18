@@ -100,6 +100,28 @@ def main():
         'root.remove-subtitle-language-token(index);',
     )), "Subtitle layout changes must retain lane, font and language actions"
 
+    network_page = re.search(
+        r"if root\.selected-pane == 5\s*:\s*ScrollView\s*\{(.*?)"
+        r"(?=\n\s*if root\.selected-pane == 6\s*:)", SOURCE, re.DOTALL,
+    )
+    assert network_page, "Network must remain one scrollable page"
+    network_body = network_page.group(1)
+    assert "if root.selected-network-section" not in network_body, (
+        "Network navigation must reveal sections rather than hide adjacent settings"
+    )
+    assert all(f"root.reveal-network-section({index})" in SOURCE for index in range(3)), (
+        "Every Network subsection needs a reveal route"
+    )
+    assert "window.invoke_reveal_network_section" in SEARCH_SOURCE, (
+        "Network search must use the same reveal route as navigation"
+    )
+    assert all(token in network_body for token in (
+        "content-y <=> root.network-scroll-position", "content-height: root.network-content-height",
+        "height: root.network-content-height", "root.network-connection-y + 26px",
+        "root.network-online-y + 126px", "root.network-ytdl-enabled && !root.network-ytdl-plugin-active",
+        "root.network-ytdl-enabled = root.network-ytdl-ui-enabled",
+    )), "Network must preserve continuous extent, section geometry and extractor ownership rules"
+
     interface_sections = re.findall(
         r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
         r'[^{}]*selected:\s*root\.selected-interface-section\s*==\s*(\d+);',
