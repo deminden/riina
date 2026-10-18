@@ -1,6 +1,8 @@
 # macOS Picture-in-Picture surface
 
-Status: unresolved; a native macOS PiP implementation is still required.
+Status: implementation experiment present; full Mac application build and
+visible PiP/lifecycle verification are still required. This is not a supported
+runtime path.
 
 ## Reference behavior
 

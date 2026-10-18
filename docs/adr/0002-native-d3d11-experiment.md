@@ -1,7 +1,10 @@
 # Native D3D11 Windows presentation
 
-Status: default Windows presentation path; color calibration, broader display
-coverage and full parity validation remain open.
+Status: accepted default Windows presentation path. The dated evidence below
+explains the selection; it is not the latest verification report. See
+[Verification](../verification.md) for current results and
+[ADR 0003](0003-native-presentation-boundary.md) for later menu/alpha/fullscreen
+invariants, including the one-scanline controls adjustment.
 
 The Windows application uses this route by default and accepts `--shared-gl` to
 select GL composition for diagnostics. `--native-video` remains an explicit alias.
@@ -23,7 +26,7 @@ This route uses the shared
 player UI, not the probe toolbar. `player_ui.rs` configures the same controls,
 catalogs, command senders and coalesced state updates for both renderers.
 `native_window.rs` owns the host/popup relationship and fullscreen focus routing.
-The popup fills the host client area; its transparent video area accepts the
+In windowed mode the popup fills the host client area; its transparent video area accepts the
 player's mouse/keyboard interactions, so invisible regions need no separate
 hit-test region. Host resize/move/DPI events align both physical size and position.
 Startup awaits both HWNDs before sizing the popup. UI callbacks retain senders,
@@ -43,14 +46,15 @@ Escape, Tab/Enter toolbar navigation, Stop, Ctrl+O after Stop, SDR recreation an
 focused-overlay shutdown were exercised. Initial fullscreen focus loss, sizing
 before popup realization and shortcut loss after removing a focused OSC were
 found and corrected. Narrow-window dragging did not produce an observed resize;
-that check remains pending. Translucency is observed, but sampled-video blur,
-calibrated color, full DPI/ownership coverage and exact macOS UI matching remain
-open. This renderer selection does not imply full interface or feature parity.
+that check remained pending in that run. Translucency was observed; later
+material implementation and current gaps are described in
+[platform differences](../platform-differences.md). Calibrated color, broad
+DPI/ownership coverage and exact macOS matching remain open. This renderer selection does not imply full interface or feature parity.
 
 The pinned mpv render API supplies OpenGL/software, not a D3D11 texture API.
 Its `display-swapchain` property is available in composition mode; native HWND
 output does not expose that pointer. Borrowing an unretained foreign COM pointer
-across GUI/VO threads would require a proven lifetime contract. This experiment
+across GUI/VO threads would require a proven lifetime contract. This route
 instead supplies a live host HWND to mpv and retains the player until before host
 closure. mpv owns its child video window and native D3D11 presentation.
 
@@ -68,7 +72,7 @@ and hinted swap-chain configuration `R16G16B16A16_FLOAT`,
 `RGB_FULL_G10_NONE_P709`. The output query reports DISPLAY1 at 3840×2160,
 10 bits, `RGB_FULL_G22_NONE_P709`: an SDR desktop during this test.
 
-Computer Use verified native video, seek and play controls, Unicode text input,
+The original desktop check exercised native video, seek and play controls, Unicode text input,
 fullscreen/restoration, maximize/resize and shutdown. Saved captures and selected
 engine log lines are in `tests/visual/d3d11-probe-evidence.json`. Captures are
 ordinary desktop images, not HDR measurements or upstream visual goldens.
@@ -77,7 +81,7 @@ related-window entries in the capture service. Indexed button targeting was
 inconsistent; coordinate targeting verified the actual overlay controls.
 
 The final optimized probe reports scale 3 and a 2880×1800 physical client for
-its 960×600 logical host. Sky supplies normalized logical captures. Earlier
+its 960×600 logical host. The capture service supplied normalized logical images. Earlier
 capture-manifest values of scale 1 were not measured DPI; those values are now
 unknown with an explanatory note. This one measured scale does not pass the
 required DPI/mixed-monitor matrix.
@@ -97,14 +101,18 @@ finite number or failing playback. A unit regression covers that case. Source
 parameters can also initially contain only container dimensions; missing color
 metadata stays optional until an effective decoded frame is reported.
 
-Remaining gates: color transforms, calibration and consistent SDR UI luminance;
+Gates recorded by the original experiment: color transforms, calibration and consistent SDR UI luminance;
 compressed HDR/hardware decoder evidence; calibrated HDR display evidence;
 mixed-monitor DPI/ownership/minimize/activation, clipping at narrow widths,
 sidebars/menus, keyboard routing outside controls, taskbar/Alt-Tab behavior,
 load-failure/rapid-replacement lifecycle, performance and hardware-decoder interop.
-The assistant did not change Windows HDR settings; the user enabled HDR for the
-second run. Alt+F4 initially hid only the focused overlay; the probe now closes
+The user enabled Windows HDR for the second run. Alt+F4 initially hid only the focused overlay; the probe now closes
 the complete player from either window. Native scRGB is the active Windows
 presentation route while source-matched controls, sidebars, clipping, output
 calibration and broader display coverage are validated. The general HDR parity
 requirement remains open.
+
+Later fixes and current gaps are tracked in [status](../status.md),
+[platform differences](../platform-differences.md) and
+[verification](../verification.md); the original experiment is not a current
+task checklist.

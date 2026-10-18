@@ -11,35 +11,30 @@ are in development and are not yet supported releases.
 
 [![Latest release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/latest)
 
-The current implementation uses Slint for the interface and libmpv for media
+The implementation uses Slint for the interface and libmpv for media
 playback. Windows video output uses D3D11; the shared OpenGL route is available
 with `--shared-gl`. The architecture keeps application behavior separate from
 platform-specific windowing and video output.
 
 ## Status
 
-The application supports local media playback, file selection, play/pause,
-stop, seeking, volume and mute, playback speed, frame stepping, fullscreen,
-chapters, playlists, audio and subtitle track selection, subtitle timing,
-video aspect and transform controls, screenshots, and General preferences.
+The application includes local and URL playback, playlists and history,
+audio/subtitle selection, video controls, screenshots, Quick Settings and
+Preferences, Music Mode, Picture in Picture and plugin workflows. Coverage and
+verification vary by feature and platform.
 Volume is limited to 100% by default; an optional setting allows up to 200%.
 
 Behavioral and visual parity with IINA v1.5.0 remain acceptance goals. Some
 IINA features, interface details, and platform behaviors are not implemented or
 verified yet. Current evidence and known gaps are listed in
 [project status](docs/status.md) and the [parity inventory](docs/parity.csv).
-HDR color calibration, video blur, and full window and DPI coverage remain
-unverified.
+HDR/color calibration, matched visual comparisons and broader window/DPI
+coverage remain open.
 
 The [latest GitHub Release](https://github.com/deminden/riina/releases/latest)
 contains the Windows portable binary. Its corresponding Riina source is available
 from the exact release tag; `SOURCE-MANIFEST.tsv` and `SOURCE-ACCESS.md` in the
 package identify the pinned native sources and rebuild instructions.
-
-## Contributors
-
-Contributions are welcome. GitHub maintains the current list on the
-[contributors graph](https://github.com/deminden/riina/graphs/contributors).
 
 ## Build on Windows
 
@@ -53,36 +48,28 @@ cargo build --workspace --locked
 cargo run -p riina --locked -- "C:\media\movie.mkv"
 ```
 
-The development build uses the pinned local libmpv files. `./scripts/dev.ps1`
-also supports workspace-local tools prepared during development.
+See [Development](docs/development.md) for setup details, workspace-local tools,
+repository layout and release preparation.
 
 ## Verification
 
-Run the Rust checks from the repository root:
+The [verification guide](docs/verification.md) lists check commands, native
+prerequisites, GUI procedures and revision-specific results. Automated workspace
+checks do not establish physical-display, audible-output or HDR correctness.
 
-```powershell
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-```
+## Documentation
 
-Native playback tests require the pinned Windows libmpv bundle. GUI and HDR
-behavior must be tested on the corresponding desktop hardware; automated
-workspace checks do not establish those results.
+- [Documentation index](docs/README.md)
+- [Current status](docs/status.md) and [implementation plan](docs/implementation-plan.md)
+- [Product contract](docs/product-spec.md) and [parity inventory](docs/parity.csv)
 
-## Project references
+## Contributors and licensing
 
-- [Product specification](docs/product-spec.md)
-- [Parity inventory](docs/parity.csv)
-- [Visual specification](docs/visual-spec.md)
-- [Brand usage and asset notices](assets/branding/BRAND_GUIDE.md)
-- [Port development](docs/port-development.md)
-- [Upstream behavior audit](docs/upstream-audit.md)
-- [Third-party notices](THIRD_PARTY_NOTICES.md)
-- [Native D3D11 presentation record](docs/adr/0002-native-d3d11-experiment.md)
+Contributions are welcome. GitHub maintains the
+[contributor record](https://github.com/deminden/riina/graphs/contributors).
 
 Riina's independently written source is licensed under [MIT](LICENSE). The
 combined application package is distributed under GPLv3; see
 [LICENSE-GPL-3.0.txt](LICENSE-GPL-3.0.txt) and the
 [distribution policy](docs/licensing.md). Third-party components retain their
-own licenses and notices.
+own licenses and [notices](THIRD_PARTY_NOTICES.md).

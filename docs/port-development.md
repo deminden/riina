@@ -12,8 +12,10 @@ cargo run -p riina --locked -- /absolute/path/to/media.mkv
 
 The shared GL route requires an OpenGL-capable desktop session and libmpv client
 API 2.5 or a compatible newer 2.x. Building does not require libmpv to be installed
-because it is loaded at runtime. Ubuntu GUI build prerequisites are recorded in
-`.github/workflows/application-ports.yml`. Linux file selection needs an available
+because it is loaded at runtime. CI setup is recorded in
+`.github/workflows/application-ports.yml`; Linux WebView compilation also requires
+GTK 3, WebKitGTK 4.1 and `pkg-config`. The current plugin child-WebView adapter
+supports X11, not Wayland embedding. Linux file selection needs an available
 XDG Desktop Portal backend; the dialog dependency supports X11 and Wayland parents.
 
 Library discovery uses `libmpv.so.2` on Linux and `libmpv.2.dylib` on macOS. A
@@ -27,15 +29,12 @@ Linux `$XDG_CONFIG_HOME/riina/preferences.json` (normally
 `~/.config/riina/preferences.json`). Volume stays capped at 100% unless the user
 enables the shared 200% option. Windows retains its own preferences location.
 
-Native surface materials are a port requirement. macOS follows IINA with Liquid
-Glass. Windows 11 uses Mica for the long-lived window backdrop and Acrylic for
-transient surfaces, while playback overlays keep the video as their visual
-backdrop through in-app Acrylic or a renderer-specific video composite. Linux
-uses compositor-provided materials when supported. Keep each port's labels and
-fallbacks platform-specific; currently the shared switches only adjust RGBA
-tint/opacity, so native material implementation and runtime verification remain
-open. See [the visual specification](visual-spec.md) and
-[platform differences](platform-differences.md).
+Native surface materials are a port requirement: Liquid Glass on macOS and
+available compositor materials or a documented fallback on Linux. Windows has
+implemented Mica/Acrylic and sampled-video paths. Native material acceptance
+on the ports remains open. See [visual rules](visual-spec.md#platform-materials-and-artwork)
+and [platform boundaries](platform-differences.md#rendering-and-materials) for
+implementation and runtime gaps.
 
 Validate first-frame rendering, play/pause, seek, stop/reopen, each picker purpose,
 cancel/reopen, external tracks, fullscreen/Escape, resize/DPI, owned-dialog close

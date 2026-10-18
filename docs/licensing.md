@@ -66,10 +66,10 @@ References: [webpki-roots](https://github.com/rustls/webpki-roots),
 [CDLA-Permissive-2.0](https://cdla.dev/permissive-2-0/), and
 [CCADB Data Usage Terms](https://www.ccadb.org/rootstores/usage).
 
-Slint itself has not been relicensed. Its royalty-free license permits desktop
-applications with attribution. The public README displays the official badge
-from the pinned v1.18.1 resource. This avoids selecting Slint's GPL option for
-the Windows application. Future download pages must retain compliant attribution.
+Slint itself has not been relicensed. Its selected royalty-free license permits
+desktop applications with attribution; this does not select Slint's GPL option.
+Project and download pages must retain the attribution required by the pinned
+license, alongside the packaged notices.
 
 The GPLv3 package route is the settled release choice. The pinned development
 libmpv build is kept separate from release packaging. Its producing recipe enables
@@ -101,16 +101,18 @@ dvdnav and prefers static libraries. The exact producing workflow revision is
 GPL, x264 and x265. The runtime FFmpeg revision resolves to
 `538d10d1878fb546c3a2645efa56119848f9ccfc`. A Windows-targeted Cargo metadata
 traversal reached 344 packages and found no missing declared license fields.
-Release CI regenerates notices against the exact lockfile and packages native
-sources from captured revisions. The remaining checks verify those exact
-candidate artifacts and their rebuild/playback results; they do not reopen the
+Release CI regenerates notices against the exact lockfile and records native
+source access through captured public revisions and the build manifest. The
+remaining checks verify those exact candidate artifacts and their rebuild/playback
+results; they do not reopen the
 MIT source and GPLv3 package choice or the x264 exclusion.
 
 ## Windows release build
 
-The release workflow does not use that development DLL. It rebuilds the engine from
-the pinned builder revision, removes the optional x264 encoder dependency and
-configuration flag, retains FFmpeg's built-in H.264 decoder, and verifies the
+The release workflow uses a separate engine built from the pinned builder
+revision, or a verified matching artifact from an earlier run. Its recipe removes
+the optional x264 encoder dependency and configuration flag, retains FFmpeg's
+built-in H.264 decoder, and verifies the
 OpenSSL 3 source revision and Apache-2.0 license used by the GPLv3 build. The native
 build records public repository URLs and immutable revisions for each fetched
 source, plus SHA-256 hashes for used files and symlink targets. It retains required
@@ -118,10 +120,11 @@ native license notices in the package. Native and vendored Rust source trees are
 not duplicated into release assets: `SOURCE-MANIFEST.tsv` and the release-tagged
 build recipe provide retrieval instructions, while Cargo.lock pins Rust crate
 sources and checksums.
-The release job runs the complete native test suite and a playback test against the
-engine extracted from the final portable ZIP. GitHub only publishes the assets when
-those checks and the source-access audit succeed. These tests do not certify GUI,
-HDR display, or pixel parity.
+The release job runs the native suite, extracted-engine playback test and actual
+extracted-application smoke, including shutdown and persisted settings. GitHub
+only publishes the assets when those checks and the source-access audit succeed.
+Automated smoke does not certify physical-display pixels, audible output, HDR
+calibration or IINA visual parity.
 
 Before loading the downloaded engine, release packaging verifies every file against
 its runtime hash manifest, validates the native source index and packaged notices,

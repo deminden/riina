@@ -1,31 +1,29 @@
-# 0001 · OpenGL SDR feasibility path (provisional)
+# 0001 - OpenGL SDR feasibility path
 
-Original spike: Rust 1.90.0; Slint/slint-build 1.13.1; glow 0.16.0; libloading 0.8.9;
-windows 0.61.3; development libmpv mpv-winbuild-cmake 20261009 / mpv 36abaa32d0.
+**Status:** historical feasibility decision. Superseded for default Windows
+presentation by [ADR 0002](0002-native-d3d11-experiment.md). Shared OpenGL remains
+the SDR application-port path in [ADR 0004](0004-shared-gl-application-ports.md).
 
-Use the documented libmpv OpenGL render API to draw into a GPU RGBA8 FBO and expose
-its texture through Slint's BorrowedOpenGLTextureBuilder. UI draws controls in the same
-window above the Image. No per-frame CPU readback. Event worker owns the mpv handle;
-only render APIs run in Slint's current GL context. Update callbacks marshal wakeups;
-they do not call mpv or GL. Render context dies before the worker/player.
+## Original experiment
 
-Selected dependency docs/source: Slint v1.13.1 examples/opengl_texture/main.rs;
-the downloaded crate features; pinned IINA mpv client.h/render.h/render_gl.h.
-Borrowed texture is valid only in the creating context and remains alive until teardown.
+The first spike used Rust 1.90.0, Slint/slint-build 1.13.1, glow 0.16.0,
+libloading 0.8.9 and windows 0.61.3, with development mpv commit
+`36abaa32d00a7229ee206aae12dc0e97e7962dca`. These are historical versions;
+`Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml` identify current dependencies.
 
-This is not yet the production renderer decision. This RGBA8 GL surface is SDR.
-The native gpu-next/D3D11 candidate now has an opt-in shared-UI route and observed
-HDR swap-chain/lifecycle evidence in ADR 0002. Blur, color accuracy, WebView2 and
-full window/DPI coverage remain open before selecting a production direction.
-A child HWND alone is insufficient evidence.
+The libmpv OpenGL render API writes a GPU RGBA8 framebuffer and exposes its texture
+through Slint's borrowed-texture interface. Controls share the window above video;
+ordinary playback does not read each frame back to the CPU.
 
-Measurements/runtime evidence belong in status.md. No performance numbers are invented.
+## Invariants retained
 
-Pinned native-engine source acquired separately at mpv
-`36abaa32d00a7229ee206aae12dc0e97e7962dca`; it does not alter the IINA baseline.
-Its DOCS/man/options.rst documents d3d11-output-mode=composition as creating a
-swapchain without a window, exposed by display-swapchain for host attachment.
-Therefore a bare composition option is not an embedding implementation. With
-gpu-next, rgba16f requests scRGB as a best-effort hint; libplacebo chooses the actual
-format. Native HWND/DComp attachment and observed output format remain unimplemented
-and unverified. Production direction remains provisional.
+- The event worker owns the player handle. GL calls use the creating context.
+- Borrowed textures remain alive for their complete use in that context.
+- Update callbacks marshal wakeups and do not reenter mpv or GL.
+- Render resources are released before the player worker.
+- RGBA8 composition is SDR. Decoding HDR does not prove HDR presentation.
+- mpv's native D3D11 output is distinct from its OpenGL/software render API.
+
+The production Windows route supplies a retained native host to mpv; it does not
+borrow an unowned swap-chain pointer. Current ownership and fullscreen composition
+requirements are in [ADR 0003](0003-native-presentation-boundary.md).
