@@ -21,14 +21,15 @@ use windows::{
             Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
-                GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuStringW, GetSubMenu,
-                IsWindow, MF_BYPOSITION, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
+                DrawMenuBar, GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuStringW,
+                GetSubMenu, HMENU, IsWindow, MENUITEMINFOW, MF_BYPOSITION, MIIM_STRING,
+                PostMessageW, RegisterWindowMessageW, SC_KEYMENU, SetMenu, SetMenuItemInfoW,
                 WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_INITMENU, WM_INITMENUPOPUP,
-                WM_KEYDOWN, WM_KEYUP, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
+                WM_KEYDOWN, WM_KEYUP, WM_SETREDRAW, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
-    core::w,
+    core::{PWSTR, w},
 };
 
 struct MenuContext {
@@ -37,7 +38,7 @@ struct MenuContext {
     generation: Cell<usize>,
     enter_message: u32,
     restore_message: u32,
-    plugin_menu: isize,
+    detached_menu: Cell<Option<HMENU>>,
 }
 
 pub(super) struct MenuFocus {
@@ -67,7 +68,7 @@ impl MenuFocus {
             generation: Cell::new(0),
             enter_message,
             restore_message,
-            plugin_menu: plugin_menu_handle(hwnd),
+            detached_menu: Cell::new(None),
         });
         let pointer = (&*context as *const MenuContext) as usize;
         // SAFETY: the owning UI thread installs/removes this stable box.
@@ -79,11 +80,62 @@ impl MenuFocus {
             context: Some(context),
         })
     }
+
+    pub(super) fn set_visible(&self, visible: bool) -> Result<(), String> {
+        let Some(context) = self.context.as_ref() else {
+            return Ok(());
+        };
+        if visible {
+            if let Some(menu) = context.detached_menu.get() {
+                // Muda retains ownership of the stable root HMENU while detached.
+                unsafe { SetMenu(self.hwnd, Some(menu)) }.map_err(|error| error.to_string())?;
+                context.detached_menu.set(None);
+            } else {
+                return Ok(());
+            }
+        } else {
+            let menu = unsafe { GetMenu(self.hwnd) };
+            if menu.0.is_null() {
+                return Ok(());
+            }
+            unsafe { SetMenu(self.hwnd, None) }.map_err(|error| error.to_string())?;
+            context.detached_menu.set(Some(menu));
+        }
+        // Recalculate the non-client strip once, without removing/reinserting
+        // every menu entry or replacing the host's underlying menu object.
+        unsafe { DrawMenuBar(self.hwnd) }.map_err(|error| error.to_string())
+    }
+}
+
+fn update_volume_label(menu: HMENU, label: &str) -> windows::core::Result<()> {
+    // This disabled informational row is refreshed just before its submenu
+    // paints. Feeding each slider tick into Slint would rebuild the whole bar
+    // and repeatedly change the native video client's height.
+    let count = unsafe { GetMenuItemCount(Some(menu)) };
+    for index in 0..count {
+        let mut title = [0_u16; 128];
+        let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
+        if length > 0 && String::from_utf16_lossy(&title[..length as usize]).starts_with("Volume:")
+        {
+            let mut label: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
+            let info = MENUITEMINFOW {
+                cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
+                fMask: MIIM_STRING,
+                dwTypeData: PWSTR(label.as_mut_ptr()),
+                ..Default::default()
+            };
+            // SAFETY: Windows copies this UTF-16 string during the call; the
+            // live submenu and all command IDs/checked states remain unchanged.
+            unsafe { SetMenuItemInfoW(menu, index as u32, true, &info) }?;
+            break;
+        }
+    }
+    Ok(())
 }
 
 fn plugin_menu_handle(hwnd: HWND) -> isize {
-    // Resolve the native submenu once; its title is the stable boundary for
-    // dispatching IINA's plugin-menu lifecycle event on Windows.
+    // A Slint rebuild can replace submenu handles. Resolve the current handle
+    // at activation instead of comparing against an earlier menu generation.
     let menu = unsafe { GetMenu(hwnd) };
     if menu.0.is_null() {
         return 0;
@@ -100,6 +152,7 @@ fn plugin_menu_handle(hwnd: HWND) -> isize {
 }
 impl Drop for MenuFocus {
     fn drop(&mut self) {
+        let _ = self.set_visible(true);
         if let Some(context) = self.context.take() {
             let pointer = (&*context as *const MenuContext) as usize;
             // SAFETY: the callback context remains owned until removal.
@@ -148,6 +201,15 @@ unsafe extern "system" fn menu_proc(
 ) -> LRESULT {
     // SAFETY: MenuFocus retains the stable box until subclass removal.
     let context = unsafe { &*(refdata as *const MenuContext) };
+    if message == WM_SETREDRAW {
+        // Slint/Muda batches menu updates with WM_SETREDRAW. DefWindowProc
+        // implements that by clearing/restoring WS_VISIBLE on the host, which
+        // also makes mpv's independently presented child temporarily invisible.
+        // Volume labels and fullscreen menu removal must not interrupt video.
+        // This host has no Slint client controls to batch; Muda still repaints
+        // its non-client menu with DrawMenuBar after completing the update.
+        return LRESULT(0);
+    }
     if message == WM_APPCOMMAND
         && let Some(app) = context.app.upgrade()
         && app.get_key_binding_use_system_media_controls()
@@ -164,11 +226,17 @@ unsafe extern "system" fn menu_proc(
         app.invoke_native_menu_will_open();
     }
     if message == WM_INITMENUPOPUP
-        && context.plugin_menu != 0
-        && wparam.0 as isize == context.plugin_menu
         && let Some(app) = context.app.upgrade()
     {
-        app.invoke_plugin_menu_will_open();
+        if let Err(error) =
+            update_volume_label(HMENU(wparam.0 as *mut _), &app.get_volume_menu_title())
+        {
+            app.set_status(format!("Could not refresh volume menu: {error}").into());
+        }
+        let plugin_menu = plugin_menu_handle(hwnd);
+        if plugin_menu != 0 && wparam.0 as isize == plugin_menu {
+            app.invoke_plugin_menu_will_open();
+        }
     }
     if wparam.0 == VK_F10.0 as usize && !context.active.get() {
         if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {
@@ -305,5 +373,161 @@ fn system_media_key(command: u32) -> Option<&'static str> {
         Some("MUTE")
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        AppendMenuW, CreateMenu, CreatePopupMenu, CreateWindowExW, DestroyMenu, DestroyWindow,
+        GetClientRect, IsWindowVisible, MF_DISABLED, MF_POPUP, MF_STRING, SW_HIDE, SendMessageW,
+        ShowWindow, WINDOW_EX_STYLE, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
+        WS_VISIBLE,
+    };
+
+    struct TestWindow(HWND);
+
+    impl Drop for TestWindow {
+        fn drop(&mut self) {
+            // SAFETY: the test owns this window on the creating thread.
+            let _ = unsafe { DestroyWindow(self.0) };
+        }
+    }
+
+    struct TestMenu {
+        hwnd: HWND,
+        menu: HMENU,
+    }
+
+    impl Drop for TestMenu {
+        fn drop(&mut self) {
+            // SAFETY: detach before destruction so the test window never owns
+            // a freed menu. DestroyMenu also releases the Audio submenu.
+            unsafe {
+                let _ = SetMenu(self.hwnd, None);
+                let _ = DestroyMenu(self.menu);
+            }
+        }
+    }
+
+    fn test_host() -> TestWindow {
+        // SAFETY: STATIC is a built-in class; no pointers outlive this call.
+        TestWindow(unsafe {
+            CreateWindowExW(
+                WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
+                w!("STATIC"),
+                w!("Riina menu redraw regression"),
+                WS_POPUP | WS_VISIBLE,
+                -32000,
+                -32000,
+                640,
+                360,
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap()
+        })
+    }
+
+    #[test]
+    fn menu_redraw_batch_keeps_video_visible_and_does_not_show_hidden_host() {
+        // Use the built-in class without a Slint event loop or playback DLL.
+        // Off-screen, non-activating windows cannot steal the user's focus.
+        let host = test_host();
+        let child = TestWindow(unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                w!("STATIC"),
+                w!("Video child"),
+                WS_CHILD | WS_VISIBLE,
+                0,
+                0,
+                1,
+                1,
+                Some(host.0),
+                None,
+                None,
+                None,
+            )
+            .unwrap()
+        });
+        // Confirm the native default being guarded: the redraw batch hides
+        // both the host and the independently owned playback child.
+        unsafe {
+            SendMessageW(host.0, WM_SETREDRAW, Some(WPARAM(0)), None);
+            assert!(!IsWindowVisible(child.0).as_bool());
+            SendMessageW(host.0, WM_SETREDRAW, Some(WPARAM(1)), None);
+        }
+        let _menu = MenuFocus::install(
+            host.0.0 as isize,
+            slint::Weak::default(),
+            Rc::new(Cell::new(false)),
+        )
+        .unwrap();
+        // SAFETY: all messages and queries target the live test-owned windows.
+        unsafe {
+            SendMessageW(host.0, WM_SETREDRAW, Some(WPARAM(0)), None);
+            assert!(IsWindowVisible(host.0).as_bool());
+            assert!(IsWindowVisible(child.0).as_bool());
+            SendMessageW(host.0, WM_SETREDRAW, Some(WPARAM(1)), None);
+            assert!(IsWindowVisible(child.0).as_bool());
+
+            let _ = ShowWindow(host.0, SW_HIDE);
+            SendMessageW(host.0, WM_SETREDRAW, Some(WPARAM(1)), None);
+            assert!(!IsWindowVisible(host.0).as_bool());
+            assert!(!IsWindowVisible(child.0).as_bool());
+        }
+    }
+
+    #[test]
+    fn volume_label_preserves_menu_identity_and_video_client_bounds() {
+        use windows::Win32::Foundation::RECT;
+        let host = test_host();
+        // SAFETY: this thread owns all menus/windows and retains them below.
+        let menu = TestMenu {
+            hwnd: host.0,
+            menu: unsafe { CreateMenu() }.unwrap(),
+        };
+        let audio = unsafe { CreatePopupMenu() }.unwrap();
+        unsafe {
+            AppendMenuW(audio, MF_STRING | MF_DISABLED, 1, w!("Volume: 100")).unwrap();
+            AppendMenuW(audio, MF_STRING, 2, w!("Volume +")).unwrap();
+            AppendMenuW(menu.menu, MF_POPUP, audio.0 as usize, w!("Audio")).unwrap();
+            SetMenu(host.0, Some(menu.menu)).unwrap();
+        }
+        let lifecycle = MenuFocus::install(
+            host.0.0 as isize,
+            slint::Weak::default(),
+            Rc::new(Cell::new(false)),
+        )
+        .unwrap();
+        let mut before = RECT::default();
+        unsafe { GetClientRect(host.0, &mut before) }.unwrap();
+        for volume in [0, 25, 70, 100, 200] {
+            let label = format!("Volume: {volume}");
+            update_volume_label(audio, &label).unwrap();
+            let mut after = RECT::default();
+            let mut text = [0_u16; 128];
+            unsafe {
+                GetClientRect(host.0, &mut after).unwrap();
+                assert_eq!(GetMenu(host.0), menu.menu);
+                assert_eq!(GetSubMenu(menu.menu, 0), audio);
+                assert_eq!(GetMenuItemCount(Some(audio)), 2);
+                let length = GetMenuStringW(audio, 0, Some(&mut text), MF_BYPOSITION);
+                assert_eq!(String::from_utf16_lossy(&text[..length as usize]), label);
+            }
+            assert_eq!((before.right, before.bottom), (after.right, after.bottom));
+        }
+        for _ in 0..3 {
+            lifecycle.set_visible(false).unwrap();
+            assert!(unsafe { GetMenu(host.0) }.0.is_null());
+            assert!(unsafe { IsWindowVisible(host.0) }.as_bool());
+            lifecycle.set_visible(true).unwrap();
+            assert_eq!(unsafe { GetMenu(host.0) }, menu.menu);
+            assert_eq!(unsafe { GetSubMenu(menu.menu, 0) }, audio);
+        }
     }
 }

@@ -142,6 +142,17 @@ priorities, not a project timeline. The traceable requirement inventory is
 
 ## Current verification gates
 
+The current Windows regression sweep must include continuous volume changes and
+fullscreen entry/exit, with the native host and mpv child remaining visible
+through menu rebuilds. Use a bright isolated video fixture and full-desktop
+captures; menu-row state alone cannot prove that video remains presented.
+The Windows fullscreen controls popup deliberately leaves one physical scanline
+to native video to avoid monitor-sized OpenGL alpha failure. Verify against that
+documented extent, while the video host and mpv must retain full monitor bounds.
+On exit, all client bounds must match exactly again. The user confirmed visible
+video during controller reveal with this adjustment; HDR and other drivers remain
+separate checks.
+
 Current focused sweep: small portrait/landscape video controls, restoring hidden
 groups after enlargement, native menu shortcuts and settings-panel titles, and
 wide/standard/portrait/audio playlist transitions. Preserve the window center and

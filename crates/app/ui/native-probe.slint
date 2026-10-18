@@ -67,7 +67,6 @@ export component NativeVideoHost inherits Window {
     in property <bool> playback-paused: true;
     in property <bool> menu-alternates-visible: false;
     in property <string> playback-speed-value: "1";
-    in property <string> volume-menu-title: "Volume: 100";
     in property <bool> playback-muted: false;
     in property <string> audio-delay-text: "0";
     in property <string> loop-label: "Off";
@@ -175,7 +174,10 @@ export component NativeVideoHost inherits Window {
     in property <int> video-rotation-index: -1;
     callback set-menu-video-rotation(int);
     in property <bool> fullscreen-mode: false;
-    if !root.fullscreen-mode && !root.music-mode : MenuBar {
+    callback set-fullscreen-window(bool) -> bool;
+    // Windows detaches this stable native menu for fullscreen and Music Mode.
+    // Destroying its Slint tree also tears down the host's menu/compositor state.
+    MenuBar {
         Menu { title: "riina";
             MenuItem { title: "About Riina"; activated => { root.show-about(); } }
             MenuItem { title: "Check for Updates…"; enabled: false; }
@@ -451,7 +453,8 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Audio Track"; enabled: false; }
             MenuItem { title: "Load External Audio…"; enabled: false; }
             MenuSeparator {}
-            MenuItem { title: root.volume-menu-title; enabled: false; }
+            // The Windows menu adapter refreshes this label in place on opening.
+            MenuItem { title: "Volume: 100"; enabled: false; }
             MenuItem { title: root.menu-alternates-visible ? "Volume + 1%" : "Volume + 5%";
                 enabled: root.playback-loaded;
                 shortcut: root.menu-shortcut(root.menu-alternates-visible ? 35 : 33);

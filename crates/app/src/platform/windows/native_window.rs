@@ -19,7 +19,13 @@ use std::{
 };
 use windows::Win32::{
     Foundation::{HWND, LPARAM, RECT},
-    Graphics::Dwm::{DWM_BB_ENABLE, DWM_BLURBEHIND, DwmEnableBlurBehindWindow},
+    Graphics::{
+        Dwm::{
+            DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BB_TRANSITIONONMAXIMIZED, DWM_BLURBEHIND,
+            DwmEnableBlurBehindWindow,
+        },
+        Gdi::{CreateRectRgn, DeleteObject},
+    },
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED, SWP_NOACTIVATE,
         SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetWindowLongPtrW,
@@ -80,15 +86,26 @@ fn enable_video_transparency(window: &winit::window::Window) -> Result<(), Strin
     if (effective_style ^ extended_style) & (WS_EX_LAYERED.0 as isize) != 0 {
         return Err("The native video overlay lost its layered composition style".into());
     }
+    // An empty blur region enables pixel alpha without requesting an opaque
+    // whole-window backdrop. A null region instead covers the entire client,
+    // including the otherwise clear fullscreen area around the controller.
+    let region = unsafe { CreateRectRgn(0, 0, 0, 0) };
+    if region.0.is_null() {
+        return Err("Could not create the controls' transparent composition region".into());
+    }
     let blur_behind = DWM_BLURBEHIND {
-        dwFlags: DWM_BB_ENABLE,
+        dwFlags: DWM_BB_ENABLE | DWM_BB_BLURREGION | DWM_BB_TRANSITIONONMAXIMIZED,
         fEnable: BOOL(1),
-        ..Default::default()
+        hRgnBlur: region,
+        fTransitionOnMaximized: BOOL(0),
     };
     // Windows 8+ no longer blurs with this legacy API, but Microsoft documents
     // that it still enables DWM to honor this window's per-pixel alpha values.
     // The actual Windows material comes from the sampled-video Acrylic layer.
-    unsafe { DwmEnableBlurBehindWindow(hwnd, &blur_behind) }
+    let result = unsafe { DwmEnableBlurBehindWindow(hwnd, &blur_behind) };
+    // DWM copies the region; release our GDI object even if composition failed.
+    let _ = unsafe { DeleteObject(region.into()) };
+    result
         .map_err(|error| format!("Could not restore video-overlay alpha composition: {error}"))?;
     Ok(())
 }
@@ -105,8 +122,15 @@ fn dismiss_unaligned_transition_cover(app: &PlayerWindow) {
 }
 
 fn set_overlay_visibility(app: &PlayerWindow, visible: bool) {
-    app.window()
-        .with_winit_window(|overlay| overlay.set_visible(visible));
+    app.window().with_winit_window(|overlay| {
+        overlay.set_visible(visible);
+        if visible {
+            // A move/fullscreen transition may hide the popup while its
+            // previous redraw is queued. Re-arm the native paint event so
+            // the restored surface cannot retain that frame indefinitely.
+            overlay.request_redraw();
+        }
+    });
 }
 
 fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
@@ -217,6 +241,11 @@ fn sync_native_theme(
 }
 
 fn center_host_in_work_area(window: &winit::window::Window, owner_center: Option<(i32, i32)>) {
+    // Startup media may enter fullscreen before the delayed placement runs.
+    // Work-area clamping must never shrink a fullscreen or maximized surface.
+    if window.fullscreen().is_some() || window.is_maximized() {
+        return;
+    }
     let Ok(raw_window) = window.window_handle() else {
         return;
     };
@@ -291,7 +320,7 @@ fn schedule_startup_center(
             return;
         }
         if let (Some(host), Some(app)) = (host.upgrade(), app.upgrade()) {
-            if app.get_initial_window_position_enabled() {
+            if app.get_initial_window_position_enabled() || app.get_fullscreen() {
                 pending.set(false);
                 return;
             }
@@ -561,10 +590,17 @@ pub fn run(
             let saved_music_size = music_original_size.clone();
             let music_host = host.as_weak();
             let music_app = app.as_weak();
+            let music_menu = startup_menu_lifecycle.clone();
             app.on_music_mode_changed(move || {
                 let (Some(host), Some(app)) = (music_host.upgrade(), music_app.upgrade()) else {
                     return;
                 };
+                if let Some(menu) = music_menu.borrow().as_ref()
+                    && let Err(error) = menu.set_visible(!app.get_music_mode() && !app.get_fullscreen())
+                {
+                    app.set_status(error.into());
+                    return;
+                }
                 let mut resized = None;
                 host.window().with_winit_window(|window| {
                     let scale = window.scale_factor();
@@ -607,8 +643,12 @@ pub fn run(
             });
             let recreated_app = app.as_weak();
             let recreated_host = host.as_weak();
+            let mut alpha_trace = super::overlay_trace::OverlayTrace::new();
             app.window()
-                .set_rendering_notifier(move |state, _| {
+                .set_rendering_notifier(move |state, graphics_api| {
+                    if let Some(app) = recreated_app.upgrade() {
+                        alpha_trace.observe(&state, graphics_api, &app);
+                    }
                     if matches!(state, slint::RenderingState::RenderingSetup) {
                         let weak_app = recreated_app.clone();
                         let weak_host = recreated_host.clone();
@@ -678,6 +718,27 @@ pub fn run(
                 )
                 .map_err(std::io::Error::other)?,
             );
+            if let Some(menu) = startup_menu_lifecycle.borrow().as_ref() {
+                menu.set_visible(!app.get_fullscreen() && !app.get_music_mode())
+                    .map_err(std::io::Error::other)?;
+            }
+            let fullscreen_menu = startup_menu_lifecycle.clone();
+            let fullscreen_host = host.as_weak();
+            let fullscreen_app = app.as_weak();
+            host.on_set_fullscreen_window(move |fullscreen| {
+                let (Some(host), Some(app)) = (fullscreen_host.upgrade(), fullscreen_app.upgrade()) else {
+                    return false;
+                };
+                if let Some(menu) = fullscreen_menu.borrow().as_ref()
+                    && let Err(error) = menu.set_visible(!fullscreen && !app.get_music_mode())
+                {
+                    app.set_status(error.into());
+                    return false;
+                }
+                host.set_fullscreen_mode(fullscreen);
+                host.window().set_fullscreen(fullscreen);
+                true
+            });
             let keyboard_host = host.as_weak();
             let keyboard_app = app.as_weak();
             app.on_open_application_menu(move || {
@@ -707,7 +768,6 @@ pub fn run(
                     );
                     host.set_playback_paused(app.get_paused());
                     host.set_playback_speed_value(app.get_speed_edit_value());
-                    host.set_volume_menu_title(app.get_volume_menu_title());
                     host.set_playback_muted(app.get_muted());
                     host.set_audio_delay_text(app.get_audio_delay_text());
                 }
@@ -811,7 +871,6 @@ pub fn run(
                         host.set_playback_paused(app.get_paused());
                         host.set_menu_alternates_visible(app.get_menu_alternates_visible());
                         host.set_playback_speed_value(app.get_speed_edit_value());
-                        host.set_volume_menu_title(app.get_volume_menu_title());
                         host.set_playback_muted(app.get_muted());
                         host.set_audio_delay_text(app.get_audio_delay_text());
                         host.set_loop_label(app.get_loop_label());
@@ -1621,23 +1680,20 @@ pub fn run(
         {
             let host_moved = matches!(event, winit::event::WindowEvent::Moved(_));
             if host_moved {
-                // A retained opaque transition image belongs to the old client
-                // geometry. Also hide the transparent HWND before alignment:
-                // an owned popup can briefly report stale bounds as current and
-                // otherwise leave its old desktop rectangle visible over other
-                // windows while the host is moving.
+                // Retained frames belong to the old client geometry. Keep the
+                // live popup visible while aligning it: fullscreen also emits
+                // Moved, and hiding/showing a surface during that transition can
+                // strand its compositor image even while UI state advances.
                 dismiss_unaligned_transition_cover(app);
-                set_overlay_visibility(app, false);
-                event_overlay_hidden.set(true);
             }
             app.set_hdr_display_active(super::presentation::hdr_display_active_for_slint(host));
             let aligned = align(host, app);
-            if host_moved && !aligned {
-                // A failed move-time alignment leaves the transparent popup at
-                // stale desktop coordinates. Hide it until the retry timer can
-                // confirm that its client bounds match the native video host.
-                set_overlay_visibility(app, false);
-                event_overlay_hidden.set(true);
+            if !aligned {
+                // Hide only a proven mismatch; the retry loop restores it once
+                // Win32 confirms matching host, child and popup client bounds.
+                if !event_overlay_hidden.replace(true) {
+                    set_overlay_visibility(app, false);
+                }
             } else if aligned && event_overlay_hidden.get() {
                 set_overlay_visibility(app, true);
                 event_overlay_hidden.set(false);

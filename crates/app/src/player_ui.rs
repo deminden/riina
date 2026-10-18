@@ -5574,9 +5574,15 @@ pub(crate) fn configure_player(
     app.on_double_click_action(move |action| {
         timer.stop();
         pending.borrow_mut().take();
-        if let Some(app) = double_app.upgrade() {
-            dispatch_control_mouse_action(&app, &double_player, action);
-        }
+        let app = double_app.clone();
+        let player = double_player.clone();
+        // Fullscreen can move/hide the surface delivering this pointer release.
+        // Let capture and double-click dispatch unwind before changing HWNDs.
+        slint::Timer::single_shot(Duration::ZERO, move || {
+            if let Some(app) = app.upgrade() {
+                dispatch_control_mouse_action(&app, &player, action);
+            }
+        });
     });
     let button_player = player.command_sender();
     let button_app = app.as_weak();
@@ -6860,10 +6866,9 @@ pub(crate) fn configure_player(
                 app.invoke_set_paused(true);
             }
             if let Some(host) = fullscreen_host.as_ref().and_then(slint::Weak::upgrade) {
-                // The native host owns the Windows menu bar; remove it before
-                // borderless fullscreen and restore it when returning to windowed mode.
-                host.set_fullscreen_mode(fullscreen);
-                host.window().set_fullscreen(fullscreen);
+                if !host.invoke_set_fullscreen_window(fullscreen) {
+                    return;
+                }
             } else {
                 app.window().set_fullscreen(fullscreen);
             }

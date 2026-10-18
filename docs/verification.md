@@ -1,5 +1,74 @@
 # Verification record · native Windows · 2026-10-09
 
+## Windows volume/menu and fullscreen regression · 2026-10-18
+
+The user confirmed that guarding `WM_SETREDRAW` removed the volume blackout,
+but the remaining whole-menu rebuild still made video jump. The revised native
+host keeps volume observations out of that menu model and updates the disabled
+Audio information row with `SetMenuItemInfoW` when its popup opens. Native tests
+verify the label, stable root/submenu handles, unchanged client bounds, repeated
+menu detach/restore, visible host/child preservation, and hidden-host safety.
+
+Fullscreen/Music Mode retain the Slint menu tree and detach the Muda-owned root
+instead. Successful surface alignment keeps the controls HWND visible; failed
+alignment still hides it until verified recovery, which requests a native redraw.
+Double-click actions defer native geometry changes until pointer release unwinds.
+Startup centering now skips fullscreen/maximized windows. An isolated fullscreen
+startup measured host, controls and mpv at (0,0), 3840×2160, with no native menu
+attached. The prior startup candidate had been incorrectly shrunk to work-area
+bounds by delayed centering.
+
+Locked workspace build, formatting, strict all-target Clippy and workspace tests
+pass (577 passed, 55 explicitly ignored). The ignored native/HDR tests are not
+reported as passed. Logs are in `target/volume-fullscreen-final-*.log` and the
+native geometry record is `target/volume-fullscreen-final-windows.json`.
+The user observed black fullscreen video while captures showed decoded video;
+physical-display confirmation of the final candidate remains required. Raw
+desktop captures contain unrelated content and are not publication evidence.
+
+The user subsequently confirmed the volume issue is fixed. In the temporary
+bitblt presentation check, video was visible until mouse movement revealed the
+controller, so changing video presentation alone did not resolve the defect.
+The controls alpha setup now uses a real empty region with
+`DWM_BB_BLURREGION`, rather than the null whole-client region, and explicitly
+disables maximized colorization. This follows Winit 0.30.13's transparent HWND
+setup and the [DWM region contract](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ns-dwmapi-dwm_blurbehind).
+Normal flip presentation is restored. The user reported the same controller-reveal
+blackout with the empty-region change and with a temporary Slint creation-time
+transparency patch. The toolkit override was removed after the failed check.
+The pinned native engine is reused. Fullscreen remains unresolved.
+
+An opt-in `RIINA_TRACE_NATIVE_ALPHA` probe reads three canvas pixels before
+presentation (at most 120 samples, at least 500 ms apart). With the controller
+visible and hidden, all three were `[0,0,0,0]`, the default framebuffer was bound,
+and the framebuffer reported eight alpha bits at 3840×2160. This rules out an
+opaque canvas at those sample locations; it does not certify physical display
+composition. Full-desktop captures before launch and after exit were valid
+3840×2160 images without a persistent Riina surface. The exact test process
+(7548) was closed. Private captures and the trace remain under `target`.
+
+The temporary `RIINA_TRACE_OVERLAY_SCANLINE` check used a fullscreen-only controls
+popup one physical scanline shorter than the host; the video host and mpv retained
+the complete monitor dimensions. The user confirmed video stayed visible when
+revealing the progress bar. The controls measured 3840×2159, while the host and
+mpv both measured 3840×2160. The exact test process (2372) was closed afterward.
+This adjustment is now the normal fullscreen path, without an environment switch;
+unit checks cover the fullscreen size, windowed restoration and minimum height.
+Final locked build, formatting, strict all-target Clippy and workspace tests pass:
+579 passed, 55 explicitly ignored. Logs are `target/fullscreen-fixed-{build,tests,clippy,fmt}.log`.
+The final build ran without diagnostic environment flags. F exited automatic
+fullscreen, double-click re-entered it, and Escape exited again. The native menu
+was restored and all three windowed clients matched at (546,215), 2747×1711;
+fullscreen host/mpv remained 3840×2160 and controls 3840×2159. The inspected
+3840×2160 full-desktop capture contained video and the revealed controller with
+valid non-black probes. Captures remain supplementary to the user's physical
+confirmation, not proof of physical presentation by themselves. The final exact
+process (15176) exited; no Riina process remained. HDR and other drivers were not
+tested. Geometry records and private captures remain under `target/fullscreen-fixed-*`.
+The hypothesis is supported by a [GLFW maintainer's direct Windows 11 experiment](https://discourse.glfw.org/t/black-screen-when-setting-window-to-transparent-and-size-to-1920x1080/2585/5):
+monitor-sized undecorated OpenGL windows lost alpha and changing their extent
+avoided the driver path. This is supporting evidence, not a Riina test result.
+
 ## IINA Default primary input map · 2026-10-14
 
 Compared the seeded profile against the primary section of the pinned

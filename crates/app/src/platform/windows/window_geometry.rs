@@ -272,6 +272,7 @@ pub(crate) fn native_video_surface_signature(window: &Window) -> Option<u64> {
 /// manager operation. Separate Slint size and position calls expose an
 /// intermediate overlay frame while playlist items change aspect ratio.
 pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), String> {
+    let fullscreen = host.fullscreen().is_some();
     let host_handle = host.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(host_handle) = host_handle.as_raw() else {
         return Err("Video surface alignment requires a Windows host".into());
@@ -292,6 +293,7 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
         return Err("Could not locate the native video client origin".into());
     }
     let client_size = size(host_client);
+    let overlay_client_size = controls_client_size(client_size, fullscreen);
     let handle = overlay.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(handle) = handle.as_raw() else {
         return Err("Overlay alignment requires a Windows surface".into());
@@ -300,8 +302,8 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
     let (outer, client) = rectangles(hwnd)?;
     let frame_width = size(outer).width.saturating_sub(size(client).width);
     let frame_height = size(outer).height.saturating_sub(size(client).height);
-    let width = client_size.width.saturating_add(frame_width);
-    let height = client_size.height.saturating_add(frame_height);
+    let width = overlay_client_size.width.saturating_add(frame_width);
+    let height = overlay_client_size.height.saturating_add(frame_height);
     let video_windows = visible_mpv_child_windows(host);
     let video_is_aligned = video_windows
         .iter()
@@ -362,7 +364,7 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
         || actual_outer.top != position.y
         || size(actual_outer).width != width
         || size(actual_outer).height != height
-        || size(actual_client) != client_size
+        || size(actual_client) != overlay_client_size
     {
         return Err("Native video controls did not reach the host client bounds".into());
     }
@@ -385,6 +387,21 @@ fn video_surface_is_aligned(
             && outer.top == host_client_origin.y
             && size(client) == expected_size
     })
+}
+
+fn controls_client_size(video: PixelSize, fullscreen: bool) -> PixelSize {
+    // A monitor-sized WGL popup can bypass alpha composition on Windows drivers.
+    // Leave its bottom scanline to native video; the host and mpv still fill the
+    // monitor. Windowed mode restores exact client bounds. Physical evidence:
+    // docs/adr/0003-native-presentation-boundary.md.
+    PixelSize {
+        width: video.width,
+        height: if fullscreen {
+            video.height.saturating_sub(1).max(1)
+        } else {
+            video.height
+        },
+    }
 }
 
 fn rectangles(hwnd: HWND) -> Result<(RECT, RECT), String> {
@@ -427,6 +444,39 @@ fn target_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fullscreen_controls_avoid_monitor_sized_gl_surface_and_restore_windowed_bounds() {
+        let video = PixelSize {
+            width: 3840,
+            height: 2160,
+        };
+        assert_eq!(
+            controls_client_size(video, true),
+            PixelSize {
+                width: 3840,
+                height: 2159
+            }
+        );
+        assert_eq!(controls_client_size(video, false), video);
+    }
+
+    #[test]
+    fn fullscreen_controls_keep_a_valid_minimum_height() {
+        assert_eq!(
+            controls_client_size(
+                PixelSize {
+                    width: 1,
+                    height: 1
+                },
+                true
+            ),
+            PixelSize {
+                width: 1,
+                height: 1
+            },
+        );
+    }
 
     #[test]
     fn measured_wrapped_menu_height_is_reserved_without_growing_the_client() {

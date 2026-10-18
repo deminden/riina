@@ -4,6 +4,7 @@ mod frame_capture;
 pub(crate) mod materials;
 mod menu_focus;
 pub(crate) mod native_window;
+mod overlay_trace;
 pub(crate) mod pip;
 mod plugin_overlay;
 mod presentation;

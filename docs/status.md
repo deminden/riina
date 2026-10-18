@@ -2,6 +2,57 @@
 
 ## Application state
 
+The Windows native-video host now consumes `WM_SETREDRAW` rather than allowing
+menu rebuilds to clear and restore its `WS_VISIBLE` style. Slint/Muda uses this
+message while refreshing volume labels and removing/restoring the fullscreen
+menu. Toggling host visibility also hides its independently presented mpv child,
+so a menu update must not control the playback surface's visibility. A native
+regression check covers visible host/child preservation and hidden-host safety.
+The first rebuilt GUI check and user retest confirmed the volume blackout was
+gone, but rebuilding menus still made video jump. Volume observations now stay
+out of the host's Slint menu tree; the Audio popup refreshes its informational
+volume row in place before painting. Fullscreen and Music Mode detach and restore
+the same native menu instead of destroying the conditional menu tree. Restoring
+the controls popup also explicitly queues a native redraw: the first fullscreen
+capture showed video progressing while the controls retained an older frame.
+Successful move/fullscreen alignment now keeps the popup visible, with hiding
+reserved for a verified bounds mismatch. Delayed startup centering skips
+fullscreen and maximized windows rather than clamping them to the work area.
+Formatting, the locked workspace build, the workspace test suite (577 passed;
+55 explicitly ignored) and strict all-target Clippy pass for the revised code.
+The native menu checks confirm stable root/submenu handles and video client
+bounds across volume-label updates, plus detach/restore and visibility behavior.
+An isolated automatic-fullscreen launch now measures the host, mpv child and
+controls popup at matching (0,0) 3840×2160 bounds. Double-click actions defer until pointer-release dispatch has
+unwound before fullscreen moves/hides the input surface. The user clarified that
+both double-click and F-key fullscreen look black on the physical display even
+when the captured compositor image shows video. Captured pixels therefore do
+not verify this report as resolved. The user confirmed volume is fixed and
+fullscreen remains black in the revised candidate. A temporary-profile check
+with flip-model presentation disabled showed video until the progress bar was
+revealed, isolating the visible failure to the controls surface. Normal flip
+presentation has been restored. The controls' DWM alpha setup now supplies an
+explicit empty blur region and disables maximized colorization, matching Winit's
+transparent-window contract; the prior null region applied to the entire client.
+The empty-region candidate still turned black when the controller appeared.
+The pinned Slint Windows backend also treated an empty conditional MenuBar as
+a real menu and overrode transparency before creating the controls window.
+A temporary 1.18.1 backend patch restricted that opaque-menu workaround to a
+visible menu with entries. The user still observed black video when revealing
+the controller, so the toolkit patch and dependency override were removed.
+The bounded framebuffer probe measured alpha zero outside the controller both
+while it was visible and hidden, with eight alpha bits in the default framebuffer.
+The user confirmed that video stays visible on controller reveal when the controls
+popup is one physical scanline shorter than the monitor. This Windows workaround
+is now the normal fullscreen path; the host and mpv keep full monitor dimensions,
+and windowed mode restores exact popup bounds. The final locked build, formatting,
+strict all-target Clippy and workspace tests pass (579 passed; 55 explicitly
+ignored). The final build was exercised without either diagnostic environment
+flag: F exited fullscreen, double-click re-entered it, and Escape restored the
+native menu and matching host/controls/mpv client bounds. The test process was
+closed and no Riina process remains. HDR and other graphics drivers remain
+separate verification gaps.
+
 The pinned IINA Default input profile includes both `m` and `Meta+/` for mute.
 Riina now seeds both bindings; the primary modifier displays as Command on macOS
 and Control on Windows/Linux. Runtime shortcut interaction remains platform-GUI
