@@ -190,14 +190,6 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
     Ok(settings)
 }
 
-pub(crate) fn preserve_latest(preferences: &mut riina_core::Preferences, path: &Path) {
-    if let Ok(text) = std::fs::read_to_string(path)
-        && let Ok(saved) = riina_core::Preferences::parse(&text)
-    {
-        preferences.advanced = saved.advanced;
-    }
-}
-
 pub(crate) fn engine_options(
     settings: &Settings,
     preferences_path: &Path,

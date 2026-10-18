@@ -1,5 +1,54 @@
 # Verification record · native Windows · 2026-10-09
 
+## Local baseline review fixes · 2026-10-18
+
+Baseline `d1ba5ae` is retained locally. The six review findings have implementations
+and regression checks:
+
+- Preference updates merge changed fields under a shared file lock. Layout and
+  sidebar writes are scoped; interleaved/concurrent writers, reset-to-initial and
+  corrupt-file retry are covered. Session persistence is a separate child module.
+- Plugin request/download/XML-RPC transports share redirect handling. Tests use
+  loopback servers for port-change credential removal, same-origin retention,
+  redirect exhaustion, blocked targets and POST rewrite headers, plus explicit
+  full-origin and HTTPS-downgrade policy cases.
+- Pause actions use the same bounded FIFO as other accepted commands. A full queue
+  returns a busy error instead of creating unordered sender threads. The test
+  enforces a deadline and checks order, overflow rejection, retry and disconnect.
+- Windows Audio-track selection and external-audio loading are connected. The
+  extracted application's realized native menu is checked for enabled actions and
+  a populated track submenu.
+- Packaging tests run independently on PRs and in the selected-source package job,
+  including native-artifact reuse. Workflow contracts have regression checks.
+- `smoke-windows-package.ps1` launches the actual extracted executable with a
+  disposable profile and a single isolated fixture. It validates executable/PID,
+  active media, native playback progress, menu identity and surface geometry on
+  volume changes, deferred double-click fullscreen, controller hide/reveal,
+  windowed restoration, setting preservation and normal process exit. Partial,
+  stale-process and falsely typed reports are rejected by tested validation.
+
+The local test archive contains the debug executable and the reused pinned DLL;
+it is development evidence, not a verified distributable release. The extracted
+application smoke completed successfully in 6034 ms. The runner separately checked
+that decoder threads (7), ICC (disabled), audio threads (3), network user-agent and
+Hable tone-mapping choices remained saved after the application exited. Process
+12316 exited normally. Before/fullscreen/after captures were valid 3840×2160
+images with non-black probes and were inspected; the revealed controller appears
+over video, and the prior desktop returns after exit. Private captures remain
+untracked. This does not recertify the physical display or HDR.
+
+The locked workspace build, formatting and strict all-target Clippy pass. All 51
+native integration tests pass (38.29 seconds), plus both ignored native library
+tests (4.47 seconds), against `tools/mpv/libmpv-2.dll` with null audio. The native
+fixture root is shared across all 51 tests; their scenario assertions remain
+separate. The final workspace rerun passes (586 passed; 55 explicitly ignored in
+that default invocation). Including the 53 native checks run separately gives
+639 Rust tests passed; the two clipboard checks were not run. All 25 portable
+packaging/workflow/report tests pass. The changed GitHub workflow has not been
+executed remotely. Logs and GUI evidence are retained under `target/review-fixes-*`.
+No native compilation or public release was run. `target/debug` measured 43.46 GB,
+below the 50 GB cleanup threshold.
+
 ## Windows volume/menu and fullscreen regression · 2026-10-18
 
 The user confirmed that guarding `WM_SETREDRAW` removed the volume blackout,

@@ -792,22 +792,16 @@ fn format_shortcut(key: &str, modifiers: u8) -> String {
 }
 
 fn persist(settings: &Settings, path: &std::path::Path, is_audio: bool) -> Result<(), String> {
-    let mut preferences = match std::fs::read_to_string(path) {
-        Ok(text) => riina_core::Preferences::parse(&text)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            riina_core::Preferences::default()
-        }
-        Err(error) => return Err(error.to_string()),
-    };
     let settings = settings
         .lock()
         .map_err(|_| "Saved filter settings are unavailable")?
         .clone();
-    if is_audio {
-        preferences.audio_filters = settings;
-    } else {
-        preferences.video_filters = settings;
-    }
-    let text = serde_json::to_string_pretty(&preferences).map_err(|error| error.to_string())?;
-    crate::platform::save_preferences(path, &text).map_err(|error| error.to_string())
+    crate::preference_store::update(path, &riina_core::Preferences::default(), |preferences| {
+        if is_audio {
+            preferences.audio_filters = settings;
+        } else {
+            preferences.video_filters = settings;
+        }
+        Ok(())
+    })
 }

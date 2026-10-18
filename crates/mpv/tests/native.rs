@@ -10,13 +10,17 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+fn fixture_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("Native test fixtures must exist in the repository root")
+}
+
 #[test]
 #[ignore = "requires provisioned libmpv; verifies close with queued paused-frame work"]
 fn closing_with_queued_frame_work_terminates_and_reopens() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let library = test_library(&root);
     let media = root.join("tests/fixtures/interlaced-tff.mkv");
     for _ in 0..3 {
@@ -48,10 +52,7 @@ fn closing_with_queued_frame_work_terminates_and_reopens() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies independent cores and reopening"]
 fn independent_players_survive_peer_shutdown_and_reopen() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let library = test_library(&root);
     let media = root.join("tests/fixtures/moving-square.avi");
     let open = || {
@@ -105,10 +106,7 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies HTTP media playback from a local server"]
 fn http_url_opens_and_plays_a_local_media_fixture() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let fixture = std::fs::read(root.join("tests/fixtures/moving-square.avi")).unwrap();
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     listener.set_nonblocking(true).unwrap();
@@ -149,10 +147,7 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies audio-device selection through observed property state"]
 fn audio_device_selection_updates_the_live_engine() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player_with_options(
         &test_library(&root),
@@ -303,10 +298,7 @@ fn write_http_fixture(stream: TcpStream, fixture: &[u8]) -> std::io::Result<()> 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies Play restarts media after EOF"]
 fn play_restarts_media_after_end_of_file() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -340,10 +332,7 @@ fn play_restarts_media_after_end_of_file() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies paused-frame pixels for Live Text"]
 fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -374,10 +363,7 @@ fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
 #[test]
 #[ignore = "requires provisioned libmpv; decodes IINA-count thumbnail samples in an isolated player"]
 fn thumbnail_generator_extracts_one_hundred_and_one_isolated_frames() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let media = root.join("tests/fixtures/moving-square.avi");
     let generator = riina_mpv::thumbnail_generator::Generator::start(
         &test_library(&root),
@@ -424,10 +410,7 @@ fn thumbnail_generator_extracts_one_hundred_and_one_isolated_frames() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies live pause-on-open policy without pausing current media"]
 fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_playback() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let media = root
         .join("tests/fixtures/catalog.mkv")
         .to_string_lossy()
@@ -481,10 +464,7 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
 #[test]
 #[ignore = "requires provisioned libmpv; verifies native watch-later save and restore policy"]
 fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let media = root
         .join("tests/fixtures/catalog.mkv")
         .to_string_lossy()
@@ -622,10 +602,7 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
 #[ignore = "requires provisioned libmpv; verifies active subtitle composition in saved frames"]
 fn screenshot_content_respects_active_subtitle_visibility() {
     use riina_core::screenshot::Content;
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let output = root.join("tools/screenshot-subtitles").join(format!(
         "{}-{}",
         std::process::id(),
@@ -719,10 +696,7 @@ fn screenshot_content_respects_active_subtitle_visibility() {
 #[test]
 #[ignore = "requires provisioned libmpv; writes native PNG captures to ignored tools"]
 fn screenshots_complete_only_after_native_success() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let output = root.join("tools/screenshot-test").join(format!(
         "{}-{}",
         std::process::id(),
@@ -929,10 +903,7 @@ fn screenshots_complete_only_after_native_success() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
 fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let output = root.join("tools/interlaced-native-test").join(format!(
         "{}-{}",
         std::process::id(),
@@ -1044,10 +1015,7 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
 #[ignore = "requires provisioned libmpv; verifies deinterlace state and automatic filter coexistence"]
 fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
     use riina_core::{crop::Preset, video_reflection::Axis};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1151,10 +1119,7 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
 #[ignore = "requires provisioned libmpv; verifies viewport option acceptance and playback isolation"]
 fn picture_viewport_preserves_pause_volume_and_source_geometry() {
     use riina_core::{crop_geometry::Projection, video_viewport::Viewport};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1211,10 +1176,7 @@ fn picture_viewport_preserves_pause_volume_and_source_geometry() {
 #[ignore = "requires provisioned libmpv; verifies independent flip/mirror managed filters"]
 fn video_reflection_axes_preserve_crop_and_playback() {
     use riina_core::{crop::Preset, video_reflection::Axis};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1322,10 +1284,7 @@ fn video_reflection_axes_preserve_crop_and_playback() {
 #[ignore = "requires provisioned libmpv; verifies zero-size crop behavior with explicit offsets"]
 fn zero_size_crop_offsets_preserve_requested_parameters() {
     use riina_core::crop::{FILTER_LABEL, Rectangle};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1400,10 +1359,7 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
 #[ignore = "requires provisioned libmpv; verifies explicit zero-size crop native semantics"]
 fn zero_size_crop_uses_native_full_source_dimensions() {
     use riina_core::crop::{FILTER_LABEL, Rectangle};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1454,10 +1410,7 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
 #[ignore = "requires provisioned libmpv; verifies managed crop replacement and source geometry"]
 fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     use riina_core::crop::{FILTER_LABEL, Preset};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1656,10 +1609,7 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
         crop::{FILTER_LABEL, Preset, Rectangle},
         crop_session::Session,
     };
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1782,10 +1732,7 @@ fn crop_projection_preserves_source_selection_under_native_display_overrides() {
         crop_geometry::{DisplayRect, Point, Projection},
         video_controls::{AspectRatio, Rotation},
     };
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1894,10 +1841,7 @@ fn test_library(root: &std::path::Path) -> PathBuf {
 #[test]
 #[ignore = "requires provisioned libmpv; exercises generic property observation"]
 fn dynamic_mpv_property_observation_publishes_generic_node_values() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -1964,10 +1908,7 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies native event names reach playback snapshots"]
 fn generic_mpv_events_are_retained_for_plugin_listeners() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2074,10 +2015,7 @@ fn start_test_player_with_options(
 #[test]
 #[ignore = "requires provisioned libmpv; verifies selected last-cue navigation before an automatic loop"]
 fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2153,10 +2091,7 @@ fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies no-cue navigation does not label an automatic loop"]
 fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2208,10 +2143,7 @@ fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies navigation feedback provenance"]
 fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2252,10 +2184,7 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies native rejection of an above-limit custom speed"]
 fn excessive_custom_speed_reports_native_error_without_changing_playback() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2286,10 +2215,7 @@ fn excessive_custom_speed_reports_native_error_without_changing_playback() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies speed slider ticks and precise custom entries"]
 fn speed_controls_preserve_pause_volume_and_custom_precision() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2333,10 +2259,7 @@ fn speed_controls_preserve_pause_volume_and_custom_precision() {
 #[ignore = "requires provisioned libmpv; verifies independent video equalizer channels and resets"]
 fn video_equalizer_preserves_other_channels_and_playback_options() {
     use riina_core::video_controls::Equalizer;
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2387,10 +2310,7 @@ fn video_equalizer_preserves_other_channels_and_playback_options() {
 #[ignore = "requires provisioned libmpv; verifies configured decoding independently of codec fallback"]
 fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
     use riina_core::video_controls::HardwareDecoder;
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2446,10 +2366,7 @@ fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
 #[ignore = "requires provisioned libmpv; verifies Unicode ratio text is not silently normalized"]
 fn unicode_aspect_input_preserves_text_and_native_failure_state() {
     use riina_core::video_controls::AspectRatio;
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2524,10 +2441,7 @@ fn unicode_aspect_input_preserves_text_and_native_failure_state() {
 #[ignore = "requires provisioned libmpv; verifies video aspect and rotation while paused"]
 fn video_geometry_controls_preserve_pause_and_unrelated_options() {
     use riina_core::video_controls::{ASPECT_MENU_PRESETS, AspectRatio, Rotation};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2633,10 +2547,7 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies real ISO and BCP 47 track metadata"]
 fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2723,10 +2634,7 @@ fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies native cycling of video audio and external subtitle tracks"]
 fn track_cycling_includes_disabled_and_external_tracks() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let fixture = |name: &str| {
         root.join("tests/fixtures")
             .join(name)
@@ -2819,10 +2727,7 @@ fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {
 #[ignore = "requires provisioned libmpv; verifies independent subtitle color channels and defaults"]
 fn subtitle_colors_preserve_alpha_and_other_style_options() {
     use riina_core::subtitle_color::SubtitleColor;
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -2964,10 +2869,7 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
 #[ignore = "requires provisioned libmpv; verifies configured subtitle font names and independent style state"]
 fn subtitle_font_selection_preserves_other_style_options() {
     use riina_core::subtitle_controls::{DEFAULT_SUBTITLE_FONT, font_from_text};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -3036,10 +2938,7 @@ fn subtitle_font_selection_preserves_other_style_options() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies ten-minute relative seeks away from endpoints"]
 fn long_relative_seeks_preserve_pause_and_volume() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let silence = create_long_seek_fixture();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
@@ -3094,10 +2993,7 @@ fn long_relative_seeks_preserve_pause_and_volume() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies selected ASS warning across subtitle lanes"]
 fn subtitle_style_warning_follows_selected_ass_lanes() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let fixture = |name: &str| {
         root.join("tests/fixtures")
             .join(name)
@@ -3175,10 +3071,7 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies independent primary and secondary subtitle lanes"]
 fn secondary_subtitles_keep_selection_and_visibility_independent() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let fixture = |name: &str| {
         root.join("tests/fixtures")
             .join(name)
@@ -3422,10 +3315,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies file repeat playback and independent playlist repeat"]
 fn file_repeat_wraps_and_preserves_playlist_repeat() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -3507,10 +3397,7 @@ fn file_repeat_wraps_and_preserves_playlist_repeat() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies A–B point cycling and actual loop playback"]
 fn ab_repeat_observes_points_and_wraps_playback() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -3608,10 +3495,7 @@ fn ab_repeat_observes_points_and_wraps_playback() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies subtitle cue navigation with observed clock and text"]
 fn subtitle_navigation_seeks_cues_without_changing_delay() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -3858,10 +3742,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies observed forward/backward frame navigation"]
 fn frame_navigation_moves_one_frame_and_retains_pause() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -3918,10 +3799,7 @@ fn frame_navigation_moves_one_frame_and_retains_pause() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies file-local A–B loop ownership"]
 fn ab_repeat_resets_on_replacement_and_stop() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -4008,10 +3886,7 @@ fn ab_repeat_resets_on_replacement_and_stop() {
 #[test]
 #[ignore = "requires provisioned libmpv; decodes original PQ/HLG and checks replacement metadata"]
 fn hdr_metadata_replacement_and_stop() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -4066,10 +3941,7 @@ fn hdr_metadata_replacement_and_stop() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies ordered multi-file replacement and resume"]
 fn multi_file_open_replaces_old_playlist_and_resumes() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let fixture = |name: &str| {
         root.join("tests/fixtures")
             .join(name)
@@ -4152,10 +4024,7 @@ fn wait_for(
 #[test]
 #[ignore = "requires provisioned libmpv; exercises real native playback"]
 fn playback_pause_seek_stop_failure_and_shutdown() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -4393,10 +4262,7 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies live equalizer filter replacement and observation"]
 fn audio_equalizer_applies_updates_and_returns_to_flat() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player_with_options(
         &test_library(&root),
@@ -4445,10 +4311,7 @@ fn audio_equalizer_applies_updates_and_returns_to_flat() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies dropped subtitles attach after media loads"]
 fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let media = root.join("tests/fixtures/catalog.mkv");
     let subtitle = root.join("tests/fixtures/manual-captions.srt");
     let (sender, receiver) = mpsc::channel();
@@ -4484,10 +4347,7 @@ fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
 #[test]
 #[ignore = "requires provisioned libmpv; exercises the UI's multi-file open command"]
 fn ui_open_files_command_starts_real_media() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player(&test_library(&root), true, move |state| {
         let _ = sender.send(state);
@@ -4548,10 +4408,7 @@ fn ui_open_files_command_starts_real_media() {
 #[test]
 #[ignore = "requires provisioned libmpv; exercises real catalog workflows"]
 fn chapters_external_tracks_and_playlist_editing() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let fixture = |name: &str| {
         root.join("tests/fixtures")
             .join(name)
@@ -4807,10 +4664,7 @@ fn chapters_external_tracks_and_playlist_editing() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies an invalid optional setting does not block playback"]
 fn invalid_optional_startup_option_keeps_media_playable() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
+    let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
     let player = start_test_player_with_options(
         &test_library(&root),

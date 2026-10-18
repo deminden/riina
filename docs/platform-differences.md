@@ -1,5 +1,11 @@
 # Differences and validation gaps
 
+Plugin HTTP transports share one independent security policy across platforms:
+redirects revalidate the manifest's allowed hosts, credentials are removed when
+scheme/host/effective port changes, and HTTPS-to-HTTP redirects are rejected.
+Explicit initial HTTP requests remain allowed for approved hosts. This is a
+documented hardening choice, not a claim of identical IINA networking behavior.
+
 Shared primary shortcuts use Command on macOS and Control on Windows/Linux.
 IINA's Command+Control track-cycle shortcuts use Control+Alt on Windows/Linux,
 because mapping both macOS modifiers to Control would lose their distinction.

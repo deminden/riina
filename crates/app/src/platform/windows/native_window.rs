@@ -380,6 +380,8 @@ pub fn run(
     let material_policy_timer = Rc::new(slint::Timer::default());
     let startup_material_policy_timer = material_policy_timer.clone();
     let welcome_window: Rc<RefCell<Option<crate::WelcomeWindow>>> = Rc::new(RefCell::new(None));
+    let smoke = Rc::new(RefCell::new(None));
+    let startup_smoke = smoke.clone();
     let session: Rc<RefCell<Option<UiSession>>> = Rc::new(RefCell::new(None));
     let pip_controller: Rc<RefCell<Option<Rc<RefCell<super::pip::Controller>>>>> =
         Rc::new(RefCell::new(None));
@@ -888,6 +890,13 @@ pub fn run(
                             |rows| host.set_playlist_menu_rows(rows),
                         );
                         host.set_audio_device_menu_rows(app.get_audio_device_menu_rows());
+                        let audio_rows = app.get_audio_tracks();
+                        crate::ui_models::set_rows_if_changed(
+                            &host.get_audio_track_menu_rows(),
+                            (0..audio_rows.row_count()).filter_map(|index| audio_rows.row_data(index))
+                                .map(|row| crate::MenuCatalogRow { token: row.token, label: row.label, selected: row.selected }).collect(),
+                            |rows| host.set_audio_track_menu_rows(rows),
+                        );
                         let chapter_rows = app.get_chapters();
                         crate::ui_models::set_rows_if_changed(
                             &host.get_chapter_menu_rows(),
@@ -1134,6 +1143,14 @@ pub fn run(
                 if let Some(app) = menu_app.upgrade() {
                     app.invoke_cycle_audio_track();
                 }
+            });
+            let menu_app = app.as_weak();
+            host.on_select_menu_audio_track(move |token| {
+                if let Some(app) = menu_app.upgrade() { app.invoke_select_item(1, token); }
+            });
+            let menu_app = app.as_weak();
+            host.on_load_external_audio(move || {
+                if let Some(app) = menu_app.upgrade() { app.invoke_browse_files(1); }
             });
             let menu_app = app.as_weak();
             host.on_select_audio_device(move |device| {
@@ -1610,6 +1627,7 @@ pub fn run(
             }
             *startup_welcome.borrow_mut() = welcome;
             app.window().request_redraw();
+            *startup_smoke.borrow_mut() = super::package_smoke::start(&app, &host);
             *startup_chrome.borrow_mut() = Some(app);
             Ok::<(), Box<dyn std::error::Error>>(())
         }
@@ -1725,6 +1743,7 @@ pub fn run(
         slint::CloseRequestResponse::HideWindow
     });
     slint::run_event_loop()?;
+    drop(smoke.borrow_mut().take());
     surface_alignment_timer.stop();
     material_policy_timer.stop();
     close(&session, &pip_controller, chrome.borrow().as_ref());

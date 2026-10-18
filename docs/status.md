@@ -2,6 +2,31 @@
 
 ## Application state
 
+The local baseline review findings are addressed without changing the pinned native
+engine. Preference writers now serialize field changes against the latest file
+under a cross-process sidecar lock; Layout and sidebar resizing update only their
+own fields. Session persistence lives in a separate module. Plugin HTTP requests,
+downloads and XML-RPC share redirect validation, full-origin credential handling,
+an HTTPS-downgrade prohibition, and bounded redirect/deadline behavior. Plugin
+sidebars and Windows overlays share confined resource loading and MIME/CSP policy.
+Playback commands use a single bounded FIFO with explicit busy errors instead of
+spawning delivery threads. Native Audio-track selection and external-audio loading
+are connected. Packaging regression checks run on PRs and on the exact selected
+release source even when native artifacts are reused. A new extracted-application
+smoke exercises actual playback, menu availability, volume geometry, fullscreen
+controller reveal, preference persistence and clean shutdown in an isolated
+profile. The extracted development archive passed that smoke, including saved
+decoder threads, ICC, audio threads, network user-agent and tone-mapping choices
+after Layout/sidebar writes and normal shutdown. The inspected full-desktop
+captures were valid 3840×2160 images; no Riina process remains. Locked build,
+formatting and strict all-target Clippy pass. All 51 native playback/lifecycle
+tests and both native library tests pass with the pinned DLL and clocked null
+audio. The final workspace rerun passes (586 tests; 55 explicitly ignored in that
+default run), and 25 packaging/workflow/report tests pass. With the 53 native
+checks run separately, 639 Rust tests passed; the two clipboard checks remain
+unrun. Automated surface evidence does not replace physical-display, audible-
+output or HDR confirmation. The revised GitHub workflow has not been run remotely.
+
 The Windows native-video host now consumes `WM_SETREDRAW` rather than allowing
 menu rebuilds to clear and restore its `WS_VISIBLE` style. Slint/Muda uses this
 message while refreshing volume labels and removing/restoring the fullscreen

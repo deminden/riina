@@ -202,20 +202,21 @@ pub(crate) fn thumbnail_cache_directory() -> Result<std::path::PathBuf, String> 
 }
 
 pub(crate) fn clear_playback_history(preferences_path: &Path) -> Result<usize, String> {
-    let mut preferences = match fs::read_to_string(preferences_path) {
-        Ok(text) => riina_core::Preferences::parse(&text).map_err(|error| error.to_string())?,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => riina_core::Preferences::default(),
-        Err(error) => return Err(error.to_string()),
-    };
-    let history_path = crate::playback_history_store::path_for_preferences(preferences_path);
-    let entries =
-        crate::playback_history_store::load(&history_path, &preferences.playback_history)?;
-    let removed = entries.len();
-    preferences.playback_history.clear();
-    crate::playback_history_store::save(&history_path, &[])?;
-    let encoded = serde_json::to_string_pretty(&preferences).map_err(|error| error.to_string())?;
-    crate::platform::save_preferences(preferences_path, &encoded)
-        .map_err(|error| error.to_string())?;
+    let mut removed = 0;
+    crate::preference_store::update(
+        preferences_path,
+        &riina_core::Preferences::default(),
+        |preferences| {
+            let history_path =
+                crate::playback_history_store::path_for_preferences(preferences_path);
+            removed =
+                crate::playback_history_store::load(&history_path, &preferences.playback_history)?
+                    .len();
+            crate::playback_history_store::save(&history_path, &[])?;
+            preferences.playback_history.clear();
+            Ok(())
+        },
+    )?;
     Ok(removed)
 }
 

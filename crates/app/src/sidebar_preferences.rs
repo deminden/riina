@@ -1,5 +1,5 @@
 //! Persist a completed resize, never every intermediate drag event.
-use crate::{PlayerWindow, platform, screenshot_preferences};
+use crate::PlayerWindow;
 use riina_core::Preferences;
 use slint::ComponentHandle;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
@@ -116,68 +116,10 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             (app.get_leading_sidebar_width() as u32).clamp(300, 500),
             (app.get_trailing_sidebar_width() as u32).clamp(300, 500),
         );
-        let result = screenshot_preferences::current(&app).and_then(|screenshot| {
-            // Other settings may have changed since this callback was installed.
-            let mut preferences = Preferences {
-                leading_sidebar_width: widths.0,
-                trailing_sidebar_width: widths.1,
-                settings_at_leading: app.get_settings_at_leading(),
-                playlist_at_leading: app.get_playlist_at_leading(),
-                plugins_at_leading: app.get_plugins_at_leading(),
-                edge_to_edge_video: app.get_edge_to_edge_video(),
-                docked_controls: app.get_docked_controls(),
-                unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
-                window_resize: crate::window_resize_preferences::from_player(&app)?,
-                compact_ui: app.get_compact_ui(),
-                osc_position: app.get_osc_position() as u8,
-                control_bar_position_horizontal: f64::from(
-                    app.get_control_bar_position_horizontal(),
-                ),
-                control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
-                screenshot,
-                volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
-                    200.0
-                } else {
-                    100.0
-                }),
-                volume_boost: app.get_volume_boost(),
-                enable_osd: app.get_osd_enabled(),
-                disable_osd_file_start: app.get_disable_osd_file_start(),
-                disable_osd_pause_resume: app.get_disable_osd_pause_resume(),
-                disable_osd_speed: app.get_disable_osd_speed(),
-                disable_osd_seek: app.get_disable_osd_seek(),
-                osd_timeout_secs: f64::from(app.get_osd_timeout_secs()),
-                osd_text_size: f64::from(app.get_osd_text_size()),
-                control_bar: crate::osc_preferences::current_player(&app),
-                display_time_and_battery_in_fullscreen: app
-                    .get_display_time_and_battery_in_fullscreen(),
-                liquid_glass: crate::liquid_glass_preferences::current_player(&app),
-                hardware_decoder: crate::codec_preferences::hardware_decoder(
-                    app.get_hardware_decoder_index(),
-                )
-                .ok_or("Invalid hardware decoder selection")?,
-                subtitle_ass_override: crate::subtitle_preferences::level(
-                    app.get_subtitle_ass_override_index(),
-                )
-                .ok_or("Invalid ASS override selection")?,
-                secondary_subtitle_ass_override: crate::subtitle_preferences::level(
-                    app.get_secondary_subtitle_ass_override_index(),
-                )
-                .ok_or("Invalid secondary ASS override selection")?,
-                subtitle_font: app.get_subtitle_font().to_string(),
-                subtitle_font_size: crate::subtitle_preferences::current_font_size(&app),
-                subtitle_text_style: crate::subtitle_preferences::current_style(&app)?,
-                subtitle_other: crate::subtitle_other_preferences::current_player(&app)?,
-                subtitle_auto_load: crate::subtitle_auto_load_preferences::current_player(&app)?,
-                pause_when_open: app.get_pause_when_open(),
-                fullscreen_when_open: app.get_fullscreen_when_open(),
-                ..baseline.clone()
-            };
-            crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
-            crate::advanced_preferences::preserve_latest(&mut preferences, &path);
-            let text =
-                serde_json::to_string_pretty(&preferences).map_err(|error| error.to_string())?;
-            platform::save_preferences(&path, &text).map_err(|error| error.to_string())
+        let result = crate::preference_store::update(&path, &baseline, |preferences| {
+            preferences.leading_sidebar_width = app.get_leading_sidebar_width() as u32;
+            preferences.trailing_sidebar_width = app.get_trailing_sidebar_width() as u32;
+            Ok(())
         });
         if let Err(error) = result {
             let previous = saved.get();

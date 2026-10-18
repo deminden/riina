@@ -12,6 +12,7 @@ use std::{
 pub(crate) mod clipboard;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
+mod plugin_resources;
 pub(crate) mod settings_file;
 
 #[cfg(target_os = "windows")]

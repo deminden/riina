@@ -75,7 +75,11 @@ pub(crate) fn restore_preferences(
         preferences_path,
         load,
         store,
-        crate::platform::save_preferences,
+        |path, text| {
+            let fallback = riina_core::Preferences::parse(text).map_err(std::io::Error::other)?;
+            crate::preference_store::update(path, &fallback, |_| Ok(()))
+                .map_err(std::io::Error::other)
+        },
     )?;
     preferences.online_subtitles.assrt_token = load_assrt()?.unwrap_or_default();
     Ok(())

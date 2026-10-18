@@ -90,34 +90,14 @@ impl CommandSender {
             .map_err(|e| format!("Player command was not accepted: {e}"))
     }
 
-    /// The pause click toggles the worker's latest native state without blocking the UI.
+    /// All accepted intents use the same FIFO; a full queue rejects explicitly.
+    /// Never defer an action on an independent thread where later input can pass it.
     pub fn toggle_pause(&self) -> Result<(), String> {
-        self.send_without_blocking(Command::TogglePause)
+        self.send(Command::TogglePause)
     }
 
-    /// Mouse preferences may request an absolute pause state; retain it under queue pressure too.
     pub fn set_paused(&self, paused: bool) -> Result<(), String> {
-        self.send_without_blocking(Command::SetPaused(paused))
-    }
-
-    fn send_without_blocking(&self, command: Command) -> Result<(), String> {
-        let message = Message::Intent(command);
-        match self.0.try_send(message) {
-            Ok(()) => Ok(()),
-            Err(mpsc::TrySendError::Disconnected(_)) => {
-                Err("Player command was not accepted: playback worker has stopped".into())
-            }
-            Err(mpsc::TrySendError::Full(message)) => {
-                let sender = self.0.clone();
-                std::thread::Builder::new()
-                    .name("mpv-command-delivery".into())
-                    .spawn(move || {
-                        let _ = sender.send(message);
-                    })
-                    .map(|_| ())
-                    .map_err(|error| format!("Could not queue the playback action: {error}"))
-            }
-        }
+        self.send(Command::SetPaused(paused))
     }
 }
 
@@ -1290,17 +1270,45 @@ mod command_sender_tests {
     use std::sync::{atomic::Ordering, mpsc};
 
     #[test]
-    fn pause_toggle_returns_promptly_and_is_delivered_after_queue_pressure() {
-        let (sender, receiver) = mpsc::sync_channel(1);
-        sender.try_send(Message::Wake).unwrap();
+    fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
+        let (sender, receiver) = mpsc::sync_channel(3);
         let command_sender = CommandSender(sender);
+        command_sender.set_paused(true).unwrap();
         command_sender.toggle_pause().unwrap();
-
-        assert!(matches!(receiver.recv().unwrap(), Message::Wake));
+        command_sender.set_paused(false).unwrap();
+        let (done, result) = mpsc::sync_channel(1);
+        let caller = std::thread::spawn(move || {
+            done.send(command_sender.toggle_pause()).unwrap();
+            command_sender
+        });
+        assert!(
+            result
+                .recv_timeout(std::time::Duration::from_secs(1))
+                .unwrap()
+                .is_err()
+        );
+        let command_sender = caller.join().unwrap();
+        for expected in [
+            Command::SetPaused(true),
+            Command::TogglePause,
+            Command::SetPaused(false),
+        ] {
+            match receiver
+                .recv_timeout(std::time::Duration::from_secs(1))
+                .unwrap()
+            {
+                Message::Intent(actual) => assert_eq!(actual, expected),
+                Message::Wake => panic!("Unexpected wake in intent queue"),
+            }
+        }
+        assert!(receiver.try_recv().is_err());
+        command_sender.set_paused(true).unwrap();
         assert!(matches!(
-            receiver.recv().unwrap(),
-            Message::Intent(Command::TogglePause)
+            receiver.recv_timeout(std::time::Duration::from_secs(1)),
+            Ok(Message::Intent(Command::SetPaused(true)))
         ));
+        drop(receiver);
+        assert!(command_sender.toggle_pause().is_err());
     }
 
     #[test]

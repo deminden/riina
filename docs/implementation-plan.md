@@ -142,6 +142,15 @@ priorities, not a project timeline. The traceable requirement inventory is
 
 ## Current verification gates
 
+Every Windows package candidate must run the portable packaging regression suite,
+including candidates that reuse native-engine artifacts. After extraction, run
+`scripts/smoke-windows-package.ps1` against the extracted executable and an isolated
+fixture/profile. Its report must identify that executable and process, include
+all required checks, and be followed by clean process exit and persisted-setting
+verification. Keep native engine tests too; a headless DLL test alone cannot
+verify the packaged application. Physical-display, audible-output and HDR checks
+remain separate.
+
 The current Windows regression sweep must include continuous volume changes and
 fullscreen entry/exit, with the native host and mpv child remaining visible
 through menu rebuilds. Use a bright isolated video fixture and full-desktop

@@ -93,6 +93,9 @@ export component NativeVideoHost inherits Window {
     callback show-video-panel();
     callback show-plugins-panel();
     callback cycle-audio-tracks();
+    callback select-menu-audio-track(string);
+    callback load-external-audio();
+    in property <[MenuCatalogRow]> audio-track-menu-rows: [];
     in property <[MenuCatalogRow]> audio-device-menu-rows: [];
     callback select-audio-device(string);
     callback adjust-volume(float);
@@ -450,8 +453,14 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Cycle Audio Tracks"; enabled: root.playback-loaded;
                 shortcut: root.menu-shortcut(32);
                 activated => { root.cycle-audio-tracks(); } }
-            MenuItem { title: "Audio Track"; enabled: false; }
-            MenuItem { title: "Load External Audio…"; enabled: false; }
+            Menu { title: "Audio Track"; enabled: root.playback-loaded;
+                for row in root.audio-track-menu-rows : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.select-menu-audio-track(row.token); }
+                }
+            }
+            MenuItem { title: "Load External Audio\u{2026}"; enabled: root.playback-loaded;
+                activated => { root.load-external-audio(); } }
             MenuSeparator {}
             // The Windows menu adapter refreshes this label in place on opening.
             MenuItem { title: "Volume: 100"; enabled: false; }

@@ -160,6 +160,7 @@ pub(crate) fn connect(
             }
             let path = path.clone();
             let baseline = baseline.clone();
+            let writer = crate::preference_store::Writer::new(path.clone(), baseline.clone());
             let saved_open_policy = Rc::new(RefCell::new((
                 baseline.allow_multiple_windows,
                 baseline.group_simultaneous_opens_in_playlist,
@@ -1196,10 +1197,7 @@ pub(crate) fn connect(
                     // Utilities can clear history while this window remains open;
                     // preserve that live system action over its original snapshot.
                     crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
-                    let text = serde_json::to_string_pretty(&preferences)
-                        .map_err(|error| error.to_string())?;
-                    crate::platform::save_preferences(&path, &text)
-                        .map_err(|error| error.to_string())
+                    writer.save(&preferences)
                 });
                 match result {
                     Ok(()) => {

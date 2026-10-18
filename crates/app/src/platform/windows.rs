@@ -5,6 +5,7 @@ pub(crate) mod materials;
 mod menu_focus;
 pub(crate) mod native_window;
 mod overlay_trace;
+mod package_smoke;
 pub(crate) mod pip;
 mod plugin_overlay;
 mod presentation;

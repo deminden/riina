@@ -32,6 +32,16 @@ requiring redraw suppression; Muda still redraws its menu after rebuilding it.
 See [Microsoft's WM_SETREDRAW contract](https://learn.microsoft.com/en-us/windows/win32/gdi/wm-setredraw).
 Actual hide, minimize and close operations keep their normal lifecycle.
 
+The opt-in package smoke runs inside the actual native application rather than
+loading only its DLL in a headless test. A retained timer dispatches typed player
+actions; it verifies the realized host, controls and visible mpv child, stable
+menu/client geometry on volume updates, fullscreen extent and controller reveal,
+and windowed restoration. The outer script owns an isolated profile and fixture,
+validates the report's process/executable identity, waits for normal exit, and
+checks that session shutdown preserved newer preferences. Timeout cleanup targets
+only its own process. This driver does not certify physical compositor pixels,
+audible output, or HDR.
+
 Volume changes do not feed the native host's Slint menu model. Its disabled
 informational row is updated with `SetMenuItemInfoW` at `WM_INITMENUPOPUP`, keeping
 the root/submenu handles, command IDs and client bounds stable during playback.

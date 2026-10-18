@@ -1,0 +1,29 @@
+"""Keep cheap validation on both fresh and reused native artifact paths."""
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class PackageWorkflowTests(unittest.TestCase):
+    def test_exact_candidate_runs_packaging_tests_before_artifact_download(self):
+        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        package = source.split("\n  windows-package:", 1)[1].split("\n  publish:", 1)[0]
+        tests = package.index("python -m unittest discover")
+        self.assertLess(tests, package.index("uses: actions/download-artifact@"))
+        self.assertNotIn("if:", package[package.rfind("- name:", 0, tests):tests])
+
+    def test_packaging_tests_run_on_pull_requests_without_native_compilation(self):
+        source = (ROOT / ".github/workflows/package-checks.yml").read_text(encoding="utf-8")
+        self.assertIn("  pull_request:", source)
+        self.assertIn("python -m unittest discover", source)
+        self.assertNotIn("needs:", source)
+
+    def test_release_checks_the_extracted_application_in_addition_to_engine(self):
+        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertIn("smoke-windows-package.ps1 -Executable (Resolve-Path package-smoke/riina.exe).Path", source)
+        self.assertIn("playback_pause_seek_stop_failure_and_shutdown", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
