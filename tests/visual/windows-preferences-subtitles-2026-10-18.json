@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-18",
+  "source_base_revision": "cc3856a7a54ca99c56685da71f6bbc3716a21e92",
+  "source_files_sha256": {
+    "crates/app/ui/preferences.slint": "7c290db02e379ff41c5b828fd1da5b83101a124507026f92b89b90ea8f0878d1",
+    "crates/app/src/settings_search.rs": "1c9c400a6f6e16aae46e2658a7a7017d9fb93af923a8ed87fed79ea2a62f1961",
+    "scripts/check-settings-navigation.py": "784b6d93bb198bc58659c2ec3117e3fa12005b0d1dbb04023a359f61c3f68198"
+  },
+  "executable_sha256": "065f546ef223e9806ec1a171bf9700fdecf2bdc2a4439a1782f88f8ba97b9ad6",
+  "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "environment": {
+    "platform": "Windows 11 x64",
+    "desktop_pixels": [
+      3840,
+      2160
+    ],
+    "settings_logical_size": [
+      600,
+      620
+    ],
+    "profile": "isolated disposable profile",
+    "fixture": "tests/fixtures/moving-square.avi",
+    "audio_output": "null"
+  },
+  "checks": {
+    "locked_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace_tests": {
+      "passed": 600,
+      "ignored": 56,
+      "failed": 0
+    },
+    "python_tests": {
+      "passed": 31,
+      "failed": 0
+    },
+    "settings_navigation_inventory": "passed",
+    "subtitle_callback_inventory": "All 23 prior direct value bindings and all prior root callbacks retained."
+  },
+  "manual_gui": [
+    {
+      "surface": "General",
+      "result": "Behavior navigation and Playlist/Screenshots section jumps inspected. Repeat label and selector occupy separate rows. Screenshots heading aligns to the top and a full viewport retains its background."
+    },
+    {
+      "surface": "Subtitles",
+      "result": "All six sections visible through navigation. Collapsed/expanded Auto Load and expanded Text other styles inspected. Font action opens the font picker; Cancel closes it. Position and language/encoding fields fit. Provider layouts OpenSubtitles, Assrt.net and Shooter.cn inspected without entering credentials or performing a search."
+    },
+    {
+      "surface": "Search",
+      "result": "Priority keywords result switches to Subtitles, expands Auto Load and reveals the editable fields."
+    },
+    {
+      "surface": "ASS lanes",
+      "result": "Both lane buttons and all five choices fit. Secondary set to force; primary remains scale. Saved JSON confirms subtitle_ass_override=scale and secondary_subtitle_ass_override=force after normal exit."
+    }
+  ],
+  "build_sequence_note": "The initial subtitle/provider/font sweep used the preceding build of this worktree. Only General heading positions and the repeat row changed before the final identified executable. General, subtitle search and both ASS lanes were rechecked on that executable.",
+  "desktop_capture": {
+    "path": "target/preferences-subtitles-general-desktop.png",
+    "sha256": "48499b36332fbec478846cbddd1ac17bfbc97e4497c65b460dcd696af39aaab9",
+    "pixels": [
+      3840,
+      2160
+    ],
+    "non_black_probe": true,
+    "inspected": true,
+    "privacy": "Private local desktop evidence; excluded from repository and release assets."
+  },
+  "shutdown": {
+    "pids": [
+      1704,
+      15324
+    ],
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "remaining_gui_findings": [
+    "Font picker Acrylic fill has weak dark-text-surface contrast; Escape cancellation needs verification.",
+    "Network still hides sections instead of continuous scrolling.",
+    "Preferences dark appearance and matched IINA pixel/interaction comparisons remain open."
+  ],
+  "limits": [
+    "Not a full pixel parity claim.",
+    "No rendered subtitle, audible output, HDR or provider service verification.",
+    "No new extracted-release-package or fullscreen smoke for this settings-only batch."
+  ]
+}

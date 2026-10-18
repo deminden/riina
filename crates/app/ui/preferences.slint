@@ -926,7 +926,7 @@ component GeneralSettingToggle inherits FocusScope {
     }
 }
 
-component VideoDecoderChoice inherits FocusScope {
+component PreferenceOptionCard inherits FocusScope {
     in property <string> title;
     in property <string> description;
     in property <bool> selected: false;
@@ -1105,58 +1105,6 @@ component UtilitiesActionRow inherits Rectangle {
     }
 }
 
-component AssOverrideSlider inherits Rectangle {
-    in property <float> value: 2;
-    callback changed(float);
-    width: 124px;
-    height: 20px;
-    background: transparent;
-    accessible-role: slider;
-    accessible-label: "ASS subtitle override level";
-    accessible-value: value;
-    accessible-value-minimum: 0;
-    accessible-value-maximum: 4;
-    accessible-value-step: 1;
-    accessible-action-set-value(text) => {
-        if text.is-float() { root.changed(round(clamp(text.to-float(), 0, 4))); }
-    }
-    accessible-action-increment => { root.changed(min(4, value + 1)); }
-    accessible-action-decrement => { root.changed(max(0, value - 1)); }
-    Rectangle { x: 7px; y: 7px; width: parent.width - 14px; height: 2px;
-        border-radius: 1px; background: #a7a7ad; }
-    Rectangle { x: 7px; y: 6px; width: 1px; height: 5px; background: #77777e; }
-    Rectangle { x: parent.width * 0.25; y: 6px; width: 1px; height: 5px; background: #77777e; }
-    Rectangle { x: parent.width * 0.5; y: 6px; width: 1px; height: 5px; background: #77777e; }
-    Rectangle { x: parent.width * 0.75; y: 6px; width: 1px; height: 5px; background: #77777e; }
-    Rectangle { x: parent.width - 7px; y: 6px; width: 1px; height: 5px; background: #77777e; }
-    Rectangle { x: 4px + (parent.width - 8px) * root.value / 4; y: 3px;
-        width: 7px; height: 8px; border-radius: 3px; background: #55555d; }
-    if focus.has-focus : Rectangle { border-width: 1px; border-color: #168bff;
-        border-radius: 4px; background: transparent; }
-    touch := TouchArea {
-        pointer-event(event) => {
-            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                focus.focus();
-                root.changed(round(clamp((self.mouse-x - 4px) / (root.width - 8px), 0, 1) * 4));
-            }
-        }
-        moved => { if self.pressed {
-            root.changed(round(clamp((self.mouse-x - 4px) / (root.width - 8px), 0, 1) * 4));
-        } }
-    }
-    focus := FocusScope {
-        width: parent.width; height: parent.height;
-        key-pressed(event) => {
-            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-            if event.text == Key.RightArrow { root.changed(min(4, root.value + 1)); return accept; }
-            if event.text == Key.LeftArrow { root.changed(max(0, root.value - 1)); return accept; }
-            return reject;
-        }
-    }
-}
-
-// The captured IINA settings window has a 600×480 client area and 200px sidebar.
-// Keep those measured content coordinates independent of platform title bars.
 export component PreferencesWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
     title: "Settings";
@@ -1173,10 +1121,21 @@ export component PreferencesWindow inherits Window {
     // colors when the native backdrop is unavailable.
     background: mica-backdrop-enabled ? transparent : #ffffff;
     in-out property <int> selected-pane: 0;
+    private property <length> navigation-extra-height: root.selected-pane == 0 ? 96px : root.selected-pane == 1 ? 168px : root.selected-pane == 4 ? 144px : (root.selected-pane == 3 || root.selected-pane == 5) ? 72px : 0px;
+    private property <length> navigation-content-height: 408px + navigation-extra-height;
+    pure function navigation-row-y(page: int) -> length {
+        return page * 36px + (root.selected-pane < page ? navigation-extra-height : 0px);
+    }
+    in-out property <int> selected-general-section: 0;
+    in-out property <int> selected-subtitle-section: 0;
     in-out property <bool> disable-animations: false;
     in property <bool> system-reduce-motion: false;
     in property <bool> platform-macos: false;
     in-out property <length> general-scroll-position: 0px;
+    private property <length> general-content-height: max(
+        root.general-screenshots-y + 228px,
+        root.height - root.general-screenshots-target);
+
     in-out property <bool> when-media-opened-expanded: false;
     in-out property <bool> pause-resume-when-expanded: false;
     in-out property <int> appearance-index: 0;
@@ -1256,15 +1215,14 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-thumbnail-target: 0px - (interface-thumbnail-y - 13px);
     out property <length> interface-pip-target: 0px - (interface-pip-y - 13px);
     out property <length> interface-accessibility-target: 0px - (interface-accessibility-y - 13px);
-    out property <length> general-history-target: 0px - ((459px
-        + (root.when-media-opened-expanded ? 166px : 0px)
-        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)) - 13px);
-    out property <length> general-playlist-target: 0px - ((604px
-        + (root.when-media-opened-expanded ? 166px : 0px)
-        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)) - 13px);
-    out property <length> general-screenshots-target: 0px - ((820px
-        + (root.when-media-opened-expanded ? 166px : 0px)
-        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px)) - 13px);
+    private property <length> general-expanded-height: (root.when-media-opened-expanded ? 166px : 0px)
+        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+    private property <length> general-history-y: 459px + root.general-expanded-height;
+    private property <length> general-playlist-y: 680px + root.general-expanded-height;
+    private property <length> general-screenshots-y: 928px + root.general-expanded-height;
+    out property <length> general-history-target: 13px - root.general-history-y;
+    out property <length> general-playlist-target: 13px - root.general-playlist-y;
+    out property <length> general-screenshots-target: 13px - root.general-screenshots-y;
     out property <length> interface-appearance-threshold: interface-window-target / 2;
     out property <length> interface-window-threshold: (interface-window-target + interface-osc-target) / 2;
     out property <length> interface-osc-threshold: (interface-osc-target + interface-osd-target) / 2;
@@ -1285,6 +1243,35 @@ export component PreferencesWindow inherits Window {
     in property <[PreferencesSearchResult]> search-results: [];
     in-out property <int> selected-search-index: -1;
     in-out property <length> subtitle-scroll-position: 0px;
+    private property <length> subtitle-autoload-height: subtitle-auto-load-advanced-expanded ? 240px : 82px;
+    private property <length> subtitle-ass-y: 78px + subtitle-autoload-height + 20px;
+    private property <length> subtitle-text-y: subtitle-ass-y + 400px;
+    private property <length> subtitle-text-height: subtitle-text-advanced-expanded ? 288px : 244px;
+    private property <length> subtitle-position-y: subtitle-text-y + 26px + subtitle-text-height + 20px;
+    private property <length> subtitle-online-y: subtitle-position-y + 294px;
+    private property <length> subtitle-online-height: open-subtitles-provider-index == 1 ? 276px : open-subtitles-provider-index == 2 ? 224px : 244px;
+    private property <length> subtitle-other-y: subtitle-online-y + 26px + subtitle-online-height + 20px;
+    private property <length> subtitle-content-height: max(subtitle-other-y + 214px, root.height + subtitle-other-y - 16px);
+    private property <[string]> subtitle-override-descriptions: [
+        "Render subtitle scripts without overriding their styles.",
+        "Apply all style settings from this section.",
+        "Apply subtitle scale together with these style settings.",
+        "Apply all subtitle styles.",
+        "Remove ASS tags and styling from the subtitle."
+    ];
+    pure function subtitle-section-y(section: int) -> length {
+        return section == 1 ? subtitle-ass-y : section == 2 ? subtitle-text-y : section == 3 ? subtitle-position-y : section == 4 ? subtitle-online-y : section == 5 ? subtitle-other-y : 52px;
+    }
+    public function reveal-subtitle-section(section: int) {
+        root.selected-subtitle-section = section;
+        root.subtitle-scroll-position = section == 0 ? 0px : 16px - root.subtitle-section-y(section);
+    }
+    function choose-subtitle-override(index: int) {
+        if root.subtitle-ass-override-lane == 0 { root.subtitle-ass-override-primary-index = index; }
+        else { root.subtitle-ass-override-secondary-index = index; }
+        root.settings-changed();
+    }
+
     callback search-query-changed(string);
     callback search-selection-moved(int);
     callback search-selection-activated();
@@ -1563,14 +1550,27 @@ export component PreferencesWindow inherits Window {
             activate-selection => { root.search-selection-activated(); }
         }
         ScrollView { x: 0; y: 52px; width: parent.width; height: parent.height - 52px;
-            content-height: root.selected-pane == 1 ? 564px : (root.selected-pane == 0 || root.selected-pane == 3 || root.selected-pane == 5) ? 488px : 416px;
+            content-height: root.navigation-content-height;
             content-width: self.visible-width;
             horizontal-scrollbar-policy: always-off;
-            Rectangle { width: parent.width; height: root.selected-pane == 1 ? 564px : (root.selected-pane == 0 || root.selected-pane == 3 || root.selected-pane == 5) ? 488px : 416px; background: transparent;
-        PreferenceNavItem { x: 10px; y: 0px; width: 180px; label: "General";
+            Rectangle { width: parent.width; height: root.navigation-content-height; background: transparent;
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(0); width: 180px; label: "General";
             icon: @image-url("../../../assets/icons/settings.svg");
             selected: root.selected-pane == 0; activated => { root.selected-pane = 0; root.general-scroll-position = 0px; } }
-        PreferenceNavItem { x: 10px; y: 36px; width: 180px; label: "Interface";
+        if root.selected-pane == 0 : Rectangle { x: 24px; y: 36px; width: 2px; height: 96px; background: #d3d3d7; }
+        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 36px; width: 158px; label: "Behavior";
+            selected: root.selected-general-section == 0;
+            activated => { root.selected-general-section = 0; root.general-scroll-position = 0px; } }
+        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 60px; width: 158px; label: "History";
+            selected: root.selected-general-section == 1;
+            activated => { root.selected-general-section = 1; root.general-scroll-position = root.general-history-target; } }
+        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 84px; width: 158px; label: "Playlist";
+            selected: root.selected-general-section == 2;
+            activated => { root.selected-general-section = 2; root.general-scroll-position = root.general-playlist-target; } }
+        if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 108px; width: 158px; label: "Screenshots";
+            selected: root.selected-general-section == 3;
+            activated => { root.selected-general-section = 3; root.general-scroll-position = root.general-screenshots-target; } }
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(1); width: 180px; label: "Interface";
             icon: @image-url("../../../assets/icons/interface.svg");
             selected: root.selected-pane == 1; activated => { root.selected-pane = 1; root.selected-interface-section = 0; root.interface-scroll-position = 0px; } }
         if root.selected-pane == 1 : Rectangle { x: 24px; y: 76px; width: 2px; height: 144px; background: #d3d3d7; }
@@ -1595,16 +1595,35 @@ export component PreferencesWindow inherits Window {
         if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Accessibility";
             selected: root.selected-interface-section == 6;
             activated => { root.selected-interface-section = 6; root.interface-scroll-position = root.interface-accessibility-target; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 240px : 72px; width: 180px; label: "Video";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(2); width: 180px; label: "Video";
             icon: @image-url("../../../assets/icons/video-page.svg");
             selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 276px : 108px; width: 180px; label: "Audio";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(3); width: 180px; label: "Audio";
             icon: @image-url("../../../assets/icons/audio-page.svg");
             selected: root.selected-pane == 3; activated => { root.selected-pane = 3; root.reveal-audio-section(0); } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 312px : (root.selected-pane == 3 ? 216px : 144px); width: 180px; label: "Subtitles";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(4); width: 180px; label: "Subtitles";
             icon: @image-url("../../../assets/icons/subtitles-page.svg");
-            selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 348px : (root.selected-pane == 3 ? 252px : 180px); width: 180px; label: "Network";
+            selected: root.selected-pane == 4; activated => { root.selected-pane = 4; root.reveal-subtitle-section(0); } }
+        if root.selected-pane == 4 : Rectangle { x: 24px; y: root.navigation-row-y(4) + 36px; width: 2px; height: 144px; background: #d3d3d7; }
+        if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 36px; width: 158px; label: "Auto Load";
+            selected: root.selected-subtitle-section == 0;
+            activated => { root.reveal-subtitle-section(0); } }
+        if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 60px; width: 158px; label: "ASS Subtitles";
+            selected: root.selected-subtitle-section == 1;
+            activated => { root.reveal-subtitle-section(1); } }
+        if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 84px; width: 158px; label: "Text Subtitles";
+            selected: root.selected-subtitle-section == 2;
+            activated => { root.reveal-subtitle-section(2); } }
+        if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 108px; width: 158px; label: "Position";
+            selected: root.selected-subtitle-section == 3;
+            activated => { root.reveal-subtitle-section(3); } }
+        if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 132px; width: 158px; label: "Online Subtitles";
+            selected: root.selected-subtitle-section == 4;
+            activated => { root.reveal-subtitle-section(4); } }
+        if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 156px; width: 158px; label: "Other";
+            selected: root.selected-subtitle-section == 5;
+            activated => { root.reveal-subtitle-section(5); } }
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(5); width: 180px; label: "Network";
             icon: @image-url("../../../assets/icons/network.svg");
             selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.selected-network-section = 0; } }
         if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: #d3d3d7; }
@@ -1627,19 +1646,19 @@ export component PreferencesWindow inherits Window {
         if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 192px; width: 158px; label: "Other";
             selected: root.selected-audio-section == 2;
             activated => { root.selected-pane = 3; root.reveal-audio-section(2); } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 384px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 300px : 216px); width: 180px; label: "Control";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(6); width: 180px; label: "Control";
             icon: @image-url("../../../assets/icons/control.svg");
             selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 420px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 336px : 252px); width: 180px; label: "Key Bindings";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(7); width: 180px; label: "Key Bindings";
             icon: @image-url("../../../assets/icons/keybindings.svg");
             selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 456px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 372px : 288px); width: 180px; label: "Advanced";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(8); width: 180px; label: "Advanced";
             icon: @image-url("../../../assets/icons/advanced.svg");
             selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 492px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 408px : 324px); width: 180px; label: "Plugins";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(9); width: 180px; label: "Plugins";
             icon: @image-url("../../../assets/icons/plugins.svg");
             selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
-        PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 528px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 444px : 360px); width: 180px; label: "Utilities";
+        PreferenceNavItem { x: 10px; y: root.navigation-row-y(10); width: 180px; label: "Utilities";
             icon: @image-url("../../../assets/icons/utilities.svg");
             selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
             }
@@ -1647,15 +1666,19 @@ export component PreferencesWindow inherits Window {
     }
     if root.selected-pane == 0 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: 1124px + (root.when-media-opened-expanded ? 166px : 0px)
-            + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        content-height: root.general-content-height;
         content-width: self.visible-width;
         content-y <=> root.general-scroll-position;
         horizontal-scrollbar-policy: always-off;
+        changed content-y => {
+            if root.general-scroll-position > root.general-history-target / 2 { root.selected-general-section = 0; }
+            else if root.general-scroll-position > (root.general-history-target + root.general-playlist-target) / 2 { root.selected-general-section = 1; }
+            else if root.general-scroll-position > (root.general-playlist-target + root.general-screenshots-target) / 2 { root.selected-general-section = 2; }
+            else { root.selected-general-section = 3; }
+        }
         Rectangle {
         width: parent.width;
-        height: 1048px + (root.when-media-opened-expanded ? 166px : 0px)
-            + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        height: root.general-content-height;
         background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
         Text { x: 20px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
@@ -1772,11 +1795,9 @@ export component PreferencesWindow inherits Window {
                 label: "Keep window open after playback finishes";
                 checked <=> root.keep-open-on-file-end; toggled => { root.settings-changed(); } }
         }
-        Text { x: 20px; y: 459px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        Text { x: 20px; y: root.general-history-y;
             text: "History"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle { x: 12px; y: 488px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        Rectangle { x: 12px; y: root.general-history-y + 29px;
             width: parent.width - 24px; height: 164px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             CheckBox { x: 16px; y: 6px; height: 32px; text: "Resume last position";
@@ -1793,12 +1814,10 @@ export component PreferencesWindow inherits Window {
                 checked <=> root.track-all-files-in-recent-open-menu;
                 enabled: root.record-recent-files; toggled => { root.settings-changed(); } }
         }
-        Text { x: 20px; y: 680px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        Text { x: 20px; y: root.general-playlist-y;
             text: "Playlist"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle { x: 12px; y: 708px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
-            width: parent.width - 24px; height: 160px;
+        Rectangle { x: 12px; y: root.general-playlist-y + 28px;
+            width: parent.width - 24px; height: 192px;
             border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             CheckBox { x: 16px; y: 2px; height: 28px; text: "Add files in the same folder automatically";
                 checked <=> root.playlist-auto-add; toggled => { root.settings-changed(); } }
@@ -1814,21 +1833,19 @@ export component PreferencesWindow inherits Window {
                 checked <=> root.playlist-show-metadata-in-music-mode;
                 toggled => { root.settings-changed(); } }
             Rectangle { x: 12px; y: 124px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 16px; y: 128px; width: parent.width - 230px; height: 28px;
+            CheckBox { x: 16px; y: 128px; width: parent.width - 32px; height: 28px;
                 text: "Loop when a file is opened manually";
                 checked <=> root.auto-repeat; toggled => { root.settings-changed(); } }
-            ComboBox { x: parent.width - 204px; y: 129px; width: 188px; height: 26px;
+            ComboBox { x: 36px; y: 158px; width: parent.width - 52px; height: 26px;
                 model: ["Loop playlist", "Loop file"];
                 current-index <=> root.default-repeat-mode-index;
                 enabled: root.auto-repeat;
                 selected => { root.settings-changed(); }
             }
         }
-        Text { x: 20px; y: 896px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        Text { x: 20px; y: root.general-screenshots-y;
             text: "Screenshots"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle { x: 12px; y: 924px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+        Rectangle { x: 12px; y: root.general-screenshots-y + 28px;
             width: parent.width - 24px; height: 184px;
         border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
         Text { x: 16px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
@@ -2335,18 +2352,18 @@ export component PreferencesWindow inherits Window {
                     font-size: 9px; color: #77777d; }
                 Text { x: 16px; y: 56px; text: "Hardware decoder";
                     font-size: 11px; color: #252529; }
-                VideoDecoderChoice { x: 36px; y: 78px; width: parent.width - 56px;
+                PreferenceOptionCard { x: 36px; y: 78px; width: parent.width - 56px;
                     title: "Disabled"; description: "Disable hardware decoding.";
                     selected: root.hardware-decoder-index == 0;
                     activated => { root.hardware-decoder-index = 0; root.settings-changed(); }
                 }
-                VideoDecoderChoice { x: 36px; y: 136px; width: parent.width - 56px;
+                PreferenceOptionCard { x: 36px; y: 136px; width: parent.width - 56px;
                     title: "Auto";
                     description: "Enable hardware decoding. However, most of the video filters won't work properly.";
                     selected: root.hardware-decoder-index == 1;
                     activated => { root.hardware-decoder-index = 1; root.settings-changed(); }
                 }
-                VideoDecoderChoice { x: 36px; y: 194px; width: parent.width - 56px;
+                PreferenceOptionCard { x: 36px; y: 194px; width: parent.width - 56px;
                     title: "Auto (Copy)";
                     description: "Enable hardware decoding. It will consume double the memory but work with video filters.";
                     selected: root.hardware-decoder-index == 2;
@@ -2461,361 +2478,168 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 4 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-y <=> root.subtitle-scroll-position;
-        content-height: 1220px;
+        content-height: root.subtitle-content-height;
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width;
-        height: 1220px;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 28px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle { x: 20px; y: 52px; width: parent.width - 40px; height: 193px; background: transparent;
-            Text { x: 0; y: 8px; text: "Auto Load:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            ComboBox { x: 98px; y: 4px; width: 255px; height: 25px;
-                model: root.subtitle-auto-load-mode-options;
-                current-index <=> root.subtitle-auto-load-mode-index;
-                selected => { root.settings-changed(); }
-            }
-            PreferenceDisclosure { x: 98px; y: 38px;
-                label: "Advanced"; expanded: root.subtitle-auto-load-advanced-expanded;
-                toggled => { root.subtitle-auto-load-advanced-expanded = !root.subtitle-auto-load-advanced-expanded; }
-            }
-            if root.subtitle-auto-load-advanced-expanded : Rectangle {
-                x: 98px; y: 58px; width: parent.width - 102px; height: 132px; background: transparent;
-                Text { x: -2px; y: 13px; text: "Subtitles have priority when filename containing:";
-                    font-size: 10px; color: #222222; }
-                Rectangle { x: 0; y: 22px; width: parent.width; height: 19px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
-                    background: #ffffff;
-                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                        text <=> root.subtitle-auto-load-priority-text;
-                        font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                Text { x: -2px; y: 43px; text: "Please enter a comma-separated list of strings.";
-                    font-size: 10px; color: #77777d; }
-                Text { x: -2px; y: 65px; text: "Also search subtitles in following directories:";
-                    font-size: 10px; color: #222222; }
-                Rectangle { x: 0; y: 83px; width: parent.width; height: 19px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
-                    background: #ffffff;
-                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                        text <=> root.subtitle-search-paths-text;
-                        font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-            }
+        changed content-y => {
+            if root.subtitle-scroll-position > 16px - root.subtitle-ass-y { root.selected-subtitle-section = 0; }
+            else if root.subtitle-scroll-position > 16px - root.subtitle-text-y { root.selected-subtitle-section = 1; }
+            else if root.subtitle-scroll-position > 16px - root.subtitle-position-y { root.selected-subtitle-section = 2; }
+            else if root.subtitle-scroll-position > 16px - root.subtitle-online-y { root.selected-subtitle-section = 3; }
+            else if root.subtitle-scroll-position > 16px - root.subtitle-other-y { root.selected-subtitle-section = 4; }
+            else { root.selected-subtitle-section = 5; }
         }
-        Rectangle { x: 20px; y: 245px; width: parent.width - 40px; height: 99px; background: transparent;
-            Text { x: 0; y: 8px; text: "ASS Subtitles:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 6px; width: parent.width - 102px; height: 89px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                OverrideLaneButton { x: 49px; y: 10px; label: "Primary Subtitles";
-                    selected: root.subtitle-ass-override-lane == 0;
-                    activated => { root.subtitle-ass-override-lane = 0; }
+        Rectangle { x: 0px; y: 0px; width: parent.width; height: root.subtitle-content-height;
+            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
+            Text { x: 28px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: #222222; }
+            Text { x: 28px; y: 52px; text: "Auto Load"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: root.subtitle-autoload-height;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                Text { x: 14px; y: 6px; width: 80px; height: 28px; text: "Auto load"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                ComboBox { x: 102px; y: 8px; width: parent.width - 116px; height: 26px;
+                    model: root.subtitle-auto-load-mode-options; current-index <=> root.subtitle-auto-load-mode-index;
+                    selected => { root.settings-changed(); }
                 }
-                OverrideLaneButton { x: 201px; y: 10px; label: "Secondary Subtitles";
-                    selected: root.subtitle-ass-override-lane == 1;
-                    activated => { root.subtitle-ass-override-lane = 1; }
+                Rectangle { x: 14px; y: 40px; width: parent.width - 28px; height: 1px; background: #dedee1; }
+                GeneralDisclosureRow { x: 0px; y: 41px; width: parent.width; label: "Advanced";
+                    expanded: root.subtitle-auto-load-advanced-expanded;
+                    activated => { root.subtitle-auto-load-advanced-expanded = !root.subtitle-auto-load-advanced-expanded; }
                 }
-                Text { x: 41px; y: 40px; text: "Override level:";
-                    font-size: 12px; color: #222222; vertical-alignment: center; }
-                AssOverrideSlider { x: 137px; y: 36px;
-                    value: root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index;
-                    changed(value) => {
-                        if root.subtitle-ass-override-lane == 0 {
-                            root.subtitle-ass-override-primary-index = value;
-                        } else {
-                            root.subtitle-ass-override-secondary-index = value;
+                if root.subtitle-auto-load-advanced-expanded : Rectangle { x: 14px; y: 82px; width: parent.width - 28px; height: 150px; background: transparent;
+                    Text { x: 0px; y: 8px; width: parent.width; height: 18px; text: "Filename priority keywords"; font-size: 12px; color: #252529; }
+                    Rectangle { x: 0px; y: 30px; width: parent.width; height: 24px; border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff; clip: true;
+                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
+                            accessible-label: "Subtitle filename priority keywords"; text <=> root.subtitle-auto-load-priority-text;
+                            accepted => { root.settings-changed(); }
                         }
-                        root.settings-changed();
+                    }
+                    Text { x: 0px; y: 58px; width: parent.width; height: 20px; text: "Comma-separated strings, in priority order."; font-size: 10px; color: #77777d; }
+                    Text { x: 0px; y: 84px; width: parent.width; height: 18px; text: "Also search these directories"; font-size: 12px; color: #252529; }
+                    Rectangle { x: 0px; y: 106px; width: parent.width; height: 24px; border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff; clip: true;
+                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
+                            accessible-label: "Subtitle search paths"; text <=> root.subtitle-search-paths-text;
+                            accepted => { root.settings-changed(); }
+                        }
                     }
                 }
-                Text { x: 269px; y: 40px; width: 50px;
-                    text: (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 0 ? "no" :
-                        (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 1 ? "yes" :
-                        (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 2 ? "scale" :
-                        (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == 3 ? "force" : "strip";
-                    font-family: "monospace"; font-size: 11px; color: #222222;
-                    vertical-alignment: center;
+            }
+            Text { x: 28px; y: root.subtitle-ass-y; text: "ASS Subtitles"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: root.subtitle-ass-y + 26px; width: parent.width - 40px; height: 354px;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                Text { x: 14px; y: 12px; width: 150px; height: 26px; text: "Override level"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                OverrideLaneButton { x: parent.width - 178px; y: 12px; width: 80px; height: 26px; label: "Primary"; accessible-label: "Primary subtitles";
+                    selected: root.subtitle-ass-override-lane == 0; activated => { root.subtitle-ass-override-lane = 0; }
                 }
-                Text { x: 10px; y: 62px; width: parent.width - 20px; height: 20px;
-                    text: root.subtitle-ass-override-lane == 0 ?
-                        (root.subtitle-ass-override-primary-index == 0 ? "Render subtitles as specified by their scripts, without overrides." :
-                        root.subtitle-ass-override-primary-index == 1 ? "Apply all style settings in this section." :
-                        root.subtitle-ass-override-primary-index == 2 ? "Apply scale together with the style settings in this section." :
-                        root.subtitle-ass-override-primary-index == 3 ? "Apply all subtitle styles." : "Remove all ASS tags and styles.") :
-                        (root.subtitle-ass-override-secondary-index == 0 ? "Render subtitles as specified by their scripts, without overrides." :
-                        root.subtitle-ass-override-secondary-index == 1 ? "Apply all style settings in this section." :
-                        root.subtitle-ass-override-secondary-index == 2 ? "Apply scale together with the style settings in this section." :
-                        root.subtitle-ass-override-secondary-index == 3 ? "Apply all subtitle styles." : "Remove all ASS tags and styles.");
-                    font-size: 10px; color: #77777d; vertical-alignment: center;
+                OverrideLaneButton { x: parent.width - 94px; y: 12px; width: 80px; height: 26px; label: "Secondary"; accessible-label: "Secondary subtitles";
+                    selected: root.subtitle-ass-override-lane == 1; activated => { root.subtitle-ass-override-lane = 1; }
+                }
+                for option[index] in ["no", "yes", "scale", "force", "strip"] : PreferenceOptionCard {
+                    x: 14px; y: 54px + index * 58px; width: parent.width - 28px;
+                    title: option; description: root.subtitle-override-descriptions[index];
+                    selected: (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == index;
+                    activated => { root.choose-subtitle-override(index); }
                 }
             }
-        }
-        Rectangle { x: 20px; y: 359px; width: parent.width - 40px; height: 115px; background: transparent;
-            Text { x: 0; y: 8px; text: "Text Subtitles:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 4px; width: parent.width - 102px; height: 105px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 5px; text: "Font";
-                    font-size: 11px; font-weight: 600; color: #55555d; }
-                Text { x: 16px; y: 28px; text: "Font:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                Text { x: 60px; y: 25px; width: 186px; height: 20px;
-                    text: root.subtitle-font; overflow: elide;
-                    font-size: 11px; color: #666666; vertical-alignment: center;
-                }
-                PreferenceActionButton { x: 278px; y: 22px; label: "Choose...";
+            Text { x: 28px; y: root.subtitle-text-y; text: "Text Subtitles"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: root.subtitle-text-y + 26px; width: parent.width - 40px; height: root.subtitle-text-height;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                Text { x: 14px; y: 12px; width: 70px; height: 26px; text: "Font"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceActionButton { x: 90px; y: 12px; width: parent.width - 104px; label: root.subtitle-font; accessible-label: "Choose subtitle font";
                     activated => { root.choose-subtitle-font(); }
                 }
-                Text { x: 16px; y: 60px; text: "Size:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 60px; y: 55px; width: 38px; height: 24px;
-                    text <=> root.subtitle-font-size-text;
-                    accepted => { root.settings-changed(); }
-                }
-                CheckBox { x: 104px; y: 55px; width: 54px; height: 24px;
-                    text: "Bold"; checked <=> root.subtitle-bold;
-                    toggled => { root.settings-changed(); }
-                }
-                CheckBox { x: 168px; y: 55px; width: 55px; height: 24px;
-                    text: "Italic"; checked <=> root.subtitle-italic;
-                    toggled => { root.settings-changed(); }
-                }
-                Text { x: 16px; y: 87px; text: "Color:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                SubtitleColorWell { x: 60px; y: 80px; observed-color: root.subtitle-text-color;
-                    hint: "Subtitle text color"; native-color-panel: root.platform-macos; color-target: 1;
+                Text { x: 14px; y: 52px; width: 70px; height: 24px; text: "Size"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceNumericInput { x: 90px; y: 52px; width: 44px; height: 24px; label: "Subtitle font size"; text <=> root.subtitle-font-size-text; accepted => { root.settings-changed(); } }
+                CheckBox { x: 150px; y: 52px; width: 72px; height: 24px; text: "Bold"; checked <=> root.subtitle-bold; toggled => { root.settings-changed(); } }
+                CheckBox { x: 236px; y: 52px; width: 72px; height: 24px; text: "Italic"; checked <=> root.subtitle-italic; toggled => { root.settings-changed(); } }
+                Text { x: 14px; y: 92px; width: 70px; height: 24px; text: "Color"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                SubtitleColorWell { x: 90px; y: 92px; observed-color: root.subtitle-text-color; hint: "Subtitle text color"; native-color-panel: root.platform-macos; color-target: 1;
                     native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                     edited(value) => { root.subtitle-text-color = value; root.settings-changed(); }
                 }
-                Text { x: 116px; y: 87px; text: "Background:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                SubtitleColorWell { x: 188px; y: 80px; observed-color: root.subtitle-background-color;
-                    hint: "Subtitle background color"; native-color-panel: root.platform-macos; color-target: 2;
+                Text { x: 150px; y: 92px; width: 100px; height: 24px; text: "Background"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                SubtitleColorWell { x: parent.width - 54px; y: 92px; observed-color: root.subtitle-background-color; hint: "Subtitle background color"; native-color-panel: root.platform-macos; color-target: 2;
                     native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
-                    edited(value) => {
-                        root.subtitle-background-color = value;
-                        root.subtitle-shadow-color = value;
-                        root.settings-changed();
-                    }
+                    edited(value) => { root.subtitle-background-color = value; root.subtitle-shadow-color = value; root.settings-changed(); }
                 }
-            }
-        }
-        Rectangle { x: 20px; y: 484px; width: parent.width - 40px; height: 58px; background: transparent;
-            Text { x: 0; y: 8px; text: "Border:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 0; width: parent.width - 102px; height: 56px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 21px; text: "Size:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 52px; y: 15px; width: 38px; height: 24px;
-                    text <=> root.subtitle-outline-size-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 112px; y: 21px; text: "Color:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                SubtitleColorWell { x: 157px; y: 15px; observed-color: root.subtitle-outline-color;
-                    hint: "Subtitle border color"; native-color-panel: root.platform-macos; color-target: 3;
+                Text { x: 14px; y: 132px; width: 70px; height: 24px; text: "Border"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceNumericInput { x: 90px; y: 132px; width: 44px; height: 24px; label: "Subtitle border size"; text <=> root.subtitle-outline-size-text; accepted => { root.settings-changed(); } }
+                Text { x: 166px; y: 132px; width: 74px; height: 24px; text: "Color"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                SubtitleColorWell { x: parent.width - 54px; y: 132px; observed-color: root.subtitle-outline-color; hint: "Subtitle border color"; native-color-panel: root.platform-macos; color-target: 3;
                     native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                     edited(value) => { root.subtitle-outline-color = value; root.settings-changed(); }
                 }
-            }
-        }
-        PreferenceDisclosure { x: 20px; y: 550px;
-            label: "Advanced"; expanded: root.subtitle-text-advanced-expanded;
-            toggled => { root.subtitle-text-advanced-expanded = !root.subtitle-text-advanced-expanded; }
-        }
-        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 578px; width: parent.width - 40px; height: 58px; background: transparent;
-            Text { x: 0; y: 8px; text: "Shadow:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 0; width: parent.width - 102px; height: 56px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 21px; text: "Offset:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 56px; y: 15px; width: 38px; height: 24px;
-                    text <=> root.subtitle-shadow-offset-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 119px; y: 21px; text: "Color:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                SubtitleColorWell { x: 164px; y: 15px; observed-color: root.subtitle-shadow-color;
-                    hint: "Subtitle shadow color"; native-color-panel: root.platform-macos; color-target: 4;
+                Text { x: 14px; y: 172px; width: 70px; height: 24px; text: "Shadow"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceNumericInput { x: 90px; y: 172px; width: 44px; height: 24px; label: "Subtitle shadow offset"; text <=> root.subtitle-shadow-offset-text; accepted => { root.settings-changed(); } }
+                Text { x: 166px; y: 172px; width: 74px; height: 24px; text: "Color"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                SubtitleColorWell { x: parent.width - 54px; y: 172px; observed-color: root.subtitle-shadow-color; hint: "Subtitle shadow color"; native-color-panel: root.platform-macos; color-target: 4;
                     native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
-                    edited(value) => {
-                        root.subtitle-shadow-color = value;
-                        root.subtitle-background-color = value;
-                        root.settings-changed();
+                    edited(value) => { root.subtitle-shadow-color = value; root.subtitle-background-color = value; root.settings-changed(); }
+                }
+                GeneralDisclosureRow { x: 0px; y: 204px; width: parent.width; label: "Other styles"; expanded: root.subtitle-text-advanced-expanded;
+                    activated => { root.subtitle-text-advanced-expanded = !root.subtitle-text-advanced-expanded; }
+                }
+                if root.subtitle-text-advanced-expanded : Rectangle { x: 14px; y: 248px; width: parent.width - 28px; height: 26px; background: transparent;
+                    Text { x: 0px; y: 0px; width: 40px; height: 24px; text: "Blur"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                    PreferenceNumericInput { x: 44px; y: 0px; width: 44px; height: 24px; label: "Subtitle blur"; text <=> root.subtitle-blur-text; accepted => { root.settings-changed(); } }
+                    Text { x: 108px; y: 0px; width: 100px; height: 24px; text: "Font spacing"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                    PreferenceNumericInput { x: parent.width - 56px; y: 0px; width: 56px; height: 24px; label: "Subtitle font spacing"; text <=> root.subtitle-spacing-text; accepted => { root.settings-changed(); } }
+                }
+            }
+            Text { x: 28px; y: root.subtitle-position-y; text: "Position"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: root.subtitle-position-y + 26px; width: parent.width - 40px; height: 248px;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                Text { x: 14px; y: 12px; width: 126px; height: 24px; text: "Horizontal alignment"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                ComboBox { x: 150px; y: 12px; width: parent.width - 164px; height: 26px; model: ["Left", "Center", "Right"]; current-index <=> root.subtitle-align-x-index; selected => { root.settings-changed(); } }
+                Text { x: 14px; y: 52px; width: 126px; height: 24px; text: "Vertical alignment"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                ComboBox { x: 150px; y: 52px; width: parent.width - 164px; height: 26px; model: ["Top", "Center", "Bottom"]; current-index <=> root.subtitle-align-y-index; selected => { root.settings-changed(); } }
+                Text { x: 14px; y: 92px; width: 64px; height: 24px; text: "Margin X"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceNumericInput { x: 80px; y: 92px; width: 54px; height: 24px; label: "Horizontal subtitle margin"; text <=> root.subtitle-margin-x-text; accepted => { root.settings-changed(); } }
+                Text { x: 166px; y: 92px; width: 64px; height: 24px; text: "Margin Y"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceNumericInput { x: parent.width - 68px; y: 92px; width: 54px; height: 24px; label: "Vertical subtitle margin"; text <=> root.subtitle-margin-y-text; accepted => { root.settings-changed(); } }
+                Text { x: 14px; y: 132px; width: 150px; height: 24px; text: "Vertical position"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceNumericInput { x: 180px; y: 132px; width: 64px; height: 24px; label: "Subtitle vertical position percent"; text <=> root.subtitle-position-text; accepted => { root.settings-changed(); } }
+                Text { x: 250px; y: 132px; width: 24px; height: 24px; text: "%"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                PreferenceSwitch { x: 14px; y: 168px; width: parent.width - 28px; label: "Display subtitles in fullscreen letterboxes"; checked <=> root.subtitle-display-in-letterbox; toggled => { root.settings-changed(); } }
+                PreferenceSwitch { x: 14px; y: 204px; width: parent.width - 28px; label: "Scale subtitles with window size"; checked <=> root.subtitle-scale-with-window; toggled => { root.settings-changed(); } }
+            }
+            Text { x: 28px; y: root.subtitle-online-y; text: "Online Subtitles"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: root.subtitle-online-y + 26px; width: parent.width - 40px; height: root.subtitle-online-height;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                Text { x: 14px; y: 12px; width: 104px; height: 26px; text: "Provider"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                ComboBox { x: 130px; y: 12px; width: parent.width - 144px; height: 26px; model: root.open-subtitles-provider-options; current-index <=> root.open-subtitles-provider-index; selected => { root.settings-changed(); } }
+                if root.open-subtitles-provider-index != 2 : Rectangle { x: 14px; y: 48px; width: parent.width - 28px; height: 84px; background: transparent;
+                    Text { x: 0px; y: 0px; width: parent.width; height: 18px; text: root.open-subtitles-provider-index == 1 ? "Assrt.net token" : "OpenSubtitles API key"; font-size: 12px; color: #252529; }
+                    Rectangle { x: 0px; y: 22px; width: parent.width; height: 24px; background: #ffffff; border-width: 1px; border-color: #b8b8bc; border-radius: 3px; clip: true;
+                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: root.open-subtitles-provider-index == 0;
+                            accessible-label: "OpenSubtitles API key"; text <=> root.open-subtitles-api-key; accepted => { root.settings-changed(); }
+                        }
+                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: root.open-subtitles-provider-index == 1;
+                            accessible-label: "Assrt.net token"; text <=> root.assrt-token; accepted => { root.settings-changed(); }
+                        }
                     }
+                    Text { x: 0px; y: 52px; width: parent.width; height: 30px; text: "Stored in your system credential store."; font-size: 10px; color: #77777d; wrap: word-wrap; }
                 }
+                if root.open-subtitles-provider-index == 1 : PreferenceActionButton { x: 14px; y: 136px; width: 176px; label: "Get an Assrt API token"; activated => { root.open-assrt-token-page(); } }
+                if root.open-subtitles-provider-index == 2 : Text { x: 14px; y: 48px; width: parent.width - 28px; height: 54px; text: "Shooter matches local videos using file samples and their path. Searching sends both to Shooter.cn; no account is needed."; font-size: 10px; color: #77777d; wrap: word-wrap; }
+                PreferenceSwitch { x: 14px; y: root.open-subtitles-provider-index == 1 ? 168px : root.open-subtitles-provider-index == 2 ? 116px : 136px; width: parent.width - 28px;
+                    label: "Search online subtitles automatically"; checked <=> root.open-subtitles-auto-search; toggled => { root.settings-changed(); }
+                }
+                Text { x: 14px; y: root.subtitle-online-height - 68px; width: parent.width - 28px; height: 20px; text: "Only search when media is longer than"; font-size: 11px; color: #252529; }
+                PreferenceNumericInput { x: 14px; y: root.subtitle-online-height - 40px; width: 64px; height: 24px; label: "Online subtitle search minimum minutes"; text <=> root.open-subtitles-threshold-text; accepted => { root.settings-changed(); } }
+                Text { x: 88px; y: root.subtitle-online-height - 40px; width: 80px; height: 24px; text: "minutes"; font-size: 12px; color: #252529; vertical-alignment: center; }
             }
-        }
-        if root.subtitle-text-advanced-expanded : Rectangle { x: 20px; y: 640px; width: parent.width - 40px; height: 58px; background: transparent;
-            Text { x: 0; y: 8px; text: "Other Styles:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 0; width: parent.width - 102px; height: 56px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 21px; text: "Blur:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 48px; y: 15px; width: 38px; height: 24px;
-                    text <=> root.subtitle-blur-text;
-                    accepted => { root.settings-changed(); }
+            Text { x: 28px; y: root.subtitle-other-y; text: "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
+            Rectangle { x: 20px; y: root.subtitle-other-y + 26px; width: parent.width - 40px; height: 168px;
+                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+                Text { x: 14px; y: 12px; width: parent.width - 28px; height: 20px; text: "Preferred languages"; font-size: 12px; color: #252529; }
+                LanguageTokenEditor { x: 14px; y: 36px; width: parent.width - 28px; height: 26px; tokens: root.subtitle-language-tokens;
+                    add-token(entry) => { root.add-subtitle-language-token(entry); }
+                    remove-token(index) => { root.remove-subtitle-language-token(index); }
                 }
-                Text { x: 109px; y: 21px; text: "Font spacing:";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 190px; y: 15px; width: 38px; height: 24px;
-                    text <=> root.subtitle-spacing-text;
-                    accepted => { root.settings-changed(); }
-                }
+                Text { x: 14px; y: 68px; width: parent.width - 28px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: #77777d; wrap: word-wrap; }
+                Text { x: 14px; y: 116px; width: 120px; height: 26px; text: "Default encoding"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                ComboBox { x: 148px; y: 116px; width: parent.width - 162px; height: 26px; model: root.subtitle-encoding-options; current-index <=> root.subtitle-encoding-index; selected => { root.settings-changed(); } }
             }
-        }
-        Rectangle { x: 20px; y: 714px; width: parent.width - 40px; height: 208px; background: transparent;
-            Text { x: 0; y: 8px; text: "Position:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 6px; width: parent.width - 102px; height: 56px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 20px; text: "X:"; font-size: 11px; color: #222222; }
-                ComboBox { x: 28px; y: 15px; width: 88px; height: 24px;
-                    model: ["Left", "Center", "Right"];
-                    current-index <=> root.subtitle-align-x-index;
-                    selected => { root.settings-changed(); }
-                }
-                Text { x: 126px; y: 20px; text: "Y:"; font-size: 11px; color: #222222; }
-                ComboBox { x: 143px; y: 15px; width: 88px; height: 24px;
-                    model: ["Top", "Center", "Bottom"];
-                    current-index <=> root.subtitle-align-y-index;
-                    selected => { root.settings-changed(); }
-                }
-            }
-            Rectangle { x: 98px; y: 68px; width: parent.width - 102px; height: 56px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 5px; text: "Margin";
-                    font-size: 11px; font-weight: 600; color: #55555d; }
-                Text { x: 16px; y: 28px; text: "X:"; font-size: 11px; color: #222222; }
-                PreferenceNumericInput { x: 34px; y: 21px; width: 80px; height: 24px;
-                    text <=> root.subtitle-margin-x-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 125px; y: 28px; text: "Y:"; font-size: 11px; color: #222222; }
-                PreferenceNumericInput { x: 143px; y: 21px; width: 80px; height: 24px;
-                    text <=> root.subtitle-margin-y-text;
-                    accepted => { root.settings-changed(); }
-                }
-            }
-            Text { x: 98px; y: 132px; text: "Vertical position:";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            PreferenceNumericInput { x: 210px; y: 128px; width: 80px; height: 24px;
-                text <=> root.subtitle-position-text;
-                accepted => { root.settings-changed(); }
-            }
-            Text { x: 291px; y: 132px; text: "%";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            CheckBox { x: 98px; y: 158px; width: 360px; height: 22px;
-                text: "Display subtitles in letterboxes while in full screen";
-                checked <=> root.subtitle-display-in-letterbox;
-                toggled => { root.settings-changed(); }
-            }
-            CheckBox { x: 98px; y: 182px; width: 280px; height: 22px;
-                text: "Scale subtitles with window size";
-                checked <=> root.subtitle-scale-with-window;
-                toggled => { root.settings-changed(); }
-            }
-        }
-        Rectangle { x: 20px; y: 938px; width: parent.width - 40px; height: 90px; background: transparent;
-            Text { x: 0; y: 8px; text: "Other:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Text { x: 98px; y: 8px; text: "Preferred language:";
-                font-size: 13px; color: #222222; vertical-alignment: center; }
-            LanguageTokenEditor { x: 228px; y: 4px; width: 232px; height: 23px;
-                tokens: root.subtitle-language-tokens;
-                add-token(entry) => { root.add-subtitle-language-token(entry); }
-                remove-token(index) => { root.remove-subtitle-language-token(index); }
-            }
-            Text { x: 98px; y: 30px; width: parent.width - 102px; height: 28px;
-                text: "Use comma-separated ISO 639-2 language codes. These preferences also guide subtitle track selection.";
-                font-size: 10px; color: #77777d; wrap: word-wrap;
-            }
-            Text { x: 98px; y: 66px; text: "Default encoding:";
-                font-size: 13px; color: #222222; vertical-alignment: center; }
-            ComboBox { x: 213px; y: 62px; width: 147px; height: 25px;
-                model: root.subtitle-encoding-options;
-                current-index <=> root.subtitle-encoding-index;
-                selected => { root.settings-changed(); }
-            }
-        }
-        Rectangle { x: 20px; y: 1040px; width: parent.width - 40px; height: 202px; background: transparent;
-            Text { x: 0; y: 8px; text: "Online Subtitles:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            Rectangle { x: 98px; y: 2px; width: parent.width - 102px; height: 194px;
-                border-width: 1px; border-color: #c4c4c8; border-radius: 4px;
-                background: #f1f1f3;
-                Text { x: 12px; y: 8px; text: "Provider:";
-                    font-size: 11px; font-weight: 600; color: #55555d; }
-                ComboBox { x: 100px; y: 4px; width: min(210px, parent.width - 112px); height: 25px;
-                    model: root.open-subtitles-provider-options;
-                    current-index <=> root.open-subtitles-provider-index;
-                    selected => { root.settings-changed(); }
-                }
-                if root.open-subtitles-provider-index == 0 : Text { x: 12px; y: 38px; text: "OpenSubtitles API key:";
-                    font-size: 11px; font-weight: 600; color: #55555d; }
-                if root.open-subtitles-provider-index == 0 : Rectangle { x: 12px; y: 58px; width: parent.width - 24px; height: 22px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px;
-                    background: #ffffff;
-                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                        text <=> root.open-subtitles-api-key;
-                        input-type: password;
-                        font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                if root.open-subtitles-provider-index == 0 : Text { x: 12px; y: 82px; text: "Stored in your system credential store.";
-                    font-size: 10px; color: #77777d; }
-                if root.open-subtitles-provider-index == 1 : Text { x: 12px; y: 38px; text: "Assrt.net token:";
-                    font-size: 11px; font-weight: 600; color: #55555d; }
-                if root.open-subtitles-provider-index == 1 : Rectangle { x: 12px; y: 58px; width: parent.width - 24px; height: 22px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 2px; background: #ffffff;
-                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                        text <=> root.assrt-token; input-type: password; font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                if root.open-subtitles-provider-index == 1 : Text { x: 12px; y: 82px; text: "Stored in your system credential store. Assrt accounts provide this token.";
-                    font-size: 10px; color: #77777d; }
-                if root.open-subtitles-provider-index == 1 : Text { x: 12px; y: 98px; text: "Get an API token from Assrt.net";
-                    font-size: 10px; color: #2878cc; }
-                if root.open-subtitles-provider-index == 1 : TouchArea { x: 12px; y: 98px; width: 170px; height: 16px;
-                    clicked => { root.open-assrt-token-page(); }
-                }
-                if root.open-subtitles-provider-index == 2 : Text { x: 12px; y: 38px; width: parent.width - 24px; height: 36px;
-                    text: "Shooter matches local videos by file samples and path. Searching sends both to Shooter.cn; no account is needed.";
-                    font-size: 10px; color: #77777d; wrap: word-wrap;
-                }
-                CheckBox { x: 12px; y: root.open-subtitles-provider-index == 1 ? 118px : root.open-subtitles-provider-index == 2 ? 82px : 108px; width: 270px; height: 20px;
-                    text: "Search online subtitles automatically";
-                    checked <=> root.open-subtitles-auto-search;
-                    toggled => { root.settings-changed(); }
-                }
-                Text { x: 12px; y: root.open-subtitles-provider-index == 1 ? 151px : root.open-subtitles-provider-index == 2 ? 115px : 139px; text: "Only search when media is longer than";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-                PreferenceNumericInput { x: 206px; y: root.open-subtitles-provider-index == 1 ? 145px : root.open-subtitles-provider-index == 2 ? 109px : 133px; width: 48px; height: 24px;
-                    text <=> root.open-subtitles-threshold-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 259px; y: root.open-subtitles-provider-index == 1 ? 151px : root.open-subtitles-provider-index == 2 ? 115px : 139px; text: "minutes.";
-                    font-size: 11px; color: #222222; vertical-alignment: center; }
-            }
-        }
         }
     }
     if root.selected-pane == 3 : ScrollView {

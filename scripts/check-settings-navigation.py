@@ -61,6 +61,45 @@ def main():
         "Settings search must scroll to the matching General section"
     )
 
+    for section, target in (("History", "history"), ("Playlist", "playlist"), ("Screenshots", "screenshots")):
+        assert f"13px - root.general-{target}-y" in SOURCE, (
+            f"{section} navigation must derive its target from the visible heading"
+        )
+        assert re.search(
+            rf'y: root\.general-{target}-y;\s*text: "{section}"',
+            general_page.group(1),
+        ), f"{section} heading and navigation must share one position"
+
+    subtitle_page = re.search(
+        r"if root\.selected-pane == 4\s*:\s*ScrollView\s*\{(.*?)"
+        r"(?=\n\s*if root\.selected-pane == 3\s*:)", SOURCE, re.DOTALL,
+    )
+    assert subtitle_page, "Subtitles must remain a continuous scroll page"
+    subtitle_body = subtitle_page.group(1)
+    subtitle_sections = ["Auto Load", "ASS Subtitles", "Text Subtitles", "Position", "Online Subtitles", "Other"]
+    headings = [subtitle_body.find(f'text: "{label}"') for label in subtitle_sections]
+    assert all(position >= 0 for position in headings) and headings == sorted(headings), (
+        "Subtitle sections must retain reference order, including Online before Other"
+    )
+    assert all(f"root.reveal-subtitle-section({index})" in SOURCE for index in range(6)), (
+        "Every subtitle subsection needs a working reveal route"
+    )
+    assert "window.invoke_reveal_subtitle_section" in SEARCH_SOURCE, (
+        "Search must reveal subtitle sections through their live layout, not fixed offsets"
+    )
+    assert all(token in SOURCE for token in (
+        "78px + subtitle-autoload-height + 20px",
+        "subtitle-text-y + 26px + subtitle-text-height + 20px",
+        "subtitle-online-y + 26px + subtitle-online-height + 20px",
+        "root.height + subtitle-other-y - 16px",
+    )), "Expanded subtitle sections and provider variants must move later anchors and retain a full viewport"
+    assert all(token in subtitle_body for token in (
+        'accessible-label: "Primary subtitles"', 'accessible-label: "Secondary subtitles"',
+        'accessible-label: "Choose subtitle font"', 'root.choose-subtitle-font();',
+        'root.choose-subtitle-override(index);', 'root.add-subtitle-language-token(entry);',
+        'root.remove-subtitle-language-token(index);',
+    )), "Subtitle layout changes must retain lane, font and language actions"
+
     interface_sections = re.findall(
         r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
         r'[^{}]*selected:\s*root\.selected-interface-section\s*==\s*(\d+);',

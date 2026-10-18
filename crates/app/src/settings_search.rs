@@ -710,18 +710,12 @@ fn anchor_y(entry: &Entry) -> i32 {
         (2, "Live Text", _) => 378,
         (2, "Color and HDR", _) => 420,
         (3, _, _) => 52,
-        (4, "Auto Load", "Subtitle matching mode") => 56,
-        (4, "Auto Load", "Priority keywords") => 132,
-        (4, "Auto Load", _) => 193,
-        (4, "ASS Subtitles", _) => 291,
-        (4, "Text Subtitles", "Border") => 505,
-        (4, "Text Subtitles", "Shadow and other styles") => 661,
-        (4, "Text Subtitles", _) => 411,
-        (4, "Position", "Vertical position") => 850,
-        (4, "Position", _) => 772,
-        (4, "Other", "Default encoding") => 1000,
-        (4, "Other", _) => 950,
-        (4, "Online Subtitles", _) => 1040,
+        (4, "Auto Load", _) => 52,
+        (4, "ASS Subtitles", _) => 180,
+        (4, "Text Subtitles", _) => 580,
+        (4, "Position", _) => 870,
+        (4, "Online Subtitles", _) => 1164,
+        (4, "Other", _) => 1454,
         (5, "Cache", _) | (5, "Network", _) => 80,
         _ => 0,
     }
@@ -912,7 +906,14 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         if title == "Shadow and other styles" {
             window.set_subtitle_text_advanced_expanded(true);
         }
-        window.set_subtitle_scroll_position((52 - anchor).max(-740) as f32);
+        window.invoke_reveal_subtitle_section(match section {
+            "ASS Subtitles" => 1,
+            "Text Subtitles" => 2,
+            "Position" => 3,
+            "Online Subtitles" => 4,
+            "Other" => 5,
+            _ => 0,
+        });
     }
     if page == 5 {
         window.set_selected_network_section(match section {
@@ -1127,13 +1128,13 @@ mod tests {
     fn subtitle_search_results_retain_their_visible_scroll_anchor() {
         let border = item_results("border");
         assert_eq!(border.len(), 1);
-        assert_eq!(border[0].anchor_y, 505);
+        assert_eq!(border[0].anchor_y, 580);
 
         let auto_load = item_results("priority keywords");
         assert_eq!(auto_load.len(), 1);
-        assert_eq!(auto_load[0].anchor_y, 132);
-        assert_eq!(item_results("search paths")[0].anchor_y, 193);
-        assert_eq!(item_results("vertical position")[0].anchor_y, 850);
+        assert_eq!(auto_load[0].anchor_y, 52);
+        assert_eq!(item_results("search paths")[0].anchor_y, 52);
+        assert_eq!(item_results("vertical position")[0].anchor_y, 870);
     }
 
     #[test]
