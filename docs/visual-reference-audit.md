@@ -14,8 +14,9 @@ not current blockers unless reproduced in the current ledger.
   Paths are relative to the repository root; unknown scale remains unknown.
 - `reference_quality`: `usable`, `near-duplicate`, `failed`, `missing` or
   `context-only`. Usable does not mean matched to Riina.
-- `current_implementation` describes code present at `994f14c`; source inspection
-  is not runtime or visual acceptance.
+- `current_implementation` describes the maintained implementation snapshot;
+  source inspection is not runtime or visual acceptance. Evidence records name
+  their revision or base revision plus exact modified-source hashes.
 - `verification`: `source-only`, `partial-gui` or `reference-blocked`.
   `partial-gui` is limited to the named evidence record, not every state in a row.
 - `current_evidence` links a scoped dated record. An empty value means there is
@@ -23,12 +24,14 @@ not current blockers unless reproduced in the current ledger.
 - `remaining_gaps` and `next_action` describe outstanding work. `historical_evidence`
   identifies the archived row by ID; CSV fragments are lookup keys, not HTML anchors.
 
-The [2026-10-18 Windows inspection](../tests/visual/windows-ledger-review-2026-10-18.json)
-checks playback and a subset of settings. It reproduces unreadable light-theme
-checkbox/input/combo text in General and Audio, and sidebar clipping when Audio
-is expanded. Fix those before matched visual measurements. The macOS reference
-scale, complete menu states, remaining Preferences pages and other Quick Settings
-tabs still need comparison. A successful build does not close these gaps.
+The [Preferences follow-up](../tests/visual/windows-preferences-readability-2026-10-18.json)
+inspects all eleven initial category viewports and records corrected light-widget
+contrast, Audio continuity and auxiliary width. It also records subtitle overflow,
+overlapping Utilities rows and Advanced controls, truncated shortcut keycaps and
+other remaining differences. Lower viewports, dialogs, broader themes, complete
+menu states and matched macOS geometry remain open. A successful build does not
+close these gaps. The [initial inspection](../tests/visual/windows-ledger-review-2026-10-18.json)
+preserves the earlier failures as dated evidence.
 
 ## Reference sets
 

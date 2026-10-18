@@ -922,7 +922,7 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         });
     }
     if page == 3 {
-        window.set_selected_audio_section(match section {
+        window.invoke_reveal_audio_section(match section {
             "Volume" => 1,
             "Other" => 2,
             _ => 0,

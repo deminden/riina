@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-18",
+  "source_base_revision": "5eceeee090134b22ca96cdcf8d5fda9a99c4eb31",
+  "source_files_sha256": {
+    "crates/app/ui/preferences.slint": "f2afd5d6187fe606746e12540f5dc0779c097c198f00ea953fd5274ed1b16ad9",
+    "crates/app/src/settings_search.rs": "6a998ce5dcf7ff27def6f9ebe099e54c38c4517b34d72831ba6ad8100968337b",
+    "crates/app/src/platform/windows/window_position.rs": "fdf10c6b2670e0891c1d31a81b99d2f84e60da34cb769c0c19de7c6d2e703c24",
+    "crates/core/src/window_resize.rs": "8594782ded70967986a74ae9c5aa6290865fd00a9adb2c7e49fe872073f008c3",
+    "scripts/check-settings-navigation.py": "4098cbfb4a29aa88a6ff1cd59a97ab259c1924301866fe3466ed3d3519fbc974"
+  },
+  "environment": {
+    "platform": "Windows 11 x64",
+    "desktop_pixels": [
+      3840,
+      2160
+    ],
+    "audio_output": "null",
+    "isolated_profile": true,
+    "fixture": "tests/fixtures/moving-square.avi",
+    "package": "local debug executable; not an extracted release"
+  },
+  "executable_sha256": "425b3255deaaccbd79657dad1212079070eb66c63dc705ef17402df0b14d5352",
+  "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "checks": {
+    "workspace_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "rust_workspace": {
+      "passed": 598,
+      "ignored": 56,
+      "failed": 0
+    },
+    "python_packaging_tests": 31,
+    "settings_navigation_inventory": "passed",
+    "playback_smoke": {
+      "success": true,
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress"
+      ],
+      "elapsed_ms": 5750,
+      "physical_display_verified": false
+    }
+  },
+  "manual_sweep": {
+    "categories": [
+      "General",
+      "Interface",
+      "Video",
+      "Audio",
+      "Subtitles",
+      "Network",
+      "Control",
+      "Key Bindings",
+      "Advanced",
+      "Plugins",
+      "Utilities"
+    ],
+    "scope": "Initial visible viewport of each category; Audio Other and Interface sidebar scrolling also inspected. Not all lower sections, dialogs or behavioral combinations.",
+    "observed_fixes": [
+      "General combo value and History labels readable on light panels.",
+      "Audio hardware/volume values and checkbox labels readable.",
+      "Preferences retains its intended width when height is limited; Show welcome window fits in full.",
+      "Audio Hardware, Volume and Other share one scroll page; section links reach Other with a full viewport background.",
+      "Audio sidebar exposes all categories; expanded Interface sidebar scrolls to Utilities.",
+      "Ctrl+, opens Settings in the new player."
+    ],
+    "prior_build_check": "Audio search result activation also reached Other before the final sizing-only change."
+  },
+  "remaining_observations": [
+    "Subtitles: ASS lane controls and Choose font action overflow the right edge; collapsed Auto Load leaves a large reserved gap.",
+    "Utilities: first cache row is implicitly centered and overlaps the history row; symbolic glyphs render poorly.",
+    "Advanced: config-directory input overlaps Choose button.",
+    "Key Bindings: fixed-width shortcut keycaps truncate Alt+RIGHT and Alt+LEFT; Windows labels mix platform symbols.",
+    "Plugins: refresh glyph is barely visible.",
+    "Control: first-mouse label lacks the other mouse rows' inset.",
+    "Audio/Network: remaining bare numeric fields lack the visible editable cells used elsewhere.",
+    "General reference has subsection links that are absent from Riina; Network reference uses a continuous page rather than isolated sections.",
+    "Preferences remains light even with Dark selected for playback; broader theme comparison is open."
+  ],
+  "full_desktop_evidence": {
+    "pixels": [
+      3840,
+      2160
+    ],
+    "non_black_probes": "passed",
+    "images_inspected": true,
+    "private_local_paths": [
+      "target/preferences-sizing-smoke.json.before.png",
+      "target/preferences-sizing-smoke.json.fullscreen.png",
+      "target/preferences-sizing-smoke.json.after.png",
+      "target/preferences-sizing-interface.png"
+    ],
+    "result": "Fullscreen video visible with controller. No persistent Riina surface after smoke exit. Interface window remains inside desktop; lower navigation is reachable by scrolling.",
+    "privacy": "Raw images remain untracked; unrelated desktop content must not be published."
+  },
+  "shutdown": {
+    "automated_pid": 240,
+    "manual_pid": 12588,
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "limits": [
+    "No physical HDR/color or audible-output verification",
+    "No complete pixel comparison against macOS",
+    "No macOS/Linux application runtime test",
+    "No final release package verification"
+  ]
+}

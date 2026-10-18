@@ -150,6 +150,11 @@ Do not use old capture-tool failures as a current blanket blocker.
 The automated Settings set records all eleven pages in light appearance at 1x.
 Its outer frame is 608 x 500; source client geometry is 600 x 480 with a 200-point
 navigation split. OS-owned frames differ, so compare client content separately.
+Windows initially requests 600 x 620 to show more navigation on high-DPI desktops,
+retaining 600 x 480 as the minimum. Work-area fitting clamps auxiliary dimensions
+independently; it must not narrow settings just because the screen is short.
+The current Preferences surface and standard widgets consistently use light
+appearance; broader theme parity remains open.
 
 The sidebar contains search, page symbols, selected rows, section links and
 scrolling. Categories are General, Interface, Video, Audio, Subtitles, Network,

@@ -1,4 +1,4 @@
-import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+import { CheckBox, ComboBox, ScrollView, Palette } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
 
 global MotionSettings {
@@ -1156,9 +1156,12 @@ export component PreferencesWindow inherits Window {
     title: "Settings";
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     preferred-width: 600px;
-    preferred-height: 480px;
+    preferred-height: 620px;
     min-width: 600px;
     min-height: 480px;
+    // Keep standard controls aligned with the light reference surfaces even
+    // when the desktop or player uses dark appearance.
+    init => { Palette.color-scheme = ColorScheme.light; }
     in-out property <bool> mica-backdrop-enabled: false;
     // Layer the Settings surfaces over Windows Mica and preserve their solid
     // colors when the native backdrop is unavailable.
@@ -1264,6 +1267,14 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-pip-threshold: (interface-pip-target + interface-accessibility-target) / 2;
     in-out property <int> selected-network-section: 0;
     in-out property <int> selected-audio-section: 0;
+    in-out property <length> audio-scroll-position: 0px;
+    private property <length> audio-volume-title-y: 340px;
+    private property <length> audio-other-title-y: 640px;
+    private property <length> audio-content-height: max(930px, root.height + audio-other-title-y - 16px);
+    public function reveal-audio-section(section: int) {
+        root.selected-audio-section = section;
+        root.audio-scroll-position = section == 1 ? 16px - audio-volume-title-y : section == 2 ? 16px - audio-other-title-y : 0px;
+    }
     in-out property <string> search-query: "";
     in property <[PreferencesSearchResult]> search-results: [];
     in-out property <int> selected-search-index: -1;
@@ -1583,7 +1594,7 @@ export component PreferencesWindow inherits Window {
             selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
         PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 276px : 108px; width: 180px; label: "Audio";
             icon: @image-url("../../../assets/icons/audio-page.svg");
-            selected: root.selected-pane == 3; activated => { root.selected-pane = 3; root.selected-audio-section = 0; } }
+            selected: root.selected-pane == 3; activated => { root.selected-pane = 3; root.reveal-audio-section(0); } }
         PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 312px : (root.selected-pane == 3 ? 216px : 144px); width: 180px; label: "Subtitles";
             icon: @image-url("../../../assets/icons/subtitles-page.svg");
             selected: root.selected-pane == 4; activated => { root.selected-pane = 4; } }
@@ -1603,13 +1614,13 @@ export component PreferencesWindow inherits Window {
         if root.selected-pane == 3 : Rectangle { x: 24px; y: 148px; width: 2px; height: 66px; background: #d3d3d7; }
         if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 144px; width: 158px; label: "Hardware";
             selected: root.selected-audio-section == 0;
-            activated => { root.selected-pane = 3; root.selected-audio-section = 0; } }
+            activated => { root.selected-pane = 3; root.reveal-audio-section(0); } }
         if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 168px; width: 158px; label: "Volume";
             selected: root.selected-audio-section == 1;
-            activated => { root.selected-pane = 3; root.selected-audio-section = 1; } }
+            activated => { root.selected-pane = 3; root.reveal-audio-section(1); } }
         if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 192px; width: 158px; label: "Other";
             selected: root.selected-audio-section == 2;
-            activated => { root.selected-pane = 3; root.selected-audio-section = 2; } }
+            activated => { root.selected-pane = 3; root.reveal-audio-section(2); } }
         PreferenceNavItem { x: 10px; y: root.selected-pane == 1 ? 384px : ((root.selected-pane == 5 || root.selected-pane == 3) ? 300px : 216px); width: 180px; label: "Control";
             icon: @image-url("../../../assets/icons/control.svg");
             selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
@@ -2801,13 +2812,18 @@ export component PreferencesWindow inherits Window {
         }
         }
     }
-    if root.selected-pane == 3 : Rectangle {
+    if root.selected-pane == 3 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
+        content-height: root.audio-content-height;
+        content-width: self.visible-width;
+        content-y <=> root.audio-scroll-position;
+        horizontal-scrollbar-policy: always-off;
+        Rectangle { width: parent.width; height: root.audio-content-height;
         background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
         Text { x: 28px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 28px; y: 50px; text: root.selected-audio-section == 0 ? "Hardware" : root.selected-audio-section == 1 ? "Volume" : "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
-        if root.selected-audio-section == 0 : Rectangle {
-            x: 20px; y: 76px; width: parent.width - 40px; height: 360px;
+        Text { x: 28px; y: 50px; text: "Hardware"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Rectangle {
+            x: 20px; y: 76px; width: parent.width - 40px; height: 240px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text { x: 14px; y: 8px; width: 150px; height: 26px; text: "Number of threads"; font-size: 12px; color: #252529; vertical-alignment: center; }
             TextInput { x: 250px; y: 9px; width: 70px; height: 24px; text <=> root.audio-threads-text; accepted => { root.settings-changed(); } }
@@ -2823,8 +2839,9 @@ export component PreferencesWindow inherits Window {
             CheckBox { x: 14px; y: 188px; text: "E-AC-3"; checked <=> root.audio-spdif-eac3; toggled => { root.settings-changed(); } }
             CheckBox { x: 104px; y: 188px; text: "TrueHD"; checked <=> root.audio-spdif-truehd; toggled => { root.settings-changed(); } }
         }
-        if root.selected-audio-section == 1 : Rectangle {
-            x: 20px; y: 76px; width: parent.width - 40px; height: 388px;
+        Text { x: 28px; y: root.audio-volume-title-y; text: "Volume"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Rectangle {
+            x: 20px; y: root.audio-volume-title-y + 26px; width: parent.width - 40px; height: 250px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             CheckBox { x: 14px; y: 12px; height: 24px; text: "Allow volume boost (up to 200%)"; checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
             Text { x: 14px; y: 48px; width: 150px; height: 26px; text: "Initial volume"; font-size: 12px; color: #252529; vertical-alignment: center; }
@@ -2838,8 +2855,9 @@ export component PreferencesWindow inherits Window {
             Text { x: 14px; y: 194px; width: 150px; height: 38px; text: "ReplayGain fallback (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
             TextInput { x: 176px; y: 201px; width: 68px; height: 24px; text <=> root.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
         }
-        if root.selected-audio-section == 2 : Rectangle {
-            x: 20px; y: 76px; width: parent.width - 40px; height: 220px;
+        Text { x: 28px; y: root.audio-other-title-y; text: "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Rectangle {
+            x: 20px; y: root.audio-other-title-y + 26px; width: parent.width - 40px; height: 220px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             Text { x: 14px; y: 14px; width: 150px; height: 26px; text: "Gapless playback"; font-size: 12px; color: #252529; vertical-alignment: center; }
             ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px; model: root.audio-gapless-options; current-index <=> root.audio-gapless-index; selected => { root.settings-changed(); } }
@@ -2850,6 +2868,7 @@ export component PreferencesWindow inherits Window {
                 remove-token(index) => { root.remove-audio-language-token(index); }
             }
             Text { x: 176px; y: 84px; width: parent.width - 194px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: #77777d; wrap: word-wrap; }
+        }
         }
     }
     if root.selected-pane == 5 : Rectangle {

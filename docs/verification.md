@@ -8,10 +8,12 @@ The latest records below are from Windows 11 x64 on 2026-10-18.
 
 | Check | Revision | Result and limits |
 |---|---|---|
-| Locked workspace build, formatting, strict all-target Clippy | `994f14c` | Passed with Rust 1.99.0 |
-| Workspace tests | `775486e` | 596 passed; 56 ignored in the default invocation |
-| Python packaging/report tests | `775486e` | 31 passed |
+| Locked workspace build, formatting, strict all-target Clippy | [Preferences follow-up identity](../tests/visual/windows-preferences-readability-2026-10-18.json) | Passed with Rust 1.99.0 |
+| Workspace tests | Preferences follow-up identity | 598 passed; 56 ignored in the default invocation; includes auxiliary-axis fitting regressions |
+| Python packaging/report tests and settings navigation inventory | Preferences follow-up identity | 31 tests passed; navigation check passed |
 | Parity traceability | `994f14c` | Passed for the current, incomplete inventory |
+| Local debug-application smoke | Preferences follow-up identity | Passed in 5750 ms; same six playback/persistence/surface checks below |
+| Preferences GUI sweep | Preferences follow-up identity | Eleven initial viewports, Audio section jumps and Interface sidebar scrolling inspected; corrected contrast/width, with further layout failures recorded |
 | Local debug-application smoke | `994f14c` | Passed in 5772 ms; preference writers, native playback/Audio Track menu, volume surface identity, fullscreen callback, controller reveal and exit/progress |
 | Local GUI inspection | `994f14c` | Video Quick Settings, app menu, General scrolling, Audio Hardware/Volume inspected; light widget contrast and expanded sidebar clipping fail visual acceptance |
 | Full-desktop smoke captures | `994f14c` | Before/fullscreen/after inspected at 3840 x 2160; non-black probes passed; no persistent Riina surface after exit |
@@ -23,20 +25,22 @@ The latest records below are from Windows 11 x64 on 2026-10-18.
 
 The 56 default ignored entries comprise 53 native checks, two clipboard checks
 and a child-process helper. Its parent explicitly runs that helper four times.
-The workspace test run and older native checks were not repeated for this
-documentation change. The current GUI run used the local executable, not an
+The Preferences follow-up repeated workspace tests, build and strict lint.
+Older native-library checks were not repeated. The GUI runs used the local executable, not an
 extracted release package. Its fullscreen entry uses the double-click callback;
 it does not prove OS-delivered double-click input. The earlier extracted archive
 was a development package, not a newly published release.
 Revised GitHub workflows still require remote execution evidence.
 
-The [dated GUI record](../tests/visual/windows-ledger-review-2026-10-18.json)
-identifies executable/library hashes, scope, observed failures and untested states.
+The [initial GUI record](../tests/visual/windows-ledger-review-2026-10-18.json) is
+dated evidence of the failures before the Preferences fixes. The follow-up record
+identifies exact modified source files, executable/library hashes, scope and
+remaining failures; its source hashes avoid referring to a future commit.
 Null audio and captured pixels do not establish audible output, physical display
 behavior or HDR. Both test processes exited; no Riina process remained.
 
-Local logs: `target/smarter-tests-*`, `target/review-fixes-*` and
-`target/ledger-cleanup-*`.
+Local logs: `target/smarter-tests-*`, `target/review-fixes-*`,
+`target/ledger-cleanup-*` and `target/preferences-sizing-*`.
 Raw desktop images remain untracked and must be reviewed for private content
 before any publication. Older investigations remain in Git history.
 

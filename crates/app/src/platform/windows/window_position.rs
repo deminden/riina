@@ -177,7 +177,7 @@ where
     let owner_hwnd = owner_component.window().with_winit_window(hwnd).flatten();
     child_component
         .window()
-        .with_winit_window(|child| place_child(child, owner_hwnd))
+        .with_winit_window(|child| place_child(child, owner_hwnd, FrameSizing::Interface))
         .unwrap_or(false)
 }
 
@@ -190,7 +190,7 @@ where
     };
     component
         .window()
-        .with_winit_window(|child| place_child(child, None))
+        .with_winit_window(|child| place_child(child, None, FrameSizing::Video))
         .unwrap_or(false)
 }
 
@@ -217,7 +217,12 @@ where
     });
 }
 
-fn place_child(child: &winit::window::Window, owner: Option<HWND>) -> bool {
+enum FrameSizing {
+    Video,
+    Interface,
+}
+
+fn place_child(child: &winit::window::Window, owner: Option<HWND>, sizing: FrameSizing) -> bool {
     let Some(child_hwnd) = hwnd(child) else {
         return false;
     };
@@ -263,9 +268,15 @@ fn place_child(child: &winit::window::Window, owner: Option<HWND>) -> bool {
     });
     let old_size = riina_core::window_aspect::PixelSize { width, height };
     let margin = (24.0 * child.scale_factor()).round().max(0.0) as u32;
-    let Some(placement) =
-        riina_core::window_resize::centered_window_placement(old_size, bounds, margin)
-    else {
+    let placement = match sizing {
+        FrameSizing::Video => {
+            riina_core::window_resize::centered_window_placement(old_size, bounds, margin)
+        }
+        FrameSizing::Interface => {
+            riina_core::window_resize::centered_auxiliary_placement(old_size, bounds, margin)
+        }
+    };
+    let Some(placement) = placement else {
         return false;
     };
     let (x, y) = if owner_is_visible {

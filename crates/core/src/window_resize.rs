@@ -458,16 +458,10 @@ pub fn centered_window_placement(
     if !frame_size.valid() || !usable_bounds.size.valid() {
         return None;
     }
-    let max_width = usable_bounds
-        .size
-        .width
-        .saturating_sub(margin.saturating_mul(2))
-        .max(1);
-    let max_height = usable_bounds
-        .size
-        .height
-        .saturating_sub(margin.saturating_mul(2))
-        .max(1);
+    let PixelSize {
+        width: max_width,
+        height: max_height,
+    } = frame_limits(usable_bounds, margin);
     let size = if frame_size.width <= max_width && frame_size.height <= max_height {
         frame_size
     } else if u64::from(max_width) * u64::from(frame_size.height)
@@ -489,6 +483,33 @@ pub fn centered_window_placement(
     };
     let (x, y) = centered_window_position(usable_bounds, size, usable_bounds);
     Some(Placement { x, y, size })
+}
+
+/// Fit an auxiliary interface without treating its width and height as a video
+/// aspect ratio. A short work area should not also narrow its controls.
+pub fn centered_auxiliary_placement(
+    frame_size: PixelSize,
+    usable_bounds: ScreenRect,
+    margin: u32,
+) -> Option<Placement> {
+    if !frame_size.valid() || !usable_bounds.size.valid() {
+        return None;
+    }
+    let maximum = frame_limits(usable_bounds, margin);
+    let size = PixelSize {
+        width: frame_size.width.min(maximum.width),
+        height: frame_size.height.min(maximum.height),
+    };
+    let (x, y) = centered_window_position(usable_bounds, size, usable_bounds);
+    Some(Placement { x, y, size })
+}
+
+fn frame_limits(bounds: ScreenRect, margin: u32) -> PixelSize {
+    let inset = margin.saturating_mul(2);
+    PixelSize {
+        width: bounds.size.width.saturating_sub(inset).max(1),
+        height: bounds.size.height.saturating_sub(inset).max(1),
+    }
 }
 
 fn geometry_offset(value: u32, unit: GeometryUnit, screen_span: u32, scale: f64) -> u32 {
@@ -1127,6 +1148,112 @@ mod tests {
             }
         );
         assert_eq!((placement.x, placement.y), (-1360, 315));
+    }
+
+    #[test]
+    fn auxiliary_fit_clamps_only_the_constrained_axis() {
+        let bounds = ScreenRect {
+            x: -1280,
+            y: 40,
+            size: PixelSize {
+                width: 1280,
+                height: 672,
+            },
+        };
+        for (requested, expected) in [
+            ((600, 680), (600, 624)),
+            ((1400, 480), (1232, 480)),
+            ((1400, 800), (1232, 624)),
+            ((600, 480), (600, 480)),
+        ] {
+            let placement = centered_auxiliary_placement(
+                PixelSize {
+                    width: requested.0,
+                    height: requested.1,
+                },
+                bounds,
+                24,
+            )
+            .unwrap();
+            assert_eq!(
+                placement.size,
+                PixelSize {
+                    width: expected.0,
+                    height: expected.1
+                }
+            );
+            assert_eq!(
+                (placement.x, placement.y),
+                (
+                    -1280 + (1280 - expected.0 as i32) / 2,
+                    40 + (672 - expected.1 as i32) / 2
+                )
+            );
+        }
+        // Video windows still preserve their aspect ratio on the same display.
+        assert_ne!(
+            centered_window_placement(
+                PixelSize {
+                    width: 600,
+                    height: 680
+                },
+                bounds,
+                24
+            )
+            .unwrap()
+            .size
+            .width,
+            600
+        );
+    }
+
+    #[test]
+    fn auxiliary_fit_rejects_invalid_frames_and_bounds_and_bounds_extreme_margins() {
+        let bounds = ScreenRect {
+            x: -10,
+            y: -20,
+            size: PixelSize {
+                width: 10,
+                height: 20,
+            },
+        };
+        let valid = PixelSize {
+            width: 600,
+            height: 480,
+        };
+        for invalid in [
+            PixelSize {
+                width: 0,
+                height: 480,
+            },
+            PixelSize {
+                width: 600,
+                height: 0,
+            },
+        ] {
+            assert!(centered_auxiliary_placement(invalid, bounds, 24).is_none());
+            assert!(
+                centered_auxiliary_placement(
+                    valid,
+                    ScreenRect {
+                        size: invalid,
+                        ..bounds
+                    },
+                    24
+                )
+                .is_none()
+            );
+        }
+        let tiny = centered_auxiliary_placement(valid, bounds, u32::MAX).unwrap();
+        assert_eq!(
+            tiny.size,
+            PixelSize {
+                width: 1,
+                height: 1
+            }
+        );
+        assert!((-10..0).contains(&tiny.x));
+        assert!((-20..0).contains(&tiny.y));
     }
 
     #[test]

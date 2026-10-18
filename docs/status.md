@@ -49,18 +49,22 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
   with this workaround; other drivers and HDR remain separate checks.
 - Release validation exercises the extracted executable, persisted settings and
   clean shutdown, including when a matching native-engine artifact is reused.
+- Preferences standard controls use the same light palette as their panels.
+  Audio sections share one scroll page; auxiliary windows retain their width
+  when only their height needs to fit the desktop.
 
 ## Verification summary
 
-The recorded locked build, formatting and strict all-target Clippy checks cover
-`994f14c`. The latest workspace test run covers `775486e`: 596 Rust tests and
-31 Python packaging/report tests passed. The default Rust run explicitly ignores
-native/clipboard checks and a helper launched by another test.
+The [Preferences follow-up](../tests/visual/windows-preferences-readability-2026-10-18.json)
+records exact source/binary hashes: locked build, formatting, strict all-target
+Clippy, 598 workspace tests and 31 Python tests passed. The default Rust run
+explicitly ignores native/clipboard checks and a helper launched by another test.
 
-Local GUI checks on `994f14c` passed the playback/fullscreen smoke and inspected
-Quick Settings Video, General and Audio Preferences. They exposed unreadable
-light-appearance widget text and lower sidebar categories clipped by expanded
-sections. These are open interface gaps, not a visual-parity pass.
+The local playback/fullscreen smoke passed in 5750 ms. A GUI sweep inspected all
+eleven Preferences categories' initial viewports, Audio section jumps and sidebar
+scrolling. Light control contrast and auxiliary width are corrected. Subtitle
+overflow, Utilities row overlap, Advanced path/button overlap and truncated
+shortcut labels remain open in the [visual ledger](visual-reference-audit.csv).
 
 [Verification](verification.md) records the exact scope and older native/package
 evidence. HDR, other drivers and revised remote CI workflows still need evidence.

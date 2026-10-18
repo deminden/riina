@@ -245,10 +245,25 @@ def main():
     assert audio and "Allow volume boost (up to 200%)" in audio.group(1), (
         "The opt-in volume cap belongs with Audio settings"
     )
-    assert all(
-        f"root.selected-audio-section == {index}" in audio.group(1)
-        for index in range(3)
-    ), "Audio must expose Hardware, Volume and Other sections"
+    audio_body = audio.group(1)
+    assert "ScrollView" in audio_body and "content-y <=> root.audio-scroll-position" in audio_body, (
+        "Audio sections must share one scroll page"
+    )
+    headings = [audio_body.find(f'text: "{label}"') for label in ("Hardware", "Volume", "Other")]
+    assert all(position >= 0 for position in headings) and headings == sorted(headings), (
+        "Audio must expose Hardware, Volume and Other in reference order"
+    )
+    assert "if root.selected-audio-section" not in audio_body, (
+        "Audio navigation must scroll to sections rather than hide adjacent sections"
+    )
+    assert "window.invoke_reveal_audio_section" in SEARCH_SOURCE and all(
+        f"root.reveal-audio-section({index})" in SOURCE for index in range(3)
+    ), "Audio search and navigation must use the same section reveal function"
+    assert (
+        "content-height: root.audio-content-height;" in audio_body
+        and "height: root.audio-content-height;" in audio_body
+        and "root.height + audio-other-title-y - 16px" in SOURCE
+    ), "Jumping to Other must retain a full viewport of Audio background"
     assert advanced and "Allow volume boost" not in advanced.group(1), (
         "The volume control must not be hidden under Advanced"
     )
