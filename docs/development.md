@@ -98,6 +98,13 @@ erase shared Cargo downloads. Keep references outside `target/`.
 5. Record physical-display, audible-output and HDR checks separately. Publish only
    the verified candidate when a public milestone or explicit request authorizes it.
 
+Use the release workflow's manual dispatch for a candidate. Set
+`build_release_candidate=true` and select one native reuse source. Leave
+`publish_release=false` when the archive needs a desktop GUI check first; publish
+those exact verified assets afterward. `publish_release=true` publishes after the
+same run's package checks pass. Creating the version tag does not start another
+binary build.
+
 The source and package license scopes are settled; see [licensing](licensing.md).
 Use the immutable application tag, Cargo lockfile, native manifest and public
 upstream sources for [source access](SOURCE-ACCESS.md). Do not duplicate native

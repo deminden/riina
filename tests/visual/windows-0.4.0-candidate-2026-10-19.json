@@ -1,0 +1,186 @@
+{
+  "date": "2026-10-19",
+  "version": "0.4.0",
+  "source_base_revision": "5048425e6690fa0deef89407a54d8980ee527a26",
+  "source_files_sha256": {
+    "Cargo.toml": "d7ff7fa6bf84ffe0ac836ee684239da04c450aa744312a90c2dcee027aa4d4c2",
+    "Cargo.lock": "aed5bc7f1737777f96054ec386c5c7b881ef79d5c02c6f018fe6d2b78771d104",
+    "crates/app/ui/player.slint": "676db28a2dcf16b110e400edebf73351babdd720c665700bd83996b4bf382edd",
+    "crates/app/src/platform/windows.rs": "d950ac4701e0f0204ad9fc2e369d3f1049c140da57bdf6996009b8178373387d",
+    "crates/app/src/platform/windows/host_input.rs": "4c3c0a4925f54421bde7c2aa46211d67e1b63c3b0af763dabe84f1f1dd17ce66",
+    "crates/app/src/platform/windows/native_window.rs": "9893e5160be7b765bf2db6c33b471aeff7ffa79c2f841c1e7d98c00f8a35be44",
+    "scripts/check-settings-navigation.py": "52547a185f84861a8c88e4eddfed710717df387dc4427f48e0dc8b90948ab09f"
+  },
+  "executable_sha256": "ee4acf09803c4d35947068cf4bfc2d76118b1da4eed36f23c10846e6e5097b0d",
+  "build_kind": "local debug executable with published release runtime; not the final release archive",
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "engine_origin": {
+    "tag": "v0.3.8",
+    "native_build_run": 38138622911,
+    "unchanged_native_contract_tree": "99f64cc408a303959fbd0cf907904fec9638b33e"
+  },
+  "environment": {
+    "platform": "Windows 11 x64",
+    "desktop_physical_size": [
+      3840,
+      2160
+    ],
+    "audio_output": "null",
+    "fixture": "tests/fixtures/moving-square.avi",
+    "profile": "disposable; isolated single-video folder"
+  },
+  "manual_gui": [
+    {
+      "surface": "Audio Quick Settings, normal width",
+      "result": "All ten bands, 32 through 16k labels and dB axis fit; page scroll reaches lower labels. Blank-area click keeps Audio open. Repeated boundary scrolling leaves volume at 100, confirmed in controls and persisted after exit."
+    },
+    {
+      "surface": "Audio Quick Settings, minimum window",
+      "client_logical_size": [
+        285,
+        160
+      ],
+      "result": "Close and all four icon tabs fit. Vertical scrolling reaches the equalizer; horizontal scrolling reaches 16k and the complete -12 dB label within the card."
+    },
+    {
+      "surface": "Light Quick Settings",
+      "result": "Audio, Layout and Video inspected. Labels and controls readable with the light tint above the sampled video. Normal-width selected tab text retained."
+    },
+    {
+      "surface": "Fullscreen input",
+      "result": "OS-delivered double-click enters fullscreen. Mouse input reveals controls with video visible in window capture. Host-targeted Escape restores the small framed player and application menus."
+    }
+  ],
+  "playback_smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5858,
+    "error": null,
+    "executable": "C:\\Codex\\wiina\\target\\local-debug-0.4.0\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 1520,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina"
+  },
+  "native_tests": {
+    "integration_passed": 51,
+    "library_passed": 2,
+    "scope": "Reused release DLL decode/command/lifecycle checks; earlier in this preparation, unchanged playback library."
+  },
+  "shutdown": {
+    "manual_pids": [
+      10776,
+      20712
+    ],
+    "smoke_pid": 1520,
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "private_desktop_captures": [
+    {
+      "local_path": "target/0.4.0-final-gui-before.png",
+      "sha256": "44bf20233979b468bbf1266fd70a7625cb599075e7e17b3e846c7f46fa986e9b",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    },
+    {
+      "local_path": "target/0.4.0-final-gui-fullscreen.png",
+      "sha256": "7e8d94d3b0f147a45119dff9b1efa1220734a2ec45f9edc3487048d82e7f4d18",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    },
+    {
+      "local_path": "target/0.4.0-final-gui-fullscreen-controller.png",
+      "sha256": "3535544bde09881d3c90ad97e6a35778e627afe931d1e3991ba6b13fa41445c1",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    },
+    {
+      "local_path": "target/0.4.0-final-gui-after.png",
+      "sha256": "a80503dc2ba149890801a1b05ed4f9279676e68a552238d3e5f8d94ae00b4ce0",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    },
+    {
+      "local_path": "target/0.4.0-local-smoke.json.before.png",
+      "sha256": "baee3e3773cddc6f12ac808a8cad15cf7682f4d2f40493f46858950e68d256ad",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    },
+    {
+      "local_path": "target/0.4.0-local-smoke.json.fullscreen.png",
+      "sha256": "09e3d4038a81855321c9da2c8d40f424eba19eb4ebcdbef658e068c2ca115c6e",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    },
+    {
+      "local_path": "target/0.4.0-local-smoke.json.after.png",
+      "sha256": "b376d9b3f6f9573728a25457f1c601824dd849203a5564bcb6e6442948d8425b",
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "whole_image_inspected": true
+    }
+  ],
+  "capture_limits": [
+    "Manual fullscreen desktop captures occurred after controller auto-hide; they establish visible video, not controller reveal.",
+    "The scripted fullscreen desktop capture shows video and controller together. Before and after captures show no persistent Riina surface.",
+    "Raw desktop images remain private and untracked."
+  ],
+  "limits": [
+    "No full IINA pixel-parity claim; matched media/frame and broader DPI/material-policy comparisons remain open.",
+    "Light equalizer thumbs need further contrast comparison against the pinned reference.",
+    "No audible-output, pass-through, HDR, other-driver or multi-monitor certification.",
+    "Final release archive, remote workflow and static-CRT package checks are separate required gates."
+  ],
+  "checks": {
+    "locked_workspace_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace_tests": {
+      "passed": 601,
+      "failed": 0,
+      "ignored": 56
+    },
+    "python_tests": {
+      "passed": 34,
+      "failed": 0
+    },
+    "settings_navigation_inventory": "passed",
+    "assets_verified": 73,
+    "fixtures_verified": 16,
+    "workflow_dispatch_only_yaml": "parsed; remote execution pending"
+  }
+}

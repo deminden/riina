@@ -122,6 +122,42 @@ def main():
         "root.network-ytdl-enabled = root.network-ytdl-ui-enabled",
     )), "Network must preserve continuous extent, section geometry and extractor ownership rules"
 
+    sidebar_sample = PLAYER_SOURCE.index("sidebar-video-sample := Image")
+    sidebar_tint = PLAYER_SOURCE.index("sidebar-light-tint := Rectangle")
+    sidebar_content = PLAYER_SOURCE.index("sidebar-content := VerticalLayout")
+    assert sidebar_sample < sidebar_tint < sidebar_content, (
+        "The light Windows sidebar tint must cover its video sample and stay behind controls"
+    )
+    assert "root.windows-sidebar-material-active && !root.dark-theme &&" in PLAYER_SOURCE, (
+        "The light tint must not change dark reference calibration or opaque policy fallback"
+    )
+    assert PLAYER_SOURCE.count("show-label: expanded-tab-labels;") == 4, (
+        "Every Quick Settings category must share narrow-window label compression"
+    )
+    assert "if root.selected && root.show-label : Text" in PLAYER_SOURCE, (
+        "Selected tab text must collapse with its width at narrow sidebar sizes"
+    )
+    sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : ScrollView")
+    audio_tracks = PLAYER_SOURCE.index("content-height: root.audio-tracks.length * 27px")
+    equalizer_scroll = PLAYER_SOURCE.index("equalizer-scroll := ScrollView")
+    assert sidebar_scroll < audio_tracks < equalizer_scroll, (
+        "Audio tracks, load/delay controls and equalizer must share the scrollable page"
+    )
+    assert "content-height: max(self.visible-height, sidebar-page.preferred-height);" in PLAYER_SOURCE, (
+        "The shared sidebar scroll extent must include all settings, even in short windows"
+    )
+    input_guard = PLAYER_SOURCE.index("Unhandled input belongs to this panel")
+    assert sidebar_tint < input_guard < sidebar_content and "scroll-event(event) => { return accept; }" in PLAYER_SOURCE[input_guard:sidebar_content], (
+        "Unused sidebar input must not fall through to video actions"
+    )
+    assert "content-width: max(self.visible-width, 300px);" in PLAYER_SOURCE, (
+        "A narrow equalizer must scroll instead of compressing or clipping its ten bands"
+    )
+    assert re.search(
+        r"equalizer-scroll := ScrollView\s*\{\s*width: parent\.width - \(root\.compact-ui \? 20px : 24px\);",
+        PLAYER_SOURCE,
+    ), "The equalizer viewport must retain its card's inner margins"
+
     interface_sections = re.findall(
         r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
         r'[^{}]*selected:\s*root\.selected-interface-section\s*==\s*(\d+);',
@@ -389,7 +425,7 @@ def main():
         "x: parent.width - 50px; y: 0; width: 40px; height: parent.height" in SOURCE
         and "width: 40px; height: 26px; border-radius: 7px" in SOURCE
     ), "Utilities action pills should match the captured 40 by 26 point target"
-    print("Settings order, page routes, Audio placement, fullscreen info and Utilities action routing match the current inventory.")
+    print("Settings routes, scrolling, sidebar compression and action inventories verified.")
 
 
 if __name__ == "__main__":

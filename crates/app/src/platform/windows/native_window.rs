@@ -1646,7 +1646,13 @@ pub fn run(
     let event_overlay_hidden = overlay_hidden_for_alignment.clone();
     let scroll_transition = Rc::new(Cell::new(0_u64));
     let event_scroll_transition = scroll_transition.clone();
+    let host_input = super::host_input::HostInput::default();
     host.window().on_winit_window_event(move |host, event| {
+        if let Some(app) = event_chrome.borrow().as_ref()
+            && host_input.handle(app, event) == EventResult::PreventDefault
+        {
+            return EventResult::PreventDefault;
+        }
         if event_startup_media_loaded.get()
             && matches!(
                 event,

@@ -37,6 +37,11 @@ for the ownership and composition invariants.
 - The floating controller is clamped to the video span unobscured by an open
   sidebar. IINA's edge-to-edge macOS controller can remain anchored to the full
   video container. Video still fills the selected viewport.
+- Quick Settings keeps the source's 80% sidebar-width limit. Below 280 logical
+  pixels of sidebar width its category tabs use icons with full accessible labels,
+  preserving the close button and every category. Normal widths retain selected
+  tab text. Audio sections share the scroll page; the equalizer can scroll
+  horizontally when its ten bands no longer fit.
 - Primary shortcuts use Command on macOS and Control on Windows/Linux.
   Command+Control track cycling maps to Control+Alt on Windows/Linux so the
   modifiers stay distinct. AltGr, alternate layouts and physical system-key

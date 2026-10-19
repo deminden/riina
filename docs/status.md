@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-19. Development version: **0.3.8**. Reference: **IINA v1.5.0**
+Updated 2026-10-19. Development version: **0.4.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -52,8 +52,22 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Preferences standard controls use the same light palette as their panels.
   Audio sections share one scroll page; auxiliary windows retain their width
   when only their height needs to fit the desktop.
+- Quick Settings keeps every category reachable in narrow windows. Audio uses
+  one scroll page with horizontal equalizer scrolling when required. Unused panel
+  input no longer changes playback volume or dismisses the sidebar.
+- Light Quick Settings tints its sampled video before drawing controls. Fullscreen
+  Escape also works when the framed playback host has keyboard focus.
 
 ## Verification summary
+
+The [0.4.0 candidate preparation](../tests/visual/windows-0.4.0-candidate-2026-10-19.json)
+records a locked build, formatting, strict Clippy, 601 workspace tests and 34 Python
+tests. The matching published release engine passed 51 integration and two library
+checks. A debug executable with that engine passed the six-step playback smoke in
+5858 ms. Normal/narrow Audio scrolling, unchanged volume, light Quick Settings,
+OS-delivered fullscreen double-click and host Escape were inspected. All test
+instances exited normally. This is local candidate evidence; the final release
+archive and remote workflow still require their own checks.
 
 The [Preferences navigation/subtitle follow-up](../tests/visual/windows-preferences-subtitles-2026-10-18.json)
 records exact source/binary hashes: locked build, formatting, strict all-target

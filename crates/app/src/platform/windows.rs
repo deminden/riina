@@ -1,6 +1,7 @@
 pub(crate) mod bring_to_front;
 pub(crate) mod file_dialog;
 mod frame_capture;
+mod host_input;
 pub(crate) mod materials;
 mod menu_focus;
 pub(crate) mod native_window;

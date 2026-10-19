@@ -39,7 +39,7 @@ tools as contributors.
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current development version is 0.3.8.
+the minor digit for major milestones. The current development version is 0.4.0.
 
 ## Builds and verification
 

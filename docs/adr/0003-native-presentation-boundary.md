@@ -64,6 +64,12 @@ The [GLFW maintainer's direct experiment](https://discourse.glfw.org/t/black-scr
 independently documents alpha failure for a monitor-sized undecorated OpenGL
 window and avoiding that driver path by changing its extent.
 
+The framed host has no controls FocusScope. When it owns keyboard focus in
+fullscreen, its input adapter sends Escape through the configured shortcut
+dispatcher before using the shared fullscreen-exit fallback. Crop editors and
+dialogs retain their own input scope. Modifier state is local to the host and
+cleared on focus loss; handled events do not propagate a second time.
+
 This boundary does not implement another OS or certify its window/rendering
 behavior. The portable core and mpv interface have three-OS unit/lint evidence;
 native dialog, storage, presentation, fullscreen/focus and playback tests remain

@@ -1,21 +1,5 @@
 name: Windows release
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-    paths:
-      - '.github/workflows/release.yml'
-      - 'tools/mpv/**'
-      - 'scripts/package-rust-licenses.py'
-      - 'scripts/check-windows-runtime.py'
-      - 'scripts/check-release-artifacts.py'
-      - 'scripts/tests/test_windows_runtime.py'
-      - 'scripts/tests/test_release_artifacts.py'
-      - 'docs/SOURCE-ACCESS.md'
-      - 'docs/native-distribution-audit.json'
-      - 'LICENSES/**'
   workflow_dispatch:
     inputs:
       build_release_candidate:
@@ -109,7 +93,7 @@ jobs:
           fi
 
   native-engine:
-    if: (startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true' && needs.release-readiness.outputs.native_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.native_artifact_run_id == '' && inputs.native_release_tag == '') || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))
+    if: inputs.build_release_candidate && inputs.native_artifact_run_id == '' && inputs.native_release_tag == ''
     runs-on: ubuntu-24.04
     needs: release-readiness
     container:
@@ -161,7 +145,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   windows-package:
-    if: always() && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[binary-candidate]'))) && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && (needs.release-readiness.outputs.native_run_id != '' || needs.release-readiness.outputs.native_release_tag != '')))
+    if: always() && needs.release-readiness.result == 'success' && inputs.build_release_candidate && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && (needs.release-readiness.outputs.native_run_id != '' || needs.release-readiness.outputs.native_release_tag != '')))
     runs-on: windows-latest
     needs: [release-readiness, native-engine]
     timeout-minutes: 90
@@ -438,7 +422,7 @@ jobs:
           retention-days: 7
 
   publish:
-    if: always() && needs.release-readiness.result == 'success' && needs.windows-package.result == 'success' && needs.package-verification.result == 'success' && ((startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready == 'true') || (github.event_name == 'workflow_dispatch' && inputs.build_release_candidate && inputs.publish_release))
+    if: always() && needs.release-readiness.result == 'success' && needs.windows-package.result == 'success' && needs.package-verification.result == 'success' && inputs.build_release_candidate && inputs.publish_release
     runs-on: ubuntu-24.04
     needs: [release-readiness, windows-package, package-verification]
     steps:
@@ -505,13 +489,3 @@ jobs:
             echo ""
             echo "The release page is also surfaced in the repository's Releases panel."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  require-binary-release:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.release-readiness.outputs.release_ready != 'true'
-    runs-on: ubuntu-24.04
-    needs: release-readiness
-    steps:
-      - name: Refuse a source-only substitute for the requested binary release
-        run: |
-          echo "::error::The exact Windows release package has not passed candidate build, corresponding-source, and playback verification. No source-only release was published."
-          exit 1

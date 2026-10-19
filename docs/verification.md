@@ -8,6 +8,10 @@ The latest records below are from Windows 11 x64 on 2026-10-19.
 
 | Check | Revision | Result and limits |
 |---|---|---|
+| 0.4.0 build, lint and regressions | [Candidate preparation identity](../tests/visual/windows-0.4.0-candidate-2026-10-19.json) | Locked build, formatting and strict Clippy passed; 601 workspace tests, 56 ignored; 34 Python tests |
+| Reused release engine | Candidate preparation identity | 51 native integration and two library tests passed against the v0.3.8 runtime, with null audio |
+| 0.4.0 local GUI and playback smoke | Candidate preparation identity | Normal/narrow Audio, light Quick Settings, OS double-click fullscreen and host Escape inspected; six-step debug-executable smoke passed in 5858 ms; not the final release archive |
+| Full-desktop candidate captures | Candidate preparation identity | Before/fullscreen/after inspected at 3840 x 2160 with non-black probes; scripted capture shows video and controller together; no persistent surface after exit |
 | Network/font build and GUI | [Network/font identity](../tests/visual/windows-network-font-2026-10-19.json) | Build, formatting, strict Clippy and 600 workspace tests passed; continuous section/search routes and dark font-picker contrast/focus/Escape checked |
 | Build, formatting, strict Clippy, workspace/Python checks | [Subtitle and navigation identity](../tests/visual/windows-preferences-subtitles-2026-10-18.json) | Passed; 600 workspace tests, 56 ignored; 31 Python tests and navigation inventory |
 | General/Subtitles GUI follow-up | Subtitle and navigation identity | General repeat row and live section jumps, subtitle disclosures, search, provider layouts and independent ASS lanes inspected; saved lane values confirmed after normal exit |
@@ -30,12 +34,16 @@ The latest records below are from Windows 11 x64 on 2026-10-19.
 
 The 56 default ignored entries comprise 53 native checks, two clipboard checks
 and a child-process helper. Its parent explicitly runs that helper four times.
-The Preferences follow-up repeated workspace tests, build and strict lint.
-Older native-library checks were not repeated. The GUI runs used the local executable, not an
-extracted release package. Its fullscreen entry uses the double-click callback;
-it does not prove OS-delivered double-click input. The earlier extracted archive
-was a development package, not a newly published release.
-Revised GitHub workflows still require remote execution evidence.
+The candidate preparation separately ran all 53 native checks against the reused
+release DLL. It also checked OS-delivered double-click and host Escape; its smoke
+still uses the shared fullscreen callback. Light equalizer-thumb contrast,
+matched IINA geometry, material-policy transitions and wider hardware coverage
+remain acceptance work. The exact release archive requires separate evidence.
+The older Preferences runs used a local executable rather than an extracted
+release package. Their scripted fullscreen entry invokes the double-click
+callback; those reports do not establish OS-delivered double-click input. The
+earlier extracted archive was a development package, not a newly published release.
+Revised GitHub workflows require separate remote execution evidence.
 
 The [initial GUI record](../tests/visual/windows-ledger-review-2026-10-18.json) is
 dated evidence of the failures before the Preferences fixes. The follow-up record
