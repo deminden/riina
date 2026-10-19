@@ -63,13 +63,21 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Verification summary
 
+**[0.4.0 is published](https://github.com/deminden/riina/releases/tag/v0.4.0).**
+The [release record](../tests/visual/windows-release-0.4.0-2026-10-19.json) ties
+the original ZIP to source `3fc80ba`, exact notices/import/source checks, and
+playback smokes locally (5779 ms) and in CI (6048 ms). The first hosted GUI setup
+lacked OpenGL support. Verification run `39230530575` supplied a test-only software
+driver and reused the saved package unchanged; neither application nor engine was
+rebuilt. Physical compositor, audible-output and HDR coverage remain separate.
+
 The [menu follow-up](../tests/visual/windows-menu-parity-2026-10-19.json) records
 604 workspace tests, 53 Python tests, strict Clippy and formatting, plus 51 native
 integration and two library checks against the reused release engine. Live menu
 hints, scale/delay actions and fullscreen chords were inspected. The local debug
 playback smoke passed in 5784 ms, with full-desktop captures before/during/after
-and normal shutdown. These are local checks. The first hosted candidate failed
-before its application report; diagnostics are improved for the next attempt.
+and normal shutdown. These are local debug checks; the exact published package
+has its separate release evidence above.
 
 The [0.4.0 candidate preparation](../tests/visual/windows-0.4.0-candidate-2026-10-19.json)
 records a locked build, formatting, strict Clippy, 601 workspace tests and 34 Python
@@ -77,8 +85,8 @@ tests. The matching published release engine passed 51 integration and two libra
 checks. A debug executable with that engine passed the six-step playback smoke in
 5858 ms. Normal/narrow Audio scrolling, unchanged volume, light Quick Settings,
 OS-delivered fullscreen double-click and host Escape were inspected. All test
-instances exited normally. This is local candidate evidence; the final release
-archive and remote workflow still require their own checks.
+instances exited normally. This preparation run covered a local debug executable;
+see the separate release record above for the published archive.
 
 The [Preferences navigation/subtitle follow-up](../tests/visual/windows-preferences-subtitles-2026-10-18.json)
 records exact source/binary hashes: locked build, formatting, strict all-target
@@ -97,7 +105,8 @@ also verifies continuous Network scrolling/search and readable dark font-picker
 contrast with initial keyboard focus and Escape cancellation.
 
 [Verification](verification.md) records the exact scope and older native/package
-evidence. HDR, other drivers and revised remote CI workflows still need evidence.
+evidence. HDR and other drivers still need evidence; the revised package-only
+workflow has a successful run recorded above.
 
 ## Remaining acceptance work
 

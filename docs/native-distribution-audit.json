@@ -10,12 +10,10 @@
     "unicode_dfs_2016": "Accepted as GPL-compatible; original notice retained in the packaged dependency inventory",
     "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
   },
-  "release_artifacts_verified": false,
-  "verified_candidate_run_id": null,
+  "release_artifacts_verified": true,
+  "verified_candidate_run_id": 39230530575,
   "verified_native_run_id": 38138622911,
-  "release_verification_remaining": [
-    "Build and verify the next application package and its exact extracted executable. The existing native engine can be reused."
-  ],
+  "release_verification_remaining": [],
   "development_engine": {
     "reference_lock": "reference/native-lock.json",
     "dll_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
@@ -47,23 +45,23 @@
     }
   },
   "published_release": {
-    "tag": "v0.3.8",
-    "title": "Riina 0.3.8",
-    "url": "https://github.com/deminden/riina/releases/tag/v0.3.8",
-    "published_at": "2026-10-15T20:42:16Z",
-    "application_source_sha": "f96dcbeb97c65af940f55d9eb0a8e330ab3e6fd6",
+    "tag": "v0.4.0",
+    "title": "Riina 0.4.0",
+    "url": "https://github.com/deminden/riina/releases/tag/v0.4.0",
+    "published_at": "2026-10-19T09:33:35Z",
+    "application_source_sha": "3fc80bab54ed76666400e31d7df0511172f6c127",
     "assets": {
       "RELEASE-VERIFICATION.json": {
-        "size": 581,
-        "sha256": "eadc77f85aca6f5e423c6104295f9701bda3753912c5e652eaa80fdd0864e544"
+        "size": 590,
+        "sha256": "d53bbed01b80325de174d0a38eb44b0b4897fb374445cd044ee7f9221cb83d69"
       },
-      "riina-0.3.8-windows-x86_64.zip": {
-        "size": 74168312,
-        "sha256": "7544b788270912d288a1b4e42d6c94765c61d6a52ca018b484fbfe53e07c7576"
+      "riina-0.4.0-windows-x86_64.zip": {
+        "size": 74357496,
+        "sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8"
       },
       "SHA256SUMS.txt": {
         "size": 98,
-        "sha256": "29e1faffb7994a8e0037aff477b587eddd795109c985f76f8006e028667ce6ec"
+        "sha256": "309318114cfdf3099f6cd86e984b12d8ab631eeb3dc6b8b6a408cd9b31f6f979"
       }
     }
   },
@@ -80,6 +78,13 @@
     "archive_sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8",
     "native_engine_reused_from": "v0.3.8",
     "result": "Compilation, native checks and package assembly succeeded. Hosted GUI startup failed because FemtoVG could not obtain OpenGL 2.0. The original ZIP and exact error output were retained.",
-    "follow_up": "Exact saved ZIP passed local runtime/source/notices checks and playback smoke on 2026-10-19 (5779 ms). Verification-only CI with test-scoped software OpenGL is pending; no application or native rebuild is needed."
+    "follow_up": "Exact saved ZIP passed local runtime/source/notices checks and playback smoke (5779 ms). Verification-only CI 39230530575 passed with test-scoped software OpenGL (6048 ms). The original ZIP was published unchanged as v0.4.0."
+  },
+  "package_reverification": {
+    "original_build_run_id": 39183215963,
+    "verification_run_id": 39230530575,
+    "same_archive_sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8",
+    "evidence": "tests/visual/windows-release-0.4.0-2026-10-19.json",
+    "scope": "Exact package, source, notices, imports and playback smoke passed. Physical-display/audible-output/HDR checks are separate."
   }
 }
