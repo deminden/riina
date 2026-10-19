@@ -1588,6 +1588,12 @@ pub fn run(
             // its first show so Winit never exposes it at its default position.
             align(host.window(), &app);
             app.show()?;
+            // The controls HWND is created lazily. Attach routing only after
+            // realization, while the framed owner's menu guard retains it.
+            let _controls = app.window().winit_window().await?;
+            if let Some(menu) = startup_menu_lifecycle.borrow_mut().as_mut() {
+                menu.attach_controls(app.window()).map_err(std::io::Error::other)?;
+            }
             // The native host otherwise keeps Winit's default placement until
             // playback loads. That leaves idle launches and cancelled open
             // dialogs stranded at the OS-selected (often top-left) position.

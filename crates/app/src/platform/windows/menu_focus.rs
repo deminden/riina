@@ -18,7 +18,9 @@ use windows::{
             APPCOMMAND_VOLUME_MUTE, APPCOMMAND_VOLUME_UP,
         },
         UI::{
-            Input::KeyboardAndMouse::{SetActiveWindow, SetFocus, VK_F10},
+            Input::KeyboardAndMouse::{
+                GetAsyncKeyState, SetActiveWindow, SetFocus, VK_F10, VK_MENU,
+            },
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
                 DrawMenuBar, GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuStringW,
@@ -44,6 +46,7 @@ struct MenuContext {
 pub(super) struct MenuFocus {
     hwnd: HWND,
     context: Option<Box<MenuContext>>,
+    _controls_menu: Option<super::menu_proxy::MenuProxy>,
 }
 
 impl MenuFocus {
@@ -78,7 +81,25 @@ impl MenuFocus {
         Ok(Self {
             hwnd,
             context: Some(context),
+            _controls_menu: None,
         })
+    }
+
+    pub(super) fn attach_controls(&mut self, window: &slint::Window) -> Result<(), String> {
+        let controls = window
+            .with_winit_window(|window| {
+                window
+                    .window_handle()
+                    .ok()
+                    .and_then(|handle| match handle.as_raw() {
+                        RawWindowHandle::Win32(handle) => Some(HWND(handle.hwnd.get() as *mut _)),
+                        _ => None,
+                    })
+            })
+            .flatten()
+            .ok_or("Native controls menu handle is unavailable")?;
+        self._controls_menu = Some(super::menu_proxy::MenuProxy::install(controls, self.hwnd)?);
+        Ok(())
     }
 
     pub(super) fn set_visible(&self, visible: bool) -> Result<(), String> {
@@ -167,6 +188,10 @@ impl Drop for MenuFocus {
 }
 
 pub(super) fn request(handle: isize) -> windows::core::Result<()> {
+    request_with_key(HWND(handle as *mut _), LPARAM(0))
+}
+
+pub(super) fn request_with_key(owner: HWND, character: LPARAM) -> windows::core::Result<()> {
     // SAFETY: repeated registration of the same static name returns the same ID.
     let message = unsafe { RegisterWindowMessageW(w!("riina.native-menu.enter")) };
     if message == 0 {
@@ -174,7 +199,7 @@ pub(super) fn request(handle: isize) -> windows::core::Result<()> {
     }
     // SAFETY: the caller retains the owner on this UI thread. Queue entry after
     // the current key-up instead of nesting the menu loop in a Slint callback.
-    unsafe { PostMessageW(Some(HWND(handle as *mut _)), message, WPARAM(0), LPARAM(0)) }
+    unsafe { PostMessageW(Some(owner), message, WPARAM(0), character) }
 }
 
 pub(super) fn focus_chrome(window: &slint::Window) {
@@ -262,6 +287,11 @@ unsafe extern "system" fn menu_proc(
         }
     }
     if message == context.enter_message {
+        // Coalesce queued entry requests while Windows already owns menu input.
+        // A second activation must not nest another modal loop.
+        if context.active.get() {
+            return LRESULT(0);
+        }
         // A queued keyboard request can outlive the transition into an editor
         // or modal dialog. Recheck the current input scope before activation.
         let Some(app) = context.app.upgrade() else {
@@ -287,7 +317,7 @@ unsafe extern "system" fn menu_proc(
                 Some(hwnd),
                 WM_SYSCOMMAND,
                 WPARAM(SC_KEYMENU as usize),
-                LPARAM(0),
+                lparam,
             )
         }
         .is_err()
@@ -337,9 +367,7 @@ unsafe extern "system" fn menu_proc(
     if message == context.restore_message {
         if wparam.0 == context.generation.get() {
             context.active.set(false);
-            if let Some(app) = context.app.upgrade()
-                && !app.get_dialog_open()
-            {
+            if let Some(app) = context.app.upgrade() {
                 // Cancelling by activating another application must not bring
                 // this player back. Only recover within this owner/popup pair.
                 // SAFETY: this only queries the foreground handle.
@@ -350,7 +378,16 @@ unsafe extern "system" fn menu_proc(
                     })
                 }).unwrap_or(false);
                 if owns_foreground {
-                    focus_chrome(app.window());
+                    // Query after the modal loop unwinds. The sign bit reports
+                    // current physical state; the low "pressed since" bit is not reliable.
+                    // SAFETY: VK_MENU is a valid virtual key; this reads input state only.
+                    let alt_held = unsafe { GetAsyncKeyState(VK_MENU.0 as i32) } < 0;
+                    super::menu_modifiers::reconcile_alt(app.window(), alt_held);
+                    // An action may have opened an editor/dialog. Repair its
+                    // modifier state too, while retaining its native focus.
+                    if !app.get_dialog_open() {
+                        focus_chrome(app.window());
+                    }
                 }
             }
         }
@@ -442,6 +479,77 @@ mod tests {
             )
             .unwrap()
         })
+    }
+
+    #[test]
+    fn queued_menu_entry_is_coalesced_while_owner_has_menu_input() {
+        use windows::Win32::UI::WindowsAndMessaging::{MSG, PM_REMOVE, PeekMessageW, WS_DISABLED};
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        // Hidden and disabled: native focus calls cannot activate this test
+        // window. Posted system commands are removed, never dispatched.
+        let host = TestWindow(
+            unsafe {
+                CreateWindowExW(
+                    WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
+                    w!("STATIC"),
+                    w!("Queued menu input test"),
+                    WS_POPUP | WS_DISABLED,
+                    -32000,
+                    -32000,
+                    1,
+                    1,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            }
+            .unwrap(),
+        );
+        let active = Rc::new(Cell::new(false));
+        let lifecycle =
+            MenuFocus::install(host.0.0 as isize, app.as_weak(), active.clone()).unwrap();
+        let enter = lifecycle.context.as_ref().unwrap().enter_message;
+        let foreground = unsafe { GetForegroundWindow() };
+        unsafe {
+            SendMessageW(
+                host.0,
+                enter,
+                Some(WPARAM(0)),
+                Some(LPARAM(i32::from(b' ') as isize)),
+            );
+            SendMessageW(host.0, enter, Some(WPARAM(0)), Some(LPARAM(0)));
+        }
+        assert!(active.get());
+        assert_eq!(lifecycle.context.as_ref().unwrap().generation.get(), 1);
+        let mut command = MSG::default();
+        assert!(
+            unsafe {
+                PeekMessageW(
+                    &mut command,
+                    Some(host.0),
+                    WM_SYSCOMMAND,
+                    WM_SYSCOMMAND,
+                    PM_REMOVE,
+                )
+            }
+            .as_bool()
+        );
+        assert_eq!(command.lParam.0, i32::from(b' ') as isize);
+        assert!(
+            !unsafe {
+                PeekMessageW(
+                    &mut command,
+                    Some(host.0),
+                    WM_SYSCOMMAND,
+                    WM_SYSCOMMAND,
+                    PM_REMOVE,
+                )
+            }
+            .as_bool()
+        );
+        assert_eq!(unsafe { GetForegroundWindow() }, foreground);
     }
 
     #[test]

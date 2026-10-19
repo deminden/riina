@@ -71,6 +71,16 @@ dispatcher before using the shared fullscreen-exit fallback. Crop editors and
 dialogs retain their own input scope. Modifier state is local to the host and
 cleared on focus loss; handled events do not propagate a second time.
 
+Keyboard system-menu entry belongs to the framed owner. A retained controls
+subclass forwards `SC_KEYMENU` with its original character after the controls
+HWND is realized. Pending requests coalesce while Windows owns menu input. The
+[menu-exit message](https://learn.microsoft.com/en-us/windows/win32/menurc/wm-exitmenuloop)
+queues generation-checked restoration; a closed popup alone is not loop exit.
+While this owner/controls pair retains foreground, the
+[current physical Alt state](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getasynckeystate)
+determines whether Slint needs an internal Alt release. A held Alt, unrelated
+modifiers and dialog focus remain intact; no keyboard input is injected.
+
 This boundary does not implement another OS or certify its window/rendering
 behavior. The portable core and mpv interface have three-OS unit/lint evidence;
 native dialog, storage, presentation, fullscreen/focus and playback tests remain

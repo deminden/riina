@@ -4,6 +4,8 @@ mod frame_capture;
 mod host_input;
 pub(crate) mod materials;
 mod menu_focus;
+mod menu_modifiers;
+mod menu_proxy;
 pub(crate) mod native_window;
 mod overlay_trace;
 mod package_smoke;

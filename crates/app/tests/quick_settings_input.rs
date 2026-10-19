@@ -353,3 +353,93 @@ fn reverse_tab_leaves_the_editor_for_its_slider_and_commits_once() {
     assert_eq!(changes[0].0, 1);
     assert!((changes[0].1 - 0.05).abs() < 0.0001);
 }
+
+#[cfg(target_os = "windows")]
+#[path = "../src/platform/windows/menu_modifiers.rs"]
+mod menu_modifiers;
+
+#[cfg(target_os = "windows")]
+#[test]
+fn menu_return_clears_a_consumed_alt_release_before_category_navigation() {
+    let app = player(1);
+    connect_settings_tabs(&app);
+    let modified_keys = Rc::new(RefCell::new(Vec::new()));
+    let recorded = modified_keys.clone();
+    app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+        recorded
+            .borrow_mut()
+            .push((text.to_string(), control, alt, shift, meta));
+        true
+    });
+    focus(&app, &button(&app, "Audio"));
+    app.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Alt.into(),
+    });
+    modified_keys.borrow_mut().clear();
+    key(&app, Key::LeftArrow);
+    assert_eq!(
+        app.get_sidebar(),
+        1,
+        "First reproduce the stale Alt rejection"
+    );
+    assert!(modified_keys.borrow().last().unwrap().2);
+    modified_keys.borrow_mut().clear();
+    menu_modifiers::reconcile_alt(app.window(), false);
+    assert!(!app.get_menu_alternates_visible());
+    key(&app, Key::LeftArrow);
+    assert_eq!(app.get_sidebar(), 6);
+    assert!(
+        modified_keys.borrow().is_empty(),
+        "Plain Left must stay in the category group"
+    );
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn menu_return_preserves_a_physically_held_alt_and_other_modifiers() {
+    let app = player(1);
+    app.invoke_focus_player();
+    let modifiers = Rc::new(RefCell::new(Vec::new()));
+    let recorded = modifiers.clone();
+    app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+        if text == "x" {
+            recorded.borrow_mut().push((control, alt, shift, meta));
+        }
+        true
+    });
+    for modifier in [Key::Control, Key::Shift, Key::Alt] {
+        app.window().dispatch_event(WindowEvent::KeyPressed {
+            text: modifier.into(),
+        });
+    }
+    menu_modifiers::reconcile_alt(app.window(), true);
+    key(&app, "x");
+    assert_eq!(&*modifiers.borrow(), &[(true, true, true, false)]);
+    assert!(app.get_menu_alternates_visible());
+    menu_modifiers::reconcile_alt(app.window(), false);
+    key(&app, "x");
+    assert_eq!(
+        &*modifiers.borrow(),
+        &[(true, true, true, false), (true, false, true, false)]
+    );
+    assert!(!app.get_menu_alternates_visible());
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn menu_return_keeps_the_active_editor_draft_and_submission_scope() {
+    let app = player(1);
+    let submissions = delay_submissions(&app);
+    let input = field(&app, "Audio delay in seconds");
+    focus(&app, &input);
+    input.set_accessible_value("0.7");
+    key(&app, Key::End);
+    app.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Alt.into(),
+    });
+    menu_modifiers::reconcile_alt(app.window(), false);
+    key(&app, "5");
+    assert_eq!(input.accessible_value().unwrap(), "0.75");
+    key(&app, Key::Return);
+    assert_eq!(&*submissions.borrow(), &[(1, "0.75".into())]);
+}

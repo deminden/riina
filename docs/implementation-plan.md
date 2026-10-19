@@ -23,6 +23,11 @@ card proportions in constrained widths and exposes overflow through scrolling.
 Use generated-widget geometry/input checks plus native keyboard and scrolling
 checks; keep other DPI, IME and matched macOS evidence as separate gaps.
 
+The Windows menu follow-up now routes keyboard menu entry to the framed owner
+and repairs a consumed Alt release after menu exit; see the [input record](../tests/visual/windows-system-menu-alt-2026-10-19.json).
+Retain native menu-bar navigation between the first and second Escape. Further
+input layouts, IME and cross-application cancellation need their own evidence.
+
 ## Work order
 
 ### 1. Close missing behavior

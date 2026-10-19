@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-19",
+  "source_base_revision": "0f254b6fcef24556904bd79a2b25a47ee5a9ddad",
+  "milestone": "0.5.0 development: Windows system-menu Alt state",
+  "source_hashes_canonical_lf": {
+    "crates/app/src/platform/windows.rs": "483fad5146619b0f061ac3ae32c7caff674d4e9bbf66963684f4d36ee264d8da",
+    "crates/app/src/platform/windows/menu_focus.rs": "c86fb30ff43c545d9109a040b3f81ad893ef6b292452ced788b33f9344a54ed7",
+    "crates/app/src/platform/windows/menu_modifiers.rs": "f8517527fccfa1994a939c48ca90b9658472fc0292414dd122f03416424920fa",
+    "crates/app/src/platform/windows/menu_proxy.rs": "279e8a45fe3b58b84f082c5ceb60de47690a596e1c6b060344fa4c2d47fd4871",
+    "crates/app/src/platform/windows/native_window.rs": "0c9bde0902d35fd42cd01093ee4419b02c7086678b3a57be3e24711263c978e4",
+    "crates/app/tests/quick_settings_input.rs": "55996c7949abb39432705b1370f103bf0fd3f95ac12e2b31cdb46f3bd0fe67f7"
+  },
+  "baseline": {
+    "executable_sha256": "758cfa86f5b5cd735519166431c8ee88aeee319b79fe3412e15bb80cf42cff32",
+    "pid": 12968,
+    "fixture": "tests/fixtures/moving-square.avi",
+    "state": "paused at synthetic frame 000; null audio; isolated profile",
+    "steps": [
+      "Open Audio Quick Settings.",
+      "Press Alt+Space and observe the Windows system menu.",
+      "Press Escape to dismiss it.",
+      "Attempt Ctrl+Shift+A and then plain Right without pressing Alt again."
+    ],
+    "observed": "The Audio shortcut did not reopen its pane; plain Right advanced the paused fixture from frame 000 to frame 001 (Alt+Right frame step), reproducing stale Alt.",
+    "shutdown": "Normal Alt+F4; zero Riina processes before build.",
+    "full_exit_recheck": {
+      "pid": 7324,
+      "steps": "Alt+Space, Escape, Escape, plain Right at frame 000",
+      "observed": "Frame 001: plain Right still performed the Alt+Right action after full cancellation."
+    }
+  },
+  "implementation": [
+    "Route controls-popup SC_KEYMENU entry to the framed owner through the existing queued activation path. Preserve the command character for Space, F10/Alt and menu mnemonics.",
+    "After the existing generation-checked menu-loop exit message, query the current VK_MENU high bit while the player owns foreground.",
+    "Send only an internal Slint Alt release when the key is up, retaining a physically held Alt and all other modifier states.",
+    "Repair a menu-opened editor/dialog without moving its native focus; retain existing foreground and restoration-generation guards.",
+    "The proxy retains a stable callback context and detaches on drop; native hidden-window regression checks queued routing and cleanup without opening a menu.",
+    "Coalesce pending keyboard menu-entry requests while Windows owns menu input; attach the controls proxy only after its lazy HWND has been realized."
+  ],
+  "platform_contract": {
+    "reference": "IINA v1.5.0 MenuController.swift menuWillOpen; AppKit owns native menu/input lifecycle. Windows adaptation uses its native menu loop and current key state. No source translated.",
+    "win32_menu_exit": "https://learn.microsoft.com/en-us/windows/win32/menurc/wm-exitmenuloop",
+    "win32_key_state": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getasynckeystate",
+    "slint_source": "Pinned Slint 1.18.1 WindowInner::process_key_input updates modifier state from key press/release events; the Winit adapter ignores ModifiersChanged.",
+    "win32_system_command": "https://learn.microsoft.com/en-us/windows/win32/menurc/wm-syscommand"
+  },
+  "checks": {
+    "initial_widget_regressions": "15 passed before the native routing correction; this did not verify the missing Windows menu-owner route.",
+    "workspace": "621 passed, 56 ignored; two test threads; includes fifteen generated-widget regressions and hidden-window routing/coalescing tests.",
+    "build": "Locked workspace build passed; final trace-free rebuild passed.",
+    "lint": "Formatting and strict all-target locked Clippy passed.",
+    "python": "60 tests passed; asset, fixture and navigation inventories passed.",
+    "smoke": {
+      "executable_sha256": "b938224b95703012631dab4254c92fa13074c0e652a10c87be962d4de5b6690d",
+      "pid": 15184,
+      "elapsed_ms": 5766,
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress"
+      ],
+      "physical_display_verified": false,
+      "full_desktop": "Before/fullscreen/after: 3840 x 2160, non-black probes passed, all inspected; video and controller visible together, no residual player surface after exit."
+    }
+  },
+  "manual_gui": [
+    {
+      "executable_sha256": "b938224b95703012631dab4254c92fa13074c0e652a10c87be962d4de5b6690d",
+      "pid": 17944,
+      "fixture": "moving-square.avi; paused at frame 001 from isolated profile resume; null audio",
+      "results": [
+        "Alt+Space opens the framed owner system menu at the actual title row.",
+        "Escape closes the popup; second Escape exits menu navigation. Plain Right then seeks/loops from frame 001 to frame 000, rather than stepping to frame 002.",
+        "Intentional Alt+Right advances frame 000 to 001. Ctrl+Shift+A immediately opens Audio.",
+        "F10 then Down opens the application dropdown. Escape twice returns to the player; immediate Space resumes visible playback (frames 010/011)."
+      ],
+      "shutdown": "Normal Alt+F4; no Riina process before smoke/build."
+    }
+  ],
+  "remaining_gaps": [
+    "Other keyboard layouts, IME and application ports are separate checks.",
+    "Cross-application menu cancellation and real held-modifier combinations have widget/native ownership guards but no full desktop interaction sweep."
+  ],
+  "private_evidence": "Raw GUI captures and profiles remain under ignored target.",
+  "diagnosis": {
+    "first_candidate_sha256": "bffb0a49ad262b81110030adb8a921ab387d0606c0fd52545d189ce38bdd981f",
+    "first_candidate_result": "Fifteen widget tests and workspace checks passed, but native Alt+Space/Escape still left plain Right as a frame step. The menu exit correction was not reached.",
+    "trace_observation": "The transparent controls popup opened its own system menu; the framed owner received no menu-enter, menu-exit or queued-restore messages. Its menu appeared offset below the actual window title bar. Temporary tracing was removed after diagnosis.",
+    "escape_clarification": "A hidden popup does not imply WM_EXITMENULOOP. Native tracing showed that first Escape returns to menu-bar navigation; the second Escape ends the loop. Reopening with Space between those Escapes is normal Windows behavior, not evidence of duplicate entry. This behavior is preserved."
+  }
+}

@@ -75,8 +75,17 @@ See the [navigation record](../tests/visual/windows-quick-settings-navigation-20
 for source identities, twelve widget regressions and native checks. Build, strict
 Clippy and formatting pass; 616 workspace tests pass with two test threads
 (56 ignored), plus 60 Python tests and a 5918 ms playback smoke. Other display scales,
-matched macOS interaction, system-menu Alt routing and the full focus graph remain open; this is ongoing
-work toward 0.5.0.
+matched macOS interaction and the full focus graph remain open.
+
+The [Windows menu follow-up](../tests/visual/windows-system-menu-alt-2026-10-19.json)
+routes keyboard system-menu entry through the framed owner and reconciles a lost
+Alt release after the native menu loop exits. Native comparison reproduced stale
+Alt in the previous build even after two Escapes; the corrected build seeks with
+a plain arrow and retains intentional Alt frame stepping. Windows menu navigation
+stays active after the first Escape; its second Escape returns input to playback.
+The batch passes 621 workspace tests (56 ignored), fifteen widget regressions,
+formatting, strict Clippy and a 5766 ms playback smoke. Other layouts, IME and
+cross-application cancellation need further native checks. Work toward 0.5.0 continues.
 
 ## Verification summary
 
