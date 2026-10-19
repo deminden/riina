@@ -32,6 +32,8 @@ component SidebarTab inherits FocusScope {
     horizontal-stretch: 1;
     accessible-role: button;
     accessible-label: label;
+    accessible-item-selectable: true;
+    accessible-item-selected: selected;
     accessible-action-default => { activated(); }
     Rectangle {
         border-radius: 5px;
@@ -188,8 +190,8 @@ component LayoutChoice inherits FocusScope {
             ? (root.dark-theme ? #ffffff10 : #0000000a)
             : (root.dark-theme ? #ffffff08 : #00000006);
         VerticalLayout {
-            alignment: center; spacing: 8px;
-            Rectangle {
+            alignment: center; cross-axis-alignment: center; spacing: 8px;
+            preview := Rectangle {
                 width: 40px; height: 28px; background: transparent;
                 Rectangle {
                     x: 4px; y: 1.5px; width: 32px; height: 25px;
@@ -226,12 +228,12 @@ component SidebarSectionTitle inherits Rectangle {
     height: 18px;
     background: transparent;
     HorizontalLayout {
-        spacing: 8px;
-        Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
+        spacing: 8px; cross-axis-alignment: center;
+        leading-rule := Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
             horizontal-stretch: 1; }
-        Text { text: root.label; color: root.dark-theme ? #bdbdc5 : #707078;
+        caption := Text { text: root.label; color: root.dark-theme ? #bdbdc5 : #707078;
             font-size: 12px; font-weight: 700; vertical-alignment: center; }
-        Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
+        trailing-rule := Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
             horizontal-stretch: 1; }
     }
 }
@@ -251,15 +253,15 @@ component SidebarPositionToggle inherits FocusScope {
     accessible-checked: leading;
     accessible-action-default => { changed(!leading); }
     HorizontalLayout {
-        spacing: 8px;
-        if root.icon.width > 0 : Image {
+        spacing: 8px; cross-axis-alignment: center;
+        if root.icon.width > 0 : symbol := Image {
             source: root.icon; image-fit: contain;
             width: root.icon-size; height: root.icon-size;
             colorize: root.dark-theme ? #bdbdc5 : #73737a;
         }
-        Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
+        caption := Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
             font-size: root.mini ? 11px : 12px; vertical-alignment: center; horizontal-stretch: 1; }
-        Rectangle {
+        switch-track := Rectangle {
             width: root.mini ? 36px : 38px; height: root.mini ? 16px : 22px;
             border-radius: self.height / 2;
             background: root.leading ? root.accent-color : (root.dark-theme ? #55555e : #d0d0d4);
@@ -298,12 +300,12 @@ component SidebarSideChoice inherits FocusScope {
     accessible-checked: leading;
     accessible-action-default => { changed(!leading); }
     HorizontalLayout {
-        spacing: 8px;
-        Image { source: root.icon; image-fit: contain; width: 16px; height: 16px;
+        spacing: 8px; cross-axis-alignment: center;
+        symbol := Image { source: root.icon; image-fit: contain; width: 16px; height: 16px;
             colorize: root.dark-theme ? #bdbdc5 : #73737a; }
-        Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
+        caption := Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
             font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
-        Rectangle {
+        switch-track := Rectangle {
             width: 58px; height: 24px; border-radius: 7px;
             background: root.dark-theme ? #ffffff16 : #0000000d;
             HorizontalLayout {
@@ -2691,7 +2693,7 @@ export component PlayerWindow inherits Window {
                             if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
                         } }
                 }
-                if pane-kind == 5 : ScrollView {
+                if pane-kind == 5 : layout-scroll := ScrollView {
                     width: parent.width - 20px;
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
@@ -2718,7 +2720,12 @@ export component PlayerWindow inherits Window {
                         }
                     }
                     layout-content := VerticalLayout {
-                    width: parent.width;
+                    // The ScrollView child parent is its visible Flickable, not
+                    // the scroll extent. Bind the page to the explicit extent.
+                    width: layout-scroll.content-width;
+                    // Flickable infers its minimum from its children. The page
+                    // extent must not feed that minimum back into itself.
+                    min-width: 0px;
                     // Match IINA's source-defined spacious/compact sidebar rhythm.
                     spacing: root.compact-ui ? 16px : 18px;
                     cross-axis-alignment: center;
@@ -2735,28 +2742,28 @@ export component PlayerWindow inherits Window {
                             padding: root.compact-ui ? 10px : 12px;
                             spacing: root.compact-ui ? 8px : 12px;
                             HorizontalLayout {
-                                height: 24px; spacing: 8px;
-                                Image { source: @image-url("../../../assets/icons/appearance-half.svg");
+                                height: 24px; spacing: 8px; cross-axis-alignment: center;
+                                theme-symbol := Image { source: @image-url("../../../assets/icons/appearance-half.svg");
                                     image-fit: contain; width: 20px; height: 20px;
                                     colorize: root.dark-theme ? #d0d0d6 : #55555d; }
-                                Text { text: "Theme"; color: root.dark-theme ? #dddddd : #29292d;
+                                theme-caption := Text { text: "Theme"; color: root.dark-theme ? #dddddd : #29292d;
                                     font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
                                 Rectangle {
                                     width: 156px; height: 24px; border-radius: 7px;
                                     background: root.dark-theme ? #ffffff14 : #0000000d;
                                     HorizontalLayout {
                                         padding: 2px; spacing: 2px;
-                                        SidebarTab { accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Dark"; selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
+                                        SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Dark"; selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
                                             activated => { root.appearance-mode = 0; root.layout-settings-changed(); } }
-                                        SidebarTab { accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Light"; selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
+                                        SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Light"; selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
                                             activated => { root.appearance-mode = 1; root.layout-settings-changed(); } }
-                                        SidebarTab { accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Auto"; selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
+                                        SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Auto"; selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
                                             activated => { root.appearance-mode = 2; root.layout-settings-changed(); } }
                                     }
                                 }
                             }
                             HorizontalLayout {
-                                height: 20px; spacing: 8px;
+                                height: 20px; spacing: 8px; cross-axis-alignment: center;
                                 Image { source: @image-url("../../../assets/icons/glass-cards.svg");
                                     image-fit: contain; width: 16px; height: 16px;
                                     colorize: root.dark-theme ? #d0d0d6 : #55555d; }
@@ -2842,13 +2849,13 @@ export component PlayerWindow inherits Window {
                             }
                         }
                     }
-                    SidebarSectionTitle { label: "On Screen Controller"; dark-theme: root.dark-theme; }
+                    SidebarSectionTitle { width: layout-content.width; label: "On Screen Controller"; dark-theme: root.dark-theme; }
                     VerticalLayout {
-                        width: parent.width;
+                        width: parent.width; cross-axis-alignment: center;
                         HorizontalLayout {
                             // IINA's default NSStackView gap is 8 points. Its captured
                             // 66-point equal tiles plus two gaps give this 214-point row.
-                            width: min(214px, min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 30px : 36px));
+                            width: min(214px, layout-content.width);
                             spacing: 8px;
                             LayoutChoice { label: "Floating"; position: 0; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 0;
                                 activated => { root.osc-position = 0; root.layout-settings-changed(); } }
@@ -2859,7 +2866,7 @@ export component PlayerWindow inherits Window {
                         }
                         Rectangle { height: 8px; background: transparent; }
                     }
-                    SidebarSectionTitle { label: "Sidebar Position"; dark-theme: root.dark-theme; }
+                    SidebarSectionTitle { width: layout-content.width; label: "Sidebar Position"; dark-theme: root.dark-theme; }
                     VerticalLayout { width: parent.width;
                     Rectangle {
                         width: layout-content.width - (root.compact-ui ? 8px : 12px);
@@ -3881,7 +3888,8 @@ export component PlayerWindow inherits Window {
             private property <length> toolbar-width: root.toolbar-visible-order.length * toolbar-button-width +
                 max(0, root.toolbar-visible-order.length - 1) * toolbar-gap;
             private property <length> side-width: max(116px, toolbar-width);
-            private property <bool> side-controls-fit: self.width >= 98px + side-width * 2 + 40px;
+            private property <bool> side-controls-fit: self.width >= transport-width +
+                side-width * 2 + 2 * root.osc-row-inline-inset + 4 * root.osc-row-gap;
             // In constrained windows, hide the volume slider first and retain
             // the four configured right-side actions using smaller hit targets.
             private property <bool> compact-toolbar-fit: root.small-video-controller &&
@@ -3889,6 +3897,14 @@ export component PlayerWindow inherits Window {
                     (root.transport-neighbor-actions-fit ? 60px : 0px) +
                     (root.transport-neighbor-actions-fit ? 20px : 12px);
             private property <bool> toolbar-actions-fit: side-controls-fit || compact-toolbar-fit;
+            private property <length> transport-width: root.transport-neighbor-actions-fit
+                ? (root.osc-position == 0 ? 120px : 104px) : 24px;
+            // Equal side reservations keep Play centered even without audio or
+            // with a customized toolbar. Below this fit limit, retain the
+            // Windows narrow-window packed row so every action stays reachable.
+            private property <length> balanced-side-width: side-controls-fit ? side-width :
+                compact-toolbar-fit && self.width >= 2 * root.osc-row-inline-inset +
+                    2 * toolbar-width + transport-width + 4 * root.osc-row-gap ? toolbar-width : 0px;
             // Edge-to-edge keeps video behind sidebars, but the controls must
             // stay in the unobscured video area so their actions remain visible.
             private property <length> osc-video-leading-inset:
@@ -4001,9 +4017,9 @@ export component PlayerWindow inherits Window {
                     padding-left: root.osc-row-inline-inset;
                     padding-right: root.osc-row-inline-inset;
                     spacing: root.osc-row-gap;
-                    if !root.music-mode && osc-bar.side-controls-fit : Rectangle {
-                        width: osc-bar.side-width; height: root.osc-row-height;
-                        if root.has-active-audio-track : HorizontalLayout {
+                    if !root.music-mode && osc-bar.balanced-side-width > 0px : Rectangle {
+                        width: osc-bar.balanced-side-width; height: root.osc-row-height;
+                        if osc-bar.side-controls-fit && root.has-active-audio-track : HorizontalLayout {
                             width: 116px; height: root.osc-row-height; spacing: 4px;
                             Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; height: root.osc-row-height;
                                 icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
@@ -4068,8 +4084,9 @@ export component PlayerWindow inherits Window {
                         activated => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
                     }
                     if !root.music-mode && osc-bar.toolbar-actions-fit : Rectangle {
-                        width: osc-bar.toolbar-width; height: root.osc-row-height;
+                        width: max(osc-bar.balanced-side-width, osc-bar.toolbar-width); height: root.osc-row-height;
                         HorizontalLayout {
+                        x: parent.width - self.width;
                         width: osc-bar.toolbar-width; height: root.osc-row-height;
                         spacing: osc-bar.toolbar-gap;
                         for action-kind in root.toolbar-visible-order : ToolbarAction {

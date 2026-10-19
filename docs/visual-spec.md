@@ -79,7 +79,10 @@ Measure against the video container. With edge-to-edge video disabled, that
 container excludes sidebars; normalize the horizontal fraction to its actual
 width. A 460-point floating bar compresses centered when its full width and
 insets cannot fit. Hide mute/volume when no primary audio track is selected,
-retaining the leading spacer so the transport remains centered.
+retaining the leading spacer so the transport remains centered. Equal leading
+and trailing reservations must also survive toolbar customization; centering the
+whole unequal row shifts the transport. The play and pause hit frames share the
+same center; assess glyph optical balance separately.
 
 Windows has documented narrow-window and sidebar-avoidance adaptations. Compare
 them against the reference before accepting their geometry; see
@@ -132,6 +135,7 @@ use their own measured width.
 
 | Element | Source allocation |
 |---|---|
+| Theme selector rail | Observed approximately 24 points high at inferred 2x scale in REF-21; Windows uses 2-point internal insets and 20-point segments |
 | Theme, compact-interface and video-setting symbols | 20 points |
 | Material heading and mini-row symbols | 16 points |
 | Section captions | Bold 12-point system text |
@@ -141,6 +145,18 @@ use their own measured width.
 | Tile label/insets | Label gap 8; item padding 12; bottom inset 8 before section gap 18 |
 | Sidebar Position rows | 24-point controls, 10/6 spacious/compact stack gaps |
 | Sidebar Position card | 12/10 padding; derived heights 118/106 including border; trailing inset 8 |
+
+Dark, Light and Auto selected fills, text and focus outlines stay inside the
+selector rail when appearance changes. Its segments retain equal bounds and
+alignment across hover, keyboard focus and selection. AppKit owns the original
+`NSSegmentedControl`; the Windows equivalent uses the host accent and player
+palette. Do not change the 30-point Playlist/Chapters tabs to size this small rail.
+
+Center each row symbol, label and switch vertically, including Compact Interface
+and sidebar-position rows. Section rules run through the caption centerline.
+Center the three controller choice tiles on the scroll page, and each preview
+inside its tile. Narrow Layout panes retain the reference tile frames on their
+scrollable content rather than squeezing the drawings or clipping their labels.
 
 Keep both spacious and compact states scrollable, with every setting reachable.
 Do not use old capture-tool failures as a current blanket blocker.

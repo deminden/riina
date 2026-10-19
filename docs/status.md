@@ -87,6 +87,15 @@ The batch passes 621 workspace tests (56 ignored), fifteen widget regressions,
 formatting, strict Clippy and a 5766 ms playback smoke. Other layouts, IME and
 cross-application cancellation need further native checks. Work toward 0.5.0 continues.
 
+The [player proportion follow-up](../tests/visual/windows-player-proportions-2026-10-19.json)
+centers floating transport independently of audio/toolbar visibility, constrains
+Dark/Light/Auto selection to its rail, and aligns Layout row icons, switches and
+controller previews. Narrow Layout pages retain a real 300-point scroll extent
+and reference-sized choice tiles. Twenty widget regressions and native normal/285 x 160 checks cover these changes.
+The batch passes 626 workspace tests (56 ignored), formatting, strict Clippy,
+60 Python tests and a 5841 ms playback smoke. Matched macOS pixels and other
+display scales remain open.
+
 ## Verification summary
 
 **[0.4.0 is published](https://github.com/deminden/riina/releases/tag/v0.4.0).**

@@ -1,0 +1,118 @@
+{
+  "date": "2026-10-19",
+  "source_base_revision": "f0d3c1e501ab1cca04143f1aeaad2b48072e463c",
+  "milestone": "0.5.0 development: floating transport balance and Layout theme proportions",
+  "source_hashes_canonical_lf": {
+    "crates/app/ui/player.slint": "dc4b3b330ead25f040e5dacc311809c85d0a81e23e6479132a49149a2959401c",
+    "crates/app/tests/quick_settings_input.rs": "f9aafcb1fd38f21d150bfb32b5790c79a2afd9239289784922d79746d9df4322"
+  },
+  "reference": {
+    "revision": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "captures": [
+      "REF-20-playback-frame",
+      "REF-21-playback-quick-settings"
+    ],
+    "inspection": "Both local captures inspected. Source ownership: MainWindowController builds floating transport in the center with separate leading volume/trailing toolbar; SidebarLayoutPane uses an AppKit NSSegmentedControl for Theme. Independent Slint layouts, no artwork/source copied.",
+    "scale_limit": "Supplied capture scale is unrecorded; inferred point conversions do not establish pixel acceptance."
+  },
+  "baseline": {
+    "headless": "Fifteen prior widget regressions pass; three new tests fail on the unchanged UI.",
+    "observations": [
+      "Theme segments measure 30 high inside a 24 high rail; they require 20 high with two point insets.",
+      "With the toolbar empty, floating Play frame center is x558 instead of x500 in a 1000-wide player. With the default four actions the unequal reservations produce about 10 points of drift.",
+      "The 285-wide controller does not center Play even though symmetric reservations for its four actions and single transport button can fit."
+    ]
+  },
+  "implementation": [
+    "Keep 30-point Playlist/Chapters tabs; constrain only Dark/Light/Auto segments to 20 points inside their 24-point rail and expose selected accessibility state.",
+    "Reserve equal sides around transport, retain the volume placeholder without an audio track, and align the actual toolbar to the trailing edge.",
+    "Use the actual transport width and both row insets/gaps for the fit threshold. Center the compact row where symmetric spaces fit; retain the existing packed adaptation below that limit.",
+    "Play/pause glyph assets remain unchanged; frame alignment and optical glyph balance are distinct checks.",
+    "Center the Floating/Top/Bottom group and each preview on the scroll page; retain 66 x 74 frames and eight point gaps even in narrow scrollable panes.",
+    "Center symbols, labels and switches on their Layout row; center section rules on their captions. Compact Interface, Theme and sidebar-position rows share this alignment.",
+    "Bind the Layout page width to the explicit scroll extent, preventing the visible Flickable width from squeezing the page; keep its inferred minimum independent to avoid a binding cycle.",
+    "Make section titles span the page so their centered rules have visible width."
+  ],
+  "checks": {
+    "build": "Locked workspace build passed on Windows 11 x64.",
+    "format": "cargo fmt --all -- --check passed.",
+    "clippy": "Strict all-target locked Clippy passed.",
+    "workspace": "626 passed, 56 ignored; two test threads. Native integration tests remain separately gated by the pinned DLL.",
+    "widget_regressions": {
+      "passed": 20,
+      "new_scope": [
+        "Theme selection and equal 20-point segment bounds across palette/spacing changes and normal/narrow widths. Narrow activation uses the accessibility action; pointer activation is checked at normal width.",
+        "Floating Play/Pause frame center independent of empty/single/default/five-action toolbars, audio presence, compact spacing and either sidebar side.",
+        "Disjoint default actions at 200/285/340/360/380/400/440 widths; centered transport where symmetric spaces fit.",
+        "Centered 66 x 74 controller choices, eight-point gaps and centered previews at 285/320/960 widths in both spacing modes.",
+        "Layout symbol/switch/caption centerlines; section rules share caption centerlines and have visible width."
+      ],
+      "not_native_gui": true
+    },
+    "python": "60 tests passed.",
+    "inventories": "Settings navigation and parity/reference checks passed; inventory remains incomplete.",
+    "smoke": {
+      "executable_sha256": "e722800588fcf9d0d5602365276a31722a47990770a58cb9dbc40b9a2d67c2ca",
+      "pid": 17844,
+      "elapsed_ms": 5841,
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress"
+      ],
+      "physical_display_verified": false,
+      "capture": "Before/fullscreen/after at 3840 x 2160; non-black probes passed, all full images inspected. Native video and controller remain visible together, with no residual surface after normal exit."
+    }
+  },
+  "manual_gui": [
+    {
+      "executable_sha256": "e722800588fcf9d0d5602365276a31722a47990770a58cb9dbc40b9a2d67c2ca",
+      "pid": 21512,
+      "fixture": "Isolated moving-square.avi, paused at frame 000; null audio, looping, no neighboring fixtures.",
+      "normal_size": {
+        "outer": [
+          918,
+          619
+        ],
+        "controls": [
+          916,
+          570
+        ]
+      },
+      "results": [
+        "Floating transport frame visibly centered with the default four actions; no audio/volume layout changed during this check.",
+        "Light Layout inspected with Compact Interface on and off. Compact Interface, Theme, material mini-row and video-setting symbols align with their labels/switches. Controller choices/previews are centered, with visible centered section rules.",
+        "Dark and Auto selected by pointer; selection stays in the rail. Auto settles to this desktop light appearance.",
+        "Normal Size native command yields 285 x 160 controls (287 x 228 outer with wrapped menu). Two attempted border drags did not resize the test window; these are not reported as passing resize gestures.",
+        "Vertical scrolling reveals normal-sized controller previews and labels. Horizontal scrolling reaches both the leading Floating tile and trailing Bottom tile without squeezing the page.",
+        "Close sidebar restores the centered single transport button with all four disjoint actions. Space resumes visible frames 006/008; Pause retains the same center."
+      ],
+      "shutdown": "Normal Alt+F4; no Riina process before the smoke and after it."
+    }
+  ],
+  "remaining_gaps": [
+    "Materials, exact glyph silhouettes, other DPI and matched macOS states need additional comparison.",
+    "Extreme narrow layouts retain a packed transport/action row. Docked controller placement and Music Mode require their own reference comparison."
+  ],
+  "private_evidence": "Profiles and raw desktop captures remain under ignored target; no unrelated desktop content is published.",
+  "native_first_candidate": {
+    "executable_sha256": "4eeb63d85cfc34d0377db27a02865e4405b22ed7f9ceb6b0b0fbe5d2d88d8282",
+    "pid": 14944,
+    "observations": [
+      "Floating Play frame visibly centered with the default toolbar.",
+      "Dark, Light and Auto selections stayed within the theme rail; Auto followed this desktop light appearance.",
+      "Layout comparison revealed left-aligned choice group/previews and top-aligned Compact Interface/other symbols; a follow-up corrects these."
+    ],
+    "shutdown": "Normal Alt+F4; zero Riina processes before follow-up build."
+  },
+  "follow_up_diagnosis": "The first centered-tile regression failed at narrow widths: ScrollView children inherit the visible Flickable width, not its content extent. The explicit page-width binding and independent minimum repair that boundary.",
+  "native_intermediate_candidate": {
+    "executable_sha256": "58da8be4d4396a9d80c89abe77ecde055e25b24135d5114bc366e68643653c60",
+    "pid": 8404,
+    "scope": "Compact icon/choice alignment and pointer Dark selection inspected. Tab from Dark focuses Light within its rail; Space selects Light without resuming the paused fixture, and the light palette settles correctly. This precedes the final scroll-extent/section-rule-width correction.",
+    "shutdown": "Normal Alt+F4; zero Riina processes before final build."
+  }
+}

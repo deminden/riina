@@ -10,23 +10,23 @@ Close end-to-end behavior gaps in Quick Settings input, folder/playlist/history
 flows and window transitions, then compare the main player and its menus against
 the pinned captures. Keep each batch local until related changes and checks fit.
 
-The first local batch covers Quick Settings numeric editing and focus: audio and both
-subtitle delay lanes, speed entry, Return submission, Escape cancellation, Tab/
-focus changes, observed playback updates during an edit, and controller auto-hide.
-Require widget regression tests and actual application interaction; record their
-results separately. Test both themes and retain the existing fullscreen baseline.
+Local batches now cover:
 
-The next batch checks keyboard traversal through the category group and page
-controls at normal and narrow widths, on either sidebar side. Categories form one
-Tab stop; arrows and Home/End select within that group. Layout keeps its reference
-card proportions in constrained widths and exposes overflow through scrolling.
-Use generated-widget geometry/input checks plus native keyboard and scrolling
-checks; keep other DPI, IME and matched macOS evidence as separate gaps.
+- [Quick Settings numeric editing and focus](../tests/visual/windows-quick-settings-input-2026-10-19.json):
+  delay/speed drafts, submission/cancellation, observed updates and controller auto-hide.
+- [Category traversal](../tests/visual/windows-quick-settings-navigation-2026-10-19.json):
+  one category Tab stop, arrows/Home/End, visible focus and narrow scrolling.
+- [Windows menu input](../tests/visual/windows-system-menu-alt-2026-10-19.json):
+  framed-owner routing and lost Alt release recovery after the native menu loop.
+  Retain Windows menu-bar navigation between the first and second Escape.
+- [Player proportions](../tests/visual/windows-player-proportions-2026-10-19.json):
+  balanced floating transport, bounded theme selection, aligned Layout symbols,
+  centered controller previews and explicit narrow scroll-page geometry.
 
-The Windows menu follow-up now routes keyboard menu entry to the framed owner
-and repairs a consumed Alt release after menu exit; see the [input record](../tests/visual/windows-system-menu-alt-2026-10-19.json).
-Retain native menu-bar navigation between the first and second Escape. Further
-input layouts, IME and cross-application cancellation need their own evidence.
+Use those records for tested scope and remaining gaps. Other DPI, input layouts,
+IME, cross-application cancellation and matched macOS interaction remain separate
+acceptance work. Next exercise folder/playlist/history and window transitions as
+complete workflows, retaining the playback/fullscreen regression gates below.
 
 ## Work order
 

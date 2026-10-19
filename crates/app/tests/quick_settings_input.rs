@@ -443,3 +443,217 @@ fn menu_return_keeps_the_active_editor_draft_and_submission_scope() {
     key(&app, Key::Return);
     assert_eq!(&*submissions.borrow(), &[(1, "0.75".into())]);
 }
+
+#[test]
+fn theme_segments_fit_their_rail_and_keep_selection_after_palette_changes() {
+    let app = player(5);
+    for compact in [false, true] {
+        app.set_compact_ui(compact);
+        for width in [320.0, 960.0] {
+            app.window().set_size(LogicalSize::new(width, 900.0));
+            for (mode, label) in [(0, "Dark"), (1, "Light"), (2, "Auto"), (0, "Dark")] {
+                let segment = button(&app, label);
+                // At narrow widths this row is horizontally scrollable; test
+                // its selection independently of the clipped pointer viewport.
+                if width < 400.0 {
+                    segment.invoke_accessible_default_action();
+                    flush();
+                } else {
+                    focus(&app, &segment);
+                }
+                assert_eq!(app.get_appearance_mode(), mode);
+                app.set_dark_theme(mode != 1);
+                flush();
+                let top = button(&app, "Dark").absolute_position().y;
+                for (index, name) in ["Dark", "Light", "Auto"].iter().enumerate() {
+                    let item = button(&app, name);
+                    assert!(
+                        (item.size().height - 20.0).abs() < 0.5,
+                        "{name} must fit inside its 24 point rail with two point insets: {:?}",
+                        item.size()
+                    );
+                    assert!((item.absolute_position().y - top).abs() < 0.5);
+                    assert_eq!(
+                        item.accessible_item_selected(),
+                        Some(index == mode as usize)
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn transport_center_is_independent_of_audio_and_toolbar_population() {
+    let app = player(0);
+    app.set_paused(true);
+    app.set_controls_visible(true);
+    app.set_osc_position(0);
+    for order in [vec![], vec![0], vec![7, 2, 1, 0], vec![7, 2, 1, 0, 6]] {
+        app.set_toolbar_visible_order(slint::ModelRc::new(slint::VecModel::from(order)));
+        for has_audio in [false, true] {
+            app.set_has_active_audio_track(has_audio);
+            for compact in [false, true] {
+                app.set_compact_ui(compact);
+                for (leading, trailing) in [(0, 0), (5, 0), (0, 5)] {
+                    app.set_leading_sidebar(leading);
+                    app.set_sidebar(trailing);
+                    flush();
+                    let play = button(&app, "Play");
+                    let center = play.absolute_position().x + play.size().width / 2.0;
+                    let expected = if leading != 0 {
+                        680.0
+                    } else if trailing != 0 {
+                        320.0
+                    } else {
+                        500.0
+                    };
+                    assert!(
+                        (center - expected).abs() < 0.5,
+                        "transport drift: {center} != {expected}; audio={has_audio}, compact={compact}"
+                    );
+                    app.set_paused(false);
+                    flush();
+                    let pause = button(&app, "Pause");
+                    assert_eq!(pause.absolute_position(), play.absolute_position());
+                    assert_eq!(pause.size(), play.size());
+                    app.set_paused(true);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn narrow_controller_keeps_actions_disjoint_and_centers_when_symmetric_space_fits() {
+    let app = player(0);
+    app.set_paused(true);
+    app.set_controls_visible(true);
+    for width in [200.0, 285.0, 340.0, 360.0, 380.0, 400.0, 440.0] {
+        app.window().set_size(LogicalSize::new(width, 600.0));
+        flush();
+        let play = button(&app, "Play");
+        let mut previous_right = play.absolute_position().x + play.size().width;
+        for name in [
+            "Show plugins panel",
+            "Toggle Picture-in-Picture",
+            "Playlist and chapters",
+            "Quick Settings",
+        ] {
+            let action = button(&app, name);
+            let pos = action.absolute_position();
+            let size = action.size();
+            assert!(
+                pos.x >= previous_right && pos.x + size.width <= width + 0.5,
+                "{name} clips or overlaps at {width}: {pos:?} {size:?}"
+            );
+            previous_right = pos.x + size.width;
+        }
+        if [285.0, 360.0, 380.0, 400.0, 440.0].contains(&width) {
+            assert!(
+                (play.absolute_position().x + play.size().width / 2.0 - width / 2.0).abs() < 0.5,
+                "Play should remain centered at {width}"
+            );
+        }
+    }
+}
+
+fn descendant(element: &ElementHandle, id: &str) -> ElementHandle {
+    element
+        .query_descendants()
+        .match_id(id)
+        .find_first()
+        .unwrap_or_else(|| panic!("Missing descendant: {id}"))
+}
+
+#[test]
+fn controller_layout_tiles_keep_centered_reference_frames_and_even_gaps() {
+    let app = player(5);
+    for compact in [false, true] {
+        app.set_compact_ui(compact);
+        for width in [285.0_f32, 320.0, 960.0] {
+            app.window().set_size(LogicalSize::new(width, 900.0));
+            for mode in [0, 1, 2] {
+                app.set_appearance_mode(mode);
+                app.set_dark_theme(mode != 1);
+                flush();
+                let mut previous_right: Option<f32> = None;
+                let first = button(&app, "Floating").absolute_position();
+                for name in ["Floating", "Top", "Bottom"] {
+                    let tile = button(&app, name);
+                    let position = tile.absolute_position();
+                    let size = tile.size();
+                    assert!(
+                        (size.width - 66.0).abs() < 0.5,
+                        "{name} frame at {width}, compact={compact}: {size:?}"
+                    );
+                    assert!((size.height - 74.0).abs() < 0.5);
+                    assert!((position.y - first.y).abs() < 0.5);
+                    if let Some(right) = previous_right {
+                        assert!((position.x - right - 8.0).abs() < 0.5);
+                    }
+                    previous_right = Some(position.x + size.width);
+                    let preview = descendant(&tile, "LayoutChoice::preview");
+                    assert!(
+                        (preview.absolute_position().x + preview.size().width / 2.0
+                            - position.x
+                            - size.width / 2.0)
+                            .abs()
+                            < 0.5
+                    );
+                }
+                // The narrow pane scrolls a 300-point page; compare against its
+                // content center, not the portion currently inside the viewport.
+                let sidebar_width = 360.0_f32.min(width * 0.8);
+                let expected =
+                    width - sidebar_width + 10.0 + (sidebar_width - 20.0).max(300.0) / 2.0;
+                assert!(((first.x + previous_right.unwrap()) / 2.0 - expected).abs() < 0.5);
+            }
+        }
+    }
+}
+
+#[test]
+fn layout_rows_align_symbols_switches_and_section_rules_with_their_captions() {
+    let app = player(5);
+    fn center_y(element: &ElementHandle) -> f32 {
+        element.absolute_position().y + element.size().height / 2.0
+    }
+    for compact in [false, true] {
+        app.set_compact_ui(compact);
+        flush();
+        for component in [
+            "SidebarPositionToggle",
+            "SidebarSideChoice",
+            "SidebarSectionTitle",
+        ] {
+            let rows: Vec<_> = ElementHandle::find_by_element_type_name(&app, component).collect();
+            assert!(!rows.is_empty(), "Missing Layout component: {component}");
+            for row in rows {
+                let caption = descendant(&row, &format!("{component}::caption"));
+                let parts = if component == "SidebarSectionTitle" {
+                    ["leading-rule", "trailing-rule"]
+                } else {
+                    ["symbol", "switch-track"]
+                };
+                for part in parts {
+                    let item = descendant(&row, &format!("{component}::{part}"));
+                    if component == "SidebarSectionTitle" {
+                        assert!(item.size().width > 20.0, "Section rules must span the page");
+                    }
+                    assert!(
+                        (center_y(&item) - center_y(&caption)).abs() < 0.5,
+                        "{component} {part} is not aligned with its label"
+                    );
+                }
+            }
+        }
+        let icon = ElementHandle::find_by_element_id(&app, "PlayerWindow::theme-symbol")
+            .next()
+            .unwrap();
+        let label = ElementHandle::find_by_element_id(&app, "PlayerWindow::theme-caption")
+            .next()
+            .unwrap();
+        assert!((center_y(&icon) - center_y(&label)).abs() < 0.5);
+    }
+}

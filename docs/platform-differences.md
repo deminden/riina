@@ -36,7 +36,11 @@ for the ownership and composition invariants.
   an explicit theme; exact native menu pixels are not claimed.
 - The floating controller is clamped to the video span unobscured by an open
   sidebar. IINA's edge-to-edge macOS controller can remain anchored to the full
-  video container. Video still fills the selected viewport.
+  video container. Video still fills the selected viewport. Equal side spaces
+  keep floating transport centered as audio/toolbar visibility changes. In small
+  windows, volume hides first; the action row remains centered when symmetric
+  reservations fit, otherwise it packs the buttons to retain access. This
+  constrained layout needs separate comparison from the normal 460-point panel.
 - Quick Settings keeps the source's 80% sidebar-width limit. Below 280 logical
   pixels of sidebar width its category tabs use icons with full accessible labels,
   preserving the close button and every category. Normal widths retain selected
