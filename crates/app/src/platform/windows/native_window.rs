@@ -769,9 +769,7 @@ pub fn run(
                         app.get_leading_sidebar() == 7 || app.get_sidebar() == 7,
                     );
                     host.set_playback_paused(app.get_paused());
-                    host.set_playback_speed_value(app.get_speed_edit_value());
                     host.set_playback_muted(app.get_muted());
-                    host.set_audio_delay_text(app.get_audio_delay_text());
                 }
             });
             // The framed owner hosts the native menu; its transparent popup
@@ -872,9 +870,7 @@ pub fn run(
                         host.set_current_file_manager_name(app.get_current_file_manager_name());
                         host.set_playback_paused(app.get_paused());
                         host.set_menu_alternates_visible(app.get_menu_alternates_visible());
-                        host.set_playback_speed_value(app.get_speed_edit_value());
                         host.set_playback_muted(app.get_muted());
-                        host.set_audio_delay_text(app.get_audio_delay_text());
                         host.set_loop_label(app.get_loop_label());
                         let playlist_rows = app.get_playlist();
                         crate::ui_models::set_rows_if_changed(
@@ -1249,9 +1245,9 @@ pub fn run(
                 }
             });
             let menu_app = app.as_weak();
-            host.on_adjust_subtitle_scale(move |delta| {
+            host.on_multiply_subtitle_scale(move |factor| {
                 if let Some(app) = menu_app.upgrade() {
-                    app.invoke_adjust_subtitle_scale(delta);
+                    app.invoke_multiply_subtitle_scale(factor);
                 }
             });
             let menu_app = app.as_weak();

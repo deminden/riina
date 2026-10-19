@@ -1400,6 +1400,7 @@ export component PlayerWindow inherits Window {
                 activated => { root.cycle-ab-loop(); } }
             MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
                 enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(47);
                 activated => { root.toggle-file-loop(); } }
             MenuSeparator {}
             MenuItem { title: "Show Playlist Panel"; enabled: !root.crop-editing;
@@ -1597,6 +1598,7 @@ export component PlayerWindow inherits Window {
                 shortcut: root.menu-shortcut(root.menu-alternates-visible ? 41 : 39);
                 activated => { root.adjust-audio-delay(root.menu-alternates-visible ? -0.1 : -0.5); } }
             MenuItem { title: "Reset Audio Delay"; enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(48);
                 activated => { root.reset-audio-delay(); } }
             MenuSeparator {}
             Menu { title: "Audio Device";
@@ -1646,12 +1648,14 @@ export component PlayerWindow inherits Window {
             MenuItem { title: root.secondary-subtitle-visible ? "Hide Secondary Subtitles" : "Show Secondary Subtitles";
                 checkable: true; checked: root.secondary-subtitle-visible;
                 enabled: root.loaded && root.secondary-subtitle-visibility-known && !root.crop-editing;
+                shortcut: root.menu-shortcut(54);
                 activated => { root.toggle-secondary-subtitle-visibility(); }
             }
             MenuItem { title: "Load External Subtitle…"; enabled: root.loaded && !root.crop-editing;
                 activated => { root.browse-files(2); } }
             MenuSeparator {}
             MenuItem { title: root.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(55);
                 activated => { root.find-online-subtitles(); } }
             Menu { title: "Find Online Subtitles from"; enabled: root.loaded && !root.crop-editing;
                 MenuItem { title: "opensubtitles.com"; activated => { root.find-online-subtitles-with-provider(0); } }
@@ -1672,22 +1676,23 @@ export component PlayerWindow inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Scale Up"; enabled: root.loaded && root.subtitle-scale-known && !root.crop-editing;
-                activated => { root.adjust-subtitle-scale(0.1); } }
+                activated => { root.multiply-subtitle-scale(1.1); } }
             MenuItem { title: "Scale Down"; enabled: root.loaded && root.subtitle-scale-known && !root.crop-editing;
-                activated => { root.adjust-subtitle-scale(-0.1); } }
+                activated => { root.multiply-subtitle-scale(0.9); } }
             MenuItem { title: "Reset Subtitle Scale"; enabled: root.loaded && root.subtitle-scale-known && !root.crop-editing;
                 activated => { root.set-subtitle-scale-slider(0); } }
             MenuSeparator {}
-            MenuItem { title: "Subtitle Delay:"; enabled: false; }
-            MenuItem { title: "Subtitle Delay + 0.5s"; enabled: root.loaded && !root.crop-editing;
-                activated => { root.adjust-subtitle-delay(0.5); } }
-            MenuItem { title: "Subtitle Delay + 0.1s"; enabled: root.loaded && !root.crop-editing;
-                activated => { root.adjust-subtitle-delay(0.1); } }
-            MenuItem { title: "Subtitle Delay - 0.5s"; enabled: root.loaded && !root.crop-editing;
-                activated => { root.adjust-subtitle-delay(-0.5); } }
-            MenuItem { title: "Subtitle Delay - 0.1s"; enabled: root.loaded && !root.crop-editing;
-                activated => { root.adjust-subtitle-delay(-0.1); } }
+            MenuItem { title: "Subtitle Delay: " + root.subtitle-delay-text + "s"; enabled: false; }
+            MenuItem { title: root.menu-alternates-visible ? "Subtitle Delay + 0.1s" : "Subtitle Delay + 0.5s";
+                enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 52 : 49);
+                activated => { root.adjust-subtitle-delay(root.menu-alternates-visible ? 0.1 : 0.5); } }
+            MenuItem { title: root.menu-alternates-visible ? "Subtitle Delay - 0.1s" : "Subtitle Delay - 0.5s";
+                enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 53 : 50);
+                activated => { root.adjust-subtitle-delay(root.menu-alternates-visible ? -0.1 : -0.5); } }
             MenuItem { title: "Reset Subtitle Delay"; enabled: root.loaded && !root.crop-editing;
+                shortcut: root.menu-shortcut(51);
                 activated => { root.reset-subtitle-delay(); } }
             MenuSeparator {}
             MenuItem { title: "Font…"; enabled: !root.crop-editing;
@@ -2420,6 +2425,7 @@ export component PlayerWindow inherits Window {
     callback adjust-subtitle-delay(float);
     callback reset-subtitle-delay();
     callback adjust-subtitle-scale(float);
+    callback multiply-subtitle-scale(float);
     callback set-subtitle-scale-slider(float);
     callback set-subtitle-font-size(float);
     callback choose-subtitle-font();

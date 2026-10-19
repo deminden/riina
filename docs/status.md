@@ -55,10 +55,21 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Quick Settings keeps every category reachable in narrow windows. Audio uses
   one scroll page with horizontal equalizer scrolling when required. Unused panel
   input no longer changes playback volume or dismisses the sidebar.
+- Native menu shortcut hints include shifted punctuation and prefer the primary
+  default chord while retaining aliases. Subtitle scale menu actions use the
+  reference multiplicative steps; information labels refresh in place on opening.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
 ## Verification summary
+
+The [menu follow-up](../tests/visual/windows-menu-parity-2026-10-19.json) records
+604 workspace tests, 53 Python tests, strict Clippy and formatting, plus 51 native
+integration and two library checks against the reused release engine. Live menu
+hints, scale/delay actions and fullscreen chords were inspected. The local debug
+playback smoke passed in 5784 ms, with full-desktop captures before/during/after
+and normal shutdown. These are local checks. The first hosted candidate failed
+before its application report; diagnostics are improved for the next attempt.
 
 The [0.4.0 candidate preparation](../tests/visual/windows-0.4.0-candidate-2026-10-19.json)
 records a locked build, formatting, strict Clippy, 601 workspace tests and 34 Python

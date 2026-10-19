@@ -50,7 +50,10 @@ try {
         }
     }
     if ($CaptureDesktop -and !$captured) { throw 'No fullscreen-controller desktop capture was made.' }
-    if ($process.ExitCode -ne 0) { throw "Packaged application exited with code $($process.ExitCode)." }
+    if ($process.ExitCode -ne 0) {
+        $failureStderr = Get-Content -LiteralPath (Join-Path $root 'stderr.log') -Tail 80 -ErrorAction SilentlyContinue
+        throw "Packaged application exited with code $($process.ExitCode). Standard error:`n$($failureStderr -join [Environment]::NewLine)`nDiagnostics: $root"
+    }
     if (!(Test-Path -LiteralPath $ReportPath)) { throw "Application produced no smoke report. Diagnostics: $root" }
     & python (Join-Path $PSScriptRoot 'check-gui-smoke.py') $ReportPath --executable $Executable --pid $process.Id --fixture $Fixture
     if ($LASTEXITCODE -ne 0) { throw "Invalid application smoke evidence. Diagnostics: $root" }
@@ -67,6 +70,14 @@ try {
         # Terminate only the exact test instance; no other player's process is touched.
         Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
         $process.WaitForExit(5000) | Out-Null
+    }
+    # Early window/backend failures precede the in-app JSON report. Retain the
+    # exact process output beside it so hosted failures remain diagnosable.
+    foreach ($streamName in @('stderr','stdout')) {
+        $streamPath = Join-Path $root ($streamName + '.log')
+        if (Test-Path -LiteralPath $streamPath) {
+            Copy-Item -LiteralPath $streamPath -Destination ($ReportPath + '.' + $streamName + '.log') -Force
+        }
     }
     if ($CaptureDesktop) { Capture-SmokeDesktop 'after' }
 }

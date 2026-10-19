@@ -232,6 +232,7 @@ pub enum Command {
     SecondarySubtitlePosition(f64),
     SubtitlePosition(f64),
     SubtitleScale(f64),
+    MultiplySubtitleScale(f64),
     SubtitleFontSize(f64),
     SubtitleFont(String),
     SubtitleOutlineSize(f64),
@@ -344,6 +345,9 @@ impl Command {
             }
             Self::MultiplySpeed(factor) if factor.is_finite() && *factor > 0.0 => {
                 vec!["multiply".into(), "speed".into(), factor.to_string()]
+            }
+            Self::MultiplySubtitleScale(factor) if factor.is_finite() && *factor > 0.0 => {
+                vec!["multiply".into(), "sub-scale".into(), factor.to_string()]
             }
             Self::ToggleMute => vec!["cycle".into(), "mute".into()],
             Self::SetMuted(muted) => vec![
@@ -3981,6 +3985,20 @@ mod tests {
     }
 
     #[test]
+    fn subtitle_menu_scale_factors_remain_distinct_from_additive_bindings() {
+        for (factor, value) in [(1.1, "1.1"), (0.9, "0.9")] {
+            assert_eq!(
+                Command::MultiplySubtitleScale(factor).mpv_args().unwrap(),
+                ["multiply", "sub-scale", value],
+            );
+        }
+        assert_eq!(
+            Command::AdjustSubtitleScale(0.1).mpv_args().unwrap(),
+            ["add", "sub-scale", "0.1"]
+        );
+    }
+
+    #[test]
     fn reject_non_finite_commands() {
         assert!(
             Command::Seek {
@@ -3995,6 +4013,7 @@ mod tests {
         assert!(Command::SubtitleFontSize(-1.0).mpv_args().is_err());
         for factor in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             assert!(Command::MultiplySpeed(factor).mpv_args().is_err());
+            assert!(Command::MultiplySubtitleScale(factor).mpv_args().is_err());
         }
         assert!(
             Command::AdjustVolume {

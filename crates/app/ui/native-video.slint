@@ -64,9 +64,7 @@ export component NativeVideoHost inherits Window {
     in property <bool> video-resize-available: false;
     in property <bool> playback-paused: true;
     in property <bool> menu-alternates-visible: false;
-    in property <string> playback-speed-value: "1";
     in property <bool> playback-muted: false;
-    in property <string> audio-delay-text: "0";
     in property <string> loop-label: "Off";
     callback toggle-pause();
     callback stop();
@@ -119,7 +117,7 @@ export component NativeVideoHost inherits Window {
     callback find-online-subtitles();
     callback find-online-subtitles-with-provider(int);
     callback set-subtitle-encoding(string);
-    callback adjust-subtitle-scale(float);
+    callback multiply-subtitle-scale(float);
     callback reset-subtitle-scale();
     callback adjust-subtitle-delay(float);
     callback reset-subtitle-delay();
@@ -273,7 +271,7 @@ export component NativeVideoHost inherits Window {
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + J) : @keys(Control + J);
                 activated => { root.open-jump-time-dialog(); } }
             MenuSeparator {}
-            MenuItem { title: "Speed: " + root.playback-speed-value + "x"; enabled: false; }
+            MenuItem { title: "Speed: 1x"; enabled: false; }
             MenuItem { title: root.menu-alternates-visible ? "Speed Up by 1.1x" : "Speed Up by 2x";
                 enabled: root.playback-loaded;
                 shortcut: root.menu-shortcut(root.menu-alternates-visible ? 9 : 7);
@@ -296,6 +294,7 @@ export component NativeVideoHost inherits Window {
                 shortcut: root.menu-shortcut(46);
                 activated => { root.cycle-ab-loop(); } }
             MenuItem { title: "File Loop"; checkable: true; checked: root.loop-label == "File";
+                shortcut: root.menu-shortcut(47);
                 enabled: root.playback-loaded; activated => { root.toggle-file-loop(); } }
             MenuSeparator {}
             MenuItem { title: "Show Playlist Panel"; shortcut: root.menu-shortcut(12);
@@ -475,7 +474,7 @@ export component NativeVideoHost inherits Window {
                 shortcut: root.menu-shortcut(37);
                 activated => { root.toggle-mute(); } }
             MenuSeparator {}
-            MenuItem { title: "Audio Delay: " + root.audio-delay-text + "s"; enabled: false; }
+            MenuItem { title: "Audio Delay: 0s"; enabled: false; }
             MenuItem { title: root.menu-alternates-visible ? "Audio Delay + 0.1s" : "Audio Delay + 0.5s";
                 enabled: root.playback-loaded;
                 shortcut: root.menu-shortcut(root.menu-alternates-visible ? 40 : 38);
@@ -485,6 +484,7 @@ export component NativeVideoHost inherits Window {
                 shortcut: root.menu-shortcut(root.menu-alternates-visible ? 41 : 39);
                 activated => { root.adjust-audio-delay(root.menu-alternates-visible ? -0.1 : -0.5); } }
             MenuItem { title: "Reset Audio Delay"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(48);
                 activated => { root.reset-audio-delay(); } }
             MenuSeparator {}
             Menu { title: "Audio Device";
@@ -532,12 +532,14 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: root.secondary-subtitle-visible ? "Hide Secondary Subtitles" : "Show Secondary Subtitles";
                 checkable: true; checked: root.secondary-subtitle-visible;
                 enabled: root.playback-loaded && root.secondary-subtitle-visibility-known;
+                shortcut: root.menu-shortcut(54);
                 activated => { root.toggle-secondary-subtitle-visibility(); }
             }
             MenuItem { title: "Load External Subtitle…"; enabled: root.playback-loaded;
                 activated => { root.load-external-subtitle(); } }
             MenuSeparator {}
             MenuItem { title: root.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(55);
                 activated => { root.find-online-subtitles(); } }
             Menu { title: "Find Online Subtitles from"; enabled: root.playback-loaded;
                 MenuItem { title: "opensubtitles.com"; activated => { root.find-online-subtitles-with-provider(0); } }
@@ -558,22 +560,23 @@ export component NativeVideoHost inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Scale Up"; enabled: root.playback-loaded && root.subtitle-scale-known;
-                activated => { root.adjust-subtitle-scale(0.1); } }
+                activated => { root.multiply-subtitle-scale(1.1); } }
             MenuItem { title: "Scale Down"; enabled: root.playback-loaded && root.subtitle-scale-known;
-                activated => { root.adjust-subtitle-scale(-0.1); } }
+                activated => { root.multiply-subtitle-scale(0.9); } }
             MenuItem { title: "Reset Subtitle Scale"; enabled: root.playback-loaded && root.subtitle-scale-known;
                 activated => { root.reset-subtitle-scale(); } }
             MenuSeparator {}
-            MenuItem { title: "Subtitle Delay:"; enabled: false; }
-            MenuItem { title: "Subtitle Delay + 0.5s"; enabled: root.playback-loaded;
-                activated => { root.adjust-subtitle-delay(0.5); } }
-            MenuItem { title: "Subtitle Delay + 0.1s"; enabled: root.playback-loaded;
-                activated => { root.adjust-subtitle-delay(0.1); } }
-            MenuItem { title: "Subtitle Delay - 0.5s"; enabled: root.playback-loaded;
-                activated => { root.adjust-subtitle-delay(-0.5); } }
-            MenuItem { title: "Subtitle Delay - 0.1s"; enabled: root.playback-loaded;
-                activated => { root.adjust-subtitle-delay(-0.1); } }
+            MenuItem { title: "Subtitle Delay: 0s"; enabled: false; }
+            MenuItem { title: root.menu-alternates-visible ? "Subtitle Delay + 0.1s" : "Subtitle Delay + 0.5s";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 52 : 49);
+                activated => { root.adjust-subtitle-delay(root.menu-alternates-visible ? 0.1 : 0.5); } }
+            MenuItem { title: root.menu-alternates-visible ? "Subtitle Delay - 0.1s" : "Subtitle Delay - 0.5s";
+                enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(root.menu-alternates-visible ? 53 : 50);
+                activated => { root.adjust-subtitle-delay(root.menu-alternates-visible ? -0.1 : -0.5); } }
             MenuItem { title: "Reset Subtitle Delay"; enabled: root.playback-loaded;
+                shortcut: root.menu-shortcut(51);
                 activated => { root.reset-subtitle-delay(); } }
             MenuSeparator {}
             MenuItem { title: "Font…"; activated => { root.choose-subtitle-font(); } }

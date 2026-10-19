@@ -197,7 +197,8 @@ jobs:
           rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
           rustup target add x86_64-pc-windows-msvc --toolchain 1.99.0
       - name: Restore Rust dependency and compiler outputs
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        id: rust-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -206,6 +207,7 @@ jobs:
           key: windows-release-rust-1.99.0-static-crt-${{ hashFiles('Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
             windows-release-rust-1.99.0-static-crt-${{ hashFiles('Cargo.lock', '**/Cargo.toml', 'rust-toolchain.toml') }}-
+            windows-release-rust-1.99.0-static-crt-
       - name: Verify source and test fixtures
         shell: pwsh
         run: |
@@ -304,6 +306,7 @@ jobs:
             cargo test --workspace --locked
           }
       - name: Build and assemble portable package
+        id: package-build
         shell: pwsh
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
@@ -356,11 +359,15 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: windows-application-smoke
-          path: ${{ runner.temp }}/riina-gui-smoke.json
+          path: |
+            ${{ runner.temp }}/riina-gui-smoke.json
+            ${{ runner.temp }}/riina-gui-smoke.json.stderr.log
+            ${{ runner.temp }}/riina-gui-smoke.json.stdout.log
           if-no-files-found: warn
           retention-days: 7
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
+        if: always() && steps.package-build.outcome == 'success'
         with:
           name: windows-package
           path: |
@@ -368,6 +375,16 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
+
+      - name: Preserve successful compiler outputs even after a GUI failure
+        if: always() && steps.package-build.outcome == 'success' && steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
 
   package-verification:
     if: always() && needs.windows-package.result == 'success'

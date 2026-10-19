@@ -107,16 +107,15 @@ impl MenuFocus {
     }
 }
 
-fn update_volume_label(menu: HMENU, label: &str) -> windows::core::Result<()> {
-    // This disabled informational row is refreshed just before its submenu
-    // paints. Feeding each slider tick into Slint would rebuild the whole bar
+fn update_information_label(menu: HMENU, prefix: &str, label: &str) -> windows::core::Result<()> {
+    // Informational rows refresh just before their submenu paints. Feeding
+    // each continuous playback/slider update into Slint would rebuild the bar
     // and repeatedly change the native video client's height.
     let count = unsafe { GetMenuItemCount(Some(menu)) };
     for index in 0..count {
         let mut title = [0_u16; 128];
         let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
-        if length > 0 && String::from_utf16_lossy(&title[..length as usize]).starts_with("Volume:")
-        {
+        if length > 0 && String::from_utf16_lossy(&title[..length as usize]).starts_with(prefix) {
             let mut label: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
             let info = MENUITEMINFOW {
                 cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
@@ -228,10 +227,23 @@ unsafe extern "system" fn menu_proc(
     if message == WM_INITMENUPOPUP
         && let Some(app) = context.app.upgrade()
     {
-        if let Err(error) =
-            update_volume_label(HMENU(wparam.0 as *mut _), &app.get_volume_menu_title())
-        {
-            app.set_status(format!("Could not refresh volume menu: {error}").into());
+        let information = [
+            ("Volume:", app.get_volume_menu_title().to_string()),
+            ("Speed:", format!("Speed: {}x", app.get_speed_edit_value())),
+            (
+                "Audio Delay:",
+                format!("Audio Delay: {}s", app.get_audio_delay_text()),
+            ),
+            (
+                "Subtitle Delay:",
+                format!("Subtitle Delay: {}s", app.get_subtitle_delay_text()),
+            ),
+        ];
+        for (prefix, label) in information {
+            if let Err(error) = update_information_label(HMENU(wparam.0 as *mut _), prefix, &label)
+            {
+                app.set_status(format!("Could not refresh playback menu: {error}").into());
+            }
         }
         let plugin_menu = plugin_menu_handle(hwnd);
         if plugin_menu != 0 && wparam.0 as isize == plugin_menu {
@@ -483,8 +495,9 @@ mod tests {
     }
 
     #[test]
-    fn volume_label_preserves_menu_identity_and_video_client_bounds() {
+    fn information_labels_preserve_menu_identity_and_video_client_bounds() {
         use windows::Win32::Foundation::RECT;
+        use windows::Win32::UI::WindowsAndMessaging::GetMenuState;
         let host = test_host();
         // SAFETY: this thread owns all menus/windows and retains them below.
         let menu = TestMenu {
@@ -495,6 +508,9 @@ mod tests {
         unsafe {
             AppendMenuW(audio, MF_STRING | MF_DISABLED, 1, w!("Volume: 100")).unwrap();
             AppendMenuW(audio, MF_STRING, 2, w!("Volume +")).unwrap();
+            AppendMenuW(audio, MF_STRING | MF_DISABLED, 3, w!("Speed: 1x")).unwrap();
+            AppendMenuW(audio, MF_STRING | MF_DISABLED, 4, w!("Audio Delay: 0s")).unwrap();
+            AppendMenuW(audio, MF_STRING | MF_DISABLED, 5, w!("Subtitle Delay: 0s")).unwrap();
             AppendMenuW(menu.menu, MF_POPUP, audio.0 as usize, w!("Audio")).unwrap();
             SetMenu(host.0, Some(menu.menu)).unwrap();
         }
@@ -506,18 +522,29 @@ mod tests {
         .unwrap();
         let mut before = RECT::default();
         unsafe { GetClientRect(host.0, &mut before) }.unwrap();
-        for volume in [0, 25, 70, 100, 200] {
-            let label = format!("Volume: {volume}");
-            update_volume_label(audio, &label).unwrap();
+        for (prefix, label, position) in [
+            ("Volume:", "Volume: 0", 0),
+            ("Volume:", "Volume: 200", 0),
+            ("Speed:", "Speed: 1.1x", 2),
+            ("Speed:", "Speed: 0.9x", 2),
+            ("Audio Delay:", "Audio Delay: -0.5s", 3),
+            ("Subtitle Delay:", "Subtitle Delay: 120s", 4),
+        ] {
+            update_information_label(audio, prefix, label).unwrap();
             let mut after = RECT::default();
             let mut text = [0_u16; 128];
             unsafe {
                 GetClientRect(host.0, &mut after).unwrap();
                 assert_eq!(GetMenu(host.0), menu.menu);
                 assert_eq!(GetSubMenu(menu.menu, 0), audio);
-                assert_eq!(GetMenuItemCount(Some(audio)), 2);
-                let length = GetMenuStringW(audio, 0, Some(&mut text), MF_BYPOSITION);
+                assert_eq!(GetMenuItemCount(Some(audio)), 5);
+                let length = GetMenuStringW(audio, position, Some(&mut text), MF_BYPOSITION);
                 assert_eq!(String::from_utf16_lossy(&text[..length as usize]), label);
+                assert_ne!(
+                    GetMenuState(audio, position, MF_BYPOSITION) & MF_DISABLED.0,
+                    0
+                );
+                assert_eq!(GetMenuState(audio, 1, MF_BYPOSITION) & MF_DISABLED.0, 0);
             }
             assert_eq!((before.right, before.bottom), (after.right, after.bottom));
         }

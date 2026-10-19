@@ -3655,6 +3655,20 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     });
     // Drain neither observations nor UI updates during the bursts: native
     // relative commands must accumulate against the actual option values.
+    for factor in [1.1, 0.9, 1.1] {
+        player.send(Command::MultiplySubtitleScale(factor)).unwrap();
+    }
+    wait_for(&receiver, |state| {
+        state
+            .subtitle_scale
+            .is_some_and(|scale| (scale - 1.089).abs() < 0.001)
+    });
+    player.send(Command::SubtitleScale(1.0)).unwrap();
+    wait_for(&receiver, |state| {
+        state
+            .subtitle_scale
+            .is_some_and(|scale| (scale - 1.0).abs() < 0.001)
+    });
     for _ in 0..10 {
         player.send(Command::AdjustSubtitleScale(0.1)).unwrap();
     }

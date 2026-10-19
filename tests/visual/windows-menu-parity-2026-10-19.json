@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-19",
+  "source_base_revision": "8274f0ae628e6198917aa5e3fb95e31374f5c009",
+  "source_hashes_canonical_lf": {
+    ".github/workflows/release.yml": "b32c41473d0f63356ebfd630d1d38819c97313eff4f387241c4a765bf224aaaf",
+    "crates/app/src/key_binding_preferences.rs": "c9e274e0ce2b98aeaef8326d4e215d9ded53793cc3fb09b6e21e9e64836fc746",
+    "crates/app/src/platform/windows/menu_focus.rs": "870596bcd9146278716a796ecc8765df3fa02380df008671c767ae7f0da1611a",
+    "crates/app/src/platform/windows/native_window.rs": "14148513aefed25e022df1ff287f1ee0f795481d8a00bea4423b2ed2b8f2830b",
+    "crates/app/src/player_ui.rs": "72cd870805159c0e7959f3b9bf21236efd7a7358a35a2db97663fc32fbe52ec0",
+    "crates/app/ui/native-video.slint": "fa196346073ac1c4d8ec54ba72e97e23beec8e23cc1e1bd0538b53e88d101291",
+    "crates/app/ui/player.slint": "f4e102b1c60aeeedbfd3286925adabb6003629a602a0aca229a7b837006caa47",
+    "crates/core/src/lib.rs": "82e23898f5c657775d73112ab5c3ef610ce3213090fc138135535d7c86d04a70",
+    "crates/mpv/tests/native.rs": "fb48e6c8df519fe87bf383d67b7920029b11ea86fc1344c9ae768a48f712095f",
+    "scripts/smoke-windows-package.ps1": "60b0ac0e061096adfa45d39ca9688213796446883e8ba3a15a37fc94e4368ef2",
+    "scripts/tests/test_gui_smoke.py": "d2561efd68119e0af7530c86d2981738c316a2973350d0738c555b6410b4e426",
+    "scripts/tests/test_package_workflow.py": "df5d36667de186546e31e2bb136ad45e166b8587da1ec56a595be216292c6185"
+  },
+  "executable_sha256": "214169008ff25fa90476dfa1de35eb58ec189d6a12738e90fed6009c6619880b",
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "build_kind": "local debug executable with reused v0.3.8 release runtime",
+  "fixture": "tests/fixtures/moving-square.avi",
+  "audio_output": "null",
+  "automated_checks": {
+    "locked_workspace_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace_passed": 604,
+    "workspace_ignored": 56,
+    "python_passed": 53,
+    "native_integration_passed": 51,
+    "native_library_passed": 2,
+    "scope": "Native checks use the reused release engine. Python checks include two actual launcher failure paths, not GUI playback."
+  },
+  "manual_gui": [
+    {
+      "surface": "Playback and fullscreen",
+      "result": "Playback menu showed File Loop Ctrl+Shift+L and chapter Ctrl+Shift+>/< shortcuts. F entered fullscreen with visible blue video, yellow square, controller and both subtitle lanes; Ctrl+Alt+F restored the framed window."
+    },
+    {
+      "surface": "Audio menu",
+      "result": "Mute Ctrl+/, delay Shift+( and Shift+), reset Shift+_ displayed. Delay +0.5 command changed the reopened disabled information row to 0.5s; reset produced No Delay feedback. Volume information reflected 98."
+    },
+    {
+      "surface": "Subtitle menu and scale",
+      "result": "Default menu showed +/-0.5 delay rows and their Shift+X/Z shortcuts without the small-step alternates. Secondary visibility Alt+V and online search Ctrl+Shift+D displayed. Scale Up produced 1.1; subsequent Scale Down produced 0.99, confirmed by signed sidebar slider -0.010101001. Delay +0.5 changed the settings field and reopened disabled information row to 0.5s."
+    },
+    {
+      "surface": "Subtitle settings scrolling",
+      "result": "After focusing the controls popup and using its screenshot coordinate space, scrolling exposed position, scale, font, size, colors, border and shadow."
+    }
+  ],
+  "automation_limitation": "An initial wheel injection to the framed-host screenshot changed volume from 100 to 98 rather than scrolling the owned controls popup. Repeating after focus using the controls-popup screenshot scrolled correctly. This does not establish real pointer routing under every focus state.",
+  "playback_smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5784,
+    "error": null,
+    "executable": "C:\\Codex\\wiina\\target\\local-debug-0.4.0\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 444,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina"
+  },
+  "full_desktop_captures": [
+    {
+      "stage": "before",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "13453de6a05cd1bab0953f1a3bc4b923fccaec910b10653e4eb86b1afa003394"
+    },
+    {
+      "stage": "fullscreen",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "c949482b5d8c4213acaddfafb44cf6d8154b01b8fa53f8c5032a6193f3f85cc1"
+    },
+    {
+      "stage": "after",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "871f865b41f5bd15d2de73aca23274a70305183f553fd077e9bcfa4deb028220"
+    }
+  ],
+  "capture_inspection": "Full virtual-desktop images inspected privately. Fullscreen video and controller visible; no persistent Riina surface after exit. Raw desktop captures are not published.",
+  "shutdown": {
+    "manual_pid": 9844,
+    "smoke_pid": 444,
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "not_verified": [
+    "Full matched IINA menu geometry/materials and every alternate/custom-profile state.",
+    "The captured 0.9x speed row modifier state: pinned source defines an Option alternate; preserve that behavior pending a matched capture.",
+    "Physical compositor output on other drivers, HDR and audible output.",
+    "The final release archive and hosted application startup."
+  ]
+}

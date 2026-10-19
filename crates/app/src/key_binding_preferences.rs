@@ -30,15 +30,14 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 76] = [
     ("DOWN", "add volume -5", ActionKind::Mpv),
     ("Alt+UP", "add volume 1", ActionKind::Mpv),
     ("Alt+DOWN", "add volume -1", ActionKind::Mpv),
-    ("m", "cycle mute", ActionKind::Mpv),
     ("Meta+/", "cycle mute", ActionKind::Mpv),
+    ("m", "cycle mute", ActionKind::Mpv),
     ("v", "cycle sub-visibility", ActionKind::Mpv),
     ("r", "add sub-pos -1", ActionKind::Mpv),
     ("R", "add sub-pos +1", ActionKind::Mpv),
     ("t", "add sub-pos +1", ActionKind::Mpv),
     (".", "frame-step", ActionKind::Mpv),
     (",", "frame-back-step", ActionKind::Mpv),
-    ("f", "cycle fullscreen", ActionKind::Mpv),
     ("Shift+Meta+p", "playlist-panel", ActionKind::Riina),
     ("Shift+Meta+c", "chapter-panel", ActionKind::Riina),
     ("Meta+3", "fit-to-screen", ActionKind::Riina),
@@ -67,6 +66,7 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 76] = [
     ("Meta+-", "smaller-window", ActionKind::Riina),
     ("Meta+=", "bigger-window", ActionKind::Riina),
     ("Ctrl+Meta+f", "cycle fullscreen", ActionKind::Mpv),
+    ("f", "cycle fullscreen", ActionKind::Mpv),
     ("Ctrl+Meta+t", "cycle ontop", ActionKind::Mpv),
     ("Shift+(", "add audio-delay 0.5", ActionKind::Mpv),
     ("Shift+)", "add audio-delay -0.5", ActionKind::Mpv),
@@ -577,6 +577,16 @@ pub(crate) fn install_player(
     });
 }
 
+fn profile_key_parts(value: &str) -> Vec<&str> {
+    if value == "+" {
+        return vec!["+"];
+    }
+    if let Some(modifiers) = value.strip_suffix("++") {
+        return modifiers.split('+').chain(std::iter::once("+")).collect();
+    }
+    value.split('+').collect()
+}
+
 fn normalize_profile_key(value: &str) -> String {
     let mut control = false;
     let mut alt = false;
@@ -584,7 +594,7 @@ fn normalize_profile_key(value: &str) -> String {
     let mut meta = false;
     let mut key = value;
     let mut has_meta = false;
-    for part in value.split('+') {
+    for part in profile_key_parts(value) {
         match part.to_ascii_lowercase().as_str() {
             "ctrl" | "control" => control = true,
             "alt" | "option" => alt = true,
@@ -630,7 +640,7 @@ fn normalize_profile_key(value: &str) -> String {
 // This order is shared with the `menu-shortcut(index)` calls in the two player
 // menu surfaces. Keep it stable so profile changes update the same actions in
 // both the shared-renderer and native-video windows.
-const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 47] = [
+const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 56] = [
     (ActionKind::Mpv, "cycle pause"),
     (ActionKind::Mpv, "stop"),
     (ActionKind::Mpv, "seek 5"),
@@ -678,6 +688,15 @@ const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 47] = [
     (ActionKind::Mpv, "cycle sub-visibility"),
     (ActionKind::Riina, "plugin-panel"),
     (ActionKind::Mpv, "ab-loop"),
+    (ActionKind::Mpv, "cycle-values loop \"inf\" \"no\""),
+    (ActionKind::Mpv, "set audio-delay 0"),
+    (ActionKind::Mpv, "add sub-delay 0.5"),
+    (ActionKind::Mpv, "add sub-delay -0.5"),
+    (ActionKind::Mpv, "set sub-delay 0"),
+    (ActionKind::Mpv, "add sub-delay 0.1"),
+    (ActionKind::Mpv, "add sub-delay -0.1"),
+    (ActionKind::Mpv, "cycle secondary-sub-visibility"),
+    (ActionKind::Riina, "find-online-subs"),
 ];
 
 fn menu_shortcut_rows(mappings: &[Mapping]) -> Vec<MenuShortcutRow> {
@@ -698,9 +717,21 @@ fn menu_shortcut_rows(mappings: &[Mapping]) -> Vec<MenuShortcutRow> {
 
 pub(crate) fn shortcut_keys(key: &str) -> Option<slint::Keys> {
     let normalized = normalize_profile_key(key);
-    let parts = normalized
-        .split('+')
+    let profile_parts = profile_key_parts(&normalized);
+    let explicit_shift = profile_parts.contains(&"Shift");
+    let parts = profile_parts
+        .into_iter()
         .map(|part| match part {
+            // Named punctuation implies Slint's Shift? policy and rejects an
+            // explicit Shift modifier. Literal characters preserve the profile's
+            // actual modifiers, including IINA's chapter/audio-delay bindings.
+            value
+                if explicit_shift
+                    && value.len() == 1
+                    && value.as_bytes()[0].is_ascii_punctuation() =>
+            {
+                value.to_owned()
+            }
             "Ctrl" => "Control".to_owned(),
             " " | "SPACE" => "Space".to_owned(),
             "←" | "LEFT" => "LeftArrow".to_owned(),
@@ -1175,7 +1206,7 @@ mod tests {
             .map(|mapping| mapping.key.as_str())
             .collect();
 
-        assert_eq!(mute_keys, ["m", "Meta+/"]);
+        assert_eq!(mute_keys, ["Meta+/", "m"]);
         assert_eq!(
             normalize_profile_key("Meta+/"),
             if cfg!(target_os = "macos") {
@@ -1356,12 +1387,20 @@ mod tests {
 
     #[test]
     fn filtered_rows_keep_their_source_mapping_identity() {
-        let mappings = builtin_mappings("IINA Default");
-        assert_eq!(visible_source_indices(&mappings, false, "cycle audio"), [5]);
-        assert_eq!(
-            visible_source_indices(&mappings, true, "META+S"),
-            [2, 4, 35]
-        );
+        let mappings = [
+            ("Ctrl+k", "cycle pause", ActionKind::Mpv),
+            ("Meta+s", "screenshot", ActionKind::Mpv),
+            ("Ctrl+Meta+a", "cycle audio", ActionKind::Mpv),
+            ("Shift+Meta+s", "sub-panel", ActionKind::Riina),
+        ]
+        .map(|(key, action, kind)| Mapping {
+            key: key.into(),
+            action: action.into(),
+            kind,
+            comment: None,
+        });
+        assert_eq!(visible_source_indices(&mappings, false, "cycle audio"), [2]);
+        assert_eq!(visible_source_indices(&mappings, true, "META+S"), [1, 3]);
         assert_eq!(
             visible_source_indices(&mappings, false, "missing"),
             Vec::<usize>::new()
@@ -1403,7 +1442,7 @@ mod tests {
     fn menu_shortcuts_follow_the_active_profile_for_both_player_surfaces() {
         let mappings = builtin_mappings("IINA Default");
         let rows = menu_shortcut_rows(&mappings);
-        assert_eq!(rows.len(), 47);
+        assert_eq!(rows.len(), 56);
         assert_eq!(
             rows[0].shortcut.to_string(),
             slint::Keys::from_parts(["Space"]).unwrap().to_string()
@@ -1451,6 +1490,65 @@ mod tests {
             slint::Keys::from_parts(["Control", "t"]).unwrap()
         };
         assert_eq!(plugin_shortcut, plugin_expected);
+    }
+
+    #[test]
+    fn default_menu_hints_cover_bound_actions_and_prefer_primary_aliases() {
+        let rows = menu_shortcut_rows(&builtin_mappings("IINA Default"));
+        for (index, (_, action)) in MENU_SHORTCUT_ACTIONS.iter().enumerate() {
+            if index != 45 {
+                assert!(
+                    !rows[index].shortcut.to_string().is_empty(),
+                    "Missing hint: {action}"
+                );
+            }
+        }
+        let primary = if cfg!(target_os = "macos") {
+            "Meta"
+        } else {
+            "Control"
+        };
+        let secondary = if cfg!(target_os = "macos") {
+            "Control"
+        } else {
+            "Alt"
+        };
+        assert_eq!(
+            rows[27].shortcut,
+            slint::Keys::from_parts([primary, secondary, "f"]).unwrap()
+        );
+        assert_eq!(
+            rows[37].shortcut,
+            slint::Keys::from_parts([primary, "Slash"]).unwrap()
+        );
+        assert_eq!(
+            rows[47].shortcut,
+            slint::Keys::from_parts([primary, "Shift", "l"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn shifted_punctuation_and_literal_plus_survive_profile_and_menu_conversion() {
+        for punctuation in [
+            "<", ">", "(", ")", "_", "+", "[", "]", "-", "=", "/", ",", ".", "`", "\\",
+        ] {
+            let key = format!("Ctrl+Shift+{punctuation}");
+            assert_eq!(normalize_profile_key(&key), key);
+            assert_eq!(
+                shortcut_keys(&key).unwrap(),
+                slint::Keys::from_parts(["Control", "Shift", punctuation]).unwrap(),
+                "{key}",
+            );
+        }
+        for key in ["+", "Ctrl++", "Ctrl+Alt++", "Ctrl+Shift++"] {
+            assert_eq!(normalize_profile_key(key), key);
+            assert!(shortcut_keys(key).is_some(), "{key}");
+        }
+        assert_eq!(
+            recorded_key("+", true, false, true, false).as_deref(),
+            Some("Ctrl+Shift++")
+        );
+        assert!(shortcut_keys("Ctrl+").is_none());
     }
 
     #[test]

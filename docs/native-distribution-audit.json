@@ -71,5 +71,13 @@
     "path": "docs/history/native-distribution-audit-through-734a883.json",
     "sha256": "1d69f0339d4fbc349247d150e5a2261bb8e2cf668faf44f3d813ee02d4443a7f",
     "scope": "Prior development-engine investigations, failed candidates and original 0.3.0 distribution evidence; not current release state."
+  },
+  "latest_candidate_attempt": {
+    "run_id": 39178869738,
+    "source_sha": "a1d40781751e3d256e42b1c7baeeecdfeb28d60a",
+    "conclusion": "failed",
+    "native_engine_reused_from": "v0.3.8",
+    "result": "Application package built and engine tests passed; extracted application exited 1 before producing its smoke report. The old launcher did not retain its error output, so cause remains unknown. No release published.",
+    "follow_up": "Retain exact process stdout/stderr, unverified package and successful compiler cache on failure; repeat the candidate after the menu regression batch."
   }
 }

@@ -42,8 +42,9 @@ checks that session shutdown preserved newer preferences. Timeout cleanup target
 only its own process. This driver does not certify physical compositor pixels,
 audible output, or HDR.
 
-Volume changes do not feed the native host's Slint menu model. Its disabled
-informational row is updated with `SetMenuItemInfoW` at `WM_INITMENUPOPUP`, keeping
+Volume, speed and delay changes do not feed the native host's Slint menu model.
+Their disabled information rows are updated with `SetMenuItemInfoW` at
+`WM_INITMENUPOPUP`, keeping
 the root/submenu handles, command IDs and client bounds stable during playback.
 Fullscreen and Music Mode use `SetMenu` to detach/restore the same Muda-owned root
 menu. The Slint tree remains alive while detached, preserving its native lifetime.

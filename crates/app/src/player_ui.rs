@@ -5958,6 +5958,19 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
+    let multiply_scale_player = player.command_sender();
+    let weak = app.as_weak();
+    app.on_multiply_subtitle_scale(move |factor| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        if let Err(error) =
+            multiply_scale_player.send(Command::MultiplySubtitleScale(factor as f64))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
     let position_player = player.command_sender();
     let weak = app.as_weak();
     app.on_adjust_subtitle_position(move |delta| {

@@ -1,7 +1,9 @@
 """The package smoke must reject partial, stale, or falsely typed evidence."""
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -113,6 +115,48 @@ class GuiSmokeTests(unittest.TestCase):
         report["physical_display_verified"] = True
         with self.assertRaises(ValueError):
             self.check(report)
+
+
+@unittest.skipUnless(
+    sys.platform == "win32" and shutil.which("pwsh")
+    and Path(sys.executable).with_name("pythonw.exe").is_file(),
+    "Requires Windows PowerShell and the console-free Python test helper",
+)
+class GuiRunnerFailureTests(unittest.TestCase):
+    """Process-runner failure tests; these do not exercise playback or a GUI."""
+
+    def startup_failure(self, exit_code):
+        with tempfile.TemporaryDirectory(prefix="riina-runner-failure-") as directory:
+            root = Path(directory)
+            helper = root / "startup.py"
+            helper.write_text(
+                'import sys\nsys.stdout.write("synthetic stdout\\n")\n'
+                'sys.stderr.write("synthetic startup failure\\n")\n'
+                f'raise SystemExit({exit_code})\n', encoding="utf-8",
+            )
+            temporary = root / "temporary"
+            temporary.mkdir()
+            report = root / "report.json"
+            runner = Path(__file__).resolve().parents[1] / "smoke-windows-package.ps1"
+            result = subprocess.run(
+                [shutil.which("pwsh"), "-NoProfile", "-File", str(runner),
+                 "-Executable", str(Path(sys.executable).with_name("pythonw.exe")),
+                 "-Fixture", str(helper), "-ReportPath", str(report)],
+                env={**os.environ, "TEMP": str(temporary), "TMP": str(temporary)},
+                capture_output=True, text=True, timeout=25,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(report.exists(), "A failed helper must not generate passing GUI evidence")
+            self.assertEqual(Path(str(report) + ".stderr.log").read_text(), "synthetic startup failure\n")
+            self.assertEqual(Path(str(report) + ".stdout.log").read_text(), "synthetic stdout\n")
+            return result.stdout + result.stderr
+
+    def test_nonzero_startup_retains_process_output_and_reports_the_actual_error(self):
+        self.assertIn("synthetic startup failure", self.startup_failure(23))
+
+    def test_zero_exit_without_application_report_still_fails_and_retains_output(self):
+        self.assertIn("no smoke report", self.startup_failure(0))
 
 
 if __name__ == "__main__":
