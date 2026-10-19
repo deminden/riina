@@ -1,0 +1,118 @@
+{
+  "date": "2026-10-19",
+  "source_base_revision": "8d9a31d7cdb412331711d5d2bb1f1cb4957034ff",
+  "scope": "Local Quick Settings track-list follow-up after 4.1.0; not a release or complete visual acceptance",
+  "source_hashes_canonical_lf": {
+    "crates/app/ui/catalog-row.slint": "d111b27c0e9704e5995c30dc973722126eb639514c2c6dfe362278dc6ff3155f",
+    "crates/app/ui/quick-settings-tracks.slint": "08ac675ebac9d3db1d1d0793693ea918307120d20a926ebec72475b3a826a148",
+    "crates/app/ui/player.slint": "f63003fcb0d1c9fc567f4d28fb5f070cba49758864d886b812cac7694dbcc8be",
+    "crates/app/src/player_ui.rs": "828fa320ca3d54a2e776a559802e5e7f70d56ac12555051135c2246181ca8b23",
+    "crates/app/tests/quick_settings_input.rs": "aa8be907590281ead9bb1da91a3024490ae6a14c353e19504ca5059d4de93559",
+    "crates/app/tests/quick_settings/track_navigation.rs": "7596e9ab07752ec9642d6c6a39b1167c4e41bb9e7e4f286e947c3e47998de2ea",
+    "scripts/check-settings-navigation.py": "db02259d9bbd38a8359a35ac832e08df4e5b925bccd496f43936f6f09e01536a"
+  },
+  "reference": {
+    "revision": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "source": "iina/SidebarTrackSelector.swift; SidebarAudioPane.swift; SidebarVideoPane.swift; SidebarSubtitlesPane.swift",
+    "facts": "The same source TrackSelector owns each track kind, observes player track/selection changes, uses a 98-point scroll card and 26-point rows, and displays a separate active indicator and intrinsic language badge. Selection submits to the player; observations supply active state.",
+    "keyboard_scope": "Original Windows keyboard equivalent; exact AppKit arrow/deselection interaction is not established by these captures. No implementation code or assets copied.",
+    "captures": [
+      "reference/captures/iina-reference-set-2026-10-12/23-playback-audio-panel.png",
+      "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "reference/captures/iina-reference-set-2026-10-12/25-playback-subtitles-panel.png"
+    ],
+    "comparison": "Pinned reference surfaces inspected for hierarchy and control geometry; no matched media/scale pixel score claimed."
+  },
+  "implementation": [
+    "One shared track-list component replaces separate Audio, Video and subtitle implementations.",
+    "The list owns one keyboard cursor; backend observations retain exclusive ownership of active selection.",
+    "One Tab stop per list; Up/Down/Home/End/Page Up/Page Down reveal the current row; Return/Space apply it.",
+    "Empty and disabled lists cannot select; shorter models clamp the cursor; model replacement retains keyboard focus.",
+    "Language badges size to text with a 45 percent card cap, reserve track-name space and are now present on Video rows too."
+  ],
+  "checks": {
+    "build": "cargo build --workspace --locked: passed",
+    "formatting": "cargo fmt --all -- --check: passed",
+    "clippy": "cargo clippy --workspace --all-targets --locked -- -D warnings: passed",
+    "workspace": {
+      "passed": 634,
+      "ignored": 56,
+      "test_threads": 2,
+      "includes_widget_regressions": 28,
+      "new_track_regressions": 8,
+      "note": "Four child helper executions are exercised by their parent and not counted again."
+    },
+    "python_passed": 60,
+    "fixture_hashes": 16,
+    "settings_navigation": "passed"
+  },
+  "executable_sha256": "4beb05874f060c57bf12ab3964d4016514c012ce8f98826735c5b972181559e3",
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "native_library_source": "Verified engine from the 4.1.0 portable package; no native engine rebuild.",
+  "manual_gui": {
+    "pid": 22232,
+    "fixture": "track-navigation.mkv",
+    "fixture_sha256": "3bdc3c9a9d16343819b88fbcfe95d36fb5789167a6b0581b8f69e86e14498852",
+    "fixture_origin": "Disposable remux of original CC0 track-languages.mkv; duplicate original MJPEG/PCM packets provide five video and five audio tracks alongside seven existing subtitle tracks. No downloaded media; only this media file is in its folder.",
+    "state": "Paused on original frame 000; null audio; playlist neighboring-file discovery disabled.",
+    "checks": [
+      "Audio: Original tone to take 1 to take 2 with repeated Down; End to take 4, Page Up to take 1; volume remained 100.",
+      "Audio: Tab goes directly to Load External Audio; Shift+Tab returns to the active row without changing it.",
+      "Video: original video to take 1 to take 2 with repeated Down; focus and the active indicator advance and scroll.",
+      "Primary subtitles: English to German to French with repeated Down and visible rendered cues.",
+      "Secondary subtitles: English, Down to German, End to Unknown, Home to None; primary French remained selected and visible.",
+      "Native tree exposes named lists and selectable options. Exact invocation bounds/Narrator behavior are not certified.",
+      "Dark normal-sized panels and light Audio inspected; Portuguese, Portuguese (Brazil) and Chinese (Traditional) badges visible at normal width.",
+      "Native Video > Normal Size produces a 285 x 160 client; light Audio End reaches take 4 with a readable Portuguese badge and an elided track name."
+    ],
+    "input_limitations": [
+      "An element-index click aimed at an Audio option landed on an equalizer fader; subsequent track checks used visible screenshot coordinates. This does not establish whether the cause is automation mapping or native accessibility bounds.",
+      "Ctrl+1 did not resize while Quick Settings owned focus; the native Normal Size menu action worked. Modified native-menu shortcuts from panel focus remain a follow-up."
+    ],
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5835,
+    "error": null,
+    "executable": "C:\\Codex\\wiina\\target\\debug\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 14568,
+    "success": true,
+    "title": "moving-square.avi — riina"
+  },
+  "desktop_capture": {
+    "width": 3840,
+    "height": 2160,
+    "non_black_probes": true,
+    "images": [
+      {
+        "stage": "before",
+        "sha256": "33347e025d95e8633276a9dfb64ce1c20405bfb4131f9a217d89e0c83027ba85"
+      },
+      {
+        "stage": "fullscreen",
+        "sha256": "7387ece055dd05511e9648126bb73dfa086ef0dd373e661fea1ba08c07d367dc"
+      },
+      {
+        "stage": "after",
+        "sha256": "bbf101c9aa999ba223d9cb7d97a322f4dc85570bb87305085cc1a04ec8fcad4e"
+      }
+    ],
+    "inspection": "Full images inspected privately. Fullscreen shows the moving video and controller together; before/after show no persistent Riina surface. Raw captures containing unrelated private content are not published."
+  },
+  "remaining_gaps": [
+    "Matched AppKit keyboard and pixel comparison, middle truncation, platform materials, other DPI and application-port runtime.",
+    "Remaining page focus graph, modified native window-size shortcuts from panel focus, and full native accessibility action-bounds/Narrator verification.",
+    "Light equalizer thumb contrast and user-preset workflows remain separate Quick Settings work.",
+    "Default-ignored native/clipboard tests, audible output and physical HDR were not rerun or certified by this UI batch."
+  ]
+}

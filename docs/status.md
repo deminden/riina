@@ -61,6 +61,22 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
+## Local development since 4.1.0
+
+Quick Settings now shares one track-list control across Audio, Video and both
+subtitle lanes. Repeated arrows advance without waiting for playback observations;
+Home/End and Page Up/Down reveal the focused row. Each list is one Tab stop, while
+the active-track marker continues to follow the engine. Language badges fit their
+text and reserve space for the track name, including in the Video pane.
+
+The [track-list record](../tests/visual/windows-quick-settings-tracks-2026-10-19.json)
+identifies the local executable and native checks: all four selectors, independent
+subtitle lanes, forward/reverse Tab and a narrow light Audio pane. Build, formatting,
+strict Clippy, 634 workspace tests (56 ignored), 28 widget regressions and 60 Python
+tests passed; playback/fullscreen smoke passed in 5835 ms. These changes are local.
+Matched macOS interaction/pixels, the rest of the page focus graph and native
+accessibility action bounds remain open.
+
 ## Changes in 4.1.0
 
 This release collects the verified Quick Settings and player follow-ups since

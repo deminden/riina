@@ -61,6 +61,11 @@ Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit
 that metadata. Native window/input and physical-display checks remain separate.
 
+Track-list regressions live in `crates/app/tests/quick_settings/track_navigation.rs`
+and run through that same generated-player test target. They exercise Audio,
+Video and both subtitle lists with delayed observations, model replacement,
+keyboard traversal, scrolling, disabled states and narrow language badges.
+
 The read-only installed-font diagnostic remains available separately from the
 player. It reports counts and discovery timing without listing private font paths:
 

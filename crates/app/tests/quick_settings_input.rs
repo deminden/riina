@@ -8,6 +8,9 @@ use std::{cell::RefCell, rc::Rc};
 
 slint::include_modules!();
 
+#[path = "quick_settings/track_navigation.rs"]
+mod track_navigation;
+
 fn flush() {
     slint::platform::update_timers_and_animations();
 }

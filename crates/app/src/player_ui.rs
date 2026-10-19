@@ -1844,11 +1844,21 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
             playing: false,
             network: false,
         }));
+        let selected_index = rows.iter().position(|row| row.selected).unwrap_or(0) as i32;
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
         match kind {
-            TrackKind::Video => app.set_video_tracks(model),
-            TrackKind::Audio => app.set_audio_tracks(model),
-            TrackKind::Sub => app.set_subtitle_tracks(model),
+            TrackKind::Video => {
+                app.set_video_track_selected_index(selected_index);
+                app.set_video_tracks(model);
+            }
+            TrackKind::Audio => {
+                app.set_audio_track_selected_index(selected_index);
+                app.set_audio_tracks(model);
+            }
+            TrackKind::Sub => {
+                app.set_subtitle_track_selected_index(selected_index);
+                app.set_subtitle_tracks(model);
+            }
         }
     }
     let subtitle_tracks: Vec<_> = state
@@ -1878,6 +1888,12 @@ fn update_catalog(app: &PlayerWindow, state: &Playback) {
         playing: false,
         network: false,
     }));
+    app.set_secondary_subtitle_track_selected_index(
+        secondary_rows
+            .iter()
+            .position(|row| row.selected)
+            .unwrap_or(0) as i32,
+    );
     app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
     app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
         state

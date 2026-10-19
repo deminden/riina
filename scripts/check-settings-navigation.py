@@ -142,7 +142,7 @@ def main():
         "Selected tab text must collapse with its width at narrow sidebar sizes"
     )
     sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : ScrollView")
-    audio_tracks = PLAYER_SOURCE.index("content-height: root.audio-tracks.length * 27px")
+    audio_tracks = PLAYER_SOURCE.index("tracks: root.audio-tracks;")
     equalizer_scroll = PLAYER_SOURCE.index("equalizer-scroll := ScrollView")
     assert sidebar_scroll < audio_tracks < equalizer_scroll, (
         "Audio tracks, load/delay controls and equalizer must share the scrollable page"

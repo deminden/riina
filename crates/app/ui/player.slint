@@ -1,5 +1,8 @@
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { QuickSettingsInput } from "quick-settings-input.slint";
+import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
+import { CatalogRow } from "catalog-row.slint";
+export { CatalogRow } from "catalog-row.slint";
 import { ScrollView, ComboBox, Button } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, VerticalEqualizerSlider, SubtitleColorWell } from "shared-controls.slint";
 import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
@@ -15,7 +18,6 @@ export { OnlineSubtitlesWindow } from "online-subtitles.slint";
 export { PlaybackHistoryWindow, PlaybackHistoryRow } from "history-window.slint";
 export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
-export struct CatalogRow { token: string, label: string, detail: string, path: string, language: string, selected: bool, playing: bool, network: bool }
 export struct RecentMediaRow { title: string, position-label: string }
 export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
 component SidebarTab inherits FocusScope {
@@ -587,73 +589,6 @@ component ObservedSizePicker inherits ComboBox {
     // restore both display text and keyboard cursor after those bindings break.
     changed observed-value => { self.current-value = self.observed-value; self.current-index = self.observed-index; }
     changed observed-index => { self.current-index = self.observed-index; }
-}
-
-component SubtitleTrackListCard inherits Rectangle {
-    in property <[CatalogRow]> tracks;
-    in property <int> track-kind: 2;
-    in property <bool> dark-theme: true;
-    in property <bool> enabled: true;
-    in property <color> accent-color: #0a84ff;
-    in property <color> card-fill: #ffffff08;
-    in property <color> card-edge: #ffffff18;
-    callback selected(int, string);
-    height: 98px;
-    border-radius: 8px; border-width: 1px; border-color: card-edge;
-    background: card-fill; clip: true;
-    ScrollView {
-        x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px;
-        content-height: root.tracks.length * 27px;
-        content-width: self.visible-width;
-        vertical-scrollbar-policy: always-off;
-        horizontal-scrollbar-policy: always-off;
-        VerticalLayout { width: parent.width; spacing: 1px;
-            for row[index] in root.tracks : Rectangle {
-                height: 26px; background: transparent;
-                accessible-role: button;
-                accessible-label: (root.track-kind == 5 ? "Secondary subtitle: " : "Primary subtitle: ") + row.label;
-                accessible-enabled: root.enabled;
-                accessible-action-default => { if root.enabled { root.selected(root.track-kind, row.token); } }
-                Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
-                    background: root.dark-theme ? #ffffff20 : #00000020; }
-                if row.selected : Rectangle { x: 0; width: 4px; y: 5px;
-                    height: parent.height - 10px; background: root.accent-color; border-radius: 2px; }
-                Text { x: 12px;
-                    width: parent.width - 18px - (row.language != "" ? 42px : 0px);
-                    text: row.label;
-                    color: row.token == "no"
-                        ? (root.dark-theme ? #a7a7ad : #6b6b70)
-                        : (root.dark-theme ? #dddddd : #29292d);
-                    font-size: 12px; vertical-alignment: center; overflow: elide; }
-                if row.language != "" : Rectangle {
-                    width: 38px; height: 16px; x: parent.width - self.width - 3px;
-                    y: (parent.height - self.height) / 2; border-radius: 3px;
-                    background: root.dark-theme ? #ffffff20 : #00000010;
-                    Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d;
-                        font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
-                }
-                if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.accent-color;
-                    border-radius: 3px; background: transparent; }
-                TouchArea { enabled: root.enabled; clicked => { row-focus.focus(); root.selected(root.track-kind, row.token); } }
-                row-focus := FocusScope {
-                    enabled: root.enabled;
-                    key-pressed(event) => {
-                        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                        if (event.text == Key.UpArrow || event.text == Key.DownArrow) && root.tracks.length > 0 {
-                            let next-index = event.text == Key.UpArrow
-                                ? max(0, index - 1) : min(root.tracks.length - 1, index + 1);
-                            root.selected(root.track-kind, root.tracks[next-index].token);
-                            return accept;
-                        }
-                        if event.text == Key.Return || event.text == " " {
-                            root.selected(root.track-kind, row.token); return accept;
-                        }
-                        return reject;
-                    }
-                }
-            }
-        }
-    }
 }
 
 component AudioEqualizerProfilePicker inherits Rectangle {
@@ -1993,7 +1928,10 @@ export component PlayerWindow inherits Window {
     in property <bool> engine-ready: false;
     in property <[CatalogRow]> audio-tracks;
     in property <bool> has-active-audio-track: false;
-    in-out property <int> audio-track-focus-index: -1;
+    in property <int> audio-track-selected-index: 0;
+    in property <int> video-track-selected-index: 0;
+    in property <int> subtitle-track-selected-index: 0;
+    in property <int> secondary-subtitle-track-selected-index: 0;
     in property <[MenuCatalogRow]> audio-device-menu-rows: [];
     changed audio-device-menu-rows => { root.video-menu-changed(); }
     callback set-audio-device(string);
@@ -2912,80 +2850,17 @@ export component PlayerWindow inherits Window {
                         width: parent.width;
                         alignment: start; spacing: 1px;
                         cross-axis-alignment: quick-settings-pane ? center : start;
-                        if pane-kind == 1 : Rectangle {
-                            // IINA's Audio stack uses 16/14 pt horizontal margins;
-                            // the shared Quick Settings header uses a separate 10 pt inset.
+                        if pane-kind == 1 : QuickSettingsTrackList {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            height: 98px; border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
-                            background: root.sidebar-card-material-fill;
-                            clip: true;
-                            ScrollView { x: 1px; y: 1px;
-                            width: parent.width - 2px; height: parent.height - 2px;
-                            vertical-stretch: 0;
-                            content-height: root.audio-tracks.length * 27px;
-                            content-width: self.visible-width;
-                            horizontal-scrollbar-policy: always-off;
-                            VerticalLayout { width: parent.width; spacing: 1px;
-                                for row[index] in root.audio-tracks : Rectangle {
-                                    height: 26px; background: transparent;
-                                    accessible-role: button; accessible-label: row.label;
-                                    accessible-action-default => { root.select-item(1, row.token); }
-                                    Rectangle { x: 0; y: parent.height - 1px;
-                                        width: parent.width; height: 1px;
-                                        background: root.dark-theme ? #ffffff20 : #00000020; }
-                                    if row.selected : Rectangle {
-                                        x: 0; width: 4px; y: 5px; height: parent.height - 10px;
-                                        background: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                        border-radius: 2px;
-                                    }
-                                    Text { x: 12px;
-                                        width: parent.width - 18px - (row.language != "" ? 42px : 0px);
-                                        text: row.label;
-                                        color: row.token == "no"
-                                            ? (root.dark-theme ? #a7a7ad : #6b6b70)
-                                            : (root.dark-theme ? #dddddd : #29292d);
-                                        font-size: 12px; vertical-alignment: center; overflow: elide;
-                                    }
-                                    if row.language != "" : Rectangle {
-                                        width: 38px; height: 16px; x: parent.width - self.width - 3px;
-                                        y: (parent.height - self.height) / 2;
-                                        border-radius: 3px; background: root.dark-theme ? #ffffff20 : #00000010;
-                                        Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d; font-size: 11px;
-                                            horizontal-alignment: center; vertical-alignment: center; }
-                                    }
-                                    TouchArea { clicked => {
-                                        audio-row-focus.focus();
-                                        root.audio-track-focus-index = index;
-                                        root.select-item(1, row.token);
-                                    } }
-                                    if audio-row-focus.has-focus : Rectangle {
-                                        background: transparent; border-width: 1px; border-radius: 3px;
-                                        border-color: root.interactive-accent-color;
-                                    }
-                                    audio-row-focus := FocusScope {
-                                        key-pressed(event) => {
-                                            if event.modifiers.alt || event.modifiers.control ||
-                                                event.modifiers.meta || event.modifiers.shift { return reject; }
-                                            if (event.text == Key.UpArrow || event.text == Key.DownArrow) &&
-                                                root.audio-tracks.length > 0 {
-                                                let next-index = event.text == Key.UpArrow
-                                                    ? max(0, index - 1)
-                                                    : min(root.audio-tracks.length - 1, index + 1);
-                                                root.audio-track-focus-index = next-index;
-                                                root.select-item(1, root.audio-tracks[next-index].token);
-                                                return accept;
-                                            }
-                                            if event.text == Key.Return || event.text == " " {
-                                                root.select-item(1, row.token); return accept;
-                                            }
-                                            return reject;
-                                        }
-                                    }
-                                }
-                            }
-                            }
+                            tracks: root.audio-tracks; observed-index: root.audio-track-selected-index;
+                            track-kind: 1; hint: "Audio tracks"; enabled: root.loaded;
+                            dark-theme: root.dark-theme;
+                            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                            focus-accent-color: root.interactive-accent-color;
+                            card-fill: root.sidebar-card-material-fill;
+                            card-edge: root.dark-theme ? #ffffff18 : #00000014;
+                            selected(kind, token) => { root.select-item(kind, token); }
                         }
                         // The parent adds 8/6 pt on both sides; this spacer completes
                         // IINA's 18/16 pt Audio stack gap in spacious/compact mode.
@@ -3343,68 +3218,16 @@ export component PlayerWindow inherits Window {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
                             spacing: root.compact-ui ? 16px : 18px;
-                            Rectangle {
-                                width: parent.width; height: 98px; border-radius: 8px;
-                                border-width: 1px;
-                                border-color: root.dark-theme ? #ffffff18 : #00000014;
-                                background: root.sidebar-card-material-fill;
-                                clip: true;
-                                ScrollView {
-                                    x: 1px; y: 1px;
-                                    width: parent.width - 2px; height: parent.height - 2px;
-                                    content-height: root.video-tracks.length * 27px;
-                                    content-width: self.visible-width;
-                                    vertical-scrollbar-policy: always-off;
-                                    horizontal-scrollbar-policy: always-off;
-                                    VerticalLayout { width: parent.width; spacing: 1px;
-                                        for row[index] in root.video-tracks : Rectangle {
-                                            height: 26px; background: transparent;
-                                            accessible-role: button; accessible-label: row.label;
-                                            accessible-action-default => { root.select-item(6, row.token); }
-                                            Rectangle { x: 0; y: parent.height - 1px;
-                                                width: parent.width; height: 1px;
-                                                background: root.dark-theme ? #ffffff20 : #00000020; }
-                                            if row.selected : Rectangle {
-                                                x: 0; width: 4px; y: 5px; height: parent.height - 10px;
-                                                background: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                                border-radius: 2px;
-                                            }
-                                            Text { x: 12px; width: parent.width - 18px;
-                                                text: row.label;
-                                                color: row.token == "no"
-                                                    ? (root.dark-theme ? #a7a7ad : #6b6b70)
-                                                    : (root.dark-theme ? #dddddd : #29292d);
-                                                font-size: 12px; vertical-alignment: center;
-                                                overflow: elide; }
-                                            TouchArea { clicked => {
-                                                video-row-focus.focus();
-                                                root.select-item(6, row.token);
-                                            } }
-                                            if video-row-focus.has-focus : Rectangle {
-                                                background: transparent; border-width: 1px; border-radius: 3px;
-                                                border-color: root.interactive-accent-color;
-                                            }
-                                            video-row-focus := FocusScope {
-                                                key-pressed(event) => {
-                                                    if event.modifiers.alt || event.modifiers.control ||
-                                                        event.modifiers.meta || event.modifiers.shift { return reject; }
-                                                    if (event.text == Key.UpArrow || event.text == Key.DownArrow) &&
-                                                        root.video-tracks.length > 0 {
-                                                        let next-index = event.text == Key.UpArrow
-                                                            ? max(0, index - 1)
-                                                            : min(root.video-tracks.length - 1, index + 1);
-                                                        root.select-item(6, root.video-tracks[next-index].token);
-                                                        return accept;
-                                                    }
-                                                    if event.text == Key.Return || event.text == " " {
-                                                        root.select-item(6, row.token); return accept;
-                                                    }
-                                                    return reject;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            QuickSettingsTrackList {
+                                width: parent.width;
+                                tracks: root.video-tracks; observed-index: root.video-track-selected-index;
+                                track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
+                                dark-theme: root.dark-theme;
+                                accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                                focus-accent-color: root.interactive-accent-color;
+                                card-fill: root.sidebar-card-material-fill;
+                                card-edge: root.dark-theme ? #ffffff18 : #00000014;
+                                selected(kind, token) => { root.select-item(kind, token); }
                             }
                         if pane-kind == 6 : VideoControls {
                             width: parent.width;
@@ -3587,7 +3410,10 @@ export component PlayerWindow inherits Window {
                                     dark-theme: root.dark-theme;
                                     accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                                     changed(value) => { root.toggle-subtitle-visibility(); } }
-                                SubtitleTrackListCard { width: parent.width; tracks: root.subtitle-tracks;
+                                QuickSettingsTrackList { width: parent.width; tracks: root.subtitle-tracks;
+                                    observed-index: root.subtitle-track-selected-index;
+                                    hint: "Primary subtitle tracks"; label-prefix: "Primary subtitle: ";
+                                    focus-accent-color: root.interactive-accent-color;
                                     track-kind: 2; dark-theme: root.dark-theme; enabled: root.loaded;
                                     accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                                     card-fill: root.sidebar-card-material-fill;
@@ -3601,8 +3427,11 @@ export component PlayerWindow inherits Window {
                                     dark-theme: root.dark-theme;
                                     accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                                     changed(value) => { root.toggle-secondary-subtitle-visibility(); } }
-                                SubtitleTrackListCard { width: parent.width;
-                                    tracks: root.secondary-subtitle-tracks; track-kind: 5;
+                                QuickSettingsTrackList { width: parent.width;
+                                    tracks: root.secondary-subtitle-tracks;
+                                    observed-index: root.secondary-subtitle-track-selected-index;
+                                    hint: "Secondary subtitle tracks"; label-prefix: "Secondary subtitle: ";
+                                    focus-accent-color: root.interactive-accent-color; track-kind: 5;
                                     dark-theme: root.dark-theme; enabled: root.loaded;
                                     accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                                     card-fill: root.sidebar-card-material-fill;

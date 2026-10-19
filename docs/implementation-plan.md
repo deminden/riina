@@ -28,6 +28,13 @@ IME, cross-application cancellation and matched macOS interaction remain separat
 acceptance work. Next exercise folder/playlist/history and window transitions as
 complete workflows, retaining the playback/fullscreen regression gates below.
 
+The [local track-list follow-up](../tests/visual/windows-quick-settings-tracks-2026-10-19.json)
+adds shared Audio/Video/subtitle list ownership, repeated-key traversal, row reveal
+and flexible language badges. Native checks cover all four selectors and narrow
+light Audio. Continue Quick Settings work on the remaining page focus graph,
+modified native-menu shortcuts while a panel owns focus, accessibility action
+bounds, light equalizer thumbs and matched macOS control geometry.
+
 ## Work order
 
 ### 1. Close missing behavior
