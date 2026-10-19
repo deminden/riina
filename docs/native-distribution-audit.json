@@ -73,11 +73,13 @@
     "scope": "Prior development-engine investigations, failed candidates and original 0.3.0 distribution evidence; not current release state."
   },
   "latest_candidate_attempt": {
-    "run_id": 39178869738,
-    "source_sha": "a1d40781751e3d256e42b1c7baeeecdfeb28d60a",
+    "run_id": 39183215963,
+    "source_sha": "3fc80bab54ed76666400e31d7df0511172f6c127",
     "conclusion": "failed",
+    "package_artifact_id": 12156959292,
+    "archive_sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8",
     "native_engine_reused_from": "v0.3.8",
-    "result": "Application package built and engine tests passed; extracted application exited 1 before producing its smoke report. The old launcher did not retain its error output, so cause remains unknown. No release published.",
-    "follow_up": "Retain exact process stdout/stderr, unverified package and successful compiler cache on failure; repeat the candidate after the menu regression batch."
+    "result": "Compilation, native checks and package assembly succeeded. Hosted GUI startup failed because FemtoVG could not obtain OpenGL 2.0. The original ZIP and exact error output were retained.",
+    "follow_up": "Exact saved ZIP passed local runtime/source/notices checks and playback smoke on 2026-10-19 (5779 ms). Verification-only CI with test-scoped software OpenGL is pending; no application or native rebuild is needed."
   }
 }

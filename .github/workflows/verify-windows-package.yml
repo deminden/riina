@@ -1,0 +1,70 @@
+name: Verify saved Windows package
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Existing Windows release run whose package build and native tests succeeded
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Verification tool regressions
+        run: python -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Select original successful package build
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+        run: python scripts/select-windows-candidate.py --repository $env:GITHUB_REPOSITORY --run-id $env:CANDIDATE_RUN_ID
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ steps.candidate.outputs.source_sha }}
+          path: candidate-source
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.artifact_id }}
+          path: release-assets
+          merge-multiple: true
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.candidate.outputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify original archive and exact corresponding source
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $version = (Select-String -Path candidate-source/Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
+          $archive = "riina-$version-windows-x86_64.zip"
+          $checksum = Get-Content release-assets/SHA256SUMS.txt -Raw
+          if ($checksum.Trim() -notmatch "^([0-9a-f]{64})  $([regex]::Escape($archive))$") { throw 'Ambiguous package checksum' }
+          if ((Get-FileHash "release-assets/$archive" -Algorithm SHA256).Hash.ToLower() -ne $Matches[1]) { throw 'Saved package checksum differs' }
+          Expand-Archive "release-assets/$archive" -DestinationPath package-smoke
+          python scripts/check-windows-runtime.py --package package-smoke
+          python scripts/check-release-artifacts.py package --binary package-smoke --source candidate-source --version $version > release-assets/RELEASE-VERIFICATION.json
+      - name: Supply software OpenGL for the hosted test only
+        run: python scripts/prepare-windows-ci-graphics.py --application package-smoke --archive "${{ runner.temp }}/mesa-ci.7z"
+      - name: Exercise the unchanged application binary
+        env:
+          GALLIUM_DRIVER: llvmpipe
+        run: ./scripts/smoke-windows-package.ps1 -Executable (Resolve-Path package-smoke/riina.exe).Path -Fixture (Resolve-Path candidate-source/tests/fixtures/moving-square.avi).Path -ReportPath (Join-Path $env:RUNNER_TEMP 'riina-gui-smoke.json')
+      - name: Preserve GUI evidence and diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: saved-package-gui-evidence
+          path: ${{ runner.temp }}/riina-gui-smoke.json*
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve verified original release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: verified-release-assets
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7

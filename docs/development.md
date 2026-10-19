@@ -105,6 +105,29 @@ those exact verified assets afterward. `publish_release=true` publishes after th
 same run's package checks pass. Creating the version tag does not start another
 binary build.
 
+### Retest a saved package without rebuilding
+
+If compilation and native checks succeeded but the GUI environment failed, use
+**Verify saved Windows package** with the original `candidate_run_id`. It requires
+the original release workflow's build/lint/native gates to have passed, checks the
+artifact's repository and source identity, downloads the saved ZIP, and verifies
+its checksum, runtime, notices and exact corresponding source before running it.
+Successful verification uploads the original ZIP and checksums plus a fresh
+`RELEASE-VERIFICATION.json`; it does not compile or publish anything.
+
+Hosted Windows runners may expose only the system OpenGL 1.1 implementation.
+Slint's FemtoVG interface needs a newer OpenGL context even though mpv presents
+video with D3D11. Both release workflows stage checksum-pinned Mesa 26.0.3 x64
+`opengl32.dll` and `libgallium_wgl.dll` beside the disposable test executable and
+select `llvmpipe` for that smoke step. The release ZIP is unchanged. This is a
+software-interface test, not physical GPU, compositor or HDR certification.
+Normal desktop verification uses the original extracted package and its driver.
+
+The test-only driver comes from the
+[Mesa Windows distribution](https://github.com/pal1000/mesa-dist-win/releases/tag/26.0.3).
+Its archive hash is pinned in `scripts/prepare-windows-ci-graphics.py`; no system
+driver installation or third-party deployment script is used.
+
 The source and package license scopes are settled; see [licensing](licensing.md).
 Use the immutable application tag, Cargo lockfile, native manifest and public
 upstream sources for [source access](SOURCE-ACCESS.md). Do not duplicate native

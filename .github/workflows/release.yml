@@ -350,9 +350,24 @@ jobs:
           $packagePath = (Resolve-Path package-smoke).Path
           $env:PATH = "$packagePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked --target x86_64-pc-windows-msvc playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: inputs.release_source_tag != ''
+        with:
+          ref: ${{ github.sha }}
+          path: release-gui-tools
+      - name: Supply software OpenGL for the hosted test only
+        shell: pwsh
+        env:
+          RELEASE_SOURCE_TAG: ${{ inputs.release_source_tag }}
+        run: |
+          $tool = 'scripts/prepare-windows-ci-graphics.py'
+          if ($env:RELEASE_SOURCE_TAG) { $tool = "release-gui-tools/$tool" }
+          python $tool --application package-smoke --archive "${{ runner.temp }}/mesa-ci.7z"
       - name: Exercise the extracted application and native controls
         timeout-minutes: 3
         shell: pwsh
+        env:
+          GALLIUM_DRIVER: llvmpipe
         run: ./scripts/smoke-windows-package.ps1 -Executable (Resolve-Path package-smoke/riina.exe).Path -Fixture (Resolve-Path tests/fixtures/moving-square.avi).Path -ReportPath (Join-Path $env:RUNNER_TEMP 'riina-gui-smoke.json')
       - name: Preserve application smoke evidence
         if: always()
