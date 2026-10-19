@@ -4,13 +4,13 @@ Read [current status](status.md) for completed work and
 [the product contract](product-spec.md) for acceptance requirements.
 The baseline remains IINA v1.5.0.
 
-## Next milestone: 0.5.0 everyday playback workflows
+## Next work: everyday playback workflows
 
 Close end-to-end behavior gaps in Quick Settings input, folder/playlist/history
 flows and window transitions, then compare the main player and its menus against
 the pinned captures. Keep each batch local until related changes and checks fit.
 
-Local batches now cover:
+The 4.1.0 release collects these completed batches:
 
 - [Quick Settings numeric editing and focus](../tests/visual/windows-quick-settings-input-2026-10-19.json):
   delay/speed drafts, submission/cancellation, observed updates and controller auto-hide.

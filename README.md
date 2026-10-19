@@ -52,6 +52,16 @@ The release page includes checksums, release notes and a verification report.
 GitHub's automatically generated source archives contain source code, not a
 ready-to-run application.
 
+## Recent improvements
+
+Quick Settings now supports consistent numeric editing and keyboard category
+navigation. Player controls stay centered, Layout symbols and previews align,
+and narrow windows scroll without squeezing their settings. Windows menu exit
+also restores the correct Alt state.
+
+See the [4.1.0 release notes](docs/release-notes/4.1.0.md) for the complete changes;
+[GitHub Releases](https://github.com/deminden/riina/releases) shows published packages.
+
 ## Where the project stands
 
 Riina is a working player under active development. Full IINA feature, behavior

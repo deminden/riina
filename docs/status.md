@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-19. Development version: **0.4.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-19. Release candidate: **4.1.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -61,44 +61,42 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
-## Local work toward 0.5.0
+## Changes prepared for 4.1.0
 
-Quick Settings delay and speed fields share submission/cancellation and draft
-handling; controller auto-hide preserves sidebar focus. The [first input record](../tests/visual/windows-quick-settings-input-2026-10-19.json)
-covers the initial seven widget regressions and native editing checks.
+This release collects the verified Quick Settings and player follow-ups since
+0.4.0. The version **4.1.0** was selected explicitly for this release; it does not
+claim complete IINA parity or add supported application ports.
 
-The next local batch adds one keyboard stop for the category group, arrow/Home/End
-selection with focus following the chosen page, selected accessibility state, and
-removes an invisible Tab stop before numeric editors. Narrow Layout content
-scrolls at a usable width, and custom switches and audio/video tracks show focus.
-See the [navigation record](../tests/visual/windows-quick-settings-navigation-2026-10-19.json)
-for source identities, twelve widget regressions and native checks. Build, strict
-Clippy and formatting pass; 616 workspace tests pass with two test threads
-(56 ignored), plus 60 Python tests and a 5918 ms playback smoke. Other display scales,
-matched macOS interaction and the full focus graph remain open.
+- Numeric delay/speed editors preserve drafts during playback observations and
+  controller auto-hide. Return/Tab submit once; Escape cancels within the editor.
+- Categories form one keyboard stop with arrow/Home/End navigation, selected
+  accessibility state and visible focus. Narrow pages remain scrollable.
+- Windows system-menu entry belongs to the framed owner. After native menu mode
+  ends, a consumed Alt release is repaired without clearing a held modifier.
+  Windows' first Escape closes a popup and its second leaves menu-bar navigation.
+- Floating transport is centered independently of audio and toolbar visibility.
+  Theme segments fit their rail; Layout icons, switches and controller previews
+  share their intended centers. Narrow Layout pages retain a real 300-point
+  scroll extent and full-sized choice tiles.
 
-The [Windows menu follow-up](../tests/visual/windows-system-menu-alt-2026-10-19.json)
-routes keyboard system-menu entry through the framed owner and reconciles a lost
-Alt release after the native menu loop exits. Native comparison reproduced stale
-Alt in the previous build even after two Escapes; the corrected build seeks with
-a plain arrow and retains intentional Alt frame stepping. Windows menu navigation
-stays active after the first Escape; its second Escape returns input to playback.
-The batch passes 621 workspace tests (56 ignored), fifteen widget regressions,
-formatting, strict Clippy and a 5766 ms playback smoke. Other layouts, IME and
-cross-application cancellation need further native checks. Work toward 0.5.0 continues.
+The [input](../tests/visual/windows-quick-settings-input-2026-10-19.json),
+[navigation](../tests/visual/windows-quick-settings-navigation-2026-10-19.json),
+[menu input](../tests/visual/windows-system-menu-alt-2026-10-19.json) and
+[proportion](../tests/visual/windows-player-proportions-2026-10-19.json) records
+identify the tested development builds. The latest batch passed 626 workspace
+tests (56 ignored), 20 generated-widget regressions, formatting, strict Clippy,
+60 Python tests and a 5841 ms playback smoke. Native checks covered both themes,
+standard/compact Layout and a 285 x 160 player. Exact release-package checks are
+separate from these development-build results.
 
-The [player proportion follow-up](../tests/visual/windows-player-proportions-2026-10-19.json)
-centers floating transport independently of audio/toolbar visibility, constrains
-Dark/Light/Auto selection to its rail, and aligns Layout row icons, switches and
-controller previews. Narrow Layout pages retain a real 300-point scroll extent
-and reference-sized choice tiles. Twenty widget regressions and native normal/285 x 160 checks cover these changes.
-The batch passes 626 workspace tests (56 ignored), formatting, strict Clippy,
-60 Python tests and a 5841 ms playback smoke. Matched macOS pixels and other
-display scales remain open.
+The release candidate reuses the verified playback engine from 0.4.0, whose
+native recipe matches the current source. The application is rebuilt for 4.1.0;
+checksums, notices, corresponding source and the extracted executable must pass
+before publication. See [release notes](release-notes/4.1.0.md).
 
 ## Verification summary
 
-**[0.4.0 is published](https://github.com/deminden/riina/releases/tag/v0.4.0).**
+The latest published release while 4.1.0 is being verified is **[0.4.0](https://github.com/deminden/riina/releases/tag/v0.4.0).**
 The [release record](../tests/visual/windows-release-0.4.0-2026-10-19.json) ties
 the original ZIP to source `3fc80ba`, exact notices/import/source checks, and
 playback smokes locally (5779 ms) and in CI (6048 ms). The first hosted GUI setup
