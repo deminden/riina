@@ -10,11 +10,18 @@ Close end-to-end behavior gaps in Quick Settings input, folder/playlist/history
 flows and window transitions, then compare the main player and its menus against
 the pinned captures. Keep each batch local until related changes and checks fit.
 
-The first batch covers Quick Settings numeric editing and focus: audio and both
+The first local batch covers Quick Settings numeric editing and focus: audio and both
 subtitle delay lanes, speed entry, Return submission, Escape cancellation, Tab/
 focus changes, observed playback updates during an edit, and controller auto-hide.
 Require widget regression tests and actual application interaction; record their
 results separately. Test both themes and retain the existing fullscreen baseline.
+
+The next batch checks keyboard traversal through the category group and page
+controls at normal and narrow widths, on either sidebar side. Categories form one
+Tab stop; arrows and Home/End select within that group. Layout keeps its reference
+card proportions in constrained widths and exposes overflow through scrolling.
+Use generated-widget geometry/input checks plus native keyboard and scrolling
+checks; keep other DPI, IME and matched macOS evidence as separate gaps.
 
 ## Work order
 

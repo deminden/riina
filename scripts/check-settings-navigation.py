@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "crates/app/ui/preferences.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/app/ui/player.slint").read_text(encoding="utf-8")
+QUICK_TABS_SOURCE = (ROOT / "crates/app/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
 EXPECTED = [
     "General", "Interface", "Video", "Audio", "Subtitles", "Network", "Control",
@@ -131,10 +132,13 @@ def main():
     assert "root.windows-sidebar-material-active && !root.dark-theme &&" in PLAYER_SOURCE, (
         "The light tint must not change dark reference calibration or opaque policy fallback"
     )
-    assert PLAYER_SOURCE.count("show-label: expanded-tab-labels;") == 4, (
+    assert (
+        "show-label: expanded-tab-labels;" in PLAYER_SOURCE
+        and QUICK_TABS_SOURCE.count("show-label: root.show-label;") == 4
+    ), (
         "Every Quick Settings category must share narrow-window label compression"
     )
-    assert "if root.selected && root.show-label : Text" in PLAYER_SOURCE, (
+    assert "if root.selected && root.show-label : Text" in QUICK_TABS_SOURCE, (
         "Selected tab text must collapse with its width at narrow sidebar sizes"
     )
     sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : ScrollView")

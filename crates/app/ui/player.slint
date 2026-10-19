@@ -1,3 +1,4 @@
+import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { QuickSettingsInput } from "quick-settings-input.slint";
 import { ScrollView, ComboBox, Button } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, VerticalEqualizerSlider, SubtitleColorWell } from "shared-controls.slint";
@@ -41,70 +42,6 @@ component SidebarTab inherits FocusScope {
         Text { text: root.label; color: root.selected ? root.accent-foreground :
                 (root.dark-theme ? #bbbbc2 : #505056);
             font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-        touch := TouchArea {
-            clicked => {
-                root.pointer-focus-request = true;
-                root.focus();
-                root.focus-visible = false;
-                root.activated();
-            }
-        }
-    }
-    changed has-focus => {
-        if self.has-focus && !root.pointer-focus-request { root.focus-visible = true; }
-        else if !self.has-focus { root.pointer-focus-request = false; }
-    }
-    key-pressed(event) => {
-        root.pointer-focus-request = false;
-        root.focus-visible = true;
-        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
-        if event.text == Key.Return || event.text == " " { activated(); return accept; }
-        return reject;
-    }
-}
-component QuickSettingsTab inherits FocusScope {
-    in property <string> label;
-    in property <bool> show-label: true;
-    in property <image> icon;
-    in property <bool> selected;
-    in property <bool> dark-theme: true;
-    in property <color> accent-color: #0a84ff;
-    in property <color> accent-foreground: #ffffff;
-    in property <color> focus-accent-color: #90b7ef;
-    private property <bool> focus-visible: false;
-    private property <bool> pointer-focus-request: false;
-    callback activated();
-    selected-tab-label-measure := Text {
-        text: root.label; font-size: 12px; font-weight: 600; visible: false;
-    }
-    // Source crops measure about 81 pt for selected Layout and 73 pt for
-    // selected Video; size the labeled segment from the rendered label width.
-    width: selected && show-label ? selected-tab-label-measure.preferred-width + 37px : 36px;
-    height: 28px;
-    accessible-role: button;
-    accessible-label: label;
-    accessible-action-default => { activated(); }
-    Rectangle {
-        border-radius: 14px;
-        background: root.selected ? root.accent-color :
-            touch.has-hover ? (root.dark-theme ? #ffffff0c : #00000008) : transparent;
-        border-width: root.has-focus && root.focus-visible ? 1px : 0px;
-        border-color: root.selected ? root.accent-foreground : root.focus-accent-color;
-        HorizontalLayout {
-            padding-left: root.selected && root.show-label ? 9px : 8px;
-            padding-right: root.selected && root.show-label ? 9px : 8px;
-            spacing: root.selected && root.show-label ? 5px : 0px;
-            alignment: center;
-            cross-axis-alignment: center;
-            Image { source: root.icon; image-fit: contain; width: 14px; height: 14px;
-                vertical-alignment: center;
-                colorize: root.selected ? root.accent-foreground
-                    : root.dark-theme ? #e3e3e8 : #45454b; }
-            if root.selected && root.show-label : Text { text: root.label;
-                color: root.accent-foreground;
-                font-size: 12px; font-weight: 600; height: 14px;
-                vertical-alignment: center; }
-        }
         touch := TouchArea {
             clicked => {
                 root.pointer-focus-request = true;
@@ -336,6 +273,10 @@ component SidebarPositionToggle inherits FocusScope {
         }
     }
     TouchArea { clicked => { root.changed(!root.leading); } }
+    if root.has-focus : Rectangle {
+        background: transparent; border-width: 1px;
+        border-color: root.accent-color; border-radius: 3px;
+    }
     key-pressed(event) => {
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
         if event.text == Key.Return || event.text == " " { changed(!leading); return accept; }
@@ -387,6 +328,10 @@ component SidebarSideChoice inherits FocusScope {
                 }
             }
         }
+    }
+    if root.has-focus : Rectangle {
+        background: transparent; border-width: 1px;
+        border-color: root.accent-color; border-radius: 3px;
     }
     key-pressed(event) => {
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
@@ -2702,43 +2647,14 @@ export component PlayerWindow inherits Window {
                         }
                     }
                     // Tabs switch the visible pane without closing it or changing catalog tokens.
-                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : Rectangle {
-                        width: tabs.preferred-width; height: 34px; border-radius: 17px;
-                        background: root.dark-theme ? #ffffff14 : #0000000b;
-                        tabs := HorizontalLayout { spacing: 1px; padding: 3px;
-                            QuickSettingsTab { label: "Layout";
-                                show-label: expanded-tab-labels;
-                                icon: @image-url("../../../assets/icons/quick-layout-paintbrush.svg");
-                                selected: pane-kind == 5; dark-theme: root.dark-theme;
-                                accent-color: root.quick-settings-tab-selected-fill;
-                                accent-foreground: root.quick-settings-tab-selected-foreground;
-                                focus-accent-color: root.interactive-accent-color;
-                                activated => { root.select-settings-pane(5); } }
-                            QuickSettingsTab { label: "Video";
-                                show-label: expanded-tab-labels;
-                                icon: @image-url("../../../assets/icons/photo.svg");
-                                selected: pane-kind == 6; dark-theme: root.dark-theme;
-                                accent-color: root.quick-settings-tab-selected-fill;
-                                accent-foreground: root.quick-settings-tab-selected-foreground;
-                                focus-accent-color: root.interactive-accent-color;
-                                activated => { root.select-settings-pane(6); } }
-                            QuickSettingsTab { label: "Audio";
-                                show-label: expanded-tab-labels;
-                                icon: @image-url("../../../assets/icons/audio-page.svg");
-                                selected: pane-kind == 1; dark-theme: root.dark-theme;
-                                accent-color: root.quick-settings-tab-selected-fill;
-                                accent-foreground: root.quick-settings-tab-selected-foreground;
-                                focus-accent-color: root.interactive-accent-color;
-                                activated => { root.select-settings-pane(1); } }
-                            QuickSettingsTab { label: "Subtitles";
-                                show-label: expanded-tab-labels;
-                                icon: @image-url("../../../assets/icons/subtitles-page.svg");
-                                selected: pane-kind == 2; dark-theme: root.dark-theme;
-                                accent-color: root.quick-settings-tab-selected-fill;
-                                accent-foreground: root.quick-settings-tab-selected-foreground;
-                                focus-accent-color: root.interactive-accent-color;
-                                activated => { root.select-settings-pane(2); } }
-                        }
+                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : QuickSettingsTabs {
+                        selected-pane: pane-kind;
+                        show-label: expanded-tab-labels;
+                        dark-theme: root.dark-theme;
+                        accent-color: root.quick-settings-tab-selected-fill;
+                        accent-foreground: root.quick-settings-tab-selected-foreground;
+                        focus-accent-color: root.interactive-accent-color;
+                        chosen(pane) => { root.select-settings-pane(pane); }
                     }
                     if pane-kind == 3 || pane-kind == 4 : HorizontalLayout {
                         spacing: 4px;
@@ -2780,8 +2696,10 @@ export component PlayerWindow inherits Window {
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
                     content-height: max(self.visible-height, layout-content.preferred-height);
-                    content-width: self.visible-width;
-                    horizontal-scrollbar-policy: always-off;
+                    // Preserve the reference card geometry below the normal sidebar
+                    // width; keyboard focus and scrollbars reveal the overflow.
+                    content-width: max(self.visible-width, 300px);
+                    horizontal-scrollbar-policy: as-needed;
                     vertical-scrollbar-policy: root.layout-scrollbar-visible ? as-needed : always-off;
                     scrolled => {
                         root.layout-scrollbar-visible = true;
@@ -2806,7 +2724,7 @@ export component PlayerWindow inherits Window {
                     cross-axis-alignment: center;
                     Rectangle {
                         // REF-21 measures these Layout cards at 328 pt in the default 360 pt sidebar.
-                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 28px : 32px);
+                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: root.compact-ui ? 138px : 152px; border-radius: 8px;
                         border-width: 1px;
                         border-color: root.dark-theme ? #ffffff18 : #00000014;
@@ -2870,7 +2788,7 @@ export component PlayerWindow inherits Window {
                         }
                     }
                     Rectangle {
-                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 28px : 32px);
+                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: 44px; border-radius: 8px;
                         border-width: 1px;
                         border-color: root.dark-theme ? #ffffff18 : #00000014;
@@ -2885,7 +2803,7 @@ export component PlayerWindow inherits Window {
                         }
                     }
                     Rectangle {
-                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 28px : 32px);
+                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: (root.edge-to-edge-video ? 76px : 44px) +
                             (root.unlock-window-aspect-ratio ? 32px : 0px);
                         border-radius: 8px; border-width: 1px;
@@ -2944,7 +2862,7 @@ export component PlayerWindow inherits Window {
                     SidebarSectionTitle { label: "Sidebar Position"; dark-theme: root.dark-theme; }
                     VerticalLayout { width: parent.width;
                     Rectangle {
-                        width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8) - (root.compact-ui ? 28px : 32px);
+                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: root.compact-ui ? 106px : 118px; border-radius: 8px;
                         border-width: 1px;
                         border-color: root.dark-theme ? #ffffff18 : #00000014;
@@ -3035,6 +2953,10 @@ export component PlayerWindow inherits Window {
                                         root.audio-track-focus-index = index;
                                         root.select-item(1, row.token);
                                     } }
+                                    if audio-row-focus.has-focus : Rectangle {
+                                        background: transparent; border-width: 1px; border-radius: 3px;
+                                        border-color: root.interactive-accent-color;
+                                    }
                                     audio-row-focus := FocusScope {
                                         key-pressed(event) => {
                                             if event.modifiers.alt || event.modifiers.control ||
@@ -3451,6 +3373,10 @@ export component PlayerWindow inherits Window {
                                                 video-row-focus.focus();
                                                 root.select-item(6, row.token);
                                             } }
+                                            if video-row-focus.has-focus : Rectangle {
+                                                background: transparent; border-width: 1px; border-radius: 3px;
+                                                border-color: root.interactive-accent-color;
+                                            }
                                             video-row-focus := FocusScope {
                                                 key-pressed(event) => {
                                                     if event.modifiers.alt || event.modifiers.control ||

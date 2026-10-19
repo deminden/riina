@@ -194,3 +194,162 @@ fn disabling_a_field_discards_its_draft_and_blocks_accessible_edits() {
     assert_eq!(input.accessible_value().unwrap(), "0");
     assert!(submissions.borrow().is_empty());
 }
+
+fn connect_settings_tabs(app: &PlayerWindow) {
+    let weak = app.as_weak();
+    app.on_select_settings_pane(move |pane| {
+        let app = weak.upgrade().unwrap();
+        if app.get_settings_at_leading() {
+            app.set_leading_sidebar(pane);
+        } else {
+            app.set_sidebar(pane);
+        }
+    });
+}
+
+fn button(app: &PlayerWindow, label: &str) -> ElementHandle {
+    ElementHandle::find_by_accessible_label(app, label)
+        .find(|element| {
+            element.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)
+        })
+        .unwrap_or_else(|| panic!("Missing button: {label}"))
+}
+
+#[test]
+fn category_arrows_home_end_keep_focus_and_do_not_reach_playback() {
+    let app = player(1);
+    connect_settings_tabs(&app);
+    let playback_keys = Rc::new(std::cell::Cell::new(0));
+    let received = playback_keys.clone();
+    app.on_dispatch_key_binding(move |_, _, _, _, _| {
+        received.set(received.get() + 1);
+        false
+    });
+    focus(&app, &button(&app, "Audio"));
+    for (pressed, pane, label) in [
+        (Key::LeftArrow, 6, "Video"),
+        (Key::LeftArrow, 5, "Layout"),
+        (Key::LeftArrow, 5, "Layout"),
+        (Key::End, 2, "Subtitles"),
+        (Key::RightArrow, 2, "Subtitles"),
+        (Key::Home, 5, "Layout"),
+        (Key::RightArrow, 6, "Video"),
+        (Key::RightArrow, 1, "Audio"),
+    ] {
+        key(&app, pressed);
+        assert_eq!(app.get_sidebar(), pane);
+        assert_eq!(button(&app, label).accessible_item_selected(), Some(true));
+    }
+    key(&app, " ");
+    assert_eq!(app.get_sidebar(), 1);
+    assert_eq!(playback_keys.get(), 0);
+}
+
+#[test]
+fn tab_leaves_the_category_group_for_the_page_in_one_step() {
+    let app = player(1);
+    connect_settings_tabs(&app);
+    let browsed = Rc::new(std::cell::Cell::new(0));
+    let count = browsed.clone();
+    app.on_browse_files(move |pane| {
+        assert_eq!(pane, 1);
+        count.set(count.get() + 1);
+    });
+    focus(&app, &button(&app, "Audio"));
+    key(&app, Key::Tab);
+    key(&app, Key::Return);
+    assert_eq!(
+        browsed.get(),
+        1,
+        "Inactive categories must not add Tab stops"
+    );
+}
+
+#[test]
+fn narrow_category_buttons_remain_inside_both_sidebar_headers() {
+    let app = player(1);
+    connect_settings_tabs(&app);
+    for leading in [false, true] {
+        app.set_settings_at_leading(leading);
+        app.set_sidebar(if leading { 0 } else { 1 });
+        app.set_leading_sidebar(if leading { 1 } else { 0 });
+        for compact in [false, true] {
+            app.set_compact_ui(compact);
+            for width in [285.0, 320.0, 440.0, 960.0] {
+                app.window().set_size(LogicalSize::new(width, 600.0));
+                flush();
+                let close = button(&app, "Close sidebar");
+                let close_x = close.absolute_position().x;
+                let close_right = close_x + close.size().width;
+                for label in ["Layout", "Video", "Audio", "Subtitles"] {
+                    let tab = button(&app, label);
+                    let pos = tab.absolute_position();
+                    let size = tab.size();
+                    assert!(size.width >= 28.0 && size.height >= 24.0);
+                    assert!(
+                        pos.x >= 0.0 && pos.x + size.width <= width + 0.5,
+                        "{label} clipped at width {width}, leading={leading}, compact={compact}: {pos:?} {size:?}"
+                    );
+                    assert!(
+                        pos.x + size.width <= close_x || pos.x >= close_right,
+                        "Category overlaps close control"
+                    );
+                }
+                focus(&app, &button(&app, "Audio"));
+                key(&app, Key::End);
+                assert_eq!(
+                    if leading {
+                        app.get_leading_sidebar()
+                    } else {
+                        app.get_sidebar()
+                    },
+                    2
+                );
+                key(&app, Key::Home);
+                key(&app, Key::RightArrow);
+                key(&app, Key::RightArrow);
+            }
+        }
+    }
+}
+
+#[test]
+fn tab_enters_the_delay_editor_from_its_slider_without_an_invisible_stop() {
+    let app = player(1);
+    let input = field(&app, "Audio delay in seconds");
+    focus(&app, &field(&app, "Audio delay"));
+    key(&app, Key::Tab);
+    input.set_accessible_value("0.7");
+    key(&app, Key::End);
+    key(&app, "5");
+    assert_eq!(input.accessible_value().unwrap(), "0.75");
+}
+
+#[test]
+fn reverse_tab_leaves_the_editor_for_its_slider_and_commits_once() {
+    let app = player(1);
+    let submissions = delay_submissions(&app);
+    let slider_changes = Rc::new(RefCell::new(Vec::new()));
+    let changes = slider_changes.clone();
+    app.on_set_delay(move |lane, value| changes.borrow_mut().push((lane, value)));
+    let input = field(&app, "Audio delay in seconds");
+    focus(&app, &input);
+    input.set_accessible_value("0.75");
+    app.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Shift.into(),
+    });
+    key(&app, Key::Tab);
+    app.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Shift.into(),
+    });
+    key(&app, Key::RightArrow);
+    assert_eq!(&*submissions.borrow(), &[(1, "0.75".into())]);
+    let changes = slider_changes.borrow();
+    assert_eq!(
+        changes.len(),
+        1,
+        "Reverse Tab must focus the preceding slider"
+    );
+    assert_eq!(changes[0].0, 1);
+    assert!((changes[0].1 - 0.05).abs() < 0.0001);
+}

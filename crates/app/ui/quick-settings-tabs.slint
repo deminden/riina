@@ -1,0 +1,131 @@
+component QuickSettingsTab inherits FocusScope {
+    in property <string> label;
+    in property <int> index;
+    in property <bool> show-label: true;
+    in property <image> icon;
+    in property <bool> selected;
+    in property <bool> dark-theme: true;
+    in property <color> accent-color: #0a84ff;
+    in property <color> accent-foreground: #ffffff;
+    in property <color> focus-accent-color: #90b7ef;
+    private property <bool> focus-visible: false;
+    private property <bool> pointer-focus-request: false;
+    callback activated();
+    callback navigate(int);
+    focus-on-tab-navigation: selected;
+    selected-tab-label-measure := Text {
+        text: root.label; font-size: 12px; font-weight: 600; visible: false;
+    }
+    // Source crops measure about 81 pt for selected Layout and 73 pt for
+    // selected Video; size the labeled segment from the rendered label width.
+    width: selected && show-label ? selected-tab-label-measure.preferred-width + 37px : 36px;
+    height: 28px;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-item-selectable: true;
+    accessible-item-selected: selected;
+    accessible-action-default => { activated(); }
+    Rectangle {
+        border-radius: 14px;
+        background: root.selected ? root.accent-color :
+            touch.has-hover ? (root.dark-theme ? #ffffff0c : #00000008) : transparent;
+        border-width: root.has-focus && root.focus-visible ? 1px : 0px;
+        border-color: root.selected ? root.accent-foreground : root.focus-accent-color;
+        HorizontalLayout {
+            padding-left: root.selected && root.show-label ? 9px : 8px;
+            padding-right: root.selected && root.show-label ? 9px : 8px;
+            spacing: root.selected && root.show-label ? 5px : 0px;
+            alignment: center;
+            cross-axis-alignment: center;
+            Image { source: root.icon; image-fit: contain; width: 14px; height: 14px;
+                vertical-alignment: center;
+                colorize: root.selected ? root.accent-foreground
+                    : root.dark-theme ? #e3e3e8 : #45454b; }
+            if root.selected && root.show-label : Text { text: root.label;
+                color: root.accent-foreground;
+                font-size: 12px; font-weight: 600; height: 14px;
+                vertical-alignment: center; }
+        }
+        touch := TouchArea {
+            clicked => {
+                root.pointer-focus-request = true;
+                root.focus();
+                root.focus-visible = false;
+                root.activated();
+            }
+        }
+    }
+    changed has-focus => {
+        if self.has-focus && !root.pointer-focus-request { root.focus-visible = true; }
+        else if !self.has-focus { root.pointer-focus-request = false; }
+    }
+    key-pressed(event) => {
+        root.pointer-focus-request = false;
+        root.focus-visible = true;
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.Return || event.text == " " { activated(); return accept; }
+        if event.text == Key.LeftArrow { navigate(index - 1); return accept; }
+        if event.text == Key.RightArrow { navigate(index + 1); return accept; }
+        if event.text == Key.Home { navigate(0); return accept; }
+        if event.text == Key.End { navigate(3); return accept; }
+        return reject;
+    }
+}
+
+// One keyboard stop mirrors the reference NSSegmentedControl ownership.
+export component QuickSettingsTabs inherits Rectangle {
+    in property <int> selected-pane;
+    in property <bool> show-label: true;
+    in property <bool> dark-theme: true;
+    in property <color> accent-color;
+    in property <color> accent-foreground;
+    in property <color> focus-accent-color;
+    callback chosen(int);
+    width: tabs.preferred-width; height: 34px; border-radius: 17px;
+    background: root.dark-theme ? #ffffff14 : #0000000b;
+    function choose(index: int) {
+        // Clamp at the ends without leaking an arrow into playback seeking.
+        if index <= 0 { layout-tab.focus(); root.chosen(5); }
+        else if index == 1 { video-tab.focus(); root.chosen(6); }
+        else if index == 2 { audio-tab.focus(); root.chosen(1); }
+        else { subtitles-tab.focus(); root.chosen(2); }
+    }
+    tabs := HorizontalLayout { spacing: 1px; padding: 3px;
+        layout-tab := QuickSettingsTab { label: "Layout"; index: 0;
+            show-label: root.show-label;
+            icon: @image-url("../../../assets/icons/quick-layout-paintbrush.svg");
+            selected: root.selected-pane == 5; dark-theme: root.dark-theme;
+            accent-color: root.accent-color; accent-foreground: root.accent-foreground;
+            focus-accent-color: root.focus-accent-color;
+            activated => { root.chosen(5); }
+            navigate(index) => { root.choose(index); }
+        }
+        video-tab := QuickSettingsTab { label: "Video"; index: 1;
+            show-label: root.show-label;
+            icon: @image-url("../../../assets/icons/photo.svg");
+            selected: root.selected-pane == 6; dark-theme: root.dark-theme;
+            accent-color: root.accent-color; accent-foreground: root.accent-foreground;
+            focus-accent-color: root.focus-accent-color;
+            activated => { root.chosen(6); }
+            navigate(index) => { root.choose(index); }
+        }
+        audio-tab := QuickSettingsTab { label: "Audio"; index: 2;
+            show-label: root.show-label;
+            icon: @image-url("../../../assets/icons/audio-page.svg");
+            selected: root.selected-pane == 1; dark-theme: root.dark-theme;
+            accent-color: root.accent-color; accent-foreground: root.accent-foreground;
+            focus-accent-color: root.focus-accent-color;
+            activated => { root.chosen(1); }
+            navigate(index) => { root.choose(index); }
+        }
+        subtitles-tab := QuickSettingsTab { label: "Subtitles"; index: 3;
+            show-label: root.show-label;
+            icon: @image-url("../../../assets/icons/subtitles-page.svg");
+            selected: root.selected-pane == 2; dark-theme: root.dark-theme;
+            accent-color: root.accent-color; accent-foreground: root.accent-foreground;
+            focus-accent-color: root.focus-accent-color;
+            activated => { root.chosen(2); }
+            navigate(index) => { root.choose(index); }
+        }
+    }
+}

@@ -63,14 +63,20 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Local work toward 0.5.0
 
-Quick Settings delay and speed fields now share submission/cancellation and draft
-handling. Hiding the playback controller preserves sidebar keyboard focus. Seven
-actual-widget regressions pass; native Windows checks cover dark Audio/speed and
-light independent subtitle timing. Formatting and strict Clippy pass; the workspace
-passes 611 tests with two test threads (56 ignored), after two worker timeouts in
-the initial parallel run. Both timed-out tests also pass individually. See the [input/focus record](../tests/visual/windows-quick-settings-input-2026-10-19.json)
-for exact source/binary identities, checks and remaining gaps. This development
-batch does not represent completion of the 0.5.0 milestone.
+Quick Settings delay and speed fields share submission/cancellation and draft
+handling; controller auto-hide preserves sidebar focus. The [first input record](../tests/visual/windows-quick-settings-input-2026-10-19.json)
+covers the initial seven widget regressions and native editing checks.
+
+The next local batch adds one keyboard stop for the category group, arrow/Home/End
+selection with focus following the chosen page, selected accessibility state, and
+removes an invisible Tab stop before numeric editors. Narrow Layout content
+scrolls at a usable width, and custom switches and audio/video tracks show focus.
+See the [navigation record](../tests/visual/windows-quick-settings-navigation-2026-10-19.json)
+for source identities, twelve widget regressions and native checks. Build, strict
+Clippy and formatting pass; 616 workspace tests pass with two test threads
+(56 ignored), plus 60 Python tests and a 5918 ms playback smoke. Other display scales,
+matched macOS interaction, system-menu Alt routing and the full focus graph remain open; this is ongoing
+work toward 0.5.0.
 
 ## Verification summary
 

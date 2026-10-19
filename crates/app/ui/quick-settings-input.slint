@@ -36,6 +36,8 @@ export component QuickSettingsInput inherits Rectangle {
     TouchArea { enabled: root.enabled; clicked => { input.focus(); } }
     field-scope := FocusScope {
         width: parent.width; height: parent.height; forward-focus: input;
+        // This scope only guards rejected editor keys; the editor owns the Tab stop.
+        focus-on-tab-navigation: false;
         key-pressed(event) => {
             if event.text == Key.Tab || event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
             return accept;

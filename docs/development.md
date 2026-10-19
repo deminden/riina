@@ -54,8 +54,8 @@ For macOS/Linux setup, see [port development](port-development.md).
 prerequisites, GUI procedure and the latest scoped results. Keep implementation
 and verification states separate in the requirement inventories.
 
-Quick Settings widget regressions in `crates/app/tests/quick_settings_input.rs`
-run with the workspace tests. They exercise the generated player controls through
+Quick Settings input, category navigation and narrow-header geometry regressions
+in `crates/app/tests/quick_settings_input.rs` run with the workspace tests. They exercise the generated player controls through
 Slint's headless test backend, including pointer/key input and focus changes.
 Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit

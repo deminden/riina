@@ -1,0 +1,143 @@
+{
+  "date": "2026-10-19",
+  "source_base_revision": "0a99319e70aa495c47df74d2e23d13a4c6c837ff",
+  "milestone": "0.5.0 development: Quick Settings category keyboard navigation and narrow layouts",
+  "source_hashes_canonical_lf": {
+    "crates/app/ui/player.slint": "a9a94b829897cfcb541b5fba831d5b76dba8e2bd25e177e3dde6afafafb3ab0a",
+    "crates/app/ui/quick-settings-tabs.slint": "7c62542100ae596441bc06683c02bea85df0d91375249be11aff28af0cbedf68",
+    "crates/app/tests/quick_settings_input.rs": "a07baf75ea8efc958a4f170266c509220144209c7cec6817f732bbd4126d59ca",
+    "scripts/check-settings-navigation.py": "a5ae746edecc63b5fa817aac2d5b14eee835f22c80af5234f9380a509627310d",
+    "crates/app/ui/quick-settings-input.slint": "bab0822986f04d9fc7cc44be996f2e4c8e0b70ab0f0c40440ba18075d4d214e6"
+  },
+  "reference": {
+    "revision": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "source": "iina/SideBar.swift: NSSegmentedControl owns category selection; SidebarTabViewController owns page transitions",
+    "windows_equivalent": "One category Tab stop; Left/Right select adjacent categories; Home/End select endpoints. Native macOS key behavior has not been observed in this batch."
+  },
+  "baseline_observation": "Native light Audio category retained focus on Left but displayed a playback seek OSD instead of selecting Video.",
+  "implementation": [
+    "Category group keeps selection and keyboard focus together, clamps arrows at either end, exposes selected accessibility state and leaves the group on Tab.",
+    "Layout content keeps a 300 logical pixel minimum scroll extent below normal sidebar width; cards derive from content width rather than the clipped viewport.",
+    "The numeric editor key guard is excluded from Tab traversal; Layout switches and audio/video track rows display focus outlines."
+  ],
+  "widget_regressions": {
+    "backend": "Slint 1.18.1 headless; actual generated PlayerWindow widgets",
+    "passed": 12,
+    "scope": [
+      "Seven existing numeric edit lifecycle regressions retained",
+      "Category Left/Right/Home/End and endpoint clamping preserve focus and do not invoke playback bindings",
+      "One Tab leaves the category group for the page",
+      "Category buttons remain in bounds without overlapping Close on both sides at 285/320/440/960 logical pixels, in both spacing modes",
+      "Tab from delay slider enters editor directly",
+      "Shift+Tab commits the draft once and returns to the delay slider"
+    ],
+    "not_native_gui": true
+  },
+  "manual_gui": [
+    {
+      "build_sha256": "1e16015fd3107c5ba647ecd84a5ed7a5a8297c250c058ed4e55a92e05ed3c826",
+      "appearance": "light",
+      "normal_controls_size": [
+        916,
+        570
+      ],
+      "narrow_controls_size": [
+        285,
+        160
+      ],
+      "observations": [
+        "Left selected Video from Audio; End selected Subtitles; Home selected Layout with the focus outline following selection.",
+        "At the minimum video client size the category header retained all four icons and the close control.",
+        "Tab from Layout entered Dark, Light, Auto in order; the scroll view revealed Light and Auto horizontally.",
+        "Tab through Audio entered both track rows, external audio, delay slider and delay editor; the page scrolled vertically to reveal each."
+      ],
+      "bugs_found_and_corrected_after_this_build": [
+        "The numeric key-guard FocusScope added an invisible Tab stop before the editor.",
+        "Layout switches and audio/video track rows lacked a focus outline."
+      ],
+      "input_caveat": "After Alt+Space system-menu interaction, arrows acted as Alt-modified frame steps. A separate Alt press/release cleared that state before the category checks. No native modifier-routing change is included."
+    },
+    {
+      "build_sha256": "758cfa86f5b5cd735519166431c8ee88aeee319b79fe3412e15bb80cf42cff32",
+      "appearance": "light",
+      "sidebar": "trailing",
+      "spacing": "standard",
+      "pid": 22236,
+      "observations": [
+        "One Tab from the delay slider selected the editor text directly. Typing 0.65 then Shift+Tab applied the observed delay and visibly focused the slider.",
+        "The audio track row displayed its focus outline.",
+        "At 285 by 160 logical client pixels Layout retained all category icons and Close; its horizontal scrollbar was visible."
+      ],
+      "shutdown": "Normal Alt+F4; no Riina process before the next launch"
+    },
+    {
+      "build_sha256": "758cfa86f5b5cd735519166431c8ee88aeee319b79fe3412e15bb80cf42cff32",
+      "appearance": "dark",
+      "sidebar": "leading",
+      "spacing": "compact",
+      "pid": 17704,
+      "observations": [
+        "Tab passed the category group and Close into Dark, Light, Auto and On Screen Display. The display switch had a visible focus outline; Space toggled it.",
+        "At 285 by 160 logical client pixels all four categories and Close remained visible. End selected Subtitles, Home selected Layout and Right selected Video; the outline followed selection.",
+        "The video track row displayed its focus outline in the narrow sidebar."
+      ],
+      "shutdown": "Normal Alt+F4; no Riina process before the playback smoke"
+    }
+  ],
+  "checks": {
+    "python": "60 passed",
+    "fixture_provenance": "16 hashes verified",
+    "asset_provenance": "73 records verified",
+    "navigation_inventory": "passed",
+    "locked_workspace_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace_tests": {
+      "passed": 616,
+      "ignored": 56,
+      "jobs": 2,
+      "test_threads": 2,
+      "note": "Child helper summaries are excluded from the total. Ignored native/hardware checks are not claimed."
+    },
+    "traceability": "259 atomic requirements; 69 visual identities; 10 evidence links; 68 local image hashes verified; no visual acceptance inferred"
+  },
+  "remaining_gaps": [
+    "Other display scales and multiple monitors",
+    "IME, runtime locale and clipboard workflows",
+    "Matched macOS keyboard and pixel comparison",
+    "Application ports and HDR",
+    "System-menu modifier routing: the observed Alt state requires a separate native-input investigation."
+  ],
+  "private_evidence": "Raw app and desktop captures remain under ignored target; no unrelated desktop content is published.",
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "fixture": "tests/fixtures/moving-square.avi",
+  "audio_output": "null",
+  "playback_smoke": {
+    "executable_sha256": "758cfa86f5b5cd735519166431c8ee88aeee319b79fe3412e15bb80cf42cff32",
+    "success": true,
+    "elapsed_ms": 5918,
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "captures": {
+      "stages": [
+        "before",
+        "fullscreen",
+        "after"
+      ],
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probes": true,
+      "inspection": "Full images inspected: fullscreen video and controller visible together; no player surface persists after exit. Captures remain private under target."
+    },
+    "physical_display_and_hdr_verified": false,
+    "shutdown": "No Riina process remains"
+  }
+}
