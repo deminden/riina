@@ -1,0 +1,76 @@
+// Shared edit lifecycle for speed and audio/subtitle timing fields.
+export component QuickSettingsInput inherits Rectangle {
+    in property <string> observed-value: "0";
+    in property <bool> secondary: false;
+    in property <bool> enabled: true;
+    in property <bool> dark-theme: true;
+    in property <bool> windows-acrylic-surface: false;
+    in property <color> accent-color: #90b7ef;
+    in property <string> hint;
+    callback committed(string) -> bool;
+    callback editing-finished();
+    private property <bool> dirty: false;
+    width: 50px; height: 24px;
+    forward-focus: input;
+    border-radius: 4px;
+    background: windows-acrylic-surface
+        ? (dark-theme ? #ffffff0f : #f9f9f94d)
+        : (dark-theme ? #ffffff10 : #ffffff);
+    border-width: 1px;
+    border-color: input.has-focus ? root.accent-color : (dark-theme ? #ffffff20 : #00000020);
+
+    function submit() -> bool {
+        if !root.enabled { return false; }
+        if root.committed(input.text) {
+            root.dirty = false;
+            if input.text.is-empty { input.text = "0"; }
+            return true;
+        }
+        return false;
+    }
+    // Playback observations must not overwrite an unfinished edit. Cancelling
+    // restores the latest observation; switching subtitle lanes discards it.
+    changed observed-value => { if !root.dirty { input.text = root.observed-value; } }
+    changed secondary => { root.dirty = false; input.text = root.observed-value; }
+    changed enabled => { if !root.enabled { root.dirty = false; input.text = root.observed-value; } }
+    TouchArea { enabled: root.enabled; clicked => { input.focus(); } }
+    field-scope := FocusScope {
+        width: parent.width; height: parent.height; forward-focus: input;
+        key-pressed(event) => {
+            if event.text == Key.Tab || event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+            return accept;
+        }
+        input := TextInput {
+            x: 6px; width: parent.width - 12px; height: parent.height;
+            text: root.observed-value;
+            enabled: root.enabled;
+            font-size: 12px;
+            color: root.enabled ? (root.dark-theme ? #eeeeee : #29292d)
+                : (root.dark-theme ? #777777 : #8a8a90);
+            vertical-alignment: center;
+            single-line: true;
+            accessible-label: root.hint;
+            accessible-action-set-value(value) => {
+                if root.enabled { self.text = value; root.dirty = true; }
+            }
+            edited => { root.dirty = true; }
+            changed has-focus => {
+                if self.has-focus {
+                    if !root.dirty { self.text = root.observed-value; }
+                } else if root.dirty {
+                    if !root.submit() { self.text = root.observed-value; root.dirty = false; }
+                }
+            }
+            key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.dirty = false;
+                    self.text = root.observed-value;
+                    root.editing-finished();
+                    return accept;
+                }
+                return reject;
+            }
+            accepted => { if root.submit() { root.editing-finished(); } }
+        }
+    }
+}

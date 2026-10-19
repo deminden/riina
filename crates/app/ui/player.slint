@@ -1,3 +1,4 @@
+import { QuickSettingsInput } from "quick-settings-input.slint";
 import { ScrollView, ComboBox, Button } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, VerticalEqualizerSlider, SubtitleColorWell } from "shared-controls.slint";
 import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
@@ -927,42 +928,6 @@ component AudioEqualizerProfilePicker inherits Rectangle {
                 }
             }
         }
-    }
-}
-
-component DelayInput inherits Rectangle {
-    in property <float> value;
-    in property <string> formatted-value: "0";
-    in property <bool> secondary: false;
-    in property <bool> enabled: true;
-    in property <bool> dark-theme: true;
-    in property <bool> windows-acrylic-surface: false;
-    in property <color> accent-color: #90b7ef;
-    in property <string> hint;
-    callback committed(string);
-    width: 50px; height: 24px;
-    border-radius: 4px;
-    background: windows-acrylic-surface
-        ? (dark-theme ? #ffffff0f : #f9f9f94d)
-        : (dark-theme ? #ffffff10 : #ffffff);
-    border-width: 1px; border-color: input.has-focus ? root.accent-color : (dark-theme ? #ffffff20 : #00000020);
-    // Editing breaks TextInput's text binding; native updates and lane changes
-    // must explicitly restore the observed value rather than retaining a draft.
-    changed value => { input.text = root.formatted-value; }
-    changed formatted-value => { input.text = root.formatted-value; }
-    changed secondary => { input.text = root.formatted-value; }
-    input := TextInput {
-        x: 6px; width: parent.width - 12px; height: parent.height;
-        text: "" + root.value;
-        enabled: root.enabled;
-        font-size: 12px;
-        color: root.enabled
-            ? (root.dark-theme ? #eeeeee : #29292d)
-            : (root.dark-theme ? #777777 : #8a8a90);
-        vertical-alignment: center;
-        single-line: true;
-        accessible-label: root.hint;
-        accepted => { root.committed(self.text); }
     }
 }
 
@@ -3164,12 +3129,13 @@ export component PlayerWindow inherits Window {
                                     draft-changed(value) => { root.preview-audio-delay(value); }
                                     changed(value) => { root.set-delay(1, round(value * 20) / 20); }
                                     committed(value) => { root.set-delay(1, round(value * 20) / 20); } }
-                                DelayInput { accent-color: root.interactive-accent-color; value: root.audio-delay; dark-theme: root.dark-theme;
+                                QuickSettingsInput { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
                                     windows-acrylic-surface: root.windows-sidebar-material-active;
-                                    formatted-value: audio-delay-slider.previewing
+                                    observed-value: audio-delay-slider.previewing
                                         ? root.audio-delay-preview-text : root.audio-delay-text;
                                     enabled: root.loaded; hint: "Audio delay in seconds";
-                                    committed(text) => { if root.set-delay-text(1, text) { keys.focus(); } } }
+                                    committed(text) => { return root.set-delay-text(1, text); }
+                                    editing-finished => { keys.focus(); } }
                             }
                             HorizontalLayout { height: 12px; spacing: 8px;
                                 HorizontalLayout { horizontal-stretch: 1;
@@ -3572,28 +3538,16 @@ export component PlayerWindow inherits Window {
                                         enabled: root.loaded;
                                         changed(value) => { root.set-speed-slider(value); }
                                     }
-                                    Rectangle { width: 50px; height: 18px;
-                                        background: root.sidebar-control-material-fill;
-                                        border-radius: 4px; forward-focus: speed-input;
-                                        property <string> observed-speed: root.speed-edit-value;
-                                        changed observed-speed => { speed-input.text = self.observed-speed; }
-                                        FocusScope { width: parent.width; height: parent.height; forward-focus: speed-input;
-                                            key-pressed(event) => {
-                                                if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.text == Key.Tab || event.text == Key.Escape { return reject; }
-                                                return accept;
-                                            }
-                                            speed-input := TextInput { x: 4px; width: parent.width - 8px; height: 18px;
-                                                text: root.speed-edit-value; single-line: true;
-                                                color: root.dark-theme ? #eeeeee : #29292d;
-                                                font-size: 12px; vertical-alignment: center;
-                                                enabled: root.loaded; accessible-label: "Custom playback speed";
-                                                accessible-action-set-value(value) => { self.text = value; }
-                                                accepted => { if root.set-speed-text(self.text) {
-                                                    self.text = root.speed-edit-value; keys.focus();
-                                                } }
-                                            } }
-                                        }
+                                    QuickSettingsInput { width: 50px; height: 18px;
+                                        accent-color: root.interactive-accent-color;
+                                        dark-theme: root.dark-theme;
+                                        windows-acrylic-surface: root.windows-sidebar-material-active;
+                                        observed-value: root.speed-edit-value;
+                                        enabled: root.loaded; hint: "Custom playback speed";
+                                        committed(text) => { return root.set-speed-text(text); }
+                                        editing-finished => { keys.focus(); }
                                     }
+                                }
                                 // The source slider's final two points separate
                                 // its knob from the 14-point tick-label row.
                                 HorizontalLayout { spacing: 8px; height: 14px;
@@ -3824,17 +3778,18 @@ export component PlayerWindow inherits Window {
                                         enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                         hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
                                         changed(value) => { root.set-delay(root.edit-secondary-subtitle ? 5 : 2, value); } }
-                                    DelayInput { accent-color: root.interactive-accent-color; value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
+                                    QuickSettingsInput { accent-color: root.interactive-accent-color;
                                         dark-theme: root.dark-theme;
                                         windows-acrylic-surface: root.windows-sidebar-material-active;
-                                        formatted-value: root.edit-secondary-subtitle
+                                        observed-value: root.edit-secondary-subtitle
                                             ? root.secondary-subtitle-delay-text : root.subtitle-delay-text;
                                         secondary: root.edit-secondary-subtitle;
                                         enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                         hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
                                         committed(text) => {
-                                            if root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text) { keys.focus(); }
-                                        } }
+                                            return root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text);
+                                        }
+                                        editing-finished => { keys.focus(); } }
                                 }
                                 HorizontalLayout { height: 14px; spacing: 8px;
                                     HorizontalLayout { horizontal-stretch: 1;
@@ -4740,7 +4695,9 @@ export component PlayerWindow inherits Window {
             root.controls-visible = false;
             return;
         }
-        if !root.controls-visible { keys.focus(); }
+        // A sidebar stays interactive when only the transport tray disappears.
+        // Moving focus here would discard a delay/speed edit after the idle timeout.
+        if !root.controls-visible && root.sidebar == 0 && root.leading-sidebar == 0 { keys.focus(); }
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(root.controls-visible);
     }

@@ -61,6 +61,17 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
+## Local work toward 0.5.0
+
+Quick Settings delay and speed fields now share submission/cancellation and draft
+handling. Hiding the playback controller preserves sidebar keyboard focus. Seven
+actual-widget regressions pass; native Windows checks cover dark Audio/speed and
+light independent subtitle timing. Formatting and strict Clippy pass; the workspace
+passes 611 tests with two test threads (56 ignored), after two worker timeouts in
+the initial parallel run. Both timed-out tests also pass individually. See the [input/focus record](../tests/visual/windows-quick-settings-input-2026-10-19.json)
+for exact source/binary identities, checks and remaining gaps. This development
+batch does not represent completion of the 0.5.0 milestone.
+
 ## Verification summary
 
 **[0.4.0 is published](https://github.com/deminden/riina/releases/tag/v0.4.0).**

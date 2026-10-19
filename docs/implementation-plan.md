@@ -4,6 +4,18 @@ Read [current status](status.md) for completed work and
 [the product contract](product-spec.md) for acceptance requirements.
 The baseline remains IINA v1.5.0.
 
+## Next milestone: 0.5.0 everyday playback workflows
+
+Close end-to-end behavior gaps in Quick Settings input, folder/playlist/history
+flows and window transitions, then compare the main player and its menus against
+the pinned captures. Keep each batch local until related changes and checks fit.
+
+The first batch covers Quick Settings numeric editing and focus: audio and both
+subtitle delay lanes, speed entry, Return submission, Escape cancellation, Tab/
+focus changes, observed playback updates during an edit, and controller auto-hide.
+Require widget regression tests and actual application interaction; record their
+results separately. Test both themes and retain the existing fullscreen baseline.
+
 ## Work order
 
 ### 1. Close missing behavior

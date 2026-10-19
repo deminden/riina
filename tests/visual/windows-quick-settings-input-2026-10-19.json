@@ -1,0 +1,127 @@
+{
+  "date": "2026-10-19",
+  "source_base_revision": "d3fd7cfed8d36182d6e8909feab52c024c092e3c",
+  "milestone": "0.5.0 development: Quick Settings input and focus",
+  "source_hashes_canonical_lf": {
+    "crates/app/ui/player.slint": "f45cb62dab3b38610cf426e9dd6210c6474bc57c042e0f6e31e8dc4194aac29f",
+    "crates/app/ui/quick-settings-input.slint": "6d9a08843d1cb9c7a66d3673679f6dceaee375d1e7aec5f96cdd895ed0f134a9",
+    "crates/app/build.rs": "4391d8db24fe312ff6d0e573c36dc2c3a732eeb8aeec5db433be71ec67116bb2",
+    "crates/app/tests/quick_settings_input.rs": "b9d6baf192efcd7a461328731d552722a3876e8fd4fee922521bd67799b15b11",
+    "crates/app/Cargo.toml": "7f67b72077d543939c90d320a6bb34f6623d79e5e101eadf4a8908b3530f3071",
+    "Cargo.lock": "42dc1962bddb561c040fe110502294f1c319912eb1ee9793e856b8a962a17cd1"
+  },
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "fixture": "tests/fixtures/moving-square.avi",
+  "audio_output": "null",
+  "gui_builds": [
+    {
+      "appearance": "dark",
+      "pid": 1556,
+      "executable_sha256": "496a540ef54a671ca07e8907410d7c4bac85fed968a1bf216eff2943b28d7ebb",
+      "slint_lookup_metadata": false
+    },
+    {
+      "appearance": "light",
+      "pid": 21836,
+      "executable_sha256": "5c77e18a45ab3d2bea046799976d54dbda56f86043fcbe752b8731fcfe08b59a",
+      "slint_lookup_metadata": true
+    }
+  ],
+  "baseline_observation": "The published 0.4.0 instance reported a selected delay field, but injected numeric text did not remain in it. The source unconditionally focused the player when the transport hid. The corrected UI accepted native typing after that timeout.",
+  "manual_gui": [
+    {
+      "surface": "Dark Audio",
+      "result": "Ctrl+A and typing 0.75 retained the draft. Return applied 0.75 to the observed Audio delay slider without fullscreen entry. Editing -0.25 then Tab applied it and visibly focused the first equalizer band. Editing 2.5 then Escape restored -0.25 and retained the sidebar."
+    },
+    {
+      "surface": "Dark Video speed",
+      "result": "Typing 1.25 then Return updated the observed speed slider, label and OSD to 1.25x."
+    },
+    {
+      "surface": "Light Subtitles",
+      "result": "Primary typed 0.5 applied by Return. Secondary initially displayed 0, then typed -0.75 applied by Tab; Tab revealed and focused Position. Returning to Primary retained 0.5. Primary SRT remained visible; a secondary track was not selected during this timing test."
+    }
+  ],
+  "widget_regressions": {
+    "backend": "Slint 1.18.1 headless; real generated PlayerWindow widgets, pointer/key events and accessible field edits",
+    "passed": 7,
+    "scope": [
+      "controller hiding preserves editor focus; Return submits once",
+      "observed state does not overwrite a draft; Escape restores latest state and returns player focus",
+      "empty Return resets; invalid Return retains edit until cancellation",
+      "Tab submits a dirty field once",
+      "speed draft and cancellation use the same lifecycle",
+      "subtitle lane changes discard the previous draft; secondary submission uses its own lane",
+      "disabling discards draft and blocks accessible edits"
+    ],
+    "not_native_gui": true
+  },
+  "checks": {
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace": {
+      "passed": 611,
+      "ignored": 56,
+      "command": "cargo test --workspace --locked -j 2 -- --test-threads=2",
+      "initial_default_parallel_run": "Two existing worker tests timed out: plugin private-file initialization and concurrent preference writers. Both passed individually; the bounded workspace rerun passed. No worker or timeout code was changed in this batch."
+    },
+    "python_passed": 60,
+    "settings_navigation": "passed",
+    "asset_records": 73
+  },
+  "playback_smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5761,
+    "error": null,
+    "executable": "C:\\Codex\\wiina\\target\\quick-input-native-light\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 2108,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina"
+  },
+  "full_desktop_captures": [
+    {
+      "stage": "before",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "4628019528129642ccd622544eb58eee2112a8226f5e69300be348793212f6e9"
+    },
+    {
+      "stage": "fullscreen",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "301bc368bbdf4a2a5e2c5bfbeb35e592062361b1e52dcf7a3f904c2b2053cc3f"
+    },
+    {
+      "stage": "after",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "7cae06d347ee672c10f2c1a3607b89062f71d6d48117c4442c94898e65dd105e"
+    }
+  ],
+  "desktop_inspection": "Full images inspected privately: video and controller visible together in fullscreen; no persistent Riina surface after normal exit. Raw desktop content is not published.",
+  "shutdown": {
+    "normal_exit": true,
+    "remaining_riina_processes": 0
+  },
+  "limits": [
+    "Matched IINA field geometry, broader DPI/narrow layouts, IME/clipboard and runtime locale changes remain open.",
+    "Fullscreen Escape edit behavior and invalid/empty entry were exercised by widget tests, not all repeated through native GUI.",
+    "Other OS application runtime, physical HDR and audible timing are unverified in this batch."
+  ],
+  "build_storage": {
+    "debug_gib": 56.89,
+    "active_build_test_and_player_processes": 0,
+    "cleanup": "Automatic approval review rejected deletion of the identified stale incremental caches, including a single-folder attempt. Caches remain intact; current incremental compilation is preserved."
+  }
+}
