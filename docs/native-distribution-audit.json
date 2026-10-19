@@ -11,7 +11,7 @@
     "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
   },
   "release_artifacts_verified": true,
-  "verified_candidate_run_id": 39230530575,
+  "verified_candidate_run_id": 39288719513,
   "verified_native_run_id": 38138622911,
   "release_verification_remaining": [],
   "development_engine": {
@@ -28,7 +28,7 @@
     "source_access": "Immutable application tag, Cargo.lock, SOURCE-MANIFEST.tsv and public pinned native repositories. Do not duplicate full native or vendored source trees in download assets."
   },
   "release_engine": {
-    "reusable_release_tag": "v0.3.8",
+    "reusable_release_tag": "v4.1.0",
     "native_build_run_id": 38138622911,
     "original_ci_artifact_expired": true,
     "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
@@ -45,23 +45,23 @@
     }
   },
   "published_release": {
-    "tag": "v0.4.0",
-    "title": "Riina 0.4.0",
-    "url": "https://github.com/deminden/riina/releases/tag/v0.4.0",
-    "published_at": "2026-10-19T09:33:35Z",
-    "application_source_sha": "3fc80bab54ed76666400e31d7df0511172f6c127",
+    "tag": "v4.1.0",
+    "title": "Riina 4.1.0",
+    "url": "https://github.com/deminden/riina/releases/tag/v4.1.0",
+    "published_at": "2026-10-19T17:12:45Z",
+    "application_source_sha": "9b49001c3fb0bd2394e863ccd2ea82b0ee15884b",
     "assets": {
       "RELEASE-VERIFICATION.json": {
-        "size": 590,
-        "sha256": "d53bbed01b80325de174d0a38eb44b0b4897fb374445cd044ee7f9221cb83d69"
+        "size": 581,
+        "sha256": "2e2bbfab8951295c7129f0a4ffe946e03f9b5e67784d2728b06401c04489d92b"
       },
-      "riina-0.4.0-windows-x86_64.zip": {
-        "size": 74357496,
-        "sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8"
+      "riina-4.1.0-windows-x86_64.zip": {
+        "size": 74403986,
+        "sha256": "469abecba562a1548f4d35c39c1b0303f357f15ebb878ce222779fcd7fb327ae"
       },
       "SHA256SUMS.txt": {
         "size": 98,
-        "sha256": "309318114cfdf3099f6cd86e984b12d8ab631eeb3dc6b8b6a408cd9b31f6f979"
+        "sha256": "1df1afe73013277f29a383b182270ebf74e15c15280315faf894bc5995dbc8e7"
       }
     }
   },
@@ -71,20 +71,14 @@
     "scope": "Prior development-engine investigations, failed candidates and original 0.3.0 distribution evidence; not current release state."
   },
   "latest_candidate_attempt": {
-    "run_id": 39183215963,
-    "source_sha": "3fc80bab54ed76666400e31d7df0511172f6c127",
-    "conclusion": "failed",
-    "package_artifact_id": 12156959292,
-    "archive_sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8",
-    "native_engine_reused_from": "v0.3.8",
-    "result": "Compilation, native checks and package assembly succeeded. Hosted GUI startup failed because FemtoVG could not obtain OpenGL 2.0. The original ZIP and exact error output were retained.",
-    "follow_up": "Exact saved ZIP passed local runtime/source/notices checks and playback smoke (5779 ms). Verification-only CI 39230530575 passed with test-scoped software OpenGL (6048 ms). The original ZIP was published unchanged as v0.4.0."
+    "run_id": 39288719513,
+    "source_sha": "9b49001c3fb0bd2394e863ccd2ea82b0ee15884b",
+    "conclusion": "success",
+    "package_artifact_id": 12206685464,
+    "archive_sha256": "469abecba562a1548f4d35c39c1b0303f357f15ebb878ce222779fcd7fb327ae",
+    "native_engine_reused_from": "v0.4.0",
+    "result": "Exact application archive passed hosted and local source/notices/import checks and playback smoke, then was published unchanged.",
+    "evidence": "tests/visual/windows-release-4.1.0-2026-10-19.json"
   },
-  "package_reverification": {
-    "original_build_run_id": 39183215963,
-    "verification_run_id": 39230530575,
-    "same_archive_sha256": "03d0764af64aacb9de2fc688b33a310b932dcb3a1d00fead0cb54500408befe8",
-    "evidence": "tests/visual/windows-release-0.4.0-2026-10-19.json",
-    "scope": "Exact package, source, notices, imports and playback smoke passed. Physical-display/audible-output/HDR checks are separate."
-  }
+  "previous_release_evidence": "tests/visual/windows-release-0.4.0-2026-10-19.json"
 }

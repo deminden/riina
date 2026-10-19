@@ -8,6 +8,7 @@ The latest records below are from Windows 11 x64 on 2026-10-19.
 
 | Check | Revision | Result and limits |
 |---|---|---|
+| Published 4.1.0 exact package | [Release identity](../tests/visual/windows-release-4.1.0-2026-10-19.json) | Locked build, strict Clippy, workspace/native tests, imports/notices/source checks passed; engine reused from 0.4.0; same archive tested locally (5863 ms) and in CI (6226 ms), then published unchanged. Full-desktop captures inspected; physical display, audible output and HDR remain separate |
 | Player proportions and Layout symbols | [Proportion identity](../tests/visual/windows-player-proportions-2026-10-19.json) | Twenty widget regressions; final executable inspected at normal and 285 x 160 sizes, Light/Dark/Auto, standard/compact Layout, horizontal/vertical scrolling and centered Play/Pause. Build/fmt/strict Clippy passed; 626 Rust tests, 56 ignored; 60 Python tests; 5841 ms smoke and three inspected full-desktop captures. Physical pixels/HDR, other DPI and matched macOS states remain separate |
 | Windows native menu ownership and Alt return | [Menu input identity](../tests/visual/windows-system-menu-alt-2026-10-19.json) | Baseline still frame-stepped with plain Right after full menu cancellation; corrected executable seeks, retains Alt+Right, opens Audio, traverses F10 menus and resumes after exit. Normal two-level Escape behavior preserved. Build/fmt/strict Clippy; 621 Rust tests, 56 ignored; 60 Python tests; 5766 ms smoke and three inspected valid full-desktop captures. Other input layouts, IME and cross-application cancellation remain open |
 | Quick Settings category traversal and narrow layouts | [Navigation identity](../tests/visual/windows-quick-settings-navigation-2026-10-19.json) | Twelve widget regressions; native light/trailing and dark/compact/leading checks, including a 285 x 160 client; direct Tab into numeric editor, reverse-Tab submission, visible focus and scrolling checked |
@@ -49,12 +50,12 @@ The candidate preparation separately ran all 53 native checks against the reused
 release DLL. It also checked OS-delivered double-click and host Escape; its smoke
 still uses the shared fullscreen callback. Light equalizer-thumb contrast,
 matched IINA geometry, material-policy transitions and wider hardware coverage
-remain acceptance work. The exact release archive requires separate evidence.
+remain acceptance work. Each release archive requires its own evidence.
 The older Preferences runs used a local executable rather than an extracted
 release package. Their scripted fullscreen entry invokes the double-click
 callback; those reports do not establish OS-delivered double-click input. The
-earlier extracted archive was a development package, not a newly published release.
-Revised GitHub workflows require separate remote execution evidence.
+earlier extracted archive was a development package. The published 0.4.0 archive
+has separate local and remote verification in its release record above.
 
 The [initial GUI record](../tests/visual/windows-ledger-review-2026-10-18.json) is
 dated evidence of the failures before the Preferences fixes. The follow-up record
@@ -74,7 +75,8 @@ Local logs: `target/smarter-tests-*`, `target/review-fixes-*`,
 Raw desktop images remain untracked and must be reviewed for private content
 before any publication. Older investigations remain in Git history.
 
-The visual-ledger integrity checks add 15 Python regression tests (49 total).
+The visual-ledger integrity checks include 15 Python regressions. The current
+Python suite contains 60 tests across ledger, packaging and report validation.
 They reject dropped or changed original reference identities, broken evidence
 links, changed local capture bytes, malformed records and unsupported acceptance
 claims. All 69 records and 68 available capture hashes passed locally. These

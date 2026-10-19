@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-19. Release candidate: **4.1.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-19. Published release: **4.1.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -61,7 +61,7 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
-## Changes prepared for 4.1.0
+## Changes in 4.1.0
 
 This release collects the verified Quick Settings and player follow-ups since
 0.4.0. The version **4.1.0** was selected explicitly for this release; it does not
@@ -89,57 +89,27 @@ tests (56 ignored), 20 generated-widget regressions, formatting, strict Clippy,
 standard/compact Layout and a 285 x 160 player. Exact release-package checks are
 separate from these development-build results.
 
-The release candidate reuses the verified playback engine from 0.4.0, whose
+The release reuses the verified playback engine from 0.4.0, whose
 native recipe matches the current source. The application is rebuilt for 4.1.0;
-checksums, notices, corresponding source and the extracted executable must pass
-before publication. See [release notes](release-notes/4.1.0.md).
+checksums, notices, corresponding source and the extracted executable passed
+verification before publication. See [release notes](release-notes/4.1.0.md).
 
 ## Verification summary
 
-The latest published release while 4.1.0 is being verified is **[0.4.0](https://github.com/deminden/riina/releases/tag/v0.4.0).**
-The [release record](../tests/visual/windows-release-0.4.0-2026-10-19.json) ties
-the original ZIP to source `3fc80ba`, exact notices/import/source checks, and
-playback smokes locally (5779 ms) and in CI (6048 ms). The first hosted GUI setup
-lacked OpenGL support. Verification run `39230530575` supplied a test-only software
-driver and reused the saved package unchanged; neither application nor engine was
-rebuilt. Physical compositor, audible-output and HDR coverage remain separate.
+**[4.1.0](https://github.com/deminden/riina/releases/tag/v4.1.0) is published.** Its
+[release record](../tests/visual/windows-release-4.1.0-2026-10-19.json) identifies source
+`9b49001`, the exact archive hashes, reused engine and package checks. Hosted
+and local extracted-application playback smokes passed in 6226 ms and
+5863 ms respectively. The hosted software OpenGL driver was test-only and
+is absent from the published ZIP. The application was compiled once; publication
+reused those verified files without another build.
 
-The [menu follow-up](../tests/visual/windows-menu-parity-2026-10-19.json) records
-604 workspace tests, 53 Python tests, strict Clippy and formatting, plus 51 native
-integration and two library checks against the reused release engine. Live menu
-hints, scale/delay actions and fullscreen chords were inspected. The local debug
-playback smoke passed in 5784 ms, with full-desktop captures before/during/after
-and normal shutdown. These are local debug checks; the exact published package
-has its separate release evidence above.
-
-The [0.4.0 candidate preparation](../tests/visual/windows-0.4.0-candidate-2026-10-19.json)
-records a locked build, formatting, strict Clippy, 601 workspace tests and 34 Python
-tests. The matching published release engine passed 51 integration and two library
-checks. A debug executable with that engine passed the six-step playback smoke in
-5858 ms. Normal/narrow Audio scrolling, unchanged volume, light Quick Settings,
-OS-delivered fullscreen double-click and host Escape were inspected. All test
-instances exited normally. This preparation run covered a local debug executable;
-see the separate release record above for the published archive.
-
-The [Preferences navigation/subtitle follow-up](../tests/visual/windows-preferences-subtitles-2026-10-18.json)
-records exact source/binary hashes: locked build, formatting, strict all-target
-Clippy, 600 workspace tests and 31 Python tests passed. The default Rust run
-explicitly ignores native/clipboard checks and a helper launched by another test.
-
-The local playback/fullscreen smoke passed in 5750 ms. A GUI sweep inspected all
-eleven Preferences categories' initial viewports, Audio section jumps and sidebar
-scrolling. Contrast, auxiliary width, Utilities row overlap, Advanced path/button
-overlap and truncated shortcut labels are corrected. A numeric GUI edit survived
-normal exit. Subtitle overflow, disclosure spacing and General section jumps are
-also corrected. The repeat selector uses a separate row. Theme coverage and
-matched comparisons remain open in the [visual ledger](visual-reference-audit.csv).
-The [Network/font follow-up](../tests/visual/windows-network-font-2026-10-19.json)
-also verifies continuous Network scrolling/search and readable dark font-picker
-contrast with initial keyboard focus and Escape cancellation.
-
-[Verification](verification.md) records the exact scope and older native/package
-evidence. HDR and other drivers still need evidence; the revised package-only
-workflow has a successful run recorded above.
+The development checks for the new changes are listed above. Earlier settings,
+menu and playback results remain dated in the [verification register](verification.md),
+including the [0.4.0 release record](../tests/visual/windows-release-0.4.0-2026-10-19.json).
+The [visual ledger](visual-reference-audit.csv) records current interface gaps and
+links historical evidence separately. Physical compositor, audible-output and HDR
+coverage remain separate.
 
 ## Remaining acceptance work
 

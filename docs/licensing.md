@@ -50,7 +50,7 @@ and GPLv3 application package terms.
 | `webpki-roots` 1.0.9 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |
 | `trash` 5.2.9 | MIT; the system Trash/Recycle Bin adapter; generated dependency inventory preserves its crate notice |
 | `lofty` 0.25.4 | MIT OR Apache-2.0; reads supported local audio tags for playlist display; generated dependency inventory preserves its crate notice |
-| Development libmpv DLL and native dependencies | Local development input; release workflow rebuilds a separate engine |
+| Development libmpv DLL and native dependencies | Local development input; releases use a separately verified engine build |
 
 `webpki-roots` 1.0.9 is an exact, package-scoped data-license exception in the
 Rust license collector. The crate describes its root-certificate data as derived
@@ -88,9 +88,10 @@ describes x264 as GPLv2-or-later. The release build therefore removes the
 optional x264 encoder and its source dependency, while retaining FFmpeg's built-in
 H.264 decoder. Riina's current player does not expose encoding. The candidate
 engine preserves built-in H.264 decoding. This license selection is recorded in
-the release recipe; the development DLL remains development-only. CI must still
-build the candidate and verify its exact native inventory, notices, source access
-references and final portable package before publication.
+the release recipe; the development DLL remains development-only. A release can
+reuse a verified engine when its complete source and build identity match. CI
+checks the candidate's exact native inventory, notices, source access references
+and final portable package before publication.
 
 The first reproducible native inspection is preserved in the
 [historical audit](history/native-distribution-audit-through-734a883.json).
