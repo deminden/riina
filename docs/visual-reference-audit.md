@@ -24,15 +24,27 @@ not current blockers unless reproduced in the current ledger.
 - `remaining_gaps` and `next_action` describe outstanding work. `historical_evidence`
   identifies the archived row by ID; CSV fragments are lookup keys, not HTML anchors.
 
-The [Preferences follow-up](../tests/visual/windows-preferences-readability-2026-10-18.json)
-inspects all eleven initial category viewports and records corrected light-widget
-contrast, Audio continuity and auxiliary width. The [row follow-up](../tests/visual/windows-preferences-rows-2026-10-18.json)
-corrects Utilities/Advanced overlap, numeric-cell affordances, shortcut keycaps
-and glyph visibility, and verifies a saved numeric edit. Subtitle overflow and
-General/Network navigation differences remain open. Lower viewports, dialogs, broader themes, complete
-menu states and matched macOS geometry remain open. A successful build does not
-close these gaps. The [initial inspection](../tests/visual/windows-ledger-review-2026-10-18.json)
-preserves the earlier failures as dated evidence.
+Current scoped GUI coverage includes the eleven initial Preferences viewports,
+General/Audio/Subtitles/Network navigation, selected disclosures and dialogs,
+light Quick Settings, narrow Audio scrolling, simultaneous subtitle lanes,
+built-in equalizer selection and fullscreen input. The CSV links the exact
+evidence for each surface; [verification](verification.md) describes check types
+and their limits.
+
+Unrecorded lower viewports and dialogs, independent subtitle timing keyboard
+edits, user equalizer profiles, broader themes, complete menu states and matched
+macOS geometry remain open. A successful build does not close these gaps.
+Dated reports preserve earlier findings at their tested revision; only the
+maintained CSV describes current gaps.
+
+## Integrity check
+
+`python scripts/check-parity.py` preserves all original reference identities,
+the canonical historical archive and valid dated/source-identified evidence
+links. It verifies image hashes when local reference files exist. Use
+`--require-visual-references` before a local comparison to require those files;
+ordinary CI can validate the ledger without private captures. Missing and failed
+references remain blocked. This check validates records, not visual fidelity.
 
 ## Reference sets
 

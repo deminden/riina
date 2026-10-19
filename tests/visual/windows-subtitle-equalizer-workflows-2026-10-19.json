@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-19",
+  "source_revision": "a1d40781751e3d256e42b1c7baeeecdfeb28d60a",
+  "executable_sha256": "ee4acf09803c4d35947068cf4bfc2d76118b1da4eed36f23c10846e6e5097b0d",
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "build_kind": "local debug executable with reused v0.3.8 release runtime",
+  "fixture": "tests/fixtures/moving-square.avi",
+  "temporary_subtitles": {
+    "moving-square.en.srt": {
+      "sha256": "5575637d8cb1fa267af02989eb3bd80cbace6cd7a0352b30a3349cd1089c9e6a",
+      "content": "1\n00:00:00,000 --> 00:00:05,000\nPrimary subtitle test\n\n"
+    },
+    "moving-square.fr.srt": {
+      "sha256": "fbfb8885be1f2270b4559e382e0ac87606408b309a8340fe7741bfbe889118e6",
+      "content": "1\n00:00:00,000 --> 00:00:05,000\nSecondary subtitle test\n\n"
+    }
+  },
+  "audio_output": "null",
+  "manual_gui": [
+    {
+      "surface": "Subtitles",
+      "result": "Both matching external SRT tracks auto-loaded. Primary English rendered at the bottom; selecting French in Secondary rendered both lanes together. Secondary timing tab selected. Vertical scrolling exposed position, scale, font, size, color, border and shadow controls."
+    },
+    {
+      "surface": "Equalizer",
+      "result": "Preset menu opened and Classical selected. Ten displayed gains changed to [4.75,3.75,3,2.5,-1.5,-1.5,0,2.25,3.25,3.75]. A mouse edit changed 32 Hz to -2.92 dB and the profile label to Manual."
+    },
+    {
+      "surface": "Light font chooser",
+      "result": "Readable light list/text surface. Filter font families received initial focus; typing Arial filtered to Arial. Escape cancelled and Preferences retained sans-serif. Preferences and player then closed normally."
+    }
+  ],
+  "not_verified": [
+    "Independent subtitle delay editing: keyboard injection targeted the framed playback host despite the controls field reporting focus. Return invoked fullscreen; Escape restored the window. This run does not establish timing-field keyboard behavior.",
+    "User preset save/rename/remove and persistence; audible EQ response.",
+    "Full matched IINA geometry, font rasterization and materials."
+  ],
+  "shutdown": {
+    "pid": 21160,
+    "normal_exit": true,
+    "remaining_riina_processes": 0,
+    "additional_light_font_pid": 21044
+  }
+}

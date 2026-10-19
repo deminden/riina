@@ -12,6 +12,7 @@ The latest records below are from Windows 11 x64 on 2026-10-19.
 | Reused release engine | Candidate preparation identity | 51 native integration and two library tests passed against the v0.3.8 runtime, with null audio |
 | 0.4.0 local GUI and playback smoke | Candidate preparation identity | Normal/narrow Audio, light Quick Settings, OS double-click fullscreen and host Escape inspected; six-step debug-executable smoke passed in 5858 ms; not the final release archive |
 | Full-desktop candidate captures | Candidate preparation identity | Before/fullscreen/after inspected at 3840 x 2160 with non-black probes; scripted capture shows video and controller together; no persistent surface after exit |
+| Subtitle, equalizer and light font GUI | [Workflow identity](../tests/visual/windows-subtitle-equalizer-workflows-2026-10-19.json) | Simultaneous SRT lanes, lower styling controls, Classical preset/manual edit, light font filtering/focus/cancellation checked; independent delay keyboard entry not verified |
 | Network/font build and GUI | [Network/font identity](../tests/visual/windows-network-font-2026-10-19.json) | Build, formatting, strict Clippy and 600 workspace tests passed; continuous section/search routes and dark font-picker contrast/focus/Escape checked |
 | Build, formatting, strict Clippy, workspace/Python checks | [Subtitle and navigation identity](../tests/visual/windows-preferences-subtitles-2026-10-18.json) | Passed; 600 workspace tests, 56 ignored; 31 Python tests and navigation inventory |
 | General/Subtitles GUI follow-up | Subtitle and navigation identity | General repeat row and live section jumps, subtitle disclosures, search, provider layouts and independent ASS lanes inspected; saved lane values confirmed after normal exit |
@@ -53,8 +54,8 @@ The newer row follow-up records the additional fixes and its narrower GUI scope;
 earlier failures remain dated evidence rather than current claims.
 The subtitle/navigation record covers two settings builds and identifies which
 checks were repeated after the General-only follow-up. The Network/font follow-up
-corrects those two findings; light font-picker appearance and material-policy
-transitions still need verification.
+corrects those two findings. The later workflow record checks the light font
+chooser; material-policy transitions still need verification.
 Null audio and captured pixels do not establish audible output, physical display
 behavior or HDR. Both test processes exited; no Riina process remained.
 
@@ -62,6 +63,12 @@ Local logs: `target/smarter-tests-*`, `target/review-fixes-*`,
 `target/ledger-cleanup-*`, `target/preferences-sizing-*` and `target/preferences-rows-*`.
 Raw desktop images remain untracked and must be reviewed for private content
 before any publication. Older investigations remain in Git history.
+
+The visual-ledger integrity checks add 15 Python regression tests (49 total).
+They reject dropped or changed original reference identities, broken evidence
+links, changed local capture bytes, malformed records and unsupported acceptance
+claims. All 69 records and 68 available capture hashes passed locally. These
+record checks do not establish matched geometry or pixel parity.
 
 ## Running checks
 
