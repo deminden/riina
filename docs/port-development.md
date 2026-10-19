@@ -18,6 +18,18 @@ GTK 3, WebKitGTK 4.1 and `pkg-config`. The current plugin child-WebView adapter
 supports X11, not Wayland embedding. Linux file selection needs an available
 XDG Desktop Portal backend; the dialog dependency supports X11 and Wayland parents.
 
+On Ubuntu 24.04, install the WebView development packages before building:
+
+```sh
+sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+pkg-config --modversion gtk+-3.0 webkit2gtk-4.1
+```
+
+The application-port workflow now installs and probes these dependencies before
+linting the full workspace. The local Windows checks cannot validate this Linux
+setup or macOS linking. Record the workflow result after it actually runs, then
+perform the native desktop checks below; a corrected workflow is not build evidence.
+
 Library discovery uses `libmpv.so.2` on Linux and `libmpv.2.dylib` on macOS. A
 library beside the executable takes precedence. macOS also checks an application
 bundle's Frameworks directory and `/opt/homebrew/lib` or `/usr/local/lib`; the
