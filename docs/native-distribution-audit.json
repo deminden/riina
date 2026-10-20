@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-19",
+  "updated": "2026-10-20",
   "scope": "Current distribution inputs and latest published release; earlier investigations are archived separately.",
   "distribution_license": "GPL-3.0-only",
   "license_decision": {
@@ -11,7 +11,7 @@
     "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
   },
   "release_artifacts_verified": true,
-  "verified_candidate_run_id": 39288719513,
+  "verified_candidate_run_id": 39347703730,
   "verified_native_run_id": 38138622911,
   "release_verification_remaining": [],
   "development_engine": {
@@ -28,16 +28,16 @@
     "source_access": "Immutable application tag, Cargo.lock, SOURCE-MANIFEST.tsv and public pinned native repositories. Do not duplicate full native or vendored source trees in download assets."
   },
   "release_engine": {
-    "reusable_release_tag": "v4.1.0",
+    "reusable_release_tag": "v4.2.0",
     "native_build_run_id": 38138622911,
     "original_ci_artifact_expired": true,
     "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
     "source_manifest_sha256": "5677324e64d7edc286dbd44dd0c3c44786ce87dd623c4debc8613fdaaa1ae92b",
     "native_source_files_indexed": 101748,
     "native_repositories_indexed": 88,
-    "restoration_verification": "Archive checksum, immutable release source, unchanged native contract, complete runtime hashes and source notices verified locally on 2026-10-19.",
+    "restoration_verification": "Archive checksum, immutable release source, unchanged native contract, complete runtime hashes and source notices verified locally on 2026-10-20; the 4.2.0 package preserves the same engine identity.",
     "native_tests": {
-      "date": "2026-10-19",
+      "date": "2026-10-20",
       "integration_passed": 51,
       "library_passed": 2,
       "audio_output": "null",
@@ -45,23 +45,23 @@
     }
   },
   "published_release": {
-    "tag": "v4.1.0",
-    "title": "Riina 4.1.0",
-    "url": "https://github.com/deminden/riina/releases/tag/v4.1.0",
-    "published_at": "2026-10-19T17:12:45Z",
-    "application_source_sha": "9b49001c3fb0bd2394e863ccd2ea82b0ee15884b",
+    "tag": "v4.2.0",
+    "title": "Riina 4.2.0",
+    "url": "https://github.com/deminden/riina/releases/tag/v4.2.0",
+    "published_at": "2026-10-20T01:02:10Z",
+    "application_source_sha": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
     "assets": {
       "RELEASE-VERIFICATION.json": {
         "size": 581,
-        "sha256": "2e2bbfab8951295c7129f0a4ffe946e03f9b5e67784d2728b06401c04489d92b"
+        "sha256": "303a79d9e4db8942405d91bc80574351f05fae8d774916a68f9d2e9bee4adba4"
       },
-      "riina-4.1.0-windows-x86_64.zip": {
-        "size": 74403986,
-        "sha256": "469abecba562a1548f4d35c39c1b0303f357f15ebb878ce222779fcd7fb327ae"
+      "riina-4.2.0-windows-x86_64.zip": {
+        "size": 74312167,
+        "sha256": "735a9f3f62f36450951dbce26bb34430acaa52c7c36e5f46bcfc7091b30d3988"
       },
       "SHA256SUMS.txt": {
         "size": 98,
-        "sha256": "1df1afe73013277f29a383b182270ebf74e15c15280315faf894bc5995dbc8e7"
+        "sha256": "0145163703f81a98fe02fe9c19a5e171f7e6c734426793cb34e12b2741c904a9"
       }
     }
   },
@@ -71,14 +71,14 @@
     "scope": "Prior development-engine investigations, failed candidates and original 0.3.0 distribution evidence; not current release state."
   },
   "latest_candidate_attempt": {
-    "run_id": 39288719513,
-    "source_sha": "9b49001c3fb0bd2394e863ccd2ea82b0ee15884b",
+    "run_id": 39347703730,
+    "source_sha": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
     "conclusion": "success",
-    "package_artifact_id": 12206685464,
-    "archive_sha256": "469abecba562a1548f4d35c39c1b0303f357f15ebb878ce222779fcd7fb327ae",
-    "native_engine_reused_from": "v0.4.0",
+    "package_artifact_id": 12232474278,
+    "archive_sha256": "735a9f3f62f36450951dbce26bb34430acaa52c7c36e5f46bcfc7091b30d3988",
+    "native_engine_reused_from": "v4.1.0",
     "result": "Exact application archive passed hosted and local source/notices/import checks and playback smoke, then was published unchanged.",
-    "evidence": "tests/visual/windows-release-4.1.0-2026-10-19.json"
+    "evidence": "tests/visual/windows-release-4.2.0-2026-10-20.json"
   },
-  "previous_release_evidence": "tests/visual/windows-release-0.4.0-2026-10-19.json"
+  "previous_release_evidence": "tests/visual/windows-release-4.1.0-2026-10-19.json"
 }

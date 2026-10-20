@@ -28,7 +28,7 @@ IME, cross-application cancellation and matched macOS interaction remain separat
 acceptance work. Next exercise folder/playlist/history and window transitions as
 complete workflows, retaining the playback/fullscreen regression gates below.
 
-The [local track-list follow-up](../tests/visual/windows-quick-settings-tracks-2026-10-19.json)
+The [track-list follow-up](../tests/visual/windows-quick-settings-tracks-2026-10-19.json)
 adds shared Audio/Video/subtitle list ownership, repeated-key traversal, row reveal
 and flexible language badges. Native checks cover all four selectors and narrow
 light Audio. Continue Quick Settings work on the remaining page focus graph,
@@ -37,9 +37,11 @@ bounds and matched macOS control geometry. Music Mode artwork still needs a
 separate native video viewport: letterboxing and art under the compact control
 strip remain visible, even though compact frame sizing is now correct.
 
-The latest local workflow batch adds keyboard-operated equalizer naming, optical
+The 4.2.0 workflow batch adds keyboard-operated equalizer naming, optical
 play-glyph centering, separate Music Mode transport/window controls, independent
 pane scroll positions and visible playlist rows with a compact six-action footer.
+Headless pane-memory coverage passed, but the final package reset Audio scrolling
+after Layout in a 285 x 141 client. Keep that native restoration case open.
 It also fixes first-click slider input, quiet paused-media Music Mode transitions
 and Windows watch-later path identity. See the dated workflow record in
 [verification](verification.md) for final tested scope rather than treating these

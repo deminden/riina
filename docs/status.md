@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-20. Release candidate: **4.2.0**; published release: **4.1.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-20. Published release: **4.2.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -61,7 +61,7 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
-## Changes prepared for 4.2.0
+## Changes in 4.2.0
 
 Quick Settings now shares one track-list control across Audio, Video and both
 subtitle lanes. Repeated arrows advance without waiting for playback observations;
@@ -92,60 +92,39 @@ now has real temporary-filesystem regressions for ordering, exclusions and stale
 Control bindings from the framed host share the existing dispatch route; native-
 menu-only accelerators from every focus owner remain separate work.
 
-Only Windows was available. Linux full-application CI now installs and probes GTK
-and WebKitGTK dependencies, but native macOS/Linux playback, physical audio/HDR,
+Only Windows was available for desktop checks. Linux full-application CI installs
+and probes GTK and WebKitGTK dependencies. A separate main-source follow-up passed
+Linux lint, unit tests and the full application build, and macOS strict lint;
+macOS alias-path handling was then corrected after a unit-test failure. That
+[source follow-up](port-development.md) has separate verification in progress.
+Native macOS/Linux playback, physical audio/HDR,
 other DPI, complete focus/accessibility behavior and matched reference pixels
-remain unverified. The 4.2.0 candidate collects these changes; exact-package
-verification and publication are separate from the development checks below.
+remain unverified. The Windows release collects the playback/settings changes
+above; the platform CI repairs are subsequent work on main. Exact-package evidence
+is separate from the development checks below.
 
 The workflow batch passed build, formatting, strict Clippy, 656 workspace tests
 (56 ignored), 40 widget regressions, 62 Python tests and a 5832 ms debug playback
 smoke. The record separates native engine checks, GUI candidates and remaining
 artwork underlay/clipping, focus, shortcut and visual-comparison gaps.
 
-## Changes in 4.1.0
+## Previous release
 
-This release collects the verified Quick Settings and player follow-ups since
-0.4.0. The version **4.1.0** was selected explicitly for this release; it does not
-claim complete IINA parity or add supported application ports.
-
-- Numeric delay/speed editors preserve drafts during playback observations and
-  controller auto-hide. Return/Tab submit once; Escape cancels within the editor.
-- Categories form one keyboard stop with arrow/Home/End navigation, selected
-  accessibility state and visible focus. Narrow pages remain scrollable.
-- Windows system-menu entry belongs to the framed owner. After native menu mode
-  ends, a consumed Alt release is repaired without clearing a held modifier.
-  Windows' first Escape closes a popup and its second leaves menu-bar navigation.
-- Floating transport is centered independently of audio and toolbar visibility.
-  Theme segments fit their rail; Layout icons, switches and controller previews
-  share their intended centers. Narrow Layout pages retain a real 300-point
-  scroll extent and full-sized choice tiles.
-
-The [input](../tests/visual/windows-quick-settings-input-2026-10-19.json),
-[navigation](../tests/visual/windows-quick-settings-navigation-2026-10-19.json),
-[menu input](../tests/visual/windows-system-menu-alt-2026-10-19.json) and
-[proportion](../tests/visual/windows-player-proportions-2026-10-19.json) records
-identify the development builds collected by 4.1.0. The proportion batch passed
-626 workspace
-tests (56 ignored), 20 generated-widget regressions, formatting, strict Clippy,
-60 Python tests and a 5841 ms playback smoke. Native checks covered both themes,
-standard/compact Layout and a 285 x 160 player. Exact release-package checks are
-separate from these development-build results.
-
-The release reuses the verified playback engine from 0.4.0, whose
-native recipe matches the current source. The application is rebuilt for 4.1.0;
-checksums, notices, corresponding source and the extracted executable passed
-verification before publication. See [release notes](release-notes/4.1.0.md).
+The [4.1.0 notes](release-notes/4.1.0.md) and
+[release record](../tests/visual/windows-release-4.1.0-2026-10-19.json) retain the
+earlier numeric-editing, category-navigation, Windows Alt-state and Layout work.
+Those dated checks are separate from the newer workflow and package evidence.
 
 ## Verification summary
 
-**[4.1.0](https://github.com/deminden/riina/releases/tag/v4.1.0) is published.** Its
-[release record](../tests/visual/windows-release-4.1.0-2026-10-19.json) identifies source
-`9b49001`, the exact archive hashes, reused engine and package checks. Hosted
-and local extracted-application playback smokes passed in 6226 ms and
-5863 ms respectively. The hosted software OpenGL driver was test-only and
-is absent from the published ZIP. The application was compiled once; publication
-reused those verified files without another build.
+**[4.2.0](https://github.com/deminden/riina/releases/tag/v4.2.0) is published.** Its
+[release record](../tests/visual/windows-release-4.2.0-2026-10-20.json) identifies source
+`5910648`, archive hashes, the unchanged reused engine and exact-package checks.
+Hosted and local extracted-application playback smokes passed in 6211 ms and
+5843 ms respectively. Full-desktop captures and scoped native controls were
+inspected; no Riina process remained after shutdown. The hosted software OpenGL
+driver was test-only and is absent from the ZIP. Publication reused the verified
+archive without rebuilding.
 
 The development checks for the new changes are listed above. Earlier settings,
 menu and playback results remain dated in the [verification register](verification.md),

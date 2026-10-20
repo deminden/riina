@@ -25,10 +25,15 @@ sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
 pkg-config --modversion gtk+-3.0 webkit2gtk-4.1
 ```
 
-The application-port workflow now installs and probes these dependencies before
-linting the full workspace. The local Windows checks cannot validate this Linux
-setup or macOS linking. Record the workflow result after it actually runs, then
-perform the native desktop checks below; a corrected workflow is not build evidence.
+The application-port workflow installs and probes these dependencies before
+linting the full workspace. On 2026-10-20, revision `f674279` passed strict
+application lint on Linux and both macOS runners; Linux also passed the unit
+tests and full application build. macOS unit tests exposed ordinary relative
+paths being rewritten by alias resolution. Revision `948fd34` preserves unchanged
+targets, and its [full application verification](https://github.com/deminden/riina/actions/runs/39351055679)
+is in progress. The [release record](../tests/visual/windows-release-4.2.0-2026-10-20.json)
+separates these source follow-ups from the Windows binary built at `5910648`.
+Neither compilation nor these tests establish native playback support.
 
 Library discovery uses `libmpv.so.2` on Linux and `libmpv.2.dylib` on macOS. A
 library beside the executable takes precedence. macOS also checks an application

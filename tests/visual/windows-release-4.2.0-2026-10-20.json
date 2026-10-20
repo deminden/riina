@@ -1,0 +1,260 @@
+{
+  "date": "2026-10-20",
+  "version": "4.2.0",
+  "source_revision": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
+  "candidate_run_id": 39347703730,
+  "candidate_url": "https://github.com/deminden/riina/actions/runs/39347703730",
+  "native_engine_reuse": {
+    "native_release_tag": "v4.1.0",
+    "native_source_commit": "9b49001c3fb0bd2394e863ccd2ea82b0ee15884b",
+    "native_contract_tree": "99f64cc408a303959fbd0cf907904fec9638b33e",
+    "previous_archive_sha256": "469abecba562a1548f4d35c39c1b0303f357f15ebb878ce222779fcd7fb327ae",
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af"
+  },
+  "native_engine_recompiled": false,
+  "application_rebuilt": true,
+  "source_size_audit": {
+    "source_zip_bytes": 2570366,
+    "source_uncompressed_bytes": 17875250,
+    "largest_files": [
+      [
+        1565924,
+        "tests/fixtures/moving-square.avi"
+      ],
+      [
+        1562429,
+        "tests/fixtures/track-languages.mkv"
+      ],
+      [
+        1561780,
+        "tests/fixtures/catalog.mkv"
+      ],
+      [
+        1327534,
+        "tests/fixtures/hdr-pq.mkv"
+      ],
+      [
+        1327534,
+        "tests/fixtures/hdr-hlg.mkv"
+      ]
+    ],
+    "github_archive": {
+      "bytes": 2584692,
+      "sha256": "d2f59bf3f03cb4870905c9e99b2a6a2412e4579ddedb746f9339656de7368976",
+      "url": "https://codeload.github.com/deminden/riina/zip/refs/tags/v4.2.0",
+      "duplicated_build_or_vendor_trees": false
+    }
+  },
+  "publication_status": "published",
+  "development_evidence": "tests/visual/windows-workflows-2026-10-20.json",
+  "remaining_gaps": [
+    "Full IINA 1.5.0 behavior and visual parity remain in progress.",
+    "Music Mode native artwork viewport still needs clipping and letterboxing around compact controls.",
+    "Complete keyboard focus, native accessibility, other DPI and matched macOS comparison remain open.",
+    "Only Windows desktop is available; macOS/Linux playback, audible output and HDR are not certified.",
+    "Audio scroll returned to the top after Layout, through both the shortcut and category button, in the 285 x 141 client. Native per-pane restoration is not accepted despite headless regression coverage.",
+    "Fit to Screen (Ctrl+3) produced an undersized 285 x 141 client in this session. Its native sizing intent needs inspection.",
+    "Native artwork is still letterboxed against the whole Music Mode client and can appear beneath controls after Hide album art. Artwork pixel parity is not accepted."
+  ],
+  "documentation_links": {
+    "local_checked": 194,
+    "missing": 0
+  },
+  "port_ci_followup": {
+    "release_source_run_id": 39347697999,
+    "release_source_result": "Strict full-application lint failed on platform-specific unused code/imports and macOS redundant borrows. No macOS/Linux binaries are published.",
+    "source_revision": "948fd34b52aefac9976e1304d87a69b1bd6673d1",
+    "run_id": 39351055679,
+    "part_of_windows_release_binary": false,
+    "scope": "Separate main-source conditional-compilation cleanup; Windows release remains built from 5910648. Native macOS/Linux playback and lifecycle acceptance remain open.",
+    "status": "Full application verification in progress; no runtime-support claim.",
+    "previous_followup": {
+      "source_revision": "f67427959a72e338eed86297ddf465b8e1aca126",
+      "run_id": 39349331476,
+      "linux_full_application": "passed",
+      "macos_strict_lint": "passed",
+      "macos_unit_test_failure": "Alias resolution normalized ordinary relative filenames to absolute paths; fixed separately on main by preserving unchanged targets.",
+      "local_windows_strict_clippy": "passed",
+      "local_windows_workspace_regression_baseline": "656 passed, 56 ignored on ab7b95b; the later conditional adjustments do not alter Windows executable code."
+    }
+  },
+  "package_audit": {
+    "version": "4.2.0",
+    "native_source_files_indexed": 101748,
+    "native_source_repositories_indexed": 88,
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "cargo_lock_sha256": "df2e9ff89c252bcca7ed4aed73363c0c053e6691888754fe9c4cec0510da676b",
+    "source_commit": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
+    "scope": "Exact extracted package and tagged application source; native source repositories and revisions are recorded in the package manifest; third-party notices are verified; playback is a separate required workflow check."
+  },
+  "package_assets": {
+    "RELEASE-VERIFICATION.json": {
+      "size": 581,
+      "sha256": "303a79d9e4db8942405d91bc80574351f05fae8d774916a68f9d2e9bee4adba4"
+    },
+    "riina-4.2.0-windows-x86_64.zip": {
+      "size": 74312167,
+      "sha256": "735a9f3f62f36450951dbce26bb34430acaa52c7c36e5f46bcfc7091b30d3988"
+    },
+    "SHA256SUMS.txt": {
+      "size": 98,
+      "sha256": "0145163703f81a98fe02fe9c19a5e171f7e6c734426793cb34e12b2741c904a9"
+    }
+  },
+  "executable_sha256": "3a0b61e5954be935891408a2ca9ef0b52d4ed31bfc1c9b8681f17fb3bd841ff7",
+  "local_exact_package": {
+    "imports_notices_and_source": "passed",
+    "same_archive_as_ci": true,
+    "smoke": {
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress"
+      ],
+      "elapsed_ms": 5843,
+      "error": null,
+      "executable": "C:\\Codex\\wiina\\target\\release-4.2.0-test-package\\riina.exe",
+      "physical_display_verified": false,
+      "pid": 26152,
+      "success": true,
+      "title": "moving-square.avi \u2014 riina"
+    },
+    "normal_exit": true,
+    "remaining_riina_processes": 0,
+    "audio_output": "null"
+  },
+  "hosted_verification": {
+    "conclusion": "success",
+    "run_id": 39347703730,
+    "run_number": 77,
+    "verified_asset_id": 12232474278,
+    "workspace_passed": 656,
+    "workspace_ignored": 56,
+    "widget_regressions": 40,
+    "python_passed": 62,
+    "native_integration_passed": 51,
+    "exact_package_native_smoke_passed": 1,
+    "formatting": "passed",
+    "strict_clippy": "passed",
+    "imports_notices_and_source": "passed",
+    "smoke": {
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress"
+      ],
+      "elapsed_ms": 6211,
+      "error": null,
+      "executable": "D:\\a\\riina\\riina\\package-smoke\\riina.exe",
+      "physical_display_verified": false,
+      "pid": 5352,
+      "success": true,
+      "title": "moving-square.avi \u00e2\u20ac\u201d riina"
+    },
+    "driver": "Mesa 26.0.3 llvmpipe, test-only; its DLLs are absent from the release ZIP"
+  },
+  "manual_package_inspection": {
+    "completed": true,
+    "pids": [
+      448,
+      17632
+    ],
+    "executable_sha256": "3a0b61e5954be935891408a2ca9ef0b52d4ed31bfc1c9b8681f17fb3bd841ff7",
+    "fixtures": [
+      "track-navigation.mkv",
+      "artwork.wav"
+    ],
+    "state": "Paused at 0:00; correct filename and selected Audio panel observed before interaction. Music Mode used isolated 60-second audio with embedded cover art.",
+    "checks": [
+      "Narrow 285 x 160 initial player and packed controls",
+      "Maximized light Audio panel and dark equalizer handles",
+      "Audio End selects #5 Portuguese and reveals its row; Home selects None; Down restores #1 English",
+      "OS-delivered video double click enters fullscreen with visible video and controller",
+      "Escape exits fullscreen with the Audio track list focused",
+      "Outer Audio page scroll reaches lower content in a 285 x 141 client",
+      "Paused embedded-art audio automatically enters 300 x 259 Music Mode",
+      "Hide album art changes the compact client to 300 x 90",
+      "Independent Music Mode transport and utility controls inspected"
+    ],
+    "normal_exit": true,
+    "remaining_riina_processes": 0,
+    "audio_output": "null",
+    "display_scale_percent": 300,
+    "remaining_failures": [
+      "Audio scroll returned to the top after Layout, through both the shortcut and category button, in the 285 x 141 client. Native per-pane restoration is not accepted despite headless regression coverage.",
+      "Fit to Screen (Ctrl+3) produced an undersized 285 x 141 client in this session. Its native sizing intent needs inspection.",
+      "Native artwork is still letterboxed against the whole Music Mode client and can appear beneath controls after Hide album art. Artwork pixel parity is not accepted."
+    ]
+  },
+  "desktop_captures": {
+    "width": 3840,
+    "height": 2160,
+    "non_black_probes": true,
+    "images": [
+      {
+        "stage": "before",
+        "sha256": "1f24343a63ebc48e3cda22fa4fe58b0c472a092a2ddf3050dd6bc8d007ef9799"
+      },
+      {
+        "stage": "fullscreen",
+        "sha256": "a8af934ed0ba15b7e9ba4f3bd9238ee3684868886f6df005a4bcde33961e0a2f"
+      },
+      {
+        "stage": "after",
+        "sha256": "1d094072d3d45ede7c4414c1f854eca28e8c5bf653cb2e3cbb2b24d0306574bb"
+      },
+      {
+        "stage": "manual_fullscreen",
+        "sha256": "cce9ce10c08af6eb1700074ffe78b68cf688c37f716305ab93a18ad0368cf219"
+      },
+      {
+        "stage": "manual_after",
+        "sha256": "a38b584313332a303cc19640ade145d7ea5879dfb41788751b411f09d5c1173c"
+      }
+    ],
+    "inspection": "All full virtual-desktop images inspected privately. The scripted fullscreen image was partly occluded by another application. A separate foreground capture after an OS-delivered double click shows the video and controller together. Before/after captures show no remaining Riina surface. Raw desktop images are not published."
+  },
+  "dependency_audit": {
+    "project_versions": [
+      [
+        "riina",
+        "4.2.0"
+      ],
+      [
+        "riina-core",
+        "4.2.0"
+      ],
+      [
+        "riina-mpv",
+        "4.2.0"
+      ]
+    ],
+    "unchanged_external_locked_packages": 770,
+    "native_recipe_tree": "99f64cc408a303959fbd0cf907904fec9638b33e"
+  },
+  "release": {
+    "url": "https://github.com/deminden/riina/releases/tag/v4.2.0",
+    "tag": "v4.2.0",
+    "published_at": "2026-10-20T01:02:10Z",
+    "assets": {
+      "RELEASE-VERIFICATION.json": {
+        "size": 581,
+        "sha256": "303a79d9e4db8942405d91bc80574351f05fae8d774916a68f9d2e9bee4adba4"
+      },
+      "riina-4.2.0-windows-x86_64.zip": {
+        "size": 74312167,
+        "sha256": "735a9f3f62f36450951dbce26bb34430acaa52c7c36e5f46bcfc7091b30d3988"
+      },
+      "SHA256SUMS.txt": {
+        "size": 98,
+        "sha256": "0145163703f81a98fe02fe9c19a5e171f7e6c734426793cb34e12b2741c904a9"
+      }
+    }
+  }
+}
