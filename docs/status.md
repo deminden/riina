@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-20. Published release: **4.1.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-20. Release candidate: **4.2.0**; published release: **4.1.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -61,7 +61,7 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 - Light Quick Settings tints its sampled video before drawing controls. Fullscreen
   Escape also works when the framed playback host has keyboard focus.
 
-## Local development since 4.1.0
+## Changes prepared for 4.2.0
 
 Quick Settings now shares one track-list control across Audio, Video and both
 subtitle lanes. Repeated arrows advance without waiting for playback observations;
@@ -74,7 +74,7 @@ identifies that earlier executable and its scoped native checks. The newer
 [workflow record](../tests/visual/windows-workflows-2026-10-20.json) separates the
 current checks from intermediate failures and remaining acceptance work.
 
-The local follow-up adds keyboard-operated equalizer Save/Rename, Unicode profile
+The follow-up adds keyboard-operated equalizer Save/Rename, Unicode profile
 persistence, semantic light-theme handles and subtitle warning colors. The play
 triangle has an independent optical correction; Music Mode owns separate transport
 geometry and top-left window actions. Pane scroll positions survive category and
@@ -92,7 +92,8 @@ menu-only accelerators from every focus owner remain separate work.
 Only Windows was available. Linux full-application CI now installs and probes GTK
 and WebKitGTK dependencies, but native macOS/Linux playback, physical audio/HDR,
 other DPI, complete focus/accessibility behavior and matched reference pixels
-remain unverified. These changes remain local; published version is still 4.1.0.
+remain unverified. The 4.2.0 candidate collects these changes; exact-package
+verification and publication are separate from the development checks below.
 
 The workflow batch passed build, formatting, strict Clippy, 656 workspace tests
 (56 ignored), 40 widget regressions, 62 Python tests and a 5832 ms debug playback

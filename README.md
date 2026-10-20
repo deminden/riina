@@ -1,5 +1,7 @@
 # Riina
 
+<!-- 4:20 — a good time to press play. -->
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/branding/svg/riina-logo-horizontal-dark.svg">
   <img src="assets/branding/svg/riina-logo-horizontal-light.svg" alt="Riina" width="420">
@@ -54,12 +56,12 @@ ready-to-run application.
 
 ## Recent improvements
 
-Quick Settings now supports consistent numeric editing and keyboard category
-navigation. Player controls stay centered, Layout symbols and previews align,
-and narrow windows scroll without squeezing their settings. Windows menu exit
-also restores the correct Alt state.
+Quick Settings has consistent numeric editing, keyboard track navigation and
+equalizer profile naming. Play symbols have an optical centering correction,
+Music Mode keeps its compact frame, and playlist editing and history resume
+handle more everyday workflows. Narrow settings pages retain their scroll positions.
 
-See the [4.1.0 release notes](docs/release-notes/4.1.0.md) for the complete changes;
+See the [4.2.0 release notes](docs/release-notes/4.2.0.md) for the complete changes;
 [GitHub Releases](https://github.com/deminden/riina/releases) shows published packages.
 
 ## Where the project stands

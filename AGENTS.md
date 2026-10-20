@@ -39,7 +39,7 @@ tools as contributors.
 Keep incremental development and commits local. Publish public GitHub updates
 only at substantial verified milestones or when the user explicitly requests it.
 Use semantic versioning: advance the patch digit for noticeable milestones and
-the minor digit for major milestones. The current version is 4.1.0, selected explicitly for this release.
+the minor digit for major milestones. The current version is 4.2.0, selected explicitly for this release.
 
 ## Builds and verification
 

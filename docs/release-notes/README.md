@@ -5,6 +5,7 @@ have since changed. Use [current status](../status.md) for the development state
 and [GitHub Releases](https://github.com/deminden/riina/releases) for published
 binaries; a local notes file alone is not proof of publication.
 
+- [4.2.0](4.2.0.md)
 - [4.1.0](4.1.0.md)
 - [0.4.0](0.4.0.md)
 - [0.3.8](0.3.8.md)
