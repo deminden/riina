@@ -350,6 +350,32 @@ jobs:
           $packagePath = (Resolve-Path package-smoke).Path
           $env:PATH = "$packagePath;$env:PATH"
           cargo test -p riina-mpv --test native --locked --target x86_64-pc-windows-msvc playback_pause_seek_stop_failure_and_shutdown -- --ignored --exact --nocapture
+      - name: Build installer from the same portable payload
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          ./scripts/prepare-windows-installer.ps1 -Destination "${{ runner.temp }}/inno-setup"
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
+          python scripts/build-windows-installer.py --package "dist/riina-$version-windows-x86_64" --output dist --compiler "${{ runner.temp }}/inno-setup/ISCC.exe" --version $version
+          Get-FileHash "dist/riina-$version-windows-x86_64-setup.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  riina-$version-windows-x86_64-setup.exe" } | Add-Content -Encoding ascii dist/SHA256SUMS.txt
+      - name: Verify installed application, reinstall and uninstall
+        timeout-minutes: 5
+        shell: pwsh
+        env:
+          GALLIUM_DRIVER: llvmpipe
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
+          ./scripts/smoke-windows-installer.ps1 -Installer "dist/riina-$version-windows-x86_64-setup.exe" -Inventory dist/INSTALLER-VERIFICATION.json -Fixture tests/fixtures/moving-square.avi -ReportPath (Join-Path $PWD 'dist/INSTALLER-SMOKE.json') -HostedGraphics
+      - name: Preserve installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-installer-evidence
+          path: |
+            dist/INSTALLER-*.json*
+            ${{ runner.temp }}/riina-installer-*/*.log
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: inputs.release_source_tag != ''
         with:
@@ -387,6 +413,9 @@ jobs:
           name: windows-package
           path: |
             dist/riina-*-windows-x86_64.zip
+            dist/riina-*-windows-x86_64-setup.exe
+            dist/INSTALLER-VERIFICATION.json
+            dist/INSTALLER-SMOKE.json
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
@@ -444,6 +473,11 @@ jobs:
             --source "$GITHUB_WORKSPACE" --version "$version" \
             > release-assets/RELEASE-VERIFICATION.json
           cat release-assets/RELEASE-VERIFICATION.json
+          python scripts/check-windows-installer.py \
+            --archive "release-assets/riina-$version-windows-x86_64.zip" \
+            --installer "release-assets/riina-$version-windows-x86_64-setup.exe" \
+            --inventory release-assets/INSTALLER-VERIFICATION.json \
+            --smoke release-assets/INSTALLER-SMOKE.json
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # verified v7.0.2
@@ -486,10 +520,13 @@ jobs:
           fi
           (cd release-assets && sha256sum --check SHA256SUMS.txt)
           cat > release-notes.md <<EOF
+          **[Install Riina $version for Windows]($repo/releases/download/$tag/riina-$version-windows-x86_64-setup.exe)**
+
           **[Download Riina $version for Windows]($repo/releases/download/$tag/riina-$version-windows-x86_64.zip)**
 
-          These are portable binaries for Windows 11 (64-bit). Everything needed
-          to play video and audio is included, and no installation is required.
+          Windows 11 (64-bit). Both downloads include the playback engine.
+          Use Setup for Start menu integration and Windows uninstall support,
+          or choose the portable ZIP to run without installation.
 
           1. Download the Windows ZIP above.
           2. Extract it to a folder of your choice.
@@ -511,6 +548,9 @@ jobs:
           fi
           gh release create "$tag" \
             "release-assets/riina-$version-windows-x86_64.zip" \
+            "release-assets/riina-$version-windows-x86_64-setup.exe" \
+            "release-assets/INSTALLER-VERIFICATION.json" \
+            "release-assets/INSTALLER-SMOKE.json" \
             "release-assets/SHA256SUMS.txt" \
             "release-assets/RELEASE-VERIFICATION.json" \
             --verify-tag --title "Riina $version" --notes-file release-notes.md "${latest_flag[@]}"

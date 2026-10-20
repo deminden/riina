@@ -27,7 +27,10 @@ def select(run, jobs, artifacts, repository, run_id):
     if len(package_jobs) != 1:
         raise ValueError("Candidate package job is missing or ambiguous")
     steps = package_jobs[0].get("steps", [])
-    for name in REQUIRED_STEPS:
+    installer_steps = {"Build installer from the same portable payload",
+                       "Verify installed application, reinstall and uninstall"}
+    required = REQUIRED_STEPS | (installer_steps if any(step.get("name") in installer_steps for step in steps) else set())
+    for name in required:
         matching = [step for step in steps if step.get("name") == name]
         if len(matching) != 1 or matching[0].get("conclusion") != "success":
             raise ValueError(f"Original candidate did not pass: {name}")

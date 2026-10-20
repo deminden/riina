@@ -116,6 +116,10 @@ erase shared Cargo downloads. Keep references outside `target/`.
    notices, hashes and source/build manifests.
 4. Extract the archive and run the actual executable through
    `scripts/smoke-windows-package.ps1`. Keep native engine checks as well.
+   Build the installer from that same payload with pinned Inno Setup 6.7.3;
+   `smoke-windows-installer.ps1` verifies install/reinstall, all payload hashes,
+   Start menu and uninstall registration, installed playback and uninstall.
+   The installer test refuses to replace an existing installed Riina.
 5. Record physical-display, audible-output and HDR checks separately. Publish only
    the verified candidate when a public milestone or explicit request authorizes it.
 
@@ -125,6 +129,15 @@ Use the release workflow's manual dispatch for a candidate. Set
 those exact verified assets afterward. `publish_release=true` publishes after the
 same run's package checks pass. Creating the version tag does not start another
 binary build.
+
+The installer definition is `packaging/windows/riina.iss`. It installs only for
+the current user under `%LOCALAPPDATA%\Programs\Riina`, requires Windows 11 x64,
+and uses a stable application ID for subsequent upgrades. The default desktop
+shortcut is unchecked. No default file association or recursive profile removal
+is performed. Every portable payload file, including notices and source-access
+records, is installed unchanged. Inno Setup's own generated uninstaller files
+are additional installation metadata. Compiler downloads are checksum and
+publisher-signature checked by `prepare-windows-installer.ps1`.
 
 ### Retest a saved package without rebuilding
 

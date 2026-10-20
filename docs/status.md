@@ -38,6 +38,12 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- A refreshed 4.2.0 candidate adds a current-user Windows installer alongside the
+  portable ZIP and includes the local input/settings/viewport changes below.
+  Installation, same-version reinstall, shortcut integration, installed playback
+  and uninstall are packaging gates. The earlier published package remains the
+  release baseline until the refreshed exact packages pass verification.
+
 - The local settings/Music Mode follow-up retains the animated sidebar scroll
   position across Layout and other categories. Windows artwork has its own
   native region above compact controls and the playlist; hiding it no longer

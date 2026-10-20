@@ -42,13 +42,18 @@ for individual requirements and limitations.
 ## Download and run
 
 1. Open the [latest release](https://github.com/deminden/riina/releases/latest).
-2. Download the **Windows x86_64 ZIP** from the release assets.
-3. Extract the whole archive to a folder, then run `riina.exe`.
+2. Choose **Windows x86_64 Setup EXE** to install Riina, or the **portable ZIP**.
+3. Run Setup and open Riina from Start, or extract the whole ZIP and run `riina.exe`.
 4. Open a media file through the player or drag it onto the window.
 
 Keep the executable beside the libraries and other files supplied in the archive.
-The portable package includes its playback engine; you do not need a separate mpv
+Both packages include the same application and playback engine; you do not need a separate mpv
 installation. Available formats depend on the bundled engine.
+
+Setup installs for your Windows account without administrator rights. It adds a
+Start menu shortcut and offers an optional desktop shortcut. Uninstall through
+Windows Settings > Apps; preferences, history and media files are preserved.
+Setup does not change your default media player.
 
 The release page includes checksums, release notes and a verification report.
 GitHub's automatically generated source archives contain source code, not a
@@ -71,7 +76,7 @@ and visual parity remain the goal; they are not a claim of completion.
 
 | Platform | Availability |
 |---|---|
-| **Windows 11 x64** | Supported application and portable releases; native D3D11 video by default |
+| **Windows 11 x64** | Installer and portable releases; native D3D11 video by default |
 | macOS | Application port in development; no supported release yet |
 | Linux | Application port in development; no supported release yet |
 | Other Windows versions and ARM64 | Not verified |

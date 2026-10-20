@@ -1,0 +1,14 @@
+Riina for Windows 11 (64-bit)
+
+Setup installs Riina and its playback engine for your Windows account. Administrator
+rights and a separate mpv installation are not required.
+
+A Start menu shortcut is included. A desktop shortcut is optional. Setup does not
+change your default media player or file associations.
+
+Uninstall Riina through Windows Settings > Apps > Installed apps. Your preferences,
+playback history and media files are preserved.
+
+Original Riina source is MIT licensed. The combined application package is
+distributed under GPLv3 terms. Third-party notices and exact source-access
+instructions are installed alongside the application.

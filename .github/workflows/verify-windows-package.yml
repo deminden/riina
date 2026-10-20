@@ -41,12 +41,23 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $version = (Select-String -Path candidate-source/Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
           $archive = "riina-$version-windows-x86_64.zip"
-          $checksum = Get-Content release-assets/SHA256SUMS.txt -Raw
-          if ($checksum.Trim() -notmatch "^([0-9a-f]{64})  $([regex]::Escape($archive))$") { throw 'Ambiguous package checksum' }
-          if ((Get-FileHash "release-assets/$archive" -Algorithm SHA256).Hash.ToLower() -ne $Matches[1]) { throw 'Saved package checksum differs' }
+          $checksum = @(Get-Content release-assets/SHA256SUMS.txt | Where-Object { $_ -match "^([0-9a-f]{64})  $([regex]::Escape($archive))$" })
+          if ($checksum.Count -ne 1) { throw 'Ambiguous package checksum' }
+          $expected = $checksum[0].Split(' ')[0]
+          if ((Get-FileHash "release-assets/$archive" -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Saved package checksum differs' }
           Expand-Archive "release-assets/$archive" -DestinationPath package-smoke
           python scripts/check-windows-runtime.py --package package-smoke
           python scripts/check-release-artifacts.py package --binary package-smoke --source candidate-source --version $version > release-assets/RELEASE-VERIFICATION.json
+      - name: Recheck saved installer lifecycle when present
+        if: hashFiles('release-assets/INSTALLER-VERIFICATION.json') != ''
+        env:
+          GALLIUM_DRIVER: llvmpipe
+        shell: pwsh
+        run: |
+          $record = Get-Content release-assets/INSTALLER-VERIFICATION.json -Raw | ConvertFrom-Json
+          ./scripts/smoke-windows-installer.ps1 -Installer "release-assets/$($record.installer)" -Inventory release-assets/INSTALLER-VERIFICATION.json -Fixture candidate-source/tests/fixtures/moving-square.avi -ReportPath (Join-Path $env:RUNNER_TEMP 'installer-recheck.json') -HostedGraphics
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'installer-recheck.json') release-assets/INSTALLER-SMOKE.json
+          python scripts/check-windows-installer.py --archive "release-assets/riina-$($record.version)-windows-x86_64.zip" --installer "release-assets/$($record.installer)" --inventory release-assets/INSTALLER-VERIFICATION.json --smoke release-assets/INSTALLER-SMOKE.json
       - name: Supply software OpenGL for the hosted test only
         run: python scripts/prepare-windows-ci-graphics.py --application package-smoke --archive "${{ runner.temp }}/mesa-ci.7z"
       - name: Exercise the unchanged application binary

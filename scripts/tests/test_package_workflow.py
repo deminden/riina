@@ -49,6 +49,14 @@ class PackageWorkflowTests(unittest.TestCase):
         self.assertIn("uses: actions/cache/save@", save)
         self.assertIn("key: ${{ steps.rust-cache.outputs.cache-primary-key }}", save)
 
+    def test_installer_is_checked_before_package_publication(self):
+        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertLess(source.index("smoke-windows-installer.ps1"), source.index("\n  package-verification:"))
+        audit = source.split("\n  package-verification:", 1)[1].split("\n  publish:", 1)[0]
+        self.assertIn("scripts/check-windows-installer.py", audit)
+        for name in ("INSTALLER-VERIFICATION.json", "INSTALLER-SMOKE.json", "windows-x86_64-setup.exe"):
+            self.assertIn(name, source.split("\n  publish:", 1)[1])
+
 
 if __name__ == "__main__":
     unittest.main()
