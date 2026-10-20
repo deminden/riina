@@ -4703,6 +4703,7 @@ pub(crate) fn configure_player(
         let timer_outgoing_attempt = outgoing_capture_attempt.clone();
         let timer_incoming_attempt = incoming_capture_attempt.clone();
         let timer_incoming_stability = incoming_capture_stability.clone();
+        #[cfg(target_os = "windows")]
         let timer_transition_release_generation = transition_release_generation.clone();
         let timer_pending_navigation = pending_navigation.clone();
         let timer_surface_host = surface_host.clone();
