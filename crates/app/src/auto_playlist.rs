@@ -148,3 +148,7 @@ fn sort_media(paths: &mut [String]) {
         crate::platform::natural_compare(&left_name, &right_name).then_with(|| left.cmp(right))
     });
 }
+
+#[cfg(test)]
+#[path = "auto_playlist_tests.rs"]
+mod tests;

@@ -57,7 +57,13 @@ impl State {
         self.observe_at(status, fullscreen, Instant::now())
     }
 
-    fn observe_at(&mut self, status: AudioStatus, fullscreen: bool, now: Instant) -> Option<bool> {
+    /// Observe with an explicit clock, including quiet, paused-catalog checks.
+    pub fn observe_at(
+        &mut self,
+        status: AudioStatus,
+        fullscreen: bool,
+        now: Instant,
+    ) -> Option<bool> {
         if !self.auto_switch || self.manual_override || status == AudioStatus::Unknown {
             self.transition_candidate = None;
             return None;

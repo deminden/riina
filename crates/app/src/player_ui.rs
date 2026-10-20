@@ -2795,6 +2795,7 @@ pub(crate) struct UiSession {
     _audio_filters_window: Rc<RefCell<Option<crate::VideoFiltersWindow>>>,
     _audio_filters_timer: Rc<slint::Timer>,
     _playlist_metadata_timer: Rc<slint::Timer>,
+    _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
     _player_window_focus: PlayerWindowFocusRegistration,
     prefs_path: PathBuf,
@@ -4290,7 +4291,6 @@ pub(crate) fn configure_player(
                         state.phase,
                         Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
                     );
-                let audio_status = state.audio_status();
                 let captures = latest.1.take();
                 let enter_fullscreen = opening_fullscreen.lock().is_ok_and(|mut opening| {
                     opening.observe(
@@ -4306,6 +4306,7 @@ pub(crate) fn configure_player(
                     .lock()
                     .ok()
                     .and_then(|sender| sender.clone());
+                crate::automatic_music_mode::observe(&app, &state, &music_mode_state);
                 let resize_for_media = update_ui(
                     &app,
                     state,
@@ -4322,11 +4323,6 @@ pub(crate) fn configure_player(
                     &mut last_video,
                     &mut last_screenshot,
                 );
-                if let Ok(mut mode) = music_mode_state.lock()
-                    && let Some(active) = mode.observe(audio_status, app.get_fullscreen())
-                {
-                    app.set_music_mode(active);
-                }
                 if resize_for_media {
                     // Apply the complete geometry after automatic music mode has
                     // restored the video window. Coalesced snapshots may omit
@@ -4399,6 +4395,11 @@ pub(crate) fn configure_player(
             prefs_path.clone(),
         );
     let playlist_metadata_timer = install_playlist_metadata_refresh(app, latest_playback.clone());
+    let automatic_music_mode_timer = crate::automatic_music_mode::install(
+        app,
+        latest_playback.clone(),
+        music_mode_state.clone(),
+    );
     if let Ok(mut sender) = plugin_command_sender.lock() {
         *sender = Some(player.command_sender());
     }
@@ -7119,6 +7120,7 @@ pub(crate) fn configure_player(
             _audio_filters_window: audio_filters_window,
             _audio_filters_timer: audio_filters_timer,
             _playlist_metadata_timer: playlist_metadata_timer,
+            _automatic_music_mode_timer: automatic_music_mode_timer,
             _file_drop_timer: file_drop_timer,
             _player_window_focus: player_window_focus,
             _plugin_host: plugin_host,
@@ -7459,6 +7461,7 @@ pub(crate) fn configure_player(
         _audio_filters_window: audio_filters_window,
         _audio_filters_timer: audio_filters_timer,
         _playlist_metadata_timer: playlist_metadata_timer,
+        _automatic_music_mode_timer: automatic_music_mode_timer,
         _file_drop_timer: file_drop_timer,
         _player_window_focus: player_window_focus,
         _plugin_host: plugin_host,

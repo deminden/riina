@@ -53,9 +53,9 @@ fn watch_later_file_path(
                 if ignore_path {
                     path.file_name()?.to_string_lossy().into_owned()
                 } else {
-                    // mpv hashes the native media path. Forward slashes keep the
-                    // file URL's path stable across Rust's Windows path spelling.
-                    path.to_string_lossy().replace('\\', "/")
+                    // The Windows engine hashes its native backslash spelling.
+                    // Decode history URLs back to that path before hashing.
+                    path.to_string_lossy().into_owned()
                 }
             }
             Ok(url) => url.as_str().to_owned(),
@@ -79,7 +79,7 @@ fn local_path_identifier(media_reference: &str, ignore_path: bool) -> Option<Str
     if ignore_path {
         Some(path.file_name()?.to_string_lossy().into_owned())
     } else {
-        Some(media_reference.replace('\\', "/"))
+        Some(media_reference.to_owned())
     }
 }
 
@@ -192,6 +192,25 @@ mod tests {
         let first = watch_later_file_path("folder-a/video.mkv", &directory, true).unwrap();
         let second = watch_later_file_path("folder-b/video.mkv", &directory, true).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_history_urls_hash_the_same_native_path_as_the_playback_engine() {
+        let directory = std::env::temp_dir();
+        let native = r"C:\Media\sample file.wav";
+        let from_path = watch_later_file_path(native, &directory, false).unwrap();
+        let from_url =
+            watch_later_file_path("file:///C:/Media/sample%20file.wav", &directory, false).unwrap();
+        assert_eq!(from_path, from_url);
+        assert_eq!(
+            from_path.file_name().unwrap().to_string_lossy(),
+            md5_hex(native.as_bytes())
+        );
+        assert_ne!(
+            from_path.file_name().unwrap().to_string_lossy(),
+            md5_hex(b"C:/Media/sample file.wav")
+        );
     }
 
     #[test]

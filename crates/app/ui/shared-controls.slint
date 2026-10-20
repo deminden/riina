@@ -1,3 +1,9 @@
+// Slint uses RRGGBBAA. These neutral fills must not use Windows ARGB order.
+export global AuxiliaryPalette {
+    out property <color> light-acrylic-fill: #ffffff40;
+    out property <color> dark-acrylic-fill: #ffffff09;
+}
+
 // Shared Slint controls keep playback and Preferences behavior aligned across
 // the platform backends without tying widgets to a native window API.
 export global NativeTypography {
@@ -146,6 +152,15 @@ export component PlayerSlider inherits Rectangle {
         horizontal-alignment: center; vertical-alignment: center;
     }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef; border-radius: 3px; background: transparent; }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == Key.RightArrow { root.changed(min(root.maximum, root.value + root.step)); return accept; }
+            if event.text == Key.LeftArrow { root.changed(max(root.minimum, root.value - root.step)); return accept; }
+            return reject;
+        }
+    }
     touch := TouchArea {
         enabled: root.enabled;
         changed has-hover => {
@@ -194,15 +209,6 @@ export component PlayerSlider inherits Rectangle {
                 }
             }
             if root.preview-enabled { root.preview-requested(pointer-value); }
-        }
-    }
-    focus := FocusScope {
-        enabled: root.enabled;
-        key-pressed(event) => {
-            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-            if event.text == Key.RightArrow { root.changed(min(root.maximum, root.value + root.step)); return accept; }
-            if event.text == Key.LeftArrow { root.changed(max(root.minimum, root.value - root.step)); return accept; }
-            return reject;
         }
     }
     if root.preview-enabled && touch.has-hover : Rectangle {
@@ -300,9 +306,24 @@ export component VerticalEqualizerSlider inherits Rectangle {
         height: max(1px, abs(root.center-y - root.knob-y));
         background: root.enabled ? #90b7ef : #777777; }
     Rectangle { x: 2px; y: root.knob-y - 2px; width: root.width - 4px; height: 4px;
-        border-radius: 2px; background: root.enabled ? #f4f4f7 : #777777; }
+        border-radius: 2px;
+        background: root.enabled ? (root.dark-theme ? #f4f4f7 : #55555e) : #777777; }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: #90b7ef;
         border-radius: 3px; background: transparent; }
+    focus := FocusScope {
+        x: 0; y: 0; width: root.width; height: root.height;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            if event.text == Key.UpArrow || event.text == Key.RightArrow {
+                root.changed(min(root.maximum, root.value + root.step)); return accept;
+            }
+            if event.text == Key.DownArrow || event.text == Key.LeftArrow {
+                root.changed(max(root.minimum, root.value - root.step)); return accept;
+            }
+            return reject;
+        }
+    }
     TouchArea {
         x: 0; y: 0; width: root.width; height: root.height;
         enabled: root.enabled;
@@ -319,19 +340,6 @@ export component VerticalEqualizerSlider inherits Rectangle {
                 let fraction = clamp((root.height - self.mouse-y - 4px) / max(1px, root.height - 8px), 0, 1);
                 root.changed(root.minimum + fraction * (root.maximum - root.minimum));
             }
-        }
-    }
-    focus := FocusScope {
-        x: 0; y: 0; width: root.width; height: root.height;
-        enabled: root.enabled;
-        key-pressed(event) => {
-            if event.text == Key.UpArrow || event.text == Key.RightArrow {
-                root.changed(min(root.maximum, root.value + root.step)); return accept;
-            }
-            if event.text == Key.DownArrow || event.text == Key.LeftArrow {
-                root.changed(max(root.minimum, root.value - root.step)); return accept;
-            }
-            return reject;
         }
     }
 }
@@ -374,7 +382,6 @@ export component SubtitleColorWell inherits Rectangle {
     Rectangle { x: 16px; y: 12px; width: 12px; height: 8px; background: #777777; }
     Rectangle { x: 4px; y: 4px; width: 24px; height: 16px;
         background: root.observed-color; opacity: root.enabled ? 1 : 0.4; }
-    TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.open-editor(); } }
     focus := FocusScope {
         enabled: root.enabled;
         key-pressed(event) => {
@@ -383,6 +390,7 @@ export component SubtitleColorWell inherits Rectangle {
             return reject;
         }
     }
+    TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.open-editor(); } }
     editor := PopupWindow {
         x: root.width - self.width; y: root.height;
         width: 240px; height: 176px;

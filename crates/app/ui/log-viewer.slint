@@ -1,5 +1,5 @@
 import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
-import { NativeTypography } from "shared-controls.slint";
+import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 
 export struct LogViewerRow {
     level: string,
@@ -45,7 +45,7 @@ export component LogViewerWindow inherits Window {
 
     Rectangle {
         x: 0; y: 0; width: parent.width; height: 48px;
-        background: root.acrylic-backdrop-enabled ? #40ffffff : #ececf0;
+        background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #ececf0;
         HorizontalLayout {
             x: 12px; y: 7px; width: parent.width - 24px; height: 34px; spacing: 5px;
             Button {
@@ -95,7 +95,7 @@ export component LogViewerWindow inherits Window {
 
     Rectangle {
         x: 12px; y: 55px; width: parent.width - 24px; height: 24px;
-        background: root.acrylic-backdrop-enabled ? #40ffffff : #e5e5e9;
+        background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #e5e5e9;
         Text { x: 6px; width: 72px; height: parent.height; text: "Level"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
         Text { x: 78px; width: 86px; height: parent.height; text: "Time"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
         Text { x: 166px; width: 126px; height: parent.height; text: "Subsystem"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
@@ -110,11 +110,11 @@ export component LogViewerWindow inherits Window {
         horizontal-scrollbar-policy: always-off;
         Rectangle {
             width: parent.width; height: max(1px, root.rows.length * 21px);
-            background: root.acrylic-backdrop-enabled ? #40ffffff : #ffffff;
+            background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #ffffff;
             for row[index] in root.rows : Rectangle {
                 x: 0; y: index * 21px; width: parent.width; height: 21px;
                 background: root.selected-index == index ? #d8e8ff
-                    : root.acrylic-backdrop-enabled ? #40ffffff
+                    : root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill
                     : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa);
                 Text { x: 6px; width: 72px; height: parent.height; text: row.level; color: row.level-color; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
                 Text { x: 78px; width: 86px; height: parent.height; text: row.timestamp; color: #707078; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
@@ -136,7 +136,7 @@ export component LogViewerWindow inherits Window {
 
     Rectangle {
         x: 0; y: parent.height - 28px; width: parent.width; height: 28px;
-        background: root.acrylic-backdrop-enabled ? #40ffffff : #ececf0;
+        background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #ececf0;
         Text {
             x: 12px; width: parent.width - 24px; height: parent.height;
             text: root.status-text;

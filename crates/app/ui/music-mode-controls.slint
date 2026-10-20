@@ -1,0 +1,88 @@
+import { Tool } from "player-tool.slint";
+
+// Music Mode has its own fixed control geometry. Utility buttons must not
+// participate in transport centering as they do in a packed toolbar row.
+export component MusicModeControls inherits Rectangle {
+    in property <bool> paused;
+    in property <bool> muted;
+    in property <bool> dark-theme: true;
+    in property <bool> playlist-visible;
+    in property <bool> artwork-visible;
+    in property <color> accent-color: #90b7ef;
+    callback pause-requested();
+    callback previous-requested();
+    callback next-requested();
+    callback volume-requested();
+    callback playlist-requested();
+    callback artwork-requested();
+    height: 28px;
+    private property <length> play-left: (root.width - 28px) / 2 + 2px;
+    Tool {
+        x: root.play-left - 90px; y: 5px; width: 18px; height: 18px;
+        icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
+        icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
+        hint: "Volume"; activated => { root.volume-requested(); }
+    }
+    Tool {
+        x: root.play-left - 52px; width: 28px; height: 28px;
+        icon-size: 28px; dark-theme: root.dark-theme; accent-color: root.accent-color;
+        icon: @image-url("../../../assets/icons/skip-previous.svg");
+        hint: "Previous media"; activated => { root.previous-requested(); }
+    }
+    Tool {
+        x: root.play-left; width: 28px; height: 28px;
+        icon-size: 28px; icon-optical-offset-x: root.paused ? 2.916667px : 0px;
+        dark-theme: root.dark-theme; accent-color: root.accent-color;
+        icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg");
+        hint: root.paused ? "Play" : "Pause"; activated => { root.pause-requested(); }
+    }
+    Tool {
+        x: root.play-left + 48px; width: 28px; height: 28px;
+        icon-size: 28px; dark-theme: root.dark-theme; accent-color: root.accent-color;
+        icon: @image-url("../../../assets/icons/skip-next.svg");
+        hint: "Next media"; activated => { root.next-requested(); }
+    }
+    Tool {
+        x: root.play-left + 96px; y: 5px; width: 18px; height: 18px;
+        icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
+        icon: @image-url("../../../assets/icons/playlist.svg"); selected: root.playlist-visible;
+        hint: root.playlist-visible ? "Hide playlist" : "Show playlist";
+        activated => { root.playlist-requested(); }
+    }
+    Tool {
+        x: root.play-left + 130px; y: 5px; width: 18px; height: 18px;
+        icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
+        icon: @image-url("../../../assets/icons/photo.svg"); selected: root.artwork-visible;
+        hint: root.artwork-visible ? "Hide album art" : "Show album art";
+        activated => { root.artwork-requested(); }
+    }
+}
+
+export component MusicModeWindowActions inherits Rectangle {
+    in property <bool> artwork-visible;
+    in property <bool> dark-theme: true;
+    in property <bool> translucent;
+    in property <color> accent-color: #90b7ef;
+    callback close-requested();
+    callback back-requested();
+    private property <length> button-size: artwork-visible ? 13px : 12px;
+    private property <length> gap: artwork-visible ? 5px : 4px;
+    width: button-size + 6px;
+    height: button-size * 2 + gap + 6px;
+    border-radius: 10px;
+    background: translucent ? (dark-theme ? #25252bef : #f5f5f7f0)
+        : (dark-theme ? #303036 : #eeeef2);
+    border-width: 1px; border-color: #ffffff30;
+    VerticalLayout {
+        x: 3px; y: 3px; width: root.button-size;
+        height: root.height - 6px; spacing: root.gap;
+        Tool { width: root.button-size; height: root.button-size;
+            dark-theme: root.dark-theme; accent-color: root.accent-color;
+            icon: @image-url("../../../assets/icons/music-mode-close.svg");
+            hint: "Close player"; activated => { root.close-requested(); } }
+        Tool { width: root.button-size; height: root.button-size;
+            dark-theme: root.dark-theme; accent-color: root.accent-color;
+            icon: @image-url("../../../assets/icons/music-mode-back.svg");
+            hint: "Return to player"; activated => { root.back-requested(); } }
+    }
+}

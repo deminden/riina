@@ -1,0 +1,47 @@
+import { ScrollView } from "std-widgets.slint";
+
+// The sidebar retains this memory even while its Layout page replaces the
+// scrolling view, matching per-window pane ownership rather than widget lifetime.
+export component SidebarScrollMemory inherits Rectangle {
+    width: 0px; height: 0px;
+    in-out property <length> audio-y;
+    in-out property <length> video-y;
+    in-out property <length> subtitles-y;
+    in-out property <length> playlist-y;
+    in-out property <length> chapters-y;
+}
+
+// Each sidebar owns independent page positions. A deferred restore lets the new
+// page establish its extent before the scroll view clamps its saved position.
+export component QuickSettingsScrollPage inherits ScrollView {
+    in property <int> page-kind;
+    in property <length> audio-y;
+    in property <length> video-y;
+    in property <length> subtitles-y;
+    in property <length> playlist-y;
+    in property <length> chapters-y;
+    private property <bool> restoring;
+    private property <int> active-kind: -1;
+    init => { root.active-kind = root.page-kind; root.restoring = true; }
+    changed page-kind => { root.restoring = true; root.active-kind = root.page-kind; }
+    // Save user scrolling, never the old page's automatic geometry clamp
+    // while the new page is still being laid out.
+    callback position-changed(int, length);
+    scrolled => {
+        if !root.restoring && root.active-kind == root.page-kind {
+            root.position-changed(root.page-kind, root.content-y);
+        }
+    }
+    Timer {
+        interval: 1ms; running: root.restoring;
+        triggered => {
+            root.content-y = root.page-kind == 1 ? root.audio-y
+                : root.page-kind == 6 ? root.video-y
+                : root.page-kind == 2 ? root.subtitles-y
+                : root.page-kind == 4 ? root.playlist-y
+                : root.page-kind == 3 ? root.chapters-y : 0px;
+            root.content-x = 0px;
+            root.restoring = false;
+        }
+    }
+}

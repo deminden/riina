@@ -498,6 +498,46 @@ mod tests {
         let decoded = crate::Preferences::parse(&encoded).unwrap();
         assert_eq!(decoded.audio_equalizer, preferences.audio_equalizer);
     }
+
+    #[test]
+    fn unicode_profile_workflow_survives_restarts_and_failed_edits_are_atomic() {
+        fn restart(settings: Settings) -> Settings {
+            let preferences = crate::Preferences {
+                audio_equalizer: settings,
+                ..crate::Preferences::default()
+            };
+            crate::Preferences::parse(&serde_json::to_string(&preferences).unwrap())
+                .unwrap()
+                .audio_equalizer
+        }
+        let gains = [-12.0, -6.5, -3.0, 0.0, 0.1, 1.25, 3.0, 6.0, 9.5, 12.0];
+        let mut settings = Settings {
+            gains_db: gains,
+            ..Settings::default()
+        };
+        settings.save_profile("映画 🎧").unwrap();
+        let mut settings = restart(settings);
+        assert_eq!(settings.gains_db, gains);
+        assert!(settings.selected_profile_is_user());
+        let before = settings.clone();
+        assert!(settings.save_profile("映画 🎧").is_err());
+        assert!(settings.rename_profile("映画 🎧", "").is_err());
+        assert!(settings.remove_profile("Missing").is_err());
+        assert_eq!(settings, before);
+        settings.rename_profile("映画 🎧", "Café cinéma").unwrap();
+        let mut settings = restart(settings);
+        assert!(!settings.user_profiles.contains_key("映画 🎧"));
+        assert_eq!(settings.user_profiles["Café cinéma"], gains);
+        settings.remove_profile("Café cinéma").unwrap();
+        let settings = restart(settings);
+        assert!(settings.user_profiles.is_empty());
+        assert!(!settings.selected_profile_is_user());
+        assert!(settings.is_manual_selected());
+        assert_eq!(
+            settings.gains_db, gains,
+            "Removing a profile preserves the audible settings"
+        );
+    }
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ mod appearance_preferences;
 mod assrt_subtitles;
 mod audio_preferences;
 mod auto_playlist;
+mod automatic_music_mode;
 mod codec_preferences;
 mod control_preferences;
 mod crop_editor;

@@ -1,5 +1,5 @@
 import { Button, ScrollView } from "std-widgets.slint";
-import { NativeTypography } from "shared-controls.slint";
+import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 
 export struct PlaybackHistoryRow {
     is-group: bool,
@@ -46,7 +46,7 @@ export component PlaybackHistoryWindow inherits Window {
     width: root.width; height: root.height;
     Rectangle {
         x: 0; y: 0; width: parent.width; height: 84px;
-        background: root.acrylic-backdrop-enabled ? #40ffffff : #ececf0;
+        background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #ececf0;
         HorizontalLayout {
             x: 16px; y: 7px; width: parent.width - 32px; height: 32px; spacing: 6px;
             Button {
@@ -85,7 +85,7 @@ export component PlaybackHistoryWindow inherits Window {
 
     Rectangle {
         x: 16px; y: 92px; width: parent.width - 32px; height: 28px;
-        background: root.acrylic-backdrop-enabled ? #40ffffff : #e9e9ed;
+        background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #e9e9ed;
         Text { x: 34px; y: 0; width: parent.width - 390px; height: parent.height;
             text: "Media"; font-size: 11px; font-weight: 600; color: #55555b; vertical-alignment: center; }
         Text { x: parent.width - 350px; y: 0; width: 130px; height: parent.height;
@@ -101,12 +101,12 @@ export component PlaybackHistoryWindow inherits Window {
         horizontal-scrollbar-policy: always-off;
         Rectangle {
             width: parent.width; height: max(1px, root.rows.length * 46px);
-            background: root.acrylic-backdrop-enabled ? #40ffffff : #ffffff;
+            background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #ffffff;
             for row[index] in root.rows : Rectangle {
                 x: 0; y: index * 46px; width: parent.width; height: 46px;
                 background: row.selected ? #d8e8ff : row.is-group
-                    ? (root.acrylic-backdrop-enabled ? #40ffffff : #f0f0f2)
-                    : root.acrylic-backdrop-enabled ? #40ffffff
+                    ? (root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #f0f0f2)
+                    : root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill
                     : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa);
                 if row.is-group : Text {
                     x: 12px; y: 0; width: parent.width - 24px; height: parent.height;

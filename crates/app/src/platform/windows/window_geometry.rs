@@ -70,7 +70,15 @@ pub(crate) fn resize_content(
             break;
         }
         if let Some(overlay) = overlay {
-            defer_resize_surfaces(hwnd, overlay, x, y, frame, target)?;
+            defer_resize_surfaces(
+                hwnd,
+                overlay,
+                x,
+                y,
+                frame,
+                target,
+                &visible_mpv_child_windows(hwnd),
+            )?;
         } else {
             // SAFETY: the live UI-owned HWND is resized synchronously. Preserve
             // activation and z-order; WM_SIZE updates Winit's observed client size.
@@ -98,6 +106,7 @@ fn defer_resize_surfaces(
     host_y: i32,
     host_frame: PixelSize,
     overlay_client: PixelSize,
+    video_windows: &[HWND],
 ) -> Result<(), String> {
     let mut client_origin = POINT { x: 0, y: 0 };
     // SAFETY: the live host client origin is a valid in/out POINT.
@@ -117,11 +126,9 @@ fn defer_resize_surfaces(
             .height
             .saturating_sub(size(overlay_inner).height),
     );
-    let video_windows = visible_mpv_child_windows(host);
-    // mpv owns a child HWND on its render thread. Include it with the parent and
-    // Slint overlay so their bounds switch aspect ratio together.
-    let count = 2_i32.saturating_add(i32::try_from(video_windows.len()).unwrap_or(i32::MAX));
-    let batch = unsafe { BeginDeferWindowPos(count) }.map_err(|error| error.to_string())?;
+    // Win32 requires one parent per DeferWindowPos batch. The two top-level
+    // surfaces are siblings; mpv's child surfaces belong in a separate batch.
+    let batch = unsafe { BeginDeferWindowPos(2) }.map_err(|error| error.to_string())?;
     let batch = unsafe {
         DeferWindowPos(
             batch,
@@ -150,11 +157,16 @@ fn defer_resize_surfaces(
         )
     }
     .map_err(|error| error.to_string())?;
-    let mut batch = batch;
-    for video in video_windows {
+    unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())?;
+    if video_windows.is_empty() {
+        return Ok(());
+    }
+    let count = i32::try_from(video_windows.len()).map_err(|error| error.to_string())?;
+    let mut batch = unsafe { BeginDeferWindowPos(count) }.map_err(|error| error.to_string())?;
+    for &video in video_windows {
         // SAFETY: video is the mpv child of this host. Its window thread pumps
-        // Win32 messages; apply matching bounds in the parent resize batch so
-        // playlist changes cannot expose the previous media's render bounds.
+        // Win32 messages. Apply its bounds immediately after the top-level
+        // batch, before returning to the compositor/event loop.
         batch = unsafe {
             DeferWindowPos(
                 batch,
@@ -444,6 +456,63 @@ fn target_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use windows::{
+        Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DestroyWindow, WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_POPUP,
+        },
+        core::w,
+    };
+
+    struct GeometryTestWindow(HWND);
+    impl Drop for GeometryTestWindow {
+        fn drop(&mut self) {
+            // SAFETY: each hidden window is owned and destroyed on this test thread.
+            let _ = unsafe { DestroyWindow(self.0) };
+        }
+    }
+    fn geometry_test_window(style: WINDOW_STYLE, parent: Option<HWND>) -> GeometryTestWindow {
+        // SAFETY: STATIC is a system class; hidden windows never activate or
+        // expose test surfaces. Parent handles outlive their children.
+        GeometryTestWindow(unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                w!("STATIC"),
+                w!("Riina geometry regression"),
+                style,
+                -30000,
+                -30000,
+                200,
+                150,
+                parent,
+                None,
+                None,
+                None,
+            )
+            .unwrap()
+        })
+    }
+
+    #[test]
+    fn native_resize_separates_owned_top_levels_from_the_mpv_child_parent() {
+        let host = geometry_test_window(WS_POPUP, None);
+        let overlay = geometry_test_window(WS_POPUP, Some(host.0));
+        let child = geometry_test_window(WS_CHILD, Some(host.0));
+        let client = PixelSize {
+            width: 400,
+            height: 260,
+        };
+        let frame = PixelSize {
+            width: 420,
+            height: 300,
+        };
+        defer_resize_surfaces(host.0, overlay.0, -30000, -30000, frame, client, &[child.0])
+            .unwrap();
+        assert_eq!(size(rectangles(host.0).unwrap().0), frame);
+        assert_eq!(size(rectangles(overlay.0).unwrap().1), client);
+        assert_eq!(size(rectangles(child.0).unwrap().1), client);
+        assert!(!unsafe { IsWindowVisible(host.0) }.as_bool());
+        assert!(!unsafe { IsWindowVisible(overlay.0) }.as_bool());
+    }
 
     #[test]
     fn fullscreen_controls_avoid_monitor_sized_gl_surface_and_restore_windowed_bounds() {

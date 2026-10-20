@@ -1,0 +1,152 @@
+import { Button } from "std-widgets.slint";
+
+// The standard menu owns traversal, scrolling and dismissal. Profile naming
+// remains a typed callback so the player owns validation and persistence.
+export component AudioEqualizerProfilePicker inherits FocusScope {
+    in property <[string]> profile-names;
+    in property <int> selected-index: 0;
+    in property <int> user-profile-start-index: 23;
+    in property <bool> can-save;
+    in property <bool> can-edit;
+    in property <bool> can-delete;
+    in property <bool> dark-theme: true;
+    in property <bool> windows-acrylic-surface;
+    callback selected(int);
+    callback validate-name(string, int) -> string;
+    callback save-requested(string) -> bool;
+    callback rename-requested(string) -> bool;
+    callback delete-requested();
+    private property <int> dialog-mode: 0;
+    private property <string> draft-name;
+    private property <string> dialog-error;
+    private property <bool> dialog-open-pending;
+    width: 150px;
+    height: 23px;
+    accessible-role: button;
+    accessible-label: "Equalizer profile: " + (profile-names.length > selected-index ? profile-names[selected-index] : "Manual");
+    accessible-action-default => { root.open-menu(); }
+
+    function open-menu() {
+        root.focus();
+        choices.show({x: 0px, y: root.height});
+    }
+    function begin-name(mode: int) {
+        root.dialog-mode = mode;
+        root.draft-name = "";
+        root.dialog-error = root.validate-name("", mode);
+        // Open after the native menu loop has relinquished focus.
+        root.dialog-open-pending = true;
+    }
+    function cancel-name() { name-dialog.close(); root.focus(); }
+    function submit-name() {
+        root.dialog-error = root.validate-name(root.draft-name, root.dialog-mode);
+        if root.dialog-error != "" { return; }
+        if (root.dialog-mode == 1 && root.save-requested(root.draft-name))
+            || (root.dialog-mode == 2 && root.rename-requested(root.draft-name)) {
+            name-dialog.close();
+            root.focus();
+        } else {
+            root.dialog-error = "Could not save this profile.";
+        }
+    }
+    key-pressed(event) => {
+        if event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if ((event.text == Key.Return || event.text == " ") && !event.modifiers.alt)
+            || event.text == Key.DownArrow {
+            root.open-menu(); return accept;
+        }
+        return reject;
+    }
+    Timer {
+        interval: 16ms;
+        running: root.dialog-open-pending;
+        triggered => {
+            root.dialog-open-pending = false;
+            name-dialog.show();
+        }
+    }
+    Rectangle {
+        border-radius: 5px;
+        border-width: root.has-focus ? 2px : 1px;
+        border-color: root.has-focus ? #0a84ff : (root.dark-theme ? #ffffff30 : #00000030);
+        background: root.windows-acrylic-surface
+            ? (root.dark-theme ? #ffffff0f : #f9f9f94d)
+            : (root.dark-theme ? #ffffff10 : #ffffff);
+        HorizontalLayout {
+            padding-left: 7px; padding-right: 6px; spacing: 5px;
+            cross-axis-alignment: center;
+            Text {
+                horizontal-stretch: 1;
+                text: root.profile-names.length > root.selected-index ? root.profile-names[root.selected-index] : "Manual";
+                color: root.dark-theme ? #eeeeee : #29292d;
+                font-size: 11px; vertical-alignment: center; overflow: elide;
+            }
+            chevron := Image { source: @image-url("../../../assets/icons/chevron-forward.svg");
+                width: 8px; height: 8px; transform-rotation: 90deg;
+                colorize: root.dark-theme ? #c4c4ca : #5b5b60; }
+        }
+        TouchArea { clicked => { root.open-menu(); } }
+    }
+    choices := ContextMenuArea {
+        Menu {
+            MenuItem { title: "Save…"; enabled: root.can-save; activated => { root.begin-name(1); } }
+            MenuItem { title: "Rename…"; enabled: root.can-edit; activated => { root.begin-name(2); } }
+            MenuItem { title: "Remove"; enabled: root.can-delete; activated => { root.delete-requested(); root.focus(); } }
+            MenuSeparator {}
+            MenuItem { title: root.profile-names.length > 0 ? root.profile-names[0] : "Manual";
+                checkable: true; checked: root.selected-index == 0;
+                activated => { root.selected(0); root.focus(); } }
+            MenuSeparator {}
+            for unused[index] in max(0, min(root.user-profile-start-index, root.profile-names.length) - 1) : MenuItem {
+                title: root.profile-names[index + 1];
+                checkable: true; checked: root.selected-index == index + 1;
+                activated => { root.selected(index + 1); root.focus(); }
+            }
+            if root.profile-names.length > root.user-profile-start-index : MenuSeparator {}
+            for unused[index] in max(0, root.profile-names.length - root.user-profile-start-index) : MenuItem {
+                title: root.profile-names[index + root.user-profile-start-index];
+                checkable: true; checked: root.selected-index == index + root.user-profile-start-index;
+                activated => { root.selected(index + root.user-profile-start-index); root.focus(); }
+            }
+        }
+    }
+    name-dialog := PopupWindow {
+        x: -28px; y: 28px; width: 222px; height: 140px;
+        close-policy: no-auto-close;
+        Rectangle {
+            init => { name-editor.focus(); }
+            border-radius: 7px; border-width: 1px;
+            border-color: root.dark-theme ? #ffffff38 : #b8b8bc;
+            background: root.dark-theme ? #29292e : #f8f8fa;
+            FocusScope {
+                key-pressed(event) => {
+                    if event.text == Key.Escape { root.cancel-name(); return accept; }
+                    if event.text == Key.Tab || event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+                    return accept;
+                }
+                VerticalLayout {
+                    padding: 8px; spacing: 6px;
+                    Text { text: root.dialog-mode == 1 ? "Save equalizer profile" : "Rename equalizer profile";
+                        color: root.dark-theme ? #eeeeee : #29292d; font-size: 11px; }
+                    name-editor := TextInput {
+                        text <=> root.draft-name; single-line: true;
+                        changed text => { root.dialog-error = root.validate-name(self.text, root.dialog-mode); }
+                        accepted => { root.submit-name(); }
+                        color: root.dark-theme ? #eeeeee : #29292d; font-size: 11px;
+                        accessible-label: root.dialog-mode == 1 ? "New equalizer profile name" : "Rename equalizer profile";
+                        accessible-value: self.text;
+                        accessible-action-set-value(value) => { self.text = value; }
+                    }
+                    Text { text: root.dialog-error; height: 28px; wrap: word-wrap;
+                        color: root.dark-theme ? #ff9999 : #a51d1d; font-size: 10px; }
+                    HorizontalLayout {
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: "Cancel"; clicked => { root.cancel-name(); } }
+                        Button { text: "Save"; enabled: root.dialog-error == "";
+                            clicked => { root.submit-name(); } }
+                    }
+                }
+            }
+        }
+    }
+}

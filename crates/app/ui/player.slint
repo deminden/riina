@@ -1,16 +1,20 @@
+import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
+import { Tool } from "player-tool.slint";
+import { MusicModeControls, MusicModeWindowActions } from "music-mode-controls.slint";
+import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { QuickSettingsInput } from "quick-settings-input.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { CatalogRow } from "catalog-row.slint";
 export { CatalogRow } from "catalog-row.slint";
-import { ScrollView, ComboBox, Button } from "std-widgets.slint";
+import { ScrollView, ComboBox, Button, Palette } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, VerticalEqualizerSlider, SubtitleColorWell } from "shared-controls.slint";
 import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
 import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 import { MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-video.slint";
 export { NativeVideoHost, MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-video.slint";
-export { NativeTypography } from "shared-controls.slint";
+export { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
 export { PreferencesWindow } from "preferences.slint";
@@ -430,61 +434,6 @@ component SidebarAction inherits FocusScope {
         return reject;
     }
 }
-component Tool inherits Rectangle {
-    in property <string> label;
-    in property <image> icon;
-    in property <length> icon-size: 17px;
-    in property <string> hint;
-    in property <bool> enabled: true;
-    in property <bool> dark-theme: true;
-    in property <bool> selected: false;
-    in property <bool> circular: false;
-    in property <length> circular-size: 34px;
-    in property <bool> windows-acrylic-surface: false;
-    in property <color> accent-color: #90b7ef;
-    callback activated();
-    width: circular ? circular-size : 30px; height: circular ? circular-size : 28px;
-    border-radius: circular ? circular-size / 2 : 5px;
-    border-width: circular && windows-acrylic-surface ? 1px : 0px;
-    border-color: dark-theme ? #ffffff24 : #00000020;
-    background: selected ? (dark-theme ? #90b7ef24 : #168bff18) :
-        touch.has-hover && enabled ? (windows-acrylic-surface
-            ? (dark-theme ? #ffffff15 : #f9f9f980)
-            : (dark-theme ? #ffffff20 : #00000014)) :
-            circular ? (windows-acrylic-surface
-                ? (dark-theme ? #ffffff0f : #f9f9f94d)
-                : (dark-theme ? #ffffff14 : #0000000b))
-            : transparent;
-    accessible-role: button;
-    accessible-label: hint;
-    accessible-enabled: enabled;
-    accessible-action-default => { if enabled { activated(); } }
-    if icon.width == 0 : Text { text: label; color: !enabled ? #777777 : selected ? root.accent-color : (dark-theme ? #eeeeee : #29292d); font-size: 17px;
-        horizontal-alignment: center; vertical-alignment: center; }
-    if icon.width > 0 : Image {
-        source: icon; image-fit: contain;
-        width: min(root.icon-size, root.width); height: min(root.icon-size, root.height);
-        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-        colorize: !enabled ? #777777 : selected ? root.accent-color : (dark-theme ? #eeeeee : #29292d);
-    }
-    if focus.has-focus : Rectangle {
-        border-width: 1px; border-color: root.accent-color;
-        border-radius: circular ? circular-size / 2 : 5px; background: transparent;
-    }
-    focus := FocusScope {
-        enabled: root.enabled;
-        key-pressed(event) => {
-            if event.text == Key.Return || event.text == " " {
-                root.activated(); return accept;
-            }
-            return reject;
-        }
-    }
-    // Keep pointer activation above the focus helper in Slint's stacking order;
-    // otherwise a mouse press can focus a toolbar item without activating it.
-    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
-}
-
 component ToolbarAction inherits Rectangle {
     in property <int> kind;
     in property <length> action-width: 30px;
@@ -589,228 +538,6 @@ component ObservedSizePicker inherits ComboBox {
     // restore both display text and keyboard cursor after those bindings break.
     changed observed-value => { self.current-value = self.observed-value; self.current-index = self.observed-index; }
     changed observed-index => { self.current-index = self.observed-index; }
-}
-
-component AudioEqualizerProfilePicker inherits Rectangle {
-    in property <[string]> profile-names;
-    in property <int> selected-index: 0;
-    in property <int> user-profile-start-index: 23;
-    in property <bool> can-save: false;
-    in property <bool> can-edit: false;
-    in property <bool> can-delete: false;
-    in property <bool> dark-theme: true;
-    in property <bool> windows-acrylic-surface: false;
-    callback selected(int);
-    callback validate-name(string, int) -> string;
-    callback save-requested(string) -> bool;
-    callback rename-requested(string) -> bool;
-    callback delete-requested();
-    in-out property <int> dialog-mode: 0;
-    in-out property <string> draft-name: "";
-    in-out property <string> dialog-error: "";
-    private property <bool> dialog-open-pending: false;
-    width: 150px;
-    height: 23px;
-    border-radius: 5px;
-    border-width: 1px;
-    border-color: dark-theme ? #ffffff30 : #00000030;
-    background: windows-acrylic-surface
-        ? (dark-theme ? #ffffff0f : #f9f9f94d)
-        : (dark-theme ? #ffffff10 : #ffffff);
-    accessible-role: button;
-    accessible-label: "Equalizer profile: " + (profile-names.length > selected-index ? profile-names[selected-index] : "Manual");
-    accessible-action-default => { choices.show(); }
-    Timer {
-        interval: 16ms;
-        running: root.dialog-open-pending;
-        triggered => {
-            root.dialog-open-pending = false;
-            name-dialog.show();
-        }
-    }
-    HorizontalLayout {
-        padding-left: 7px;
-        padding-right: 6px;
-        spacing: 5px;
-        Text {
-            horizontal-stretch: 1;
-            text: root.profile-names.length > root.selected-index ? root.profile-names[root.selected-index] : "Manual";
-            color: root.dark-theme ? #eeeeee : #29292d;
-            font-size: 11px;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-        Text { text: "▾"; color: root.dark-theme ? #c4c4ca : #5b5b60;
-            font-size: 11px; vertical-alignment: center; }
-    }
-    TouchArea { clicked => { choices.show(); } }
-    choices := PopupWindow {
-        x: 0px;
-        y: root.height;
-        width: 206px;
-        height: root.can-edit ? 292px : 238px;
-        close-policy: close-on-click-outside;
-        Rectangle {
-            border-radius: 7px;
-            border-width: 1px;
-            border-color: root.dark-theme ? #ffffff38 : #b8b8bc;
-            background: root.dark-theme ? #29292e : #f8f8fa;
-            VerticalLayout {
-                padding: 5px;
-                spacing: 1px;
-                Rectangle {
-                    height: 26px;
-                    border-radius: 4px;
-                    accessible-role: button;
-                    accessible-label: "Save equalizer profile";
-                    accessible-enabled: root.can-save;
-                    accessible-action-default => {
-                        root.draft-name = "";
-                        root.dialog-mode = 1;
-                        root.dialog-error = root.validate-name("", root.dialog-mode);
-                        root.dialog-open-pending = true;
-                        choices.close();
-                    }
-                    background: save-touch.has-hover && root.can-save
-                        ? (root.dark-theme ? #ffffff20 : #00000012) : transparent;
-                    Text { x: 8px; width: parent.width - 16px; text: "Save…";
-                        color: root.can-save
-                            ? (root.dark-theme ? #ededf0 : #29292d) : (root.dark-theme ? #77777d : #a0a0a5);
-                        font-size: 11px; vertical-alignment: center; }
-                    save-touch := TouchArea {
-                        enabled: root.can-save;
-                        clicked => {
-                            root.draft-name = "";
-                            root.dialog-mode = 1;
-                            root.dialog-error = root.validate-name("", root.dialog-mode);
-                            root.dialog-open-pending = true;
-                            choices.close();
-                        }
-                    }
-                }
-                if root.can-edit : Rectangle {
-                    height: 26px;
-                    border-radius: 4px;
-                    accessible-role: button;
-                    accessible-label: "Rename equalizer profile";
-                    accessible-action-default => {
-                        root.draft-name = "";
-                        root.dialog-mode = 2;
-                        root.dialog-error = root.validate-name("", root.dialog-mode);
-                        root.dialog-open-pending = true;
-                        choices.close();
-                    }
-                    background: rename-touch.has-hover ? (root.dark-theme ? #ffffff20 : #00000012) : transparent;
-                    Text { x: 8px; width: parent.width - 16px; text: "Rename…";
-                        color: root.dark-theme ? #ededf0 : #29292d; font-size: 11px; vertical-alignment: center; }
-                    rename-touch := TouchArea { clicked => {
-                        root.draft-name = "";
-                        root.dialog-mode = 2;
-                        root.dialog-error = root.validate-name("", root.dialog-mode);
-                        root.dialog-open-pending = true;
-                        choices.close();
-                    } }
-                }
-                if root.can-edit : Rectangle {
-                    height: 26px;
-                    border-radius: 4px;
-                    accessible-role: button;
-                    accessible-label: "Remove equalizer profile";
-                    accessible-action-default => { root.delete-requested(); choices.close(); }
-                    background: remove-touch.has-hover ? (root.dark-theme ? #ffffff20 : #00000012) : transparent;
-                    Text { x: 8px; width: parent.width - 16px; text: "Remove";
-                        color: root.dark-theme ? #ededf0 : #29292d; font-size: 11px; vertical-alignment: center; }
-                    remove-touch := TouchArea { clicked => { root.delete-requested(); choices.close(); } }
-                }
-                Rectangle { height: 1px; background: root.dark-theme ? #ffffff30 : #00000024; }
-                ScrollView {
-                    height: 195px;
-                    VerticalLayout {
-                        spacing: 1px;
-                        for name[index] in root.profile-names : Rectangle {
-                            if index == 1 || index == root.user-profile-start-index : Rectangle {
-                                height: 1px;
-                                background: root.dark-theme ? #ffffff30 : #00000024;
-                            }
-                            height: 25px;
-                            border-radius: 4px;
-                            accessible-role: button;
-                            accessible-label: name;
-                            accessible-action-default => { root.selected(index); choices.close(); }
-                            background: index == root.selected-index ? (root.dark-theme ? #ffffff18 : #168bff20)
-                                : profile-touch.has-hover ? (root.dark-theme ? #ffffff20 : #00000012) : transparent;
-                            Text { x: 8px; width: parent.width - 16px; text: name;
-                                color: root.dark-theme ? #eeeeee : #29292d;
-                                font-size: 11px; vertical-alignment: center; }
-                            profile-touch := TouchArea { clicked => { root.selected(index); choices.close(); } }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    name-dialog := PopupWindow {
-        x: -28px;
-        y: 28px;
-        width: 222px;
-        height: 112px;
-        Rectangle {
-            border-radius: 7px;
-            border-width: 1px;
-            border-color: root.dark-theme ? #ffffff38 : #b8b8bc;
-            background: root.dark-theme ? #29292e : #f8f8fa;
-            VerticalLayout {
-                padding: 8px;
-                spacing: 6px;
-                TextInput { text <=> root.draft-name; single-line: true;
-                    changed text => { root.dialog-error = root.validate-name(self.text, root.dialog-mode); }
-                    color: root.dark-theme ? #eeeeee : #29292d; font-size: 11px;
-                    accessible-label: root.dialog-mode == 1 ? "New equalizer profile name" : "Rename equalizer profile"; }
-                Text { text: root.dialog-error; height: root.dialog-error == "" ? 0px : 14px;
-                    color: #ff7777; font-size: 10px; vertical-alignment: center;
-                    overflow: elide; }
-                HorizontalLayout {
-                    Rectangle { horizontal-stretch: 1; background: transparent; }
-                    for label[index] in ["Cancel", "Save"] : Rectangle {
-                        width: 58px; height: 24px; border-radius: 4px;
-                        accessible-role: button;
-                        accessible-label: label;
-                        accessible-enabled: index == 0 || root.dialog-error == "";
-                        accessible-action-default => {
-                            if index == 1 && root.dialog-error == "" {
-                                if root.dialog-mode == 1 {
-                                    if root.save-requested(root.draft-name) { name-dialog.close(); }
-                                } else if root.rename-requested(root.draft-name) {
-                                    name-dialog.close();
-                                }
-                            } else {
-                                name-dialog.close();
-                            }
-                        }
-                        background: index == 1 && root.dialog-error == ""
-                            ? (root.dark-theme ? #ffffff22 : #168bff24) : transparent;
-                        Text { text: label; width: parent.width; height: parent.height;
-                            color: index == 1 && root.dialog-error != ""
-                                ? (root.dark-theme ? #77777d : #a0a0a5)
-                                : (root.dark-theme ? #ededf0 : #29292d);
-                            font-size: 11px;
-                            horizontal-alignment: center; vertical-alignment: center; }
-                        TouchArea { enabled: index == 0 || root.dialog-error == ""; clicked => {
-                            if index == 1 && root.dialog-error == "" {
-                                if root.dialog-mode == 1 {
-                                    if root.save-requested(root.draft-name) { name-dialog.close(); }
-                                } else if root.rename-requested(root.draft-name) {
-                                    name-dialog.close();
-                                }
-                            } else {
-                                name-dialog.close();
-                            }
-                        } }
-                    }
-                }
-            }
-        }
-    }
 }
 
 component SubtitleLaneSegment inherits Rectangle {
@@ -2561,6 +2288,7 @@ export component PlayerWindow inherits Window {
                 clicked => { root.activity(); }
                 scroll-event(event) => { return accept; }
             }
+            scroll-memory := SidebarScrollMemory {}
             sidebar-content := VerticalLayout {
                 // IINA's tab row uses 10-point side margins; card widths are
                 // explicit, so this does not change their measured insets.
@@ -2598,9 +2326,9 @@ export component PlayerWindow inherits Window {
                     }
                     if pane-kind == 3 || pane-kind == 4 : HorizontalLayout {
                         spacing: 4px;
-                        SidebarTab { accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Playlist"; selected: pane-kind == 4;
+                        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Playlist"; selected: pane-kind == 4;
                             activated => { root.select-playlist-pane(4); } }
-                        SidebarTab { accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Chapters"; selected: pane-kind == 3;
+                        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Chapters"; selected: pane-kind == 3;
                             activated => { root.select-playlist-pane(3); } }
                     }
                     if pane-kind == 7 : HorizontalLayout {
@@ -2836,7 +2564,20 @@ export component PlayerWindow inherits Window {
                     }
                     }
                 }
-                if pane-kind != 5 : ScrollView {
+                if pane-kind != 5 : QuickSettingsScrollPage {
+                    page-kind: pane-kind;
+                    audio-y: scroll-memory.audio-y;
+                    video-y: scroll-memory.video-y;
+                    subtitles-y: scroll-memory.subtitles-y;
+                    playlist-y: scroll-memory.playlist-y;
+                    chapters-y: scroll-memory.chapters-y;
+                    position-changed(kind, offset) => {
+                        if kind == 1 { scroll-memory.audio-y = offset; }
+                        else if kind == 6 { scroll-memory.video-y = offset; }
+                        else if kind == 2 { scroll-memory.subtitles-y = offset; }
+                        else if kind == 4 { scroll-memory.playlist-y = offset; }
+                        else if kind == 3 { scroll-memory.chapters-y = offset; }
+                    }
                     width: parent.width - (quick-settings-pane
                         ? 20px : (root.compact-ui ? 18px : 24px));
                     horizontal-stretch: 1;
@@ -3086,11 +2827,12 @@ export component PlayerWindow inherits Window {
                             }
                         }
                         for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): Rectangle {
+                            width: parent.width;
                             property <int> current-playlist-focus-index: root.playlist-focus-index;
                             height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
                                 : (root.playlist-metadata-visible ? 38px : 30px);
                             background: (pane-kind == 2 || pane-kind == 6) ? transparent
-                                : row.selected ? #ffffff15 : transparent;
+                                : row.selected ? (root.dark-theme ? #ffffff15 : #168bff20) : transparent;
                     accessible-role: button; accessible-label: pane-kind == 4 && row.path != ""
                         ? row.label + (row.detail != "" ? ", " + row.detail : "") + ", " + row.path : row.label;
                             if pane-kind == 2 || pane-kind == 6 : Rectangle {
@@ -3109,9 +2851,9 @@ export component PlayerWindow inherits Window {
                             if pane-kind == 4 && row.detail != "" : VerticalLayout {
                                 x: 12px; y: 3px; width: parent.width - 18px; height: parent.height - 6px;
                                 spacing: 0px;
-                                Text { text: row.label; color: #dddddd; font-size: 12px;
+                                Text { text: row.label; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
                                     vertical-alignment: center; overflow: elide; }
-                                Text { text: row.detail; color: #a7a7ad; font-size: 10px;
+                                Text { text: row.detail; color: root.dark-theme ? #a7a7ad : #66666b; font-size: 10px;
                                     vertical-alignment: center; overflow: elide; }
                             }
                             if pane-kind != 4 || row.detail == "" : Text { x: 12px;
@@ -3175,8 +2917,20 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                             if pane-kind == 4 : ContextMenuArea {
-                                enabled: row.network;
                                 Menu {
+                                    MenuItem { title: "Play"; activated => { root.playlist-action(12, row.token); } }
+                                    MenuItem { title: "Play in New Window"; activated => { root.playlist-action(9, row.token); } }
+                                    MenuItem { title: "Remove"; activated => { root.playlist-action(1, row.token); } }
+                                    MenuSeparator {}
+                                    MenuItem { title: "Cut"; activated => { root.playlist-action(7, row.token); } }
+                                    MenuItem { title: "Copy"; activated => { root.playlist-action(6, row.token); } }
+                                    MenuItem { title: "Paste"; activated => { root.playlist-action(8, row.token); } }
+                                    MenuSeparator {}
+                                    MenuItem { title: "Move Up"; enabled: index > 0;
+                                        activated => { root.playlist-action(2, row.token); } }
+                                    MenuItem { title: "Move Down"; enabled: index + 1 < root.playlist.length;
+                                        activated => { root.playlist-action(3, row.token); } }
+                                    if row.network : MenuSeparator {}
                                     if row.network : MenuItem {
                                         title: "Open in Browser";
                                         activated => { root.playlist-action(10, row.token); }
@@ -3188,6 +2942,7 @@ export component PlayerWindow inherits Window {
                                 }
                             }
                             row-focus := FocusScope {
+                                width: 0px;
                                 key-pressed(event) => {
                                     // Preserve global playback shortcuts while a catalog row has focus.
                                     if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -3648,38 +3403,36 @@ export component PlayerWindow inherits Window {
                         }
                         if pane-kind == 2 && !root.subtitle-text-style-available : Text {
                             text: "Some settings are not available for this subtitle type.";
-                            wrap: word-wrap; color: #bbbbbb; font-size: 11px;
+                            wrap: word-wrap; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 11px;
                         }
                         if pane-kind == 2 && root.subtitle-ass-style-warning : Text {
                             text: "Setting style options for ASS subtitles may break rendering.";
-                            wrap: word-wrap; color: #bbbbbb; font-size: 11px;
+                            wrap: word-wrap; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 11px;
                         }
                         }
                     }
                 }
-                if pane-kind == 4 : HorizontalLayout { spacing: 2px;
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label; activated => { root.playlist-action(5, ""); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/shuffle.svg"); hint: root.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
+                if pane-kind == 4 : HorizontalLayout { spacing: 8px;
+                    width: parent.width - (root.compact-ui ? 18px : 24px);
+                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                        label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label;
+                        activated => { root.playlist-action(5, ""); } }
+                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                        icon: @image-url("../../../assets/icons/shuffle.svg");
+                        hint: root.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
                         selected: root.playlist-shuffled; activated => { root.toggle-playlist-shuffle(); } }
-                    PlaylistSortButton { dark-theme: root.dark-theme;
-                        accent-color: root.interactive-accent-color;
+                    PlaylistSortButton { dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
                         sort-requested(index) => { root.sort-playlist(index); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist"; activated => { root.browse-files(4); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "Copy"; hint: "Copy selected playlist entries"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(6, root.selected-playlist-token); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "Cut"; hint: "Cut selected playlist entries"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(7, root.selected-playlist-token); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "Paste"; hint: "Paste playlist items at the selected position";
-                        activated => { root.playlist-action(8, root.selected-playlist-token); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "New"; hint: "Open selected item in a new player"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(9, root.selected-playlist-token); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "−"; hint: "Remove selected playlist entries"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(1, root.selected-playlist-token); root.selected-playlist-token = ""; } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↑"; hint: "Move selected entry up"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(2, root.selected-playlist-token); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↓"; hint: "Move selected entry down"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(3, root.selected-playlist-token); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "⌫"; hint: "Clear playlist except current file"; activated => { root.playlist-action(4, ""); root.selected-playlist-token = ""; } }
+                    Rectangle { horizontal-stretch: 1; }
+                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                        icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
+                        activated => { root.browse-files(4); } }
+                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                        label: "−"; hint: "Remove selected playlist entries"; enabled: root.selected-playlist-token != "";
+                        activated => { root.playlist-action(1, root.selected-playlist-token); } }
+                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                        icon: @image-url("../../../assets/icons/trash.svg"); hint: "Clear playlist except current file";
+                        activated => { root.playlist-action(4, ""); } }
                 }
             }
         }
@@ -3836,10 +3589,28 @@ export component PlayerWindow inherits Window {
                 spacing: root.music-mode ? 6px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 3px : 8px;
                 Rectangle {
                     horizontal-stretch: 1;
-                    height: root.music-mode ? 27px : root.osc-row-height;
+                    height: root.music-mode ? 32px : root.osc-row-height;
                     background: transparent;
-                    HorizontalLayout {
-                    x: 0px; y: root.music-mode ? 5px : 0px;
+                    if root.music-mode : MusicModeControls {
+                        y: 4px; width: parent.width;
+                        paused: root.paused; muted: root.muted; dark-theme: root.dark-theme;
+                        accent-color: root.interactive-accent-color;
+                        playlist-visible: root.music-mode-show-playlist;
+                        artwork-visible: root.music-mode-show-album-art;
+                        opacity: root.controls-visible ? 1 : 0;
+                        animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
+                        pause-requested => { root.toggle-pause(); }
+                        previous-requested => { root.playlist-previous(); }
+                        next-requested => { root.playlist-next(); }
+                        volume-requested => {
+                            if !root.music-mode-volume-open { root.music-mode-volume-open = true; }
+                            else { root.toggle-mute(); }
+                        }
+                        playlist-requested => { root.music-mode-show-playlist = !root.music-mode-show-playlist; }
+                        artwork-requested => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
+                    }
+                    if !root.music-mode : HorizontalLayout {
+                    x: 0px; y: 0px;
                     width: parent.width; height: root.osc-row-height;
                     opacity: root.controls-visible ? 1 : 0;
                     animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
@@ -3879,6 +3650,10 @@ export component PlayerWindow inherits Window {
                         }
                         Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
                             width: 24px; height: root.osc-row-height; icon-size: 24px;
+                            // The triangular ink's centroid sits 2.83 pt left of
+                            // its SVG center. Balance its optical weight without
+                            // moving the hit target or the symmetric pause bars.
+                            icon-optical-offset-x: root.paused ? 2.5px : 0px;
                             icon: paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg"); hint: paused ? "Play" : "Pause";
                             activated => { root.toggle-pause(); } }
                         if root.transport-neighbor-actions-fit : Tool { accent-color: root.interactive-accent-color;
@@ -3894,24 +3669,6 @@ export component PlayerWindow inherits Window {
                         }
                     }
                     if !root.music-mode : Rectangle { horizontal-stretch: 1; background: transparent; }
-                    if root.music-mode : Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; height: 17px; icon: muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg"); hint: "Volume"; activated => {
-                        if root.music-mode && !root.music-mode-volume-open { root.music-mode-volume-open = true; }
-                        else { root.toggle-mute(); }
-                    } }
-                    if root.music-mode : Tool { accent-color: root.interactive-accent-color;
-                        dark-theme: root.dark-theme; height: 17px;
-                        icon: @image-url("../../../assets/icons/playlist.svg");
-                        hint: root.music-mode-show-playlist ? "Hide playlist" : "Show playlist";
-                        selected: root.music-mode-show-playlist;
-                        activated => { root.music-mode-show-playlist = !root.music-mode-show-playlist; }
-                    }
-                    if root.music-mode : Tool { accent-color: root.interactive-accent-color;
-                        dark-theme: root.dark-theme; height: 17px;
-                        icon: @image-url("../../../assets/icons/photo.svg");
-                        hint: root.music-mode-show-album-art ? "Hide album art" : "Show album art";
-                        selected: root.music-mode-show-album-art;
-                        activated => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
-                    }
                     if !root.music-mode && osc-bar.toolbar-actions-fit : Rectangle {
                         width: max(osc-bar.balanced-side-width, osc-bar.toolbar-width); height: root.osc-row-height;
                         HorizontalLayout {
@@ -4039,25 +3796,17 @@ export component PlayerWindow inherits Window {
                         changed(value) => { root.set-volume(value); } }
                 }
             }
-            if root.music-mode && loaded : Rectangle {
-                x: 8px; y: 6px; width: 28px; height: 54px;
-                border-radius: 10px;
-                background: root.active-liquid-glass-osc
-                    ? (root.dark-theme ? #25252beF : #f5f5f7f0)
-                    : (root.dark-theme ? #303036 : #eeeeF2);
-                border-width: 1px; border-color: #ffffff30;
-                opacity: root.controls-visible ? 1 : 0;
-                animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
-                VerticalLayout {
-                    x: 3px; y: 3px; width: 22px; height: 48px; spacing: 4px;
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 22px; height: 22px;
-                        icon: @image-url("../../../assets/icons/music-mode-close.svg");
-                        hint: "Close player"; activated => { root.close-player(); } }
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 22px; height: 22px;
-                        icon: @image-url("../../../assets/icons/music-mode-back.svg");
-                        hint: "Return to player"; activated => { root.toggle-music-mode(); } }
-                }
-            }
+        }
+        if root.music-mode && root.loaded : MusicModeWindowActions {
+            x: 8px; y: 6px;
+            artwork-visible: root.music-mode-show-album-art;
+            dark-theme: root.dark-theme;
+            translucent: root.active-liquid-glass-osc;
+            accent-color: root.interactive-accent-color;
+            opacity: root.controls-visible ? 1 : 0;
+            animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
+            close-requested => { root.close-player(); }
+            back-requested => { root.toggle-music-mode(); }
         }
         // Geometry is estimated from the reviewed 320×180 reference capture.
         if loaded && !crop-editing : Rectangle {
@@ -4475,5 +4224,6 @@ export component PlayerWindow inherits Window {
     }
     changed fullscreen => { root.refresh-fullscreen-info(); root.video-menu-changed(); }
     changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
-    init => { keys.focus(); }
+    changed dark-theme => { Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light; }
+    init => { keys.focus(); Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light; }
 }

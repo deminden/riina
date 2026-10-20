@@ -79,7 +79,12 @@ fn connect_with_target(
                 let manually_opened = generation != resize_generation.get();
                 resize_generation.set(generation);
                 let initial = !initial_state.get();
-                if !media_resize_applies(initial, settings.timing, manually_opened) {
+                if !media_resize_applies(
+                    initial,
+                    settings.timing,
+                    manually_opened,
+                    app.get_music_mode(),
+                ) {
                     mark_window_size_adjusted(&app);
                     // The configured timing also governs automatic playlist
                     // changes. Reshaping for the new video's aspect here can
@@ -254,8 +259,12 @@ fn connect_with_target(
                         let manually_opened = generation != aspect_request_generation.get();
                         aspect_request_generation.set(generation);
                         let initial = !aspect_initial_state.get();
-                        let mut resize_allowed =
-                            media_resize_applies(initial, timing, manually_opened);
+                        let mut resize_allowed = media_resize_applies(
+                            initial,
+                            timing,
+                            manually_opened,
+                            app.get_music_mode(),
+                        );
                         #[cfg(target_os = "windows")]
                         {
                             resize_allowed &=
@@ -395,8 +404,15 @@ fn connect_with_target(
     resize_filter(app, previous_size, target)
 }
 
-fn media_resize_applies(initial: bool, timing: ResizeTiming, manually_opened: bool) -> bool {
-    initial || timing.applies_to(manually_opened)
+fn media_resize_applies(
+    initial: bool,
+    timing: ResizeTiming,
+    manually_opened: bool,
+    music_mode: bool,
+) -> bool {
+    // Attached cover images still report video dimensions. The compact player
+    // owns its frame; the main video's resize policy must not overwrite it.
+    !music_mode && (initial || timing.applies_to(manually_opened))
 }
 
 #[cfg(target_os = "windows")]
@@ -745,19 +761,51 @@ mod tests {
 
     #[test]
     fn configured_resize_timing_gates_playlist_geometry_changes() {
-        assert!(media_resize_applies(true, ResizeTiming::Never, false));
+        assert!(media_resize_applies(
+            true,
+            ResizeTiming::Never,
+            false,
+            false
+        ));
         assert!(media_resize_applies(
             false,
             ResizeTiming::WhenOpenedManually,
-            true
+            true,
+            false
         ));
         assert!(!media_resize_applies(
             false,
             ResizeTiming::WhenOpenedManually,
+            false,
             false
         ));
-        assert!(!media_resize_applies(false, ResizeTiming::Never, true));
-        assert!(media_resize_applies(false, ResizeTiming::Always, false));
+        assert!(!media_resize_applies(
+            false,
+            ResizeTiming::Never,
+            true,
+            false
+        ));
+        assert!(media_resize_applies(
+            false,
+            ResizeTiming::Always,
+            false,
+            false
+        ));
+    }
+
+    #[test]
+    fn cover_art_cannot_apply_main_video_geometry_in_music_mode() {
+        for initial in [false, true] {
+            for manual in [false, true] {
+                for timing in [
+                    ResizeTiming::Always,
+                    ResizeTiming::WhenOpenedManually,
+                    ResizeTiming::Never,
+                ] {
+                    assert!(!media_resize_applies(initial, timing, manual, true));
+                }
+            }
+        }
     }
 
     #[cfg(target_os = "windows")]

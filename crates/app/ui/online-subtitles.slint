@@ -1,5 +1,5 @@
 import { Button } from "std-widgets.slint";
-import { NativeTypography } from "shared-controls.slint";
+import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 
 export struct OnlineSubtitleRow {
     file-name: string,
@@ -69,10 +69,10 @@ export component OnlineSubtitlesWindow inherits Window {
     Rectangle {
         x: 18px; y: 94px; width: parent.width - 36px; height: parent.height - 150px;
         border-radius: 6px; border-width: 1px; border-color: #d0d0d5;
-        background: root.acrylic-backdrop-enabled ? #40ffffff : #ffffff;
+        background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #ffffff;
         Rectangle {
             x: 0px; y: 0px; width: parent.width; height: 28px;
-            background: root.acrylic-backdrop-enabled ? #40ffffff : #f1f1f3;
+            background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : #f1f1f3;
             Text { x: 10px; y: 0px; width: 185px; height: parent.height; text: "Subtitle"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
             Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: "Language"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
             Text { x: 270px; y: 0px; width: 150px; height: parent.height; text: "Release"; font-size: 10px; font-weight: 600; color: #55555b; vertical-alignment: center; }
@@ -82,7 +82,7 @@ export component OnlineSubtitlesWindow inherits Window {
         for row[index] in root.results : Rectangle {
             x: 0px; y: 28px + index * 30px; width: parent.width; height: 30px;
             background: row.selected ? #dceaff
-                : root.acrylic-backdrop-enabled ? #40ffffff
+                : root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill
                 : (Math.mod(index, 2) == 0 ? #ffffff : #fafafa);
             Text { x: 10px; y: 0px; width: 185px; height: parent.height; text: row.file-name; font-size: 11px; color: #242428; vertical-alignment: center; overflow: elide; }
             Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: row.language; font-size: 11px; color: #4f4f55; vertical-alignment: center; overflow: elide; }

@@ -141,7 +141,7 @@ def main():
     assert "if root.selected && root.show-label : Text" in QUICK_TABS_SOURCE, (
         "Selected tab text must collapse with its width at narrow sidebar sizes"
     )
-    sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : ScrollView")
+    sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : QuickSettingsScrollPage")
     audio_tracks = PLAYER_SOURCE.index("tracks: root.audio-tracks;")
     equalizer_scroll = PLAYER_SOURCE.index("equalizer-scroll := ScrollView")
     assert sidebar_scroll < audio_tracks < equalizer_scroll, (

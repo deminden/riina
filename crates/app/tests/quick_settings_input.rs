@@ -11,6 +11,14 @@ slint::include_modules!();
 #[path = "quick_settings/track_navigation.rs"]
 mod track_navigation;
 
+#[path = "quick_settings/equalizer.rs"]
+mod equalizer;
+
+#[path = "../src/automatic_music_mode.rs"]
+mod automatic_music_mode;
+#[path = "quick_settings/workflows.rs"]
+mod workflows;
+
 fn flush() {
     slint::platform::update_timers_and_animations();
 }
@@ -488,6 +496,9 @@ fn theme_segments_fit_their_rail_and_keep_selection_after_palette_changes() {
 
 #[test]
 fn transport_center_is_independent_of_audio_and_toolbar_population() {
+    // Keep the ink measurement tied to the actual original vector. A shape
+    // change must update this geometric check rather than silently passing it.
+    assert!(include_str!("../../../assets/icons/osc-play.svg").contains("M2.75 1.5v21L22 12z"));
     let app = player(0);
     app.set_paused(true);
     app.set_controls_visible(true);
@@ -503,6 +514,7 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
                     app.set_sidebar(trailing);
                     flush();
                     let play = button(&app, "Play");
+                    let play_glyph = descendant(&play, "Tool::glyph");
                     let center = play.absolute_position().x + play.size().width / 2.0;
                     let expected = if leading != 0 {
                         680.0
@@ -515,16 +527,91 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
                         (center - expected).abs() < 0.5,
                         "transport drift: {center} != {expected}; audio={has_audio}, compact={compact}"
                     );
+                    let play_ink_centroid = play_glyph.absolute_position().x
+                        + play_glyph.size().width * (9.166_667 / 24.0);
+                    assert!(
+                        (play_ink_centroid - center).abs() < 0.5,
+                        "The triangle's filled area must look centered, not only its SVG box"
+                    );
                     app.set_paused(false);
                     flush();
                     let pause = button(&app, "Pause");
                     assert_eq!(pause.absolute_position(), play.absolute_position());
                     assert_eq!(pause.size(), play.size());
+                    let pause_glyph = descendant(&pause, "Tool::glyph");
+                    assert!(
+                        (pause_glyph.absolute_position().x + pause_glyph.size().width / 2.0
+                            - center)
+                            .abs()
+                            < 0.5
+                    );
                     app.set_paused(true);
                 }
             }
         }
     }
+}
+
+#[test]
+fn music_mode_transport_has_its_own_center_and_disjoint_utility_buttons() {
+    let app = player(0);
+    app.set_music_mode(true);
+    app.set_controls_visible(true);
+    app.set_music_mode_show_album_art(true);
+    app.window().set_size(LogicalSize::new(300.0, 390.0));
+    for dark in [false, true] {
+        app.set_dark_theme(dark);
+        for paused in [true, false] {
+            app.set_paused(paused);
+            flush();
+            let label = if paused { "Play" } else { "Pause" };
+            let play = button(&app, label);
+            let center = play.absolute_position().x + play.size().width / 2.0;
+            assert!((center - 152.0).abs() < 0.5);
+            assert!((play.size().width - 28.0).abs() < 0.5);
+            let glyph = descendant(&play, "Tool::glyph");
+            let ink_center = glyph.absolute_position().x
+                + glyph.size().width * if paused { 9.166_667 / 24.0 } else { 0.5 };
+            assert!((ink_center - center).abs() < 0.5);
+            let mut previous_right = 0.0;
+            for label in [
+                "Volume",
+                "Previous media",
+                label,
+                "Next media",
+                "Show playlist",
+                "Hide album art",
+            ] {
+                let control = button(&app, label);
+                let position = control.absolute_position();
+                let size = control.size();
+                assert!(position.x >= previous_right && position.x + size.width <= 300.0);
+                assert!(
+                    (position.y + size.height / 2.0
+                        - play.absolute_position().y
+                        - play.size().height / 2.0)
+                        .abs()
+                        < 0.5
+                );
+                previous_right = position.x + size.width;
+            }
+        }
+    }
+}
+
+#[test]
+fn first_timeline_pointer_press_seeks_instead_of_only_focusing() {
+    let app = player(0);
+    app.set_duration(60.0);
+    app.set_seekable(true);
+    app.set_controls_visible(true);
+    let seeks = Rc::new(RefCell::new(Vec::new()));
+    let recorded = seeks.clone();
+    app.on_seek(move |value| recorded.borrow_mut().push(value));
+    flush();
+    focus(&app, &field(&app, "Playback position"));
+    assert_eq!(seeks.borrow().len(), 1);
+    assert!((seeks.borrow()[0] - 30.0).abs() < 0.5);
 }
 
 #[test]

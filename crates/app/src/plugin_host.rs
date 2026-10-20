@@ -409,6 +409,18 @@ impl PlaybackHistoryState {
         let path = playback_media_url(&media.filename).unwrap_or_else(|| media.filename.clone());
         let observed = (playback.generation, path.clone());
         if self.observed_sessions.get(&session_id) == Some(&observed) {
+            // A playable snapshot can precede duration discovery. Refresh that
+            // metadata without recording another visit or losing saved progress.
+            if record_history
+                && let Some(duration) = playback
+                    .duration
+                    .filter(|value| value.is_finite() && *value > 0.0)
+                && let Some(entry) = self.entries.iter_mut().find(|entry| entry.path == path)
+                && entry.duration != duration
+            {
+                entry.duration = duration;
+                self.save_change();
+            }
             return;
         }
         self.observed_sessions.insert(session_id, observed);
@@ -435,6 +447,10 @@ impl PlaybackHistoryState {
                 duration,
             },
         );
+        self.save_change();
+    }
+
+    fn save_change(&mut self) {
         self.revision = self.revision.wrapping_add(1);
         if let Some(path) = &self.persistence_path
             && let Err(error) = crate::playback_history_store::save(path, &self.entries)
@@ -469,14 +485,8 @@ impl PlaybackHistoryState {
                 }
             }
         }
-        if changed
-            && let Some(path) = &self.persistence_path
-            && let Err(error) = crate::playback_history_store::save(path, &self.entries)
-        {
-            self.persistence_error = Some(error);
-        }
         if changed {
-            self.revision = self.revision.wrapping_add(1);
+            self.save_change();
         }
     }
 }
@@ -2033,6 +2043,52 @@ mod tests {
         let saved = crate::playback_history_store::load(&path, &[]).unwrap();
         assert_eq!(saved, state.entries());
         assert_eq!(saved.len(), 1);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn playback_history_fills_late_duration_without_resetting_visit_or_progress() {
+        let path =
+            std::env::temp_dir().join(format!("riina-history-late-{}.json", std::process::id()));
+        let mut history =
+            PlaybackHistoryState::with_persistence(Vec::new(), Some(path.clone()), None);
+        let mut playback = Playback {
+            generation: 1,
+            phase: Phase::Paused,
+            playlist: vec![PlaylistEntry {
+                id: 1,
+                filename: "C:/media/late.wav".into(),
+                title: None,
+                current: true,
+                playing: true,
+            }],
+            ..Playback::default()
+        };
+        history.observe(1, &playback, &[], true);
+        assert_eq!(history.entries()[0].duration, 0.0);
+        history.entries[0].progress = Some(30.0);
+        let date = history.entries()[0].date_ms;
+        let revision = history.revision();
+        playback.duration = Some(60.0);
+        history.observe(1, &playback, &[], true);
+        assert_eq!(history.entries().len(), 1);
+        assert_eq!(history.entries()[0].duration, 60.0);
+        assert_eq!(history.entries()[0].progress, Some(30.0));
+        assert_eq!(history.entries()[0].date_ms, date);
+        assert_eq!(history.revision(), revision + 1);
+        assert_eq!(
+            crate::playback_history_store::load(&path, &[]).unwrap(),
+            history.entries()
+        );
+        for duration in [60.0, 0.0, -1.0, f64::NAN, f64::INFINITY] {
+            playback.duration = Some(duration);
+            history.observe(1, &playback, &[], true);
+            assert_eq!(history.revision(), revision + 1);
+            assert_eq!(history.entries()[0].duration, 60.0);
+        }
+        playback.duration = Some(90.0);
+        history.observe(1, &playback, &[], false);
+        assert_eq!(history.revision(), revision + 1);
         std::fs::remove_file(path).unwrap();
     }
 

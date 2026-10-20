@@ -313,7 +313,7 @@
       "author": "riina contributors",
       "license": "MIT",
       "origin": "Original geometric reset symbol authored for riina; no external artwork copied or traced",
-        "sha256": "72daf6b419c61886126699dac9841249567fd765ac866383c71a15396ab2078d"
+      "sha256": "72daf6b419c61886126699dac9841249567fd765ac866383c71a15396ab2078d"
     },
     {
       "path": "assets/icons/resume-history.svg",
@@ -510,6 +510,13 @@
       "license": "MIT",
       "origin": "Original chip-outline symbol drawn independently for the Hardware Decoding row; no Apple artwork copied or traced",
       "sha256": "0ad8962654dd28a81e74c2b606b625db677e67932a24936652cff3893b01d545"
+    },
+    {
+      "path": "assets/icons/trash.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original waste-bin outline drawn independently for the playlist clear action; no Apple artwork copied or traced",
+      "sha256": "53839c23aaedf089b2507c101677f2ae28eeb3c8ae93f708e8467ac638c126a2"
     }
   ],
   "notes": "Original vector player icons replace font-dependent controls. Remaining Unicode symbols, system typography, exact reference geometry and material matching still need review. Riina brand logos and icons are documented in assets/branding; the Inter source font is not bundled. No Apple artwork or SF Symbols are bundled."
