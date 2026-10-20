@@ -37,6 +37,14 @@ function Profile-Hashes {
     return $hashes
 }
 $profileBefore = Profile-Hashes
+function Assert-ProfileUnchanged($Expected) {
+    $actual = Profile-Hashes
+    if ($Expected.Count -ne $actual.Count) { throw 'User profile file count changed during installation or uninstall' }
+    foreach ($name in $Expected.Keys) {
+        if ($Expected[$name] -ne $actual[$name]) { throw 'User preferences/history changed during installation or uninstall' }
+    }
+}
+$script:uninstallStarted = $false
 New-Item -ItemType Directory -Path $root -Force | Out-Null
 function Run-Setup([string]$Stage, [string]$Tasks = '') {
     $process = Start-Process -FilePath $Installer -WindowStyle Hidden -PassThru -ArgumentList @(
@@ -73,8 +81,10 @@ function Verify-Payload {
     if ($shell.CreateShortcut($shortcut).TargetPath -ne (Join-Path $destination 'riina.exe')) { throw 'Start menu target differs' }
 }
 function Run-Uninstall {
+    if ($script:uninstallStarted) { return }
     $uninstaller = Join-Path $destination 'unins000.exe'
     if (Test-Path -LiteralPath $uninstaller) {
+        $script:uninstallStarted = $true
         $process = Start-Process -FilePath $uninstaller -WindowStyle Hidden -PassThru -ArgumentList @(
             '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LOG="' + (Join-Path $root 'uninstall.log') + '"'))
         # Retain the native handle while the short-lived uninstall launcher runs.
@@ -83,6 +93,13 @@ function Run-Uninstall {
         $process.Refresh()
         if ($null -eq $process.ExitCode -or $process.ExitCode -ne 0) {
             throw "Uninstall failed: exit=$($process.ExitCode), handle=$uninstallHandle. Logs: $root"
+        }
+        # Inno's temporary clone finishes self-deletion after the original EXE
+        # exits. Wait for that bounded cleanup, never launch another uninstaller.
+        $cleanup = [Diagnostics.Stopwatch]::StartNew()
+        while (Test-Path -LiteralPath $uninstaller) {
+            if ($cleanup.Elapsed.TotalSeconds -gt 10) { throw 'Uninstaller self-cleanup did not finish' }
+            Start-Sleep -Milliseconds 100
         }
     }
 }
@@ -95,6 +112,7 @@ try {
     Run-Setup 'upgrade' 'desktopicon'
     Verify-Payload
     if (!(Test-Path -LiteralPath $desktopShortcut)) { throw 'Optional desktop shortcut is missing' }
+    Assert-ProfileUnchanged $profileBefore
     if ($HostedGraphics) {
         python (Join-Path $PSScriptRoot 'prepare-windows-ci-graphics.py') --application $destination --archive (Join-Path $root 'mesa.7z')
     }
@@ -106,17 +124,20 @@ try {
             Remove-Item -LiteralPath (Join-Path $destination $name)
         }
     }
+    # Playback can create disposable thumbnail caches through the Windows known
+    # folder API, independently of the test preference path. Compare uninstall
+    # against the post-playback state; install/reinstall were compared above.
+    $profileBeforeUninstall = Profile-Hashes
     Run-Uninstall
     if ((Test-Path -LiteralPath (Join-Path $destination 'riina.exe')) -or
         (Test-Path -LiteralPath $uninstallKey) -or (Test-Path -LiteralPath $shortcutFolder) -or
         (Test-Path -LiteralPath $desktopShortcut)) {
         throw 'Uninstall left application files, registration or shortcuts'
     }
-    $profileAfter = Profile-Hashes
-    if ($profileBefore.Count -ne $profileAfter.Count) { throw 'User profile changed during installer test' }
-    foreach ($name in $profileBefore.Keys) {
-        if ($profileBefore[$name] -ne $profileAfter[$name]) { throw 'User preferences/history changed during installer test' }
+    foreach ($name in $record.payload_files.psobject.Properties.Name) {
+        if (Test-Path -LiteralPath (Join-Path $destination $name)) { throw "Uninstall left payload file: $name" }
     }
+    Assert-ProfileUnchanged $profileBeforeUninstall
     @{
         version = $record.version; source_commit = $record.source_commit
         installer_sha256 = $record.installer_sha256
