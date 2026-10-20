@@ -27,8 +27,9 @@ def select(run, jobs, artifacts, repository, run_id):
     if len(package_jobs) != 1:
         raise ValueError("Candidate package job is missing or ambiguous")
     steps = package_jobs[0].get("steps", [])
-    installer_steps = {"Build installer from the same portable payload",
-                       "Verify installed application, reinstall and uninstall"}
+    # Installation/playback can be retried on the saved installer, just like the
+    # portable GUI smoke. Its original compilation must still have succeeded.
+    installer_steps = {"Build installer from the same portable payload"}
     required = REQUIRED_STEPS | (installer_steps if any(step.get("name") in installer_steps for step in steps) else set())
     for name in required:
         matching = [step for step in steps if step.get("name") == name]

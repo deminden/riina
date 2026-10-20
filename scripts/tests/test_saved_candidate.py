@@ -43,6 +43,18 @@ class SavedCandidateTests(unittest.TestCase):
         self.assertEqual(self.select(self.inputs()), {
             "source_sha": "a" * 40, "artifact_id": 7, "candidate_run_id": 42})
 
+    def test_saved_installer_requires_build_but_retries_failed_lifecycle(self):
+        inputs = self.inputs()
+        steps = inputs[1][0]["steps"]
+        steps.extend([
+            {"name": "Build installer from the same portable payload", "conclusion": "success"},
+            {"name": "Verify installed application, reinstall and uninstall", "conclusion": "failure"},
+        ])
+        self.assertEqual(self.select(inputs)["candidate_run_id"], 42)
+        steps[-2]["conclusion"] = "failure"
+        with self.assertRaises(ValueError):
+            self.select(inputs)
+
     def test_every_required_original_build_gate_must_succeed(self):
         for name in candidate.REQUIRED_STEPS:
             for conclusion in ("failure", "skipped", None):

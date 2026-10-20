@@ -43,8 +43,10 @@ function Run-Setup([string]$Stage, [string]$Tasks = '') {
         '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',
         ('/DIR="' + $destination + '"'),('/GROUP="' + $group + '"'),
         ('/TASKS="' + $Tasks + '"'),('/LOG="' + (Join-Path $root ($Stage + '.log')) + '"'))
+    $setupHandle = $process.Handle
     if (!$process.WaitForExit(90000)) { Stop-Process -Id $process.Id; throw 'Installer timed out' }
-    if ($process.ExitCode -ne 0) { throw "Installer $Stage failed: $($process.ExitCode). Logs: $root" }
+    $process.Refresh()
+    if ($null -eq $process.ExitCode -or $process.ExitCode -ne 0) { throw "Installer $Stage failed: exit=$($process.ExitCode), handle=$setupHandle. Logs: $root" }
 }
 function Verify-Payload {
     foreach ($entry in $record.payload_files.psobject.Properties) {
@@ -75,8 +77,13 @@ function Run-Uninstall {
     if (Test-Path -LiteralPath $uninstaller) {
         $process = Start-Process -FilePath $uninstaller -WindowStyle Hidden -PassThru -ArgumentList @(
             '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LOG="' + (Join-Path $root 'uninstall.log') + '"'))
+        # Retain the native handle while the short-lived uninstall launcher runs.
+        $uninstallHandle = $process.Handle
         if (!$process.WaitForExit(90000)) { Stop-Process -Id $process.Id; throw 'Uninstall timed out' }
-        if ($process.ExitCode -ne 0) { throw 'Uninstall failed' }
+        $process.Refresh()
+        if ($null -eq $process.ExitCode -or $process.ExitCode -ne 0) {
+            throw "Uninstall failed: exit=$($process.ExitCode), handle=$uninstallHandle. Logs: $root"
+        }
     }
 }
 try {
@@ -120,6 +127,20 @@ try {
         hosted_software_graphics = [bool]$HostedGraphics
     } | ConvertTo-Json | Set-Content -LiteralPath $ReportPath -Encoding utf8NoBOM
     Write-Output "Installer install/reinstall/playback/uninstall passed: $ReportPath"
+} catch {
+    $_ | Out-String | Set-Content -LiteralPath ($ReportPath + '.failure.log') -Encoding utf8NoBOM
+    throw
 } finally {
-    Run-Uninstall
+    try {
+        Run-Uninstall
+    } finally {
+        # .NET's per-user temp directory can differ from runner.temp. Keep the
+        # exact install/uninstall logs beside the report on every exit path.
+        foreach ($name in @('install','upgrade','uninstall')) {
+            $log = Join-Path $root ($name + '.log')
+            if (Test-Path -LiteralPath $log) {
+                Copy-Item -LiteralPath $log -Destination ($ReportPath + '.' + $name + '.log') -Force
+            }
+        }
+    }
 }
