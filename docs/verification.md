@@ -2,12 +2,13 @@
 
 Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
-The latest records below are from Windows 11 x64 on 2026-10-19.
+The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
 ## Latest evidence
 
 | Check | Revision | Result and limits |
 |---|---|---|
+| Local settings/playback workflows | [Workflow identity](../tests/visual/windows-workflows-2026-10-20.json) | Build/fmt/strict Clippy; 656 workspace tests (56 ignored, one thread), 40 widget regressions, 62 Python and 53 native engine checks. Unicode Save/focus, light handles, playlist Move Down, paused auto Music Mode, first-click seeking, restored History progress and 300 x 259/90 artwork sizing checked in scoped candidates. Final debug smoke passed in 5832 ms; three full-desktop captures inspected. Artwork underlay/clipping, remaining focus/accelerators, matched pixels and other hardware/ports remain open |
 | Quick Settings track lists | [Track-list identity](../tests/visual/windows-quick-settings-tracks-2026-10-19.json) | Eight new widget regressions (28 total); build/fmt/strict Clippy, 634 workspace tests with two test threads (56 ignored), 60 Python tests and 5835 ms smoke passed. Native Audio/Video arrows, both subtitle lanes, Tab/reverse Tab and narrow light Audio checked. Full-desktop captures inspected; matched macOS behavior, other DPI and accessibility action bounds remain separate |
 | Published 4.1.0 exact package | [Release identity](../tests/visual/windows-release-4.1.0-2026-10-19.json) | Locked build, strict Clippy, workspace/native tests, imports/notices/source checks passed; engine reused from 0.4.0; same archive tested locally (5863 ms) and in CI (6226 ms), then published unchanged. Full-desktop captures inspected; physical display, audible output and HDR remain separate |
 | Player proportions and Layout symbols | [Proportion identity](../tests/visual/windows-player-proportions-2026-10-19.json) | Twenty widget regressions; final executable inspected at normal and 285 x 160 sizes, Light/Dark/Auto, standard/compact Layout, horizontal/vertical scrolling and centered Play/Pause. Build/fmt/strict Clippy passed; 626 Rust tests, 56 ignored; 60 Python tests; 5841 ms smoke and three inspected full-desktop captures. Physical pixels/HDR, other DPI and matched macOS states remain separate |
@@ -49,8 +50,8 @@ The 56 default ignored entries comprise 53 native checks, two clipboard checks
 and a child-process helper. Its parent explicitly runs that helper four times.
 The candidate preparation separately ran all 53 native checks against the reused
 release DLL. It also checked OS-delivered double-click and host Escape; its smoke
-still uses the shared fullscreen callback. Light equalizer-thumb contrast,
-matched IINA geometry, material-policy transitions and wider hardware coverage
+still uses the shared fullscreen callback. The newer workflow batch corrects light
+equalizer-thumb contrast; matched IINA geometry, material-policy transitions and wider hardware coverage
 remain acceptance work. Each release archive requires its own evidence.
 The older Preferences runs used a local executable rather than an extracted
 release package. Their scripted fullscreen entry invokes the double-click

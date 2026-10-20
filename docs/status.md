@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-19. Published release: **4.1.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-20. Published release: **4.1.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -70,12 +70,34 @@ the active-track marker continues to follow the engine. Language badges fit thei
 text and reserve space for the track name, including in the Video pane.
 
 The [track-list record](../tests/visual/windows-quick-settings-tracks-2026-10-19.json)
-identifies the local executable and native checks: all four selectors, independent
-subtitle lanes, forward/reverse Tab and a narrow light Audio pane. Build, formatting,
-strict Clippy, 634 workspace tests (56 ignored), 28 widget regressions and 60 Python
-tests passed; playback/fullscreen smoke passed in 5835 ms. These changes are local.
-Matched macOS interaction/pixels, the rest of the page focus graph and native
-accessibility action bounds remain open.
+identifies that earlier executable and its scoped native checks. The newer
+[workflow record](../tests/visual/windows-workflows-2026-10-20.json) separates the
+current checks from intermediate failures and remaining acceptance work.
+
+The local follow-up adds keyboard-operated equalizer Save/Rename, Unicode profile
+persistence, semantic light-theme handles and subtitle warning colors. The play
+triangle has an independent optical correction; Music Mode owns separate transport
+geometry and top-left window actions. Pane scroll positions survive category and
+Layout changes. Playlist rows take their available width, with six footer actions
+and less frequent editing in row context menus.
+
+First-pointer slider/color input, paused-catalog Music Mode debounce and Windows
+watch-later path identity are corrected. History accepts late duration discovery
+without recording another visit or resetting saved progress. Shared auxiliary-window acrylic fills
+use neutral RGBA colors rather than opaque cyan ARGB spellings. Folder discovery
+now has real temporary-filesystem regressions for ordering, exclusions and stale results. Configurable
+Control bindings from the framed host share the existing dispatch route; native-
+menu-only accelerators from every focus owner remain separate work.
+
+Only Windows was available. Linux full-application CI now installs and probes GTK
+and WebKitGTK dependencies, but native macOS/Linux playback, physical audio/HDR,
+other DPI, complete focus/accessibility behavior and matched reference pixels
+remain unverified. These changes remain local; published version is still 4.1.0.
+
+The workflow batch passed build, formatting, strict Clippy, 656 workspace tests
+(56 ignored), 40 widget regressions, 62 Python tests and a 5832 ms debug playback
+smoke. The record separates native engine checks, GUI candidates and remaining
+artwork underlay/clipping, focus, shortcut and visual-comparison gaps.
 
 ## Changes in 4.1.0
 
@@ -99,7 +121,8 @@ The [input](../tests/visual/windows-quick-settings-input-2026-10-19.json),
 [navigation](../tests/visual/windows-quick-settings-navigation-2026-10-19.json),
 [menu input](../tests/visual/windows-system-menu-alt-2026-10-19.json) and
 [proportion](../tests/visual/windows-player-proportions-2026-10-19.json) records
-identify the tested development builds. The latest batch passed 626 workspace
+identify the development builds collected by 4.1.0. The proportion batch passed
+626 workspace
 tests (56 ignored), 20 generated-widget regressions, formatting, strict Clippy,
 60 Python tests and a 5841 ms playback smoke. Native checks covered both themes,
 standard/compact Layout and a 285 x 160 player. Exact release-package checks are

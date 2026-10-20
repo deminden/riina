@@ -33,7 +33,22 @@ adds shared Audio/Video/subtitle list ownership, repeated-key traversal, row rev
 and flexible language badges. Native checks cover all four selectors and narrow
 light Audio. Continue Quick Settings work on the remaining page focus graph,
 modified native-menu shortcuts while a panel owns focus, accessibility action
-bounds, light equalizer thumbs and matched macOS control geometry.
+bounds and matched macOS control geometry. Music Mode artwork still needs a
+separate native video viewport: letterboxing and art under the compact control
+strip remain visible, even though compact frame sizing is now correct.
+
+The latest local workflow batch adds keyboard-operated equalizer naming, optical
+play-glyph centering, separate Music Mode transport/window controls, independent
+pane scroll positions and visible playlist rows with a compact six-action footer.
+It also fixes first-click slider input, quiet paused-media Music Mode transitions
+and Windows watch-later path identity. See the dated workflow record in
+[verification](verification.md) for final tested scope rather than treating these
+implementation changes as complete acceptance.
+
+Windows is the only available test machine. Linux CI now provisions the GTK and
+WebKit dependencies needed by the full application; neither that configuration
+change nor shared tests establish macOS/Linux playback support. Physical HDR,
+pass-through audio and other display/DPI combinations still need equipment.
 
 ## Work order
 

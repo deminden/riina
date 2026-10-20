@@ -1,0 +1,224 @@
+{
+  "date": "2026-10-20",
+  "source_base_revision": "2189e3c8c3ea6d021422d2f7d2d40a1b5939247c",
+  "scope": "Local workflow and control-geometry follow-up after 4.1.0; Windows only; not a release or complete IINA parity acceptance",
+  "reference": {
+    "revision": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "captures": [
+      "reference/captures/iina-reference-set-2026-10-12/20-playback-frame.png",
+      "reference/captures/iina-reference-set-2026-10-12/21-playback-quick-settings.png",
+      "reference/captures/iina-reference-set-2026-10-12/22-music-mode.png",
+      "reference/captures/iina-reference-set-2026-10-12/23-playback-audio-panel.png",
+      "reference/captures/iina-reference-set-2026-10-12/24-playback-video-panel.png",
+      "reference/captures/iina-reference-set-2026-10-12/25-playback-subtitles-panel.png"
+    ],
+    "comparison": "Reference surfaces inspected for hierarchy and geometry; media and display scale are not matched. No protected implementation or assets copied."
+  },
+  "implementation": [
+    "Standard keyboard-operated equalizer menu; focused Unicode Save/Rename prompt, validation, cancellation and focus restoration.",
+    "Player theme supplies standard widget palette; light equalizer handles and subtitle warnings have semantic contrast.",
+    "Optical play-triangle adjustment without moving hit target or pause bars; independent Music Mode control geometry and top-left window actions.",
+    "Per-sidebar pane scroll memory survives Layout visits; user scrolling is separate from automatic content geometry clamps.",
+    "Explicit playlist row width; compact six-action footer; existing cut/copy/paste/move/new-window actions retained in row context menus.",
+    "First-pointer slider/color input is no longer covered by the focus helper.",
+    "Paused catalogs mature the automatic Music Mode debounce without requiring another engine notification.",
+    "Framed-host Control bindings use the same configurable command dispatch, preserving crop/dialog scope and native system-menu keys.",
+    "Windows watch-later progress uses native path spelling instead of replacing directory separators.",
+    "Functional temporary-folder tests cover natural ordering, exclusions, duplicate prevention, stale generations and preference enablement.",
+    "Linux full-application workflow provisions GTK/WebKitGTK and probes pkg-config; runtime verification remains pending.",
+    "History, Log Viewer, Online Subtitles and filter windows share neutral light/dark acrylic fills; Slint RRGGBBAA prevents the former opaque cyan ARGB spellings.",
+    "History refreshes late finite positive duration without adding another visit, changing its date or losing saved progress; repeated/invalid observations and disabled recording do not write another revision.",
+    "Native geometry groups top-level host/owned-controls and mpv child windows in separate parent-specific DeferWindowPos batches; a hidden real-window regression checks all resulting bounds.",
+    "Main-video initial/manual resize policy cannot overwrite Music Mode geometry when attached cover art reports video dimensions."
+  ],
+  "checks": {
+    "status": "passed",
+    "build": "cargo build --workspace --locked",
+    "formatting": "cargo fmt --all -- --check",
+    "clippy": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+    "workspace": {
+      "passed": 656,
+      "ignored": 56,
+      "test_threads": 1,
+      "includes_widget_regressions": 40,
+      "note": "Four child-helper runs are counted through their parent only."
+    },
+    "python_passed": 62,
+    "native_integration_passed": 51,
+    "native_library_passed": 2,
+    "native_scope": "Same reused engine/DLL and unchanged mpv wrapper; null audio. Application geometry is covered separately by workspace native-window tests and the final GUI smoke.",
+    "fixture_hashes": 16,
+    "asset_hashes": 74,
+    "settings_navigation": "passed"
+  },
+  "manual_gui": {
+    "status": "scoped checks passed; visual gaps remain",
+    "pid": 24608,
+    "fixture": "artwork.wav",
+    "fixture_sha256": "ff74a0d429843da86cc2d25bdef4f340b8d56290684ace9db0132cd8fe87c1ff",
+    "fixture_origin": "Original 48 kHz stereo PCM repeated to 60 seconds; ID3v2.4 APIC contains the first JPEG packet from the original CC0 moving-square AVI. Isolated media/profile folder.",
+    "checks": [
+      "Automatic Music Mode with embedded artwork settled at a 300 x 259 client (302 x 288 owner).",
+      "Hide artwork changed the client to 300 x 90 (302 x 119 owner).",
+      "Play remained optically centered; Previous/Next and volume/playlist/artwork actions stayed separate; Close/Return stayed at top-left."
+    ],
+    "shutdown": "Normal Alt+F4; zero Riina processes before final smoke.",
+    "scope_note": "Earlier scoped UI/workflow observations are recorded under their exact candidate identities. Final history behavior was checked in the preceding E50 candidate; the final follow-up changes only native resize batching and Music Mode resize-policy ownership."
+  },
+  "native_library_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "native_library_source": "Verified engine from 4.1.0 portable package; no native rebuild.",
+  "intermediate_observations": [
+    "Earlier unrecorded executable: Unicode profile Save and Rename plus Ctrl+1 from picker worked; this is not attributed to the later executable hash.",
+    "cbadd42e7ad3d72a716eec9eaba143c044969341893cc3a4da7928a5081225ea: profile persisted across restart; Rename cancellation and Remove returned to Manual; light/dark handles inspected.",
+    "The same intermediate executable exposed scroll carryover, a high picker chevron, collapsed playlist rows, Music Mode window-action overlap, first-click timeline failure and paused automatic-mode stalling. These prompted the fixes and regressions in this batch.",
+    "Landscape clip 2 to portrait clip 10 kept the same 918 x 619 logical owner and 916 x 570 controls bounds in that intermediate executable.",
+    "A disposable 1000 Hz WAV failed audio initialization; the standard 48 kHz fixture loaded. Unusual sample-rate/output combinations remain a compatibility gap.",
+    "The 48 kHz fixture saved start=30.000000 under native Windows path MD5 43A8130E9CAB1D2B638A3ACED922C07A. This revealed the History path-normalization mismatch.",
+    "Ctrl+J and Ctrl+Shift+H did not open native-menu-only dialogs from controls focus; pointer menu actions remain available. This batch does not claim all native menu accelerators fixed."
+  ],
+  "remaining_gaps": [
+    "Complete Quick Settings focus graph, native accessibility invocation bounds, IME/input layouts and other DPI.",
+    "Matched macOS media/scale geometry, exact glyph silhouettes, typography, materials and platform policy transitions.",
+    "Playlist total-duration label and complete file/subtitle/plugin context actions.",
+    "Wider format/sample-rate compatibility, physical audio/pass-through, HDR/display changes and broader multi-monitor hardware.",
+    "Full macOS/Linux application builds and playback/lifecycle acceptance; only Windows was available. No supported-port claim.",
+    "Native-menu-only accelerators from every focus owner remain separate from configurable player bindings.",
+    "Log Viewer, Online Subtitles and filter-window native appearance after the shared tint correction are not claimed verified by the History check.",
+    "Older archive entries with zero duration require opening the media to discover its duration; no bulk offline metadata migration is claimed.",
+    "Native cover-art rendering still uses the whole client underneath compact controls: letterboxing and image bleed under the control strip remain visual gaps, including after Hide artwork. The frame-size fix does not establish artwork pixel parity.",
+    "Final native per-pane scroll restoration through Layout was not repeated after the generated-widget regression; complete focus/accessibility and matched AppKit interaction remain open."
+  ],
+  "private_evidence": "Isolated profiles, synthetic media, logs and full desktop captures remain ignored under target. Unrelated desktop content is not published.",
+  "regression_diagnosis": [
+    "The first-pointer timeline baseline produced zero seek callbacks; placing the focus helper below the pointer handler fixes it.",
+    "An early scroll-position assertion compared an elastic overscroll offset with a later clamped position. The pane-memory test now uses distinct in-range offsets and settles geometry before comparing.",
+    "The Layout regression exercises destruction/recreation of the scrolling body. Memory is held by the sidebar and the view reports page/offset changes explicitly; headless checks materialize the new body before advancing its restore timer.",
+    "One two-thread workspace run timed out waiting for writer 0 in the existing cross-process preference test. Final checks use one test thread; no preference timeout, locking code or assertions were weakened.",
+    "Native History restored 47.224875 seconds but had duration 0.0 from the first playable snapshot. The UI correctly hid an undefined ratio. A later-duration update now repairs metadata and persists it without another visit."
+  ],
+  "source_hashes_canonical_lf": {
+    "assets/icons/trash.svg": "53839c23aaedf089b2507c101677f2ae28eeb3c8ae93f708e8467ac638c126a2",
+    "assets/provenance.json": "46bb1f3d2b2aea0ee6ac3c0442b26b998199cc59f9310389cf3d2fcca0be304a",
+    "crates/app/src/auto_playlist.rs": "cb79a862f093533b272964ce546b4d3e30eacb3d203474b6c6f1b11bca13ded7",
+    "crates/app/src/auto_playlist_tests.rs": "f6c87cf8fa9dcd968f2b8922606cd22fdd9144413931cb4d912f0a4f53627cd5",
+    "crates/app/src/automatic_music_mode.rs": "f08ca150ca3844b730a0665d0e293bb530b9217729b3f538a0838c3a12f3ff58",
+    "crates/app/src/main.rs": "8ad0b1447d37583fb7575f28070a244a101a04d7e40f46dd0d5ba49e77b1a16f",
+    "crates/app/src/platform/windows/host_input.rs": "8429cce7e8e45580393f2020d5a8d143f9901b3ef4e88a87371038fd3e2f33e7",
+    "crates/app/src/platform/windows/window_geometry.rs": "43cbffd92e0728e64cfab2b4c759faa6005451d7b319683ff789ea52c43cd23d",
+    "crates/app/src/playback_history_store.rs": "43d591440094778c99de2eca2717755abbf46e814645c734d86ba3e85d6d2ce9",
+    "crates/app/src/player_ui.rs": "52b6f54f1a8579c28c961d92722fb6e7a1fdf6ca7fcb27958fc665df07b8d67a",
+    "crates/app/src/plugin_host.rs": "ea50efc73bd40fcce0dcb7919c5cf280040441dfaaf8e552b63088ddfefb5508",
+    "crates/app/src/window_aspect.rs": "a417f65a16d48b5c3af14ffa6ef8717b0f2c8489387fcf14f64b472c60f6f289",
+    "crates/app/tests/quick_settings/equalizer.rs": "2de1fcb62c09d7670242fbff8438119b8e71d41283c5e8680708a07e6689699e",
+    "crates/app/tests/quick_settings/workflows.rs": "e5f233ddc664f468b58e81b64d7a00c9374aa9d45cc64ef7a495d99a5f8d22dd",
+    "crates/app/tests/quick_settings_input.rs": "408d14164597782b4ddb794605c6e586addbc0c7bfab71fc6a25415f8303ec10",
+    "crates/app/ui/equalizer-profile-picker.slint": "251e18ca5202c8033ed51a78368b724d3048b106412848b4d247cace26f6433b",
+    "crates/app/ui/history-window.slint": "da115af3c72781e05fa03de993c1a2324784186a293a04ce5b8a670922524ae6",
+    "crates/app/ui/log-viewer.slint": "1c8e98a36033f3d830d60fbd8220c5636c220348bbb88dc18a07cd7d65971dfd",
+    "crates/app/ui/music-mode-controls.slint": "6a1cc95334a60972321d2bdc9612b53f62ac3372a671a74cb17d91c657d4e577",
+    "crates/app/ui/online-subtitles.slint": "615fb90d9f17c4e0031656b807b13776ecd859f31458722eff8da4ea22c2609a",
+    "crates/app/ui/player-tool.slint": "eebfcb47e7e15000524c1e39d561678078df102c550e556d2e9e60b59d0c857e",
+    "crates/app/ui/player.slint": "b171647f359eeb9f46b40f5a52ce88679f9ef24fbd4d7fd59f5341a4e716cc33",
+    "crates/app/ui/quick-settings-scroll-page.slint": "f04a3d8ef2fe215fc0069ea0c6fd29e0a568df7c6bee49b399748941f577b488",
+    "crates/app/ui/shared-controls.slint": "7873389cb6c0feaf07765ed5ffb25038c45df1e705429dc5911666cee5e6dbb1",
+    "crates/app/ui/video-filters-window.slint": "10a427e952d4c3cc3fb4300d134bdab82bf589695669b0973f026878bafee63b",
+    "crates/core/src/audio_equalizer.rs": "c5aff52af5a4994eea36a414a71d2307a30db58129bd3541bc491b97aff01860",
+    "crates/core/src/music_mode.rs": "6c0d7c99327d81f8fe783e96eba484641fc3cf3365b13db63097210badd0fd5b",
+    "scripts/check-settings-navigation.py": "b450a00bcfbc21524c67f18e403942647513150487bbf1822d4d7d02321cd35e"
+  },
+  "checks_in_flight": [],
+  "native_gui_candidate_before_history_tint_fix": {
+    "executable_sha256": "4e5ce9fab98523bc1e7c43cb0672e7cfa4a41ae1ac9f1d5d0bc39c848c8b94c6",
+    "pids": [
+      21216,
+      25808
+    ],
+    "checks": [
+      "Floating play triangle visually centered with settings closed and beside the trailing sidebar.",
+      "Saved 映画 🎧 final from the focused native prompt using Return; focus returned to the named picker.",
+      "Ctrl+Shift+V from picker focus opened Video; Ctrl+Shift+A opened Audio.",
+      "Light Layout selection settled; light Audio handles were dark and readable; picker chevron was centered.",
+      "Native Video > Normal Size produced a 285 x 160 client with all category icons and Close reachable.",
+      "Paused 48 kHz stereo audio resumed at 30/60 seconds and automatically entered 300 x 390 Music Mode without manual toggle.",
+      "Hiding album art produced a 300 x 90 client; top-left Close/Return did not cover transport or timeline.",
+      "First timeline click moved paused position from 30 to 47.224876 seconds.",
+      "Music playlist showed clip 2, clip 10 and tone 2; Return restored the 918 x 619 owner.",
+      "Normal playlist rows and six footer actions were visible. Context Move Down swapped clip 2/clip 10 while tone 2 remained paused at 47 seconds.",
+      "History opened through File menu; current newly loaded row had no saved progress, as designed. Its acrylic card tint was incorrectly opaque cyan; the follow-up corrects RGBA ordering."
+    ],
+    "limits": [
+      "Ctrl+1 did not resize from Custom Speed editor focus; native Normal Size did. Do not claim all sizing accelerators fixed.",
+      "Owner-targeted Home/Return dismissed the open native menu without opening Save. Pointer Save and keyboard text/Return worked; native menu traversal remains unverified through this automation route.",
+      "The footer repeat glyph needs a matched symbol check; total duration and additional context actions remain gaps."
+    ],
+    "shutdown": "Both instances closed normally with Alt+F4; no Riina process before the follow-up build."
+  },
+  "neutral_tint_candidate": {
+    "executable_sha256": "8121f1ed8d60f2d76295ffe7bc162d5954a0bc8caab3341164301fb3ea874cc6",
+    "pid": 5828,
+    "checks": [
+      "Normal video and floating play centering inspected on clip 2, frame 000, paused.",
+      "History neutral acrylic cards verified after the shared fill correction.",
+      "Archive contained restored tone progress 47.224875; its zero duration explained why the UI still hid progress. This prompted the late-duration regression and follow-up."
+    ],
+    "shutdown": "History and owner closed normally; no Riina process before follow-up build."
+  },
+  "history_follow_up": {
+    "executable_sha256": "e50f431f3bb729fa09ab3383cde41bf1ce74247d14ea4b3be26ec9019184b69d",
+    "pids": [
+      22724,
+      23780
+    ],
+    "checks": [
+      "Paused audio resumed at 47.224876/60 seconds in Music Mode; archive duration became 60.0 after discovery.",
+      "After normal exit and reopening clip 2, History displayed tone 2 as 0:47 / 1:00 with a proportional blue progress bar.",
+      "Neutral acrylic cards verified in the full 3840 x 2160 desktop capture."
+    ],
+    "shutdown": "History and both playback sessions closed normally; no Riina process before the next build."
+  },
+  "artwork_resize_diagnosis": [
+    {
+      "executable_sha256": "e50f431f3bb729fa09ab3383cde41bf1ce74247d14ea4b3be26ec9019184b69d",
+      "pid": 24988,
+      "observation": "Embedded JPEG was rendered and automatic Music Mode selected, but owner remained 918 x 619; art toggle did not resize. Native batch mixed top-level windows with mpv child HWNDs."
+    },
+    {
+      "executable_sha256": "2426a1b34ec342317ef60574920f113327b63eee2229dd470d954cff26d9fdab",
+      "pid": 23884,
+      "observation": "After separating parent groups, native resizing worked, but the main-video size policy overwrote compact sizing with a 285 x 160 client. Music Mode now excludes that policy."
+    }
+  ],
+  "windows_api_reference": "https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-deferwindowpos",
+  "executable_sha256": "e1715f646c4794b4fc4b998be15b4d927e027ea7d901036f60087ec52b208593",
+  "environment": {
+    "platform": "Windows 11 x64",
+    "rust": "1.99.0",
+    "desktop": [
+      3840,
+      2160
+    ],
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "other_platforms": "No macOS/Linux test machine available; no native port or physical HDR/audio acceptance claimed."
+  },
+  "smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5832,
+    "error": null,
+    "executable": "C:\\Codex\\wiina\\target\\debug\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 26280,
+    "success": true,
+    "title": "moving-square.avi — riina",
+    "scope": "Local debug executable, not an extracted release archive. Shared fullscreen callback; no new OS-double-click claim.",
+    "desktop_captures": "Before/fullscreen/after inspected at 3840 x 2160; non-black probes passed; video and controls visible together; no persistent player surface after exit.",
+    "report_sha256": "e5150e1b2e853a05f565f0971db436864fbef9668569d20191d404e92bdc14c4"
+  },
+  "source_revision": "cded0a7c0e35423bbd9f82e91591ef5ab81b7cdc"
+}

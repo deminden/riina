@@ -66,6 +66,15 @@ and run through that same generated-player test target. They exercise Audio,
 Video and both subtitle lists with delayed observations, model replacement,
 keyboard traversal, scrolling, disabled states and narrow language badges.
 
+`quick_settings/equalizer.rs` covers menu traversal, naming validation,
+submission/cancellation and focus restoration. `quick_settings/workflows.rs`
+checks neutral auxiliary-window acrylic colors, independent page scrolling,
+playlist row/footer bounds, quiet paused
+Music Mode transitions and first-pointer slider/color input. Transport tests
+measure the original triangle's filled-area center as well as its button frame.
+Wait for Flickable's overscroll clamp before comparing restored positions; an
+intermediate elastic offset is not a stable page position.
+
 The read-only installed-font diagnostic remains available separately from the
 player. It reports counts and discovery timing without listing private font paths:
 

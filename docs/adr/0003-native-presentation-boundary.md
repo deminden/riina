@@ -85,3 +85,16 @@ This boundary does not implement another OS or certify its window/rendering
 behavior. The portable core and mpv interface have three-OS unit/lint evidence;
 native dialog, storage, presentation, fullscreen/focus and playback tests remain
 required per port. The shared GL composition remains the provisional SDR route.
+
+## Resize ownership
+
+Resize the top-level host and owned controls together, then apply matching bounds
+to mpv's child windows in their own parent group before returning to the event loop.
+[DeferWindowPos requires a single parent per batch](https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-deferwindowpos);
+including the video child in the top-level batch is invalid. Hidden native-window
+regressions exercise the owner, owned popup and child geometry without taking focus.
+
+Music Mode owns its compact frame. Attached artwork can supply video dimensions,
+but those dimensions must not activate the main video's initial/manual size policy.
+The floating controller, compact controls and native playback surface retain their
+separate layout and lifecycle boundaries.

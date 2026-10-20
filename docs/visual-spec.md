@@ -84,6 +84,28 @@ and trailing reservations must also survive toolbar customization; centering the
 whole unequal row shifts the transport. The play and pause hit frames share the
 same center; assess glyph optical balance separately.
 
+The current original play vector has an ink centroid at x=9.167 in its 24-point
+view box. Its centered image box therefore looks left-heavy. The paused glyph
+uses a 2.5-point optical adjustment (scaled for Music Mode), leaving the button
+and symmetric pause bars fixed. Widget checks cover both the hit frame and ink
+centroid; this correction is not a matched macOS pixel acceptance result.
+
+Music Mode has separate geometry. Pinned `MiniPlayerWindowController` facts are
+28-point transport frames, a play-frame center two points right of window center,
+and 18-point volume/playlist/artwork controls. Utility buttons must not push the
+transport around. Riina expresses these constraints in its own small shared UI
+component; the floating video controller retains its separate sizing policy.
+Close/Return belong at the window content's top-left (8-point leading, 6-point
+upper inset), rather than inside the bottom transport row. Their frame sizes are
+13 points with artwork and 12 without it; vertical gaps are 5/4 points.
+
+Quick Settings keeps scroll memory per pane and per sidebar, including while
+Layout replaces the scrolling body. A different pane must not inherit the old
+pane's offset. Playlist rows take their full available width. The compact footer
+uses loop/shuffle/sort and add/remove/clear groups with 8-point gaps; less frequent
+editing actions remain in each row's context menu. The reference's total-duration
+label and complete file/subtitle/plugin context actions remain comparison work.
+
 Windows has documented narrow-window and sidebar-avoidance adaptations. Compare
 them against the reference before accepting their geometry; see
 [platform differences](platform-differences.md#windows-interaction-adaptations).
@@ -220,6 +242,12 @@ Windows hides its in-window menu in Music Mode to avoid wrapping over the compac
 controls and restores it on return. macOS retains its external application menu.
 Check title/art transitions, hidden controls, focus, playlist and native video
 continuity rather than comparing only the static compact frame.
+
+## Auxiliary materials
+
+Auxiliary acrylic cards use shared neutral white fills (`#ffffff40` in light
+appearance and `#ffffff09` in dark appearance). Slint color literals use RGBA;
+Windows ARGB integers must be converted explicitly rather than pasted as literals.
 
 ## Acceptance
 
