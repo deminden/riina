@@ -12,6 +12,7 @@ use std::{ffi::CStr, num::NonZeroU32, rc::Rc};
 // At the measured 915-point player width, sigma 10 on this 320px sample scales
 // to about 29 points on the displayed material.
 const WINDOWS_NATIVE_MATERIAL_BLUR_SIGMA: f32 = 10.0;
+#[cfg(any(target_os = "windows", test))]
 const WINDOWS_NATIVE_MATERIAL_GRAIN_SEED: u64 = 0x5749_4e44_4f57_5301;
 const WINDOWS_NATIVE_MATERIAL_SAMPLE_WIDTH: f32 = 320.0;
 const WINDOWS_NATIVE_MATERIAL_SAMPLE_HEIGHT: f32 = 180.0;

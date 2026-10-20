@@ -38,11 +38,15 @@ const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
 const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
 // A 4 fps clip changes frames every 250 ms; sampling at 10 Hz avoids skipping
 // alternating frames while keeping screenshot-raw readback below display rate.
+#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
 // Material-frame replies arrive asynchronously. Poll them at the UI cadence so
 // a completed capture does not wait another full sampling interval to display.
+#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
+#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_SAMPLE_TIMEOUT: Duration = Duration::from_millis(750);
+#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_CAPTURE_STARTUP_GRACE: Duration = Duration::from_millis(500);
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
 
@@ -2128,7 +2132,7 @@ fn install_macos_control_gestures(app: &PlayerWindow, player: riina_mpv::Command
     let weak = app.as_weak();
     let force_touch_active = Cell::new(false);
     let mut pinch_fullscreen_direction = None::<bool>;
-    platform::install_control_gestures(&app.window(), move |gesture| {
+    platform::install_control_gestures(app.window(), move |gesture| {
         let Some(app) = weak.upgrade() else { return };
         match gesture {
             platform::ControlGesture::Pressure { stage } => {
@@ -2179,7 +2183,7 @@ fn install_macos_control_gestures(app: &PlayerWindow, player: riina_mpv::Command
                             return;
                         }
                         if matches!(phase, GesturePhase::Started | GesturePhase::Moved) {
-                            resize_for_trackpad_pinch(&app.window(), delta);
+                            resize_for_trackpad_pinch(app.window(), delta);
                         } else if matches!(phase, GesturePhase::Ended | GesturePhase::Cancelled) {
                             app.invoke_window_aspect_changed();
                         }
@@ -2196,6 +2200,7 @@ struct UiUpdateResources<'a> {
     saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     transition_overlay: &'a AtomicU64,
+    #[cfg(target_os = "windows")]
     transition_release_generation: &'a AtomicU64,
 }
 
@@ -2313,7 +2318,7 @@ fn update_ui(
         .find(|entry| entry.current || entry.playing)
         .map(|entry| PathBuf::from(&entry.filename));
     #[cfg(target_os = "macos")]
-    platform::set_represented_file(&app.window(), current_media_path.as_deref());
+    platform::set_represented_file(app.window(), current_media_path.as_deref());
     #[cfg(target_os = "macos")]
     let title_path = current_media_path.as_deref();
     #[cfg(target_os = "macos")]
@@ -4121,8 +4126,10 @@ pub(crate) fn configure_player(
         crate::screenshot_output::Completions::default(),
     )));
     let transition_overlay = Arc::new(AtomicU64::new(u64::MAX));
+    #[cfg(target_os = "windows")]
     let transition_release_generation = Arc::new(AtomicU64::new(u64::MAX));
     let notify_transition_overlay = transition_overlay.clone();
+    #[cfg(target_os = "windows")]
     let notify_transition_release_generation = transition_release_generation.clone();
     let observed_playback = latest_playback.clone();
     let music_mode_state = Arc::new(std::sync::Mutex::new(riina_core::music_mode::State::new(
@@ -4274,6 +4281,7 @@ pub(crate) fn configure_player(
         let opening_fullscreen = opening_fullscreen.clone();
         let music_mode_state = notify_music_mode_state.clone();
         let transition_overlay = notify_transition_overlay.clone();
+        #[cfg(target_os = "windows")]
         let transition_release_generation = notify_transition_release_generation.clone();
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
@@ -4316,6 +4324,7 @@ pub(crate) fn configure_player(
                         saved_video_filters: &notify_saved_video_filters,
                         saved_audio_filters: &notify_saved_audio_filters,
                         transition_overlay: transition_overlay.as_ref(),
+                        #[cfg(target_os = "windows")]
                         transition_release_generation: transition_release_generation.as_ref(),
                     },
                     &mut displayed,
@@ -7251,7 +7260,7 @@ pub(crate) fn configure_player(
                 slint::RenderingState::BeforeRendering => {
                     if let (Some(video), Some(app)) = (surface.as_mut(), render_weak.upgrade()) {
                         #[cfg(target_os = "macos")]
-                        if let Some(display) = platform::display_identity(&app.window()) {
+                        if let Some(display) = platform::display_identity(app.window()) {
                             if !app.get_load_icc_profile()
                                 && let Some((cached_display, profile, _)) =
                                     icc_profile_display.take()
@@ -7268,7 +7277,7 @@ pub(crate) fn configure_player(
                             if needs_profile {
                                 let attempted = app.get_load_icc_profile();
                                 let mut profile = attempted
-                                    .then(|| platform::icc_profile_for_window(&app.window()))
+                                    .then(|| platform::icc_profile_for_window(app.window()))
                                     .flatten();
                                 if let Some(bytes) = profile.as_deref() {
                                     // SAFETY: this callback runs on Slint's current GL render context.

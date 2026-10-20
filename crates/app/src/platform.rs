@@ -1,9 +1,8 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
 use crate::{NativeVideoHost, PlayerWindow};
-use slint::{
-    ComponentHandle,
-    winit_030::{WinitWindowAccessor, winit::window::Theme as WinitTheme},
-};
+#[cfg(target_os = "windows")]
+use slint::winit_030::winit::window::Theme as WinitTheme;
+use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 #[cfg(target_os = "windows")]
 use std::{
     cell::RefCell,
@@ -336,6 +335,7 @@ pub(crate) fn enable_font_picker_acrylic(window: &crate::FontPicker) {
     let _ = window;
 }
 
+#[cfg(target_os = "windows")]
 pub(crate) fn enable_pip_acrylic(window: &crate::PictureInPictureWindow) {
     #[cfg(target_os = "windows")]
     if !window.get_acrylic_backdrop_enabled() {
@@ -543,6 +543,7 @@ pub(crate) fn window_work_area(
 }
 
 /// Return the current monitor's work-area limit for client content on Windows.
+#[cfg(target_os = "windows")]
 pub(crate) fn window_content_work_area(
     window: &slint::Window,
 ) -> Option<riina_core::window_aspect::PixelSize> {

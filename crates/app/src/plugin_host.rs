@@ -764,6 +764,7 @@ impl PluginHostHandle {
             .map_err(|error| format!("Plugin host did not restart the updated plugin: {error}"))?
     }
 
+    #[cfg(target_os = "windows")]
     pub(crate) fn deliver_overlay_message(
         &self,
         identifier: String,
@@ -907,6 +908,7 @@ enum PluginCommand {
     MenuUpdate,
     ReloadAll,
     WindowWillClose(mpsc::SyncSender<()>),
+    #[cfg(target_os = "windows")]
     DeliverOverlayMessage {
         identifier: String,
         name: String,
@@ -1285,6 +1287,7 @@ fn handle_command(
             }
             let _ = response.send(());
         }
+        #[cfg(target_os = "windows")]
         PluginCommand::DeliverOverlayMessage {
             identifier,
             name,

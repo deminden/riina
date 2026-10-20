@@ -2,8 +2,6 @@ use std::io;
 
 pub(crate) struct SupportedFileType {
     pub(crate) category: String,
-    #[cfg(target_os = "macos")]
-    pub(crate) identifier: String,
     pub(crate) extensions: Vec<String>,
 }
 
@@ -31,8 +29,6 @@ pub(crate) fn load() -> io::Result<Vec<SupportedFileType>> {
                 let extensions = extensions.split(',').map(str::to_owned).collect();
                 Ok(SupportedFileType {
                     category: category.to_owned(),
-                    #[cfg(target_os = "macos")]
-                    identifier: identifier.to_owned(),
                     extensions,
                 })
             }

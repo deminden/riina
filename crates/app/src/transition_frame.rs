@@ -123,6 +123,7 @@ pub fn should_display(playback: &Playback, playlist_auto_play_next: bool) -> boo
     should_display_at(playback, playlist_auto_play_next, Instant::now())
 }
 
+#[cfg(any(target_os = "windows", test))]
 pub fn should_display_until_incoming_stable(
     playback: &Playback,
     playlist_auto_play_next: bool,

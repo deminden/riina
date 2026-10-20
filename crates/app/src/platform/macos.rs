@@ -17,6 +17,6 @@ pub(crate) use gesture_events::{ControlGesture, GesturePhase, install_control_ge
 pub(crate) use icc_profile::{display_identity, icc_profile_for_window};
 pub(crate) use pip::MacPictureInPicture;
 pub(crate) use plugin_menu::MacPluginMenuObserver;
-pub(crate) use scroll_events::{MacScrollEventMonitor, NativeScrollEvent};
+pub(crate) use scroll_events::MacScrollEventMonitor;
 pub(crate) use system_media::{RemoteMediaAction, SystemMediaControls};
 pub(crate) use window_document::{display_name_for_path, set_represented_file};

@@ -259,17 +259,15 @@ fn connect_with_target(
                         let manually_opened = generation != aspect_request_generation.get();
                         aspect_request_generation.set(generation);
                         let initial = !aspect_initial_state.get();
-                        let mut resize_allowed = media_resize_applies(
+                        let resize_allowed = media_resize_applies(
                             initial,
                             timing,
                             manually_opened,
                             app.get_music_mode(),
                         );
                         #[cfg(target_os = "windows")]
-                        {
-                            resize_allowed &=
-                                windows_media_resize_applies(initial, manually_opened);
-                        }
+                        let resize_allowed = resize_allowed
+                            && windows_media_resize_applies(initial, manually_opened);
                         aspect_resize_allowed.set(resize_allowed);
                         *aspect_source.borrow_mut() = Some(source);
                         return;
@@ -669,6 +667,8 @@ pub(crate) fn resize_centered(
     target: PixelSize,
     overlay: Option<&slint::Window>,
 ) {
+    #[cfg(not(target_os = "windows"))]
+    let _ = overlay;
     if target == current || target.width == 0 || target.height == 0 {
         return;
     }
