@@ -376,21 +376,57 @@ fn connect_with_target(
                     return;
                 };
                 if command == ManualSizeCommand::FitScreen {
-                    let Some((origin, bounds)) = screen_bounds(window, maximum) else {
-                        return;
-                    };
-                    window.set_size(PhysicalSize::new(size.width, size.height));
-                    window.set_position(PhysicalPosition::new(
-                        origin.x.saturating_add(
-                            i32::try_from(bounds.width.saturating_sub(size.width) / 2)
-                                .unwrap_or(i32::MAX),
-                        ),
-                        origin.y.saturating_add(
-                            i32::try_from(bounds.height.saturating_sub(size.height) / 2)
-                                .unwrap_or(i32::MAX),
-                        ),
-                    ));
-                    window.request_redraw();
+                    #[cfg(target_os = "windows")]
+                    {
+                        // Use the same measured frame/menu geometry and grouped
+                        // surface resize as other native sizing commands.
+                        let overlay = resize_overlay(&menu_size_target, &app);
+                        let result = window
+                            .with_winit_window(|native| {
+                                if let Some(overlay) = overlay {
+                                    overlay.with_winit_window(|overlay| {
+                                        crate::platform::resize_content(
+                                            native,
+                                            size,
+                                            true,
+                                            Some(overlay),
+                                        )
+                                    })
+                                } else {
+                                    Some(crate::platform::resize_content(native, size, true, None))
+                                }
+                            })
+                            .flatten();
+                        match result {
+                            Some(Ok(())) => {}
+                            Some(Err(error)) => {
+                                app.set_status(error.into());
+                                return;
+                            }
+                            None => {
+                                app.set_status("Could not access the player window".into());
+                                return;
+                            }
+                        }
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        let Some((origin, bounds)) = screen_bounds(window, maximum) else {
+                            return;
+                        };
+                        window.set_size(PhysicalSize::new(size.width, size.height));
+                        window.set_position(PhysicalPosition::new(
+                            origin.x.saturating_add(
+                                i32::try_from(bounds.width.saturating_sub(size.width) / 2)
+                                    .unwrap_or(i32::MAX),
+                            ),
+                            origin.y.saturating_add(
+                                i32::try_from(bounds.height.saturating_sub(size.height) / 2)
+                                    .unwrap_or(i32::MAX),
+                            ),
+                        ));
+                        window.request_redraw();
+                    }
                 } else {
                     resize_centered(window, current, size, None);
                 }

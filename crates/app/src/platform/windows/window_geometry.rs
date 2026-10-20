@@ -283,7 +283,42 @@ pub(crate) fn native_video_surface_signature(window: &Window) -> Option<u64> {
 /// Keep the transparent controls over the native video client in one window
 /// manager operation. Separate Slint size and position calls expose an
 /// intermediate overlay frame while playlist items change aspect ratio.
-pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), String> {
+#[derive(Clone, Copy)]
+pub(crate) enum VideoLayout {
+    FullClient,
+    Artwork { bottom_inset: u32, visible: bool },
+}
+
+fn video_region(client: PixelSize, layout: VideoLayout) -> (POINT, PixelSize) {
+    match layout {
+        VideoLayout::FullClient => (POINT::default(), client),
+        VideoLayout::Artwork {
+            bottom_inset,
+            visible,
+        } if visible && client.height > bottom_inset => (
+            POINT::default(),
+            PixelSize {
+                width: client.width,
+                height: client.height - bottom_inset,
+            },
+        ),
+        // Keep the decoder-owned child alive and visible to mpv, but wholly
+        // outside its parent's clipping rectangle while artwork is hidden.
+        VideoLayout::Artwork { .. } => (
+            POINT { x: -2, y: -2 },
+            PixelSize {
+                width: 1,
+                height: 1,
+            },
+        ),
+    }
+}
+
+pub(crate) fn align_surfaces(
+    host: &Window,
+    overlay: &Window,
+    layout: VideoLayout,
+) -> Result<(), String> {
     let fullscreen = host.fullscreen().is_some();
     let host_handle = host.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(host_handle) = host_handle.as_raw() else {
@@ -305,6 +340,11 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
         return Err("Could not locate the native video client origin".into());
     }
     let client_size = size(host_client);
+    let (video_offset, video_size) = video_region(client_size, layout);
+    let video_position = POINT {
+        x: position.x.saturating_add(video_offset.x),
+        y: position.y.saturating_add(video_offset.y),
+    };
     let overlay_client_size = controls_client_size(client_size, fullscreen);
     let handle = overlay.window_handle().map_err(|error| error.to_string())?;
     let RawWindowHandle::Win32(handle) = handle.as_raw() else {
@@ -319,7 +359,7 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
     let video_windows = visible_mpv_child_windows(host);
     let video_is_aligned = video_windows
         .iter()
-        .all(|video| video_surface_is_aligned(*video, position, client_size));
+        .all(|video| video_surface_is_aligned(*video, video_position, video_size));
     if outer.left == position.x
         && outer.top == position.y
         && size(outer).width == width
@@ -355,10 +395,10 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
                     batch,
                     video,
                     None,
-                    0,
-                    0,
-                    i32::try_from(client_size.width).unwrap_or(i32::MAX),
-                    i32::try_from(client_size.height).unwrap_or(i32::MAX),
+                    video_offset.x,
+                    video_offset.y,
+                    i32::try_from(video_size.width).unwrap_or(i32::MAX),
+                    i32::try_from(video_size.height).unwrap_or(i32::MAX),
                     SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER,
                 )
             }
@@ -382,7 +422,7 @@ pub(crate) fn align_surfaces(host: &Window, overlay: &Window) -> Result<(), Stri
     }
     if visible_mpv_child_windows(host)
         .iter()
-        .any(|video| !video_surface_is_aligned(*video, position, client_size))
+        .any(|video| !video_surface_is_aligned(*video, video_position, video_size))
     {
         return Err("Native video child did not reach the host client bounds".into());
     }

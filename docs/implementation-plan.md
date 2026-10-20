@@ -33,15 +33,21 @@ adds shared Audio/Video/subtitle list ownership, repeated-key traversal, row rev
 and flexible language badges. Native checks cover all four selectors and narrow
 light Audio. Continue Quick Settings work on the remaining page focus graph,
 modified native-menu shortcuts while a panel owns focus, accessibility action
-bounds and matched macOS control geometry. Music Mode artwork still needs a
-separate native video viewport: letterboxing and art under the compact control
-strip remain visible, even though compact frame sizing is now correct.
+bounds and matched macOS control geometry. The local
+[settings/viewport follow-up](../tests/visual/windows-settings-viewport-2026-10-20.json)
+now clips Windows artwork above the controls and playlist and removes it when
+hidden. Continue with matched compact control height/materials, metadata,
+audio/video playlist handoffs, no-art/subtitle states and application-port runtime.
 
 The 4.2.0 workflow batch adds keyboard-operated equalizer naming, optical
 play-glyph centering, separate Music Mode transport/window controls, independent
 pane scroll positions and visible playlist rows with a compact six-action footer.
-Headless pane-memory coverage passed, but the final package reset Audio scrolling
-after Layout in a 285 x 141 client. Keep that native restoration case open.
+The published package reset Audio after Layout in a 285 x 141 client despite
+headless coverage. The local follow-up now tracks animated positions and passed
+Audio/Layout and Audio/Video round trips in a 285 x 160 client at 300% DPI.
+Broader page/side/DPI combinations and model/geometry changes remain acceptance
+work. Fit to Screen is shrink-only upstream; verify centering and client bounds
+without expecting a small window to enlarge.
 It also fixes first-click slider input, quiet paused-media Music Mode transitions
 and Windows watch-later path identity. See the dated workflow record in
 [verification](verification.md) for final tested scope rather than treating these

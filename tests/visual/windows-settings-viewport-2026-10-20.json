@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-20",
+  "source_base_revision": "031882b0192fce3ca48683582fc585a6071fb51e",
+  "state": "Local settings and native viewport follow-up; published 4.2.0 unchanged",
+  "source_files_sha256": {
+    "crates/app/ui/quick-settings-scroll-page.slint": "3e066f52791b37165e4ebaf37a6ec0663da87f59714c6033c82703f3244c6445",
+    "crates/app/ui/player.slint": "ed3413728a55886d82aadac7d5d0682b696fed00b64593b7cefa420f2e2d371a",
+    "crates/app/src/music_mode_layout.rs": "acd94fc1ee73bc52034d652a364200682f26a3e686708cf34d1a5a3eb4335b7e",
+    "crates/app/src/platform/windows/window_geometry.rs": "ef6e808fdcee0d799cb7f9caaab157af4ad13caa9766220e63da33f370661b7e",
+    "crates/app/src/platform/windows/native_window.rs": "723dce392d1e3a6f0c76ba04e312bda2d7868a08d078c98fabae14e41ec6c2d6",
+    "crates/app/src/window_aspect.rs": "9b138b99279e2fab56bb2eaaf39c6b7ee0aef9d0f6149ea90e19c762949caa8b"
+  },
+  "executable_sha256": "dc8d773f5237186fa5cae7c6ed59383efc3e3b54e368d4265515d41f5beb13c5",
+  "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "environment": {
+    "os": "Windows 11 x64",
+    "scale_percent": 300,
+    "display_pixels": [
+      3840,
+      2160
+    ],
+    "audio_output": "null",
+    "profiles": "Isolated target/main-gaps-2026-10-20/video and art profiles; no user settings changed",
+    "test_pids": [
+      19124,
+      16416
+    ]
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "revision": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "source": [
+      "iina/MainWindowMenuActions.swift::menuChangeWindowSize",
+      "iina/MiniPlayerWindowController.swift::videoWrapperView",
+      "iina/MiniPlayerWindowController.swift::toggleVideoView",
+      "iina/MiniPlayerWindowController.swift::normalWindowHeight"
+    ],
+    "capture": "REF-22-music-mode inspected",
+    "limit": "Pinned source and existing capture; no live macOS execution. Independent implementation, no source/assets copied."
+  },
+  "implementation": [
+    "ScrollView.scrolled reports the start of Winit wheel physics. Save changed content-y throughout user scrolling, bound elastic offsets, and suppress restoration/page-change clamps.",
+    "Size the decoder-owned Windows child to the artwork region above the 90-point controls plus optional 300-point playlist. Hide artwork by clipping its retained one-pixel child outside the parent; restore the full client on main-player return.",
+    "Use the same 90-point bottom inset in shared video geometry as the current compact window layout.",
+    "Fit to Screen uses the existing measured native frame/menu resize path with screen centering. IINA only shrinks oversized windows; small windows remain their current size."
+  ],
+  "checks": {
+    "locked_workspace_build": "passed; final dependency-reused build 27.19s",
+    "fmt": "passed",
+    "workspace": "656 passed, 56 ignored, one test thread; includes 40 widget tests. Default ignored native checks were not run.",
+    "strict_clippy": "passed; all workspace targets, 1m43s",
+    "logs": {
+      "tests": "5066df804bfdd02e79cc5506fb89bd3acbf1c77793b5c84352f4cda02498d3e4",
+      "clippy": "c92d75f0cb6d4d811ecf567bb4f0e630cc5a006b3573e638d831a1dca2ae5da6"
+    }
+  },
+  "native_gui": [
+    "Paused track-navigation.mkv, Audio selected, 285 x 160 client. Outer scroll at the right page margin reveals Equalizer. Audio to Layout to Audio restores the same Equalizer header/profile/fader viewport.",
+    "Keyboard Audio to Video to Audio: Video starts at its own track list; Audio returns to its previous Equalizer viewport.",
+    "Ctrl+3 preserves the 285 x 160 client and 287 x 228 frame. After dragging its frame from desktop origin (1489,658) to (1759,868), Ctrl+3 restores (1489,658) with dimensions unchanged.",
+    "Paused artwork.wav, auto Music Mode, 300 x 259 client: the 16:9 test artwork fills the upper 300 x 169 region with no full-window letterboxing or image under controls.",
+    "Hide album art yields 300 x 90 with no visible artwork. Show restores 300 x 259 and the same paused 0:00 position.",
+    "Show playlist yields 300 x 559 with artwork still confined above controls. Hide artwork with playlist yields 300 x 390; no artwork remains under controls or playlist.",
+    "Play while artwork is hidden advances the clock from 0.08988828 to 6.735387 seconds without revealing artwork.",
+    "Return to player restores visible full-client output and native menus with advancing playback; OS-delivered double-click enters fullscreen with the test picture and controller both visible. Escape exits.",
+    "Both test sessions exit normally. Final process query and native window inventory empty; full-desktop after image inspected with no Riina surface remaining."
+  ],
+  "private_captures": [
+    {
+      "path": "target/main-gaps-2026-10-20/before.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "16e2ce159efd3d00cc7bbb57c1d02b587595b27c4b6fd5fffeea48db96fc3006"
+    },
+    {
+      "path": "target/main-gaps-2026-10-20/narrow-restored.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "0b6f055c217b40c2834fcea5159e10ca83db0ac4a33183a10f24755485723ac4"
+    },
+    {
+      "path": "target/main-gaps-2026-10-20/art-visible.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "712a4eaeb660a32689e043fbbd2748ad8fed864ef805f1114aa2729e6cfcda64"
+    },
+    {
+      "path": "target/main-gaps-2026-10-20/art-hidden.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "a20fd4e1a4c44881865b54005bfc83c5fb97fcd3b32a828ca093a1c1f2a64cdc"
+    },
+    {
+      "path": "target/main-gaps-2026-10-20/art-hidden-playlist.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "24bf25f2554800022d33313ec02cd795dd36fbc14585a7a020e87b8373289eac"
+    },
+    {
+      "path": "target/main-gaps-2026-10-20/fullscreen-return.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "0df4179989479d7b642c723be4727f2cd10d2fc68f87bbdc4ea9c61006e2dc23"
+    },
+    {
+      "path": "target/main-gaps-2026-10-20/after.png",
+      "size": [
+        3840,
+        2160
+      ],
+      "non_black_probe": true,
+      "sha256": "7d438fa1be33d7baf6a82e278ddf9f8cd4334bc97de3003414cb60213f40a4e4"
+    }
+  ],
+  "capture_policy": "Each full image inspected. Unrelated private desktop content remains ignored; only capture identities are tracked.",
+  "remaining": [
+    "IINA uses a 72-point compact control region; current Riina layout remains 90 points. Matched controls, metadata, materials and pixels remain open.",
+    "Other page/side/DPI/model-replacement combinations and immediate switches during an active gesture",
+    "Oversized Fit to Screen, mixed monitors, rotation/aspect/crop and repeated resize stress",
+    "Music Mode audio/video playlist handoffs, no-art/subtitle states, PiP and physical compositor/driver coverage",
+    "Native macOS/Linux application playback and lifecycle, audible output and HDR"
+  ],
+  "historical_evidence": {
+    "record": "tests/visual/windows-release-4.2.0-2026-10-20.json",
+    "unchanged": true,
+    "prior_failures": "Published package reset Audio after Layout at 285 x 141 and letterboxed artwork against the full client. The current local record checks 285 x 160 restoration and distinct artwork/control regions.",
+    "fit_expectation_correction": "The earlier small-window result was called undersized. Pinned source inspection confirms no enlargement is intended; current verification checks unchanged client dimensions and actual re-centering."
+  }
+}

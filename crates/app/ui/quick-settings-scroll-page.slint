@@ -21,15 +21,24 @@ export component QuickSettingsScrollPage inherits ScrollView {
     in property <length> playlist-y;
     in property <length> chapters-y;
     private property <bool> restoring;
+    private property <bool> user-scrolling;
     private property <int> active-kind: -1;
     init => { root.active-kind = root.page-kind; root.restoring = true; }
-    changed page-kind => { root.restoring = true; root.active-kind = root.page-kind; }
+    changed page-kind => {
+        root.restoring = true;
+        root.user-scrolling = false;
+        root.active-kind = root.page-kind;
+    }
     // Save user scrolling, never the old page's automatic geometry clamp
     // while the new page is still being laid out.
     callback position-changed(int, length);
-    scrolled => {
-        if !root.restoring && root.active-kind == root.page-kind {
-            root.position-changed(root.page-kind, root.content-y);
+    // Winit wheel input starts a physics animation before scrolled fires.
+    // Observe the subsequent positions, including its final settled frame.
+    scrolled => { if !root.restoring { root.user-scrolling = true; } }
+    changed content-y => {
+        if !root.restoring && root.user-scrolling && root.active-kind == root.page-kind {
+            root.position-changed(root.page-kind,
+                clamp(root.content-y, min(0px, root.visible-height - root.content-height), 0px));
         }
     }
     Timer {
@@ -41,6 +50,7 @@ export component QuickSettingsScrollPage inherits ScrollView {
                 : root.page-kind == 4 ? root.playlist-y
                 : root.page-kind == 3 ? root.chapters-y : 0px;
             root.content-x = 0px;
+            root.user-scrolling = false;
             root.restoring = false;
         }
     }

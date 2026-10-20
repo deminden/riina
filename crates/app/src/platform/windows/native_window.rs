@@ -162,7 +162,21 @@ fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
                     );
                 }
             });
-            if let Err(error) = super::window_geometry::align_surfaces(window, overlay) {
+            let layout = if chrome.get_music_mode() {
+                let bottom_inset = crate::music_mode_layout::COMPACT_CONTROL_HEIGHT
+                    + if chrome.get_music_mode_show_playlist() {
+                        crate::music_mode_layout::PLAYLIST_HEIGHT
+                    } else {
+                        0.0
+                    };
+                super::window_geometry::VideoLayout::Artwork {
+                    bottom_inset: (bottom_inset * window.scale_factor()).round() as u32,
+                    visible: chrome.get_music_mode_show_album_art(),
+                }
+            } else {
+                super::window_geometry::VideoLayout::FullClient
+            };
+            if let Err(error) = super::window_geometry::align_surfaces(window, overlay, layout) {
                 aligned = false;
                 dismiss_unaligned_transition_cover(chrome);
                 // Winit can still report pre-move coordinates while Windows is
@@ -641,6 +655,7 @@ pub fn run(
                         },
                         Some(app.window()),
                     );
+                    align(host.window(), &app);
                 }
             });
             let recreated_app = app.as_weak();

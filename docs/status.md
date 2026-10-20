@@ -38,6 +38,15 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The local settings/Music Mode follow-up retains the animated sidebar scroll
+  position across Layout and other categories. Windows artwork has its own
+  native region above compact controls and the playlist; hiding it no longer
+  leaves artwork under the controls. Fit to Screen uses measured native frame
+  geometry and preserves IINA's shrink-only semantics. Scoped 300% DPI checks,
+  return to the main player and fullscreen are recorded in the
+  [settings/viewport record](../tests/visual/windows-settings-viewport-2026-10-20.json).
+  These changes are outside the published 4.2.0 package; matched Music Mode
+  control height/materials, broader resizing and other platforms remain open.
 - The local playback-input follow-up preserves fractional Windows wheel lines
   instead of promoting every report to a notch. Hide Riina is enabled, using
   restorable taskbar minimization on Windows. Click defaults remain IINA's:
@@ -86,10 +95,11 @@ current checks from intermediate failures and remaining acceptance work.
 The follow-up adds keyboard-operated equalizer Save/Rename, Unicode profile
 persistence, semantic light-theme handles and subtitle warning colors. The play
 triangle has an independent optical correction; Music Mode owns separate transport
-geometry and top-left window actions. Pane scroll positions have shared ownership
-and headless coverage, but the exact-package check at 285 x 141 and 300% scaling
-reset Audio after a Layout round trip. Fit to Screen also produced an undersized
-window in that session; both native sizing/scrolling cases remain open.
+geometry and top-left window actions. The published package's 285 x 141 / 300%
+check reset Audio after a Layout round trip and reported undersized Fit to Screen.
+The subsequent local record above verifies restoration and client-preserving
+centering at 285 x 160. Pinned source inspection confirms that Fit to Screen
+centers small windows without enlarging them; its old expectation was incorrect.
 Playlist rows take their available width, with six footer actions
 and less frequent editing in row context menus.
 

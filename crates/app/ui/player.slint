@@ -1905,7 +1905,7 @@ export component PlayerWindow inherits Window {
     private property <length> title-row-height: root.show-player-title-row ? (root.compact-ui ? 30px : 34px) : 0px;
     private property <length> video-inset-top: root.edge-to-edge-video || !root.docked-controls ? 0px : title-row-height;
     private property <length> video-inset-bottom: root.music-mode
-        ? 72px + (root.music-mode-show-playlist ? 300px : 0px)
+        ? root.osc-height + (root.music-mode-show-playlist ? 300px : 0px)
         : root.edge-to-edge-video || !root.docked-controls ? 0px : root.osc-height;
     out property <length> window-width: root.width;
     out property <length> window-height: root.height;

@@ -1,6 +1,6 @@
 pub(crate) const WINDOW_WIDTH: f64 = 300.0;
-const COMPACT_CONTROL_HEIGHT: f64 = 90.0;
-const PLAYLIST_HEIGHT: f64 = 300.0;
+pub(crate) const COMPACT_CONTROL_HEIGHT: f64 = 90.0;
+pub(crate) const PLAYLIST_HEIGHT: f64 = 300.0;
 
 pub(crate) fn window_height(show_artwork: bool, show_playlist: bool, aspect_ratio: f64) -> f64 {
     COMPACT_CONTROL_HEIGHT

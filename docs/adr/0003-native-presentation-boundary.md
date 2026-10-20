@@ -65,6 +65,15 @@ The [GLFW maintainer's direct experiment](https://discourse.glfw.org/t/black-scr
 independently documents alpha failure for a monitor-sized undecorated OpenGL
 window and avoiding that driver path by changing its extent.
 
+Music Mode retains the same host and controls ownership. Its mpv child occupies
+only the artwork region above the current compact controls and optional playlist;
+the controls popup still covers the whole client. Hidden artwork uses a retained
+one-pixel child placed wholly outside the parent's client clip. Track selection,
+decoder lifetime and playback continue; returning to the main player restores
+the full client region. The alignment retry checks that requested region rather
+than forcing every decoder child back to the full window. The fullscreen
+one-scanline controls workaround remains independent from this video region.
+
 The framed host has no controls FocusScope. When it owns keyboard focus in
 fullscreen, its input adapter sends Escape through the configured shortcut
 dispatcher before using the shared fullscreen-exit fallback. Crop editors and

@@ -43,6 +43,18 @@ for the ownership and composition invariants.
 - Native window frames, file pickers and menus adapt Cocoa-owned surfaces. Popup
   menu appearance can follow the Windows system theme even when the player has
   an explicit theme; exact native menu pixels are not claimed.
+- Fit to Screen preserves IINA 1.5.0's shrink-only semantics: small windows are
+  centered without enlargement; oversized windows shrink to the usable screen.
+  The pinned `MainWindowMenuActions.menuChangeWindowSize` distinguishes this
+  command from the separate scale and Bigger actions. Windows applies its
+  measured frame and menu wrapping through the shared native resize path.
+- Music Mode reserves its current 90-point Riina control strip and optional
+  300-point playlist below the artwork. Windows sizes the decoder-owned child
+  to that artwork region independently from its full-window controls surface.
+  Hiding artwork clips the retained child outside the client instead of
+  destroying the decoder or changing track selection. IINA's separate video
+  wrapper owns the corresponding region; its 72-point compact controls remain
+  a matched-geometry gap for Riina's current layout.
 - The floating controller is clamped to the video span unobscured by an open
   sidebar. IINA's edge-to-edge macOS controller can remain anchored to the full
   video container. Video still fills the selected viewport. Equal side spaces
