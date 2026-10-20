@@ -31,6 +31,15 @@ for the ownership and composition invariants.
 
 ## Windows interaction adaptations
 
+- IINA 1.5.0 defaults to single click **Hide Controls**, double click
+  **Fullscreen**, and right click **Pause**. Pause toggles play/pause; clicking
+  the picture is not a default restart command. The Control preferences can
+  change these actions. Hide Controls respects the auto-hide preference. A
+  single click waits for the host's double-click interval when a double-click
+  action is assigned; choosing None makes single-click dispatch immediate.
+  These facts come from `Preference.swift`, `PlayerWindowController.mouseUp`
+  and `MainWindowController.performMouseAction` in the pinned reference;
+  source inspection is distinct from live macOS verification.
 - Native window frames, file pickers and menus adapt Cocoa-owned surfaces. Popup
   menu appearance can follow the Windows system theme even when the player has
   an explicit theme; exact native menu pixels are not claimed.
@@ -50,6 +59,20 @@ for the ownership and composition invariants.
   Command+Control track cycling maps to Control+Alt on Windows/Linux so the
   modifiers stay distinct. AltGr, alternate layouts and physical system-key
   routing require platform testing.
+- Hide Riina uses native application hiding on macOS. Windows minimizes the
+  visible root windows belonging to the same executable, including independent
+  player sessions; their owned video/control surfaces follow them. Restore them
+  from the taskbar. Linux currently minimizes the invoking window. These actions
+  retain playback and do not close sessions; pause-on-minimize still follows its
+  separate preference on Windows/Linux.
+- Windows/Linux wheel lines retain their magnitude, including fractional
+  high-resolution mouse reports. Slint's 60-pixel line expansion is removed
+  before applying the source sensitivity maps; pixel input stays in logical
+  pixels. AppKit supplies its native deltas, precision and gesture phase, with
+  direction-only normalization for non-precise events as in IINA 1.5.0. A Windows
+  Magic Mouse driver does not expose AppKit's device classification, so physical
+  gesture feel requires a device comparison; small deltas are never promoted to
+  a whole notch on that platform.
 - Apple fonts, SF Symbols and restricted artwork are not bundled. Original
   licensed vectors and host typography preserve meaning and geometry; exact
   glyph rasterization remains platform-dependent.

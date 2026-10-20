@@ -97,7 +97,7 @@ pub fn scroll_effect(
     } else {
         settings.vertical_scroll_action
     };
-    scroll_effect_for_input(settings, action, horizontal, delta, precise, !precise)
+    scroll_effect_for_action(settings, action, horizontal, delta, precise)
 }
 
 /// Apply a scroll override supplied by a control such as the timeline or volume slider.
@@ -108,12 +108,17 @@ pub fn scroll_effect_for_action(
     delta: f64,
     precise: bool,
 ) -> ScrollEffect {
+    // Slint expands one wheel line to 60 logical pixels. Preserve fractional
+    // wheel lines instead of promoting every high-resolution report to a notch.
+    let delta = if precise { delta } else { delta / 60.0 };
     scroll_effect_for_input(settings, action, horizontal, delta, precise, !precise)
 }
 
 /// Apply an IINA scroll action while keeping event precision separate from the
 /// gesture class. AppKit can report precise deltas for mouse wheels whose phase
 /// is empty; IINA still uses its mouse seek map for those events.
+/// `delta` is logical pixels for precise input and wheel lines otherwise. The
+/// AppKit adapter supplies signed unit lines for its non-precise mouse events.
 pub fn scroll_effect_for_input(
     settings: &Settings,
     action: ScrollAction,
@@ -128,7 +133,7 @@ pub fn scroll_effect_for_input(
     let delta = if precise_delta {
         delta
     } else {
-        delta.signum() * if horizontal { 1.0 } else { 2.0 }
+        delta * if horizontal { 1.0 } else { 2.0 }
     };
     let sensitivity = |values: [f64; 4], index: u8| values[usize::from(index - 1)];
 
@@ -368,6 +373,18 @@ mod tests {
             scroll_effect(&settings, true, 60.0, false),
             ScrollEffect::Seek(2.0)
         );
+        // Twelve 1/12-notch reports must equal one full notch, in either
+        // direction. Smooth Windows mice commonly emit these small fractions.
+        for delta in [-60.0, -5.0, -0.5, 0.5, 5.0, 60.0, 120.0] {
+            assert_eq!(
+                scroll_effect(&settings, true, delta, false),
+                ScrollEffect::Seek(delta / 60.0 * 2.0)
+            );
+            assert_eq!(
+                scroll_effect(&settings, false, delta, false),
+                ScrollEffect::AdjustVolume(delta / 60.0 * 2.0)
+            );
+        }
     }
 
     #[test]

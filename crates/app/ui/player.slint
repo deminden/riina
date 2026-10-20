@@ -864,8 +864,9 @@ export component PlayerWindow inherits Window {
             MenuSeparator {}
             MenuItem { title: "Services"; enabled: false; }
             MenuSeparator {}
-            MenuItem { title: "Hide Riina"; enabled: false;
-                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H); }
+            MenuItem { title: "Hide Riina";
+                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H);
+                activated => { root.hide-riina(); } }
             MenuItem { title: "Quit Riina";
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Q) : @keys(Control + Q);
                 activated => { root.quit-riina(); }
@@ -1443,6 +1444,7 @@ export component PlayerWindow inherits Window {
     callback close-player();
     callback window-will-close();
     callback quit-riina();
+    callback hide-riina();
     callback minimize-window();
     callback zoom-window();
     callback bring-all-to-front();

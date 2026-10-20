@@ -38,6 +38,15 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The local playback-input follow-up preserves fractional Windows wheel lines
+  instead of promoting every report to a notch. Hide Riina is enabled, using
+  restorable taskbar minimization on Windows. Click defaults remain IINA's:
+  single hides controls, double toggles fullscreen, right toggles pause. Native
+  checks cover those defaults, configured single-click Pause/Resume, horizontal
+  and timeline wheel amounts, and Hide/restore; physical Magic Mouse feel and
+  live macOS comparison remain open. See the
+  [input record](../tests/visual/windows-playback-input-2026-10-20.json). These
+  changes are subsequent local work, outside the published 4.2.0 package.
 - Preference saves merge changed fields under a cross-process lock, preserve
   unrelated newer settings, and remain retryable after failed writes.
 - Accepted playback commands keep FIFO order; a full queue returns an error.

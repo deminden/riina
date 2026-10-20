@@ -10,9 +10,9 @@ use windows::{
             QueryFullProcessImageNameW,
         },
         UI::WindowsAndMessaging::{
-            EnumWindows, GetWindowThreadProcessId, HWND_TOP, IsIconic, IsWindowVisible, SW_RESTORE,
-            SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetForegroundWindow,
-            SetWindowPos, ShowWindowAsync,
+            EnumWindows, GA_ROOTOWNER, GetAncestor, GetWindowThreadProcessId, HWND_TOP, IsIconic,
+            IsWindowVisible, SW_MINIMIZE, SW_RESTORE, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOSIZE, SetForegroundWindow, SetWindowPos, ShowWindowAsync,
         },
     },
     core::{BOOL, PWSTR},
@@ -30,33 +30,10 @@ pub(crate) fn bring_all_riina_windows_to_front(window: &slint::Window) -> Result
 
 fn bring_all_native_windows_to_front(active: &winit::window::Window) -> Option<Result<(), String>> {
     let active = hwnd(active)?;
-    let executable = std::env::current_exe().map_err(|error| error.to_string());
-    let executable = match executable {
-        Ok(path) => path,
+    let mut matching = match matching_visible_windows() {
+        Ok(windows) => windows,
         Err(error) => return Some(Err(error)),
     };
-    let mut candidates = Vec::new();
-    // SAFETY: EnumWindows invokes the callback synchronously; candidates remains
-    // uniquely borrowed until enumeration returns.
-    if let Err(error) = unsafe {
-        EnumWindows(
-            Some(collect_window),
-            LPARAM((&mut candidates as *mut Vec<(HWND, u32)>) as isize),
-        )
-    } {
-        return Some(Err(format!("Could not enumerate Riina windows: {error}")));
-    }
-
-    let mut matching = candidates
-        .into_iter()
-        .filter(|(candidate, _)| unsafe { IsWindowVisible(*candidate) }.as_bool())
-        .filter(|(_, process_id)| {
-            process_image_path(*process_id)
-                .as_deref()
-                .is_some_and(|path| same_executable(path, &executable))
-        })
-        .map(|(window, _)| window)
-        .collect::<Vec<_>>();
 
     if let Some(index) = matching.iter().position(|window| *window == active) {
         let active_window = matching.remove(index);
@@ -93,6 +70,42 @@ fn bring_all_native_windows_to_front(active: &winit::window::Window) -> Option<R
         ));
     }
     Some(Ok(()))
+}
+
+pub(crate) fn minimize_all_riina_windows() -> Result<(), String> {
+    for window in matching_visible_windows()? {
+        // SAFETY: EnumWindows supplied a visible window from this exact binary.
+        // Owned transparent popups must follow their owner; minimizing them
+        // independently can leave video and controls in different restore states.
+        if unsafe { GetAncestor(window, GA_ROOTOWNER) } == window {
+            let _ = unsafe { ShowWindowAsync(window, SW_MINIMIZE) };
+        }
+    }
+    Ok(())
+}
+
+fn matching_visible_windows() -> Result<Vec<HWND>, String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    let mut candidates = Vec::new();
+    // SAFETY: EnumWindows invokes the callback synchronously; candidates remains
+    // uniquely borrowed until enumeration returns.
+    unsafe {
+        EnumWindows(
+            Some(collect_window),
+            LPARAM((&mut candidates as *mut Vec<(HWND, u32)>) as isize),
+        )
+    }
+    .map_err(|error| format!("Could not enumerate Riina windows: {error}"))?;
+    Ok(candidates
+        .into_iter()
+        .filter(|(candidate, _)| unsafe { IsWindowVisible(*candidate) }.as_bool())
+        .filter(|(_, process_id)| {
+            process_image_path(*process_id)
+                .as_deref()
+                .is_some_and(|path| same_executable(path, &executable))
+        })
+        .map(|(window, _)| window)
+        .collect())
 }
 
 unsafe extern "system" fn collect_window(window: HWND, parameter: LPARAM) -> BOOL {

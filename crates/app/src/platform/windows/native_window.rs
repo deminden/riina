@@ -1054,6 +1054,12 @@ pub fn run(
                 }
             });
             let menu_host = host.as_weak();
+            let menu_app = app.as_weak();
+            host.on_hide_riina(move || {
+                if let Some(app) = menu_app.upgrade() {
+                    app.invoke_hide_riina();
+                }
+            });
             host.on_minimize_window(move || {
                 if let Some(host) = menu_host.upgrade() {
                     crate::platform::minimize_window(host.window());

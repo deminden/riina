@@ -448,6 +448,48 @@ fn enable_windows_backdrop<W, Get, Set, GetTheme>(
     }
 }
 
+/// Use the host's click arbitration deadline before dispatching a single click.
+pub(crate) fn double_click_interval() -> std::time::Duration {
+    #[cfg(target_os = "windows")]
+    {
+        // SAFETY: this system setting has no handle or pointer preconditions.
+        std::time::Duration::from_millis(u64::from(unsafe {
+            ::windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime()
+        }))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::time::Duration::from_secs_f64(objc2_app_kit::NSEvent::doubleClickInterval())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        std::time::Duration::from_millis(500)
+    }
+}
+
+/// Windows has no Dock-based application hiding: minimize restorable taskbar
+/// owners, letting Windows hide their owned video/control surfaces together.
+pub(crate) fn hide_application(window: &slint::Window) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = window;
+        windows::bring_to_front::minimize_all_riina_windows()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = window;
+        let main_thread = objc2::MainThreadMarker::new()
+            .ok_or_else(|| "Application hiding requires the main thread".to_owned())?;
+        objc2_app_kit::NSApplication::sharedApplication(main_thread).hide(None);
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        minimize_window(window);
+        Ok(())
+    }
+}
+
 /// Apply the native minimize action to the window that owns a menu command.
 pub(crate) fn minimize_window(window: &slint::Window) {
     window.with_winit_window(|window| window.set_minimized(true));

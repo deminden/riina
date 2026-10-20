@@ -38,6 +38,12 @@ impl HostInput {
                     // these commands on the same configurable route as menus.
                     return EventResult::PreventDefault;
                 }
+                if modifiers == ModifiersState::CONTROL
+                    && matches!(&event.logical_key, Key::Character(text) if text.eq_ignore_ascii_case("h"))
+                {
+                    app.invoke_hide_riina();
+                    return EventResult::PreventDefault;
+                }
                 if event.logical_key == Key::Named(NamedKey::Escape) && app.get_fullscreen() {
                     dispatch_escape(
                         || {

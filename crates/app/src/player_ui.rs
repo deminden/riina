@@ -2840,6 +2840,7 @@ struct PlayerWindowFocusRegistration {
 #[derive(Clone, Copy, Default)]
 struct ScrollInputState {
     axis: Option<bool>,
+    native_delta: Option<(f64, f64)>,
     precise: Option<bool>,
     natural_direction: Option<bool>,
     phase_empty: bool,
@@ -2957,10 +2958,14 @@ fn install_file_drop(
             use winit::event::{MouseScrollDelta, TouchPhase};
             let (delta_x, delta_y, precise) = match delta {
                 MouseScrollDelta::LineDelta(x, y) => (f64::from(*x), f64::from(*y), false),
-                MouseScrollDelta::PixelDelta(position) => (position.x, position.y, true),
+                MouseScrollDelta::PixelDelta(position) => {
+                    let position = position.to_logical::<f64>(f64::from(_window.scale_factor()));
+                    (position.x, position.y, true)
+                }
             };
             let mut input = event_scroll_input.get();
             input.appkit = false;
+            input.native_delta = Some((delta_x, delta_y));
             input.precise = Some(precise);
             input.natural_direction = None;
             input.phase_empty = !precise;
@@ -3046,8 +3051,13 @@ fn scroll_action_handler(
         } else {
             input.axis.unwrap_or_else(|| delta_x.abs() > delta_y.abs())
         };
-        let mut delta_x = delta_x;
-        let mut delta_y = delta_y;
+        let precise = input
+            .precise
+            .unwrap_or_else(|| delta_x.abs().max(delta_y.abs()) < 60.0);
+        let (mut delta_x, mut delta_y) = input.native_delta.unwrap_or_else(|| {
+            let divisor = if precise { 1.0 } else { 60.0 };
+            (f64::from(delta_x) / divisor, f64::from(delta_y) / divisor)
+        });
         if input.appkit {
             if input.natural_direction == Some(true) {
                 delta_y = -delta_y;
@@ -3062,7 +3072,6 @@ fn scroll_action_handler(
         let Ok(settings) = crate::control_preferences::current_player(&app) else {
             return false;
         };
-        let precise = input.precise.unwrap_or_else(|| delta.abs() < 60.0);
         let action = override_action.unwrap_or(if horizontal {
             settings.horizontal_scroll_action
         } else {
@@ -3072,7 +3081,7 @@ fn scroll_action_handler(
             &settings,
             action,
             horizontal,
-            f64::from(delta),
+            delta,
             precise,
             input.phase_empty,
         );
@@ -4608,6 +4617,14 @@ pub(crate) fn configure_player(
         match platform::MacScrollEventMonitor::new(move |event| {
             let mut input = native_input.get();
             input.appkit = true;
+            // AppKit's coarse wheel semantics use direction only. Other hosts
+            // preserve fractional wheel lines because they lack its precise flag.
+            input.native_delta = Some(if event.precise {
+                (event.delta_x, event.delta_y)
+            } else {
+                let unit = |value: f64| if value == 0.0 { 0.0 } else { value.signum() };
+                (unit(event.delta_x), unit(event.delta_y))
+            });
             input.precise = Some(event.precise);
             input.natural_direction = Some(event.natural_direction);
             input.phase_empty = event.phase_empty;
@@ -5328,6 +5345,12 @@ pub(crate) fn configure_player(
     let single_player = player.command_sender();
     let single_app = app.as_weak();
     app.on_single_click_action(move |action| {
+        if let Some(app) = single_app.upgrade()
+            && app.get_control_double_click_index() == 0
+        {
+            dispatch_control_mouse_action(&app, &single_player, action);
+            return;
+        }
         *pending.borrow_mut() = Some(action);
         let pending = pending.clone();
         let player = single_player.clone();
@@ -5336,7 +5359,7 @@ pub(crate) fn configure_player(
         // so a double click invokes only its configured action.
         timer.start(
             slint::TimerMode::SingleShot,
-            Duration::from_millis(500),
+            platform::double_click_interval(),
             move || {
                 let action = pending.borrow_mut().take();
                 if let (Some(action), Some(app)) = (action, weak.upgrade()) {
@@ -6994,6 +7017,14 @@ pub(crate) fn configure_player(
         }
     });
     let minimize_window = app.as_weak();
+    let hide_app = app.as_weak();
+    app.on_hide_riina(move || {
+        if let Some(app) = hide_app.upgrade()
+            && let Err(error) = platform::hide_application(app.window())
+        {
+            app.set_status(error.into());
+        }
+    });
     app.on_minimize_window(move || {
         if let Some(app) = minimize_window.upgrade() {
             platform::minimize_window(app.window());

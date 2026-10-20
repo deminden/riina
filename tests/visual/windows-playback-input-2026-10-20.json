@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-20",
+  "state": "Local follow-up after published 4.2.0; no release package changed",
+  "source_files_sha256": {
+    "crates/core/src/control_preferences.rs": "9604de1253769feead64e5039f997ff5bffb515e37a44334ac7dc8c073b29299",
+    "crates/app/src/player_ui.rs": "cd20706ca8c985d8f40c7c778e548698af92b099ed35e92f27445318a09152f2",
+    "crates/app/src/platform.rs": "24ece9d520b995e2949da7a0e148452d1d03857502e05678ecb90c3d9c96cd0f",
+    "crates/app/src/platform/windows/bring_to_front.rs": "5e000eb06a976468e14cd34dcf7ddd69bb8f0e8a49e8fafd832fdf59b8df68cd",
+    "crates/app/src/platform/windows/host_input.rs": "f6feabf6c4b56d61652c4e3a9d11c6ef5fef66e4a0472cbb81f306a307ef5856",
+    "crates/app/src/platform/windows/native_window.rs": "5f47f4ba6974fe198af6d9c98cf1e82fafc94adaefb968eaee4a41d77855fc25",
+    "crates/app/ui/player.slint": "ce6dd05fc2f3f77f131ecbd27cde75dadf6424c83c5031b57476458c7ac5ceb9",
+    "crates/app/ui/native-video.slint": "af855d323b2277fa5178656fdda8693d0ce898b4e2529fad9f24f60d6f0cc5f1"
+  },
+  "executable": {
+    "path": "target/debug/riina.exe",
+    "sha256": "9f905833720a9148c2e0cce2dca11378c55132c2fda063199572b29b10490c3d"
+  },
+  "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+  "environment": {
+    "os": "Windows 11 x64",
+    "display_scale_percent": 300,
+    "audio_output": "null",
+    "profiles": "Isolated target/input-review-2026-10-20/profile; normal user settings not changed",
+    "pids": [
+      3644,
+      20676,
+      6752
+    ]
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "files": [
+      "iina/Preference.swift",
+      "iina/AppData.swift",
+      "iina/Extensions.swift",
+      "iina/PlayerWindowController.swift",
+      "iina/MainWindowController.swift"
+    ],
+    "captured_settings": "REF-15c-preferences-control-mouse-bottom",
+    "kind": "Pinned source inspection plus existing macOS settings capture; no live macOS gesture check"
+  },
+  "implementation": [
+    "Preserve native Windows/Linux wheel-line magnitudes and logical pixel deltas; bypass Slint line-to-pixel expansion for playback effects. AppKit keeps its native precision and mouse/gesture distinction.",
+    "Enable Hide Riina and forward the Windows framed menu into shared intent. Windows minimizes visible root owners from the same executable; owned video/controls follow the owner. macOS uses native application hiding; Linux minimizes the invoking window.",
+    "Use the host double-click interval; dispatch a single click immediately when double-click action is None. Retain IINA click defaults."
+  ],
+  "checks": {
+    "build": "cargo build --workspace --locked passed",
+    "format": "cargo fmt --all -- --check passed",
+    "workspace": "cargo test --workspace --locked -- --test-threads=1 passed; default native/clipboard/helper ignores remain",
+    "lint": "cargo clippy --workspace --all-targets --locked -- -D warnings passed",
+    "traceability": "260 requirements, 69 visual identities, 15 evidence links and 68 local reference hashes checked"
+  },
+  "native_gui": [
+    "Default single left click hides the controller after click arbitration without changing paused playback.",
+    "Default right click resumes paused video; Pause control and Resumed feedback observed.",
+    "OS-delivered double click enters fullscreen; video and revealed controller visible together. Escape returns to windowed playback.",
+    "Hide Riina is enabled in the framed application menu; selecting it removes both player and controls from the desktop while the process remains. Activation restores visible, progressing video.",
+    "Ctrl+H also hides the player; full-desktop capture inspected.",
+    "Single-click Pause/Resume with double-click None resumes immediately in a separate session.",
+    "Paused Exact seek, default sensitivity: horizontal injected delta +10 moves 1.708 to 1.542 seconds; -10 restores 1.708; -120 moves to 3.708.",
+    "Paused Exact seek with controller auto-hide disabled only in the disposable profile: vertical timeline delta -10 moves 0 to 0.333 seconds; -120 moves 0.333 to 4.333; volume stays 99.50001.",
+    "Earlier timeline attempts while controls could hide changed volume through the video action; they are not counted as timeline verification.",
+    "All three test sessions closed normally; final process check and native window inventory empty."
+  ],
+  "private_captures": [
+    {
+      "path": "target/input-review-2026-10-20/windowed.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "7e483d7051d9b256e50ba7509db9191c3145efadb4491f9482cccb592a10c6aa"
+    },
+    {
+      "path": "target/input-review-2026-10-20/fullscreen.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "562b9d25c7bd3e83b1b820abdac264afcfe5e59b9011d075a8b1b4235fcec43b"
+    },
+    {
+      "path": "target/input-review-2026-10-20/hidden.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "c0df9f644b341e23d6c68ce986690a33c465ced9347e82e0bf820838fefd6355"
+    },
+    {
+      "path": "target/input-review-2026-10-20/shortcut-hidden.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "f06a2d61305c15e3fd7c35c5e0c997055cc62866e4e1cfe1a75a2b1b3886a9f3"
+    },
+    {
+      "path": "target/input-review-2026-10-20/after-final.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "b78b7f66dcd05fed6a13e95973486cc09acf761bcc7e09ac75fa43c9ce97888f"
+    }
+  ],
+  "capture_scope": "Full images inspected. Raw desktop captures contain unrelated private content and remain ignored; no persistent Riina surface after final exit.",
+  "remaining": [
+    "Physical Magic Mouse and installed driver acceleration/gesture feel",
+    "Live IINA/macOS and Linux application input checks",
+    "Multi-session/application auxiliary-window Hide/restore sweep",
+    "Native controller reveal-to-hover transitions, all focus owners, wider DPI and accessibility routing",
+    "Audible output and HDR/hardware acceptance"
+  ],
+  "source_base_revision": "99fbc4fe4d7181e9fe8fa05fa654001d4f59170f"
+}
