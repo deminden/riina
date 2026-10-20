@@ -38,22 +38,22 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
-- A refreshed 4.2.0 candidate adds a current-user Windows installer alongside the
-  portable ZIP and includes the local input/settings/viewport changes below.
-  Installation, same-version reinstall, shortcut integration, installed playback
-  and uninstall are packaging gates. The earlier published package remains the
-  release baseline until the refreshed exact packages pass verification.
-
-- The local settings/Music Mode follow-up retains the animated sidebar scroll
+- Refreshed 4.2.0 provides a current-user Windows installer and a portable ZIP,
+  with the same application and playback engine. Install/reinstall, shortcuts,
+  installed playback and uninstall passed. A local upgrade from the earlier
+  preview preserved preferences/history. The
+  [refresh record](../tests/visual/windows-release-4.2.0-refresh-2026-10-20.json)
+  separates the exact packages from the superseded release and test failures.
+- The settings/Music Mode follow-up retains the animated sidebar scroll
   position across Layout and other categories. Windows artwork has its own
   native region above compact controls and the playlist; hiding it no longer
   leaves artwork under the controls. Fit to Screen uses measured native frame
   geometry and preserves IINA's shrink-only semantics. Scoped 300% DPI checks,
   return to the main player and fullscreen are recorded in the
   [settings/viewport record](../tests/visual/windows-settings-viewport-2026-10-20.json).
-  These changes are outside the published 4.2.0 package; matched Music Mode
+  These changes are included in refreshed 4.2.0; matched Music Mode
   control height/materials, broader resizing and other platforms remain open.
-- The local playback-input follow-up preserves fractional Windows wheel lines
+- The playback-input follow-up preserves fractional Windows wheel lines
   instead of promoting every report to a notch. Hide Riina is enabled, using
   restorable taskbar minimization on Windows. Click defaults remain IINA's:
   single hides controls, double toggles fullscreen, right toggles pause. Native
@@ -61,7 +61,7 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
   and timeline wheel amounts, and Hide/restore; physical Magic Mouse feel and
   live macOS comparison remain open. See the
   [input record](../tests/visual/windows-playback-input-2026-10-20.json). These
-  changes are subsequent local work, outside the published 4.2.0 package.
+  changes are included in refreshed 4.2.0.
 - Preference saves merge changed fields under a cross-process lock, preserve
   unrelated newer settings, and remain retryable after failed writes.
 - Accepted playback commands keep FIFO order; a full queue returns an error.
@@ -101,9 +101,9 @@ current checks from intermediate failures and remaining acceptance work.
 The follow-up adds keyboard-operated equalizer Save/Rename, Unicode profile
 persistence, semantic light-theme handles and subtitle warning colors. The play
 triangle has an independent optical correction; Music Mode owns separate transport
-geometry and top-left window actions. The published package's 285 x 141 / 300%
+geometry and top-left window actions. The superseded package's 285 x 141 / 300%
 check reset Audio after a Layout round trip and reported undersized Fit to Screen.
-The subsequent local record above verifies restoration and client-preserving
+The follow-up included in refreshed 4.2.0 verifies restoration and client-preserving
 centering at 285 x 160. Pinned source inspection confirms that Fit to Screen
 centers small windows without enlarging them; its old expectation was incorrect.
 Playlist rows take their available width, with six footer actions
@@ -117,15 +117,13 @@ now has real temporary-filesystem regressions for ordering, exclusions and stale
 Control bindings from the framed host share the existing dispatch route; native-
 menu-only accelerators from every focus owner remain separate work.
 
-Only Windows was available for desktop checks. Linux full-application CI installs
-and probes GTK and WebKitGTK dependencies. A separate main-source follow-up passed
-Linux lint, unit tests and the full application build, and macOS strict lint;
-macOS alias-path handling was then corrected after a unit-test failure. That
-[source follow-up](port-development.md) has separate verification in progress.
-Native macOS/Linux playback, physical audio/HDR,
+Only Windows was available for desktop checks. The refreshed source includes the
+Linux GUI dependency and macOS alias-path repairs described in
+[port development](port-development.md). Full-application source checks and native
+desktop acceptance remain separate. Native macOS/Linux playback, physical audio/HDR,
 other DPI, complete focus/accessibility behavior and matched reference pixels
 remain unverified. The Windows release collects the playback/settings changes
-above; the platform CI repairs are subsequent work on main. Exact-package evidence
+above; no supported macOS/Linux binaries are published. Exact-package evidence
 is separate from the development checks below.
 
 The workflow batch passed build, formatting, strict Clippy, 656 workspace tests
@@ -139,17 +137,26 @@ The [4.1.0 notes](release-notes/4.1.0.md) and
 [release record](../tests/visual/windows-release-4.1.0-2026-10-19.json) retain the
 earlier numeric-editing, category-navigation, Windows Alt-state and Layout work.
 Those dated checks are separate from the newer workflow and package evidence.
+The original portable-only 4.2.0 release is superseded; its
+[historical record](../tests/visual/windows-release-4.2.0-2026-10-20.json)
+retains source `5910648`, old hashes and the gaps found in that package.
 
 ## Verification summary
 
-**[4.2.0](https://github.com/deminden/riina/releases/tag/v4.2.0) is published.** Its
-[release record](../tests/visual/windows-release-4.2.0-2026-10-20.json) identifies source
-`5910648`, archive hashes, the unchanged reused engine and exact-package checks.
-Hosted and local extracted-application playback smokes passed in 6211 ms and
-5843 ms respectively. Full-desktop captures and scoped native controls were
-inspected; no Riina process remained after shutdown. The hosted software OpenGL
-driver was test-only and is absent from the ZIP. Publication reused the verified
-archive without rebuilding.
+**[Refreshed 4.2.0](https://github.com/deminden/riina/releases/tag/v4.2.0) is published.**
+Its [release record](../tests/visual/windows-release-4.2.0-refresh-2026-10-20.json)
+identifies source `2e9aa46`, both download hashes and the unchanged engine reused
+from 4.1.0. The user explicitly requested replacement of the earlier 4.2.0 assets
+and tag; both source identities are retained in the record.
+
+Build, formatting, strict Clippy, 656 workspace tests (56 ignored), 51 native
+integration tests and 68 packaging regressions passed. Saved binaries passed
+corrected install/reinstall/uninstall verification without recompilation.
+Hosted portable and installed playback passed in 6261 ms and 6878 ms; local
+installed playback passed in 5890 ms. Full-desktop before/fullscreen/after captures
+were inspected, and the test process exited normally. Hosted software OpenGL was
+test-only and is absent from both downloads. The public source ZIP is 2.61 MB;
+all 559 files match the release commit, with no duplicated build/vendor trees.
 
 The development checks for the new changes are listed above. Earlier settings,
 menu and playback results remain dated in the [verification register](verification.md),

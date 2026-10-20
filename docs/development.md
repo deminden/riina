@@ -146,8 +146,10 @@ If compilation and native checks succeeded but the GUI environment failed, use
 the original release workflow's build/lint/native gates to have passed, checks the
 artifact's repository and source identity, downloads the saved ZIP, and verifies
 its checksum, runtime, notices and exact corresponding source before running it.
-Successful verification uploads the original ZIP and checksums plus a fresh
-`RELEASE-VERIFICATION.json`; it does not compile or publish anything.
+When an installer is present, verification also requires its original build gate
+and rechecks install/reinstall, shortcuts, payload identity, installed playback
+and uninstall. Successful verification uploads the original ZIP, installer and
+checksums with fresh reports; it does not compile or publish anything.
 
 Hosted Windows runners may expose only the system OpenGL 1.1 implementation.
 Slint's FemtoVG interface needs a newer OpenGL context even though mpv presents

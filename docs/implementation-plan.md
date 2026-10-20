@@ -42,9 +42,12 @@ audio/video playlist handoffs, no-art/subtitle states and application-port runti
 The 4.2.0 workflow batch adds keyboard-operated equalizer naming, optical
 play-glyph centering, separate Music Mode transport/window controls, independent
 pane scroll positions and visible playlist rows with a compact six-action footer.
-The published package reset Audio after Layout in a 285 x 141 client despite
+The original portable-only 4.2.0 package reset Audio after Layout in a 285 x 141 client despite
 headless coverage. The local follow-up now tracks animated positions and passed
 Audio/Layout and Audio/Video round trips in a 285 x 160 client at 300% DPI.
+The [refreshed 4.2.0 release](../tests/visual/windows-release-4.2.0-refresh-2026-10-20.json)
+includes that follow-up and the playback-input fixes, with installer and portable
+downloads verified against the same application source and engine.
 Broader page/side/DPI combinations and model/geometry changes remain acceptance
 work. Fit to Screen is shrink-only upstream; verify centering and client bounds
 without expecting a small window to enlarge.

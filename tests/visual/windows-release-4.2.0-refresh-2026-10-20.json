@@ -1,0 +1,289 @@
+{
+  "date": "2026-10-20",
+  "version": "4.2.0",
+  "edition": "refreshed installer and portable release",
+  "source_revision": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+  "candidate_run_id": 39501203408,
+  "candidate_url": "https://github.com/deminden/riina/actions/runs/39501203408",
+  "verification_run_id": 39504464780,
+  "verification_url": "https://github.com/deminden/riina/actions/runs/39504464780",
+  "verification_tools_revision": "70c335fd7f8b1df4d1ee18908aa3d86b777b2097",
+  "historical_attempts": [
+    {
+      "run_id": 39501203408,
+      "result": "Build, native tests, lint, units, installer generation and installed application playback passed. A profile snapshot incorrectly included changes caused by playback caches; error cleanup then attempted uninstall twice. Saved binaries were retained and checked again without rebuilding.",
+      "installed_application_smoke_ms": 5937,
+      "source_revision": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397"
+    },
+    {
+      "run_id": 39504104844,
+      "result": "Additional diagnostics exposed the profile-snapshot and repeated-cleanup test bugs. The installer and application were not rebuilt.",
+      "source_revision": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397"
+    }
+  ],
+  "publication_status": "published",
+  "supersedes": "tests/visual/windows-release-4.2.0-2026-10-20.json",
+  "tag_replacement": {
+    "explicitly_requested": true,
+    "previous_source_revision": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
+    "current_source_revision": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "scope": "One requested replacement of v4.2.0; ordinary release tags remain immutable."
+  },
+  "native_engine_recompiled": false,
+  "application_rebuilt": true,
+  "native_engine_reuse": {
+    "native_release_tag": "v4.1.0",
+    "native_contract_tree": "99f64cc408a303959fbd0cf907904fec9638b33e",
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af"
+  },
+  "package_audit": {
+    "version": "4.2.0",
+    "native_source_files_indexed": 101748,
+    "native_source_repositories_indexed": 88,
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "cargo_lock_sha256": "df2e9ff89c252bcca7ed4aed73363c0c053e6691888754fe9c4cec0510da676b",
+    "source_commit": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "scope": "Exact extracted package and tagged application source; native source repositories and revisions are recorded in the package manifest; third-party notices are verified; playback is a separate required workflow check."
+  },
+  "source_size_audit": {
+    "source_commit": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "archive_url": "https://codeload.github.com/deminden/riina/zip/2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "zip_bytes": 2655817,
+    "uncompressed_bytes": 17948472,
+    "file_count": 559,
+    "every_file_matches_git_blob": true,
+    "sha256": "992f66f0111f808c509bb00db9487f3152271e867649a16183da48ba5b3536d7",
+    "duplicated_build_or_vendor_trees": false,
+    "largest_files": [
+      [
+        "tests/fixtures/moving-square.avi",
+        1565924
+      ],
+      [
+        "tests/fixtures/track-languages.mkv",
+        1562429
+      ],
+      [
+        "tests/fixtures/catalog.mkv",
+        1561780
+      ],
+      [
+        "tests/fixtures/hdr-hlg.mkv",
+        1327534
+      ],
+      [
+        "tests/fixtures/hdr-pq.mkv",
+        1327534
+      ]
+    ]
+  },
+  "published_tag_source_audit": {
+    "source_commit": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "archive_url": "https://codeload.github.com/deminden/riina/zip/refs/tags/v4.2.0",
+    "zip_bytes": 2613467,
+    "uncompressed_bytes": 17948472,
+    "file_count": 559,
+    "every_file_matches_git_blob": true,
+    "sha256": "f6ba553aca38bfd2b7828eeb947a84b9264a49003a1df450f92bfb1b5b892aa2",
+    "duplicated_build_or_vendor_trees": false,
+    "largest_files": [
+      [
+        "tests/fixtures/moving-square.avi",
+        1565924
+      ],
+      [
+        "tests/fixtures/track-languages.mkv",
+        1562429
+      ],
+      [
+        "tests/fixtures/catalog.mkv",
+        1561780
+      ],
+      [
+        "tests/fixtures/hdr-hlg.mkv",
+        1327534
+      ],
+      [
+        "tests/fixtures/hdr-pq.mkv",
+        1327534
+      ]
+    ]
+  },
+  "package_assets": {
+    "INSTALLER-SMOKE.json": {
+      "bytes": 497,
+      "sha256": "f4f715ba53df840c083c4c46e44f2517f3ca0b1c93f0d1bc6a8147e94b195c29"
+    },
+    "INSTALLER-VERIFICATION.json": {
+      "bytes": 159704,
+      "sha256": "db827641542fd854a66c332c3f16527aa557c1930e9e89c9c6dbf31999332a4f"
+    },
+    "RELEASE-VERIFICATION.json": {
+      "bytes": 590,
+      "sha256": "26a75d274dfe0d4342a3f4f7304d519295583d647c56ffaeb5cd00478e888aff"
+    },
+    "riina-4.2.0-windows-x86_64-setup.exe": {
+      "bytes": 52113812,
+      "sha256": "f2ef210e470280697838a14b419cb283348c44469c95fe4f332d3851a7b4ac87"
+    },
+    "riina-4.2.0-windows-x86_64.zip": {
+      "bytes": 74314568,
+      "sha256": "41e0f7609aa6d7fddaee01ce9413cdbb7e91c4cd8769ac9fc43578df8884d698"
+    },
+    "SHA256SUMS.txt": {
+      "bytes": 202,
+      "sha256": "09de2e3169fa1d4275225628bbe3b75e6e50a428c990e015e5e0fb3f84d6252d"
+    }
+  },
+  "installer": {
+    "compiler": "Inno Setup 6.7.3",
+    "payload_file_count": 1139,
+    "payload_matches_portable": true,
+    "hosted_lifecycle": {
+      "version": "4.2.0",
+      "desktop_shortcut_opt_in": true,
+      "uninstall": true,
+      "installed_application_smoke": true,
+      "installed_payload_matches_portable": true,
+      "profile_preserved": true,
+      "source_commit": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+      "uninstall_registration": true,
+      "same_version_reinstall": true,
+      "installer_sha256": "f2ef210e470280697838a14b419cb283348c44469c95fe4f332d3851a7b4ac87",
+      "hosted_software_graphics": true,
+      "start_menu_shortcut": true
+    },
+    "local_packaging_fixture": {
+      "source_revision": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
+      "report_sha256": "f842e82d2f894ba04c84f736ab964448e47e123e9057b5b3c4c170e2e0b542e6",
+      "scope": "Earlier portable application used to check installer tooling before the refreshed application finished building. Install, same-version reinstall, default/opt-in shortcuts, native playback, uninstall and profile preservation passed. Not the refreshed installer binary."
+    }
+  },
+  "local_installed_application": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5890,
+    "error": null,
+    "executable": "C:\\Users\\Denis\\AppData\\Local\\Programs\\Riina\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 20880,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina"
+  },
+  "hosted_portable_application": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 6261,
+    "error": null,
+    "executable": "D:\\a\\riina\\riina\\package-smoke\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 5708,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina"
+  },
+  "hosted_installed_application": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 6878,
+    "error": null,
+    "executable": "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\riina-installer-1100e2bb-ed5b-440d-bb0a-cf1c9cb0999a\\Unicode test \u00e9\\Riina player\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 8492,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina"
+  },
+  "local_same_version_upgrade": {
+    "executable_sha256": "13d32fb590bdabf8b6cbb5e010122214395c13e83e0e55c4ee1cfa07e06fafa9",
+    "previous_executable_sha256": "3a0b61e5954be935891408a2ca9ef0b52d4ed31bfc1c9b8681f17fb3bd841ff7",
+    "source_commit": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "start_menu_application_identity": "org.riina.player",
+    "payload_files_verified": 1139,
+    "previous_source_commit": "59106488e3a8537bdfd16a44a5fd66a4c3a8770b",
+    "installer_sha256": "f2ef210e470280697838a14b419cb283348c44469c95fe4f332d3851a7b4ac87",
+    "same_version_payload_upgrade": true,
+    "profile_preserved": true
+  },
+  "desktop_capture_inspection": {
+    "scope": "Full virtual desktop before launch, fullscreen controller reveal and after normal exit. Visible video and controls; no stationary playback surface after exit. Raw captures are private local evidence, not release assets.",
+    "captures": [
+      {
+        "stage": "before",
+        "local_path": "target/installer-4.2.0/refreshed-installed-smoke.json.before.png",
+        "sha256": "ce457e0255efb233496e4d8c7e861fdc0148292fcd1898e62acdb4bed7f6d773",
+        "dimensions": [
+          3840,
+          2160
+        ],
+        "non_black_probes_passed": true,
+        "visually_inspected": true
+      },
+      {
+        "stage": "fullscreen",
+        "local_path": "target/installer-4.2.0/refreshed-installed-smoke.json.fullscreen.png",
+        "sha256": "44551fa18e65a0671306196ef730a5b3397e1d26ad9ed9d413ef868bcc91fbd2",
+        "dimensions": [
+          3840,
+          2160
+        ],
+        "non_black_probes_passed": true,
+        "visually_inspected": true
+      },
+      {
+        "stage": "after",
+        "local_path": "target/installer-4.2.0/refreshed-installed-smoke.json.after.png",
+        "sha256": "7b5a5f2754766a8cf26e476eaa11908ff23e63dd5498a8c452bf1591e0e9c49f",
+        "dimensions": [
+          3840,
+          2160
+        ],
+        "non_black_probes_passed": true,
+        "visually_inspected": true
+      }
+    ]
+  },
+  "development_evidence": [
+    "tests/visual/windows-playback-input-2026-10-20.json",
+    "tests/visual/windows-settings-viewport-2026-10-20.json"
+  ],
+  "verification": {
+    "python_packaging_tests": 68,
+    "formatting": "passed in release workflow",
+    "strict_all_target_clippy": "passed in release workflow",
+    "workspace_tests": "passed in release workflow",
+    "workspace_tests_passed": 656,
+    "workspace_tests_ignored": 56,
+    "native_decode_lifecycle_tests": "passed in release workflow",
+    "native_integration_tests_passed": 51,
+    "portable_and_installed_application_smokes": "passed in release workflow",
+    "source_notices_runtime_imports_checksums": "passed in release workflow"
+  },
+  "remaining_gaps": [
+    "Full IINA v1.5.0 behavior and visual parity remain incomplete.",
+    "Music Mode control proportions, materials and metadata still need matched comparison.",
+    "Broader DPI, resize/playlist transitions, focus and accessibility remain acceptance work.",
+    "No macOS/Linux application playback, physical Magic Mouse, audible-output or HDR certification."
+  ],
+  "publication_url": "https://github.com/deminden/riina/releases/tag/v4.2.0",
+  "published_at": "2026-10-20T22:02:06Z",
+  "tag_object": "1226ef4adc50c8fa0bc2c899117b92fef44c55e5",
+  "verified_release_artifact_id": 12302752825,
+  "public_asset_hashes_match_verified_candidates": true
+}
