@@ -77,8 +77,11 @@ current checks from intermediate failures and remaining acceptance work.
 The follow-up adds keyboard-operated equalizer Save/Rename, Unicode profile
 persistence, semantic light-theme handles and subtitle warning colors. The play
 triangle has an independent optical correction; Music Mode owns separate transport
-geometry and top-left window actions. Pane scroll positions survive category and
-Layout changes. Playlist rows take their available width, with six footer actions
+geometry and top-left window actions. Pane scroll positions have shared ownership
+and headless coverage, but the exact-package check at 285 x 141 and 300% scaling
+reset Audio after a Layout round trip. Fit to Screen also produced an undersized
+window in that session; both native sizing/scrolling cases remain open.
+Playlist rows take their available width, with six footer actions
 and less frequent editing in row context menus.
 
 First-pointer slider/color input, paused-catalog Music Mode debounce and Windows

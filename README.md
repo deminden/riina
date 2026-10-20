@@ -59,7 +59,7 @@ ready-to-run application.
 Quick Settings has consistent numeric editing, keyboard track navigation and
 equalizer profile naming. Play symbols have an optical centering correction,
 Music Mode keeps its compact frame, and playlist editing and history resume
-handle more everyday workflows. Narrow settings pages retain their scroll positions.
+handle more everyday workflows. Narrow settings pages remain scrollable.
 
 See the [4.2.0 release notes](docs/release-notes/4.2.0.md) for the complete changes;
 [GitHub Releases](https://github.com/deminden/riina/releases) shows published packages.

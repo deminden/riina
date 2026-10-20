@@ -351,8 +351,17 @@ pub fn resolve_alias_path(path: &str) -> String {
             NSURLBookmarkResolutionOptions::empty(),
         )
         .ok()
-        .and_then(|resolved| resolved.path())
-        .map(|resolved| resolved.to_string())
+        .and_then(|resolved| {
+            let target = resolved.path()?.to_string();
+            // Foundation makes relative file URLs absolute even for ordinary
+            // files. Preserve their identity unless an alias changed the target.
+            let original = source.path()?.to_string();
+            Some(if target == original {
+                path.to_owned()
+            } else {
+                target
+            })
+        })
         .unwrap_or_else(|| path.to_owned())
     })
 }
