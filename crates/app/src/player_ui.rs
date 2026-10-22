@@ -774,7 +774,7 @@ pub(crate) struct UiSession {
     recent_media: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
     recent_open_documents: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
     recent_open_cleared: Rc<Cell<bool>>,
-    playback_history: Arc<std::sync::Mutex<crate::plugin_host::PlaybackHistoryState>>,
+    playback_history: Arc<std::sync::Mutex<crate::playback_history::PlaybackHistoryState>>,
     record_playback_history: Arc<AtomicBool>,
     history_cleared: Arc<AtomicBool>,
     latest_playback: Arc<std::sync::Mutex<Playback>>,
@@ -1464,8 +1464,8 @@ pub(crate) fn configure_player(
     let recent_open_documents = Rc::new(RefCell::new(prefs.recent_open_documents.clone()));
     let recent_open_cleared = Rc::new(Cell::new(false));
     let plugin_recent_media = Arc::new(std::sync::Mutex::new(prefs.recent_media.clone()));
-    let playback_history_session_id = crate::plugin_host::next_history_session_id();
-    let playback_history = crate::plugin_host::shared_playback_history_state(
+    let playback_history_session_id = crate::playback_history::next_history_session_id();
+    let playback_history = crate::playback_history::shared_playback_history_state(
         playback_history_path,
         playback_history_entries.clone(),
         playback_history_write_path,
@@ -1474,7 +1474,7 @@ pub(crate) fn configure_player(
     let plugin_playback_history = playback_history.clone();
     let record_playback_history = Arc::new(AtomicBool::new(prefs.record_playback_history));
     let notify_record_playback_history = record_playback_history.clone();
-    let history_cleared = crate::plugin_host::shared_history_merge_flag(&prefs_path);
+    let history_cleared = crate::playback_history::shared_history_merge_flag(&prefs_path);
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
     let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(&prefs_path, "io.iina.ytdl");
@@ -1864,22 +1864,14 @@ pub(crate) fn configure_player(
         if let Ok(mut latest_playback) = observed_playback.lock() {
             *latest_playback = state.clone();
         }
-        let plugin_context = crate::plugin_host::player_file_context_with_history(
+        let (plugin_context, history_error) = crate::plugin_snapshot::observe_playback(
             &state,
-            &mut notify_plugin_recent_media
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
-            &mut plugin_playback_history
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            &notify_plugin_recent_media,
+            &plugin_playback_history,
             notify_record_playback_history.load(Ordering::Acquire),
             playback_history_session_id,
         );
-        if let Some(error) = plugin_playback_history
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take_persistence_error()
-        {
+        if let Some(error) = history_error {
             let weak = app_weak.clone();
             let _ = slint::invoke_from_event_loop(move || {
                 if let Some(app) = weak.upgrade() {
@@ -2004,7 +1996,6 @@ pub(crate) fn configure_player(
     let history_plugin = plugin_host_handle.clone();
     let history_latest_playback = latest_playback.clone();
     let history_recent_media = plugin_recent_media.clone();
-    let history_recording = record_playback_history.clone();
     let history_sync: crate::playback_history_window::HistorySync = Arc::new(move |history| {
         let Some(plugin) = &history_plugin else {
             return Ok(());
@@ -2013,14 +2004,12 @@ pub(crate) fn configure_player(
             .lock()
             .map_err(|_| "latest playback lock poisoned".to_owned())?
             .clone();
-        let context = crate::plugin_host::player_file_context_with_history(
+        let context = crate::plugin_snapshot::player_file_context(
             &playback,
             &mut history_recent_media
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
-            history,
-            history_recording.load(Ordering::Acquire),
-            playback_history_session_id,
+            &history,
         );
         plugin.update_player_file_context(context)
     });
@@ -2603,8 +2592,6 @@ pub(crate) fn configure_player(
     let clear_history_plugin_host = plugin_host_handle.clone();
     let clear_history_latest_playback = latest_playback.clone();
     let clear_history_recent_media = plugin_recent_media.clone();
-    let clear_history_recording = record_playback_history.clone();
-    let clear_history_session_id = playback_history_session_id;
     crate::screenshot_preferences::connect(
         app,
         player.command_sender(),
@@ -2619,27 +2606,26 @@ pub(crate) fn configure_player(
             let plugin_host = clear_history_plugin_host;
             let latest_playback = clear_history_latest_playback;
             let recent_media = clear_history_recent_media;
-            let record_history = clear_history_recording;
             move || {
-                let removed = crate::utilities_preferences::clear_playback_history(&path)?;
                 let mut history = playback_history
                     .lock()
                     .map_err(|_| "playback history lock poisoned".to_owned())?;
+                let removed = crate::utilities_preferences::clear_playback_history(&path)?;
                 history.clear();
                 history_cleared.store(true, Ordering::Release);
+                let entries = history.entries().to_vec();
+                drop(history);
                 if let Some(host) = &plugin_host {
                     let playback = latest_playback
                         .lock()
                         .map_err(|_| "latest playback lock poisoned".to_owned())?
                         .clone();
-                    let context = crate::plugin_host::player_file_context_with_history(
+                    let context = crate::plugin_snapshot::player_file_context(
                         &playback,
                         &mut recent_media
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner),
-                        &mut history,
-                        record_history.load(Ordering::Acquire),
-                        clear_history_session_id,
+                        &entries,
                     );
                     host.update_player_file_context(context)
                         .map_err(|error| error.to_string())?;

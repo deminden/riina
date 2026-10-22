@@ -38,6 +38,12 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The latest local quality review removes an inverted history/recent-media lock
+  order, timer starvation under queued plugin events, and duplicate history saves
+  during selection removal. History persistence and plugin snapshots now have
+  separate modules. Plugin writes create external destinations exclusively, and
+  text reads enforce their limit against bytes actually read. Verification is
+  recorded separately in [the review results](verification.md#history-and-plugin-quality-review-2026-10-22).
 - The follow-up local review separates player observations, catalogs, materials,
   plugin integration and audio/video/subtitle callbacks, retaining session resource
   order. Plugin startup and callbacks now drain Promise jobs, package `require()`

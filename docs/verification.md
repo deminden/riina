@@ -4,6 +4,38 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## History and plugin quality review 2026-10-22
+
+The [quality-review record](../tests/visual/windows-quality-review-2026-10-22.json)
+identifies the exact source and executable based on local commit `8c713ac`.
+This focused review fixes an inverted history/recent-media lock order, expired
+plugin timers being postponed by queued events, per-row history saves during
+selection removal, and external-file creation races. Plugin text reads now bound
+the actual read as well as checking file size. History clear actions serialize
+disk and memory changes and preserve plugin-refresh failures in their status.
+
+History persistence and plugin snapshot conversion have separate modules. The
+plugin host falls from 2350 to 1023 lines, retaining all 12 existing tests across
+the extracted modules. The player and history-window callback registrations and
+session resource order are unchanged. Seven new regressions cover scheduling,
+lock contention, successful/failed history batches and file-operation limits.
+The timer regression failed before the fix, with its callback delayed until all
+eight queued player events had run.
+
+Formatting, strict all-target Clippy, the locked workspace build and 681 workspace
+tests passed (57 default ignores; four successful child-helper invocations
+excluded). Core/native source is unchanged; ignored native tests were not repeated.
+Traceability passed for 260 requirements, 69 visual identities, 15 evidence links
+and 68 local image hashes. Inventory completeness remains unchanged.
+
+A byte-identical copy of the rebuilt application with the pinned development DLL
+passed all six automated playback/settings/fullscreen/shutdown checks in 5989 ms.
+The run used an isolated profile and media fixture with null audio, and normal
+shutdown left no Riina process. No desktop captures were taken in this batch;
+these checks do not establish visual parity, physical audio or HDR acceptance.
+Manual history-window interaction, third-party plugin GUI behavior and macOS/Linux
+application verification remain separate work. This is not an exhaustive audit.
+
 ## Runtime and player review 2026-10-22
 
 The [continuation record](../tests/visual/windows-runtime-review-2026-10-22.json)

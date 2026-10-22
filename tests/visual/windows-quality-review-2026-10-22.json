@@ -1,0 +1,162 @@
+{
+  "date": "2026-10-22",
+  "state": "Local quality review; published version remains 4.2.0",
+  "source_base_revision": "8c713acdf43171056960040ba6ecd2e4f0161849",
+  "source_hash_encoding": "UTF-8 with LF newlines (Git canonical text)",
+  "source_files_sha256": {
+    "crates/app/src/main.rs": "ff5f5d21e54cd42fe553847b2b9f2cf18b8f184ad0168c86d3384c01dc6dc335",
+    "crates/app/src/playback_history.rs": "4ad0a68b5769c883165bac0c6a19c4a7231bbf44f7fe3f9dc056cf3a7696e8fd",
+    "crates/app/src/playback_history/tests.rs": "d90094351cd43708224ca4e5a9772447d55fa387594a8f7ebb84b08b7f8fd9c0",
+    "crates/app/src/playback_history_window.rs": "c01308a4390287d13c2c603f88744ed9a5274455f28a4dcdeabe27de9b9c200c",
+    "crates/app/src/player_ui.rs": "51b4f6300363a97e6426c6ed9273547d528d5b7f33a5b6e9df34c580ef18407b",
+    "crates/app/src/plugin_files.rs": "0cc50576c6e1f651e28da1684e399fb908ae5d8d050533cf807600d851735c3b",
+    "crates/app/src/plugin_host.rs": "47580e4653887df271e16c66ef3bc38a0180491e31f1216516850501cf0ceeb8",
+    "crates/app/src/plugin_host/tests.rs": "4748794fb53317fe08310018de47dd6b81788f3b1e708a525ce36f369da99b32",
+    "crates/app/src/plugin_runtime/execution_tests.rs": "3ad5ffd5ca1320477e8c52893c3fed269db9e28ac274bae9277413c4c751604b",
+    "crates/app/src/plugin_runtime/worker.rs": "67bf01b381132b51f498eeb9d573610cfe653fdf0fdaa17772d6a3cd6aabbfbb",
+    "crates/app/src/plugin_snapshot.rs": "0c541c1c6e6bca094c21c2a524c481ac358db96494b6d5b3f7de7e9492fe6025",
+    "crates/app/src/plugin_snapshot/tests.rs": "94dac90ea70dd75cc88ec9607bffb3d2bf346e1cce98e85c41a0324ccbe4a6b2"
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "inspected_contracts": [
+      "JavascriptPolyfill owns independent scheduled timers and cancels them on teardown",
+      "HistoryController owns application history independently of plugin sessions and saves selection removal as a batch"
+    ],
+    "inspection": "Architectural and lifecycle facts only; independent Rust implementation"
+  },
+  "review_findings": [
+    {
+      "area": "Timer starvation",
+      "severity": "medium",
+      "problem": "A nonempty plugin command queue always won over expired timer deadlines.",
+      "resolution": "Ready commands and timers alternate without delaying cancellation.",
+      "regressions": [
+        "expired_timers_run_while_player_events_are_queued",
+        "repeating_zero_delay_timers_leave_room_for_player_events"
+      ],
+      "before_fix": "The first regression failed: the timer ran after all eight queued events rather than after the first event."
+    },
+    {
+      "area": "History lock ordering",
+      "severity": "high",
+      "problem": "Playback notifications acquired recent media then history, while history actions held history before acquiring recent media. Concurrent paths could deadlock.",
+      "resolution": "History observations return owned entries before recent media is locked. History actions release their guard before publishing snapshots. Clearing holds history across the disk and memory changes, preventing concurrent observations from restoring cleared rows.",
+      "regressions": [
+        "playback_observation_releases_history_before_waiting_for_recent_media"
+      ]
+    },
+    {
+      "area": "History selection persistence",
+      "severity": "medium",
+      "problem": "Removing a selection cloned and saved the full archive once per row, with partial deletion possible if a later save failed. Clear-history success could also overwrite a plugin refresh error.",
+      "resolution": "Remove all selected rows in one persisted change, mutate memory only after success, and retain refresh failures in the UI status.",
+      "regressions": [
+        "selected_history_rows_are_removed_in_one_persisted_change",
+        "a_failed_history_batch_keeps_every_row_and_revision"
+      ]
+    },
+    {
+      "area": "Plugin file I/O",
+      "severity": "medium",
+      "problem": "Text/download writes checked existence separately from truncating writes. Text reads trusted metadata size before an unbounded read.",
+      "resolution": "One shared writer uses exclusive file creation outside private plugin storage. Reads verify regular-file metadata from the open handle and enforce the byte limit during reading.",
+      "regressions": [
+        "destination_creation_is_exclusive_outside_private_storage",
+        "text_reads_enforce_the_size_boundary"
+      ],
+      "scope": "Exclusive final-file creation and bounded reads; no claim of eliminating all path-resolution races or providing complete filesystem sandboxing."
+    }
+  ],
+  "refactoring": {
+    "plugin_host_root_lines_before": 2350,
+    "plugin_host_root_lines_after": 1023,
+    "new_responsibilities": {
+      "playback_history.rs": "Shared application history and persistence policy",
+      "plugin_snapshot.rs": "Playback-to-plugin conversion and owned snapshot assembly"
+    },
+    "existing_host_tests_retained": 12,
+    "ui_callback_registrations_retained": {
+      "player_ui.rs": 87,
+      "playback_history_window.rs": 11
+    },
+    "ui_session_resource_order": "Unchanged; only the history type module path moved",
+    "redundancy_removed": [
+      "Repeated selected-track lookup predicate",
+      "Redundant media-URL parsing branch",
+      "Unused history observation parameter",
+      "Per-row archive persistence",
+      "Duplicate external-file overwrite policy"
+    ]
+  },
+  "verification": {
+    "format": "passed",
+    "strict_clippy_workspace_all_targets": "passed",
+    "locked_workspace_build": "passed",
+    "locked_workspace_tests": {
+      "passed": 681,
+      "failed": 0,
+      "ignored": 57,
+      "successful_child_helper_invocations_excluded_from_total": 4,
+      "new_regressions": 7
+    },
+    "native_ignored_tests": "Not repeated; native and core source are unchanged from the preceding locally verified commits.",
+    "parity": {
+      "requirements": 260,
+      "visual_identities": 69,
+      "evidence_links": 15,
+      "local_image_hashes": 68,
+      "result": "passed",
+      "completeness_claim": false
+    },
+    "logs_sha256": {
+      "timer-before.log": "6b85e24324095622afa571b108e32a7f45b235fe79ee2d6cea5da1b36794c190",
+      "final-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "final-clippy.log": "48192e8c73c17dbdc57102ca2fba39c83e77b5fcfcfadf3b0d23cf84a177c65c",
+      "workspace-tests.log": "8056e661db7865425441f350ca4b1c5762143d9435333437dfc1fedd5e835a8d",
+      "final-build.log": "f91bb6dcca659c857f84cac22d5e86670c131678ad46b9de26ae9bc3782eb13c",
+      "parity.log": "dcc747bb83a6ceed813c5fdd9bf6000bd4d0517dc721d35a5575d0afd84ad3b6",
+      "desktop-smoke.log": "4daf9d9651ec1167dc1ae1ff189f9a3843efbd6c05e6c04307da9a07a8c0deb5",
+      "desktop-smoke.json": "9075aed7e495bf7ea2b8687b48a4019d9da7bb1bf3125f64f2c7691c378237ff",
+      "assets-staged.log": "a80ec21125e92b4f6831fdba215233720599d3ecb39872490099767fc4537650"
+    },
+    "staged_asset_provenance": {
+      "result": "passed",
+      "records": 74,
+      "asset_changes": false
+    }
+  },
+  "windows_smoke": {
+    "executable_sha256": "cafdb88d1a58e6dabe2be6b5d117f03245fb546f47e794a6d4e7dc29d51d4e37",
+    "engine_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+    "fixture": "tests/fixtures/moving-square.avi",
+    "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+    "profile": "Isolated disposable profile, isolated fixture, null audio",
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5989,
+    "process_id": 2300,
+    "success": true,
+    "normal_shutdown": true,
+    "remaining_riina_processes": 0,
+    "desktop_captures": "Not taken; this run checks automated application state only.",
+    "physical_display_verified": false
+  },
+  "limits": [
+    "No new visual or HDR acceptance evidence",
+    "No manual history-window interaction or third-party plugin GUI verification",
+    "No macOS/Linux application build or runtime verification",
+    "This focused review is not an exhaustive repository audit"
+  ],
+  "local_build_storage": {
+    "target_debug_gib": 40.94,
+    "cleanup_performed": false
+  }
+}

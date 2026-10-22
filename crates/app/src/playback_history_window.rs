@@ -15,11 +15,10 @@ use std::{
     time::Duration,
 };
 
-type HistoryState = Arc<Mutex<crate::plugin_host::PlaybackHistoryState>>;
+type HistoryState = Arc<Mutex<crate::playback_history::PlaybackHistoryState>>;
 type HistoryWindowSlot = Rc<RefCell<Option<PlaybackHistoryWindow>>>;
 type CollapsedGroups = Arc<Mutex<HashSet<String>>>;
-pub(crate) type HistorySync =
-    Arc<dyn Fn(&mut crate::plugin_host::PlaybackHistoryState) -> Result<(), String> + Send + Sync>;
+pub(crate) type HistorySync = Arc<dyn Fn(Vec<Entry>) -> Result<(), String> + Send + Sync>;
 
 struct WindowConnection {
     history: HistoryState,
@@ -344,18 +343,19 @@ fn connect_window(
         if response != MessageDialogResult::Yes {
             return;
         }
-        match crate::utilities_preferences::clear_playback_history(&preferences_path) {
-            Ok(removed) => {
-                if let Ok(mut history) = history_for_clear.lock() {
-                    history.clear();
-                    history_cleared_for_clear.store(true, std::sync::atomic::Ordering::Release);
-                    if let Err(error) = history_sync_for_clear(&mut history) {
-                        app.set_status(
-                            format!("History cleared, but plugins could not be updated: {error}")
-                                .into(),
-                        );
-                    }
-                }
+        let cleared = history_for_clear
+            .lock()
+            .map_err(|_| "playback history lock poisoned".to_owned())
+            .and_then(|mut history| {
+                let removed =
+                    crate::utilities_preferences::clear_playback_history(&preferences_path)?;
+                history.clear();
+                history_cleared_for_clear.store(true, std::sync::atomic::Ordering::Release);
+                Ok((removed, history.entries().to_vec()))
+            });
+        match cleared {
+            Ok((removed, entries)) => {
+                let sync_error = history_sync_for_clear(entries).err();
                 window.set_selected_path("".into());
                 groups_for_clear
                     .lock()
@@ -363,7 +363,13 @@ fn connect_window(
                     .clear();
                 refresh(&window, &history_for_clear, &groups_for_clear);
                 app.set_status(
-                    format!("Playback history cleared ({removed} entries removed)").into(),
+                    match sync_error {
+                        Some(error) => {
+                            format!("History cleared, but plugins could not be updated: {error}")
+                        }
+                        None => format!("Playback history cleared ({removed} entries removed)"),
+                    }
+                    .into(),
                 );
             }
             Err(error) => {
@@ -491,15 +497,12 @@ fn connect_context_actions(
                     .lock()
                     .map_err(|_| "playback history lock poisoned".to_owned())
                     .and_then(|mut history| {
-                        let mut removed = 0;
-                        for path in &paths {
-                            if history.remove_path(path)? {
-                                removed += 1;
-                            }
-                        }
+                        let removed = history.remove_paths(paths.iter().map(String::as_str))?;
                         let sync_error = if removed > 0 {
                             action_cleared.store(true, std::sync::atomic::Ordering::Release);
-                            action_sync(&mut history).err()
+                            let entries = history.entries().to_vec();
+                            drop(history);
+                            action_sync(entries).err()
                         } else {
                             None
                         };
@@ -567,15 +570,12 @@ fn connect_context_actions(
                             .lock()
                             .map_err(|_| "playback history lock poisoned".to_owned())
                             .and_then(|mut history| {
-                                let mut removed = 0;
-                                for reference in &removed_references {
-                                    if history.remove_path(reference)? {
-                                        removed += 1;
-                                    }
-                                }
+                                let removed = history.remove_paths(removed_references.iter().map(String::as_str))?;
                                 if removed > 0 {
                                     trash_cleared.store(true, std::sync::atomic::Ordering::Release);
-                                    trash_sync(&mut history)?;
+                                    let entries = history.entries().to_vec();
+                                    drop(history);
+                                    trash_sync(entries)?;
                                 }
                                 Ok(removed)
                             });

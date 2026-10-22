@@ -65,6 +65,14 @@ timers, permission review, bounded output, messages and individual host APIs.
 Every JavaScript turn includes its Promise jobs under the same execution budget.
 Shutdown cancels executing JavaScript before waking and joining the worker;
 network workers retain their concurrency slot until result delivery completes.
+Ready timers and host commands alternate when both are pending, so continuous
+player events and zero-delay timer chains cannot starve one another.
+
+`playback_history.rs` owns shared history and persistence decisions independently
+of plugins. `plugin_snapshot.rs` converts playback and owned history entries into
+the plugin API view. History and recent-media locks are never held together;
+history actions release their lock before publishing a snapshot. Selection removal
+persists one batch before changing the in-memory rows and revision.
 
 ## Checks
 

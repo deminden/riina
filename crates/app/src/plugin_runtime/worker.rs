@@ -197,8 +197,13 @@ pub(super) fn run_entry_worker(
         return;
     }
 
+    let mut prefer_timer = true;
     while !execution.is_cancelled() {
-        let command = match worker_timers.next_wait() {
+        let next_timer = worker_timers.next_wait();
+        let command = match next_timer {
+            // Alternate ready timers and commands so neither a busy inbox nor
+            // a chain of zero-delay timers can starve the other source.
+            Some(timeout) if prefer_timer && timeout.is_zero() => None,
             Some(timeout) => match commands.recv_timeout(timeout) {
                 Ok(command) => Some(command),
                 Err(mpsc::RecvTimeoutError::Timeout) => None,
@@ -212,6 +217,7 @@ pub(super) fn run_entry_worker(
         if execution.is_cancelled() {
             break;
         }
+        prefer_timer = command.is_some();
         let (script, label) = match command {
             None => {
                 let Some(id) = worker_timers.take_due() else {

@@ -161,3 +161,53 @@ fn package_require_bridge_survives_api_installation() {
     std::fs::remove_dir_all(root).unwrap();
     assert_eq!(result.unwrap(), [HostEvent::Log("module loaded".into())]);
 }
+
+#[test]
+fn expired_timers_run_while_player_events_are_queued() {
+    let session = PluginRuntimeSession::start_entry(
+        r#"let count = 0;
+        iina.event.on('iina.file-loaded', () => {
+            count++;
+            if (count === 1) setTimeout(() => iina.log('timer after ' + count), 0);
+            iina.log('player event');
+        });"#,
+        "org.example.timer-fairness",
+        &[],
+        &[],
+    )
+    .unwrap();
+    // Logging holds the first callback until the remaining events are queued.
+    let events = session.events.lock().unwrap();
+    for _ in 0..8 {
+        session
+            .deliver_player_event("iina.file-loaded".into(), serde_json::Value::Null)
+            .unwrap();
+    }
+    drop(events);
+    wait_for_log(&session, "timer after 1");
+}
+
+#[test]
+fn repeating_zero_delay_timers_leave_room_for_player_events() {
+    let session = PluginRuntimeSession::start_entry(
+        r#"let count = 0;
+        const repeat = () => { if (count < 2) setTimeout(repeat, 0); };
+        iina.event.on('iina.file-loaded', () => {
+            count++;
+            if (count === 1) setTimeout(repeat, 0);
+            iina.log('event ' + count);
+        });"#,
+        "org.example.event-fairness",
+        &[],
+        &[],
+    )
+    .unwrap();
+    let events = session.events.lock().unwrap();
+    for _ in 0..2 {
+        session
+            .deliver_player_event("iina.file-loaded".into(), serde_json::Value::Null)
+            .unwrap();
+    }
+    drop(events);
+    wait_for_log(&session, "event 2");
+}

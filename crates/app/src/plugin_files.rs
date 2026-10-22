@@ -620,15 +620,24 @@ impl PluginFiles {
         let path = self
             .resolve(path, file_system_granted, false)?
             .ok_or_else(|| "File does not exist".to_owned())?;
-        let metadata =
-            fs::metadata(&path).map_err(|error| format!("Could not inspect file: {error}"))?;
+        let file = File::open(path).map_err(|error| format!("Could not read file: {error}"))?;
+        let metadata = file
+            .metadata()
+            .map_err(|error| format!("Could not inspect file: {error}"))?;
         if !metadata.is_file() {
             return Err("Path is not a regular file".into());
         }
         if metadata.len() > MAX_FILE_BYTES as u64 {
             return Err("File exceeds the 4 MiB read limit".into());
         }
-        let bytes = fs::read(path).map_err(|error| format!("Could not read file: {error}"))?;
+        // A file can grow after metadata is read. Bound the actual read as well.
+        let mut bytes = Vec::new();
+        file.take((MAX_FILE_BYTES + 1) as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|error| format!("Could not read file: {error}"))?;
+        if bytes.len() > MAX_FILE_BYTES {
+            return Err("File exceeds the 4 MiB read limit".into());
+        }
         decode_text(&bytes, encoding)
     }
 
@@ -644,10 +653,9 @@ impl PluginFiles {
         let path = self
             .resolve(path, file_system_granted, true)?
             .ok_or_else(|| "File destination is invalid".to_owned())?;
-        if !self.is_private_path(&path)? && path.exists() {
-            return Err("Cannot overwrite a file outside plugin storage".into());
-        }
-        fs::write(path, content).map_err(|error| format!("Could not write file: {error}"))
+        self.open_destination(&path)?
+            .write_all(content.as_bytes())
+            .map_err(|error| format!("Could not write file: {error}"))
     }
 
     pub(crate) fn write_download(
@@ -662,10 +670,28 @@ impl PluginFiles {
         let path = self
             .resolve(path, file_system_granted, true)?
             .ok_or_else(|| "Download destination is invalid".to_owned())?;
-        if !self.is_private_path(&path)? && path.exists() {
-            return Err("Cannot overwrite a file outside plugin storage".into());
+        self.open_destination(&path)?
+            .write_all(content)
+            .map_err(|error| format!("Could not save download: {error}"))
+    }
+
+    fn open_destination(&self, path: &Path) -> Result<File, String> {
+        let mut options = OpenOptions::new();
+        options.write(true);
+        if self.is_private_path(path)? {
+            options.create(true).truncate(true);
+        } else {
+            // Checking existence before writing permits another writer to create
+            // the destination in between. The filesystem must enforce exclusivity.
+            options.create_new(true);
         }
-        fs::write(path, content).map_err(|error| format!("Could not save download: {error}"))
+        options.open(path).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                "Cannot overwrite a file outside plugin storage".into()
+            } else {
+                format!("Could not open file destination: {error}")
+            }
+        })
     }
 
     pub(crate) fn move_path(
@@ -989,6 +1015,60 @@ mod tests {
             },
             root,
         )
+    }
+
+    #[test]
+    fn destination_creation_is_exclusive_outside_private_storage() {
+        let (files, root) = temporary_files();
+        fs::create_dir_all(&root).unwrap();
+        let outside = root.join("outside.bin");
+        let mut first = files.open_destination(&outside).unwrap();
+        first.write_all(b"original").unwrap();
+        assert!(files.open_destination(&outside).is_err());
+        drop(first);
+        assert_eq!(fs::read(&outside).unwrap(), b"original");
+        files
+            .write_download("@data/private.bin", b"original", false)
+            .unwrap();
+        files
+            .write_download("@data/private.bin", b"new", false)
+            .unwrap();
+        assert_eq!(fs::read(root.join(".data/private.bin")).unwrap(), b"new");
+        assert!(
+            files
+                .write_download(outside.to_str().unwrap(), b"replace", true)
+                .is_err()
+        );
+        assert_eq!(fs::read(outside).unwrap(), b"original");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn text_reads_enforce_the_size_boundary() {
+        let (files, root) = temporary_files();
+        files
+            .write_text("@data/limit.txt", &"a".repeat(MAX_FILE_BYTES), false)
+            .unwrap();
+        assert_eq!(
+            files
+                .read_text("@data/limit.txt", "{}", false)
+                .unwrap()
+                .len(),
+            MAX_FILE_BYTES
+        );
+        OpenOptions::new()
+            .append(true)
+            .open(root.join(".data/limit.txt"))
+            .unwrap()
+            .write_all(b"b")
+            .unwrap();
+        assert!(
+            files
+                .read_text("@data/limit.txt", "{}", false)
+                .unwrap_err()
+                .contains("4 MiB")
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
