@@ -56,6 +56,7 @@ mod plugin_preferences;
 pub mod plugin_runtime;
 mod plugin_snapshot;
 mod preference_store;
+mod preferences_window;
 mod screenshot_osd;
 mod screenshot_output;
 mod screenshot_preferences;

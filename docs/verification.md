@@ -4,6 +4,50 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## Preferences and feedback review 2026-10-22
+
+The [preferences review record](../tests/visual/windows-preferences-review-2026-10-22.json)
+records this local batch based on `e561502`, completed 2026-10-23. The former
+1957-line screenshot
+preferences module now handles only screenshot intent. Preferences window ownership,
+key binding actions, live decoder changes, refresh and edit commit handling have
+separate modules. Shared validation routing replaces 21 repeated error branches;
+callback-owned saved values no longer use redundant shared reference counts.
+All 23 existing preferences callback registrations are retained.
+
+Music Mode's automatic switching, playlist and artwork choices now save immediately.
+Their live setters run after successful persistence, so a failed write cannot change
+playback policy or resize the Music Mode window. Two persistence regressions failed
+against the old save behavior, including a failed-write retry. Queued speed and
+pause feedback is now discarded when its category is disabled, preserving unrelated
+messages. OSD observation rules and regression coverage have separate modules;
+all 20 existing OSD tests are retained, with two queue regressions added.
+
+The plugin file module also separates player snapshots/event diffs, strict encoding
+and tests from file capabilities. Accepted identifiers differing beyond character
+128 previously shared a private storage directory. A standalone harness compiled
+from the original storage-name function demonstrates the collision. Conversion
+now hashes the complete identifier instead of truncating/replacing characters;
+uppercase and Windows filename aliases are handled too. Ordinary paths stay stable;
+ambiguous legacy directories are not migrated. New tests check private file
+isolation for accepted long identifiers and non-aliasing portable storage keys.
+
+Formatting, strict all-target Clippy and the locked workspace build passed.
+The normal parallel workspace suite passed 700 tests with 57 default ignores;
+four successful child-helper invocations are excluded. All six new regressions
+passed, along with 68 Python script tests. Traceability passed for 260 requirements,
+69 visual identities, 15 evidence links and 68 local image hashes. Staged asset
+provenance passed for 74 records. The native integration suite was not rerun:
+native/core behavior is unchanged; the preceding batch records 54 native tests.
+
+All eight automated Windows playback/window checks passed in 8109 ms with the
+pinned development DLL, null audio and an isolated profile/fixture. Playback,
+volume, menus, fullscreen, controls, automatic minimize/restore and clean shutdown
+were checked; no Riina process remained. No desktop images were captured. These
+checks do not establish visible pixel/compositor/HDR acceptance. The Preferences
+editor regressions run headlessly; interactive pane/dialog acceptance remains open.
+No shared-GL, macOS or Linux desktop check was run in this batch.
+
 ## Player controller review 2026-10-22
 
 The [player-controller record](../tests/visual/windows-player-controller-review-2026-10-22.json)

@@ -1510,7 +1510,7 @@ pub(crate) fn configure_player(
     let clear_history_plugin_host = plugin_host_handle.clone();
     let clear_history_latest_playback = latest_playback.clone();
     let clear_history_recent_media = plugin_recent_media.clone();
-    crate::screenshot_preferences::connect(
+    crate::preferences_window::connect(
         app,
         player.command_sender(),
         prefs_path.clone(),

@@ -68,6 +68,20 @@ cannot replace a newer scan's completion state.
 Native frame capture acknowledges rejected and failed requests separately from
 successful pixels, allowing the serialized LiveText capture flow to retry.
 
+`preferences_window.rs` owns the auxiliary window and its platform dialogs/timers.
+Its private modules handle edit validation/commit, key binding actions, live decoder
+updates and refresh. `screenshot_preferences.rs` holds screenshot intent only.
+Music Mode preferences are persisted before their live callbacks run. OSD queue
+ownership stays in `video_osd.rs`; native change detection lives in `observations.rs`.
+Disabling a feedback category removes that category's queued messages.
+
+`plugin_files.rs` owns file capabilities and containment. Its `context` module owns
+player snapshots/event diffs; `encoding` owns strict text decoding. Ordinary storage
+identifiers retain their directory names. Long, uppercase, reserved and otherwise
+nonportable names use a SHA-256 key prefixed with `~`, preventing truncation,
+replacement and case aliases from merging private storage. Existing ambiguous
+legacy directories are not migrated: their ownership cannot be determined safely.
+
 `plugin_runtime.rs` owns session startup, command admission and cancellation. Its
 private modules separate the worker loop, execution budget, package loading,
 timers, permission review, bounded output, messages and individual host APIs.

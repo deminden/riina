@@ -1,0 +1,198 @@
+{
+  "date": "2026-10-22",
+  "completed_on": "2026-10-23",
+  "state": "Local preferences, feedback and plugin-storage review; published version remains 4.2.0",
+  "source_base_revision": "e5615021afc9f6d1a64c418a74da009ee2b9bfcd",
+  "source_hash_encoding": "UTF-8 with LF newlines (Git canonical text)",
+  "source_files_sha256": {
+    "crates/app/src/main.rs": "44e31ad20d25d063cc14b3d89df2c272156de36b2eb25c274b4ad54be3f02d96",
+    "crates/app/src/player_ui.rs": "5640fb1b6698ecd078910d6fb29d70c2d45f06e8cd1bcdae97fe3102bf054126",
+    "crates/app/src/plugin_files.rs": "58a23aa8a7cec92464628f8b583a8130847938cbd7c711234515bd5bbbd80942",
+    "crates/app/src/plugin_files/context.rs": "797a9502449cbca0d1c60254cda56f11e552ee503edd9dffa80beeb4760dd683",
+    "crates/app/src/plugin_files/encoding.rs": "78e8d2b95745a4090fdbc296fe313abdbaef3f399798ad0f986c77d03fd93659",
+    "crates/app/src/plugin_files/tests.rs": "3d60bf80af06a52193ced9f600f05d811dfe0c23a833452300a640fc21514b07",
+    "crates/app/src/preferences_window.rs": "0bcd3a4f488cfbf69cf3b1736348907e6d2893c1cdce8ff174c3ed5c1efa8e5f",
+    "crates/app/src/preferences_window/changes.rs": "fa6434cb074e50624bb049e8e9755fc4f5d4567d068f819d85a9dd4eb68e6bb8",
+    "crates/app/src/preferences_window/changes/tests.rs": "92f7841a5df58eb704d1259a3cb0f6346ed17db5694ae716293a67522ed5c153",
+    "crates/app/src/preferences_window/key_bindings.rs": "10937c79608a49e2815723545325ab0247683f47921da2965647cfae1db1ff8b",
+    "crates/app/src/preferences_window/live.rs": "da277efdf296cde2d1cd8a3474e9fe12f5b06c5ba3c53f661f02dec84487532f",
+    "crates/app/src/preferences_window/refresh.rs": "c982b2092431001771674e80c72ce4e7eb9fa3fe04ae07883e222af90ebbbafc",
+    "crates/app/src/screenshot_preferences.rs": "80ca0c75b6e043867cd7bd5f2b66525e2cca0bd510fdab4287c7c94b8ee82eb3",
+    "crates/app/src/video_osd.rs": "84bac977b355f8dccf8c764390909fd7e1fa8b1e2ca6a6c5f41ed0568091822d",
+    "crates/app/src/video_osd/observations.rs": "62d8b0691916e1c4846f10d2843607aba566e49df7b84704d3a6f0c208593250",
+    "crates/app/src/video_osd/tests.rs": "96f101775aae686f8aa55b548b5cd9f93d44937d7452ba1b1da646a264eba25b"
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "inspected_contracts": [
+      "Preferences window owns pane controllers; screenshot intent is one General-pane responsibility",
+      "Automatic Music Mode, playlist visibility and artwork visibility are saved preferences with live player observation"
+    ],
+    "inspection": "Ownership and preference contracts only; independent Rust implementation"
+  },
+  "extraction": {
+    "screenshot_preferences_root_lines": {
+      "before": 1957,
+      "after": 44
+    },
+    "video_osd_root_lines": {
+      "before": 1156,
+      "after": 236
+    },
+    "plugin_files_root_lines": {
+      "before": 1597,
+      "after": 620
+    },
+    "preferences_callbacks_retained": 23,
+    "existing_osd_tests_retained": 20,
+    "existing_plugin_file_tests_retained": 14,
+    "validation_branches_consolidated": 21,
+    "mechanical_comparisons": [
+      "Screenshot state",
+      "Preferences refresh",
+      "Live decoder helpers",
+      "Key binding actions",
+      "File text decoding",
+      "OSD observation rules"
+    ]
+  },
+  "findings": [
+    {
+      "area": "Music Mode preference commit",
+      "problem": "The settings callback changed three live Music Mode fields before saving but omitted them from its candidate and did not roll them back on failure. Session shutdown could later mask the missing immediate save.",
+      "resolution": "Persist the window choices and update live playback/window policy only after a successful write. Failed writes leave the current player policy intact and remain retryable.",
+      "tests": [
+        "music_mode_choices_are_saved_immediately_and_can_return_to_defaults",
+        "failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable"
+      ],
+      "before_fix": "Both new persistence tests failed against the extracted old save path."
+    },
+    {
+      "area": "Queued OSD suppression",
+      "problem": "Disabling speed or pause/resume feedback left already queued messages eligible for later display.",
+      "resolution": "Discard only the disabled category from the pending queue, retaining unrelated feedback.",
+      "tests": [
+        "disabling_speed_feedback_removes_only_queued_speed_messages",
+        "disabling_pause_feedback_removes_queued_pause_messages"
+      ]
+    },
+    {
+      "area": "Plugin private storage identity",
+      "problem": "Distinct accepted identifiers with the same first 128 characters shared private storage. Character replacement and filesystem case/filename aliases also collided.",
+      "resolution": "Keep ordinary lowercase portable names stable; hash the complete other identifiers with a reserved prefix. Do not migrate ambiguous legacy directories because ownership cannot be recovered.",
+      "tests": [
+        "accepted_long_plugin_identifiers_have_isolated_private_storage",
+        "storage_names_do_not_alias_case_replacements_or_special_path_components"
+      ],
+      "before_fix": "A standalone harness compiled from the exact old safe_identifier function fails the distinct-storage assertion."
+    }
+  ],
+  "verification": {
+    "environment": "Windows 11 x64; Rust 1.99.0; edition 2024; MSVC target",
+    "format": "passed",
+    "strict_workspace_all_target_clippy": "passed",
+    "locked_workspace_build": "passed",
+    "workspace": {
+      "passed": 700,
+      "default_ignored": 57,
+      "successful_child_helper_invocations_excluded": 4,
+      "new_regressions": 6,
+      "parallelism": "default"
+    },
+    "python_script_tests": {
+      "passed": 68
+    },
+    "parity": {
+      "requirements": 260,
+      "visual_identities": 69,
+      "evidence_links": 15,
+      "local_image_hashes": 68,
+      "visual_acceptance_inferred": false
+    },
+    "staged_assets": {
+      "records_verified": 74
+    },
+    "native_integration_suite": "Not rerun in this batch; native/core behavior is unchanged. The preceding player-controller batch records 54 explicit native tests.",
+    "desktop": {
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress",
+        "minimize_pauses_native_owner",
+        "restore_resumes_automatic_pause"
+      ],
+      "elapsed_ms": 8109,
+      "pid": 16088,
+      "normal_exit_confirmed": true,
+      "remaining_riina_processes": 0,
+      "physical_display_verified": false,
+      "audio_output": "null",
+      "isolated_profile_and_fixture": true,
+      "fixture": "tests/fixtures/moving-square.avi",
+      "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+      "executable_sha256": "1567c3e170db99e32114bd4546b1ece2423dd21fef39498ede9902160a2f7c56",
+      "development_mpv_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3"
+    },
+    "storage": {
+      "target_debug_gib": 42.3,
+      "c_free_gib_at_measurement": 104.49,
+      "cleanup_performed": false
+    },
+    "logs": {
+      "music-before.log": {
+        "path": "tools/preferences-review-2026-10-22/music-before.log",
+        "sha256": "db54d5532571e24fd7e1215e5c5c6927fda0526dd40b32ffaa4ff1bfc1f592ea"
+      },
+      "identifier-before.log": {
+        "path": "tools/preferences-review-2026-10-22/identifier-before.log",
+        "sha256": "e5df67d62a118f5b3d36450bc3ea8f3e3479c9c3db6fb70a04bca3d9b175e5eb"
+      },
+      "final-fmt.log": {
+        "path": "tools/preferences-review-2026-10-22/final-fmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-clippy.log": {
+        "path": "tools/preferences-review-2026-10-22/final-clippy.log",
+        "sha256": "8c2f030acfa91094c397f2741e36e56d3c102d23fdc3147804ecbeee78da447a"
+      },
+      "final-workspace-tests.log": {
+        "path": "tools/preferences-review-2026-10-22/final-workspace-tests.log",
+        "sha256": "3f2362cb62826b3f6a9574dd612b4c302e571b8ceb387a687e9bdda3a5fc9418"
+      },
+      "final-build.log": {
+        "path": "tools/preferences-review-2026-10-22/final-build.log",
+        "sha256": "460758bb44d0ec24236a780b7c9713a6d0d221ee97408d2ce4255694b29190e1"
+      },
+      "python-tests.log": {
+        "path": "tools/preferences-review-2026-10-22/python-tests.log",
+        "sha256": "18faa78240446980c4ac6cf7ebca9ccbc5026f4f37bdf1b1cba291c4094b0967"
+      },
+      "parity.log": {
+        "path": "tools/preferences-review-2026-10-22/parity.log",
+        "sha256": "dcc747bb83a6ceed813c5fdd9bf6000bd4d0517dc721d35a5575d0afd84ad3b6"
+      },
+      "assets-staged.log": {
+        "path": "tools/preferences-review-2026-10-22/assets-staged.log",
+        "sha256": "a80ec21125e92b4f6831fdba215233720599d3ecb39872490099767fc4537650"
+      },
+      "desktop-smoke.log": {
+        "path": "tools/preferences-review-2026-10-22/desktop-smoke.log",
+        "sha256": "e00bf792384b809d0e16e154acb94bebf4e1358ce4c0061e491c4abfbb0b4923"
+      },
+      "desktop-smoke.json": {
+        "path": "tools/preferences-review-2026-10-22/desktop-smoke.json",
+        "sha256": "060178006c68dfb28e95c8cde2bf98961ac1baf9f7eb3bc46e94f58e7890afb8"
+      }
+    }
+  },
+  "limits": [
+    "Desktop checks establish automated playback/window state and clean shutdown, not visible pixel, compositor or HDR acceptance; no desktop images were captured.",
+    "The Preferences editor and plugin-isolation regressions run headlessly; interactive pane/dialog acceptance remains open.",
+    "No macOS/Linux application or shared-GL desktop test was run in this batch.",
+    "No published updates, version changes, or upstream baseline changes."
+  ]
+}

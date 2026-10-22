@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-22. Published release: **4.2.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-23. Published release: **4.2.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -37,6 +37,14 @@ Implementation does not imply every state or platform is verified.
 Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
+
+- The preferences review separates the window's responsibilities from screenshot
+  settings and makes Music Mode choices commit before changing the live player.
+  Disabling speed/pause feedback clears queued messages of that category.
+  Plugin storage keeps distinct long, uppercase and nonportable identifiers
+  separate; file capabilities, player snapshots and text decoding have their own
+  modules. See [the preferences review](verification.md#preferences-and-feedback-review-2026-10-22)
+  for verification and scope.
 
 - The player review separates input, lifecycle, feedback, LiveText, discovery and
   rendering, and unifies session construction. It corrects automatic resume and
