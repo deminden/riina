@@ -4,6 +4,30 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## Local review 2026-10-22
+
+The [review record](../tests/visual/windows-code-review-2026-10-22.json) identifies
+the local source changes based on `0de1be3`, executable and pinned development DLL.
+The review fixes premature public shutdown, lost Auto seek decisions, disabled
+plugin-menu descendants and stale non-finite clock observations. It separates
+core contracts, native property decoding and plugin menus into focused modules;
+all 20 exported core types and the 70 extracted tests are retained.
+
+Locked build, formatting and strict all-target Clippy passed. The workspace run
+passed 665 tests with 57 ignored entries; 52 native integration and two native
+library tests also passed explicitly with null audio. The remaining default
+ignores are two clipboard checks and a child-process helper whose parent runs it
+four times. All 68 Python tooling tests, 260 requirement records, 69 visual
+identities, 16 fixture hashes and 74 asset provenance records passed their checks.
+
+A byte-identical copy of the rebuilt executable, paired with the pinned development
+DLL in a fresh test folder, passed the desktop playback/settings/fullscreen/shutdown
+smoke in 5896 ms. Full-desktop before/fullscreen/after captures were inspected at
+3840 × 2160 with valid non-black probes. Video and the revealed controller were
+visible together; normal exit left no Riina window or process. Raw desktop images
+remain local. This is development verification, not release-package, physical
+audio/HDR, live plugin-menu GUI, matched IINA pixel or macOS/Linux acceptance.
+
 ## Latest evidence
 
 | Check | Revision | Result and limits |

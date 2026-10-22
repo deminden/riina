@@ -1,4 +1,5 @@
-use super::{Command, CommandSender, Message, WakeupContext};
+use super::{Command, CommandSender, Message, Owner, WakeupContext};
+use std::rc::Rc;
 use std::sync::{atomic::Ordering, mpsc};
 
 #[derive(Debug, PartialEq)]
@@ -93,6 +94,7 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                     {
                         Message::Intent(command) => Expected::Intent(command),
                         Message::Wake => Expected::Wake,
+                        Message::Shutdown => panic!("Command senders cannot shut down the owner"),
                     };
                     assert_eq!(
                         actual, expected,
@@ -146,6 +148,7 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
         {
             Message::Intent(actual) => assert_eq!(actual, expected),
             Message::Wake => panic!("Unexpected wake in intent queue"),
+            Message::Shutdown => panic!("Command senders cannot shut down the owner"),
         }
     }
     assert!(receiver.try_recv().is_err());
@@ -189,4 +192,45 @@ fn full_intent_queue_does_not_leave_wakeup_permanently_armed() {
 
     wakeup.signal();
     assert!(matches!(receiver.recv(), Ok(Message::Wake)));
+}
+
+#[test]
+fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let commands = CommandSender(sender);
+    assert!(
+        commands
+            .send(Command::Shutdown)
+            .unwrap_err()
+            .contains("final owner")
+    );
+    commands.send(Command::Stop).unwrap();
+    assert!(matches!(
+        receiver.try_recv(),
+        Ok(Message::Intent(Command::Stop))
+    ));
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(mpsc::TryRecvError::Empty)
+    ));
+}
+
+#[test]
+fn only_the_final_owner_delivers_shutdown_even_when_command_senders_survive() {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let commands = CommandSender(sender.clone());
+    let owner = Rc::new(Owner {
+        sender,
+        thread: None,
+    });
+    let renderer_owner = owner.clone();
+    drop(owner);
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(mpsc::TryRecvError::Empty)
+    ));
+    drop(renderer_owner);
+    assert!(matches!(receiver.try_recv(), Ok(Message::Shutdown)));
+    drop(receiver);
+    assert!(commands.send(Command::Stop).is_err());
 }

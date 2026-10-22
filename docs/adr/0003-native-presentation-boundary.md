@@ -19,6 +19,12 @@ before releasing the retained window. Both ordinary field destruction and the
 explicit native close path must preserve that ordering. New backends must retain
 their actual native surface until their decoder/presentation worker has stopped.
 
+The final player owner sends a private shutdown message. Public command senders
+reject `Command::Shutdown`, including through `Player::send`, so a UI or plugin
+callback cannot bypass retained renderer ownership. Shared OpenGL render contexts
+must be freed before that final owner can terminate the native core, as required
+by the pinned `render.h` lifetime contract.
+
 Native diagnostics use the application-data directory. They must not require the
 build machine's source checkout to remain present. Library discovery stays behind
 the platform module; native redistribution and packaging are separate open gates.

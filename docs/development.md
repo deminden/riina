@@ -48,6 +48,15 @@ For macOS/Linux setup, see [port development](port-development.md).
 | `reference/` | Pinned source locks and ignored local reference material |
 | `tools/`, `target/` | Local dependencies and generated build output |
 
+The core crate keeps its public types re-exported from `lib.rs`. Their implementations
+live in `command/` (intent, argument validation and plans), `playback.rs`,
+`media_catalog.rs`, `captured_frame.rs`, `loop_mode.rs` and `preferences.rs`.
+Cross-feature regressions are grouped under `tests/` by commands, playback and
+preferences. Native property decoding and per-file Auto seek timing belong to
+`crates/mpv/src/properties.rs` and `auto_seek.rs`; player ownership stays in `lib.rs`.
+Plugin menu models and JavaScript menu dispatch have their own modules under
+`player_ui/` and `plugin_runtime/` respectively.
+
 ## Checks
 
 [Verification](verification.md#running-checks) contains the commands, native

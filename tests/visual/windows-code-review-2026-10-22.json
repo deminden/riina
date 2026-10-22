@@ -1,0 +1,217 @@
+{
+  "date": "2026-10-22",
+  "state": "Local review after 4.2.0; no published assets or version changed",
+  "source_base_revision": "0de1be3ef7cb17d9daed5dd8df68f9389c81eb52",
+  "source_hash_encoding": "UTF-8 with LF newlines (Git canonical text)",
+  "source_files_sha256": {
+    "crates/app/src/player_ui.rs": "bbd82bc0692f8eaeefc3326a48aabe1b1ddbcc41ca37a02b7d0d3412661f9ce1",
+    "crates/app/src/player_ui/plugin_menus.rs": "d3238052d9d2dcb3321ce0bfe2649bb57f5982f0ee3390b560bedd370ebf2628",
+    "crates/app/src/plugin_runtime.rs": "3e5f4be118907c02e3c108ff2c64fcb754b0e901433f61d171df7bc0e3834f55",
+    "crates/app/src/plugin_runtime/menu.rs": "a20e8e0cc6a49198354e2409bd0e6ce8c1f5c7e8bd36fd735d146f023cea5ff9",
+    "crates/core/src/captured_frame.rs": "c86fac72d20a776ad09698b50d9d674de129a10e62f12445c567e99d21e3a02c",
+    "crates/core/src/command/arguments.rs": "6595afe472bdb73b16ce73fa688643ed867053dc1165ab32584eace7938c1b91",
+    "crates/core/src/command/mod.rs": "7a7f7b02cad0a32d8c07d21c719b93db72cf8408183544e5ee0cfa81f29b386c",
+    "crates/core/src/command/plan.rs": "1882f49c34ec3e60a1072009748ca4fcc92efa2015ddde25d41e681b0590c9c8",
+    "crates/core/src/lib.rs": "ef5e26a51bbcd6b1a629753acae41d44de7e32056dd7b08f9096944addd51cb8",
+    "crates/core/src/loop_mode.rs": "10ee5a2163eadfd3c196569fe718e09d38a501c9e04d0bf1c5fa69ae412ad5fb",
+    "crates/core/src/media_catalog.rs": "f7b8908dd8ec9495f693db8ef6a93791002c4385e8a88e855fa88178f5373862",
+    "crates/core/src/playback.rs": "6f7ac9f74b9c4b7c3e82bf4966e3835543cbbb17cd53389c3bb57f4f3bfca84a",
+    "crates/core/src/preferences.rs": "7511bee92302ae2964aba9366d6121f18d48e62a8f0d9948939bc28efb666825",
+    "crates/core/src/tests.rs": "ad1b256cbb91828766d0a9c2c3d223b016d0196b2f4cedfa7f00e676a9e04b94",
+    "crates/core/src/tests/commands.rs": "f4e10e2eb2c6fcdc3137d8f33585286f6cdd130da2c0e2a0a33298379d73d1ae",
+    "crates/core/src/tests/playback.rs": "c3fe3fb8e6d77ae2784a7214cbdd61ad4529ca78c7a0ad54a93bb511e4756389",
+    "crates/core/src/tests/preferences.rs": "6751e1dc278d518b6bd71d56fbc6cc60b9f4bc2bbd407b6e812b01d7829343b9",
+    "crates/mpv/src/auto_seek.rs": "fd5531326d924d4ae1c02daeae880210624ccdc3f2cd70693ae87fe86780e25a",
+    "crates/mpv/src/command_sender_tests.rs": "e370037fdb9bf8751d285757f53d41a12a2a8f2c0e4c68a054088afa953effd1",
+    "crates/mpv/src/lib.rs": "b916b4357df194a33413888b278a229c600ac7520bfc288d5248772578d6855e",
+    "crates/mpv/src/properties.rs": "6c18d639014d880ed3f1c6535183813501b6491eab41a9d08984e8c3f5a6c5c5",
+    "crates/mpv/tests/native.rs": "696141ffeb2e4e66dcbde30141c808fc29fa86c8b08867cb7669f27bdce4d719"
+  },
+  "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "inspected_contracts": [
+      "PlayerCore.seek(relativeSecond:option:)",
+      "deps/include/mpv/render.h render-context lifetime"
+    ]
+  },
+  "environment": {
+    "platform": "Windows 11 x64, build 26300",
+    "rust": "1.99.0",
+    "audio_output": "null",
+    "profile": "isolated disposable smoke profile"
+  },
+  "review_findings": [
+    {
+      "severity": "high",
+      "area": "native lifecycle",
+      "problem": "Public Command::Shutdown bypassed retained player/render ownership and could destroy a core before its render context.",
+      "resolution": "Only the final Owner sends the private shutdown message; both public send routes reject the reserved intent.",
+      "regressions": [
+        "public_shutdown_is_rejected_without_consuming_a_command_slot",
+        "only_the_final_owner_delivers_shutdown_even_when_command_senders_survive",
+        "public_shutdown_cannot_invalidate_a_retained_player"
+      ]
+    },
+    {
+      "severity": "medium",
+      "area": "Auto seek",
+      "problem": "The worker applied its measured mode only before a decision, forcing every later Auto seek back to the command plan keyframe default. Failed/interrupted measurements could also consume unrelated native seeks.",
+      "resolution": "A per-file typed state machine retains the decision and correlates failures; explicit navigation and the existing decoder-reset paths cancel only unfinished measurements.",
+      "regressions": [
+        "fast_seek_keeps_exact_mode_for_all_later_auto_seeks",
+        "threshold_and_slower_seeks_keep_keyframes_until_the_next_file",
+        "failed_and_superseded_requests_do_not_measure_unrelated_native_seeks",
+        "initial_load_restart_does_not_decide_the_seek_mode"
+      ]
+    },
+    {
+      "severity": "medium",
+      "area": "plugin menus",
+      "problem": "Disabled parent menus left flattened child actions enabled, and runtime dispatch checked only the leaf. Submenu containers could also be invoked through queued runtime actions.",
+      "resolution": "Propagate enabled state through menu ancestry; recheck live ancestry and leaf status before dispatch.",
+      "regressions": [
+        "disabled_plugin_menu_ancestors_disable_descendants_without_disabling_siblings",
+        "plugin_menu_actions_respect_live_ancestors_and_submenu_containers"
+      ]
+    },
+    {
+      "severity": "medium",
+      "area": "playback observations",
+      "problem": "Non-finite time-pos/duration observations preserved stale timestamps.",
+      "resolution": "Represent invalid clocks as unknown while allowing later valid observations to recover.",
+      "regressions": [
+        "invalid_clock_observations_clear_previous_values_and_valid_values_recover"
+      ]
+    }
+  ],
+  "refactoring": {
+    "core_root_lines_before": 4505,
+    "core_root_lines_after": 81,
+    "preserved_public_core_types": 20,
+    "preserved_core_tests_in_extracted_files": 70,
+    "modules": [
+      "core command intent/arguments/plans",
+      "core playback, preferences, catalog, frame and loop contracts",
+      "mpv property decoding and Auto seek timing",
+      "plugin menu UI models and runtime dispatch"
+    ]
+  },
+  "checks": {
+    "native_integration": {
+      "passed": 52,
+      "failed": 0
+    },
+    "native_library": {
+      "passed": 2,
+      "failed": 0
+    },
+    "python_tooling": {
+      "passed": 68,
+      "failed": 0
+    },
+    "traceability": "260 requirements and 69 visual identities checked; inventory incomplete",
+    "fixtures": "16 original fixture hashes checked",
+    "assets": "74 provenance records checked",
+    "locked_build": "passed",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "workspace_tests": {
+      "passed": 665,
+      "failed": 0,
+      "ignored": 57
+    },
+    "workspace_test_notes": "Counts exclude four successful isolated child-process helper invocations; ignored entries include 54 native checks run explicitly, two clipboard checks and the child helper.",
+    "local_logs": {
+      "final-build.log": {
+        "path": "tools/code-review-2026-10-22/final-build.log",
+        "sha256": "8ac09a0184c54318c7a633051c724123f95c465f783eac85e41ea074cad45176"
+      },
+      "final-fmt.log": {
+        "path": "tools/code-review-2026-10-22/final-fmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-clippy.log": {
+        "path": "tools/code-review-2026-10-22/final-clippy.log",
+        "sha256": "cccdf3b07a04d56f615deea293dcec368c23ff793f1dbfb2155ee3170dee4264"
+      },
+      "final-workspace-tests.log": {
+        "path": "tools/code-review-2026-10-22/final-workspace-tests.log",
+        "sha256": "c2dd2d2157538072754e4ad010dbc371e9895ce0f94debdc840ed31689742da1"
+      },
+      "native-tests.log": {
+        "path": "tools/code-review-2026-10-22/native-tests.log",
+        "sha256": "0de0a7ff761f7937914ffc82d28f5f9bcd1d8803f352bf1d12161a52bf0ac32c"
+      },
+      "native-library-tests.log": {
+        "path": "tools/code-review-2026-10-22/native-library-tests.log",
+        "sha256": "95c828632c1771398e7351d2ffdf6894f4834c7ef73194a77ed4895755266e61"
+      },
+      "python-tests.log": {
+        "path": "tools/code-review-2026-10-22/python-tests.log",
+        "sha256": "d82704a8eb0fe642faffb0b6482a4d5fccf196bb89b20cecbd261317d7d0ae37"
+      }
+    }
+  },
+  "limits": [
+    "This is a focused review of high-risk boundaries, not an exhaustive audit of every application subsystem.",
+    "No macOS/Linux application or physical audible-output/HDR acceptance was run.",
+    "No release package was created or published.",
+    "Live plugin GUI interaction and matched IINA pixels remain separate acceptance work."
+  ],
+  "executable": {
+    "path": "target/debug/riina.exe",
+    "sha256": "dc07fcdc5922f20820e0a49105f6a04e569a96367da43edf31f8463791fb3bb7",
+    "smoke_copy": "tools/code-review-2026-10-22/smoke-app/riina.exe"
+  },
+  "desktop_smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5896,
+    "error": null,
+    "physical_display_verified": false,
+    "pid": 2564,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina",
+    "normal_exit": true,
+    "riina_processes_after_exit": 0,
+    "capture_review": "Before, fullscreen and after images inspected in full. Fixture video and revealed controls visible together; no Riina window or persistent Riina surface after exit.",
+    "profile_settings_preserved": true
+  },
+  "desktop_captures": [
+    {
+      "stage": "before",
+      "path": "tools/code-review-2026-10-22/desktop-smoke.json.before.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "56ae06b252606930fe0f6f17f1bb1118a0023b3df2fc2498c5c2370c0b61f877",
+      "published": false
+    },
+    {
+      "stage": "fullscreen",
+      "path": "tools/code-review-2026-10-22/desktop-smoke.json.fullscreen.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "53bc6390d769c97f8fdaceb4db7fad9970785fb007a8fc57b26b3b8c939ef4e5",
+      "published": false
+    },
+    {
+      "stage": "after",
+      "path": "tools/code-review-2026-10-22/desktop-smoke.json.after.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "6c475dab87e9df6168864355ba305fa57a677fa8ba31311db0319c230a04caa2",
+      "published": false
+    }
+  ]
+}

@@ -104,6 +104,38 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies shutdown is exclusive to the final owner"]
+fn public_shutdown_cannot_invalidate_a_retained_player() {
+    let root = fixture_root();
+    let (sender, receiver) = mpsc::channel();
+    let player = start_test_player(&test_library(&root), true, move |state| {
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    let retained = player.clone();
+    let commands = player.command_sender();
+    assert!(player.send(Command::Shutdown).is_err());
+    assert!(commands.send(Command::Shutdown).is_err());
+    drop(player);
+
+    commands.send(Command::SetPauseWhenOpen(true)).unwrap();
+    commands
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_str()
+                .unwrap()
+                .into(),
+        ))
+        .unwrap();
+    let loaded = wait_for(&receiver, |state| {
+        state.error.is_some() || (state.phase == Phase::Paused && state.position.is_some())
+    });
+    assert_eq!(loaded.error, None);
+    drop(retained);
+    assert!(commands.send(Command::SetPaused(false)).is_err());
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies HTTP media playback from a local server"]
 fn http_url_opens_and_plays_a_local_media_fixture() {
     let root = fixture_root();

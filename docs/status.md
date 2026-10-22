@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-20. Published release: **4.2.0**. Reference: **IINA v1.5.0**
+Updated 2026-10-22. Published release: **4.2.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -38,6 +38,13 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- Local review separates core command planning, playback observations, preferences
+  and plugin menu responsibilities into focused modules while preserving the core
+  public API. Auto seeks retain their per-file timing decision, disabled plugin
+  menu ancestors suppress child actions, and invalid native clock values clear
+  stale timestamps. Native shutdown is reserved for the final player owner.
+  These changes are local; the published release remains 4.2.0. See
+  [verification](verification.md#local-review-2026-10-22) for checked scope.
 - Refreshed 4.2.0 provides a current-user Windows installer and a portable ZIP,
   with the same application and playback engine. Install/reinstall, shortcuts,
   installed playback and uninstall passed. A local upgrade from the earlier
