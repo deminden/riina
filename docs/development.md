@@ -68,6 +68,15 @@ cannot replace a newer scan's completion state.
 Native frame capture acknowledges rejected and failed requests separately from
 successful pixels, allowing the serialized LiveText capture flow to retry.
 
+`key_binding_preferences.rs` exposes the shared profile interface. Its modules own
+captured defaults/loading, key identity conversion, the compiled effective index,
+action dispatch, menu accelerators and editor operations. Native Slint key scalars
+are converted at the event boundary. Duplicate keys retain their first menu order
+and last action; malformed modifiers do not become bare-key overrides.
+`plugin_preferences.rs` owns the window coordinator; inventory, update/recovery
+and permission persistence are separate. All grant mutations use the same stable
+sidecar file lock before reading and merging the latest JSON, including rollback.
+
 `preferences_window.rs` owns the auxiliary window and its platform dialogs/timers.
 Its private modules handle edit validation/commit, key binding actions, live decoder
 updates and refresh. `screenshot_preferences.rs` holds screenshot intent only.

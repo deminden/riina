@@ -4,6 +4,47 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## Input and plugin preferences review 2026-10-23
+
+The [input review record](../tests/visual/windows-input-review-2026-10-23.json)
+identifies this local batch based on `fc17fed`. The 1616-line key binding module
+now separates profile data/loading, event conversion, compiled bindings, typed
+dispatch, menus and editing. Each editor operation reads a profile once. The
+plugin preferences coordinator separates inventory, update/recovery and permission
+review/storage. Existing callbacks and all 18 tests across both modules remain.
+
+Slint sends encoded special-key scalars, while the dispatcher/recorder expected
+printable names. The event boundary now maps arrows, navigation, function and
+editing keys to portable mpv names and ignores modifier-only events. Keyboard
+lookup reuses a compiled normalized index. Menu accelerators use the last mapping
+for each key, retaining the first key's menu order as required by IINA v1.5.0;
+shadowed entries cannot override a profile through the native menu. Malformed
+modifier sequences no longer silently override unmodified keys.
+
+Plugin grant saves now share one read/modify/write path under a stable file lock.
+The lock coordinates independent player processes; installation, updates and
+rollback preserve other plugins' entries. The old code's concurrent regression
+retained only 12 of 72 updates. Existing permission denials remain denied on update,
+and malformed persisted state is rejected without being overwritten.
+
+Formatting, strict all-target Clippy and the locked workspace build passed.
+The normal parallel workspace suite passed 709 tests with 57 default ignores;
+four successful child-helper invocations are excluded. All nine new regressions
+passed. All 52 native integration and two native library tests passed explicitly
+with the pinned development DLL and null audio. Script tests passed 68 checks.
+Traceability passed for 260 requirements, 69 visual identities, 15 evidence links
+and 68 local image hashes. Staged asset provenance passed for 74 records.
+
+All ten automated Windows state checks passed in 9432 ms, including encoded Enter
+and Escape dispatch through the active profile into native fullscreen and back.
+The run used the pinned development DLL, null audio and an isolated profile/fixture;
+normal shutdown left no Riina process. No desktop images were captured. These are
+callback/state checks: physical keyboard layouts/delivery, interactive profile/plugin
+dialogs, visible pixel/HDR parity, shared-GL and macOS/Linux application acceptance
+remain separate work. Grant
+concurrency is stressed with six independent file handles in threads; the new grant
+path was not separately exercised across processes.
+
 ## Preferences and feedback review 2026-10-22
 
 The [preferences review record](../tests/visual/windows-preferences-review-2026-10-22.json)

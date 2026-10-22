@@ -141,11 +141,46 @@ impl Runner {
                 self.checks.push("fullscreen_exit_and_playback_progress");
             }
             7 => {
+                if !app.invoke_dispatch_key_binding(
+                    slint::platform::Key::Return.into(),
+                    false,
+                    false,
+                    false,
+                    false,
+                ) {
+                    return Err("Encoded Return did not dispatch the active profile".into());
+                }
+            }
+            8 => {
+                if !app.get_fullscreen() {
+                    return Ok(false);
+                }
+                self.checks
+                    .push("encoded_return_dispatches_profile_fullscreen");
+                if !app.invoke_dispatch_key_binding(
+                    slint::platform::Key::Escape.into(),
+                    false,
+                    false,
+                    false,
+                    false,
+                ) {
+                    return Err("Encoded Escape did not dispatch the active profile".into());
+                }
+            }
+            9 => {
+                if app.get_fullscreen() {
+                    return Ok(false);
+                }
+                if self.initial.as_ref() != Some(&surfaces(app, host)?) {
+                    return Err("Profile fullscreen exit did not restore surfaces".into());
+                }
+                self.checks
+                    .push("encoded_escape_dispatches_profile_fullscreen_exit");
                 app.set_pause_when_minimized(true);
                 host.window()
                     .with_winit_window(|window| window.set_minimized(true));
             }
-            8 => {
+            10 => {
                 if !host.window().is_minimized() || !app.get_paused() {
                     return Ok(false);
                 }
@@ -153,7 +188,7 @@ impl Runner {
                 host.window()
                     .with_winit_window(|window| window.set_minimized(false));
             }
-            9 => {
+            11 => {
                 if host.window().is_minimized() || app.get_paused() {
                     return Ok(false);
                 }

@@ -38,6 +38,13 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The input review separates key conversion, compiled dispatch, menu accelerators
+  and profile edits. Encoded special keys now reach profile actions, duplicate-key
+  menu hints follow effective bindings, and malformed modifiers cannot shadow bare
+  keys. Plugin grant writes serialize across players and preserve concurrent
+  changes. See [the input review](verification.md#input-and-plugin-preferences-review-2026-10-23)
+  for verification and remaining interactive/platform acceptance.
+
 - The preferences review separates the window's responsibilities from screenshot
   settings and makes Music Mode choices commit before changing the live player.
   Disabling speed/pause feedback clears queued messages of that category.

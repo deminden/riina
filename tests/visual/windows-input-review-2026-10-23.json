@@ -1,0 +1,217 @@
+{
+  "date": "2026-10-23",
+  "state": "Local input and plugin preferences review; published version remains 4.2.0",
+  "source_base_revision": "fc17fed6fdf0690d52385144bf12f6bc54600879",
+  "source_hash_encoding": "UTF-8 with LF newlines (Git canonical text)",
+  "source_files_sha256": {
+    "crates/app/src/key_binding_preferences.rs": "64b6f0ca21239c5902e18afa4b982ea6e0a3a3e6dc372dcd60172f7480989f5a",
+    "crates/app/src/key_binding_preferences/bindings.rs": "c6092b6d527dc2da0f3ccf200742876a7e07f5a30658b35a6b712ec561385369",
+    "crates/app/src/key_binding_preferences/builtins.rs": "73faef0dd2c60c6846b7a9723bcf4a5de4ff1ce7892898cbdef45ebc1bccdbb3",
+    "crates/app/src/key_binding_preferences/dispatch.rs": "e03c00d9c231979cf28ca808cc7a2371d99eee59b66925eeeeea9898b8a8268a",
+    "crates/app/src/key_binding_preferences/editor.rs": "3e743726a0907aebdfe1507fad2dec1566ff2f12e87a4f289e6b5544b4fc9317",
+    "crates/app/src/key_binding_preferences/keys.rs": "0feff9be230f1c04e02dd6afc2b9a5d4f86e5ef70a6a31c3b2210f09b2665a89",
+    "crates/app/src/key_binding_preferences/menus.rs": "4edc807200ccab302ddbc7bdcc2d2f813083238ad5ff35685713e663750cd69f",
+    "crates/app/src/key_binding_preferences/tests.rs": "0170b9ca6dfde97a824f55a4eb151188787cc6a019fdae3a29734811033c6d35",
+    "crates/app/src/platform/windows/package_smoke.rs": "6e8d73eaf7630693fa03461e24178f38f51a87181ce391ff278c51465253e48a",
+    "crates/app/src/plugin_preferences.rs": "41dfbd6101ecac38553a3cf1572017405af939a10144df3e0724db0aa9517cf0",
+    "crates/app/src/plugin_preferences/inventory.rs": "7134651d0ce6e13d6869643f49d8b3eb650ef3c867a93ab8833c408987e467d5",
+    "crates/app/src/plugin_preferences/permissions.rs": "28814e547cd6af65a6c1e9c236def28f09c19d930a3d2d6552b88d2b18354911",
+    "crates/app/src/plugin_preferences/permissions/tests.rs": "e96e4141f4db42f044bfe27b640fe866b83162e38220d5cd75a1181617c3e11c",
+    "crates/app/src/plugin_preferences/updates.rs": "95bc74b7b52ca0066d906170217e6bfb961b0ac458617a78f093818bfb6fc893",
+    "scripts/check-gui-smoke.py": "21a899e0d60ee3ff259de1af0b6b1b69afac126941ac011f3e47aae35ef1d5f2"
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "inspected_contracts": [
+      "Key event conversion is separate from profile storage and editor ownership",
+      "Duplicate normalized keys use the last action while retaining the first key position for ordered menu hints"
+    ],
+    "inspection": "Contract and ownership facts only; independent Rust implementation"
+  },
+  "refactor": {
+    "key_binding_root_lines": {
+      "before": 1616,
+      "after": 22
+    },
+    "plugin_preferences_root_lines": {
+      "before": 1130,
+      "after": 677
+    },
+    "existing_tests_retained": 18,
+    "production_callbacks_retained": 14,
+    "mechanical_comparisons": [
+      "Captured defaults",
+      "Typed action parsing",
+      "Action execution and media location",
+      "Plugin window callbacks",
+      "Plugin update and recovery"
+    ],
+    "editor_profile_loading": "Each mapping operation loads its profile once; filtered row lookup uses that same snapshot."
+  },
+  "findings": [
+    {
+      "area": "Encoded key events",
+      "problem": "Profile recording and dispatch matched printable key names, but Slint sends encoded key scalars. Navigation, editing and function keys failed to reach their profile mappings, and standalone modifiers could be recorded.",
+      "resolution": "Convert encoded keys to mpv names at the event boundary, ignore modifier-only events and compile normalized profile keys once per keyboard dispatcher installation.",
+      "before_fix": "Both encoded-key regressions failed before conversion was added.",
+      "tests": [
+        "encoded_slint_keys_record_portable_profile_names",
+        "encoded_modifier_keys_are_not_recorded_as_shortcuts",
+        "installed_profiles_dispatch_encoded_events_without_ui_fallbacks"
+      ]
+    },
+    {
+      "area": "Effective menu shortcuts",
+      "problem": "Menu accelerators could retain a shadowed profile entry and invoke an action different from the last mapping of the same key.",
+      "resolution": "One compiled index supplies dispatch and menu hints. Duplicate keys use the last action and retain their first ordered menu position.",
+      "before_fix": "The shadowed-menu regression failed before effective-key filtering.",
+      "tests": [
+        "menus_do_not_install_accelerators_for_shadowed_profile_keys",
+        "duplicate_keys_keep_their_first_menu_position_and_last_action"
+      ]
+    },
+    {
+      "area": "Malformed shortcut modifiers",
+      "problem": "Unknown modifier segments were silently discarded and could shadow bare-letter mappings. Empty normalized keys also needed explicit rejection in menu conversion.",
+      "resolution": "Parse a base key with recognized modifier prefixes; reject invalid or empty identities while preserving literal plus and shifted punctuation.",
+      "tests": [
+        "malformed_modifier_sequences_do_not_override_unmodified_keys",
+        "shifted_punctuation_and_literal_plus_survive_profile_and_menu_conversion"
+      ]
+    },
+    {
+      "area": "Plugin grant persistence",
+      "problem": "Independent read/modify/write operations lost grants under concurrent writers. The regression kept 12 of 72 updates.",
+      "resolution": "Installation, updates and rollback use one mutation helper with a stable native file lock. Read the latest file under the lock, merge only the target plugin, reject malformed JSON and atomically save. Existing permission denials remain denied on update.",
+      "before_fix": "The concurrent permission regression failed with 12 entries instead of 72.",
+      "tests": [
+        "concurrent_plugin_permission_updates_preserve_other_plugins",
+        "permission_updates_preserve_denials_and_rollback_only_the_target_plugin",
+        "malformed_permission_state_is_not_overwritten"
+      ]
+    }
+  ],
+  "verification": {
+    "environment": "Windows 11 x64; Rust 1.99.0; edition 2024; MSVC target",
+    "format": "passed",
+    "strict_workspace_all_target_clippy": "passed",
+    "locked_workspace_build": "passed",
+    "workspace": {
+      "passed": 709,
+      "default_ignored": 57,
+      "successful_child_helper_invocations_excluded": 4,
+      "new_regressions": 9,
+      "parallelism": "default"
+    },
+    "native": {
+      "integration_passed": 52,
+      "library_passed": 2,
+      "audio_output": "null",
+      "library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3"
+    },
+    "python_script_tests": {
+      "passed": 68
+    },
+    "parity": {
+      "requirements": 260,
+      "visual_identities": 69,
+      "evidence_links": 15,
+      "local_image_hashes": 68,
+      "visual_acceptance_inferred": false
+    },
+    "staged_assets": {
+      "records_verified": 74
+    },
+    "desktop": {
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress",
+        "encoded_return_dispatches_profile_fullscreen",
+        "encoded_escape_dispatches_profile_fullscreen_exit",
+        "minimize_pauses_native_owner",
+        "restore_resumes_automatic_pause"
+      ],
+      "elapsed_ms": 9432,
+      "pid": 18096,
+      "normal_exit_confirmed": true,
+      "remaining_riina_processes": 0,
+      "physical_display_verified": false,
+      "audio_output": "null",
+      "fixture": "tests/fixtures/moving-square.avi",
+      "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+      "executable_sha256": "b7cdab982bc92574f0b888dd97ec1b75e3630d52df5e066b3efabe9f4f7c1c0d",
+      "development_mpv_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+      "isolated_profile_and_fixture": true
+    },
+    "storage": {
+      "target_debug_gib": 41.82,
+      "c_free_gib": 103.04,
+      "cleanup_performed": false
+    },
+    "logs": {
+      "input-before.log": {
+        "path": "tools/input-review-2026-10-23/input-before.log",
+        "sha256": "e9bdea89bc5f50adeb8e0ad1bcd3e104b350b3ff38792d0124b254c22a1e4384"
+      },
+      "grants-before.log": {
+        "path": "tools/input-review-2026-10-23/grants-before.log",
+        "sha256": "a0974ae8239de812418d93e5a6ae338b865cf4612f35e9c4ce0eb2c1ca096b0c"
+      },
+      "final-fmt.log": {
+        "path": "tools/input-review-2026-10-23/final-fmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-clippy.log": {
+        "path": "tools/input-review-2026-10-23/final-clippy.log",
+        "sha256": "d2ba210c98c11b1d898622609913f96fb9eb43490110dd24889d000de8a1df33"
+      },
+      "workspace-tests.log": {
+        "path": "tools/input-review-2026-10-23/workspace-tests.log",
+        "sha256": "98ece14657fe26d8fc13667c452069b95072e07b3a7d0a38436b1256cafbda1a"
+      },
+      "build.log": {
+        "path": "tools/input-review-2026-10-23/build.log",
+        "sha256": "e5efe19cb285cfa80045b9d8385c66424271531b07c3f4d5aa859d01dfd6cbe1"
+      },
+      "native-tests.log": {
+        "path": "tools/input-review-2026-10-23/native-tests.log",
+        "sha256": "2ad143deda815bac4d811c22a3ec4ebe0a35df83ff6cc0ea53eba8b670fb1c95"
+      },
+      "native-library-tests.log": {
+        "path": "tools/input-review-2026-10-23/native-library-tests.log",
+        "sha256": "48aed36f00eb4458c424cded82b1ab35da70595b255b95837ba95d5bd0b73187"
+      },
+      "python-tests.log": {
+        "path": "tools/input-review-2026-10-23/python-tests.log",
+        "sha256": "0dfba5ffe8fd2a77f1962a0a90e236d00fe1735d23bb16c5453b4e691033fde5"
+      },
+      "parity.log": {
+        "path": "tools/input-review-2026-10-23/parity.log",
+        "sha256": "dcc747bb83a6ceed813c5fdd9bf6000bd4d0517dc721d35a5575d0afd84ad3b6"
+      },
+      "assets-staged.log": {
+        "path": "tools/input-review-2026-10-23/assets-staged.log",
+        "sha256": "a80ec21125e92b4f6831fdba215233720599d3ecb39872490099767fc4537650"
+      },
+      "desktop-smoke.log": {
+        "path": "tools/input-review-2026-10-23/desktop-smoke.log",
+        "sha256": "1ce3fe09f1aee34887d659905feb98ff7b7d212c0b047e715121f4a4794a9ccb"
+      },
+      "desktop-smoke.json": {
+        "path": "tools/input-review-2026-10-23/desktop-smoke.json",
+        "sha256": "6f1079f9972089d78feb607834d1501dfd16e0044bc35f3a4ea676d9a8a9ca3d"
+      }
+    }
+  },
+  "limits": [
+    "Encoded Enter/Escape desktop checks invoke the actual profile callback and verify native fullscreen state; physical keyboard delivery/layout acceptance is not established.",
+    "The new grant concurrency regression stresses six independent file handles in threads; the new grant path was not separately exercised across processes.",
+    "No manual profile/plugin-dialog, physical pixel/compositor/HDR, shared-GL or macOS/Linux application test was run in this batch.",
+    "No published updates, version changes or upstream baseline changes."
+  ]
+}
