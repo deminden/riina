@@ -4,6 +4,38 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## Runtime and player review 2026-10-22
+
+The [continuation record](../tests/visual/windows-runtime-review-2026-10-22.json)
+identifies the exact source and executable based on local commit `41dda63`.
+This batch fixes stalled Promise continuations, the deleted package `require()`
+bridge, shutdown waiting behind plugin callbacks, and network workers releasing
+their concurrency slots before result delivery. Nine regressions cover these
+boundaries; the first five failed against the preceding implementation.
+
+Player observations, media catalogs, materials, plugin integration and
+audio/video/subtitle callbacks now have separate modules. The player root falls
+from 7416 to 4840 lines, preserving all 130 callback registrations, 13 existing
+tests and the exact session resource layout. The plugin-runtime root falls from
+4016 to 448 lines, with 24 existing runtime tests retained beside the extracted
+APIs and worker. The remaining player setup is still a candidate for further
+subsystem extraction; this is not an exhaustive repository audit.
+
+Formatting, strict all-target Clippy, the locked workspace build and 674 workspace
+tests passed (57 default ignores; four successful child-helper runs excluded).
+The 18 previously verified core/native files are unchanged; the 54 native tests
+were not repeated in this continuation. Traceability checks passed for all 260
+requirement records and 69 visual identities; inventory completeness is unchanged.
+
+A byte-identical copy of the rebuilt executable with the pinned development DLL
+passed all six automated playback/settings/fullscreen/shutdown checks in 5956 ms
+using an isolated profile and null audio. Normal shutdown left no Riina process.
+The three 3840 × 2160 desktop captures passed non-black probes but showed unrelated
+fullscreen content before, during and after the test. They were inspected and
+rejected as Riina visual evidence; no visible-playback or compositor acceptance is
+claimed. Raw captures stay local. Physical audio/HDR, third-party plugin GUI,
+matched IINA pixels and macOS/Linux application acceptance remain unverified.
+
 ## Local review 2026-10-22
 
 The [review record](../tests/visual/windows-code-review-2026-10-22.json) identifies

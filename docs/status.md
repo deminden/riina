@@ -38,6 +38,13 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The follow-up local review separates player observations, catalogs, materials,
+  plugin integration and audio/video/subtitle callbacks, retaining session resource
+  order. Plugin startup and callbacks now drain Promise jobs, package `require()`
+  retains its native bridge, and shutdown cancels queued/executing JavaScript.
+  Network request limits include workers waiting to deliver their result. See the
+  [continuation verification](verification.md#runtime-and-player-review-2026-10-22)
+  for passing checks and the unusable visual captures.
 - Local review separates core command planning, playback observations, preferences
   and plugin menu responsibilities into focused modules while preserving the core
   public API. Auto seeks retain their per-file timing decision, disabled plugin

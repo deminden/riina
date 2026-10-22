@@ -54,8 +54,17 @@ live in `command/` (intent, argument validation and plans), `playback.rs`,
 Cross-feature regressions are grouped under `tests/` by commands, playback and
 preferences. Native property decoding and per-file Auto seek timing belong to
 `crates/mpv/src/properties.rs` and `auto_seek.rs`; player ownership stays in `lib.rs`.
-Plugin menu models and JavaScript menu dispatch have their own modules under
-`player_ui/` and `plugin_runtime/` respectively.
+The `player_ui/` modules own playback observations, media catalog models, native
+material sampling, plugin-window integration and audio/video/subtitle controls.
+The root still owns session resources and their teardown order. Plugin callbacks
+retain command senders rather than playback owners.
+
+`plugin_runtime.rs` owns session startup, command admission and cancellation. Its
+private modules separate the worker loop, execution budget, package loading,
+timers, permission review, bounded output, messages and individual host APIs.
+Every JavaScript turn includes its Promise jobs under the same execution budget.
+Shutdown cancels executing JavaScript before waking and joining the worker;
+network workers retain their concurrency slot until result delivery completes.
 
 ## Checks
 

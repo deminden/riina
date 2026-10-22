@@ -1,0 +1,210 @@
+{
+  "date": "2026-10-22",
+  "state": "Local continuation after 41dda63; published version remains 4.2.0",
+  "source_base_revision": "41dda637ceb6e82506daeefe4be7bfb5c6de1c34",
+  "source_hash_encoding": "UTF-8 with LF newlines (Git canonical text)",
+  "source_files_sha256": {
+    "crates/app/src/player_ui.rs": "ae57df9582c23e128ad308f006793fa8519c2ef23b8fe18dbb53fbe61a67bb37",
+    "crates/app/src/player_ui/audio_controls.rs": "775e00fd4d30c02aa96dc9c5a49da239860e7779a307c0576a287ebb76219144",
+    "crates/app/src/player_ui/catalog.rs": "7a6ff28d39c30140da865d815d088adfe82ed12b163949b8cdcbf1643bb0887e",
+    "crates/app/src/player_ui/materials.rs": "f4dc3e2c10b9209adfc6633e6017f4c70197f4e1b3e4c36af920da3cde848e30",
+    "crates/app/src/player_ui/observations.rs": "452312d4f2629de8d65dd2d65fa0655250c933a43020d8ef5e9990bd3afe053d",
+    "crates/app/src/player_ui/plugins.rs": "9d577a159e400c3fb21c6daa734c58f5e2f5ada6aed4a3400c51a835c377880d",
+    "crates/app/src/player_ui/subtitle_controls.rs": "d9d7a232a8fad7a6f63be31db6310e17387dbde8ae52da0b4fe243214ab0d67d",
+    "crates/app/src/player_ui/video_controls.rs": "23694b867b8bd76eb1f264b135636f3ca63af2cdf85df22d0de1ced155ac86f6",
+    "crates/app/src/plugin_runtime.rs": "6784570a7ae1f83f1e525ddb7a546f398b92184be2d63a87690a8ab457cc56d4",
+    "crates/app/src/plugin_runtime/core_api.rs": "b2623132ab59a58fef87f3557b48fc2ee2b5fd90bf1a4b820c0462668843507e",
+    "crates/app/src/plugin_runtime/events.rs": "634408c149bcdb2376784fb636e316a50bbbfa4d24a0480c33bd0db1c602c4f6",
+    "crates/app/src/plugin_runtime/execution.rs": "49116ce02087ee03219e344ea4947dab389d19d2a658c0696c7d7463183b8f1c",
+    "crates/app/src/plugin_runtime/execution_tests.rs": "c10840e5be6bafc1d0b73176ad4808c31ec0723a1291d8fecb5ada242876c055",
+    "crates/app/src/plugin_runtime/file_api.rs": "3d8db159df70cce5ea1f68ee29c62da2aaa45057c11d3dcaaf2e2eeeaff2ec0b",
+    "crates/app/src/plugin_runtime/messaging.rs": "248321fd72130c2b0c33eca939d533a5cdc03c8b0e043dc90a495bff5f81b8f6",
+    "crates/app/src/plugin_runtime/modules.rs": "36090ea353743aad25310935143021d8013ee8a580ea02a9c2ddb6e78237e24d",
+    "crates/app/src/plugin_runtime/network.rs": "9791ba21f250fa4f3974a209356920d4a8f2997fa41d4fe0465e71b107a6eac2",
+    "crates/app/src/plugin_runtime/output.rs": "6f26e09da294656c7474be1c0aa8c57f4e536b76d1feaabb94c5e46ea1c2dbae",
+    "crates/app/src/plugin_runtime/permissions.rs": "7ca8d09b37ad8b378fdbbc80fb722db2dea779736a75a5b3960cf84401444243",
+    "crates/app/src/plugin_runtime/tests.rs": "d89121efe0f9d712c86f2076485ae35819ea70972b50d2aa98e8ff16ab05fb2b",
+    "crates/app/src/plugin_runtime/timers.rs": "e700f25c1d05f42ed2435c211d379a6840ee3c796c89f6245297e23ee9880176",
+    "crates/app/src/plugin_runtime/webviews.rs": "a32ece9cfa8c25f94c151369a165c31e7ca48f3de3547f2c595d6e6eb4e2ad7c",
+    "crates/app/src/plugin_runtime/worker.rs": "caf5598afabc5303bac6fd156ead2c93f0e0450cfcd6f56936c2c512bb05a260"
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "inspected_contracts": [
+      "JavascriptPluginInstance realm ownership and API installation",
+      "JavascriptPolyfill package-relative require bridge"
+    ]
+  },
+  "review_findings": [
+    {
+      "severity": "medium",
+      "area": "JavaScript continuations",
+      "problem": "Only network responses drained Promise jobs; startup, timers and other callbacks could leave continuations permanently pending. The 256-job cap could also strand longer chains.",
+      "resolution": "Each JavaScript turn drains its jobs under one deadline, including jobs queued before a synchronous exception. The worker checks cancellation and time between jobs.",
+      "regressions": [
+        "startup_promises_finish_without_an_external_event",
+        "long_promise_chains_continue_after_the_job_batch_limit",
+        "timers_and_player_and_menu_callbacks_run_their_promise_continuations",
+        "unbounded_promise_chains_share_the_entry_execution_limit",
+        "a_failed_overlay_callback_still_runs_its_queued_promise_jobs"
+      ]
+    },
+    {
+      "severity": "medium",
+      "area": "Plugin shutdown",
+      "problem": "A blocking shutdown message waited behind queued callbacks; a busy realm delayed destruction by the sum of their execution budgets.",
+      "resolution": "Session cancellation interrupts active JavaScript and prevents queued callbacks from running. A nonblocking shutdown message wakes an idle worker before the owner joins it.",
+      "regressions": [
+        "shutdown_interrupts_the_active_callback_and_discards_queued_callbacks"
+      ]
+    },
+    {
+      "severity": "medium",
+      "area": "Package require",
+      "problem": "The loader deleted its global native bridge while the require closure still looked it up by that global name, breaking package module loads.",
+      "resolution": "Capture the native function in the private loader closure before removing its global property.",
+      "regressions": [
+        "package_require_bridge_survives_api_installation"
+      ]
+    },
+    {
+      "severity": "medium",
+      "area": "Network worker limits",
+      "problem": "Workers released their request slots before sending results to a bounded runtime queue, allowing additional blocked worker threads to accumulate.",
+      "resolution": "An owned slot remains held through result delivery and is released on worker, spawn or delivery failure.",
+      "regressions": [
+        "response_backpressure_retains_the_network_slot_until_delivery",
+        "a_disconnected_runtime_releases_the_network_slot"
+      ]
+    }
+  ],
+  "refactoring": {
+    "player_root_lines_before": 7416,
+    "player_root_lines_after": 4840,
+    "runtime_root_lines_before": 4016,
+    "runtime_root_lines_after": 448,
+    "player_callback_registrations_preserved": 130,
+    "player_tests_preserved": 13,
+    "existing_runtime_tests_preserved": 24,
+    "ui_session_resource_layout": "byte-for-byte unchanged",
+    "player_non_ascii_text": "unchanged",
+    "new_regression_tests": 9
+  },
+  "checks": {
+    "regressions_before_fixes": "Five initial regression tests failed on the prior implementation; four boundary tests were added during the fixes.",
+    "formatting": "passed",
+    "strict_all_target_clippy": "passed",
+    "locked_workspace_build": "passed",
+    "workspace_tests": {
+      "passed": 674,
+      "failed": 0,
+      "ignored": 57
+    },
+    "workspace_test_notes": "Counts exclude four successful child-process helper invocations. The 54 ignored native tests were not repeated in this continuation; all 18 previously verified core/native source files are unchanged from the first review. Two clipboard tests and the child helper account for the other default ignores.",
+    "preserved_source_checks": "130 player callback registrations, 13 player tests, all player non-ASCII text, UiSession resource layout and 24 existing runtime tests preserved.",
+    "parity": "260 requirements, 69 visual identities, 15 evidence links and 68 image hashes checked; inventory incomplete.",
+    "local_logs": {
+      "final-fmt.log": {
+        "path": "tools/code-review-continuation-2026-10-22/final-fmt.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "final-clippy.log": {
+        "path": "tools/code-review-continuation-2026-10-22/final-clippy.log",
+        "sha256": "7cd23afb0f037a7fc8a4e03701ece8d2cec6610dbf9873574bc9f201386e2890"
+      },
+      "final-workspace-tests.log": {
+        "path": "tools/code-review-continuation-2026-10-22/final-workspace-tests.log",
+        "sha256": "a2d771014cc61d0389cfaa4485f0bee6cdae99ec312bc75a242dbdcae9ff65fa"
+      },
+      "final-build.log": {
+        "path": "tools/code-review-continuation-2026-10-22/final-build.log",
+        "sha256": "a316b990a2ca756594ba9967f1bb037106684b41a77eea5c407fee90228103c9"
+      },
+      "regression-before.log": {
+        "path": "tools/code-review-continuation-2026-10-22/regression-before.log",
+        "sha256": "376b3d8f6b46d4cbc5bcd9e8d06f06d9b9949679266f9107aa07509ba557575c"
+      },
+      "parity.log": {
+        "path": "tools/code-review-continuation-2026-10-22/parity.log",
+        "sha256": "dcc747bb83a6ceed813c5fdd9bf6000bd4d0517dc721d35a5575d0afd84ad3b6"
+      },
+      "desktop-smoke.log": {
+        "path": "tools/code-review-continuation-2026-10-22/desktop-smoke.log",
+        "sha256": "9c935507a4def24a5edacae0b33af5a847438826a78f1ee78fd93c490fb5a4c1"
+      }
+    }
+  },
+  "limits": [
+    "Focused review, not exhaustive review of every remaining module.",
+    "Full-desktop captures were occluded by unrelated fullscreen content; this run establishes automated GUI state checks, not visible playback or compositor acceptance.",
+    "JavaScript budgets and cancellation cannot preempt synchronous host file calls; in-flight network I/O is not cancelled.",
+    "No physical audible-output/HDR, matched IINA pixel, live third-party plugin GUI or macOS/Linux application acceptance.",
+    "No release package or public update."
+  ],
+  "environment": {
+    "platform": "Windows 11 x64",
+    "rust": "1.99.0",
+    "audio_output": "null",
+    "profile": "isolated disposable smoke profile"
+  },
+  "native_library_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+  "executable": {
+    "path": "target/debug/riina.exe",
+    "sha256": "6c135d7079e7c425d7d1da796a4b41d6a55e6fa447185ef19ff2c923d8151f8b",
+    "smoke_copy": "tools/code-review-continuation-2026-10-22/smoke-app/riina.exe"
+  },
+  "desktop_smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress"
+    ],
+    "elapsed_ms": 5956,
+    "error": null,
+    "physical_display_verified": false,
+    "pid": 6772,
+    "success": true,
+    "title": "moving-square.avi \u2014 riina",
+    "normal_exit": true,
+    "riina_processes_after_exit": 0,
+    "visual_acceptance": false,
+    "capture_review": "All three full-desktop captures show unrelated fullscreen content before, during and after the Riina self-test. They are not usable as visual evidence for Riina. Automated state checks passed; no compositor or visible-control claim is made.",
+    "profile_settings_preserved": true
+  },
+  "desktop_captures": [
+    {
+      "stage": "before",
+      "path": "tools/code-review-continuation-2026-10-22/desktop-smoke.json.before.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "6207843ad3bb3b1cdc523887755df5d71ecad08535d39c402bc51093847adcbc",
+      "published": false,
+      "usable_for_riina_visual_acceptance": false
+    },
+    {
+      "stage": "fullscreen",
+      "path": "tools/code-review-continuation-2026-10-22/desktop-smoke.json.fullscreen.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "5d89f95ac776293b7a0166e6a118549c42914a4b129651ed72566f6e6015ab90",
+      "published": false,
+      "usable_for_riina_visual_acceptance": false
+    },
+    {
+      "stage": "after",
+      "path": "tools/code-review-continuation-2026-10-22/desktop-smoke.json.after.png",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "sha256": "06067ed6cb646386c12a9e6ec4e1ce9a7e1bb452ed1aff59b62a2074e8f4ada0",
+      "published": false,
+      "usable_for_riina_visual_acceptance": false
+    }
+  ]
+}
