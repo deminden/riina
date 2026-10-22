@@ -139,6 +139,26 @@ impl Runner {
                 }
                 check_preferences()?;
                 self.checks.push("fullscreen_exit_and_playback_progress");
+            }
+            7 => {
+                app.set_pause_when_minimized(true);
+                host.window()
+                    .with_winit_window(|window| window.set_minimized(true));
+            }
+            8 => {
+                if !host.window().is_minimized() || !app.get_paused() {
+                    return Ok(false);
+                }
+                self.checks.push("minimize_pauses_native_owner");
+                host.window()
+                    .with_winit_window(|window| window.set_minimized(false));
+            }
+            9 => {
+                if host.window().is_minimized() || app.get_paused() {
+                    return Ok(false);
+                }
+                surfaces(app, host)?;
+                self.checks.push("restore_resumes_automatic_pause");
                 return Ok(true);
             }
             _ => return Err("Unexpected GUI smoke stage".into()),

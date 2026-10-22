@@ -1,5 +1,13 @@
 mod audio_controls;
 mod catalog;
+mod discovery;
+mod feedback;
+mod lifecycle;
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+mod live_text;
+mod rendering;
+use feedback::clear_screenshot_preview;
+mod input;
 mod subtitle_controls;
 mod video_controls;
 use audio_controls::set_audio_equalizer_controls;
@@ -11,7 +19,6 @@ use catalog::{
     install_playlist_metadata_refresh, install_playlist_selection, playlist_paste_index,
     selected_playlist_ids, selected_playlist_paths,
 };
-use materials::set_video_material_sample;
 #[cfg(target_os = "windows")]
 use materials::{install_native_video_material_sampler, install_windows_material_policy_monitor};
 use observations::{UiUpdateResources, update_ui};
@@ -19,18 +26,16 @@ mod session_preferences;
 
 use plugin_menus::reorder_plugin_menu_rows;
 
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-use crate::LiveTextRegion;
 use crate::seek_osd::SeekOsd;
 use crate::{
     MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, Phase, Playback, Preferences, TrackKind, time_label};
-use riina_mpv::{Player, video::VideoSurface};
+use riina_mpv::Player;
 use slint::{
     ComponentHandle, Model,
-    winit_030::{EventResult, WinitWindowAccessor, winit},
+    winit_030::{WinitWindowAccessor, winit},
 };
 use std::{
     cell::{Cell, RefCell},
@@ -42,8 +47,6 @@ use std::{
     },
     time::{Duration, Instant},
 };
-
-static NEXT_PLAYER_WINDOW_REGISTRATION: AtomicU64 = AtomicU64::new(1);
 
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
 
@@ -122,21 +125,8 @@ fn queue_playlist_navigation(
     }
 }
 
-fn clear_screenshot_preview(app: &PlayerWindow) {
-    app.set_screenshot_preview_visible(false);
-    app.set_screenshot_preview_path("".into());
-    app.set_screenshot_preview_image(slint::Image::default());
-}
-
 pub(crate) fn reorder_all_open_plugin_menus(order: &[String]) {
-    let windows = PLAYER_WINDOWS.with(|registered| {
-        let mut registered = registered.borrow_mut();
-        registered.retain(|(_, weak)| weak.upgrade().is_some());
-        registered
-            .iter()
-            .filter_map(|(_, weak)| weak.upgrade())
-            .collect::<Vec<_>>()
-    });
+    let windows = input::open_player_windows();
     let model = slint::ModelRc::new(slint::VecModel::from(
         order
             .iter()
@@ -164,61 +154,6 @@ pub(crate) fn show_osd_message(
     app.invoke_show_video_osd();
 }
 
-fn dispatch_control_mouse_action(
-    app: &PlayerWindow,
-    player: &riina_mpv::CommandSender,
-    index: i32,
-) {
-    use riina_core::control_preferences::MouseEffect;
-
-    let Some(action) = riina_core::control_preferences::MouseAction::from_index(index) else {
-        app.set_status("Invalid mouse action preference".into());
-        return;
-    };
-    if app.get_crop_editing() || app.get_dialog_open() {
-        return;
-    }
-    let effect = action.effect(app.get_paused());
-    let result = match effect {
-        MouseEffect::None => return,
-        MouseEffect::Fullscreen => {
-            app.invoke_toggle_fullscreen();
-            return;
-        }
-        MouseEffect::SetPaused(paused) => {
-            if !app.get_loaded() {
-                return;
-            }
-            player.set_paused(paused)
-        }
-        MouseEffect::HideControls => {
-            if app.get_control_auto_hide_enabled() {
-                app.set_controls_visible(false);
-            }
-            return;
-        }
-        MouseEffect::PictureInPicture => {
-            app.invoke_toggle_picture_in_picture();
-            return;
-        }
-        MouseEffect::CycleAbLoop => {
-            if !app.get_loaded() {
-                return;
-            }
-            player.send(Command::CycleAbLoop)
-        }
-        MouseEffect::ResetSpeed => {
-            if !app.get_loaded() {
-                return;
-            }
-            player.send(Command::Speed(1.0))
-        }
-    };
-    if let Err(error) = result {
-        app.set_status(error.into());
-    }
-}
-
 fn set_native_video_host_visible(
     host: Option<&slint::Weak<crate::NativeVideoHost>>,
     visible: bool,
@@ -230,65 +165,6 @@ fn set_native_video_host_visible(
     // lifetime. Toggle the OS surface directly so Slint does not keep it shown.
     host.window()
         .with_winit_window(|window| window.set_visible(visible));
-}
-
-fn configured_osd_timeout(app: &PlayerWindow) -> Duration {
-    Duration::try_from_secs_f64(f64::from(app.get_osd_timeout_secs())).unwrap_or_default()
-}
-
-fn control_hide_is_allowed(
-    enabled: bool,
-    loaded: bool,
-    dialog_open: bool,
-    crop_editing: bool,
-    title_bar_hovered: bool,
-    control_bar_hovered: bool,
-    control_bar_dragging: bool,
-) -> bool {
-    enabled
-        && loaded
-        && !dialog_open
-        && !crop_editing
-        && !title_bar_hovered
-        && !control_bar_hovered
-        && !control_bar_dragging
-}
-
-fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
-    timer.stop();
-    if !app.get_control_auto_hide_enabled()
-        || !app.get_controls_visible()
-        || !app.get_loaded()
-        || app.get_dialog_open()
-        || app.get_crop_editing()
-    {
-        return;
-    }
-    let timeout = Duration::try_from_secs_f64(f64::from(app.get_control_auto_hide_timeout_secs()))
-        .unwrap_or_default();
-    let weak = app.as_weak();
-    // IINA's controller deadline is interaction-driven; pausing does not pin its chrome.
-    timer.start(slint::TimerMode::SingleShot, timeout, move || {
-        if let Some(app) = weak.upgrade() {
-            // The native controls HWND can retain hover while a separate
-            // Quick Settings surface covers it. Do not let that stale hover
-            // keep the transport tray over the panel indefinitely.
-            let settings_panel_open = app.get_sidebar() != 0 || app.get_leading_sidebar() != 0;
-            if settings_panel_open
-                || control_hide_is_allowed(
-                    app.get_control_auto_hide_enabled(),
-                    app.get_loaded(),
-                    app.get_dialog_open(),
-                    app.get_crop_editing(),
-                    app.get_title_bar_hovered(),
-                    app.get_control_bar_hovered(),
-                    app.get_control_bar_dragging(),
-                )
-            {
-                app.set_controls_visible(false);
-            }
-        }
-    });
 }
 
 fn refresh_video_menu(app: &PlayerWindow) {
@@ -416,113 +292,6 @@ fn recent_document_rows(
     recent_media_rows(media.get(offset..).unwrap_or_default())
 }
 
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-fn install_live_text(
-    app: &PlayerWindow,
-    sender: riina_mpv::CommandSender,
-    latest: Arc<std::sync::Mutex<Playback>>,
-) -> Rc<slint::Timer> {
-    let requested_frame = Rc::new(Cell::new(None::<(u64, u64)>));
-    let recognized_capture = Rc::new(Cell::new(None::<(u64, u64)>));
-    let recognition_running = Arc::new(AtomicBool::new(false));
-    let timer = Rc::new(slint::Timer::default());
-    let weak = app.as_weak();
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(300),
-        move || {
-            let Some(app) = weak.upgrade() else { return };
-            let state = latest.lock().map(|state| state.clone()).unwrap_or_default();
-            if !app.get_live_text_enabled()
-                || !app.get_live_text_available()
-                || !app.get_loaded()
-                || state.phase != Phase::Paused
-                || app.get_crop_editing()
-                || app.get_music_mode()
-            {
-                requested_frame.set(None);
-                recognized_capture.set(None);
-                app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
-                return;
-            }
-
-            // One screenshot request per paused source generation prevents polling
-            // from queueing duplicate frames while mpv completes the command.
-            let frame_key = (
-                state.generation,
-                state.position.unwrap_or_default().to_bits(),
-            );
-            if requested_frame.get() != Some(frame_key) {
-                match sender.send(Command::CaptureFrame) {
-                    Ok(()) => requested_frame.set(Some(frame_key)),
-                    Err(error) => app.set_status(
-                        format!("Could not capture frame for text recognition: {error}").into(),
-                    ),
-                }
-            }
-            let Some(frame) = state.captured_frame.as_deref().cloned() else {
-                return;
-            };
-            let key = (state.generation, state.completed_frame_captures);
-            if recognized_capture.get() == Some(key) || recognition_running.load(Ordering::Acquire)
-            {
-                return;
-            }
-            recognized_capture.set(Some(key));
-            recognition_running.store(true, Ordering::Release);
-            let latest_result = latest.clone();
-            let weak_result = app.as_weak();
-            let running = recognition_running.clone();
-            let width = frame.width as f32;
-            let height = frame.height as f32;
-            if let Err(error) = platform::text_recognition::recognize(frame, move |result| {
-                let _ = slint::invoke_from_event_loop(move || {
-                    running.store(false, Ordering::Release);
-                    let Some(app) = weak_result.upgrade() else {
-                        return;
-                    };
-                    let current = latest_result
-                        .lock()
-                        .map(|state| state.clone())
-                        .unwrap_or_default();
-                    if current.generation != key.0
-                        || current.phase != Phase::Paused
-                        || current.completed_frame_captures != key.1
-                        || !app.get_live_text_enabled()
-                        || app.get_crop_editing()
-                        || app.get_music_mode()
-                    {
-                        return;
-                    }
-                    match result {
-                        Ok(regions) => {
-                            app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(
-                                regions
-                                    .into_iter()
-                                    .map(|region| LiveTextRegion {
-                                        text: region.text.into(),
-                                        x: region.x / width,
-                                        y: region.y / height,
-                                        width: region.width / width,
-                                        height: region.height / height,
-                                    })
-                                    .collect::<Vec<_>>(),
-                            )))
-                        }
-                        Err(error) => {
-                            app.set_status(format!("Text recognition failed: {error}").into())
-                        }
-                    }
-                });
-            }) {
-                recognition_running.store(false, Ordering::Release);
-                app.set_status(format!("Could not start text recognition: {error}").into());
-            }
-        },
-    );
-    timer
-}
-
 fn refresh_welcome_history(
     welcome: &WelcomeWindow,
     media: &[riina_core::RecentMedia],
@@ -599,125 +368,6 @@ fn media_geometry_requires_resize(
         && (previous_generation != Some(state.generation) || geometry_was_missing)
 }
 
-#[cfg(target_os = "macos")]
-fn resize_for_trackpad_pinch(window: &slint::Window, delta: f64) {
-    use slint::winit_030::winit::dpi::{PhysicalPosition, PhysicalSize};
-
-    if !delta.is_finite() || delta <= -1.0 {
-        return;
-    }
-    let _ = window.with_winit_window(|native| {
-        if native.fullscreen().is_some() || native.is_maximized() {
-            return;
-        }
-        let current = native.inner_size();
-        if current.width == 0 || current.height == 0 {
-            return;
-        }
-        let scale = native.scale_factor();
-        let monitor = native.current_monitor().map(|monitor| monitor.size());
-        let min_width = (285.0 * scale).round().max(1.0) as u32;
-        let min_height = (120.0 * scale).round().max(1.0) as u32;
-        let (max_width, max_height) = monitor.map_or((u32::MAX, u32::MAX), |size| {
-            (
-                (f64::from(size.width) * 0.98).round() as u32,
-                (f64::from(size.height) * 0.94).round() as u32,
-            )
-        });
-        let lower = (f64::from(min_width) / f64::from(current.width))
-            .max(f64::from(min_height) / f64::from(current.height));
-        let upper = (f64::from(max_width) / f64::from(current.width))
-            .min(f64::from(max_height) / f64::from(current.height));
-        if !upper.is_finite() || upper < lower {
-            return;
-        }
-        let factor = (1.0 + delta).clamp(lower, upper);
-        let size = PhysicalSize::new(
-            (f64::from(current.width) * factor).round() as u32,
-            (f64::from(current.height) * factor).round() as u32,
-        );
-        let position = native.outer_position().ok();
-        if let Some(position) = position {
-            let width_change = i64::from(size.width) - i64::from(current.width);
-            let height_change = i64::from(size.height) - i64::from(current.height);
-            native.set_outer_position(PhysicalPosition::new(
-                (i64::from(position.x) - width_change / 2)
-                    .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
-                (i64::from(position.y) - height_change / 2)
-                    .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
-            ));
-        }
-        let _ = native.request_inner_size(size);
-    });
-}
-
-#[cfg(target_os = "macos")]
-fn install_macos_control_gestures(app: &PlayerWindow, player: riina_mpv::CommandSender) {
-    let weak = app.as_weak();
-    let force_touch_active = Cell::new(false);
-    let mut pinch_fullscreen_direction = None::<bool>;
-    platform::install_control_gestures(app.window(), move |gesture| {
-        let Some(app) = weak.upgrade() else { return };
-        match gesture {
-            platform::ControlGesture::Pressure { stage } => {
-                if stage < 2 {
-                    force_touch_active.set(false);
-                } else if stage == 2 && !force_touch_active.replace(true) {
-                    dispatch_control_mouse_action(
-                        &app,
-                        &player,
-                        app.get_control_force_touch_index(),
-                    );
-                }
-            }
-            platform::ControlGesture::Pinch { delta, phase } => {
-                use platform::GesturePhase;
-                use riina_core::control_preferences::PinchAction;
-
-                if app.get_crop_editing() || app.get_dialog_open() {
-                    return;
-                }
-                let Ok(settings) = crate::control_preferences::current_player(&app) else {
-                    return;
-                };
-                match settings.pinch_action {
-                    PinchAction::None => {}
-                    PinchAction::Fullscreen => {
-                        if phase == GesturePhase::Started {
-                            pinch_fullscreen_direction = None;
-                        }
-                        if matches!(phase, GesturePhase::Started | GesturePhase::Moved)
-                            && delta.is_finite()
-                            && delta != 0.0
-                        {
-                            let wants_fullscreen = delta > 0.0;
-                            if pinch_fullscreen_direction.is_none()
-                                && wants_fullscreen != app.get_fullscreen()
-                            {
-                                app.invoke_toggle_fullscreen();
-                            }
-                            pinch_fullscreen_direction = Some(wants_fullscreen);
-                        }
-                        if matches!(phase, GesturePhase::Ended | GesturePhase::Cancelled) {
-                            pinch_fullscreen_direction = None;
-                        }
-                    }
-                    PinchAction::AdjustWindowSize => {
-                        if app.get_fullscreen() {
-                            return;
-                        }
-                        if matches!(phase, GesturePhase::Started | GesturePhase::Moved) {
-                            resize_for_trackpad_pinch(app.window(), delta);
-                        } else if matches!(phase, GesturePhase::Ended | GesturePhase::Cancelled) {
-                            app.invoke_window_aspect_changed();
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
 pub(crate) struct UiSession {
     // Native callbacks retain senders only. Field order keeps the target alive
     // until this sole native player owner has joined its decoder worker.
@@ -764,7 +414,7 @@ pub(crate) struct UiSession {
     _playlist_metadata_timer: Rc<slint::Timer>,
     _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
-    _player_window_focus: PlayerWindowFocusRegistration,
+    _player_window_focus: input::PlayerWindowFocusRegistration,
     prefs_path: PathBuf,
     prefs: Preferences,
     preference_writer: crate::preference_store::Writer,
@@ -785,308 +435,6 @@ enum PendingWelcomeOpen {
     Recent(riina_core::RecentMedia, bool),
 }
 
-#[cfg(target_os = "macos")]
-thread_local! {
-    static FOCUSED_PLAYER_WINDOW_COUNT: Cell<usize> = const { Cell::new(0) };
-}
-
-thread_local! {
-    static PLAYER_WINDOWS: RefCell<Vec<(u64, slint::Weak<PlayerWindow>)>> = const { RefCell::new(Vec::new()) };
-}
-
-struct PlayerWindowFocusRegistration {
-    focused: Rc<Cell<bool>>,
-    registry_id: u64,
-}
-
-#[derive(Clone, Copy, Default)]
-struct ScrollInputState {
-    axis: Option<bool>,
-    native_delta: Option<(f64, f64)>,
-    precise: Option<bool>,
-    natural_direction: Option<bool>,
-    phase_empty: bool,
-    phase_began: bool,
-    phase_ended: bool,
-    momentum_allowed: bool,
-    mouse_in_window: bool,
-    suppress_current: bool,
-    appkit: bool,
-}
-
-impl Drop for PlayerWindowFocusRegistration {
-    fn drop(&mut self) {
-        PLAYER_WINDOWS.with(|registered| {
-            registered
-                .borrow_mut()
-                .retain(|(id, _)| *id != self.registry_id);
-        });
-        set_player_window_focus(&self.focused, false);
-    }
-}
-
-fn set_player_window_focus(focused: &Cell<bool>, now_focused: bool) {
-    #[cfg(target_os = "macos")]
-    {
-        let was_focused = focused.replace(now_focused);
-        if was_focused != now_focused {
-            FOCUSED_PLAYER_WINDOW_COUNT.with(|count| {
-                count.set(if now_focused {
-                    count.get().saturating_add(1)
-                } else {
-                    count.get().saturating_sub(1)
-                });
-            });
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = focused.replace(now_focused);
-}
-
-#[cfg(target_os = "macos")]
-fn some_player_window_is_focused() -> bool {
-    FOCUSED_PLAYER_WINDOW_COUNT.with(|count| count.get() > 0)
-}
-
-fn install_file_drop(
-    app: &PlayerWindow,
-    player: riina_mpv::CommandSender,
-    playback: Arc<std::sync::Mutex<Playback>>,
-    trackpad_pause_generation: Rc<Cell<Option<u64>>>,
-    _scroll_input: Rc<Cell<ScrollInputState>>,
-) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
-    let registry_id = NEXT_PLAYER_WINDOW_REGISTRATION.fetch_add(1, Ordering::Relaxed);
-    PLAYER_WINDOWS.with(|registered| {
-        registered.borrow_mut().push((registry_id, app.as_weak()));
-    });
-    let pending_paths = Rc::new(RefCell::new(Vec::<std::ffi::OsString>::new()));
-    let flush_paths = pending_paths.clone();
-    let weak_app = app.as_weak();
-    let timer_player = player.clone();
-    let timer = Rc::new(slint::Timer::default());
-    timer.start(
-        slint::TimerMode::SingleShot,
-        Duration::from_millis(80),
-        move || {
-            let paths = std::mem::take(&mut *flush_paths.borrow_mut());
-            if !paths.is_empty()
-                && let Some(app) = weak_app.upgrade()
-            {
-                media_open::dropped(&app, paths, timer_player.clone());
-            }
-        },
-    );
-    let event_paths = pending_paths;
-    let event_timer = timer.clone();
-    let focused = Rc::new(Cell::new(
-        app.window()
-            .with_winit_window(|window| window.has_focus())
-            .unwrap_or(false),
-    ));
-    let event_scroll_input = _scroll_input;
-    let event_player = player;
-    let event_playback = playback;
-    let event_app = app.as_weak();
-    let event_trackpad_pause_generation = trackpad_pause_generation;
-    #[cfg(target_os = "macos")]
-    FOCUSED_PLAYER_WINDOW_COUNT.with(|count| {
-        if focused.get() {
-            count.set(count.get().saturating_add(1));
-        }
-    });
-    let event_focused = Rc::downgrade(&focused);
-    app.window().on_winit_window_event(move |_window, event| {
-        if let winit::event::WindowEvent::DroppedFile(path) = event {
-            event_paths.borrow_mut().push(path.clone().into_os_string());
-            event_timer.restart();
-        }
-        if let winit::event::WindowEvent::Focused(now_focused) = event
-            && let Some(focused) = event_focused.upgrade()
-        {
-            set_player_window_focus(&focused, *now_focused);
-        }
-        if matches!(event, winit::event::WindowEvent::CursorEntered { .. }) {
-            let mut input = event_scroll_input.get();
-            input.mouse_in_window = true;
-            event_scroll_input.set(input);
-        } else if matches!(event, winit::event::WindowEvent::CursorLeft { .. }) {
-            let mut input = event_scroll_input.get();
-            input.mouse_in_window = false;
-            input.momentum_allowed = false;
-            event_scroll_input.set(input);
-        }
-        #[cfg(not(target_os = "macos"))]
-        if let winit::event::WindowEvent::MouseWheel { delta, phase, .. } = event {
-            use winit::event::{MouseScrollDelta, TouchPhase};
-            let (delta_x, delta_y, precise) = match delta {
-                MouseScrollDelta::LineDelta(x, y) => (f64::from(*x), f64::from(*y), false),
-                MouseScrollDelta::PixelDelta(position) => {
-                    let position = position.to_logical::<f64>(f64::from(_window.scale_factor()));
-                    (position.x, position.y, true)
-                }
-            };
-            let mut input = event_scroll_input.get();
-            input.appkit = false;
-            input.native_delta = Some((delta_x, delta_y));
-            input.precise = Some(precise);
-            input.natural_direction = None;
-            input.phase_empty = !precise;
-            input.phase_began = *phase == TouchPhase::Started;
-            input.phase_ended = matches!(phase, TouchPhase::Ended | TouchPhase::Cancelled);
-            if !precise {
-                // Mouse-wheel events are independent. IINA prioritizes horizontal
-                // whenever an event contains a horizontal delta.
-                input.axis = (delta_x != 0.0 || delta_y != 0.0).then_some(delta_x != 0.0);
-            } else {
-                match phase {
-                    TouchPhase::Started => {
-                        // IINA chooses the first non-zero axis when a gesture begins,
-                        // then keeps it through diagonal trackpad motion.
-                        let axis = if delta_x != 0.0 {
-                            Some(true)
-                        } else if delta_y != 0.0 {
-                            Some(false)
-                        } else {
-                            None
-                        };
-                        input.axis = axis;
-                    }
-                    TouchPhase::Ended | TouchPhase::Cancelled => {
-                        input.axis = None;
-                    }
-                    TouchPhase::Moved if input.axis.is_none() => {
-                        if delta_x != 0.0 || delta_y != 0.0 {
-                            input.axis = Some(delta_x != 0.0);
-                        }
-                    }
-                    TouchPhase::Moved => {}
-                }
-            }
-            event_scroll_input.set(input);
-        }
-        if matches!(event, winit::event::WindowEvent::MouseWheel { .. }) {
-            let input = event_scroll_input.get();
-            if input.suppress_current {
-                return EventResult::PreventDefault;
-            }
-            if !input.phase_empty
-                && input.phase_ended
-                && let Some(generation) = event_trackpad_pause_generation.replace(None)
-                && event_playback
-                    .lock()
-                    .is_ok_and(|state| state.generation == generation)
-                && let Err(error) = event_player.set_paused(false)
-                && let Some(app) = event_app.upgrade()
-            {
-                app.set_status(error.into());
-            }
-        }
-        EventResult::Propagate
-    });
-    (
-        timer,
-        PlayerWindowFocusRegistration {
-            focused,
-            registry_id,
-        },
-    )
-}
-
-fn scroll_action_handler(
-    app: slint::Weak<PlayerWindow>,
-    player: riina_mpv::CommandSender,
-    playback: Arc<std::sync::Mutex<Playback>>,
-    scroll_input: Rc<Cell<ScrollInputState>>,
-    trackpad_pause_generation: Rc<Cell<Option<u64>>>,
-    override_action: Option<riina_core::control_preferences::ScrollAction>,
-) -> impl FnMut(f32, f32) -> bool + 'static {
-    move |delta_x, delta_y| {
-        let Some(app) = app.upgrade() else {
-            return false;
-        };
-        if app.get_scroll_input_suppressed() {
-            return true;
-        }
-        let input = scroll_input.get();
-        let horizontal = if input.appkit {
-            input.axis.unwrap_or(false)
-        } else {
-            input.axis.unwrap_or_else(|| delta_x.abs() > delta_y.abs())
-        };
-        let precise = input
-            .precise
-            .unwrap_or_else(|| delta_x.abs().max(delta_y.abs()) < 60.0);
-        let (mut delta_x, mut delta_y) = input.native_delta.unwrap_or_else(|| {
-            let divisor = if precise { 1.0 } else { 60.0 };
-            (f64::from(delta_x) / divisor, f64::from(delta_y) / divisor)
-        });
-        if input.appkit {
-            if input.natural_direction == Some(true) {
-                delta_y = -delta_y;
-            } else {
-                delta_x = -delta_x;
-            }
-        }
-        let delta = if horizontal { delta_x } else { delta_y };
-        if delta == 0.0 {
-            return false;
-        }
-        let Ok(settings) = crate::control_preferences::current_player(&app) else {
-            return false;
-        };
-        let action = override_action.unwrap_or(if horizontal {
-            settings.horizontal_scroll_action
-        } else {
-            settings.vertical_scroll_action
-        });
-        let effect = riina_core::control_preferences::scroll_effect_for_input(
-            &settings,
-            action,
-            horizontal,
-            delta,
-            precise,
-            input.phase_empty,
-        );
-        let command = match effect {
-            riina_core::control_preferences::ScrollEffect::None => return false,
-            riina_core::control_preferences::ScrollEffect::AdjustVolume(delta) => {
-                Command::AdjustVolume {
-                    delta,
-                    boost: app.get_volume_boost(),
-                }
-            }
-            riina_core::control_preferences::ScrollEffect::Seek(seconds) => {
-                if !input.phase_empty
-                    && input.phase_began
-                    && trackpad_pause_generation.get().is_none()
-                    && let Some(state) = playback.lock().ok().map(|state| state.clone())
-                    && state.phase == Phase::Playing
-                    && !state.paused
-                {
-                    match player.set_paused(true) {
-                        Ok(()) => trackpad_pause_generation.set(Some(state.generation)),
-                        Err(error) => app.set_status(error.into()),
-                    }
-                }
-                Command::SeekWithType {
-                    seconds,
-                    seek_type: settings.seek_type,
-                }
-            }
-            riina_core::control_preferences::ScrollEffect::MultiplySpeed(factor) => {
-                let current = f64::from(app.get_speed_value()).clamp(0.05, 4.0);
-                let target = (current * factor).clamp(0.05, 4.0);
-                Command::MultiplySpeed(target / current)
-            }
-        };
-        app.invoke_activity();
-        if let Err(error) = player.send(command) {
-            app.set_status(error.into());
-        }
-        true
-    }
-}
-
 fn dispatch_welcome_open(
     app: &PlayerWindow,
     request: PendingWelcomeOpen,
@@ -1097,175 +445,6 @@ fn dispatch_welcome_open(
         PendingWelcomeOpen::Recent(media, resume) => {
             media_open::open_recent(app, media, resume, sender.clone());
         }
-    }
-}
-
-fn install_pause_on_minimize(
-    app: &PlayerWindow,
-    playback: Arc<std::sync::Mutex<Playback>>,
-) -> Rc<slint::Timer> {
-    let timer = Rc::new(slint::Timer::default());
-    let weak_app = app.as_weak();
-    let mut minimized = false;
-    let mut paused_generation = None;
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(50),
-        move || {
-            let Some(app) = weak_app.upgrade() else {
-                return;
-            };
-            let now_minimized = app.window().is_minimized();
-            if now_minimized && !minimized && app.get_pause_when_minimized() {
-                let state = playback.lock().ok().map(|state| state.clone());
-                if let Some(state) =
-                    state.filter(|state| state.phase == Phase::Playing && !state.paused)
-                {
-                    paused_generation = Some(state.generation);
-                    app.invoke_set_paused(true);
-                }
-            } else if !now_minimized
-                && minimized
-                && let Some(generation) = paused_generation.take()
-                && playback.lock().is_ok_and(|state| {
-                    state.generation == generation && state.phase == Phase::Playing && state.paused
-                })
-            {
-                app.invoke_set_paused(false);
-            }
-            minimized = now_minimized;
-        },
-    );
-    timer
-}
-
-#[cfg(target_os = "macos")]
-fn dispatch_system_media_action(
-    app: &PlayerWindow,
-    action: platform::RemoteMediaAction,
-    latest_playback: &Arc<std::sync::Mutex<Playback>>,
-    player: &riina_mpv::CommandSender,
-    paused_by_inactive: &mut Option<u64>,
-    application_active: &mut bool,
-    player_window_was_focused: bool,
-) {
-    use platform::RemoteMediaAction as Action;
-
-    match action {
-        Action::Play => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "PLAYONLY",
-                latest_playback,
-            ) {
-                app.invoke_set_paused(false);
-            }
-        }
-        Action::Pause => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "PAUSEONLY",
-                latest_playback,
-            ) {
-                app.invoke_set_paused(true);
-            }
-        }
-        Action::Toggle => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "PLAYPAUSE",
-                latest_playback,
-            ) {
-                app.invoke_toggle_pause();
-            }
-        }
-        Action::Stop => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "STOP",
-                latest_playback,
-            ) {
-                app.invoke_stop();
-            }
-        }
-        Action::Next => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "NEXT",
-                latest_playback,
-            ) {
-                app.invoke_playlist_next();
-            }
-        }
-        Action::Previous => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "PREV",
-                latest_playback,
-            ) {
-                app.invoke_playlist_previous();
-            }
-        }
-        Action::Forward(seconds) => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "FORWARD",
-                latest_playback,
-            ) && seconds.is_finite()
-                && seconds > 0.0
-            {
-                app.invoke_execute_mpv_input_action(format!("seek {seconds} exact").into());
-            }
-        }
-        Action::Backward(seconds) => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "REWIND",
-                latest_playback,
-            ) && seconds.is_finite()
-                && seconds > 0.0
-            {
-                app.invoke_execute_mpv_input_action(format!("seek -{seconds} exact").into());
-            }
-        }
-        Action::Position(seconds) if seconds.is_finite() && seconds >= 0.0 => {
-            app.invoke_seek(seconds as f32);
-        }
-        Action::Position(_) => {}
-        Action::Rate(rate) if rate.is_finite() && rate > 0.0 => {
-            let _ = app.invoke_set_speed_text(rate.to_string().into());
-        }
-        Action::Rate(_) => {}
-        Action::Repeat => {
-            if let Err(error) = player.send(Command::CycleLoop) {
-                app.set_status(error.into());
-            }
-        }
-        Action::Inactive => {
-            *application_active = false;
-            if app.get_pause_when_inactive()
-                && (player_window_was_focused || some_player_window_is_focused())
-                && paused_by_inactive.is_none()
-            {
-                let state = latest_playback.lock().ok().map(|state| state.clone());
-                if let Some(state) =
-                    state.filter(|state| state.phase == Phase::Playing && !state.paused)
-                {
-                    *paused_by_inactive = Some(state.generation);
-                    app.invoke_set_paused(true);
-                }
-            }
-        }
-        Action::Active => *application_active = true,
-        Action::Sleep if app.get_pause_when_goes_to_sleep() => {
-            if latest_playback
-                .lock()
-                .is_ok_and(|state| state.phase == Phase::Playing && !state.paused)
-            {
-                app.invoke_set_paused(true);
-            }
-        }
-        Action::Sleep => {}
     }
 }
 
@@ -1543,7 +722,11 @@ pub(crate) fn configure_player(
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
     let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
     crate::about_window::connect(app, latest_playback.clone());
-    let pause_resume_timer = install_pause_on_minimize(app, latest_playback.clone());
+    let pause_resume_timer = lifecycle::install_pause_on_minimize(
+        app,
+        native.as_ref().map(|presentation| presentation.host()),
+        latest_playback.clone(),
+    );
     crate::control_preferences::install_player(app, &prefs.controls);
     crate::key_binding_preferences::install_player(
         app,
@@ -1551,109 +734,11 @@ pub(crate) fn configure_player(
         latest_playback.clone(),
     );
     #[cfg(target_os = "macos")]
-    let system_media_sender = Rc::new(RefCell::new(None::<riina_mpv::CommandSender>));
-    #[cfg(target_os = "macos")]
-    let (system_media_controls, system_media_controls_timer) = {
-        let controls = Rc::new(RefCell::new(platform::SystemMediaControls::new(
-            platform::playback_library(),
-        )));
-        let timer = Rc::new(slint::Timer::default());
-        let controls_tick = controls.clone();
-        let weak = app.as_weak();
-        let playback = latest_playback.clone();
-        let player = system_media_sender.clone();
-        let mut skip_intervals = None::<(String, Option<f64>, Option<f64>)>;
-        let mut paused_by_inactive = None;
-        let mut application_active = true;
-        let mut player_window_was_focused = app
-            .window()
-            .with_winit_window(|window| window.has_focus())
-            .unwrap_or(false);
-        let mut refresh_skip_intervals_at = Instant::now();
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(50),
-            move || {
-                let Some(app) = weak.upgrade() else { return };
-                let profile = app.get_key_binding_current_profile().to_string();
-                let active = app.get_loaded() && app.get_key_binding_use_system_media_controls();
-                if active
-                    && (skip_intervals
-                        .as_ref()
-                        .is_none_or(|(cached_profile, _, _)| cached_profile != &profile)
-                        || Instant::now() >= refresh_skip_intervals_at)
-                {
-                    let (forward, backward) =
-                        crate::key_binding_preferences::system_skip_intervals_for_profile(&profile);
-                    skip_intervals = Some((profile.clone(), forward, backward));
-                    refresh_skip_intervals_at = Instant::now() + Duration::from_secs(1);
-                }
-                let (forward, backward) = if active {
-                    let (_, forward, backward) = skip_intervals
-                        .as_ref()
-                        .expect("the active key profile's skip intervals are initialized");
-                    (*forward, *backward)
-                } else {
-                    (None, None)
-                };
-                controls_tick
-                    .borrow_mut()
-                    .synchronize(active, &profile, forward, backward);
-                let current = playback.lock().ok().map(|state| state.clone());
-                if active && let Some(current) = current.as_ref() {
-                    controls_tick
-                        .borrow_mut()
-                        .publish_playback(current, app.get_thumbnail_preview_enabled());
-                }
-                let actions = controls_tick.borrow().drain_actions().collect::<Vec<_>>();
-                for action in actions {
-                    if let Some(player) = player.borrow().as_ref() {
-                        dispatch_system_media_action(
-                            &app,
-                            action,
-                            &playback,
-                            player,
-                            &mut paused_by_inactive,
-                            &mut application_active,
-                            player_window_was_focused,
-                        );
-                    }
-                }
-                let focused = app
-                    .window()
-                    .with_winit_window(|window| window.has_focus())
-                    .unwrap_or(false);
-                if app.get_pause_when_inactive() {
-                    if application_active
-                        && !focused
-                        && some_player_window_is_focused()
-                        && paused_by_inactive.is_none()
-                    {
-                        let state = playback.lock().ok().map(|state| state.clone());
-                        if let Some(state) =
-                            state.filter(|state| state.phase == Phase::Playing && !state.paused)
-                        {
-                            paused_by_inactive = Some(state.generation);
-                            app.invoke_set_paused(true);
-                        }
-                    } else if application_active
-                        && focused
-                        && let Some(generation) = paused_by_inactive
-                        && playback.lock().is_ok_and(|state| {
-                            state.generation == generation
-                                && state.phase == Phase::Playing
-                                && state.paused
-                        })
-                    {
-                        app.invoke_set_paused(false);
-                        paused_by_inactive = None;
-                    }
-                }
-                player_window_was_focused = focused;
-            },
-        );
-        (controls, timer)
-    };
+    let lifecycle::SystemMedia {
+        sender: system_media_sender,
+        controls: system_media_controls,
+        timer: system_media_controls_timer,
+    } = lifecycle::install_system_media(app, latest_playback.clone());
     app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
     app.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.subtitle_ass_override,
@@ -1832,8 +917,7 @@ pub(crate) fn configure_player(
         crate::video_osd::VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
     video_osd.set_volume_limit(prefs.volume_limit());
     let last_video = Arc::new(std::sync::Mutex::new(video_osd));
-    let disable_video_osd = last_video.clone();
-    let pending_video_osd = last_video.clone();
+    let feedback_video_osd = last_video.clone();
     let last_screenshot = Arc::new(std::sync::Mutex::new(
         crate::screenshot_osd::ScreenshotOsd::default(),
     ));
@@ -2039,133 +1123,18 @@ pub(crate) fn configure_player(
     if let Ok(mut sender) = plugin_command_sender.lock() {
         *sender = Some(player.command_sender());
     }
-    let subtitle_priority_timer = Rc::new(slint::Timer::default());
-    let subtitle_discovery_ready = Arc::new(AtomicU64::new(u64::MAX));
+    let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
     let (online_subtitles_window, online_subtitles_timer) = crate::open_subtitles::connect_player(
         app,
         player.command_sender(),
         latest_playback.clone(),
         subtitle_discovery_ready.clone(),
     );
-    let priority_player = player.command_sender();
-    let priority_playback = latest_playback.clone();
-    let priority_state = Rc::new(RefCell::new(
-        crate::subtitle_priority::AutoPriority::default(),
-    ));
-    let subtitle_discovery = Rc::new(RefCell::new(
-        crate::subtitle_discovery::AutoDiscovery::default(),
-    ));
-    let auto_folder_discovery = Rc::new(RefCell::new(
-        crate::auto_playlist::AutoFolderAdder::default(),
-    ));
-    let auto_folder_state = auto_folder_discovery.clone();
-    let auto_folder_player = player.command_sender();
-    let auto_folder_playback = latest_playback.clone();
-    let subtitle_discovery_state = subtitle_discovery.clone();
-    let subtitle_discovery_player = player.command_sender();
-    let subtitle_discovery_playback = latest_playback.clone();
-    let subtitle_discovery_ready_controller = subtitle_discovery_ready.clone();
-    let priority_controller = priority_state.clone();
-    let priority_app = app.as_weak();
-    subtitle_priority_timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(120),
-        move || {
-            let Some(app) = priority_app.upgrade() else {
-                return;
-            };
-            let Ok(preferences) = crate::subtitle_auto_load_preferences::current_player(&app)
-            else {
-                return;
-            };
-            let Ok(state) = priority_playback.lock().map(|state| state.clone()) else {
-                return;
-            };
-            if preferences.mode == riina_core::subtitle_controls::AutoLoadMode::Disabled {
-                subtitle_discovery_ready_controller.store(state.generation, Ordering::Release);
-            }
-            if let Some(request) = auto_folder_state
-                .borrow_mut()
-                .observe(&state, app.get_playlist_auto_add())
-            {
-                let snapshot = state.clone();
-                let request_check = request.clone();
-                let playback = auto_folder_playback.clone();
-                let sender = auto_folder_player.clone();
-                let weak_app = app.as_weak();
-                std::thread::spawn(move || {
-                    let Some(command) = crate::auto_playlist::prepare(&request, &snapshot) else {
-                        return;
-                    };
-                    let still_current = playback.lock().ok().is_some_and(|state| {
-                        crate::auto_playlist::request_is_current(&request_check, &state)
-                    });
-                    if still_current && let Err(error) = sender.send(command) {
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(app) = weak_app.upgrade() {
-                                app.set_status(error.into());
-                            }
-                        });
-                    }
-                });
-            }
-            if let Some((generation, media_path)) = subtitle_discovery_state
-                .borrow_mut()
-                .observe(&state, &preferences)
-            {
-                subtitle_discovery_ready_controller.store(u64::MAX, Ordering::Release);
-                let preferences = preferences.clone();
-                let playback = subtitle_discovery_playback.clone();
-                let sender = subtitle_discovery_player.clone();
-                let weak_app = app.as_weak();
-                let ready = subtitle_discovery_ready_controller.clone();
-                std::thread::spawn(move || {
-                    let files =
-                        crate::subtitle_discovery::find_matching_files(&media_path, &preferences);
-                    let expected_path = media_path.to_string_lossy().into_owned();
-                    let current = playback.lock().ok().is_some_and(|state| {
-                        state.generation == generation
-                            && matches!(
-                                state.phase,
-                                Phase::Playing | Phase::Paused | Phase::Buffering
-                            )
-                            && state
-                                .playlist
-                                .iter()
-                                .find(|entry| entry.current)
-                                .is_some_and(|entry| entry.filename == expected_path)
-                    });
-                    if current
-                        && !files.is_empty()
-                        && let Err(error) = sender.send(Command::AddSubtitlesWithoutSelection(
-                            files
-                                .into_iter()
-                                .map(|path| path.to_string_lossy().into_owned())
-                                .collect(),
-                        ))
-                    {
-                        let weak_app = weak_app.clone();
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(app) = weak_app.upgrade() {
-                                app.set_status(error.into());
-                            }
-                        });
-                    }
-                    ready.store(generation, Ordering::Release);
-                });
-            }
-            let selected = priority_controller
-                .borrow_mut()
-                .observe(&state, &preferences);
-            if let Some(id) = selected
-                && let Err(error) = priority_player.send(Command::SelectTrack {
-                    kind: TrackKind::Sub,
-                    id: Some(id),
-                })
-            {
-                app.set_status(error.into());
-            }
-        },
+    let subtitle_priority_timer = discovery::install(
+        app,
+        &player.command_sender(),
+        latest_playback.clone(),
+        subtitle_discovery_ready,
     );
     #[cfg(target_os = "macos")]
     let picture_in_picture = {
@@ -2229,63 +1198,12 @@ pub(crate) fn configure_player(
         );
         Rc::new(timer)
     };
-    let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
-    #[cfg(target_os = "macos")]
-    let mac_scroll_event_monitor = {
-        let native_input = scroll_input.clone();
-        match platform::MacScrollEventMonitor::new(move |event| {
-            let mut input = native_input.get();
-            input.appkit = true;
-            // AppKit's coarse wheel semantics use direction only. Other hosts
-            // preserve fractional wheel lines because they lack its precise flag.
-            input.native_delta = Some(if event.precise {
-                (event.delta_x, event.delta_y)
-            } else {
-                let unit = |value: f64| if value == 0.0 { 0.0 } else { value.signum() };
-                (unit(event.delta_x), unit(event.delta_y))
-            });
-            input.precise = Some(event.precise);
-            input.natural_direction = Some(event.natural_direction);
-            input.phase_empty = event.phase_empty;
-            input.phase_began = event.phase_began;
-            input.phase_ended = event.phase_ended;
-            if !event.momentum_phase_empty && !input.momentum_allowed {
-                input.suppress_current = true;
-                native_input.set(input);
-                return;
-            }
-            input.suppress_current = false;
-            input.momentum_allowed = event.phase_ended || input.mouse_in_window;
-            if event.phase_empty || event.phase_began {
-                input.axis = if event.delta_x != 0.0 {
-                    Some(true)
-                } else if event.delta_y != 0.0 {
-                    Some(false)
-                } else {
-                    None
-                };
-            } else if event.phase_ended {
-                input.axis = None;
-            }
-            native_input.set(input);
-        }) {
-            Ok(monitor) => Some(monitor),
-            Err(error) => {
-                app.set_status(format!("Native trackpad input unavailable: {error}").into());
-                None
-            }
-        }
-    };
-    let trackpad_pause_generation = Rc::new(Cell::new(None));
-    #[cfg(target_os = "macos")]
-    install_macos_control_gestures(app, player.command_sender());
-    let (file_drop_timer, player_window_focus) = install_file_drop(
-        app,
-        player.command_sender(),
-        latest_playback.clone(),
-        trackpad_pause_generation.clone(),
-        scroll_input.clone(),
-    );
+    let input::InstalledInput {
+        file_drop_timer,
+        player_window_focus,
+        #[cfg(target_os = "macos")]
+        mac_scroll_event_monitor,
+    } = input::install(app, &player.command_sender(), latest_playback.clone());
     let thumbnail_preview_timer = Rc::new(slint::Timer::default());
     let thumbnail_controller =
         Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
@@ -2524,7 +1442,7 @@ pub(crate) fn configure_player(
         *system_media_sender.borrow_mut() = Some(player.command_sender());
     }
     #[cfg(any(target_os = "windows", target_os = "macos"))]
-    let live_text_timer = Some(install_live_text(
+    let live_text_timer = Some(live_text::install(
         app,
         player.command_sender(),
         latest_playback.clone(),
@@ -2634,34 +1552,6 @@ pub(crate) fn configure_player(
             }
         },
     );
-    let idle_timer = Rc::new(slint::Timer::default());
-    let controls_fade_timer = Rc::new(slint::Timer::default());
-    let controls_fade_parent = app.as_weak();
-    let controls_fade_timeout = controls_fade_timer.clone();
-    app.on_controls_visibility_changed(move |visible| {
-        controls_fade_timeout.stop();
-        let Some(app) = controls_fade_parent.upgrade() else {
-            return;
-        };
-        if visible {
-            app.set_controls_rendered(true);
-        } else if app.get_disable_animations() || app.get_system_reduce_motion() {
-            app.set_controls_rendered(false);
-        } else {
-            let weak = app.as_weak();
-            controls_fade_timeout.start(
-                slint::TimerMode::SingleShot,
-                Duration::from_millis(250),
-                move || {
-                    if let Some(app) = weak.upgrade()
-                        && !app.get_controls_visible()
-                    {
-                        app.set_controls_rendered(false);
-                    }
-                },
-            );
-        }
-    });
     let opening_player = player.command_sender();
     let opening_app = app.as_weak();
     let resume_player = player.command_sender();
@@ -2713,75 +1603,12 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let seek_timer = Rc::new(slint::Timer::default());
-    let video_timer = Rc::new(slint::Timer::default());
-    let screenshot_timer = Rc::new(slint::Timer::default());
-    let disable_seek_timer = seek_timer.clone();
-    let disable_video_timer = video_timer.clone();
-    let disable_screenshot_timer = screenshot_timer.clone();
-    let weak = app.as_weak();
-    app.on_osd_enabled_changed(move |enabled| {
-        if enabled {
-            return;
-        }
-        let Some(app) = weak.upgrade() else { return };
-        // Disabling OSD is an immediate visibility policy, so dismiss an
-        // already-visible message instead of leaving it until its old deadline.
-        disable_seek_timer.stop();
-        disable_video_timer.stop();
-        disable_screenshot_timer.stop();
-        if let Ok(mut video_osd) = disable_video_osd.lock() {
-            video_osd.clear_pending();
-        }
-        app.set_seek_osd_visible(false);
-        app.set_video_osd_visible(false);
-        app.set_video_osd_request_feedback(false);
-        clear_screenshot_preview(&app);
-    });
-    let screenshot_player = player.command_sender();
-    let weak = app.as_weak();
-    app.on_take_screenshot(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if !app.get_screenshot_available() || app.get_crop_editing() || app.get_dialog_open() {
-            return;
-        }
-        app.invoke_activity();
-        let result = crate::screenshot_preferences::current(&app).and_then(|screenshot_settings| {
-            if !screenshot_settings.destinations.enabled() {
-                return Ok(());
-            }
-            (if screenshot_settings.destinations.save_to_file {
-                platform::screenshot_directory(screenshot_settings.directory.as_deref())
-            } else {
-                screenshot_scratch.directory()
-            })
-            .map_err(|error| error.to_string())
-            .and_then(|directory| {
-                screenshot_player.send(Command::Screenshot {
-                    directory: directory.to_string_lossy().into_owned(),
-                    content: screenshot_settings.content(),
-                    encoding: screenshot_settings.encoding.clone(),
-                })
-            })
-        });
-        if let Err(error) = result {
-            app.set_status(error.into());
-        }
-    });
-    let weak = app.as_weak();
-    app.on_open_screenshot_folder(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if app.get_crop_editing() || app.get_dialog_open() {
-            return;
-        }
-        if let Err(error) = crate::screenshot_preferences::current(&app).and_then(|settings| {
-            platform::screenshot_directory(settings.directory.as_deref())
-                .and_then(|directory| platform::open_directory(&directory))
-                .map_err(|error| error.to_string())
-        }) {
-            app.set_status(error.to_string().into());
-        }
-    });
+    feedback::install(
+        app,
+        &player.command_sender(),
+        screenshot_scratch,
+        feedback_video_osd,
+    );
     let deinterlace_player = player.command_sender();
     let weak = app.as_weak();
     app.on_toggle_deinterlace(move || {
@@ -2799,242 +1626,6 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let weak = app.as_weak();
-    app.on_show_seek_osd(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if !app.get_osd_enabled() || app.get_disable_osd_seek() {
-            return;
-        }
-        app.set_seek_osd_visible(true);
-        clear_screenshot_preview(&app);
-        app.set_video_osd_visible(false);
-        let weak = weak.clone();
-        seek_timer.start(
-            slint::TimerMode::SingleShot,
-            configured_osd_timeout(&app),
-            move || {
-                if let Some(app) = weak.upgrade() {
-                    app.set_seek_osd_visible(false);
-                }
-            },
-        );
-    });
-    let weak = app.as_weak();
-    app.on_show_screenshot_preview(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if !app.get_osd_enabled() || app.get_crop_editing() {
-            return;
-        }
-        app.set_seek_osd_visible(false);
-        app.set_video_osd_visible(false);
-        app.set_screenshot_preview_visible(true);
-        let weak = weak.clone();
-        screenshot_timer.start(
-            slint::TimerMode::SingleShot,
-            Duration::from_secs(5),
-            move || {
-                if let Some(app) = weak.upgrade() {
-                    clear_screenshot_preview(&app);
-                }
-            },
-        );
-    });
-    let weak = app.as_weak();
-    app.on_screenshot_preview_action(move |action| {
-        let Some(app) = weak.upgrade() else { return };
-        if !app.get_screenshot_preview_visible() || app.get_crop_editing() || app.get_dialog_open()
-        {
-            return;
-        }
-        let path = app.get_screenshot_preview_path();
-        if path.is_empty() {
-            return;
-        }
-        let path = std::path::Path::new(path.as_str());
-        let result = match action {
-            0 => {
-                let _ = std::fs::remove_file(path);
-                Ok(())
-            }
-            1 => platform::open_directory(path),
-            2 => platform::reveal_file(path),
-            _ => return,
-        };
-        clear_screenshot_preview(&app);
-        if let Err(error) = result {
-            app.set_status(error.to_string().into());
-        }
-    });
-    let weak = app.as_weak();
-    app.on_show_video_osd(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if !app.get_osd_enabled() {
-            return;
-        }
-        app.set_seek_osd_visible(false);
-        clear_screenshot_preview(&app);
-        app.set_video_osd_visible(true);
-        let weak = weak.clone();
-        let pending_video_osd = pending_video_osd.clone();
-        video_timer.start(
-            slint::TimerMode::SingleShot,
-            configured_osd_timeout(&app),
-            move || {
-                let Some(app) = weak.upgrade() else { return };
-                if !app.get_osd_enabled() {
-                    if let Ok(mut video_osd) = pending_video_osd.lock() {
-                        video_osd.clear_pending();
-                    }
-                    app.set_video_osd_visible(false);
-                    app.set_video_osd_request_feedback(false);
-                    return;
-                }
-                let next = pending_video_osd
-                    .lock()
-                    .ok()
-                    .and_then(|mut video_osd| video_osd.take_pending());
-                if let Some(message) = next {
-                    app.set_video_osd_request_feedback(
-                        message.kind == crate::video_osd::Kind::Aspect,
-                    );
-                    app.set_video_osd_text(message.text.into());
-                    app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
-                    app.invoke_show_video_osd();
-                } else {
-                    app.set_video_osd_visible(false);
-                    app.set_video_osd_request_feedback(false);
-                }
-            },
-        );
-    });
-    let weak = app.as_weak();
-    let activity_timer = idle_timer.clone();
-    app.on_activity(move || {
-        if let Some(app) = weak.upgrade()
-            && !app.get_plugin_ui_disabled()
-        {
-            app.set_controls_visible(true);
-            schedule_control_hide(&app, &activity_timer);
-        }
-    });
-    let auto_hide_parent = app.as_weak();
-    let auto_hide_timer = idle_timer.clone();
-    app.on_control_bar_settings_changed(move || {
-        let Some(app) = auto_hide_parent.upgrade() else {
-            return;
-        };
-        if app.get_title_bar_hovered()
-            || app.get_control_bar_hovered()
-            || app.get_control_bar_dragging()
-        {
-            auto_hide_timer.stop();
-            app.set_controls_visible(true);
-        } else if app.get_control_auto_hide_enabled() {
-            schedule_control_hide(&app, &auto_hide_timer);
-        } else {
-            auto_hide_timer.stop();
-            if app.get_loaded() && !app.get_dialog_open() && !app.get_crop_editing() {
-                app.set_controls_visible(true);
-            }
-        }
-    });
-    let hover_parent = app.as_weak();
-    let hover_timer = idle_timer.clone();
-    app.on_control_bar_hover_changed(move || {
-        let Some(app) = hover_parent.upgrade() else {
-            return;
-        };
-        if app.get_title_bar_hovered()
-            || app.get_control_bar_hovered()
-            || app.get_control_bar_dragging()
-        {
-            hover_timer.stop();
-            app.set_controls_visible(true);
-        } else {
-            schedule_control_hide(&app, &hover_timer);
-        }
-    });
-    let pending_single_click = Rc::new(RefCell::new(None::<i32>));
-    let single_click_timer = Rc::new(slint::Timer::default());
-    let pending = pending_single_click.clone();
-    let timer = single_click_timer.clone();
-    let single_player = player.command_sender();
-    let single_app = app.as_weak();
-    app.on_single_click_action(move |action| {
-        if let Some(app) = single_app.upgrade()
-            && app.get_control_double_click_index() == 0
-        {
-            dispatch_control_mouse_action(&app, &single_player, action);
-            return;
-        }
-        *pending.borrow_mut() = Some(action);
-        let pending = pending.clone();
-        let player = single_player.clone();
-        let weak = single_app.clone();
-        // Slint reports clicked before double-clicked. Delay the single action
-        // so a double click invokes only its configured action.
-        timer.start(
-            slint::TimerMode::SingleShot,
-            platform::double_click_interval(),
-            move || {
-                let action = pending.borrow_mut().take();
-                if let (Some(action), Some(app)) = (action, weak.upgrade()) {
-                    dispatch_control_mouse_action(&app, &player, action);
-                }
-            },
-        );
-    });
-    let pending = pending_single_click;
-    let timer = single_click_timer;
-    let double_player = player.command_sender();
-    let double_app = app.as_weak();
-    app.on_double_click_action(move |action| {
-        timer.stop();
-        pending.borrow_mut().take();
-        let app = double_app.clone();
-        let player = double_player.clone();
-        // Fullscreen can move/hide the surface delivering this pointer release.
-        // Let capture and double-click dispatch unwind before changing HWNDs.
-        slint::Timer::single_shot(Duration::ZERO, move || {
-            if let Some(app) = app.upgrade() {
-                dispatch_control_mouse_action(&app, &player, action);
-            }
-        });
-    });
-    let button_player = player.command_sender();
-    let button_app = app.as_weak();
-    app.on_mouse_button_action(move |action| {
-        if let Some(app) = button_app.upgrade() {
-            dispatch_control_mouse_action(&app, &button_player, action);
-        }
-    });
-    let scroll_player = player.command_sender();
-    let scroll_playback = latest_playback.clone();
-    let scroll_pause_generation = trackpad_pause_generation.clone();
-    app.on_scroll_action_request(scroll_action_handler(
-        app.as_weak(),
-        scroll_player.clone(),
-        scroll_playback.clone(),
-        scroll_input.clone(),
-        scroll_pause_generation.clone(),
-        None,
-    ));
-    app.on_seek_scroll_action_request(scroll_action_handler(
-        app.as_weak(),
-        scroll_player.clone(),
-        scroll_playback.clone(),
-        scroll_input.clone(),
-        scroll_pause_generation.clone(),
-        Some(riina_core::control_preferences::ScrollAction::Seek),
-    ));
-    app.on_volume_scroll_action_request(scroll_action_handler(
-        app.as_weak(),
-        scroll_player,
-        scroll_playback,
-        scroll_input,
-        scroll_pause_generation,
-        Some(riina_core::control_preferences::ScrollAction::Volume),
-    ));
     macro_rules! connect {
         ($method:ident, $command:expr) => {{
             let player = player.command_sender();
@@ -4231,347 +2822,17 @@ pub(crate) fn configure_player(
         if !media.is_empty() {
             media_open::startup_at(app, media, startup_resume_position, player.command_sender());
         }
-        return Ok(UiSession {
-            player: Some(player),
-            #[cfg(target_os = "windows")]
-            _plugin_overlay_presenter: plugin_overlay_presenter,
-            #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-            _plugin_sidebar_presenter: plugin_sidebar_presenter,
+    } else {
+        rendering::install(
+            app,
+            &player,
+            media,
+            startup_resume_position,
+            prefs.volume,
             #[cfg(target_os = "macos")]
-            _system_media_controls: system_media_controls,
-            #[cfg(target_os = "macos")]
-            _system_media_controls_timer: system_media_controls_timer,
-            #[cfg(target_os = "macos")]
-            _picture_in_picture: picture_in_picture,
-            #[cfg(target_os = "macos")]
-            _picture_in_picture_timer: picture_in_picture_timer,
-            #[cfg(target_os = "macos")]
-            _mac_scroll_event_monitor: mac_scroll_event_monitor,
-            #[cfg(target_os = "macos")]
-            _mac_plugin_menu_observer: mac_plugin_menu_observer,
-            _presentation: native,
-            _hdr_display_timer: hdr_display_timer,
-            _live_text_timer: live_text_timer,
-            _appearance_timer: appearance_timer,
-            _pause_resume_timer: pause_resume_timer,
-            _thumbnail_preview_timer: thumbnail_preview_timer,
-            _transition_frame_timer: transition_frame_timer,
-            _native_material_timer: native_material_timer,
-            #[cfg(target_os = "windows")]
-            _windows_materials_policy_timer: windows_materials_policy_timer,
-            _subtitle_priority_timer: subtitle_priority_timer.clone(),
-            _online_subtitles_window: online_subtitles_window,
-            _online_subtitles_timer: online_subtitles_timer,
-            _playback_history_window: playback_history_window,
-            _playback_history_timer: playback_history_timer,
-            _video_filters_window: video_filters_window,
-            _video_filters_timer: video_filters_timer,
-            _audio_filters_window: audio_filters_window,
-            _audio_filters_timer: audio_filters_timer,
-            _playlist_metadata_timer: playlist_metadata_timer,
-            _automatic_music_mode_timer: automatic_music_mode_timer,
-            _file_drop_timer: file_drop_timer,
-            _player_window_focus: player_window_focus,
-            _plugin_host: plugin_host,
-            _plugin_host_timer: plugin_host_timer,
-            _plugin_osd_timer: plugin_osd_timer,
-            preference_writer: crate::preference_store::Writer::new(
-                prefs_path.clone(),
-                prefs.clone(),
-            ),
-            prefs_path,
-            prefs,
-            audio_equalizer,
-            saved_video_filters,
-            saved_audio_filters,
-            recent_media,
-            recent_open_documents,
-            recent_open_cleared,
-            playback_history,
-            record_playback_history,
-            history_cleared,
-            latest_playback,
-        });
+            picture_in_picture.clone(),
+        )?;
     }
-    let pending_media = Rc::new(RefCell::new(media));
-    let pending_resume_position = Rc::new(Cell::new(startup_resume_position));
-    let render_weak = app.as_weak();
-    let render_player = player.clone();
-    let render_resume_position = pending_resume_position.clone();
-    let mut surface: Option<VideoSurface> = None;
-    #[cfg(target_os = "macos")]
-    let mut icc_profile_display: Option<(usize, Option<Vec<u8>>, bool)> = None;
-    #[cfg(target_os = "macos")]
-    let mut icc_profile_auto_active: Option<bool> = None;
-    let mut blur_surface: Option<crate::video_blur::VideoBlurSurface> = None;
-    let render_generation = Rc::new(Cell::new(0_u64));
-    let mut started = false;
-    let repaint_pending = Arc::new(AtomicBool::new(false));
-    let volume = prefs.volume;
-    #[cfg(target_os = "macos")]
-    let render_picture_in_picture = picture_in_picture.clone();
-    app.window()
-        .set_rendering_notifier(move |state, graphics_api| {
-            match state {
-                slint::RenderingState::RenderingSetup => {
-                    render_generation.set(render_generation.get().wrapping_add(1));
-                    if let Some(app) = render_weak.upgrade()
-                        && app.get_native_video()
-                    {
-                        // Windows native playback is already presented by mpv's
-                        // D3D11 child window. Creating libmpv's OpenGL render API
-                        // context for that same player produces a second video
-                        // feed above it and leaves doubled frames during handoff.
-                        app.set_engine_ready(true);
-                        if !started {
-                            started = true;
-                            let _ = render_player.send(Command::Volume(volume));
-                            let paths = std::mem::take(&mut *pending_media.borrow_mut());
-                            if !paths.is_empty() {
-                                media_open::startup_at(
-                                    &app,
-                                    paths,
-                                    render_resume_position.take(),
-                                    render_player.command_sender(),
-                                );
-                            }
-                        }
-                    } else if let slint::GraphicsAPI::NativeOpenGL { get_proc_address } =
-                        graphics_api
-                    {
-                        let weak = render_weak.clone();
-                        let pending = repaint_pending.clone();
-                        // SAFETY: notifier guarantees that this GL context is current.
-                        match unsafe {
-                            VideoSurface::new(
-                                render_player.clone(),
-                                &get_proc_address,
-                                Box::new(move || {
-                                    if pending.swap(true, Ordering::AcqRel) {
-                                        return;
-                                    }
-                                    let weak = weak.clone();
-                                    let pending = pending.clone();
-                                    let _ = slint::invoke_from_event_loop(move || {
-                                        pending.store(false, Ordering::Release);
-                                        if let Some(app) = weak.upgrade() {
-                                            app.window().request_redraw();
-                                        }
-                                    });
-                                }),
-                            )
-                        } {
-                            Ok(video) => {
-                                // The video-backed material is an optional visual enhancement:
-                                // failure to create it must not prevent playback.
-                                match unsafe {
-                                    crate::video_blur::VideoBlurSurface::new(&get_proc_address)
-                                } {
-                                    Ok(blur) => blur_surface = Some(blur),
-                                    Err(error) => eprintln!("Could not initialize video blur: {error}"),
-                                }
-                                #[cfg(target_os = "macos")]
-                                if let Some(manager) =
-                                    render_picture_in_picture.borrow_mut().as_mut()
-                                    && let Err(error) =
-                                        unsafe { manager.configure_rendering(&get_proc_address) }
-                                    && let Some(app) = render_weak.upgrade()
-                                {
-                                    app.set_status(
-                                        format!("PiP renderer initialization failed: {error}")
-                                            .into(),
-                                    );
-                                }
-                                surface = Some(video);
-                                if let Some(app) = render_weak.upgrade() {
-                                    app.set_engine_ready(true);
-                                }
-                            }
-                            Err(error) => {
-                                if let Some(app) = render_weak.upgrade() {
-                                    app.set_status(
-                                        format!("Video initialization failed: {error}").into(),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-                slint::RenderingState::BeforeRendering => {
-                    if let (Some(video), Some(app)) = (surface.as_mut(), render_weak.upgrade()) {
-                        #[cfg(target_os = "macos")]
-                        if let Some(display) = platform::display_identity(app.window()) {
-                            if !app.get_load_icc_profile()
-                                && let Some((cached_display, profile, _)) =
-                                    icc_profile_display.take()
-                            {
-                                icc_profile_display =
-                                    Some((cached_display, profile, false));
-                            }
-                            let needs_profile = icc_profile_display
-                                .as_ref()
-                                .is_none_or(|(cached_display, _, attempted)| {
-                                    *cached_display != display
-                                        || (app.get_load_icc_profile() && !attempted)
-                                });
-                            if needs_profile {
-                                let attempted = app.get_load_icc_profile();
-                                let mut profile = attempted
-                                    .then(|| platform::icc_profile_for_window(app.window()))
-                                    .flatten();
-                                if let Some(bytes) = profile.as_deref() {
-                                    // SAFETY: this callback runs on Slint's current GL render context.
-                                    if let Err(error) = unsafe { video.set_icc_profile(bytes) } {
-                                        eprintln!("Could not install the macOS display ICC profile: {error}");
-                                        profile = None;
-                                    }
-                                }
-                                icc_profile_display = Some((display, profile, attempted));
-                            }
-                            let profile_available = icc_profile_display
-                                .as_ref()
-                                .is_some_and(|(_, profile, _)| profile.is_some());
-                            let hdr_output_active = app.get_hdr_source_detected()
-                                && app.get_hdr_enabled()
-                                && app.get_hdr_display_active();
-                            let should_use_icc = app.get_load_icc_profile()
-                                && profile_available
-                                && !hdr_output_active;
-                            if icc_profile_auto_active != Some(should_use_icc) {
-                                if let Err(error) = render_player
-                                    .send(Command::SetIccProfileAuto(should_use_icc))
-                                {
-                                    eprintln!("Could not update macOS display ICC processing: {error}");
-                                } else {
-                                    icc_profile_auto_active = Some(should_use_icc);
-                                }
-                            }
-                        }
-                        let scale = app.window().scale_factor();
-                        let width = (app.get_render_width() * scale).clamp(1.0, 8192.0) as u32;
-                        let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
-                        // SAFETY: the notifier uses the same context throughout its lifetime.
-                        match unsafe { video.render(width, height) } {
-                            Ok(()) => {
-                                let sidebar_blur = app.get_liquid_glass_sidebar()
-                                    && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
-                                let controller_blur = app.get_liquid_glass_osc()
-                                    && app.get_loaded()
-                                    && (app.get_controls_visible() || app.get_music_mode());
-                                let osd_blur = app.get_liquid_glass_osd()
-                                    && app.get_loaded()
-                                    && (app.get_video_osd_visible()
-                                        || app.get_seek_osd_visible()
-                                        || !app.get_plugin_osd_message().is_empty()
-                                        || (app.get_fullscreen()
-                                            && app.get_controls_visible()
-                                            && app.get_display_time_and_battery_in_fullscreen()));
-                                let blur_enabled = app.get_system_materials_enabled()
-                                    && (sidebar_blur || controller_blur || osd_blur);
-                                if blur_enabled {
-                                    if let Some(blur) = blur_surface.as_mut() {
-                                        // SAFETY: both textures belong to this window's current GL context.
-                                        match unsafe {
-                                            blur.render(
-                                                glow::NativeTexture(video.texture_id()),
-                                                width,
-                                                height,
-                                            )
-                                        } {
-                                            Ok(()) => {
-                                                let image = unsafe {
-                                                    slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
-                                                        blur.texture_id(),
-                                                        (width.div_ceil(4), height.div_ceil(4)).into(),
-                                                    )
-                                                    .build()
-                                                };
-                                                set_video_material_sample(&app, image, true);
-                                            }
-                                            Err(error) => eprintln!("Could not render video blur: {error}"),
-                                        }
-                                    }
-                                } else {
-                                    set_video_material_sample(&app, slint::Image::default(), false);
-                                }
-                                let image = unsafe {
-                                    slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
-                                        video.texture_id(),
-                                        (width, height).into(),
-                                    )
-                                    .build()
-                                };
-                                app.set_video_frame(image);
-                                #[cfg(target_os = "macos")]
-                                if let Some(manager) =
-                                    render_picture_in_picture.borrow_mut().as_mut()
-                                    && let Err(error) = unsafe { manager.render_frame(video) }
-                                {
-                                    app.set_status(
-                                        format!("PiP frame rendering failed: {error}").into(),
-                                    );
-                                }
-                                if !started {
-                                    started = true;
-                                    let _ = render_player.send(Command::Volume(volume));
-                                    let paths = std::mem::take(&mut *pending_media.borrow_mut());
-                                    if !paths.is_empty() {
-                                        media_open::startup_at(
-                                            &app,
-                                            paths,
-                                            render_resume_position.take(),
-                                            render_player.command_sender(),
-                                        );
-                                    }
-                                }
-                            }
-                            Err(error) => {
-                                app.set_status(format!("Video rendering failed: {error}").into())
-                            }
-                        }
-                    }
-                }
-                slint::RenderingState::AfterRendering => {
-                    if let Some(video) = surface.as_ref() {
-                        // Slint presents immediately after this notifier; report at its
-                        // submission boundary so libmpv can pace the next video frame.
-                        // SAFETY: same live renderer and context as the composed frame.
-                        unsafe { video.report_swap() };
-                    }
-                }
-                slint::RenderingState::RenderingTeardown => {
-                    #[cfg(target_os = "macos")]
-                    if let Some(manager) = render_picture_in_picture.borrow_mut().as_mut() {
-                        // SAFETY: RenderingTeardown runs before Slint releases its GL context.
-                        unsafe { manager.teardown_rendering() };
-                    }
-                    drop(blur_surface.take());
-                    drop(surface.take());
-                    #[cfg(target_os = "macos")]
-                    {
-                        icc_profile_display = None;
-                        icc_profile_auto_active = None;
-                    }
-                    // Context loss also needs UI invalidation, but only after
-                    // the backend releases its mutable window borrow. A later
-                    // setup must not have its new frame cleared by stale work.
-                    let retired_generation = render_generation.get();
-                    let generation = render_generation.clone();
-                    let weak = render_weak.clone();
-                    slint::Timer::single_shot(Duration::ZERO, move || {
-                        if generation.get() == retired_generation
-                            && let Some(app) = weak.upgrade()
-                            && !app.get_native_video()
-                        {
-                            app.set_video_frame(slint::Image::default());
-                            set_video_material_sample(&app, slint::Image::default(), false);
-                            app.set_engine_ready(false);
-                        }
-                    });
-                }
-                _ => {}
-            }
-        })?;
     Ok(UiSession {
         player: Some(player),
         #[cfg(target_os = "windows")]
@@ -4590,8 +2851,8 @@ pub(crate) fn configure_player(
         _mac_scroll_event_monitor: mac_scroll_event_monitor,
         #[cfg(target_os = "macos")]
         _mac_plugin_menu_observer: mac_plugin_menu_observer,
-        _presentation: None,
-        _hdr_display_timer: None,
+        _presentation: native,
+        _hdr_display_timer: hdr_display_timer,
         _live_text_timer: live_text_timer,
         _appearance_timer: appearance_timer,
         _pause_resume_timer: pause_resume_timer,
@@ -4630,32 +2891,6 @@ pub(crate) fn configure_player(
         history_cleared,
         latest_playback,
     })
-}
-
-#[cfg(test)]
-mod control_auto_hide_tests {
-    use super::control_hide_is_allowed;
-
-    #[test]
-    fn deadline_hides_only_an_idle_loaded_controller() {
-        assert!(control_hide_is_allowed(
-            true, true, false, false, false, false, false
-        ));
-        let blocked_states = [
-            (false, true, false, false, false, false, false),
-            (true, false, false, false, false, false, false),
-            (true, true, true, false, false, false, false),
-            (true, true, false, true, false, false, false),
-            (true, true, false, false, true, false, false),
-            (true, true, false, false, false, true, false),
-            (true, true, false, false, false, false, true),
-        ];
-        for (enabled, loaded, dialog, crop, title, controller, dragging) in blocked_states {
-            assert!(!control_hide_is_allowed(
-                enabled, loaded, dialog, crop, title, controller, dragging
-            ));
-        }
-    }
 }
 
 #[cfg(test)]

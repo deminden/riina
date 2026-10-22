@@ -4,6 +4,48 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## Player controller review 2026-10-22
+
+The [player-controller record](../tests/visual/windows-player-controller-review-2026-10-22.json)
+identifies the exact source and executable based on local commit `af5c906`.
+The player root falls from 4826 to 3061 lines. Input/focus, lifecycle/system media,
+controller feedback, LiveText, media discovery and rendering now have separate
+modules. Both presentation paths use one session constructor, retaining native
+presentation/HDR timers, GL ownership and resource teardown order. All 19 existing
+player-module tests and the source's 118 direct plus 14 macro callback registrations
+are retained.
+
+This batch corrects automatic restore/focus resume, including a restore before its
+pause acknowledgement, and polls the framed Windows playback owner for minimization.
+LiveText waits for fresh capture results, rejects recognition from earlier paused
+positions/seeks and copies pixels only for new jobs. Native captures acknowledge
+rejection, success and failure so serial capture can recover. Settings panels now
+override stale hover without bypassing controller-hide guards. Subtitle scans use
+request identities; older files/settings cannot replace newer completion state,
+and disabling/re-enabling discovery starts a fresh scan.
+
+Formatting, strict all-target Clippy and the locked workspace build passed.
+The final workspace suite passed 694 tests with 57 default ignores, using two
+threads; its normal parallel rerun also passed. Four successful child-helper runs
+are excluded from the total. Thirteen regressions were added and existing discovery
+and native capture tests expanded. The two resume regressions failed before the
+policy fix. All 52 native integration and two native library tests passed explicitly
+with the pinned development DLL and null audio; 68 script tests also passed.
+Traceability passed for 260 requirements, 69 visual identities, 15 evidence links
+and 68 local image hashes.
+
+One earlier default-parallel application test process terminated in `ucrtbase.dll`
+with `0xc0000409`. The final runs did not reproduce it; the cause is unestablished
+and the failed run remains in the local evidence rather than being counted as passed.
+
+The byte-identical rebuilt application passed eight automated Windows checks in
+7879 ms, including minimizing the actual native owner, observing playback pause,
+restoring it and observing resume. The isolated fixture/profile used null audio.
+Normal shutdown left no Riina process. No desktop captures were taken; visual
+parity, audible output and HDR are unverified by this batch. Native macOS lifecycle,
+manual OCR interaction and a new shared-GL desktop run remain separate acceptance
+work. This focused review does not establish an exhaustive repository audit.
+
 ## History and plugin quality review 2026-10-22
 
 The [quality-review record](../tests/visual/windows-quality-review-2026-10-22.json)

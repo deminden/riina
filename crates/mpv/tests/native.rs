@@ -377,19 +377,52 @@ fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
+    let playing = wait_for(&receiver, |state| state.phase == Phase::Playing);
+    player.send(Command::CaptureFrame).unwrap();
+    let rejected = wait_for(&receiver, |state| {
+        state.finished_frame_capture_requests > playing.finished_frame_capture_requests
+    });
+    assert_eq!(
+        rejected.completed_frame_captures,
+        playing.completed_frame_captures
+    );
+    assert!(rejected.error.is_some());
     player.send(Command::SetPaused(true)).unwrap();
     let paused = wait_for(&receiver, |state| state.phase == Phase::Paused);
     player.send(Command::CaptureFrame).unwrap();
     let captured = wait_for(&receiver, |state| {
         state.completed_frame_captures > paused.completed_frame_captures
     });
+    assert_eq!(
+        captured.finished_frame_capture_requests,
+        paused.finished_frame_capture_requests + 1
+    );
     let frame = captured.captured_frame.unwrap();
     assert!(frame.width > 0 && frame.height > 0);
     assert_eq!(
         frame.rgba.len(),
         frame.width as usize * frame.height as usize * 4
     );
+    player.send(Command::SetPauseWhenOpen(true)).unwrap();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/long-silence.wav")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let audio = wait_for(&receiver, |state| {
+        state.generation > captured.generation && state.phase == Phase::Paused
+    });
+    player.send(Command::CaptureFrame).unwrap();
+    let failed = wait_for(&receiver, |state| {
+        state.finished_frame_capture_requests > audio.finished_frame_capture_requests
+    });
+    assert_eq!(
+        failed.completed_frame_captures,
+        audio.completed_frame_captures
+    );
+    assert!(failed.captured_frame.is_none());
 }
 
 #[test]

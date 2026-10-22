@@ -10,6 +10,8 @@ CHECKS = {
     "double_click_fullscreen",
     "controller_reveal_keeps_native_surface",
     "fullscreen_exit_and_playback_progress",
+    "minimize_pauses_native_owner",
+    "restore_resumes_automatic_pause",
 }
 
 

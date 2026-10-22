@@ -463,8 +463,16 @@ impl Player {
                                 {
                                     pending_drop_subtitles = subtitles;
                                 }
+                                if !command_issue_succeeded && matches!(command, Command::CaptureFrame) {
+                                    state.finished_frame_capture_requests = state.finished_frame_capture_requests.wrapping_add(1);
+                                }
                             }
-                            Err(error) => state.error = Some(error),
+                            Err(error) => {
+                                if matches!(command, Command::CaptureFrame) {
+                                    state.finished_frame_capture_requests = state.finished_frame_capture_requests.wrapping_add(1);
+                                }
+                                state.error = Some(error);
+                            }
                         }
                     }
                     loop {
@@ -500,6 +508,9 @@ impl Player {
                                                 .is_none_or(|generation| {
                                                     generation <= pending_command.generation
                                                 }))) {
+                                    if frame_capture {
+                                        state.finished_frame_capture_requests = state.finished_frame_capture_requests.wrapping_add(1);
+                                    }
                                     if event.error < 0 {
                                         if material_capture {
                                             let reason = worker_api

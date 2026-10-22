@@ -58,6 +58,15 @@ The `player_ui/` modules own playback observations, media catalog models, native
 material sampling, plugin-window integration and audio/video/subtitle controls.
 The root still owns session resources and their teardown order. Plugin callbacks
 retain command senders rather than playback owners.
+Player input/focus, lifecycle and system-media adapters, OSD/controller feedback,
+LiveText capture, media discovery and GL rendering now have their own modules.
+Both presentation paths construct `UiSession` in one place. Automatic resume is
+scoped to the generation the window paused; LiveText serializes frame captures
+and validates frame position, seek revision and capture revision before applying
+recognition. Discovery readiness uses per-request identities, so a superseded scan
+cannot replace a newer scan's completion state.
+Native frame capture acknowledges rejected and failed requests separately from
+successful pixels, allowing the serialized LiveText capture flow to retry.
 
 `plugin_runtime.rs` owns session startup, command admission and cancellation. Its
 private modules separate the worker loop, execution budget, package loading,

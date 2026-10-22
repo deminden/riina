@@ -1,4 +1,6 @@
 //! Expand IINA-style subtitle search paths and find matching external files.
+mod readiness;
+pub(crate) use readiness::Readiness;
 
 use riina_core::{
     Phase, Playback,
@@ -39,9 +41,11 @@ impl AutoDiscovery {
         state: &Playback,
         preferences: &AutoLoadPreferences,
     ) -> Option<(u64, PathBuf)> {
-        if !matches!(state.phase, Phase::Playing | Phase::Paused)
-            || preferences.mode == AutoLoadMode::Disabled
-        {
+        if preferences.mode == AutoLoadMode::Disabled {
+            self.mode = Some(AutoLoadMode::Disabled);
+            return None;
+        }
+        if !matches!(state.phase, Phase::Playing | Phase::Paused) {
             return None;
         }
         let media_path = state
@@ -913,6 +917,14 @@ mod tests {
             controller.observe(&state, &preferences),
             Some((4, PathBuf::from("movie.mkv")))
         );
+        preferences.mode = AutoLoadMode::Disabled;
+        assert_eq!(controller.observe(&state, &preferences), None);
+        preferences.mode = AutoLoadMode::Intelligent;
+        assert_eq!(
+            controller.observe(&state, &preferences),
+            Some((4, PathBuf::from("movie.mkv")))
+        );
+        assert_eq!(controller.observe(&state, &preferences), None);
         state.generation = 5;
         assert_eq!(
             controller.observe(&state, &preferences),

@@ -38,6 +38,12 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The player review separates input, lifecycle, feedback, LiveText, discovery and
+  rendering, and unifies session construction. It corrects automatic resume and
+  Windows minimization ownership, stale recognition after a paused seek, repeated
+  idle frame copies, controller-hide guards and superseded subtitle-scan completion.
+  See [the player review](verification.md#player-controller-review-2026-10-22) for
+  verified scope and remaining native/visual acceptance work.
 - The latest local quality review removes an inverted history/recent-media lock
   order, timer starvation under queued plugin events, and duplicate history saves
   during selection removal. History persistence and plugin snapshots now have

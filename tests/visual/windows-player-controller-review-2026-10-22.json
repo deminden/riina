@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-22",
+  "state": "Local player-controller review; published version remains 4.2.0",
+  "source_base_revision": "af5c90644e9b26013a1879b11177a8ed436402b0",
+  "source_hash_encoding": "UTF-8 with LF newlines (Git canonical text)",
+  "source_files_sha256": {
+    "crates/app/src/open_subtitles.rs": "fecfc5e375f59da6269cda0987752a550e3488ed8158885c64eb1c633b95220a",
+    "crates/app/src/platform/windows/package_smoke.rs": "aac2ff7bd4313d382863a2061e380401e2bf9d80e33b5054f2f340e4ec57b3b6",
+    "crates/app/src/player_ui.rs": "54ebba2c6e38e8388415bb61a54d8c8d2a4e0903b319e952458c04bb7d031235",
+    "crates/app/src/player_ui/discovery.rs": "8e6372c1c53445c1a37b1e4ed72c9a8afbf3b186b0b0e1431fa9eae5d4d8c25e",
+    "crates/app/src/player_ui/feedback.rs": "b4d52246fc9f2a103ed3382d0c8c9494f9c635a0f824a8f632f7311d7884f294",
+    "crates/app/src/player_ui/input.rs": "4c4b20b8c2fb7137c7af16623f525e82f52028afe4475c2f11a740bed8a9abf9",
+    "crates/app/src/player_ui/lifecycle.rs": "64864d8038b61bded11000a05a74652752af205c578ae3c7f20e95f311ba5291",
+    "crates/app/src/player_ui/live_text.rs": "d3549eb007ff0631f04c31cbda28d3fb63da4f7ff4039416c810c2a1b1380743",
+    "crates/app/src/player_ui/rendering.rs": "a8d4f8513e6d3d5df17cf7f39dbbe3d49642adb10cacccb9df08ed1c2021f658",
+    "crates/app/src/subtitle_discovery.rs": "f04e15e02c853463f84f77230a6e28a4f40f4b9fe5d145d0e76ab0d3991cae8d",
+    "crates/app/src/subtitle_discovery/readiness.rs": "e071b2bdd0ba9c3335ac408cbff5b3d433f6e527fa27e1d7be612cd63f8cc3ee",
+    "crates/core/src/playback.rs": "723183e7245bc5c967c590e3953ab9c56127a3e5ace48c7396afa2a1c17607be",
+    "crates/mpv/src/lib.rs": "cf4bd155c951d1bed7f1d3f00a50eed8c3a60044697cbc8020c0c4fc0d5b4194",
+    "crates/mpv/tests/native.rs": "4061290886dd88a825cae4e67689c6ba2a2f6c488a8557561b418eda128a964f",
+    "scripts/check-gui-smoke.py": "c1e016d53b91b51d4c858a6279b19eb66a43df0c306d5ba91615e33fdb26fd2c"
+  },
+  "reference": {
+    "version": "IINA v1.5.0",
+    "commit": "fbcff4df7183b335880396af0655f6bb89d46442",
+    "inspected_contracts": [
+      "MainWindowController owns automatic minimize/inactive pause and resumes on restore/focus",
+      "LiveTextController cancels superseded analysis and scopes results to paused playback",
+      "AutoFileMatcher checks per-request tickets while doing background matching"
+    ],
+    "inspection": "Ownership and lifecycle facts only; independent Rust implementation"
+  },
+  "findings": [
+    {
+      "area": "Automatic pause/resume",
+      "problem": "Restore required Phase::Playing and paused=true together. macOS inactive resume used the same impossible predicate. A restore before pause acknowledgement also failed. Native Windows polling watched the controls surface rather than the framed playback owner.",
+      "resolution": "One generation-scoped AutomaticPause policy handles observed pause and pending acknowledgements, consumes its ownership marker once and rejects replaced/stopped media. Windows polls its actual native host.",
+      "tests": [
+        "restoring_a_window_resumes_its_automatically_paused_media_once",
+        "restore_before_pause_acknowledgement_still_queues_resume",
+        "automatic_resume_does_not_restart_replaced_or_stopped_media",
+        "resume_handles_paused_buffering_and_cancellation"
+      ],
+      "before_fix": "The first two policy regressions failed before changing the resume condition.",
+      "desktop_checks": [
+        "minimize_pauses_native_owner",
+        "restore_resumes_automatic_pause"
+      ]
+    },
+    {
+      "area": "LiveText capture and asynchronous recognition",
+      "problem": "A recognition result could be applied after a paused seek before another capture completed. Re-enabling could analyze an old frame while the new capture was pending. Full RGBA frames were copied every polling tick before checking whether another recognition job was needed.",
+      "resolution": "Serialize capture requests, wait for a new capture revision, discard superseded captures, clear old regions when frame identity changes and validate generation, position, seek revision and capture revision on completion. Copy pixels only when starting a new recognition job. The native worker acknowledges rejected, failed and successful capture requests, so serial capture can retry after failure.",
+      "tests": [
+        "recognition_waits_for_the_requested_capture_instead_of_reusing_old_pixels",
+        "a_seek_discards_old_recognition_before_another_capture_completes",
+        "a_superseded_capture_finishes_before_requesting_the_new_paused_frame",
+        "failed_admission_and_replaced_media_do_not_block_fresh_capture_requests",
+        "a_failed_native_capture_retries_without_analyzing_old_pixels"
+      ],
+      "native_regression": "live_text_capture_returns_a_tightly_packed_frame_only_while_paused now verifies rejected, successful and audio-only failed captures settle their requests"
+    },
+    {
+      "area": "Controller visibility",
+      "problem": "An open settings panel bypassed every timer guard, including disabled auto-hide, unloaded media, active dialogs, crop editing and dragging.",
+      "resolution": "A panel overrides stale native hover only; the remaining visibility guards still apply.",
+      "tests": [
+        "a_sidebar_can_override_stale_hover_but_cannot_override_visibility_guards"
+      ]
+    },
+    {
+      "area": "Subtitle discovery completion",
+      "problem": "A late scan unconditionally stored its generation and could replace a newer completed scan, blocking automatic online subtitle search. Settings changes within the same file had no completion identity, and disabling/re-enabling retained a stale discovery signature.",
+      "resolution": "Readiness belongs to a generation and request sequence. Superseded completions are ignored, pending results are checked against the current request, and disable/re-enable requests a fresh scan.",
+      "tests": [
+        "late_completion_cannot_replace_the_newer_medias_ready_state",
+        "changing_preferences_invalidates_an_older_scan_in_the_same_generation",
+        "disabling_local_discovery_invalidates_the_running_scan",
+        "discovery_runs_once_for_each_active_file_and_retries_after_preference_changes"
+      ]
+    }
+  ],
+  "refactoring": {
+    "player_root_lines_before": 4826,
+    "player_root_lines_after": 3061,
+    "modules": {
+      "input.rs": 663,
+      "lifecycle.rs": 423,
+      "feedback.rs": 419,
+      "live_text.rs": 328,
+      "discovery.rs": 141,
+      "rendering.rs": 308
+    },
+    "direct_ui_and_native_event_registrations_retained": 87,
+    "existing_player_root_tests_retained": 9,
+    "existing_player_module_tests_retained": 19,
+    "source_registrations_preserved": {
+      "direct_callbacks": 118,
+      "macro_callbacks": 14
+    },
+    "session_resource_order": "Unchanged; focus registration type moved into the input module",
+    "session_construction": "One constructor shared by both presentation paths, retaining native presentation/HDR timers and GL ownership semantics",
+    "redundancy_removed": [
+      "Duplicated UiSession resource construction",
+      "Duplicated automatic-resume predicates",
+      "Redundant native-path subtitle timer clone",
+      "Full-frame copies during idle OCR polling",
+      "Raw readiness sentinel shared by unrelated subtitle scans"
+    ]
+  },
+  "verification": {
+    "format": "passed",
+    "strict_workspace_all_target_clippy": "passed",
+    "locked_workspace_build": "passed",
+    "workspace_tests": {
+      "passed": 694,
+      "failed": 0,
+      "ignored": 57,
+      "child_helpers_excluded_from_total": 4,
+      "new_regressions": 13,
+      "expanded_existing_regression": "discovery_runs_once_for_each_active_file_and_retries_after_preference_changes"
+    },
+    "python_tests": {
+      "passed": 68,
+      "failed": 0
+    },
+    "test_concurrency": {
+      "final_workspace_threads": 2,
+      "initial_default_parallel_run": "Terminated in ucrtbase.dll with 0xc0000409; retained in parallel-run-crash.log",
+      "default_parallel_rerun": "passed",
+      "initial_failure_cause": "Unestablished; default parallel rerun passed on final source"
+    },
+    "native_ignored_tests": {
+      "integration_passed": 52,
+      "library_passed": 2,
+      "engine": "Pinned development DLL, null audio"
+    },
+    "parity": {
+      "requirements": 260,
+      "visual_identities": 69,
+      "evidence_links": 15,
+      "image_hashes": 68,
+      "result": "passed",
+      "inventory_complete": false
+    },
+    "logs_sha256": {
+      "pause-before.log": "1885fd48c16406de805c187824fb957e769429b60ed922798398ea980782c391",
+      "final-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "final-clippy.log": "f3d0b61beee009d5f8408a04d9c87003e8fd5dec836bb04bc18e659a6655d80a",
+      "final-workspace-tests.log": "e84003078824de541801387388f9cec90009bfde3f36c46a492d5466ac97e2bc",
+      "final-build.log": "8ac09a0184c54318c7a633051c724123f95c465f783eac85e41ea074cad45176",
+      "python-tests.log": "0bb6f24557e329e962e9572fd1316805c2cb8f4b3be6c3a78f19ca90cb055b90",
+      "parity.log": "dcc747bb83a6ceed813c5fdd9bf6000bd4d0517dc721d35a5575d0afd84ad3b6",
+      "desktop-smoke.log": "01df3176d73754555afabda9f5b519f4dfa412c3784b93f7314072099011acf1",
+      "desktop-smoke.json": "fc355e1ecdff9ad44dfa0b0519344317e1aaf7722b8a3bdeac16909932524ee7",
+      "native-tests.log": "9213b17a5f0457b6abab5609d8cfc26cb9917ee6d0dfcd4ee64727863727fb83",
+      "native-library-tests.log": "3e6b305a1e71f1ff7c5e6147cba0236b4f41d49d4f8fcb60eb85ccf469a68594",
+      "default-parallel-retry.log": "0e782f50a5ae458cc1bd9a1ca5b91ca81736db176a7b9f3fd88d216e72ff8c32",
+      "parallel-run-crash.log": "235696042b1b54484370ce96e848f0100042ff492fbeef4626c38e5772a7a211",
+      "assets-staged.log": "a80ec21125e92b4f6831fdba215233720599d3ecb39872490099767fc4537650"
+    },
+    "staged_asset_provenance": {
+      "result": "passed",
+      "records": 74,
+      "asset_changes": false
+    }
+  },
+  "windows_smoke": {
+    "executable_sha256": "e4381fb4bac8cfacacf296e7a9170b5fa1311dad0df8614997b56804836d70ea",
+    "engine_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3",
+    "fixture": "tests/fixtures/moving-square.avi",
+    "fixture_sha256": "a3011ea6eee2f31f086d7e74d8f200df48d105a7f7880aaf97ac5e0bf6546636",
+    "profile": "Isolated disposable profile and media fixture; null audio",
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress",
+      "minimize_pauses_native_owner",
+      "restore_resumes_automatic_pause"
+    ],
+    "elapsed_ms": 7879,
+    "process_id": 18928,
+    "normal_shutdown": true,
+    "remaining_riina_processes": 0,
+    "physical_display_verified": false,
+    "desktop_captures": "Not taken; automated state/lifecycle checks only"
+  },
+  "limits": [
+    "No visual parity, physical audio or HDR acceptance inferred",
+    "Native macOS inactive-window/system-media behavior is source-wired and shares tested policy; no macOS application runtime verification",
+    "No manual OCR/platform recognition acceptance in this batch",
+    "Shared-GL rendering notifier retains its original body and ownership; no new shared-GL desktop run",
+    "Remaining player orchestration and other large modules still require future focused review; this is not an exhaustive repository audit"
+  ],
+  "build_storage": {
+    "target_debug_gib": 40.98,
+    "cleanup_performed": false
+  }
+}

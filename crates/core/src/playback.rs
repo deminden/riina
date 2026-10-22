@@ -78,6 +78,9 @@ pub struct Playback {
     /// Latest paused-frame snapshot for asynchronous OCR and selection overlays.
     pub captured_frame: Option<Arc<CapturedFrame>>,
     pub completed_frame_captures: u64,
+    /// Capture requests settled in this media session, including rejected or
+    /// failed requests. Consumers must not wait for successful pixels after failure.
+    pub finished_frame_capture_requests: u64,
     /// Last pre-transition image retained while the next video initializes.
     pub transition_frame: Option<Arc<CapturedFrame>>,
     pub transition_frame_generation: Option<u64>,

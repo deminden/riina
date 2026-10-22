@@ -260,7 +260,7 @@ pub(crate) fn connect_player(
     app: &crate::PlayerWindow,
     sender: riina_mpv::CommandSender,
     playback: Arc<Mutex<riina_core::Playback>>,
-    subtitle_discovery_ready: Arc<AtomicU64>,
+    subtitle_discovery_ready: Arc<crate::subtitle_discovery::Readiness>,
 ) -> (
     Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
     Rc<slint::Timer>,
@@ -650,7 +650,7 @@ pub(crate) fn connect_player(
                 return;
             }
             if auto_load.mode != riina_core::subtitle_controls::AutoLoadMode::Disabled
-                && subtitle_discovery_ready.load(Ordering::Acquire) != state.generation
+                && !subtitle_discovery_ready.is_ready(state.generation)
             {
                 *pending_search.borrow_mut() = None;
                 return;
