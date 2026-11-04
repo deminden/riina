@@ -1,7 +1,7 @@
 //! Player feedback and controller visibility share the current UI policy.
 use crate::{PlayerWindow, platform};
 use riina_core::Command;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     rc::Rc,
     sync::{Arc, Mutex},
@@ -95,6 +95,13 @@ pub(super) fn install(
         let Some(app) = controls_fade_parent.upgrade() else {
             return;
         };
+        // The pointer follows the same interaction-driven deadline as the
+        // controller. Movement shows the controls and restores the pointer.
+        app.window().with_winit_window(|window| {
+            window.set_cursor_visible(
+                visible || app.get_sidebar() != 0 || app.get_leading_sidebar() != 0,
+            );
+        });
         if visible {
             app.set_controls_rendered(true);
         } else if app.get_disable_animations() || app.get_system_reduce_motion() {
