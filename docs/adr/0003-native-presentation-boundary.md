@@ -67,6 +67,20 @@ that video stayed visible with the 3840×2159 popup. This is a Windows presentat
 workaround; it leaves the last video scanline uncovered, affects control layout
 by at most one physical pixel, and restores exact popup bounds on fullscreen exit.
 No video resize, SDR conversion, or native-engine change is involved.
+
+The clear controls client also requires full negative frame margins through
+`DwmExtendFrameIntoClientArea`, in addition to blur-behind alpha composition.
+On the tested Windows 11 desktop, blur-behind alone tinted the underlying video:
+the same paused HDR color patch changed from captured RGB 255 to 196 and black
+from 0 to 4 when the controls HWND was shown. Full frame extension made the clear
+canvas match the hidden-controls reference in both Windows HDR modes, retaining
+the controls' own alpha. Apply this on initial realization and renderer recreation;
+do not compensate with video brightness, saturation or tone-mapping overrides.
+Clear residual caption/resizing style bits from this frameless popup before
+extending its frame; otherwise DWM paints duplicate caption buttons over video.
+The framed host retains its ordinary controls and resizing policy.
+See [Microsoft's frame-extension contract](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmextendframeintoclientarea).
+These are desktop composition measurements, not physical HDR luminance calibration.
 The [GLFW maintainer's direct experiment](https://discourse.glfw.org/t/black-screen-when-setting-window-to-transparent-and-size-to-1920x1080/2585/5)
 independently documents alpha failure for a monitor-sized undecorated OpenGL
 window and avoiding that driver path by changing its extent.

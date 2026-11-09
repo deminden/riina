@@ -1,0 +1,443 @@
+{
+  "date": "2026-11-09",
+  "base_revision": "8758d927eb80e6e9d7cb3cc9aab63963b57852f0",
+  "scope": "Native Windows controls composition; reported HDR10 movie, original PQ color patches, Windows HDR off/on and fullscreen playback.",
+  "source_files_sha256_lf": {
+    "crates/app/Cargo.toml": "c0c5ca11b95d519f0b3f903ebb08f0ce930963f5399d13371e4fcfc98f5b3361",
+    "crates/app/src/platform/windows/native_window/surfaces.rs": "846c2b0890f832865e0229e5a3a8f48918b22e1c3de6639a097a7282abb70557"
+  },
+  "executable": {
+    "local_path": "tools/hdr-overlay-fix-2026-11-09/riina.exe",
+    "sha256": "9a8ca774f6653e44c9200bba432ada96a9dcfa5362a07c9f70dce98184da8ba5",
+    "installed_release_replaced": false
+  },
+  "native_dll": {
+    "path": "tools/mpv/libmpv-2.dll",
+    "sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3"
+  },
+  "diagnosis": {
+    "cause": "The transparent WGL controls HWND retained a DWM client/frame tint; showing it alone lifted video blacks and dimmed highlights.",
+    "causal_method": "Hold one exact paused frame and native decoder/settings alive. Hide only the owned controls HWND, restore it, then extend its DWM frame with negative margins. No video option changes.",
+    "windows_sdr": {
+      "black_rgb_before": [
+        4,
+        4,
+        4
+      ],
+      "black_rgb_controls_hidden": [
+        0,
+        0,
+        0
+      ],
+      "white203_rgb_before": [
+        167,
+        167,
+        167
+      ],
+      "white203_rgb_controls_hidden": [
+        217,
+        217,
+        217
+      ]
+    },
+    "windows_hdr": {
+      "black_rgb_before": [
+        4,
+        4,
+        4
+      ],
+      "black_rgb_controls_hidden": [
+        0,
+        0,
+        0
+      ],
+      "white100_rgb_before": [
+        196,
+        196,
+        196
+      ],
+      "white100_rgb_controls_hidden": [
+        255,
+        255,
+        255
+      ]
+    },
+    "counterchecks": [
+      "Restoring the original controls HWND reproduced the original tint.",
+      "Disabling blur-behind made the WGL client opaque; clearing the backdrop alone did not remove the tint.",
+      "Full negative frame margins matched the hidden-controls reference.",
+      "Disabling non-client rendering reintroduced the tint.",
+      "Clearing residual caption/resizing style flags prevented duplicate caption buttons while retaining the corrected video pixels."
+    ],
+    "fix": "Apply full negative DwmExtendFrameIntoClientArea margins after enabling per-pixel alpha; normalize the controls popup to frameless styles on realization/recreation. Preserve the framed host and existing mpv color policy.",
+    "api_contract": "https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmextendframeintoclientarea"
+  },
+  "color_check": {
+    "fixture_sha256": "c21c67d2f5839590420123f984647dc19cbe23b7fb7e5124e526c6c41be947c5",
+    "source": "Original local BT.709 linear-nit RGB/CMY and neutral patches encoded as BT.2020/PQ limited-range 10-bit v210 in Matroska.",
+    "paused_time_seconds": 0.5,
+    "sampling": "Twelve patch interiors: x=round(1492+(index+0.5)*857/12), y=960 on the 3840x2160 full desktop, outside controls.",
+    "modes": [
+      {
+        "windows_hdr": false,
+        "states": [
+          "controls visible",
+          "controls hidden",
+          "controls restored"
+        ],
+        "patch_count": 12,
+        "maximum_channel_difference_between_states": 0,
+        "rgb": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            19,
+            19,
+            19
+          ],
+          [
+            65,
+            65,
+            65
+          ],
+          [
+            138,
+            138,
+            138
+          ],
+          [
+            177,
+            177,
+            177
+          ],
+          [
+            217,
+            217,
+            217
+          ],
+          [
+            183,
+            19,
+            6
+          ],
+          [
+            53,
+            178,
+            22
+          ],
+          [
+            15,
+            26,
+            177
+          ],
+          [
+            39,
+            178,
+            178
+          ],
+          [
+            175,
+            33,
+            178
+          ],
+          [
+            177,
+            178,
+            27
+          ]
+        ]
+      },
+      {
+        "windows_hdr": true,
+        "states": [
+          "controls visible",
+          "controls hidden",
+          "controls restored"
+        ],
+        "patch_count": 12,
+        "maximum_channel_difference_between_states": 0,
+        "rgb": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            34,
+            34,
+            34
+          ],
+          [
+            103,
+            103,
+            103
+          ],
+          [
+            212,
+            212,
+            212
+          ],
+          [
+            255,
+            255,
+            255
+          ],
+          [
+            255,
+            255,
+            255
+          ],
+          [
+            255,
+            30,
+            11
+          ],
+          [
+            69,
+            255,
+            37
+          ],
+          [
+            28,
+            48,
+            255
+          ],
+          [
+            35,
+            255,
+            255
+          ],
+          [
+            255,
+            56,
+            255
+          ],
+          [
+            255,
+            255,
+            44
+          ]
+        ]
+      }
+    ]
+  },
+  "movie_check": {
+    "filename": "Банши Инишерина.2022.WEB-DL.2160p.HDR.mkv",
+    "riina_time_seconds": 600.016,
+    "vlc_time_seconds": 599.99,
+    "vlc_version": "3.0.24 Vetinari",
+    "live_windows_hdr_sequence": [
+      "off",
+      "on",
+      "off",
+      "on"
+    ],
+    "shadow_region": {
+      "x": 2400,
+      "y": 450,
+      "width": 51,
+      "height": 51,
+      "captured_rgb_mean_before": 6.484941689093938,
+      "captured_rgb_mean_after_sdr": 3.4559784698193003
+    },
+    "vlc_diagnostics": "D3D11VA allocation warnings occurred during seeking; accepted captures were verified as the matching visible paused movie frame.",
+    "sdr": {
+      "windows": {
+        "supported": true,
+        "enabled": false,
+        "hdr_user_enabled": false,
+        "flags": 215,
+        "active_mode": 1,
+        "bits_per_channel": 10,
+        "encoding": 0,
+        "adapter_low": 58684,
+        "adapter_high": 0,
+        "target": 4352
+      },
+      "source_gamma": "pq",
+      "target_gamma": "scrgb",
+      "target_peak_nits": 80.0,
+      "target_trc_option": "auto"
+    },
+    "hdr": {
+      "windows": {
+        "supported": true,
+        "enabled": true,
+        "hdr_user_enabled": true,
+        "flags": 243,
+        "active_mode": 2,
+        "bits_per_channel": 10,
+        "encoding": 0,
+        "adapter_low": 58684,
+        "adapter_high": 0,
+        "target": 4352
+      },
+      "source_gamma": "pq",
+      "target_gamma": "scrgb",
+      "target_peak_nits": 1499.0,
+      "target_trc_option": "pq"
+    }
+  },
+  "captures": [
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/final-overlay-sdr/overlay.png",
+      "sha256": "815535985a132d661b0e0fb6d04a39c6961cb1c502f759b0da398d5e476dc4b5",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/final-overlay-sdr/bare-video.png",
+      "sha256": "76acdcde40a26c7d099054ab4bacb665106ba84661066f59f76aa0c14f1bd331",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/final-overlay-sdr/restored.png",
+      "sha256": "815535985a132d661b0e0fb6d04a39c6961cb1c502f759b0da398d5e476dc4b5",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/final-overlay-hdr/overlay.png",
+      "sha256": "8aaf5972ac5d46453cec50011cc47a46759413461760a59cb017d12864279ca6",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/final-overlay-hdr/bare-video.png",
+      "sha256": "c83311cc610a2c18129653598cacbd8a29d131517b1a5efe8e16cb4bf7606fc6",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/final-overlay-hdr/restored.png",
+      "sha256": "b7836982688f8894468cc102a745878e3804733cfcfc649a0f117705adad380e",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/overlay-fix-movie/riina-sdr.png",
+      "sha256": "56333c73d35155363df34d3000c077057a9ebe78dc7eed39ecad8e259296476e",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/overlay-fix-movie/riina-hdr.png",
+      "sha256": "a36ff03e7bb0082ff647577ecb5b03c7984d7536e63993715a1135b7d96ecded",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/overlay-fix-movie/vlc-sdr.png",
+      "sha256": "3911b28d713b05cd946e1b4d350a0aa028bc7e128ee79e8136445959e4eb87dc",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    },
+    {
+      "local_path": "tools/hdr-diagnosis-2026-11-09/overlay-fix-movie/vlc-hdr.png",
+      "sha256": "89a2bdfe5ff0f10149448f3340603f4606c396f3b830748e82d294cbd841cc3a",
+      "width": 3840,
+      "height": 2160,
+      "non_black_probe": true,
+      "full_image_inspected": true
+    }
+  ],
+  "checks": {
+    "locked_workspace_build": "passed",
+    "format": "passed",
+    "strict_workspace_all_targets_clippy": "passed",
+    "workspace_tests": {
+      "passed": 723,
+      "ignored": 57,
+      "failed": 0,
+      "filtered_child_process_runs_excluded_from_total": true
+    },
+    "explicit_native_tests": {
+      "library_passed": 2,
+      "integration_passed": 52,
+      "failed": 0,
+      "audio_sink": "null"
+    },
+    "python_tests": {
+      "passed": 68,
+      "failed": 0
+    },
+    "native_gui_smoke": {
+      "checks": [
+        "preference_writers_preserve_settings",
+        "playing_native_video_and_audio_menu",
+        "volume_preserves_surfaces",
+        "double_click_fullscreen",
+        "controller_reveal_keeps_native_surface",
+        "fullscreen_exit_and_playback_progress",
+        "encoded_return_dispatches_profile_fullscreen",
+        "encoded_escape_dispatches_profile_fullscreen_exit",
+        "minimize_pauses_native_owner",
+        "restore_resumes_automatic_pause"
+      ],
+      "elapsed_ms": 9649,
+      "error": null,
+      "executable": "C:\\Codex\\wiina\\tools\\hdr-overlay-fix-2026-11-09\\riina.exe",
+      "physical_display_verified": false,
+      "pid": 22172,
+      "success": true,
+      "title": "moving-square.avi — riina"
+    },
+    "staged_asset_provenance": {
+      "records": 74,
+      "result": "passed"
+    },
+    "parity_traceability": {
+      "requirements": 260,
+      "visual_identities": 69,
+      "evidence_links": 15,
+      "image_hashes": 68,
+      "result": "passed",
+      "full_parity_claimed": false
+    }
+  },
+  "cleanup": {
+    "windows_hdr_restored": {
+      "supported": true,
+      "enabled": false,
+      "hdr_user_enabled": false,
+      "flags": 215,
+      "active_mode": 1,
+      "bits_per_channel": 10,
+      "encoding": 0,
+      "adapter_low": 58684,
+      "adapter_high": 0,
+      "target": 4352
+    },
+    "test_instances_exited": true,
+    "preexisting_installed_process_left_untouched": 19708,
+    "raw_desktop_and_movie_captures_published": false,
+    "stale_build_cache_cleanup": "Two pre-change incremental caches were selected after target/debug exceeded 50 GiB and all build/test processes exited. Automatic approval review rejected deletion as blocked by policy; caches remain."
+  },
+  "limits": [
+    "Desktop captures can clamp HDR highlights; RGB codes are not physical nits or calibrated display measurements.",
+    "VLC and mpv retain different tone/gamut mapping policies; exact player pixel equivalence is not claimed.",
+    "Other GPUs, monitor profiles, shared OpenGL rendering and macOS/Linux runtime were not verified in this batch."
+  ]
+}

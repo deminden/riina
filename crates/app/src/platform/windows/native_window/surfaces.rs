@@ -13,14 +13,18 @@ use windows::Win32::{
     Graphics::{
         Dwm::{
             DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BB_TRANSITIONONMAXIMIZED, DWM_BLURBEHIND,
-            DwmEnableBlurBehindWindow,
+            DwmEnableBlurBehindWindow, DwmExtendFrameIntoClientArea,
         },
         Gdi::{CreateRectRgn, DeleteObject},
     },
-    UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED, SWP_NOACTIVATE,
-        SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SendMessageW, SetWindowLongPtrW,
-        SetWindowPos, WS_EX_LAYERED, WS_EX_TRANSPARENT,
+    UI::{
+        Controls::MARGINS,
+        WindowsAndMessaging::{
+            GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED,
+            SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SendMessageW,
+            SetWindowLongPtrW, SetWindowPos, WS_CAPTION, WS_EX_LAYERED, WS_EX_TRANSPARENT,
+            WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME,
+        },
     },
 };
 use windows::core::BOOL;
@@ -47,11 +51,18 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     // its style and remove only the click-through flag that blocks control input.
     let extended_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
     let interactive_style = extended_style & !(WS_EX_TRANSPARENT.0 as isize);
-    if interactive_style != extended_style {
+    let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) };
+    // Slint's popup can retain caption flags despite its frameless attributes.
+    // A fully extended DWM frame would paint a second set of caption buttons
+    // over the video. Only the framed owner provides these window controls.
+    let frame = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+    let frameless_style = style & !(frame.0 as isize);
+    if interactive_style != extended_style || frameless_style != style {
         // SAFETY: hwnd is the retained, realized Slint chrome window. The style
         // change leaves its owner and taskbar attributes intact.
         unsafe {
             SetWindowLongPtrW(hwnd, GWL_EXSTYLE, interactive_style);
+            SetWindowLongPtrW(hwnd, GWL_STYLE, frameless_style);
             SetWindowPos(
                 hwnd,
                 None,
@@ -76,6 +87,9 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     if (effective_style ^ extended_style) & (WS_EX_LAYERED.0 as isize) != 0 {
         return Err("The native video overlay lost its layered composition style".into());
     }
+    if unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } & (frame.0 as isize) != 0 {
+        return Err("The native video overlay still has a non-client frame".into());
+    }
     // An empty blur region enables pixel alpha without requesting an opaque
     // whole-window backdrop. A null region instead covers the entire client,
     // including the otherwise clear fullscreen area around the controller.
@@ -97,6 +111,19 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     let _ = unsafe { DeleteObject(region.into()) };
     result
         .map_err(|error| format!("Could not restore video-overlay alpha composition: {error}"))?;
+    // Blur-behind alone leaves a DWM tint over the clear WGL client on Windows
+    // 11, lifting blacks and dimming HDR highlights beneath the controls HWND.
+    // Extend the frame through the entire client so zero-alpha pixels reveal
+    // native video unchanged, including after Slint recreates this window.
+    let margins = MARGINS {
+        cxLeftWidth: -1,
+        cxRightWidth: -1,
+        cyTopHeight: -1,
+        cyBottomHeight: -1,
+    };
+    // SAFETY: DWM synchronously reads these initialized margins for the live HWND.
+    unsafe { DwmExtendFrameIntoClientArea(hwnd, &margins) }
+        .map_err(|error| format!("Could not clear the video-overlay frame tint: {error}"))?;
     Ok(())
 }
 

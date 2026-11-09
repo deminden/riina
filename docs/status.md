@@ -38,6 +38,13 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The remaining video contrast loss came from the native controls window's DWM
+  frame tint. Full frame extension now leaves the underlying video unchanged;
+  all 12 sampled HDR patches match with controls shown, hidden and restored in
+  both Windows HDR modes. The reported movie and fullscreen playback were also
+  checked. See the [composition diagnosis](verification.md#hdr-display-lifecycle-review-2026-11-09)
+  for desktop evidence and calibration limits.
+
 - The reported HDR10 contrast issue was reproduced in a same-frame desktop
   comparison. Windows native HDR conversion now keeps its linear output target
   instead of applying an automatic SDR ICC profile. PQ/HLG/SDR transitions retain

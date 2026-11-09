@@ -6,6 +6,23 @@ The latest records below are from Windows 11 x64; dates and exact scope are reco
 
 ## HDR display lifecycle review 2026-11-09
 
+The later [controls composition diagnosis](../tests/visual/windows-hdr-overlay-review-2026-11-09.json)
+identified a second, independent cause of the remaining contrast difference.
+On the same paused frame, showing the transparent controls HWND lifted captured
+black from RGB 0 to 4 and reduced HDR white from 255 to 196. Full negative DWM
+frame margins remove that client tint; the fix changes window composition without
+changing mpv's curve, brightness or saturation. Earlier comparison captures below
+include this tint and are retained as historical evidence, not final color acceptance.
+The rebuilt binary produced identical values for all 12 color patches with the
+controls shown, hidden and restored in both Windows HDR modes. The reported movie
+was compared again against VLC near 600 seconds; paused off/on/off/on switching,
+native fullscreen/controller reveal, restoration and normal shutdown passed.
+Build, formatting, strict Clippy, 723 workspace tests, 54 explicit native tests
+and 68 Python tests passed. The native suite used the pinned development DLL and
+a null audio sink. Physical HDR calibration and identical VLC tone mapping are
+not established by these desktop captures. Windows HDR was restored to off;
+the pre-existing installed-player process was left untouched.
+
 The [VLC comparison](../tests/visual/windows-hdr-vlc-comparison-2026-11-09.json)
 subsequently tested the fixed binary against VLC 3.0.24 on the reported movie
 and original HDR color patches with Windows HDR off and on. Riina also passed
