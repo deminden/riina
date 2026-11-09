@@ -1,0 +1,530 @@
+{
+  "date": "2026-11-09",
+  "source_revision": "520124796aaf85fbc2c898371b3747712ba5275a",
+  "scope": "Fixed Riina native D3D11 versus VLC 3.0.24 LibVLC D3D11 rendering, actual movie near 600 seconds and original local HDR color patches, Windows HDR off and on.",
+  "method": {
+    "windows_hdr_api": "DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO_2 activeColorMode and DISPLAYCONFIG_SET_HDR_STATE; legacy Advanced Color enabled flag is not treated as HDR state.",
+    "riina_live_toggle_sequence": [
+      "off",
+      "on",
+      "off",
+      "on"
+    ],
+    "movie_time_alignment": "Riina 600.016 s and VLC 599.990 s, within one 23.976 fps frame.",
+    "captures": "Full virtual desktop via scripts/capture-windows-desktop.ps1; all accepted captures inspected; black and occluded attempts rejected.",
+    "vlc_capture_layout": "Fullscreen, video-on-top for unobscured comparison; Riina windowed. Samples use color-patch interiors away from scaling boundaries.",
+    "color_fixture": {
+      "source_rgb_primaries": "bt.709",
+      "container_primaries": "bt.2020",
+      "transfer": "pq",
+      "units": "nits",
+      "patches": [
+        [
+          "black",
+          [
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "gray1",
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        [
+          "gray10",
+          [
+            10,
+            10,
+            10
+          ]
+        ],
+        [
+          "gray50",
+          [
+            50,
+            50,
+            50
+          ]
+        ],
+        [
+          "white100",
+          [
+            100,
+            100,
+            100
+          ]
+        ],
+        [
+          "white203",
+          [
+            203,
+            203,
+            203
+          ]
+        ],
+        [
+          "red",
+          [
+            100,
+            0,
+            0
+          ]
+        ],
+        [
+          "green",
+          [
+            0,
+            100,
+            0
+          ]
+        ],
+        [
+          "blue",
+          [
+            0,
+            0,
+            100
+          ]
+        ],
+        [
+          "cyan",
+          [
+            0,
+            100,
+            100
+          ]
+        ],
+        [
+          "magenta",
+          [
+            100,
+            0,
+            100
+          ]
+        ],
+        [
+          "yellow",
+          [
+            100,
+            100,
+            0
+          ]
+        ]
+      ],
+      "ycbcr10": [
+        [
+          64,
+          512,
+          512
+        ],
+        [
+          195,
+          512,
+          512
+        ],
+        [
+          327,
+          512,
+          512
+        ],
+        [
+          450,
+          512,
+          512
+        ],
+        [
+          509,
+          512,
+          512
+        ],
+        [
+          573,
+          512,
+          512
+        ],
+        [
+          341,
+          446,
+          601
+        ],
+        [
+          468,
+          430,
+          476
+        ],
+        [
+          238,
+          654,
+          536
+        ],
+        [
+          483,
+          526,
+          472
+        ],
+        [
+          366,
+          586,
+          587
+        ],
+        [
+          497,
+          421,
+          518
+        ]
+      ],
+      "sha256": "c21c67d2f5839590420123f984647dc19cbe23b7fb7e5124e526c6c41be947c5"
+    }
+  },
+  "observations": {
+    "movie": {
+      "riina-sdr": {
+        "windows_hdr": false,
+        "position_seconds": 600.016,
+        "target_trc": "auto",
+        "target_gamma": "scrgb",
+        "target_peak_nits": 80.0,
+        "local_capture_sha256": "3eedb6e54f693bd0e7523c7b1abd9662eacc6df1cfc149732cc4a939b385bc1f"
+      },
+      "riina-hdr": {
+        "windows_hdr": true,
+        "position_seconds": 600.016,
+        "target_trc": "pq",
+        "target_gamma": "scrgb",
+        "target_peak_nits": 1499.0,
+        "local_capture_sha256": "baecab2b7a1955ff64e3d53b66d17ceac26caad7343ee05f1a9874f1433b0b8a"
+      },
+      "vlc-sdr": {
+        "windows_hdr": false,
+        "position_ms": 599990,
+        "version": "3.0.24 Vetinari",
+        "local_capture_sha256": "3911b28d713b05cd946e1b4d350a0aa028bc7e128ee79e8136445959e4eb87dc"
+      },
+      "vlc-hdr": {
+        "windows_hdr": true,
+        "position_ms": 599990,
+        "version": "3.0.24 Vetinari",
+        "local_capture_sha256": "89a2bdfe5ff0f10149448f3340603f4606c396f3b830748e82d294cbd841cc3a"
+      }
+    },
+    "colors": {
+      "riina-sdr": {
+        "windows_hdr": false,
+        "position_seconds": 0.5,
+        "target_trc": "auto",
+        "target_gamma": "scrgb",
+        "target_peak_nits": 80.0,
+        "local_capture_sha256": "252dfc41c68e4c7d9e11d34dc16b4bbd6b1daaa5615360242db22dc631134c0b"
+      },
+      "riina-hdr": {
+        "windows_hdr": true,
+        "position_seconds": 0.5,
+        "target_trc": "pq",
+        "target_gamma": "scrgb",
+        "target_peak_nits": 1499.0,
+        "local_capture_sha256": "14bae1e5a87553409c5273ce718a3d06e3b1865e46f05d5afdc13ffabd2b561f"
+      },
+      "vlc-sdr": {
+        "windows_hdr": false,
+        "position_ms": 500,
+        "version": "3.0.24 Vetinari",
+        "local_capture_sha256": "2d70c4693e9d19947c0c507c8400302074ebe810991580752605b306e358110d"
+      },
+      "vlc-hdr": {
+        "windows_hdr": true,
+        "position_ms": 500,
+        "version": "3.0.24 Vetinari",
+        "local_capture_sha256": "554104586ace8587c92a97d5a41fe25716f06553cd24bb30a76c4678a312ba4d"
+      }
+    }
+  },
+  "sampled_patch_rgb": [
+    {
+      "player": "riina",
+      "mode": "sdr",
+      "rgb": [
+        [
+          4,
+          4,
+          4
+        ],
+        [
+          18,
+          18,
+          18
+        ],
+        [
+          53,
+          53,
+          53
+        ],
+        [
+          108,
+          108,
+          108
+        ],
+        [
+          137,
+          137,
+          137
+        ],
+        [
+          167,
+          167,
+          167
+        ],
+        [
+          142,
+          18,
+          9
+        ],
+        [
+          44,
+          138,
+          21
+        ],
+        [
+          15,
+          24,
+          137
+        ],
+        [
+          33,
+          138,
+          138
+        ],
+        [
+          136,
+          29,
+          138
+        ],
+        [
+          137,
+          138,
+          24
+        ]
+      ]
+    },
+    {
+      "player": "vlc",
+      "mode": "sdr",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          5,
+          5
+        ],
+        [
+          48,
+          48,
+          48
+        ],
+        [
+          114,
+          114,
+          114
+        ],
+        [
+          154,
+          154,
+          154
+        ],
+        [
+          197,
+          197,
+          197
+        ],
+        [
+          150,
+          0,
+          0
+        ],
+        [
+          0,
+          167,
+          0
+        ],
+        [
+          7,
+          0,
+          143
+        ],
+        [
+          0,
+          156,
+          153
+        ],
+        [
+          151,
+          0,
+          149
+        ],
+        [
+          147,
+          165,
+          0
+        ]
+      ]
+    },
+    {
+      "player": "riina",
+      "mode": "hdr",
+      "rgb": [
+        [
+          4,
+          4,
+          4
+        ],
+        [
+          30,
+          30,
+          30
+        ],
+        [
+          82,
+          82,
+          82
+        ],
+        [
+          164,
+          164,
+          164
+        ],
+        [
+          196,
+          196,
+          196
+        ],
+        [
+          196,
+          196,
+          196
+        ],
+        [
+          196,
+          27,
+          12
+        ],
+        [
+          56,
+          196,
+          32
+        ],
+        [
+          25,
+          40,
+          196
+        ],
+        [
+          30,
+          196,
+          196
+        ],
+        [
+          196,
+          46,
+          196
+        ],
+        [
+          196,
+          196,
+          37
+        ]
+      ]
+    },
+    {
+      "player": "vlc",
+      "mode": "hdr",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          13,
+          13,
+          13
+        ],
+        [
+          86,
+          86,
+          86
+        ],
+        [
+          207,
+          207,
+          207
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          0,
+          0
+        ],
+        [
+          0,
+          255,
+          0
+        ],
+        [
+          0,
+          0,
+          255
+        ],
+        [
+          0,
+          255,
+          255
+        ],
+        [
+          255,
+          0,
+          255
+        ],
+        [
+          255,
+          255,
+          0
+        ]
+      ]
+    }
+  ],
+  "findings": [
+    "Both players retain neutral grays and correct primary/secondary color identities in both desktop modes.",
+    "Tone mapping differs: VLC captured patches are brighter and more saturated; movie shadows also differ. This is not a pixel match.",
+    "The brightest two gray patches reach the same capture value in HDR for each player. SDR desktop captures cannot establish physical HDR highlight clipping or calibrated color accuracy.",
+    "Riina updates its reported output target from 80 nits on SDR to 1499 nits on HDR while the same movie remains paused. These are engine reports, not luminance measurements."
+  ],
+  "restoration": {
+    "initial_windows_hdr": false,
+    "final_windows_hdr": false,
+    "diagnostic_players_closed": true,
+    "preexisting_installed_process_left_untouched": 19708
+  },
+  "limits": [
+    "Visual and sampled RGB checks on one display; no colorimeter or HDR-native measurement.",
+    "VLC decoder emitted hardware-allocation warnings around seeks; black and occluded captures were discarded before accepting the visible paused comparison.",
+    "Private desktop and movie captures remain local and are not included in the repository.",
+    "No application source or installed binaries changed in this comparison."
+  ]
+}

@@ -6,6 +6,16 @@ The latest records below are from Windows 11 x64; dates and exact scope are reco
 
 ## HDR display lifecycle review 2026-11-09
 
+The [VLC comparison](../tests/visual/windows-hdr-vlc-comparison-2026-11-09.json)
+subsequently tested the fixed binary against VLC 3.0.24 on the reported movie
+and original HDR color patches with Windows HDR off and on. Riina also passed
+off/on/off/on switching while paused: its reported target peak followed the
+desktop from 80 to 1499 nits. Neutral grays and primary/secondary color identities
+passed in both players; their tone mapping, brightness and saturation differ.
+HDR desktop captures flatten bright patches, so physical highlight clipping and
+calibrated accuracy cannot be inferred. Windows HDR was restored to off. Raw
+movie/private-desktop images remain local.
+
 The subsequent [HDR contrast review](../tests/visual/windows-hdr-contrast-review-2026-11-09.json)
 checks the reported HDR10 movie at the same paused timestamp before and after
 the fix. Native Windows HDR conversion now retains the linear scRGB target
