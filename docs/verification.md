@@ -6,6 +6,17 @@ The latest records below are from Windows 11 x64; dates and exact scope are reco
 
 ## HDR display lifecycle review 2026-11-09
 
+The subsequent [HDR contrast review](../tests/visual/windows-hdr-contrast-review-2026-11-09.json)
+checks the reported HDR10 movie at the same paused timestamp before and after
+the fix. Native Windows HDR conversion now retains the linear scRGB target
+instead of applying an automatic SDR ICC profile. The measured shadow region
+dropped from 12.929 to 6.485 on the captured 8-bit RGB scale; full-desktop captures
+were inspected locally. Those captures contain private desktop context and are
+not published. Live PQ, HLG and SDR file transitions confirmed that ICC processing
+is excluded for native HDR sources and restored for SDR video. These observations
+establish the reported contrast improvement on this SDR desktop; calibrated HDR
+output and other display profiles still need hardware acceptance.
+
 HDR output now responds to the native display observer as well as source changes.
 Previously the observer updated only UI capability: a paused video could retain
 PQ output after Windows HDR was disabled or the window moved to an SDR display.

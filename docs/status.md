@@ -38,6 +38,12 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- The reported HDR10 contrast issue was reproduced in a same-frame desktop
+  comparison. Windows native HDR conversion now keeps its linear output target
+  instead of applying an automatic SDR ICC profile. PQ/HLG/SDR transitions retain
+  the ICC preference for SDR video. See the [contrast review](verification.md#hdr-display-lifecycle-review-2026-11-09)
+  for measured scope and remaining display validation.
+
 - HDR output now follows native display changes during the same video, including
   paused playback. A manual HDR-off choice survives monitor changes; a new file
   restores the configured default. See the [HDR lifecycle review](verification.md#hdr-display-lifecycle-review-2026-11-09)

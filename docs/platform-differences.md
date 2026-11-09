@@ -6,6 +6,14 @@ unverified boundaries; [status](status.md) summarizes overall progress.
 
 ## Rendering and materials
 
+On Windows native video, HDR sources use mpv's linear scRGB output target for
+both HDR presentation and HDR-to-SDR conversion. Automatic display ICC processing
+is excluded from that HDR path: with the pinned engine and the standard sRGB
+profile, it replaced the native target transfer/white level and flattened dark
+scenes. The ICC preference remains effective for SDR sources and shared rendering.
+The same-frame movie comparison and PQ/HLG/SDR file transitions are recorded in
+[the contrast review](../tests/visual/windows-hdr-contrast-review-2026-11-09.json).
+
 | Area | Implementation or adaptation | Still needs verification |
 |---|---|---|
 | Windows video | Native D3D11 presentation is the default; `--shared-gl` selects SDR GL composition | HDR/color calibration, display changes, drivers and full DPI/monitor coverage |

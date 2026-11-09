@@ -45,7 +45,11 @@ fn apply(
     let enabled = requested && app.get_hdr_source_detected() && app.get_hdr_display_active();
     match send(Command::SetHdrEnabledWithIcc {
         enabled,
-        load_icc_profile: app.get_load_icc_profile(),
+        load_icc_profile: use_display_profile(
+            app.get_load_icc_profile(),
+            app.get_hdr_source_detected(),
+            cfg!(target_os = "windows") && app.get_native_video(),
+        ),
     }) {
         Ok(()) => {
             app.set_hdr_enabled(enabled);
@@ -56,6 +60,14 @@ fn apply(
             false
         }
     }
+}
+
+fn use_display_profile(requested: bool, hdr_source: bool, windows_native: bool) -> bool {
+    // The native Windows swap chain is linear scRGB. An automatic ICC 3DLUT
+    // replaces mpv's target with the profile's SDR transfer/white level during
+    // HDR conversion, flattening shadows on an SDR desktop. Keep HDR conversion
+    // in the swap chain's color space; Windows presents that tagged surface.
+    requested && !(hdr_source && windows_native)
 }
 
 pub(crate) fn update_display(app: &PlayerWindow, active: bool) {
@@ -71,6 +83,49 @@ pub(crate) fn update_display(app: &PlayerWindow, active: bool) {
 mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn native_windows_hdr_conversion_keeps_the_swapchain_target_instead_of_an_sdr_profile() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        app.set_load_icc_profile(true);
+        app.set_native_video(true);
+        app.set_hdr_source_detected(true);
+        let commands = Rc::new(RefCell::new(Vec::new()));
+        let observed = commands.clone();
+        install(&app, move |command| {
+            observed.borrow_mut().push(command);
+            Ok(())
+        });
+        // HDR-to-SDR conversion uses the native output target. Opening SDR
+        // media restores the user's profile; shared rendering also retains it.
+        app.invoke_reset_hdr_output();
+        app.set_hdr_source_detected(false);
+        app.invoke_reset_hdr_output();
+        app.set_hdr_source_detected(true);
+        app.set_native_video(false);
+        app.invoke_reset_hdr_output();
+        let profiles: Vec<_> = commands
+            .borrow()
+            .iter()
+            .map(|command| match command {
+                Command::SetHdrEnabledWithIcc {
+                    enabled,
+                    load_icc_profile,
+                } => {
+                    assert!(!enabled, "SDR desktop cannot enable HDR output");
+                    *load_icc_profile
+                }
+                _ => panic!("Unexpected output command"),
+            })
+            .collect();
+        assert_eq!(profiles, [false, true, true]);
+        assert!(
+            app.get_load_icc_profile(),
+            "The saved preference is retained"
+        );
+    }
 
     #[test]
     fn paused_hdr_video_resets_output_when_desktop_changes_to_sdr_and_restores_intent() {
