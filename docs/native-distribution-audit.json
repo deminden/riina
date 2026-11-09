@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-20",
+  "updated": "2026-11-09",
   "scope": "Current distribution inputs and latest published release; earlier investigations are archived separately.",
   "distribution_license": "GPL-3.0-only",
   "license_decision": {
@@ -11,7 +11,7 @@
     "approval_scope": "This records the repository license choice and reviewed compatibility decisions. It does not mark an unbuilt package as verified."
   },
   "release_artifacts_verified": true,
-  "verified_candidate_run_id": 39504464780,
+  "verified_candidate_run_id": 42707162713,
   "verified_native_run_id": 38138622911,
   "release_verification_remaining": [],
   "development_engine": {
@@ -28,55 +28,55 @@
     "source_access": "Exact application commit and release tag, Cargo.lock, SOURCE-MANIFEST.tsv and public pinned native repositories. Do not duplicate full native or vendored source trees in download assets."
   },
   "release_engine": {
-    "reusable_release_tag": "v4.2.0",
+    "reusable_release_tag": "v4.2.1",
     "native_build_run_id": 38138622911,
     "original_ci_artifact_expired": true,
     "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
     "source_manifest_sha256": "5677324e64d7edc286dbd44dd0c3c44786ce87dd623c4debc8613fdaaa1ae92b",
     "native_source_files_indexed": 101748,
     "native_repositories_indexed": 88,
-    "restoration_verification": "Archive checksum, exact release source, unchanged native contract, complete runtime hashes and notices verified. Refreshed 4.2.0 reuses the same engine from 4.1.0.",
+    "restoration_verification": "Verified 4.2.0 engine reused unchanged: archive, tag/source identity, native contract, runtime hashes, source index and notices matched; fresh package, playback and installer checks passed.",
     "native_tests": {
-      "date": "2026-10-20",
-      "integration_passed": 51,
+      "date": "2026-11-09",
+      "integration_passed": 52,
       "library_passed": 2,
       "audio_output": "null",
-      "scope": "Decode/command/lifecycle tests; not physical-display, audible-output or HDR certification.",
-      "fresh_integration_run_id": 39501203408,
-      "library_evidence": "tests/visual/windows-release-4.2.0-2026-10-20.json; same engine hash, not a new library-test execution in the refreshed run."
+      "fresh_integration_run_id": 42707162713,
+      "library_evidence": "tests/visual/windows-release-4.2.1-2026-11-09.json",
+      "scope": "Fresh hosted integration tests and local explicit library tests use the same release-engine hash; desktop HDR checks are recorded separately, without physical calibration claims."
     }
   },
   "published_release": {
-    "tag": "v4.2.0",
-    "title": "Riina 4.2.0",
-    "edition": "refreshed installer and portable release",
-    "url": "https://github.com/deminden/riina/releases/tag/v4.2.0",
-    "published_at": "2026-10-20T22:02:06Z",
-    "application_source_sha": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "tag": "v4.2.1",
+    "title": "Riina 4.2.1",
+    "edition": "Windows installer and portable release",
+    "url": "https://github.com/deminden/riina/releases/tag/v4.2.1",
+    "published_at": "2026-11-09T22:33:38Z",
+    "application_source_sha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
     "assets": {
       "INSTALLER-SMOKE.json": {
         "size": 497,
-        "sha256": "f4f715ba53df840c083c4c46e44f2517f3ca0b1c93f0d1bc6a8147e94b195c29"
+        "sha256": "4ce6946a5bd573966c960eb221e30be547fa78135c4a37a4b9e2df841788e51a"
       },
       "INSTALLER-VERIFICATION.json": {
         "size": 159704,
-        "sha256": "db827641542fd854a66c332c3f16527aa557c1930e9e89c9c6dbf31999332a4f"
+        "sha256": "8d11bc20e1a82c0a87e55268cdedda5bbf6d9fdc1ba497defd848120156e5aee"
       },
       "RELEASE-VERIFICATION.json": {
-        "size": 590,
-        "sha256": "26a75d274dfe0d4342a3f4f7304d519295583d647c56ffaeb5cd00478e888aff"
+        "size": 581,
+        "sha256": "bef2e4862194fe2d1513ba93095fc3488ab80da900eef69424152ceeb0253495"
       },
-      "riina-4.2.0-windows-x86_64-setup.exe": {
-        "size": 52113812,
-        "sha256": "f2ef210e470280697838a14b419cb283348c44469c95fe4f332d3851a7b4ac87"
+      "riina-4.2.1-windows-x86_64-setup.exe": {
+        "size": 52134511,
+        "sha256": "ec0c4a980885044c41a1c6e99cceb64d844f274f703bd1178f8ee3e5e6550f14"
       },
-      "riina-4.2.0-windows-x86_64.zip": {
-        "size": 74314568,
-        "sha256": "41e0f7609aa6d7fddaee01ce9413cdbb7e91c4cd8769ac9fc43578df8884d698"
+      "riina-4.2.1-windows-x86_64.zip": {
+        "size": 74338771,
+        "sha256": "758619a7674ff15f8e6abdb5fe33c61afeaafb39d69f24dc44511dae98057da0"
       },
       "SHA256SUMS.txt": {
         "size": 202,
-        "sha256": "09de2e3169fa1d4275225628bbe3b75e6e50a428c990e015e5e0fb3f84d6252d"
+        "sha256": "4c7acc8b708830f9e9fbb6f5cf11f5b78e226432cc0501cdfb7ca9860b1c0a3a"
       }
     }
   },
@@ -86,6 +86,18 @@
     "scope": "Prior development-engine investigations, failed candidates and original 0.3.0 distribution evidence; not current release state."
   },
   "latest_candidate_attempt": {
+    "run_id": 42707162713,
+    "source_sha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+    "conclusion": "success",
+    "archive_sha256": "758619a7674ff15f8e6abdb5fe33c61afeaafb39d69f24dc44511dae98057da0",
+    "native_engine_reused_from": "v4.2.0",
+    "result": "Verified candidate downloads passed original-driver desktop playback, Windows HDR/color and shutdown checks, then were published unchanged.",
+    "evidence": "tests/visual/windows-release-4.2.1-2026-11-09.json"
+  },
+  "previous_release_evidence": "tests/visual/windows-release-4.2.0-refresh-2026-10-20.json",
+  "verified_build_run_id": 42707162713,
+  "superseded_4_2_release_evidence": "tests/visual/windows-release-4.2.0-2026-10-20.json",
+  "previous_candidate_attempt": {
     "run_id": 39501203408,
     "source_sha": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
     "conclusion": "failure in test teardown; build and native checks passed",
@@ -96,8 +108,5 @@
     "reverification_conclusion": "success",
     "result": "Saved ZIP and installer passed corrected install/reinstall/shortcut/playback/uninstall verification, local same-version upgrade and native installed playback, then were published unchanged.",
     "evidence": "tests/visual/windows-release-4.2.0-refresh-2026-10-20.json"
-  },
-  "previous_release_evidence": "tests/visual/windows-release-4.1.0-2026-10-19.json",
-  "verified_build_run_id": 39501203408,
-  "superseded_4_2_release_evidence": "tests/visual/windows-release-4.2.0-2026-10-20.json"
+  }
 }

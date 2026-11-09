@@ -4,6 +4,27 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## Windows 4.2.1 release 2026-11-09
+
+The [published release](https://github.com/deminden/riina/releases/tag/v4.2.1)
+uses source `9fe324d` and the unchanged verified 4.2.0 engine. Its installer and
+portable archive passed the exact-source, runtime, notices and checksum audits,
+hosted native playback, installation/reinstallation/uninstallation and extracted
+application checks. The original downloads also passed desktop playback,
+fullscreen/controller reveal and normal shutdown on the Windows test PC.
+
+All twelve HDR color patches match with controls shown, hidden and restored in
+both Windows HDR modes. The reported movie was compared against VLC near 600
+seconds with paused off/on/off/on switching. Windows display state was restored.
+Full-desktop captures were inspected and remain private. Physical HDR calibration,
+identical VLC tone mapping and audible output are separate acceptance work.
+
+The release's [verification record](../tests/visual/windows-release-4.2.1-2026-11-09.json)
+contains exact asset hashes, source/build identities and scoped checks. The shared
+application import errors discovered during candidate checks were corrected;
+the final Windows, Linux and both macOS application build/test checks passed.
+This compilation evidence does not establish supported macOS/Linux playback.
+
 ## HDR display lifecycle review 2026-11-09
 
 The later [controls composition diagnosis](../tests/visual/windows-hdr-overlay-review-2026-11-09.json)

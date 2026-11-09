@@ -1,0 +1,386 @@
+{
+  "date": "2026-11-09",
+  "version": "4.2.1",
+  "source_commit": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+  "release_url": "https://github.com/deminden/riina/releases/tag/v4.2.1",
+  "published_at": "2026-11-09T22:33:38Z",
+  "candidate_run_id": 42707162713,
+  "candidate_url": "https://github.com/deminden/riina/actions/runs/42707162713",
+  "engine_reuse": {
+    "native_release_tag": "v4.2.0",
+    "native_source_commit": "2e9aa46ef1c6698dd9a7c8477f7a3c9672aa1397",
+    "native_contract_tree": "99f64cc408a303959fbd0cf907904fec9638b33e",
+    "archive_sha256": "41e0f7609aa6d7fddaee01ce9413cdbb7e91c4cd8769ac9fc43578df8884d698",
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af"
+  },
+  "assets": {
+    "INSTALLER-SMOKE.json": {
+      "size": 497,
+      "sha256": "4ce6946a5bd573966c960eb221e30be547fa78135c4a37a4b9e2df841788e51a"
+    },
+    "INSTALLER-VERIFICATION.json": {
+      "size": 159704,
+      "sha256": "8d11bc20e1a82c0a87e55268cdedda5bbf6d9fdc1ba497defd848120156e5aee"
+    },
+    "RELEASE-VERIFICATION.json": {
+      "size": 581,
+      "sha256": "bef2e4862194fe2d1513ba93095fc3488ab80da900eef69424152ceeb0253495"
+    },
+    "riina-4.2.1-windows-x86_64-setup.exe": {
+      "size": 52134511,
+      "sha256": "ec0c4a980885044c41a1c6e99cceb64d844f274f703bd1178f8ee3e5e6550f14"
+    },
+    "riina-4.2.1-windows-x86_64.zip": {
+      "size": 74338771,
+      "sha256": "758619a7674ff15f8e6abdb5fe33c61afeaafb39d69f24dc44511dae98057da0"
+    },
+    "SHA256SUMS.txt": {
+      "size": 202,
+      "sha256": "4c7acc8b708830f9e9fbb6f5cf11f5b78e226432cc0501cdfb7ca9860b1c0a3a"
+    }
+  },
+  "source_and_package_audit": {
+    "version": "4.2.1",
+    "native_source_files_indexed": 101748,
+    "native_source_repositories_indexed": 88,
+    "libmpv_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "cargo_lock_sha256": "d1171e85414f0777d02db16489069af01140db9f5b8423591d6394dfd1a3eaa0",
+    "source_commit": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+    "scope": "Exact extracted package and tagged application source; native source repositories and revisions are recorded in the package manifest; third-party notices are verified; playback is a separate required workflow check."
+  },
+  "installer_audit": {
+    "installer_sha256": "ec0c4a980885044c41a1c6e99cceb64d844f274f703bd1178f8ee3e5e6550f14",
+    "payload_files": 1139,
+    "source_commit": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+    "installed_lifecycle_verified": true
+  },
+  "hosted_installer_lifecycle": {
+    "version": "4.2.1",
+    "desktop_shortcut_opt_in": true,
+    "installed_payload_matches_portable": true,
+    "profile_preserved": true,
+    "uninstall_registration": true,
+    "source_commit": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+    "uninstall": true,
+    "start_menu_shortcut": true,
+    "same_version_reinstall": true,
+    "installed_application_smoke": true,
+    "hosted_software_graphics": true,
+    "installer_sha256": "ec0c4a980885044c41a1c6e99cceb64d844f274f703bd1178f8ee3e5e6550f14"
+  },
+  "native_library_tests": {
+    "passed": 2,
+    "failed": 0,
+    "engine_sha256": "1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af",
+    "audio_output": "null"
+  },
+  "current_source_checks": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-11-09T21:56:08Z",
+      "databaseId": 42707162713,
+      "event": "workflow_dispatch",
+      "headBranch": "main",
+      "headSha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+      "status": "completed",
+      "url": "https://github.com/deminden/riina/actions/runs/42707162713",
+      "workflowName": "Windows release"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-11-09T21:55:17Z",
+      "databaseId": 42707028393,
+      "event": "push",
+      "headBranch": "main",
+      "headSha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+      "status": "completed",
+      "url": "https://github.com/deminden/riina/actions/runs/42707028393",
+      "workflowName": "Packaging regression checks"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-11-09T21:55:16Z",
+      "databaseId": 42707027917,
+      "event": "push",
+      "headBranch": "main",
+      "headSha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+      "status": "completed",
+      "url": "https://github.com/deminden/riina/actions/runs/42707027917",
+      "workflowName": "Portable playback core"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-11-09T21:55:16Z",
+      "databaseId": 42707028162,
+      "event": "push",
+      "headBranch": "main",
+      "headSha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+      "status": "completed",
+      "url": "https://github.com/deminden/riina/actions/runs/42707028162",
+      "workflowName": "Windows compilation and domain checks"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-11-09T21:55:16Z",
+      "databaseId": 42707027982,
+      "event": "push",
+      "headBranch": "main",
+      "headSha": "9fe324d8a50b55a8801cbca665a7406bda455dd8",
+      "status": "completed",
+      "url": "https://github.com/deminden/riina/actions/runs/42707027982",
+      "workflowName": "macOS and Linux application builds"
+    }
+  ],
+  "local_desktop_smoke": {
+    "checks": [
+      "preference_writers_preserve_settings",
+      "playing_native_video_and_audio_menu",
+      "volume_preserves_surfaces",
+      "double_click_fullscreen",
+      "controller_reveal_keeps_native_surface",
+      "fullscreen_exit_and_playback_progress",
+      "encoded_return_dispatches_profile_fullscreen",
+      "encoded_escape_dispatches_profile_fullscreen_exit",
+      "minimize_pauses_native_owner",
+      "restore_resumes_automatic_pause"
+    ],
+    "elapsed_ms": 9333,
+    "error": null,
+    "executable": "C:\\Codex\\wiina\\tools\\release-4.2.1\\package\\riina.exe",
+    "physical_display_verified": false,
+    "pid": 18280,
+    "success": true,
+    "title": "moving-square.avi — riina"
+  },
+  "color_comparison": {
+    "patches": 12,
+    "states": [
+      "shown",
+      "hidden",
+      "restored"
+    ],
+    "windows_modes": [
+      "SDR",
+      "HDR"
+    ],
+    "maximum_channel_difference_between_states": 0
+  },
+  "initial_display": {
+    "supported": true,
+    "enabled": false,
+    "hdr_user_enabled": false,
+    "flags": 215,
+    "active_mode": 1,
+    "bits_per_channel": 10,
+    "encoding": 0,
+    "adapter_low": 58684,
+    "adapter_high": 0,
+    "target": 4352
+  },
+  "restored_display": {
+    "supported": true,
+    "enabled": false,
+    "hdr_user_enabled": false,
+    "flags": 215,
+    "active_mode": 1,
+    "bits_per_channel": 10,
+    "encoding": 0,
+    "adapter_low": 58684,
+    "adapter_high": 0,
+    "target": 4352
+  },
+  "capture_review": {
+    "all_full_desktop_images_inspected": true,
+    "accepted_image_count": 13,
+    "captures": [
+      {
+        "image": "colors-sdr/overlay.png",
+        "sha256": "fa337814367a950b4dc78ffd3f5152c7d7de464134057e2b731dd9c184c1cd14",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "colors-sdr/bare-video.png",
+        "sha256": "16f23b201c5d742e6eb235e7d89e95b7b09a8666c36cc47a975b55bdb907fa4c",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "colors-sdr/restored.png",
+        "sha256": "36e4c8975610d5352e9e7763abd2cde984f841e86fa38ad1bc53257a3d3f7d7d",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "colors-hdr/overlay.png",
+        "sha256": "fcbbd827d2ef402c1b1bf592723cf9bce7680f341d384d4343d1085f0a9fba04",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "colors-hdr/bare-video.png",
+        "sha256": "a6fbb61be77848a0fd6f4b93b31ff82e9d01f6b8022c1f1c76e115d6426aa1f7",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "colors-hdr/restored.png",
+        "sha256": "fcbbd827d2ef402c1b1bf592723cf9bce7680f341d384d4343d1085f0a9fba04",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "movie-check/riina-sdr.png",
+        "sha256": "c00852a763aa43b75f15285e52032ddc0a352d4b33c874203845647773a034b6",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "movie-check/vlc-sdr.png",
+        "sha256": "3911b28d713b05cd946e1b4d350a0aa028bc7e128ee79e8136445959e4eb87dc",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "movie-check/riina-hdr.png",
+        "sha256": "228fd4c43ba2ab39cc593ef392893b11dcf814c515b6dfc79cd20fb4b11581df",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "movie-check/vlc-hdr.png",
+        "sha256": "89a2bdfe5ff0f10149448f3340603f4606c396f3b830748e82d294cbd841cc3a",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "desktop-smoke.json.before.png",
+        "sha256": "b50de34b2fca71316f3ea0aa7b4728bd7da170a3c6997092c0207ce721e9c5af",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "desktop-smoke.json.fullscreen.png",
+        "sha256": "b69b38fdf0127901610176236335c1848c9ea41667bd0355fc4beb0ef8948397",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      },
+      {
+        "image": "desktop-smoke.json.after.png",
+        "sha256": "d700443add77e015bbdc2db6f4d94c32f3c44b14c53e9a54dc1efb919236cc7b",
+        "width": 3840,
+        "height": 2160,
+        "non_black_probe": true,
+        "visually_accepted": true
+      }
+    ],
+    "observations": [
+      "Color fixture is visible without occlusion in all six control states; underlying patches remain stable.",
+      "The reported movie is visible at the matching scene near 600 seconds in both players and Windows HDR states; tone mapping differs.",
+      "Fullscreen fixture and controller are visible; before/after desktop captures show no persistent playback surface."
+    ],
+    "limits": [
+      "GDI desktop captures do not establish calibrated physical HDR luminance.",
+      "Raw captures contain unrelated private desktop content and remain local."
+    ]
+  },
+  "cleanup": {
+    "superseded_diagnostic_bytes_removed": 662450688.0,
+    "cargo_reported_space_recovered": "29.7 GiB",
+    "cargo_generated_files_removed": 3089,
+    "superseded_diagnostic_files": [
+      {
+        "path": "tools/hdr-display-fix-2026-11-09/riina.exe",
+        "bytes": 100082688
+      },
+      {
+        "path": "tools/hdr-display-fix-2026-11-09/libmpv-2.dll",
+        "bytes": 120926720
+      },
+      {
+        "path": "tools/hdr-overlay-fix-2026-11-09/riina.exe",
+        "bytes": 100084224
+      },
+      {
+        "path": "tools/hdr-overlay-fix-2026-11-09/libmpv-2.dll",
+        "bytes": 120926720
+      },
+      {
+        "path": "tools/release-4.2.1/engine-preview/riina.exe",
+        "bytes": 100084224
+      },
+      {
+        "path": "tools/release-4.2.1/engine-preview/libmpv-2.dll",
+        "bytes": 119746560
+      },
+      {
+        "path": "tools/release-4.2.1/engine-preview/vulkan-1.dll",
+        "bytes": 599552
+      }
+    ],
+    "preserved": [
+      "source",
+      "release evidence and private captures",
+      "current verified release",
+      "Cargo registry and Git caches",
+      "native development runtime",
+      "user media and settings"
+    ]
+  },
+  "limits": [
+    "Desktop captures do not establish physical HDR luminance calibration or identical tone mapping with VLC.",
+    "Native macOS/Linux playback and lifecycle remain unverified; full application compilation and unit tests are separate evidence.",
+    "Physical audible and pass-through audio are not certified by null-sink checks."
+  ],
+  "movie": {
+    "filename": "Банши Инишерина.2022.WEB-DL.2160p.HDR.mkv",
+    "live_windows_hdr_sequence": [
+      "off",
+      "on",
+      "off",
+      "on"
+    ],
+    "sdr": {
+      "riina_time_seconds": 600.016,
+      "vlc_time_ms": 599990,
+      "vlc_version": "3.0.24 Vetinari",
+      "source_gamma": "pq",
+      "target_gamma": "scrgb",
+      "reported_target_peak_nits": 80.0,
+      "icc_auto": false
+    },
+    "hdr": {
+      "riina_time_seconds": 600.016,
+      "vlc_time_ms": 599990,
+      "vlc_version": "3.0.24 Vetinari",
+      "source_gamma": "pq",
+      "target_gamma": "scrgb",
+      "reported_target_peak_nits": 1499.0,
+      "icc_auto": false
+    }
+  }
+}

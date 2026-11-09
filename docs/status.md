@@ -1,10 +1,7 @@
 # Current status
 
-Updated 2026-11-09. Published release: **4.2.0**. Reference: **IINA v1.5.0**
+Updated 2026-11-09. Published release: **4.2.1**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
-
-Release candidate: **4.2.1**, reusing the verified 4.2.0 playback engine.
-Publication and exact-package acceptance remain pending.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
 remain active goals; the [requirement inventory](parity.csv) is incomplete.
