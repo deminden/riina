@@ -1,7 +1,9 @@
 use super::bindings::Bindings;
+#[cfg(not(target_os = "macos"))]
+use super::builtins::BUILTIN_PROFILES;
 use super::*;
 use super::{
-    builtins::{BUILTIN_PROFILES, SYSTEM_MEDIA_ROWS, builtin_mappings},
+    builtins::{SYSTEM_MEDIA_ROWS, builtin_mappings},
     dispatch::{
         RuntimeAction, is_system_media_key, preferred_system_skip_interval, runtime_action,
     },

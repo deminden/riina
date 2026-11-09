@@ -37,10 +37,9 @@ use crate::{
 };
 use riina_core::{Command, Phase, Playback, Preferences, TrackKind, time_label};
 use riina_mpv::Player;
-use slint::{
-    ComponentHandle, Model,
-    winit_030::{WinitWindowAccessor, winit},
-};
+#[cfg(target_os = "windows")]
+use slint::winit_030::winit;
+use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,

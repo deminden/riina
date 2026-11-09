@@ -3,11 +3,15 @@ use super::{
     catalog::{current_chapter, should_fallback_removed_audio_device, update_catalog},
     clear_screenshot_preview, media_geometry_requires_resize, window_video_geometry,
 };
+#[cfg(target_os = "macos")]
+use crate::platform;
 use crate::{
     PlayerWindow,
     seek_osd::{self, Change, SeekOsd},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, TrackKind, time_label};
+#[cfg(target_os = "macos")]
+use slint::ComponentHandle;
 #[cfg(not(target_os = "macos"))]
 use std::path::Path;
 use std::{
