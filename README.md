@@ -61,12 +61,13 @@ ready-to-run application.
 
 ## Recent improvements
 
-Quick Settings has consistent numeric editing, keyboard track navigation and
-equalizer profile naming. Play symbols have an optical centering correction,
-Music Mode keeps its compact frame, and playlist editing and history resume
-handle more everyday workflows. Narrow settings pages remain scrollable.
+HDR playback keeps deeper blacks and brighter highlights when the floating
+controls are visible. Color output follows Windows HDR changes during playback,
+including while paused. Idle playback hides the pointer with the controls.
+Keyboard shortcuts, fullscreen transitions, preference saving and plugin storage
+also have reliability fixes.
 
-See the [4.2.0 release notes](docs/release-notes/4.2.0.md) for the complete changes;
+See the [4.2.1 release notes](docs/release-notes/4.2.1.md) for the complete changes;
 [GitHub Releases](https://github.com/deminden/riina/releases) shows published packages.
 
 ## Where the project stands
