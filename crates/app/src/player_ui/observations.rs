@@ -20,7 +20,6 @@ use std::{
 
 pub(super) struct UiUpdateResources<'a> {
     pub(super) audio_device_player: Option<&'a riina_mpv::CommandSender>,
-    pub(super) hdr_player: Option<&'a riina_mpv::CommandSender>,
     pub(super) saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     pub(super) saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     pub(super) transition_overlay: &'a AtomicU64,
@@ -555,19 +554,10 @@ pub(super) fn update_ui(
         .is_some_and(riina_core::VideoParameters::is_hdr);
     let hdr_source_changed = app.get_hdr_source_detected() != hdr_source_detected;
     app.set_hdr_source_detected(hdr_source_detected);
-    if first_loaded || hdr_source_changed {
-        let enable_hdr = app.get_default_hdr_mode_enabled()
-            && app.get_hdr_source_detected()
-            && app.get_hdr_display_active();
-        app.set_hdr_enabled(enable_hdr);
-        if let Some(player) = resources.hdr_player
-            && let Err(error) = player.send(Command::SetHdrEnabledWithIcc {
-                enabled: enable_hdr,
-                load_icc_profile: app.get_load_icc_profile(),
-            })
-        {
-            app.set_status(format!("Could not apply the HDR output preference: {error}").into());
-        }
+    if first_loaded {
+        app.invoke_reset_hdr_output();
+    } else if hdr_source_changed {
+        app.invoke_refresh_hdr_output();
     }
     app.set_media_title(state.title.into());
     app.set_music_artist(state.artist.unwrap_or_default().into());

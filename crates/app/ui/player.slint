@@ -1408,6 +1408,8 @@ export component PlayerWindow inherits Window {
     in-out property <bool> default-hdr-mode-enabled: true;
     in-out property <bool> load-icc-profile: true;
     in property <bool> hdr-display-active: false;
+    callback refresh-hdr-output();
+    callback reset-hdr-output();
     in property <bool> hdr-source-detected: false;
     in-out property <bool> live-text-enabled: false;
     changed live-text-enabled => { root.video-menu-changed(); root.toolbar-settings-changed(); }

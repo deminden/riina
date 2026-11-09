@@ -4,6 +4,22 @@ Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
 The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
 
+## HDR display lifecycle review 2026-11-09
+
+HDR output now responds to the native display observer as well as source changes.
+Previously the observer updated only UI capability: a paused video could retain
+PQ output after Windows HDR was disabled or the window moved to an SDR display.
+The shared HDR controller sends the existing mpv reset command on that transition,
+retains a manual HDR-off choice across display changes, and renews the default
+policy for the next file. UI state changes only after the command is accepted.
+
+Three headless controller regressions cover paused HDR-to-SDR transitions,
+restoring requested output, manual disable, SDR-source gating and send failures.
+These tests simulate display observations; they do not certify physical HDR
+presentation or establish the cause of the reported movie contrast difference.
+The [review record](../tests/visual/windows-hdr-display-review-2026-11-09.json)
+records checks and remaining runtime acceptance.
+
 ## Input and plugin preferences review 2026-10-23
 
 The [input review record](../tests/visual/windows-input-review-2026-10-23.json)

@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-09",
+  "source_base_revision": "8d6e611c435f50c1d5b1f70b9e755b4f5ed28874",
+  "scope": "Reapply mpv HDR output when the native display HDR state changes during an existing video, including paused playback.",
+  "implementation": "A shared controller separates user intent from current source/display capability. Native display observations refresh output directly; a new file renews default intent. Existing mpv HDR and reset command plans remain unchanged.",
+  "reference": "IINA v1.5.0 fbcff4df7183b335880396af0655f6bb89d46442; VideoView refreshEdrMode is refreshed from display changes. Independent Rust implementation.",
+  "verification": {
+    "format": "passed",
+    "strict_workspace_all_target_clippy": "passed",
+    "workspace_tests_passed": 722,
+    "default_ignored": 57,
+    "locked_workspace_build": "passed",
+    "python_tests": 68,
+    "new_controller_regressions": 3,
+    "native_checks_passed": 54,
+    "native_initial_failure": "Parallel run: 51 passed, LiveText video-to-audio fixture transition failed with audio output initialization failed. Isolated retry and complete serial native suite passed; no native-audio code was changed.",
+    "asset_records_verified": 74,
+    "parity_requirements_verified": 260,
+    "logs_sha256": {
+      "hdr-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "hdr-clippy.log": "88cd418907198f0b3e49611d84a3f01ad2076d1933a8aacb77b98345c3717d44",
+      "hdr-tests.log": "355b8e90f090811918de50047caa43f37f0cf8adf26779353174755f153ed87a",
+      "hdr-build.log": "546acd9e5f6461cca2ceb843574d0f860f2dab092a43dad9ee6c78d32a5709cb",
+      "hdr-python.log": "ed9d9ec14e91338297d2fc5aa3d148590d2532ab93f8a42809e32dc5831b7ea1",
+      "hdr-native.log": "f5074f8c72c4a382fd31d620a4ec277c3a276ab33cfa2b6a5dbc0adaaa4c6a49",
+      "hdr-native-retry.log": "d2956ecd456d574bf46cd6f2e6d8d6ea0d6e4200bb169700e21a2fe1cc861339",
+      "hdr-native-serial.log": "b4b6ab98221e6a4ad5dbb31d15eebe9e6722c47dd7a104c80ab86b3e3284e80b",
+      "hdr-native-lib.log": "8555da20e127177b3e9084edb051c01eac87848a137582e1b19a72480754577d",
+      "hdr-parity.log": "dcc747bb83a6ceed813c5fdd9bf6000bd4d0517dc721d35a5575d0afd84ad3b6",
+      "hdr-assets.log": "a80ec21125e92b4f6831fdba215233720599d3ecb39872490099767fc4537650"
+    },
+    "local_test_build": {
+      "path": "tools/hdr-display-fix-2026-11-09/riina.exe",
+      "sha256": "ff536d5c36e6660da393387bb40464797db857c2eaf2ccce82691564dfa59589",
+      "libmpv_sha256": "a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3"
+    }
+  },
+  "source_files_sha256": {
+    "crates/app/src/platform/windows/native_window.rs": "48343d80a1e5538b56e230fdbce9139311625a040abaa07b2713cdd517e0a485",
+    "crates/app/src/player_ui.rs": "eae6f9ab6cc157eadd9142de104531dcbf090dbb27cc1aa231675fa67ff9347d",
+    "crates/app/src/player_ui/observations.rs": "3c0ddfc61f80ad86e2dfd9a94a1bea56cc163f0b8f1549c376110b7ca09827a0",
+    "crates/app/ui/player.slint": "8d3c7a646487b26d0c9e96c2de9ab5954fcfbff1c669b1c4da5eabfbd2a0c7c1",
+    "crates/app/src/player_ui/hdr_output.rs": "f94e40dfa3814f5cd655a2b7ebc3ee761cc5d00fb6fa7b04ba25707f929351de"
+  },
+  "limits": [
+    "Controller tests simulate native display observations; no Windows HDR toggle or mixed-monitor GUI acceptance was performed for this change.",
+    "The earlier movie/fixture comparisons did not establish the cause of the original contrast report. This fixes a confirmed stale-output lifecycle path; calibrated HDR/color acceptance remains open.",
+    "The development binary was rebuilt locally; the installed release and public packages were not replaced."
+  ]
+}

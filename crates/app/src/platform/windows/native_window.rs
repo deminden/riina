@@ -647,7 +647,10 @@ pub fn run(
                 // strand its compositor image even while UI state advances.
                 dismiss_unaligned_transition_cover(app);
             }
-            app.set_hdr_display_active(super::presentation::hdr_display_active_for_slint(host));
+            crate::player_ui::hdr_output::update_display(
+                app,
+                super::presentation::hdr_display_active_for_slint(host),
+            );
             let aligned = align(host, app);
             if !aligned {
                 // Hide only a proven mismatch; the retry loop restores it once

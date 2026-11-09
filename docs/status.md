@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-23. Published release: **4.2.0**. Reference: **IINA v1.5.0**
+Updated 2026-11-09. Published release: **4.2.0**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -37,6 +37,11 @@ Implementation does not imply every state or platform is verified.
 Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
+
+- HDR output now follows native display changes during the same video, including
+  paused playback. A manual HDR-off choice survives monitor changes; a new file
+  restores the configured default. See the [HDR lifecycle review](verification.md#hdr-display-lifecycle-review-2026-11-09)
+  for regression scope and remaining physical-display acceptance.
 
 - The input review separates key conversion, compiled dispatch, menu accelerators
   and profile edits. Encoded special keys now reach profile actions, duplicate-key

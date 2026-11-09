@@ -2,6 +2,7 @@ mod audio_controls;
 mod catalog;
 mod discovery;
 mod feedback;
+pub(crate) mod hdr_output;
 mod lifecycle;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod live_text;
@@ -636,7 +637,7 @@ pub(crate) fn configure_player(
             Duration::from_secs(2),
             move || {
                 if let Some(app) = weak.upgrade() {
-                    app.set_hdr_display_active(display.hdr_display_active());
+                    hdr_output::update_display(&app, display.hdr_display_active());
                 }
             },
         );
@@ -1030,7 +1031,6 @@ pub(crate) fn configure_player(
                     state,
                     UiUpdateResources {
                         audio_device_player: audio_device_sender.as_ref(),
-                        hdr_player: audio_device_sender.as_ref(),
                         saved_video_filters: &notify_saved_video_filters,
                         saved_audio_filters: &notify_saved_audio_filters,
                         transition_overlay: transition_overlay.as_ref(),
@@ -1691,24 +1691,7 @@ pub(crate) fn configure_player(
     });
     connect!(on_toggle_mute, Command::ToggleMute);
     let hdr_player = player.command_sender();
-    let weak = app.as_weak();
-    app.on_set_hdr_enabled(move |enabled| {
-        let Some(app) = weak.upgrade() else { return };
-        if !app.get_hdr_source_detected() || (enabled && !app.get_hdr_display_active()) {
-            app.set_status("HDR needs an HDR source and an HDR-enabled display".into());
-            return;
-        }
-        match hdr_player.send(Command::SetHdrEnabledWithIcc {
-            enabled,
-            load_icc_profile: app.get_load_icc_profile(),
-        }) {
-            Ok(()) => {
-                app.set_hdr_enabled(enabled);
-                app.invoke_activity();
-            }
-            Err(error) => app.set_status(error.into()),
-        }
-    });
+    hdr_output::install(app, move |command| hdr_player.send(command));
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
     connect!(on_frame_back_step, Command::FrameBackStep);
