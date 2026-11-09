@@ -136,7 +136,7 @@ fn profile_prompt_focus_validates_submits_once_and_restores_picker_focus() {
     key(&app, Key::Return);
     assert!(saved.borrow().is_empty(), "Duplicate names cannot submit");
     editor.set_accessible_value("映画 🎧");
-    key(&app, Key::End);
+    move_caret_to_end(&app);
     key(&app, "!");
     assert_eq!(editor.accessible_value().unwrap(), "映画 🎧!");
     key(&app, Key::Return);

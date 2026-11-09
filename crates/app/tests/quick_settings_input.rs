@@ -75,6 +75,23 @@ fn key(app: &PlayerWindow, text: impl Into<slint::SharedString>) {
     flush();
 }
 
+fn move_caret_to_end(app: &PlayerWindow) {
+    // macOS uses Command+Right for text; Slint represents Command as Control.
+    // Keep End for list navigation and the other platforms' text editors.
+    if cfg!(target_os = "macos") {
+        app.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Control.into(),
+        });
+        key(app, Key::RightArrow);
+        app.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Control.into(),
+        });
+        flush();
+    } else {
+        key(app, Key::End);
+    }
+}
+
 fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(i32, String)>>> {
     let submissions = Rc::new(RefCell::new(Vec::new()));
     let recorded = submissions.clone();
@@ -92,7 +109,7 @@ fn controller_hide_keeps_delay_focus_and_return_submits_once() {
     let input = field(&app, "Audio delay in seconds");
     focus(&app, &input);
     input.set_accessible_value("0.7");
-    key(&app, Key::End);
+    move_caret_to_end(&app);
     app.set_controls_visible(false);
     flush();
     key(&app, "5");
@@ -331,7 +348,7 @@ fn tab_enters_the_delay_editor_from_its_slider_without_an_invisible_stop() {
     focus(&app, &field(&app, "Audio delay"));
     key(&app, Key::Tab);
     input.set_accessible_value("0.7");
-    key(&app, Key::End);
+    move_caret_to_end(&app);
     key(&app, "5");
     assert_eq!(input.accessible_value().unwrap(), "0.75");
 }
