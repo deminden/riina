@@ -157,13 +157,34 @@ pub(crate) fn recover(text: Option<&str>) -> (Preferences, Vec<Rejection>) {
     }
 }
 
+pub(crate) fn has_matching_backup(path: &Path, original: &[u8]) -> bool {
+    let Some(parent) = path.parent() else {
+        return false;
+    };
+    let Ok(entries) = fs::read_dir(parent) else {
+        return false;
+    };
+    // An older backup cannot authorize overwriting damage from a later write.
+    entries.filter_map(Result::ok).any(|entry| {
+        entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with("preferences.invalid-") && name.ends_with(".json"))
+            && entry.file_type().is_ok_and(|kind| kind.is_file())
+            && entry
+                .metadata()
+                .is_ok_and(|metadata| metadata.len() == original.len() as u64)
+            && fs::read(entry.path()).is_ok_and(|backup| backup == original)
+    })
+}
+
 fn quarantine(
     path: &Path,
     contents: &[u8],
     now: chrono::DateTime<chrono::Utc>,
 ) -> io::Result<PathBuf> {
     let timestamp = now.format("%Y%m%dT%H%M%SZ");
-    for sequence in 0_u32.. {
+    for sequence in 0..=u32::MAX {
         let name = if sequence == 0 {
             format!("preferences.invalid-{timestamp}.json")
         } else {

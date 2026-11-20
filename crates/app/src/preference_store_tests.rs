@@ -226,6 +226,52 @@ fn rejected_changes_preserve_bytes_release_lock_and_do_not_advance_writer() {
 }
 
 #[test]
+fn explicit_edit_repairs_a_backed_up_profile_and_preserves_recovered_settings() {
+    for original in [
+        br#"{"schema_version":19,"volume":29,"video_threads":"bad"}"#.as_slice(),
+        b"\xff\xfe",
+    ] {
+        let path = path("backed-up-repair");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, original).unwrap();
+        let loaded = crate::preference_load::load(&path).unwrap();
+        let backup = loaded.recovery.unwrap().quarantined_as.unwrap();
+        let initial = loaded.preferences;
+        let writer = Writer::new(path.clone(), initial.clone());
+        writer.save(&initial).unwrap();
+        let mut next = initial.clone();
+        next.video_threads = 7;
+        writer.save_session(&next).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), original);
+
+        writer.save(&next).unwrap();
+        let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved.schema_version, 1);
+        assert_eq!(saved.volume, initial.volume);
+        assert_eq!(saved.video_threads, 7);
+        assert_eq!(std::fs::read(backup).unwrap(), original);
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+}
+
+#[test]
+fn an_older_backup_does_not_authorize_replacing_newly_damaged_bytes() {
+    let path = path("changed-damage");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, b"old damage").unwrap();
+    let initial = crate::preference_load::load(&path).unwrap().preferences;
+    let writer = Writer::new(path.clone(), initial.clone());
+    std::fs::write(&path, b"new damage").unwrap();
+    let next = Preferences {
+        video_threads: 7,
+        ..initial
+    };
+    assert!(writer.save(&next).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), b"new damage");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
 fn optional_theme_removal_and_history_clear_preserve_newer_network_settings() {
     let path = path("optional-history");
     let initial = Preferences::default();

@@ -227,7 +227,7 @@ impl UiSession {
             });
         }
         self.preference_writer
-            .save(&prefs)
+            .save_session(&prefs)
             .map_err(std::io::Error::other)?;
         Ok(())
     }

@@ -3,7 +3,8 @@ use riina_core::Preferences;
 use serde_json::Value;
 use std::{
     cell::RefCell,
-    fs::OpenOptions,
+    fs::{self, OpenOptions},
+    io,
     path::{Path, PathBuf},
 };
 
@@ -21,16 +22,29 @@ impl Writer {
     }
 
     pub(crate) fn save(&self, candidate: &Preferences) -> Result<(), String> {
+        self.save_with_policy(candidate, true)
+    }
+
+    pub(crate) fn save_session(&self, candidate: &Preferences) -> Result<(), String> {
+        self.save_with_policy(candidate, false)
+    }
+
+    fn save_with_policy(&self, candidate: &Preferences, user_edit: bool) -> Result<(), String> {
         let previous = serde_json::to_value(&*self.observed.borrow()).map_err(|e| e.to_string())?;
         let next = serde_json::to_value(candidate).map_err(|e| e.to_string())?;
-        update(&self.path, &self.observed.borrow(), |latest| {
+        let policy = ReadPolicy::Writer {
+            can_replace_backup: user_edit && previous != next,
+        };
+        let written = update_inner(&self.path, &self.observed.borrow(), policy, |latest| {
             let mut value = serde_json::to_value(&*latest).map_err(|e| e.to_string())?;
             merge_changes(&mut value, &previous, &next);
             *latest = serde_json::from_value(value).map_err(|e| e.to_string())?;
             Ok(())
         })?;
         // Advance only after a successful commit, so failed writes remain retryable.
-        *self.observed.borrow_mut() = candidate.clone();
+        if written {
+            *self.observed.borrow_mut() = candidate.clone();
+        }
         Ok(())
     }
 }
@@ -40,6 +54,20 @@ pub(crate) fn update(
     fallback: &Preferences,
     change: impl FnOnce(&mut Preferences) -> Result<(), String>,
 ) -> Result<(), String> {
+    update_inner(path, fallback, ReadPolicy::Strict, change).map(|_| ())
+}
+
+enum ReadPolicy {
+    Strict,
+    Writer { can_replace_backup: bool },
+}
+
+fn update_inner(
+    path: &Path,
+    fallback: &Preferences,
+    policy: ReadPolicy,
+    change: impl FnOnce(&mut Preferences) -> Result<(), String>,
+) -> Result<bool, String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -53,15 +81,41 @@ pub(crate) fn update(
         .open(path.with_extension("json.lock"))
         .map_err(|e| e.to_string())?;
     lock.lock().map_err(|e| e.to_string())?;
-    let mut preferences = match std::fs::read_to_string(path) {
-        Ok(text) => Preferences::parse(&text).map_err(|e| e.to_string())?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => fallback.clone(),
-        Err(error) => return Err(error.to_string()),
+    let Some(mut preferences) = read_for_update(path, fallback, policy)? else {
+        return Ok(false);
     };
     change(&mut preferences)?;
     let text = serde_json::to_string_pretty(&preferences).map_err(|e| e.to_string())?;
     Preferences::parse(&text)?;
-    crate::platform::save_preferences(path, &text).map_err(|e| e.to_string())
+    crate::platform::save_preferences(path, &text).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+fn read_for_update(
+    path: &Path,
+    fallback: &Preferences,
+    policy: ReadPolicy,
+) -> Result<Option<Preferences>, String> {
+    let ReadPolicy::Writer { can_replace_backup } = policy else {
+        return crate::preference_load::read_valid(path)
+            .map(|prefs| Some(prefs.unwrap_or_else(|| fallback.clone())))
+            .map_err(|error| error.to_string());
+    };
+    let original = match fs::read(path) {
+        Ok(original) => original,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Some(fallback.clone())),
+        Err(error) => return Err(error.to_string()),
+    };
+    let text = std::str::from_utf8(&original);
+    let parsed = text
+        .map_err(|error| error.to_string())
+        .and_then(crate::preference_load::parse_object);
+    match parsed {
+        Ok(preferences) => Ok(Some(preferences)),
+        Err(error) if !crate::preference_load::has_matching_backup(path, &original) => Err(error),
+        Err(_) if !can_replace_backup => Ok(None),
+        Err(_) => Ok(Some(crate::preference_load::recover(text.ok()).0)),
+    }
 }
 
 fn merge_changes(latest: &mut Value, previous: &Value, next: &Value) {

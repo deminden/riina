@@ -15,6 +15,7 @@ pub(crate) fn save_new(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let pending = stage(path, contents, true)?;
     // Publish the intact, synced copy without replacing any existing backup.
     std::fs::hard_link(&pending.0, path)?;
+    drop(pending);
     sync_parent(path)
 }
 
