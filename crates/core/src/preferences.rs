@@ -6,7 +6,9 @@ use crate::{
     subtitle_controls, thumbnail_preferences, valid_path, video_controls, video_filters,
     window_resize,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::value::MapDeserializer};
+use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 fn default_true() -> bool {
     true
@@ -206,6 +208,13 @@ pub struct RecentMedia {
     pub position: f64,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Rejection {
+    /// A serialized preference key, or `$` for the entire document.
+    pub key: String,
+    pub reason: String,
+}
+
 impl Default for Preferences {
     fn default() -> Self {
         // IINA Preference.defaultPreference: softVolume=100, themeMaterial=dark.
@@ -326,88 +335,145 @@ impl Preferences {
     }
 
     pub fn parse(text: &str) -> Result<Self, String> {
-        let mut prefs: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
-        if prefs.schema_version != 1
-            || !prefs.volume.is_finite()
-            || !(0.0..=200.0).contains(&prefs.volume)
-            || prefs.video_threads > i32::MAX as u32
-            || !subtitle_controls::valid_preference_font_size(prefs.subtitle_font_size)
-            || !subtitle_controls::valid_font_name(&prefs.subtitle_font)
-        {
-            return Err("Unsupported preference version or invalid volume".into());
+        let prefs: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        prefs.validated()
+    }
+
+    pub fn parse_lenient(text: &str) -> (Self, Vec<Rejection>) {
+        // Borrow each raw value so an out-of-range JSON number affects only its
+        // own section, and preserve the input for deserialization-only fields.
+        let Ok(mut fields) = serde_json::from_str::<BTreeMap<String, &RawValue>>(text) else {
+            return rejected_document("Expected a complete JSON object");
+        };
+        let mut rejected = Vec::new();
+        fields.retain(|key, value| {
+            let entry = MapDeserializer::new([(key.as_str(), *value)].into_iter());
+            if let Err(reason) = Self::validate_recovered(entry) {
+                rejected.push(Rejection {
+                    key: key.clone(),
+                    reason,
+                });
+                false
+            } else {
+                true
+            }
+        });
+        // Apply interdependent normalization once with all surviving settings.
+        // In particular, the independent volume check must not discard boost.
+        let map = MapDeserializer::new(fields.iter().map(|(key, value)| (key.as_str(), *value)));
+        match Self::validate_recovered(map) {
+            Ok(mut prefs) => {
+                // A missing theme is the legacy dark-bit format. A malformed
+                // explicit selection instead resets to the current default.
+                if rejected.iter().any(|entry| entry.key == "theme_material") {
+                    prefs.theme_material = Self::default().theme_material;
+                }
+                (prefs, rejected)
+            }
+            Err(reason) => rejected_document(reason),
         }
-        prefs
-            .subtitle_text_style
+    }
+
+    fn validate_recovered<'de>(
+        map: impl serde::Deserializer<'de, Error = serde_json::Error>,
+    ) -> Result<Self, String> {
+        // Serde type errors can echo private values. Recovery reasons go in the log.
+        Self::deserialize(map)
+            .map_err(|_| "Invalid value or structure".to_owned())?
+            .validated()
+    }
+
+    fn validated(mut self) -> Result<Self, String> {
+        if self.schema_version != 1 {
+            return Err(format!(
+                "Unsupported preference schema version {}",
+                self.schema_version
+            ));
+        }
+        if !self.volume.is_finite() || !(0.0..=200.0).contains(&self.volume) {
+            return Err("Volume must be between 0 and 200".into());
+        }
+        if self.video_threads > i32::MAX as u32 {
+            return Err("Video thread count exceeds the supported range".into());
+        }
+        if !subtitle_controls::valid_preference_font_size(self.subtitle_font_size) {
+            return Err("Subtitle font size is outside the supported range".into());
+        }
+        if !subtitle_controls::valid_font_name(&self.subtitle_font) {
+            return Err("Subtitle font name is invalid".into());
+        }
+        self.subtitle_text_style.validate().map_err(str::to_owned)?;
+        self.subtitle_position.validate().map_err(str::to_owned)?;
+        self.network_cache.validate().map_err(str::to_owned)?;
+        self.thumbnail_preview.validate().map_err(str::to_owned)?;
+        self.network.validate().map_err(str::to_owned)?;
+        self.network_online_videos
             .validate()
             .map_err(str::to_owned)?;
-        prefs.subtitle_position.validate().map_err(str::to_owned)?;
-        prefs.network_cache.validate().map_err(str::to_owned)?;
-        prefs.thumbnail_preview.validate().map_err(str::to_owned)?;
-        prefs.network.validate().map_err(str::to_owned)?;
-        prefs
-            .network_online_videos
-            .validate()
-            .map_err(str::to_owned)?;
-        prefs.audio.validate().map_err(str::to_owned)?;
-        prefs.audio_equalizer.validate().map_err(str::to_owned)?;
-        prefs.video_filters.validate().map_err(str::to_owned)?;
-        prefs.audio_filters.validate().map_err(str::to_owned)?;
-        prefs.hdr_tone_mapping.validate().map_err(str::to_owned)?;
-        prefs.advanced.validate()?;
-        prefs.controls.validate().map_err(str::to_owned)?;
-        prefs.control_bar.validate().map_err(str::to_owned)?;
-        prefs.key_bindings.validate().map_err(str::to_owned)?;
-        prefs.subtitle_other.validate().map_err(str::to_owned)?;
-        prefs.subtitle_auto_load.validate().map_err(str::to_owned)?;
-        prefs.online_subtitles.validate().map_err(str::to_owned)?;
+        self.audio.validate().map_err(str::to_owned)?;
+        self.audio_equalizer.validate().map_err(str::to_owned)?;
+        self.video_filters.validate().map_err(str::to_owned)?;
+        self.audio_filters.validate().map_err(str::to_owned)?;
+        self.hdr_tone_mapping.validate().map_err(str::to_owned)?;
+        self.advanced.validate()?;
+        self.controls.validate().map_err(str::to_owned)?;
+        self.control_bar.validate().map_err(str::to_owned)?;
+        self.key_bindings.validate().map_err(str::to_owned)?;
+        self.subtitle_other.validate().map_err(str::to_owned)?;
+        self.subtitle_auto_load.validate().map_err(str::to_owned)?;
+        self.online_subtitles.validate().map_err(str::to_owned)?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
-        prefs.volume = prefs.volume.min(prefs.volume_limit());
-        prefs.leading_sidebar_width = prefs.leading_sidebar_width.clamp(300, 500);
-        prefs.trailing_sidebar_width = prefs.trailing_sidebar_width.clamp(300, 500);
-        if prefs.osc_position > 2 {
+        self.volume = self.volume.min(self.volume_limit());
+        self.leading_sidebar_width = self.leading_sidebar_width.clamp(300, 500);
+        self.trailing_sidebar_width = self.trailing_sidebar_width.clamp(300, 500);
+        if self.osc_position > 2 {
             return Err("Unsupported on-screen controller position".into());
         }
-        if !prefs.control_bar_position_horizontal.is_finite()
-            || !(0.0..=1.0).contains(&prefs.control_bar_position_horizontal)
-            || !prefs.control_bar_position_vertical.is_finite()
-            || !(0.0..=1.0).contains(&prefs.control_bar_position_vertical)
+        if !(0.0..=1.0).contains(&self.control_bar_position_horizontal)
+            || !(0.0..=1.0).contains(&self.control_bar_position_vertical)
         {
             return Err("Floating control bar position must be between 0 and 1".into());
         }
-        prefs.screenshot.validate()?;
-        if prefs.recent_media.len() > 10
-            || prefs.recent_media.iter().any(|item| {
-                !valid_path(&item.path)
-                    || item.title.contains('\0')
-                    || !item.position.is_finite()
-                    || item.position < 0.0
-            })
-        {
+        self.screenshot.validate()?;
+        if !valid_recent_media(&self.recent_media) {
             return Err("Recent media history is invalid".into());
         }
-        if prefs.recent_open_documents.len() > 10
-            || prefs.recent_open_documents.iter().any(|item| {
-                !valid_path(&item.path)
-                    || item.title.contains('\0')
-                    || !item.position.is_finite()
-                    || item.position < 0.0
-            })
-        {
+        if !valid_recent_media(&self.recent_open_documents) {
             return Err("Open Recent documents are invalid".into());
         }
-        if prefs.playback_history.iter().any(|entry| !entry.is_valid()) {
+        if self.playback_history.iter().any(|entry| !entry.is_valid()) {
             return Err("Playback history is invalid".into());
         }
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
-        let timeout = std::time::Duration::try_from_secs_f64(prefs.osd_timeout_secs)
+        let timeout = std::time::Duration::try_from_secs_f64(self.osd_timeout_secs)
             .map_err(|_| "Invalid on-screen display timeout")?;
         if timeout.as_millis() > u64::MAX as u128 {
             return Err("On-screen display timeout exceeds timer capacity".into());
         }
-        if !prefs.osd_text_size.is_finite() || !(5.0..=500.0).contains(&prefs.osd_text_size) {
+        if !(5.0..=500.0).contains(&self.osd_text_size) {
             return Err("On-screen display text size must be between 5 and 500 points".into());
         }
-        Ok(prefs)
+        Ok(self)
     }
+}
+
+fn rejected_document(reason: impl Into<String>) -> (Preferences, Vec<Rejection>) {
+    (
+        Preferences::default(),
+        vec![Rejection {
+            key: "$".into(),
+            reason: reason.into(),
+        }],
+    )
+}
+
+fn valid_recent_media(items: &[RecentMedia]) -> bool {
+    items.len() <= 10
+        && items.iter().all(|item| {
+            valid_path(&item.path)
+                && !item.title.contains('\0')
+                && item.position.is_finite()
+                && item.position >= 0.0
+        })
 }

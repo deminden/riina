@@ -56,7 +56,7 @@ pub use playback::{
     MAX_RETAINED_MPV_EVENTS, MpvEventRecord, Phase, Playback, SubtitleStyleAvailability,
     VideoFrameInfo, VideoParameters, time_label,
 };
-pub use preferences::{ActionAfterLaunch, Preferences, RecentMedia, ThemeMaterial};
+pub use preferences::{ActionAfterLaunch, Preferences, RecentMedia, Rejection, ThemeMaterial};
 
 pub const MAX_PLUGIN_OBSERVED_MPV_PROPERTIES: usize = 128;
 
