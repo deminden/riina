@@ -411,9 +411,16 @@ fn play_restarts_media_after_end_of_file() {
 fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
     let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
+    // The null driver's default 256-sample chunk exceeds its buffer for the
+    // 1 kHz WAV below. Keep its playback clock without relying on audio reuse.
+    let player = start_test_player_with_options(
+        &test_library(&root),
+        true,
+        vec![("ao-null-outburst".into(), "128".into())],
+        move |state| {
+            let _ = sender.send(state);
+        },
+    )
     .unwrap();
     player
         .send(Command::Load(
