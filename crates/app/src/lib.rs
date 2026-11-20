@@ -1,22 +1,17 @@
 //! Application orchestration for the Riina executable.
 
-mod about_window;
-mod crop_editor;
 mod debug_dump;
 mod diagnostics;
 mod file_actions;
 mod file_selection;
 mod file_types;
 mod font_catalog;
-mod font_picker;
 mod http;
 mod language_names;
 mod localized_number;
-mod log_viewer;
 mod platform;
 mod playback_history;
 mod playback_history_store;
-mod playback_history_window;
 mod player;
 mod plugins;
 mod preferences;
@@ -24,7 +19,7 @@ mod settings_search;
 mod subtitles;
 mod ui_dialogs;
 mod ui_models;
-mod video_filter_window;
+mod windows;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 #[doc(hidden)]
@@ -56,6 +51,10 @@ use slint::ComponentHandle;
 use subtitles::{
     assrt_subtitles, online_subtitles_credentials, open_subtitles, shooter_subtitles,
     subtitle_discovery, subtitle_priority, subtitle_series,
+};
+use windows::{
+    about_window, crop_editor, font_picker, log_viewer, playback_history_window,
+    video_filter_window,
 };
 
 struct StartupArguments {
