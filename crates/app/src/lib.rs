@@ -1,9 +1,6 @@
 //! Application orchestration for the Riina executable.
 
 mod about_window;
-mod auto_playlist;
-#[doc(hidden)]
-pub mod automatic_music_mode;
 mod crop_editor;
 mod debug_dump;
 mod diagnostics;
@@ -12,41 +9,32 @@ mod file_selection;
 mod file_types;
 mod font_catalog;
 mod font_picker;
-mod fullscreen_info;
 mod http;
 mod language_names;
 mod localized_number;
 mod log_viewer;
-mod media_open;
-mod music_mode_layout;
-mod opening_fullscreen;
 mod platform;
 mod playback_history;
 mod playback_history_store;
 mod playback_history_window;
-mod player_manager;
-mod player_ui;
-mod playlist_export;
-mod playlist_metadata;
+mod player;
 mod plugins;
 mod preferences;
-mod screenshot_osd;
-mod screenshot_output;
-mod seek_osd;
 mod settings_search;
 mod subtitles;
-mod thumbnail_cache;
-mod thumbnail_preview;
-mod transition_frame;
 mod ui_dialogs;
 mod ui_models;
-mod video_blur;
 mod video_filter_window;
-mod video_osd;
-mod window_aspect;
-mod window_controls;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
+#[doc(hidden)]
+pub use player::automatic_music_mode;
+use player::{
+    auto_playlist, fullscreen_info, media_open, music_mode_layout, opening_fullscreen,
+    player_manager, player_ui, playlist_export, playlist_metadata, screenshot_osd,
+    screenshot_output, seek_osd, thumbnail_cache, thumbnail_preview, transition_frame, video_blur,
+    video_osd, window_aspect, window_controls,
+};
 use player_ui::configure_player;
 use plugins::{
     plugin_files, plugin_github, plugin_host, plugin_http, plugin_packages, plugin_runtime,

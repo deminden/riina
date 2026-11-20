@@ -43,6 +43,7 @@ For macOS/Linux setup, see [port development](port-development.md).
 | `crates/app/src/preferences/` | Preference loading, persistence, section adapters and settings window |
 | `crates/app/src/plugins/` | Plugin installation, execution, permissions and event handling |
 | `crates/app/src/subtitles/` | Subtitle discovery, provider adapters and credentials |
+| `crates/app/src/player/` | Player composition, input, playback actions and presentation state |
 | `crates/app/src/platform/` | OS services, native windows and presentation |
 | `crates/ui/ui/` | Slint components and design tokens |
 | `scripts/` | Dependency setup, checks, packaging and capture tools |
