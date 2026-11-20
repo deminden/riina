@@ -76,9 +76,7 @@ impl Recovery {
 /// Reads valid saved values for field merges that already have a fallback.
 pub(crate) fn read_valid(path: &Path) -> io::Result<Option<Preferences>> {
     match fs::read_to_string(path) {
-        Ok(text) => Preferences::parse(&text)
-            .map(Some)
-            .map_err(io::Error::other),
+        Ok(text) => parse_object(&text).map(Some).map_err(io::Error::other),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
@@ -235,13 +233,14 @@ mod tests {
     fn load_preserves_corrupt_bytes_and_keeps_valid_preferences() {
         for original in [
             br#"{"volume":"bad","dark":false}"#.as_slice(),
-            b"[1, 2]",
+            b"[]",
             b"\xff\xfe",
         ] {
             let profile = Profile::new();
             let path = profile.preferences();
             fs::write(&path, original).unwrap();
             let loaded = load(&path).unwrap();
+            assert!(read_valid(&path).is_err());
             let recovery = loaded.recovery.unwrap();
             let backup = recovery.quarantined_as.as_ref().unwrap();
             assert_eq!(fs::read(backup).unwrap(), original);
