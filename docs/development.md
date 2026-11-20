@@ -139,6 +139,9 @@ Slint's headless test backend, including pointer/key input and focus changes.
 Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit
 that metadata. Native window/input and physical-display checks remain separate.
+The development Cargo profile retains source line information for workspace
+code and minimizes dependency debug information. A fresh dependency build can
+take longer because dependencies are optimized.
 
 Track-list regressions live in `crates/app/tests/quick_settings/track_navigation.rs`
 and run through that same generated-player test target. They exercise Audio,
