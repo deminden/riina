@@ -10,6 +10,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+        with:
+          fetch-depth: 0
       - name: Pinned Rust toolchain
         shell: pwsh
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
@@ -24,6 +26,17 @@ jobs:
           python scripts/check-assets.py --staged
       - name: Formatting
         run: cargo fmt --all -- --check
+      - name: Rust source line lengths
+        shell: pwsh
+        env:
+          RIINA_LINE_LENGTH_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if ($env:RIINA_LINE_LENGTH_BASE -and $env:RIINA_LINE_LENGTH_BASE -notmatch '^0+$') {
+            python scripts/check-line-length.py --baseline $env:RIINA_LINE_LENGTH_BASE
+          } else {
+            python scripts/check-line-length.py
+          }
+          exit $LASTEXITCODE
       - name: Lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Domain tests

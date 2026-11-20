@@ -108,6 +108,20 @@ persists one batch before changing the in-memory rows and revision.
 
 ## Checks
 
+Use `cargo xtask check --fast` during development. It checks workspace
+formatting, lints crates with staged, unstaged or untracked changes, and runs the
+portable core tests. Shared build inputs select workspace-wide linting. Use
+`cargo xtask check` for the full local gate, including the Python, parity,
+fixture and asset checks. Run `cargo xtask native` separately for the native
+engine suite with null audio output. On Windows it uses the pinned development
+DLL from the setup above unless `RIINA_TEST_MPV_LIBRARY` points to another
+provisioned build.
+
+With the checkout-local Windows toolchain, run
+`./scripts/dev.ps1 -CargoArguments @('xtask', 'check', '--fast')`. Replace the
+argument array with `@('xtask', 'check')` for the full gate or
+`@('xtask', 'native')` for native tests.
+
 [Verification](verification.md#running-checks) contains the commands, native
 prerequisites, GUI procedure and the latest scoped results. Keep implementation
 and verification states separate in the requirement inventories.

@@ -384,6 +384,7 @@ record checks do not establish matched geometry or pixel parity.
 
 ```powershell
 cargo fmt --all -- --check
+python scripts/check-line-length.py
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 cargo build --workspace --locked

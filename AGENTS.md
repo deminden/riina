@@ -47,6 +47,9 @@ Build on Windows 11 x64 with Rust 1.99.0 (edition 2024) and MSVC build tools:
 `cargo build --workspace --locked`, `cargo run -p riina --locked -- <media>`.
 Verify `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
 `cargo test --workspace --locked`. Native tests require the pinned DLL.
+Use `cargo xtask check --fast` for local iteration and `cargo xtask check` for
+the full source gate. Run `cargo xtask native` separately for the null-output
+engine suite.
 Never report an unrun GUI/HDR test as passed. Keep implementation and verification separate.
 
 ### GUI sessions and capture
