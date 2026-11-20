@@ -26,9 +26,12 @@ pub(crate) fn perform_http_request(
         .limit(4 * 1024 * 1024)
         .read_to_string()
         .map_err(|e| format!("Could not read HTTP response: {e}"))?;
-    Ok(
-        serde_json::json!({"statusCode":status.as_u16(), "reason":status.canonical_reason().unwrap_or(""), "data":serde_json::from_str::<serde_json::Value>(&text).unwrap_or(serde_json::Value::Null), "text":text}),
-    )
+    Ok(serde_json::json!({
+        "statusCode": status.as_u16(),
+        "reason": status.canonical_reason().unwrap_or(""),
+        "data": serde_json::from_str::<serde_json::Value>(&text).unwrap_or(serde_json::Value::Null),
+        "text": text,
+    }))
 }
 
 pub(crate) fn perform_http_download(

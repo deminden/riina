@@ -143,7 +143,13 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
     assert_eq!(
         messages
             .iter()
-            .filter(|message| matches!(message, PluginHostMessage::SidebarTabAdded { plugin_identifier, .. } if plugin_identifier == "org.example.late-load"))
+            .filter(|message| {
+                matches!(
+                    message,
+                    PluginHostMessage::SidebarTabAdded { plugin_identifier, .. }
+                        if plugin_identifier == "org.example.late-load"
+                )
+            })
             .count(),
         1
     );
