@@ -1,7 +1,6 @@
 //! Application orchestration for the Riina executable.
 
 mod about_window;
-mod assrt_subtitles;
 mod auto_playlist;
 #[doc(hidden)]
 pub mod automatic_music_mode;
@@ -20,8 +19,6 @@ mod localized_number;
 mod log_viewer;
 mod media_open;
 mod music_mode_layout;
-mod online_subtitles_credentials;
-mod open_subtitles;
 mod opening_fullscreen;
 mod platform;
 mod playback_history;
@@ -37,10 +34,7 @@ mod screenshot_osd;
 mod screenshot_output;
 mod seek_osd;
 mod settings_search;
-mod shooter_subtitles;
-mod subtitle_discovery;
-mod subtitle_priority;
-mod subtitle_series;
+mod subtitles;
 mod thumbnail_cache;
 mod thumbnail_preview;
 mod transition_frame;
@@ -71,6 +65,10 @@ use preferences::{
 };
 use riina_ui::*;
 use slint::ComponentHandle;
+use subtitles::{
+    assrt_subtitles, online_subtitles_credentials, open_subtitles, shooter_subtitles,
+    subtitle_discovery, subtitle_priority, subtitle_series,
+};
 
 struct StartupArguments {
     media: Vec<std::ffi::OsString>,
