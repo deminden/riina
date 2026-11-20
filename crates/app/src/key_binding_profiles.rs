@@ -123,6 +123,7 @@ impl ProfileStore {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn duplicate(&self, source: &str, target: &str) -> Result<(), ProfileError> {
         let mappings = self.load(source)?;
         self.create_with_mappings(target, &mappings)

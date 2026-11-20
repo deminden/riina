@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-pub(crate) fn install(
+pub fn install(
     app: &PlayerWindow,
     playback: Arc<Mutex<Playback>>,
     mode: Arc<Mutex<State>>,

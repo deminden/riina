@@ -119,6 +119,7 @@ pub struct PluginRuntimeSession {
 }
 
 impl PluginRuntimeSession {
+    #[cfg(test)]
     pub fn start_package_entry(
         package_root: &Path,
         manifest: &Manifest,
@@ -178,6 +179,7 @@ impl PluginRuntimeSession {
         )
     }
 
+    #[cfg(test)]
     pub fn start_entry(
         source: &str,
         plugin_identifier: &str,
@@ -421,6 +423,7 @@ impl Drop for PluginRuntimeSession {
 
 /// Resolve and execute the already-validated entry again at activation time.
 /// Rechecking containment prevents a replaced package file from escaping its root.
+#[cfg(test)]
 pub fn execute_package_entry(
     package_root: &Path,
     manifest: &Manifest,
@@ -433,6 +436,7 @@ pub fn execute_package_entry(
 
 /// Evaluate an entry with only its granted host calls and collect startup events.
 /// Keep a `PluginRuntimeSession` when the plugin needs to receive later messages.
+#[cfg(test)]
 pub fn execute_entry(
     source: &str,
     plugin_identifier: &str,

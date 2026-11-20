@@ -7,6 +7,9 @@ license.workspace = true
 build = "build.rs"
 default-run = "riina"
 
+[lib]
+name = "riina_app"
+
 [lints]
 workspace = true
 

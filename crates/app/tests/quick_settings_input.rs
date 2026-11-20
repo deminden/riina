@@ -1,20 +1,11 @@
 //! Real player widgets on Slint's headless backend; native focus is checked separately.
 use i_slint_backend_testing::ElementHandle;
+use riina_app::*;
 use slint::{
     ComponentHandle, LogicalPosition, LogicalSize,
     platform::{Key, PointerEventButton, WindowEvent},
 };
 use std::{cell::RefCell, rc::Rc};
-
-#[expect(
-    clippy::panic,
-    clippy::unwrap_used,
-    reason = "These operations are emitted by the Slint widget generator"
-)]
-mod generated_ui {
-    slint::include_modules!();
-}
-use generated_ui::*;
 
 #[path = "quick_settings/track_navigation.rs"]
 mod track_navigation;
@@ -22,8 +13,6 @@ mod track_navigation;
 #[path = "quick_settings/equalizer.rs"]
 mod equalizer;
 
-#[path = "../src/automatic_music_mode.rs"]
-mod automatic_music_mode;
 #[path = "quick_settings/workflows.rs"]
 mod workflows;
 

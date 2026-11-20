@@ -108,6 +108,7 @@ impl PluginFiles {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn temporary(identifier: &str) -> Self {
         let root = std::env::temp_dir().join("riina-plugin-storage");
         let identifier = safe_identifier(identifier);
