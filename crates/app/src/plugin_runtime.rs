@@ -54,13 +54,18 @@ const MAX_PLUGIN_MESSAGE_BYTES: usize = 1024 * 1024;
 const MAX_HOST_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostEvent {
-    Log(String),
-    ShowOsd(String),
-    ShowAlert(String),
+    Ui(UiEffect),
     Overlay(OverlayEffect),
     Sidebar(PluginSidebarEffect),
     MenuUpdate(Vec<PluginMenuItem>),
     PluginMessage(String, serde_json::Value),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UiEffect {
+    Log(String),
+    ShowOsd(String),
+    ShowAlert(String),
     CoreCommand(Command),
     SetUiVisibility(bool),
     WindowAction(WindowAction),
@@ -81,14 +86,13 @@ enum RuntimeCommand {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum GlobalApiMode {
-    None,
     Controller,
     Child,
 }
 
 struct PluginWorkerHost {
     execution: Arc<ExecutionControl>,
-    global_api_mode: GlobalApiMode,
+    global_api_mode: Option<GlobalApiMode>,
     module_context: Option<PluginModuleContext>,
     file_system: PluginFiles,
     events: Arc<Mutex<Vec<HostEvent>>>,
@@ -142,11 +146,7 @@ impl PluginRuntimeSession {
             &manifest.identifier,
             &manifest.permissions,
             granted_permissions,
-            if manifest.global_entry.is_some() {
-                GlobalApiMode::Child
-            } else {
-                GlobalApiMode::None
-            },
+            manifest.global_entry.as_ref().map(|_| GlobalApiMode::Child),
             Some(module_context),
             PluginStorageContext {
                 file_system,
@@ -169,7 +169,7 @@ impl PluginRuntimeSession {
             &format!("{}.global", manifest.identifier),
             &manifest.permissions,
             granted_permissions,
-            GlobalApiMode::Controller,
+            Some(GlobalApiMode::Controller),
             Some(module_context),
             PluginStorageContext {
                 file_system: PluginFiles::for_package(package_root, &manifest.identifier),
@@ -189,7 +189,7 @@ impl PluginRuntimeSession {
             plugin_identifier,
             requested_permissions,
             granted_permissions,
-            GlobalApiMode::None,
+            None,
             None,
             PluginStorageContext {
                 file_system: PluginFiles::temporary(plugin_identifier),
@@ -203,7 +203,7 @@ impl PluginRuntimeSession {
         plugin_identifier: &str,
         requested_permissions: &[String],
         granted_permissions: &[String],
-        global_api_mode: GlobalApiMode,
+        global_api_mode: Option<GlobalApiMode>,
         module_context: Option<PluginModuleContext>,
         storage: PluginStorageContext,
     ) -> Result<Self, String> {

@@ -2,7 +2,7 @@
 
 use crate::{
     plugin_files::PluginPlayerFileContext,
-    plugin_runtime::{HostEvent, PluginRuntimeSession},
+    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
 };
 use riina_core::{
@@ -859,7 +859,7 @@ fn pump_session_events(
                         },
                     );
                 }
-                event => record(messages, host_message(&key.identifier, event)),
+                HostEvent::Ui(effect) => record(messages, host_message(&key.identifier, effect)),
             }
         }
     }
@@ -993,22 +993,16 @@ fn load_grants(path: &Path, identifier: &str) -> Result<Vec<String>, String> {
     Ok(grants.get(identifier).cloned().unwrap_or_default())
 }
 
-fn host_message(plugin_name: &str, event: HostEvent) -> PluginHostMessage {
-    match event {
-        HostEvent::Log(message) => PluginHostMessage::Log(format!("{plugin_name}: {message}")),
-        HostEvent::ShowOsd(message) => PluginHostMessage::ShowOsd(message),
-        HostEvent::ShowAlert(message) => {
+fn host_message(plugin_name: &str, effect: UiEffect) -> PluginHostMessage {
+    match effect {
+        UiEffect::Log(message) => PluginHostMessage::Log(format!("{plugin_name}: {message}")),
+        UiEffect::ShowOsd(message) => PluginHostMessage::ShowOsd(message),
+        UiEffect::ShowAlert(message) => {
             PluginHostMessage::ShowAlert(plugin_name.to_owned(), message)
         }
-        HostEvent::CoreCommand(command) => PluginHostMessage::PlayerCommand(command),
-        HostEvent::SetUiVisibility(visible) => PluginHostMessage::SetUiVisibility(visible),
-        HostEvent::WindowAction(action) => PluginHostMessage::WindowAction(action),
-        HostEvent::Overlay(_) => unreachable!("overlay effects carry plugin package identity"),
-        HostEvent::Sidebar(_) => unreachable!("sidebar effects carry plugin package identity"),
-        HostEvent::MenuUpdate(_) => unreachable!("plugin menus carry their plugin identity"),
-        HostEvent::PluginMessage(_, _) => {
-            unreachable!("plugin messages are routed to their paired runtime")
-        }
+        UiEffect::CoreCommand(command) => PluginHostMessage::PlayerCommand(command),
+        UiEffect::SetUiVisibility(visible) => PluginHostMessage::SetUiVisibility(visible),
+        UiEffect::WindowAction(action) => PluginHostMessage::WindowAction(action),
     }
 }
 

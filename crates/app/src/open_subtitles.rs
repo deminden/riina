@@ -1,5 +1,6 @@
 //! Bounded client for the OpenSubtitles REST endpoints used by the player.
 
+use crate::http::{self, format_api_error};
 use riina_core::online_subtitles::{Provider, ResultSelection};
 use serde::{Deserialize, Serialize};
 use slint::{ComponentHandle, ModelRc, VecModel};
@@ -21,6 +22,17 @@ const API_ROOT: &str = "https://api.opensubtitles.com/api/v1/";
 const MAX_JSON_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_SUBTITLE_BYTES: u64 = 16 * 1024 * 1024;
 const HASH_CHUNK_BYTES: usize = 64 * 1024;
+// The provider documents the "Application vVersion" form for its API.
+const API_USER_AGENT: &str = concat!("Riina v", env!("CARGO_PKG_VERSION"));
+const ERROR_OVERRIDES: &[(u16, &str)] = &[
+    (401, "OpenSubtitles rejected the API key or this request."),
+    (403, "OpenSubtitles rejected the API key or this request."),
+    (
+        406,
+        "OpenSubtitles download quota is unavailable for this account.",
+    ),
+    (429, "OpenSubtitles rate limit reached. Try again later."),
+];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ResultRow {
@@ -241,7 +253,6 @@ pub(crate) fn download(api_key: &str, file_id: u64) -> Result<(String, Vec<u8>),
     let file_name = safe_file_name(&response.file_name);
     let mut response = agent()
         .get(download_url.as_str())
-        .header("User-Agent", "Riina/0.3.0")
         .call()
         .map_err(|error| format!("Could not download subtitle file: {error}"))?;
     let bytes = response
@@ -753,10 +764,10 @@ fn request(agent: &Agent, url: &Url, api_key: &str) -> Result<ResponseBody, Stri
     let mut response = agent
         .get(url.as_str())
         .header("Api-Key", api_key)
-        .header("User-Agent", "Riina/0.3.0")
+        .header("User-Agent", API_USER_AGENT)
         .header("Accept", "application/json")
         .call()
-        .map_err(|error| format_api_error("search", error))?;
+        .map_err(|error| format_api_error("OpenSubtitles", "search", error, ERROR_OVERRIDES))?;
     let body = response
         .body_mut()
         .with_config()
@@ -770,11 +781,13 @@ fn request_json(agent: &Agent, url: &Url, api_key: &str, body: &[u8]) -> Result<
     let mut response = agent
         .post(url.as_str())
         .header("Api-Key", api_key)
-        .header("User-Agent", "Riina/0.3.0")
+        .header("User-Agent", API_USER_AGENT)
         .header("Accept", "application/json")
         .header("Content-Type", "application/json")
         .send(body)
-        .map_err(|error| format_api_error("download request", error))?;
+        .map_err(|error| {
+            format_api_error("OpenSubtitles", "download request", error, ERROR_OVERRIDES)
+        })?;
     response
         .body_mut()
         .with_config()
@@ -784,10 +797,7 @@ fn request_json(agent: &Agent, url: &Url, api_key: &str, body: &[u8]) -> Result<
 }
 
 fn agent() -> Agent {
-    Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(30)))
-        .build()
-        .new_agent()
+    http::agent(Duration::from_secs(30))
 }
 
 fn checked_api_key(api_key: &str) -> Result<String, String> {
@@ -796,22 +806,6 @@ fn checked_api_key(api_key: &str) -> Result<String, String> {
         return Err("Enter a valid OpenSubtitles API key in Settings > Subtitles.".into());
     }
     Ok(key.to_owned())
-}
-
-fn format_api_error(action: &str, error: ureq::Error) -> String {
-    match error {
-        ureq::Error::StatusCode(401 | 403) => {
-            "OpenSubtitles rejected the API key or this request.".into()
-        }
-        ureq::Error::StatusCode(406) => {
-            "OpenSubtitles download quota is unavailable for this account.".into()
-        }
-        ureq::Error::StatusCode(429) => "OpenSubtitles rate limit reached. Try again later.".into(),
-        ureq::Error::StatusCode(status) => {
-            format!("OpenSubtitles {action} failed with HTTP {status}.")
-        }
-        error => format!("OpenSubtitles {action} failed: {error}"),
-    }
 }
 
 fn movie_hash(path: &Path) -> Result<Option<(String, u64)>, String> {

@@ -1,5 +1,6 @@
 //! Bounded Shooter.cn lookup for subtitles matching local video content.
 
+use crate::http::{RequestPolicy, agent_config, format_api_error};
 use md5::{Digest, Md5};
 use serde::Deserialize;
 use std::{
@@ -17,6 +18,10 @@ const SAMPLE_BYTES: usize = 4096;
 const MAX_RESULTS: usize = 100;
 const MAX_API_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_SUBTITLE_BYTES: u64 = 16 * 1024 * 1024;
+const ERROR_OVERRIDES: &[(u16, &str)] = &[(
+    429,
+    "Shooter.cn rate limited this request. Try again later.",
+)];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResultRow {
@@ -57,9 +62,8 @@ pub(crate) fn search(media_path: &Path) -> Result<Vec<ResultRow>, String> {
         .post(API_URL)
         .header("Content-Type", "application/x-www-form-urlencoded")
         .header("Accept", "application/json")
-        .header("User-Agent", "Riina")
         .send(body.as_bytes())
-        .map_err(|error| format_api_error("search", error))?;
+        .map_err(|error| format_api_error("Shooter.cn", "search", error, ERROR_OVERRIDES))?;
     if response.status().is_redirection() {
         return Err(
             "Shooter.cn redirected the subtitle search; the redirect was not followed.".into(),
@@ -109,7 +113,7 @@ pub(crate) fn download(
     let mut response = agent()
         .get(url.as_str())
         .call()
-        .map_err(|error| format_api_error("download", error))?;
+        .map_err(|error| format_api_error("Shooter.cn", "download", error, ERROR_OVERRIDES))?;
     if response.status().is_redirection() {
         return Err(
             "Shooter.cn redirected the subtitle download; the redirect was not followed.".into(),
@@ -158,12 +162,11 @@ fn shooter_hash(path: &Path) -> Result<(String, u64), String> {
 }
 
 fn agent() -> Agent {
-    Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(20)))
-        .https_only(true)
-        .max_redirects(0)
-        .build()
-        .into()
+    agent_config(
+        Duration::from_secs(20),
+        RequestPolicy::HttpsWithoutRedirects,
+    )
+    .new_agent()
 }
 
 fn checked_download_url(raw: &str) -> Result<String, String> {
@@ -196,18 +199,6 @@ fn clean_text(value: &str, max_chars: usize) -> String {
         .filter(|character| !character.is_control())
         .take(max_chars)
         .collect()
-}
-
-fn format_api_error(action: &str, error: ureq::Error) -> String {
-    match error {
-        ureq::Error::StatusCode(429) => {
-            "Shooter.cn rate limited this request. Try again later.".into()
-        }
-        ureq::Error::StatusCode(status) => {
-            format!("Shooter.cn {action} failed with HTTP {status}.")
-        }
-        error => format!("Shooter.cn {action} failed: {error}"),
-    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 //! Bounded Assrt subtitle search and safe subtitle-file retrieval.
 
+use crate::http::{RequestPolicy, agent_config};
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
@@ -240,12 +241,11 @@ fn request(agent: &Agent, url: &Url, token: &str) -> Result<Vec<u8>, String> {
 }
 
 fn agent() -> Agent {
-    Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(15)))
-        .https_only(true)
-        .max_redirects(0)
-        .build()
-        .into()
+    agent_config(
+        Duration::from_secs(15),
+        RequestPolicy::HttpsWithoutRedirects,
+    )
+    .new_agent()
 }
 
 fn checked_download_url(raw: &str) -> Result<Url, String> {

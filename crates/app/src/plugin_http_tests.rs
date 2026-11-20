@@ -234,6 +234,26 @@ fn blocked_redirect_targets_fail_validation_for_both_transports() {
 }
 
 #[test]
+fn plugin_requests_default_to_the_application_identity_and_accept_an_override() {
+    for (headers, expected) in [
+        (serde_json::json!({}), crate::http::USER_AGENT),
+        (
+            serde_json::json!({"User-Agent": "ExamplePlugin/1"}),
+            "ExamplePlugin/1",
+        ),
+    ] {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let requests = server(listener, 1, |_| ok());
+        run(false, &url, &serde_json::json!({"headers": headers})).unwrap();
+        assert_eq!(
+            requests.join().unwrap()[0].header("user-agent"),
+            Some(expected)
+        );
+    }
+}
+
+#[test]
 fn redirect_status_method_and_body_matrix_uses_real_requests_for_both_transports() {
     for download in [false, true] {
         for status in [301, 302, 303, 307, 308] {

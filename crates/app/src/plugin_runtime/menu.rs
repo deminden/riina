@@ -98,7 +98,7 @@ pub(super) const PLUGIN_MENU_API: &str = r#"(() => {
 
 #[cfg(test)]
 mod tests {
-    use crate::plugin_runtime::{HostEvent, PluginRuntimeSession};
+    use crate::plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect};
     use std::time::Duration;
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
             events
                 .into_iter()
                 .filter_map(|event| {
-                    if let HostEvent::Log(message) = event {
+                    if let HostEvent::Ui(UiEffect::Log(message)) = event {
                         Some(message)
                     } else {
                         None

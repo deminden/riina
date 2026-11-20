@@ -58,12 +58,12 @@ const PLUGIN_EVENT_API: &str = r#"(() => {
 pub(super) fn install<'js>(
     ctx: Ctx<'js>,
     api: Object<'js>,
-    global_api_mode: GlobalApiMode,
+    global_api_mode: Option<GlobalApiMode>,
     player_event_subscriptions: Arc<Mutex<BTreeSet<String>>>,
     observed_mpv_properties: Arc<Mutex<BTreeSet<String>>>,
     mpv_property_observation_requests: Arc<Mutex<BTreeSet<String>>>,
 ) -> rquickjs::Result<()> {
-    if global_api_mode != GlobalApiMode::Controller {
+    if global_api_mode != Some(GlobalApiMode::Controller) {
         let subscriptions = player_event_subscriptions.clone();
         let observed_properties = observed_mpv_properties.clone();
         let observation_requests = mpv_property_observation_requests.clone();

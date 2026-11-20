@@ -1,5 +1,5 @@
 //! Typed playback and window API bindings.
-use super::{AvailablePermissions, HostEvent, output::record};
+use super::{AvailablePermissions, HostEvent, UiEffect, output::record};
 use crate::plugin_files::PluginFiles;
 use riina_core::{Command, control_preferences::SeekType, plugin::WindowAction};
 use rquickjs::{Ctx, Object, function::Func};
@@ -31,7 +31,7 @@ pub(super) fn install_plugin_core_api<'js>(
                 &open_domains,
             )
             .map_err(core_js_error)?;
-            record(&open_events, HostEvent::CoreCommand(Command::Load(path)));
+            record(&open_events, UiEffect::CoreCommand(Command::Load(path)));
             Ok(())
         }),
     )?;
@@ -41,7 +41,7 @@ pub(super) fn install_plugin_core_api<'js>(
         "osd",
         Func::from(move |message: String| {
             if osd_permitted {
-                record(&osd_events, HostEvent::ShowOsd(message));
+                record(&osd_events, UiEffect::ShowOsd(message));
             }
         }),
     )?;
@@ -53,7 +53,7 @@ pub(super) fn install_plugin_core_api<'js>(
         let command_events = events.clone();
         core_api.set(
             name,
-            Func::from(move || record(&command_events, HostEvent::CoreCommand(command.clone()))),
+            Func::from(move || record(&command_events, UiEffect::CoreCommand(command.clone()))),
         )?;
     }
     let seek_events = events.clone();
@@ -70,7 +70,7 @@ pub(super) fn install_plugin_core_api<'js>(
             };
             record(
                 &seek_events,
-                HostEvent::CoreCommand(Command::SeekWithType { seconds, seek_type }),
+                UiEffect::CoreCommand(Command::SeekWithType { seconds, seek_type }),
             );
             Ok(())
         }),
@@ -86,7 +86,7 @@ pub(super) fn install_plugin_core_api<'js>(
             }
             record(
                 &seek_events,
-                HostEvent::CoreCommand(Command::Seek {
+                UiEffect::CoreCommand(Command::Seek {
                     seconds,
                     absolute: true,
                 }),
@@ -103,7 +103,7 @@ pub(super) fn install_plugin_core_api<'js>(
                     "Speed must be finite and at least 0.01".into(),
                 ));
             }
-            record(&speed_events, HostEvent::CoreCommand(Command::Speed(speed)));
+            record(&speed_events, UiEffect::CoreCommand(Command::Speed(speed)));
             Ok(())
         }),
     )?;
@@ -111,7 +111,7 @@ pub(super) fn install_plugin_core_api<'js>(
     core_api.set(
         "setUIVisibility",
         Func::from(move |visible: bool| {
-            record(&ui_events, HostEvent::SetUiVisibility(visible));
+            record(&ui_events, UiEffect::SetUiVisibility(visible));
         }),
     )?;
     let chapter_events = events.clone();
@@ -122,7 +122,7 @@ pub(super) fn install_plugin_core_api<'js>(
                 .map_err(|_| core_js_error("Chapter index must be non-negative".into()))?;
             record(
                 &chapter_events,
-                HostEvent::CoreCommand(Command::SelectChapter(index)),
+                UiEffect::CoreCommand(Command::SelectChapter(index)),
             );
             Ok(())
         }),
@@ -200,7 +200,7 @@ pub(super) fn install_plugin_core_api<'js>(
                     _ => None,
                 };
                 if let Some(command) = command {
-                    record(&track_write_events, HostEvent::CoreCommand(command));
+                    record(&track_write_events, UiEffect::CoreCommand(command));
                 }
                 Ok(())
             },
@@ -229,7 +229,7 @@ pub(super) fn install_plugin_core_api<'js>(
                 "video" => Command::AddVideo(path),
                 _ => return Err(core_js_error("Unknown track type".into())),
             };
-            record(&track_load_events, HostEvent::CoreCommand(command));
+            record(&track_load_events, UiEffect::CoreCommand(command));
             Ok(())
         }),
     )?;
@@ -307,7 +307,7 @@ pub(super) fn install_plugin_core_api<'js>(
                 let Some(action) = plugin_window_action(&name, value)? else {
                     return Ok(false);
                 };
-                record(&window_events, HostEvent::WindowAction(action));
+                record(&window_events, UiEffect::WindowAction(action));
                 Ok(true)
             },
         ),

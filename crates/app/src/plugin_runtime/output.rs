@@ -1,7 +1,7 @@
 //! Size and count limits for effects leaving a plugin realm.
 use super::{
     HostEvent, MAX_HOST_EVENTS, MAX_HOST_OUTPUT_BYTES, MAX_MESSAGE_CHARS, MAX_OVERLAY_INTENT_BYTES,
-    MAX_PLUGIN_MESSAGE_BYTES, validate_plugin_message,
+    MAX_PLUGIN_MESSAGE_BYTES, UiEffect, validate_plugin_message,
 };
 use riina_core::{
     plugin::{OverlayEffect, OverlayIntent, OverlayState},
@@ -145,9 +145,14 @@ pub(super) fn sidebar_js_error(message: String) -> rquickjs::Error {
 
 fn host_event_size(event: &HostEvent) -> usize {
     match event {
-        HostEvent::Log(message) | HostEvent::ShowOsd(message) | HostEvent::ShowAlert(message) => {
-            message.len()
-        }
+        HostEvent::Ui(effect) => match effect {
+            UiEffect::Log(message) | UiEffect::ShowOsd(message) | UiEffect::ShowAlert(message) => {
+                message.len()
+            }
+            UiEffect::CoreCommand(command) => format!("{command:?}").len(),
+            UiEffect::SetUiVisibility(_) => 1,
+            UiEffect::WindowAction(action) => format!("{action:?}").len(),
+        },
         HostEvent::Overlay(effect) => overlay_effect_size(effect),
         HostEvent::Sidebar(effect) => sidebar_effect_size(effect),
         HostEvent::MenuUpdate(items) => {
@@ -156,9 +161,6 @@ fn host_event_size(event: &HostEvent) -> usize {
         HostEvent::PluginMessage(name, data) => name
             .len()
             .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
-        HostEvent::CoreCommand(command) => format!("{command:?}").len(),
-        HostEvent::SetUiVisibility(_) => 1,
-        HostEvent::WindowAction(action) => format!("{action:?}").len(),
     }
 }
 
@@ -166,44 +168,42 @@ pub(super) fn overlay_js_error(message: String) -> rquickjs::Error {
     rquickjs::Error::new_from_js_message("overlay request", "valid overlay effect", message)
 }
 
-pub(super) fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
+pub(super) fn record(events: &Mutex<Vec<HostEvent>>, mut effect: UiEffect) {
     let mut events = riina_core::sync::lock(events);
     if events.len() >= MAX_HOST_EVENTS {
         return;
     }
-    if matches!(
-        &event,
-        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) | HostEvent::WindowAction(_)
-    ) {
-        events.push(event);
-        return;
+    match &mut effect {
+        UiEffect::Log(message) | UiEffect::ShowOsd(message) | UiEffect::ShowAlert(message) => {
+            if let Some((limit, _)) = message.char_indices().nth(MAX_MESSAGE_CHARS) {
+                message.truncate(limit);
+                message.shrink_to_fit();
+            }
+        }
+        UiEffect::CoreCommand(_) | UiEffect::SetUiVisibility(_) | UiEffect::WindowAction(_) => {}
     }
-    let message = match &event {
-        HostEvent::Log(message) | HostEvent::ShowOsd(message) | HostEvent::ShowAlert(message) => {
-            message
-        }
-        HostEvent::Overlay(_)
-        | HostEvent::Sidebar(_)
-        | HostEvent::MenuUpdate(_)
-        | HostEvent::PluginMessage(_, _)
-        | HostEvent::CoreCommand(_)
-        | HostEvent::SetUiVisibility(_)
-        | HostEvent::WindowAction(_) => {
-            return;
-        }
-    };
-    let bounded = message.chars().take(MAX_MESSAGE_CHARS).collect::<String>();
-    let event = match event {
-        HostEvent::Log(_) => HostEvent::Log(bounded),
-        HostEvent::ShowOsd(_) => HostEvent::ShowOsd(bounded),
-        HostEvent::ShowAlert(_) => HostEvent::ShowAlert(bounded),
-        HostEvent::Overlay(effect) => HostEvent::Overlay(effect),
-        HostEvent::Sidebar(effect) => HostEvent::Sidebar(effect),
-        HostEvent::MenuUpdate(_) => unreachable!("plugin menus use their bounded path"),
-        HostEvent::PluginMessage(_, _) => unreachable!("plugin messages use their bounded path"),
-        HostEvent::CoreCommand(_) | HostEvent::SetUiVisibility(_) | HostEvent::WindowAction(_) => {
-            unreachable!("player commands retain typed payloads")
-        }
-    };
-    events.push(event);
+    events.push(HostEvent::Ui(effect));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ui_messages_are_truncated_at_a_character_boundary_in_queue_order() {
+        let events = Mutex::new(Vec::new());
+        let maximum = "界".repeat(MAX_MESSAGE_CHARS);
+        record(&events, UiEffect::Log(format!("{maximum}尾")));
+        record(&events, UiEffect::SetUiVisibility(true));
+        record(&events, UiEffect::ShowOsd("now playing".into()));
+
+        assert_eq!(
+            *riina_core::sync::lock(&events),
+            [
+                HostEvent::Ui(UiEffect::Log(maximum)),
+                HostEvent::Ui(UiEffect::SetUiVisibility(true)),
+                HostEvent::Ui(UiEffect::ShowOsd("now playing".into())),
+            ]
+        );
+    }
 }

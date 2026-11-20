@@ -57,10 +57,10 @@ fn exposes_only_the_host_apis_requested_and_granted_by_the_plugin() {
     assert_eq!(
         events,
         [
-            HostEvent::Log("ready".into()),
-            HostEvent::ShowOsd("Loaded".into()),
-            HostEvent::ShowAlert("Notice".into()),
-            HostEvent::Log("done".into()),
+            HostEvent::Ui(UiEffect::Log("ready".into())),
+            HostEvent::Ui(UiEffect::ShowOsd("Loaded".into())),
+            HostEvent::Ui(UiEffect::ShowAlert("Notice".into())),
+            HostEvent::Ui(UiEffect::Log("done".into())),
         ]
     );
     assert!(
@@ -169,7 +169,7 @@ fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
         iina.file.delete('@data/moved.txt');
     "#;
     let events = execute_entry(source, &identifier, &requested, &requested).unwrap();
-    assert_eq!(events, [HostEvent::Log("saved".into())]);
+    assert_eq!(events, [HostEvent::Ui(UiEffect::Log("saved".into()))]);
     let _ = std::fs::remove_dir_all(data_root);
 
     assert!(
@@ -252,19 +252,19 @@ fn core_playback_methods_emit_typed_player_commands() {
     assert_eq!(
         events,
         [
-            HostEvent::CoreCommand(Command::SetPaused(true)),
-            HostEvent::CoreCommand(Command::SetPaused(false)),
-            HostEvent::CoreCommand(Command::Stop),
-            HostEvent::CoreCommand(Command::SeekWithType {
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SetPaused(true))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SetPaused(false))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::Stop)),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SeekWithType {
                 seconds: -4.5,
                 seek_type: SeekType::Exact,
-            }),
-            HostEvent::CoreCommand(Command::Seek {
+            })),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::Seek {
                 seconds: 12.0,
                 absolute: true,
-            }),
-            HostEvent::CoreCommand(Command::Speed(1.25)),
-            HostEvent::CoreCommand(Command::SelectChapter(2)),
+            })),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::Speed(1.25))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SelectChapter(2))),
         ]
     );
     assert!(
@@ -291,8 +291,8 @@ fn core_ui_visibility_emits_the_iina_disable_ui_flag() {
     assert_eq!(
         events,
         [
-            HostEvent::SetUiVisibility(true),
-            HostEvent::SetUiVisibility(false),
+            HostEvent::Ui(UiEffect::SetUiVisibility(true)),
+            HostEvent::Ui(UiEffect::SetUiVisibility(false)),
         ]
     );
 }
@@ -319,20 +319,24 @@ fn core_window_proxy_exposes_window_state_and_typed_mutations() {
     assert_eq!(
         events,
         [
-            HostEvent::Log("false".into()),
-            HostEvent::Log("null".into()),
-            HostEvent::WindowAction(WindowAction::SetFrame {
+            HostEvent::Ui(UiEffect::Log("false".into())),
+            HostEvent::Ui(UiEffect::Log("null".into())),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetFrame {
                 x: 12.0,
                 y: 34.0,
                 width: 640.0,
                 height: 360.0,
-            }),
-            HostEvent::WindowAction(WindowAction::SetFullscreen(true)),
-            HostEvent::WindowAction(WindowAction::SetPictureInPicture(false)),
-            HostEvent::WindowAction(WindowAction::SetOnTop(true)),
-            HostEvent::WindowAction(WindowAction::SetSidebar(Some("playlist".into()))),
-            HostEvent::WindowAction(WindowAction::SetSidebar(None)),
-            HostEvent::WindowAction(WindowAction::SetMiniaturized(false)),
+            })),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetFullscreen(true))),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetPictureInPicture(
+                false
+            ))),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetOnTop(true))),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetSidebar(Some(
+                "playlist".into()
+            )))),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetSidebar(None))),
+            HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetMiniaturized(false))),
         ]
     );
     assert!(
@@ -367,23 +371,25 @@ fn core_track_apis_emit_typed_commands() {
     assert_eq!(
         events,
         [
-            HostEvent::CoreCommand(Command::SelectTrack {
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SelectTrack {
                 kind: riina_core::TrackKind::Audio,
                 id: Some(4),
-            }),
-            HostEvent::CoreCommand(Command::AudioDelay(0.25)),
-            HostEvent::CoreCommand(Command::Volume(125.0)),
-            HostEvent::CoreCommand(Command::SetMuted(true)),
-            HostEvent::CoreCommand(Command::SelectTrack {
+            })),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::AudioDelay(0.25))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::Volume(125.0))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SetMuted(true))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SelectTrack {
                 kind: riina_core::TrackKind::Sub,
                 id: Some(5),
-            }),
-            HostEvent::CoreCommand(Command::SelectSecondarySubtitle(Some(6))),
-            HostEvent::CoreCommand(Command::SubtitleDelay(-0.5)),
-            HostEvent::CoreCommand(Command::SelectTrack {
+            })),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SelectSecondarySubtitle(
+                Some(6)
+            ))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SubtitleDelay(-0.5))),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::SelectTrack {
                 kind: riina_core::TrackKind::Video,
                 id: Some(7),
-            }),
+            })),
         ]
     );
     assert!(
@@ -467,7 +473,7 @@ fn core_status_chapter_recent_document_and_version_reads_follow_playback_context
         identifier,
         &[],
         &[],
-        GlobalApiMode::None,
+        None,
         None,
         PluginStorageContext {
             file_system: files,
@@ -492,7 +498,7 @@ fn core_open_requires_the_matching_network_or_filesystem_grant() {
         .into_owned();
     assert_eq!(
         execute_entry("iina.core.open('@data/clip.mkv')", &identifier, &[], &[],).unwrap(),
-        [HostEvent::CoreCommand(Command::Load(path))]
+        [HostEvent::Ui(UiEffect::CoreCommand(Command::Load(path)))]
     );
     let _ = std::fs::remove_dir_all(
         std::env::temp_dir()
@@ -709,10 +715,9 @@ fn persistent_session_delivers_overlay_messages_to_registered_callbacks() {
     let deadline = Instant::now() + Duration::from_secs(1);
     loop {
         let events = session.drain_events().unwrap();
-        if events
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "received"))
-        {
+        if events.iter().any(
+            |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "received"),
+        ) {
             break;
         }
         assert!(
@@ -777,10 +782,9 @@ fn persistent_sidebar_session_delivers_only_registered_messages() {
     let deadline = Instant::now() + Duration::from_secs(1);
     loop {
         let events = session.drain_events().unwrap();
-        if events
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "received"))
-        {
+        if events.iter().any(
+            |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "received"),
+        ) {
             break;
         }
         assert!(
@@ -811,13 +815,9 @@ fn plugin_menu_snapshot_and_action_callback_reach_the_host() {
 
     session.deliver_plugin_menu_action("menu-1".into()).unwrap();
     session.flush_events(Duration::from_secs(1)).unwrap();
-    assert!(
-        session
-            .drain_events()
-            .unwrap()
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "checked"))
-    );
+    assert!(session.drain_events().unwrap().iter().any(
+        |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "checked")
+    ));
 }
 
 #[test]
@@ -880,29 +880,29 @@ fn persistent_session_delivers_player_events_and_unregisters_listeners() {
     loop {
         seen.extend(session.drain_events().unwrap());
         let file_loaded = seen.iter().any(|event| {
-            matches!(event, HostEvent::Log(message) if message == "file:///media/example.mkv")
+            matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "file:///media/example.mkv")
         });
-        let file_started = seen
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "started"));
-        let paused = seen
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "true"));
+        let file_started = seen.iter().any(
+            |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "started"),
+        );
+        let paused = seen.iter().any(
+            |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "true"),
+        );
         let window_loaded = seen
             .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "window-loaded"));
-        let window_resized = seen
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "800"));
-        let pip_changed = seen
-            .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "pip:true"));
+            .any(|event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "window-loaded"));
+        let window_resized = seen.iter().any(
+            |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "800"),
+        );
+        let pip_changed = seen.iter().any(
+            |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "pip:true"),
+        );
         let music_mode_changed = seen
             .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "music:true"));
+            .any(|event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "music:true"));
         let main_window_changed = seen
             .iter()
-            .any(|event| matches!(event, HostEvent::Log(message) if message == "main:true"));
+            .any(|event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message == "main:true"));
         if file_started
             && file_loaded
             && paused
@@ -998,7 +998,7 @@ fn package_entry_must_resolve_inside_its_installed_root() {
     let root = temporary_directory();
     std::fs::write(root.join("entry.js"), "iina.log('inside')").unwrap();
     let events = execute_package_entry(&root, &manifest("entry.js".into()), &[]).unwrap();
-    assert_eq!(events, [HostEvent::Log("inside".into())]);
+    assert_eq!(events, [HostEvent::Ui(UiEffect::Log("inside".into()))]);
 
     let sibling_entry = root.with_extension("js");
     std::fs::write(&sibling_entry, "iina.log('outside')").unwrap();

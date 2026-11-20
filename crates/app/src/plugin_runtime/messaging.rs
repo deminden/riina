@@ -9,12 +9,11 @@ pub(super) fn install<'js>(
     global_api_mode: GlobalApiMode,
     events: Arc<Mutex<Vec<HostEvent>>>,
 ) -> rquickjs::Result<()> {
-    if global_api_mode != GlobalApiMode::None {
-        let global_api = Object::new(ctx.clone())?;
-        match global_api_mode {
-            GlobalApiMode::Controller => {
-                let message_events = events.clone();
-                global_api.set(
+    let global_api = Object::new(ctx.clone())?;
+    match global_api_mode {
+        GlobalApiMode::Controller => {
+            let message_events = events.clone();
+            global_api.set(
                 "__postMessage",
                 Func::from(
                     move |target: String, name: String, data: String| -> rquickjs::Result<()> {
@@ -32,25 +31,24 @@ pub(super) fn install<'js>(
                     },
                 ),
             )?;
-            }
-            GlobalApiMode::Child => {
-                let message_events = events.clone();
-                global_api.set(
-                    "__postMessage",
-                    Func::from(move |name: String, data: String| -> rquickjs::Result<()> {
-                        let data: serde_json::Value =
-                            decode_plugin_json(&data).map_err(plugin_message_js_error)?;
-                        record_plugin_message(&message_events, name, data)
-                            .map_err(plugin_message_js_error)
-                    }),
-                )?;
-            }
-            GlobalApiMode::None => unreachable!(),
         }
-        api.set("global", global_api)?;
-        let wrapper = match global_api_mode {
-            GlobalApiMode::Controller => {
-                r#"(() => {
+        GlobalApiMode::Child => {
+            let message_events = events.clone();
+            global_api.set(
+                "__postMessage",
+                Func::from(move |name: String, data: String| -> rquickjs::Result<()> {
+                    let data: serde_json::Value =
+                        decode_plugin_json(&data).map_err(plugin_message_js_error)?;
+                    record_plugin_message(&message_events, name, data)
+                        .map_err(plugin_message_js_error)
+                }),
+            )?;
+        }
+    }
+    api.set("global", global_api)?;
+    let wrapper = match global_api_mode {
+        GlobalApiMode::Controller => {
+            r#"(() => {
                 const api = iina.global;
                 const postMessage = api.__postMessage;
                 const listeners = new Map();
@@ -65,9 +63,9 @@ pub(super) fn install<'js>(
                 };
                 delete api.__postMessage;
             })();"#
-            }
-            GlobalApiMode::Child => {
-                r#"(() => {
+        }
+        GlobalApiMode::Child => {
+            r#"(() => {
                 const api = iina.global;
                 const postMessage = api.__postMessage;
                 const listeners = new Map();
@@ -83,11 +81,9 @@ pub(super) fn install<'js>(
                 };
                 delete api.__postMessage;
             })();"#
-            }
-            GlobalApiMode::None => unreachable!(),
-        };
-        ctx.eval::<(), _>(wrapper)?;
-    }
+        }
+    };
+    ctx.eval::<(), _>(wrapper)?;
     Ok(())
 }
 

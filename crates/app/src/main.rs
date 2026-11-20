@@ -20,6 +20,7 @@ mod file_types;
 mod font_catalog;
 mod font_picker;
 mod fullscreen_info;
+mod http;
 mod key_binding_preferences;
 pub mod key_binding_profiles;
 mod language_names;

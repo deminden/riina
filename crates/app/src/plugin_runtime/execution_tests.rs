@@ -6,7 +6,7 @@ fn wait_for_log(session: &PluginRuntimeSession, expected: &str) {
     let mut received = Vec::new();
     while Instant::now() < deadline {
         received.extend(session.drain_events().unwrap());
-        if received.contains(&HostEvent::Log(expected.into())) {
+        if received.contains(&HostEvent::Ui(UiEffect::Log(expected.into()))) {
             return;
         }
         std::thread::sleep(Duration::from_millis(5));
@@ -63,7 +63,9 @@ fn timers_and_player_and_menu_callbacks_run_their_promise_continuations() {
         for event in session.drain_events().unwrap() {
             match event {
                 HostEvent::MenuUpdate(items) => item_id = Some(items[0].id.clone()),
-                HostEvent::Log(message) if message == "timer promise" => timer_ran = true,
+                HostEvent::Ui(UiEffect::Log(message)) if message == "timer promise" => {
+                    timer_ran = true
+                }
                 _ => {}
             }
         }
@@ -108,7 +110,7 @@ fn shutdown_interrupts_the_active_callback_and_discards_queued_callbacks() {
         !events
             .lock()
             .unwrap()
-            .contains(&HostEvent::Log("started".into())),
+            .contains(&HostEvent::Ui(UiEffect::Log("started".into()))),
         "Shutdown executed callbacks queued behind the interrupted callback"
     );
 }
@@ -146,9 +148,9 @@ fn a_failed_overlay_callback_still_runs_its_queued_promise_jobs() {
         .unwrap();
     session.flush_events(Duration::from_secs(3)).unwrap();
     let events = session.drain_events().unwrap();
-    assert!(events.contains(&HostEvent::Log("promise after throw".into())));
+    assert!(events.contains(&HostEvent::Ui(UiEffect::Log("promise after throw".into()))));
     assert!(events.iter().any(
-        |event| matches!(event, HostEvent::Log(message) if message.contains("overlay callback failed"))
+        |event| matches!(event, HostEvent::Ui(UiEffect::Log(message)) if message.contains("overlay callback failed"))
     ));
 }
 
@@ -159,7 +161,10 @@ fn package_require_bridge_survives_api_installation() {
     std::fs::write(root.join("helper.js"), "module.exports = 'module loaded';").unwrap();
     let result = execute_package_entry(&root, &tests::manifest("entry.js".into()), &[]);
     std::fs::remove_dir_all(root).unwrap();
-    assert_eq!(result.unwrap(), [HostEvent::Log("module loaded".into())]);
+    assert_eq!(
+        result.unwrap(),
+        [HostEvent::Ui(UiEffect::Log("module loaded".into()))]
+    );
 }
 
 #[test]

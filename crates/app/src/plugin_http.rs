@@ -1,4 +1,5 @@
 //! One bounded redirect and credential policy for every plugin HTTP transport.
+use crate::http::{RequestPolicy, agent_config};
 use riina_core::plugin::{
     NetworkGrant, network_address_is_restricted, network_host_is_restricted, network_url_grant,
 };
@@ -198,11 +199,7 @@ fn fetch(
             return Err("HTTP request exceeded the 30 second timeout".into());
         }
         let agent = ureq::Agent::with_parts(
-            ureq::Agent::config_builder()
-                .timeout_global(Some(remaining))
-                .max_redirects(0)
-                .http_status_as_error(false)
-                .build(),
+            agent_config(remaining, RequestPolicy::ManualRedirects),
             DefaultConnector::new(),
             PluginResolver {
                 public_only: grant == NetworkGrant::Wildcard || redirected_from_public_host,
@@ -225,7 +222,7 @@ fn fetch(
             return Ok(response);
         };
         if hop == 10 {
-            return Err("HTTP redirect limit was exceeded".into());
+            break;
         }
         let next = url
             .join(location.to_str().map_err(|e| e.to_string())?)
@@ -253,7 +250,7 @@ fn fetch(
         }
         url = next;
     }
-    unreachable!("Every redirect loop exit returns a response or an error")
+    Err("HTTP redirect limit was exceeded".into())
 }
 
 fn option_string(value: &serde_json::Value) -> String {

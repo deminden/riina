@@ -1,5 +1,6 @@
 //! GitHub source resolution for IINA-compatible plugin packages.
 
+use crate::http::agent;
 use std::time::Duration;
 use ureq::Agent;
 use url::Url;
@@ -36,7 +37,6 @@ pub(crate) fn stage_repository(
 
     let release_package = if let Ok(mut response) = agent
         .get(&release_url)
-        .header("User-Agent", "Riina/0.3.0")
         .header("Accept", "application/vnd.github+json")
         .call()
     {
@@ -86,7 +86,6 @@ pub(crate) fn check_new_version(
     let url = format!("https://raw.githubusercontent.com/{owner}/{repository}/main/Info.json");
     let mut response = agent(Duration::from_secs(15))
         .get(&url)
-        .header("User-Agent", "Riina/0.3.0")
         .call()
         .map_err(|error| format!("Could not check plugin version: {error}"))?;
     let bytes = response
@@ -100,17 +99,9 @@ pub(crate) fn check_new_version(
     Ok((current.github_version > installed_github_version).then_some(current.version))
 }
 
-fn agent(timeout: Duration) -> Agent {
-    Agent::config_builder()
-        .timeout_global(Some(timeout))
-        .build()
-        .new_agent()
-}
-
 fn download(agent: &Agent, url: &str) -> Result<Vec<u8>, String> {
     let mut response = agent
         .get(url)
-        .header("User-Agent", "Riina/0.3.0")
         .call()
         .map_err(|error| format!("GitHub download failed: {error}"))?;
     response

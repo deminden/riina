@@ -363,7 +363,7 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
 #[test]
 fn core_ui_visibility_messages_reach_the_player_ui() {
     assert_eq!(
-        host_message("plugin", HostEvent::SetUiVisibility(true)),
+        host_message("plugin", UiEffect::SetUiVisibility(true)),
         PluginHostMessage::SetUiVisibility(true)
     );
 }

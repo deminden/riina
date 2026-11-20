@@ -1,7 +1,7 @@
 //! A QuickJS realm and every callback stay on one worker until cancellation.
 use super::{
-    AvailablePermissions, HostEvent, MAX_RUNTIME_MEMORY, MAX_STACK_BYTES, PluginWorkerHost,
-    RuntimeCommand,
+    AvailablePermissions, MAX_RUNTIME_MEMORY, MAX_STACK_BYTES, PluginWorkerHost, RuntimeCommand,
+    UiEffect,
     core_api::install_plugin_core_api,
     events,
     file_api::install_plugin_file_api,
@@ -80,7 +80,7 @@ pub(super) fn run_entry_worker(
         api.set(
             "log",
             Func::from(move |message: String| {
-                record(&log_events, HostEvent::Log(message));
+                record(&log_events, UiEffect::Log(message));
             }),
         )?;
         if permissions.show_osd {
@@ -88,7 +88,7 @@ pub(super) fn run_entry_worker(
             api.set(
                 "showOSD",
                 Func::from(move |message: String| {
-                    record(&osd_events, HostEvent::ShowOsd(message));
+                    record(&osd_events, UiEffect::ShowOsd(message));
                 }),
             )?;
         }
@@ -97,7 +97,7 @@ pub(super) fn run_entry_worker(
             api.set(
                 "showAlert",
                 Func::from(move |message: String| {
-                    record(&alert_events, HostEvent::ShowAlert(message));
+                    record(&alert_events, UiEffect::ShowAlert(message));
                 }),
             )?;
         }
@@ -137,7 +137,9 @@ pub(super) fn run_entry_worker(
         )?;
         network::install(ctx.clone(), file_system.clone(), permissions, &network)?;
         modules::install(ctx.clone(), module_context.clone())?;
-        messaging::install(ctx.clone(), api.clone(), global_api_mode, events.clone())?;
+        if let Some(mode) = global_api_mode {
+            messaging::install(ctx.clone(), api.clone(), mode, events.clone())?;
+        }
         timers::install(ctx.clone(), timers.clone())?;
         webviews::install(
             ctx.clone(),
@@ -152,7 +154,7 @@ pub(super) fn run_entry_worker(
             console.set(
                 method,
                 Func::from(move |message: String| {
-                    record(&log_events, HostEvent::Log(message));
+                    record(&log_events, UiEffect::Log(message));
                 }),
             )?;
         }
@@ -306,7 +308,7 @@ pub(super) fn run_entry_worker(
         for error in evaluated.err().into_iter().chain(pending.err()) {
             record(
                 &events,
-                HostEvent::Log(format!("Plugin {label} failed: {error}")),
+                UiEffect::Log(format!("Plugin {label} failed: {error}")),
             );
         }
         if execution.interrupted() {
