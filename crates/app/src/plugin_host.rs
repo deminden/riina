@@ -267,6 +267,7 @@ impl PluginHost {
         let worker = std::thread::Builder::new()
             .name("riina-plugin-host".into())
             .spawn(move || {
+                crate::plugin_packages::sweep_staging(&plugins_directory);
                 run_host(
                     plugins_directory,
                     permissions_path,

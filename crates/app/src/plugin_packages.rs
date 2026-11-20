@@ -6,18 +6,52 @@ use std::{
     io::{self, Read, Seek, Write},
     path::{Component, Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use zip::ZipArchive;
 
 const MAX_ENTRIES: usize = 10_000;
 const MAX_UNPACKED_BYTES: u64 = 512 * 1024 * 1024;
+const STALE_STAGE_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+const STAGE_PREFIX: &str = ".plugin-stage-";
+const BACKUP_PREFIX: &str = ".plugin-backup-";
 static NEXT_STAGE: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) struct StagedPackage {
     stage_directory: PathBuf,
     package_directory: PathBuf,
+    _lease: StageLease,
     pub manifest: Manifest,
+}
+
+struct StageLease {
+    path: PathBuf,
+    file: Option<File>,
+}
+
+impl StageLease {
+    fn acquire(stage: &Path) -> io::Result<Self> {
+        let path = stage.with_extension("lease");
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
+        let lease = Self {
+            path,
+            file: Some(file),
+        };
+        if let Some(file) = &lease.file {
+            file.lock()?;
+        }
+        Ok(lease)
+    }
+}
+
+impl Drop for StageLease {
+    fn drop(&mut self) {
+        drop(self.file.take());
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 impl StagedPackage {
@@ -46,8 +80,7 @@ impl StagedPackage {
         if metadata.file_type().is_symlink() || !metadata.is_dir() {
             return Err("The installed plugin path is not a regular directory".into());
         }
-        let backup =
-            plugins_directory.join(unique_stage_name().replace("plugin-stage", "plugin-backup"));
+        let backup = plugins_directory.join(unique_directory_name(BACKUP_PREFIX));
         fs::rename(&destination, &backup)
             .map_err(|error| format!("Could not preserve the installed plugin: {error}"))?;
         if let Err(error) = fs::rename(&self.package_directory, &destination) {
@@ -114,17 +147,35 @@ pub(crate) fn stage_archive(
     path: &Path,
     plugins_directory: &Path,
 ) -> Result<StagedPackage, String> {
-    let locale = crate::platform::language::current_locale_identifier();
     let metadata =
         fs::metadata(path).map_err(|error| format!("Could not read package: {error}"))?;
     if !metadata.is_file() {
         return Err("The plugin package must be a file".into());
     }
     let archive = File::open(path).map_err(|error| format!("Could not read package: {error}"))?;
+    stage(archive, plugins_directory)
+}
+
+pub(crate) fn stage_archive_bytes(
+    bytes: Vec<u8>,
+    plugins_directory: &Path,
+) -> Result<StagedPackage, String> {
+    stage(io::Cursor::new(bytes), plugins_directory)
+}
+
+fn stage(source: impl Read + Seek, plugins_directory: &Path) -> Result<StagedPackage, String> {
+    let locale = crate::platform::language::current_locale_identifier();
     fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
-    let stage_directory = plugins_directory.join(unique_stage_name());
+    let stage_directory = plugins_directory.join(unique_directory_name(STAGE_PREFIX));
     fs::create_dir(&stage_directory).map_err(|error| error.to_string())?;
-    let result = extract_validate(archive, &stage_directory).and_then(|package_directory| {
+    let lease = match StageLease::acquire(&stage_directory) {
+        Ok(lease) => lease,
+        Err(error) => {
+            let _ = fs::remove_dir(&stage_directory);
+            return Err(error.to_string());
+        }
+    };
+    let result = extract_validate(source, &stage_directory).and_then(|package_directory| {
         Manifest::load_from_directory_with_locale(&package_directory, locale.as_deref())
             .map(|manifest| (package_directory, manifest))
     });
@@ -132,6 +183,7 @@ pub(crate) fn stage_archive(
         Ok((package_directory, manifest)) => Ok(StagedPackage {
             stage_directory,
             package_directory,
+            _lease: lease,
             manifest,
         }),
         Err(error) => {
@@ -141,31 +193,92 @@ pub(crate) fn stage_archive(
     }
 }
 
-pub(crate) fn stage_archive_bytes(
-    bytes: Vec<u8>,
-    plugins_directory: &Path,
-) -> Result<StagedPackage, String> {
-    let locale = crate::platform::language::current_locale_identifier();
-    fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
-    let stage_directory = plugins_directory.join(unique_stage_name());
-    fs::create_dir(&stage_directory).map_err(|error| error.to_string())?;
-    let result = extract_validate(std::io::Cursor::new(bytes), &stage_directory).and_then(
-        |package_directory| {
-            Manifest::load_from_directory_with_locale(&package_directory, locale.as_deref())
-                .map(|manifest| (package_directory, manifest))
+pub(crate) fn sweep_staging(plugins_directory: &Path) {
+    if let Err(error) = sweep(
+        plugins_directory,
+        SystemTime::now(),
+        |directory, identifier| {
+            crate::diagnostics::warn!(
+                "Plugin backup {directory} has no installed package for {identifier}"
+            );
         },
-    );
-    match result {
-        Ok((package_directory, manifest)) => Ok(StagedPackage {
-            stage_directory,
-            package_directory,
-            manifest,
-        }),
-        Err(error) => {
-            let _ = fs::remove_dir_all(&stage_directory);
-            Err(error)
+    ) && error.kind() != io::ErrorKind::NotFound
+    {
+        crate::diagnostics::warn!("Could not inspect plugin staging directories: {error}");
+    }
+}
+
+fn sweep(
+    plugins_directory: &Path,
+    now: SystemTime,
+    mut report_backup: impl FnMut(&str, &str),
+) -> io::Result<()> {
+    let root = plugins_directory.canonicalize()?;
+    for item in fs::read_dir(&root)? {
+        let item = item?;
+        let name = item.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if !item.file_type()?.is_dir() {
+            continue;
+        }
+        let path = item.path();
+        if generated_directory_name(name, STAGE_PREFIX) {
+            let old = item
+                .metadata()?
+                .modified()
+                .ok()
+                .and_then(|modified| now.duration_since(modified).ok())
+                .is_some_and(|age| age > STALE_STAGE_AGE);
+            if old {
+                sweep_stage(&root, &path)?;
+            }
+        } else if generated_directory_name(name, BACKUP_PREFIX)
+            && let Ok(manifest) = Manifest::load_from_directory(&path)
+            && !root
+                .join(format!("{}.iinaplugin", manifest.identifier))
+                .exists()
+        {
+            report_backup(name, &manifest.identifier);
         }
     }
+    Ok(())
+}
+
+fn sweep_stage(root: &Path, path: &Path) -> io::Result<()> {
+    if path.canonicalize()?.parent() != Some(root) {
+        return Ok(());
+    }
+    let marker = path.with_extension("lease");
+    let lease = match OpenOptions::new().write(true).open(&marker) {
+        Ok(file) => {
+            // Another running player may still be waiting for confirmation.
+            if file.try_lock().is_err() {
+                return Ok(());
+            }
+            Some(file)
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error),
+    };
+    fs::remove_dir_all(path)?;
+    if let Some(lease) = lease {
+        drop(lease);
+        let _ = fs::remove_file(marker);
+    }
+    Ok(())
+}
+
+fn generated_directory_name(name: &str, prefix: &str) -> bool {
+    name.strip_prefix(prefix).is_some_and(|suffix| {
+        let mut parts = suffix.split('-');
+        parts
+            .by_ref()
+            .take(3)
+            .filter(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
+            .count()
+            == 3
+            && parts.next().is_none()
+    })
 }
 
 fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, String> {
@@ -174,7 +287,8 @@ fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, 
     if archive.is_empty() || archive.len() > MAX_ENTRIES {
         return Err("Plugin archive has an invalid number of entries".into());
     }
-    let mut unpacked = 0_u64;
+    let mut declared_total = 0_u64;
+    let mut written_total = 0_u64;
     for index in 0..archive.len() {
         let mut entry = archive
             .by_index(index)
@@ -197,8 +311,9 @@ fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, 
                 entry.name()
             ));
         }
-        unpacked = unpacked
-            .checked_add(entry.size())
+        let declared = entry.size();
+        declared_total = declared_total
+            .checked_add(declared)
             .filter(|size| *size <= MAX_UNPACKED_BYTES)
             .ok_or_else(|| "Plugin archive expands beyond the 512 MiB limit".to_owned())?;
         let destination = stage.join(enclosed);
@@ -215,16 +330,31 @@ fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, 
             .create_new(true)
             .open(&destination)
             .map_err(|error| format!("Duplicate or unwritable plugin entry: {error}"))?;
-        let written = io::copy(&mut entry, &mut output).map_err(|error| error.to_string())?;
+        let remaining = MAX_UNPACKED_BYTES - written_total;
+        let written = copy_with_budget(&mut entry, &mut output, remaining)?;
         output.flush().map_err(|error| error.to_string())?;
-        if written != entry.size() {
+        if written != declared {
             return Err(format!(
                 "Plugin archive entry {} was truncated",
                 entry.name()
             ));
         }
+        written_total += written;
     }
     find_manifest_root(stage)
+}
+
+fn copy_with_budget(
+    input: &mut impl Read,
+    output: &mut impl Write,
+    remaining: u64,
+) -> Result<u64, String> {
+    let written =
+        io::copy(&mut input.take(remaining + 1), output).map_err(|error| error.to_string())?;
+    if written > remaining {
+        return Err("Plugin archive expands beyond the 512 MiB limit".into());
+    }
+    Ok(written)
 }
 
 fn find_manifest_root(stage: &Path) -> Result<PathBuf, String> {
@@ -245,13 +375,13 @@ fn find_manifest_root(stage: &Path) -> Result<PathBuf, String> {
     Ok(root)
 }
 
-fn unique_stage_name() -> String {
+fn unique_directory_name(prefix: &str) -> String {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
     format!(
-        ".plugin-stage-{}-{stamp}-{}",
+        "{prefix}{}-{stamp}-{}",
         std::process::id(),
         NEXT_STAGE.fetch_add(1, Ordering::Relaxed)
     )
@@ -274,6 +404,78 @@ mod tests {
             std::env::temp_dir().join(format!("riina-plugin-package-{}-{id}", std::process::id()));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn the_copy_budget_stops_reading_after_the_first_excess_byte() {
+        let payload = [1, 2, 3, 4, 5, 6];
+        let mut source = Cursor::new(payload);
+        let mut output = Vec::new();
+        assert!(copy_with_budget(&mut source, &mut output, 3).is_err());
+        assert_eq!(source.position(), 4);
+        assert_eq!(output, [1, 2, 3, 4]);
+
+        let mut source = Cursor::new(payload);
+        let mut output = Vec::new();
+        assert_eq!(copy_with_budget(&mut source, &mut output, 6).unwrap(), 6);
+        assert_eq!(output, payload);
+    }
+
+    #[test]
+    fn the_sweep_preserves_recent_and_leased_staging_directories() {
+        let root = temp_directory();
+        let live = root.join(unique_directory_name(STAGE_PREFIX));
+        let abandoned = root.join(unique_directory_name(STAGE_PREFIX));
+        let other = root.join(".plugin-stage-personal");
+        for directory in [&live, &abandoned, &other] {
+            fs::create_dir(directory).unwrap();
+        }
+        let marker = abandoned.with_extension("lease");
+        fs::write(&marker, []).unwrap();
+        let lease = StageLease::acquire(&live).unwrap();
+
+        let now = SystemTime::now();
+        sweep(&root, now, |_, _| unreachable!()).unwrap();
+        assert!(abandoned.exists());
+
+        sweep(
+            &root,
+            now + STALE_STAGE_AGE + Duration::from_secs(60),
+            |_, _| unreachable!(),
+        )
+        .unwrap();
+        assert!(live.exists());
+        assert!(other.exists());
+        assert!(!abandoned.exists());
+        assert!(!marker.exists());
+        drop(lease);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_sweep_reports_an_orphaned_backup_and_leaves_it_available() {
+        let root = temp_directory();
+        let backup = root.join(unique_directory_name(BACKUP_PREFIX));
+        fs::create_dir(&backup).unwrap();
+        fs::write(backup.join("Info.json"), INFO).unwrap();
+        fs::write(backup.join("main.js"), "let test = true;").unwrap();
+        let mut reported = Vec::new();
+        sweep(&root, SystemTime::now(), |name, identifier| {
+            reported.push((name.to_owned(), identifier.to_owned()));
+        })
+        .unwrap();
+        assert_eq!(
+            reported,
+            [(
+                backup.file_name().unwrap().to_str().unwrap().into(),
+                "org.test.plugin".into()
+            )]
+        );
+        assert!(backup.is_dir());
+        fs::create_dir(root.join("org.test.plugin.iinaplugin")).unwrap();
+        sweep(&root, SystemTime::now(), |_, _| unreachable!()).unwrap();
+        assert!(backup.is_dir());
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn archive(entries: &[(&str, &[u8])]) -> Vec<u8> {
