@@ -82,7 +82,7 @@ pub(crate) fn restore_preferences(
             }
             let fallback =
                 crate::preference_load::parse_object(text).map_err(std::io::Error::other)?;
-            crate::preference_store::update(path, &fallback, |_| Ok(()))
+            crate::preference_store::update_automatically(path, &fallback, |_| Ok(()))
                 .map_err(std::io::Error::other)
         },
     )?;

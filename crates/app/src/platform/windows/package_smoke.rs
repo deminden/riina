@@ -28,6 +28,7 @@ struct Runner {
     position: f32,
     progressed: bool,
     checks: Vec<&'static str>,
+    expect_recovery: bool,
 }
 
 impl Runner {
@@ -42,6 +43,7 @@ impl Runner {
             position: 0.0,
             progressed: false,
             checks: Vec::new(),
+            expect_recovery: std::env::var_os("RIINA_GUI_SMOKE_EXPECT_RECOVERY").is_some(),
         }
     }
 
@@ -58,6 +60,18 @@ impl Runner {
             0 => {
                 if !app.get_loaded() || app.get_paused() || app.get_position() <= 0.1 {
                     return Ok(false);
+                }
+                if self.expect_recovery {
+                    if !app.window().is_visible() {
+                        return Ok(false);
+                    }
+                    if app.get_startup_status().is_empty() {
+                        return Err(
+                            "The settings recovery notice was unavailable during playback".into(),
+                        );
+                    }
+                    self.checks.push("recovery_notice_during_playback");
+                    return Ok(true);
                 }
                 self.initial = Some(surfaces(app, host)?);
                 check_audio_menu(host)?;

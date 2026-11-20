@@ -272,6 +272,29 @@ fn an_older_backup_does_not_authorize_replacing_newly_damaged_bytes() {
 }
 
 #[test]
+fn explicit_field_update_repairs_a_backed_up_profile_but_automatic_updates_wait() {
+    let path = path("field-repair");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let original = br#"{"schema_version":19,"volume":29}"#;
+    std::fs::write(&path, original).unwrap();
+    let loaded = crate::preference_load::load(&path).unwrap();
+    let backup = loaded.recovery.unwrap().quarantined_as.unwrap();
+    update_automatically(&path, &loaded.preferences, |_| panic!("automatic write")).unwrap();
+    update(&path, &loaded.preferences, |_| Ok(())).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    update(&path, &loaded.preferences, |prefs| {
+        prefs.video_threads = 3;
+        Ok(())
+    })
+    .unwrap();
+    let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(saved.volume, 29.0);
+    assert_eq!(saved.video_threads, 3);
+    assert_eq!(std::fs::read(backup).unwrap(), original);
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+#[test]
 fn optional_theme_removal_and_history_clear_preserve_newer_network_settings() {
     let path = path("optional-history");
     let initial = Preferences::default();

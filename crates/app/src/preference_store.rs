@@ -32,15 +32,18 @@ impl Writer {
     fn save_with_policy(&self, candidate: &Preferences, user_edit: bool) -> Result<(), String> {
         let previous = serde_json::to_value(&*self.observed.borrow()).map_err(|e| e.to_string())?;
         let next = serde_json::to_value(candidate).map_err(|e| e.to_string())?;
-        let policy = ReadPolicy::Writer {
-            can_replace_backup: user_edit && previous != next,
-        };
-        let written = update_inner(&self.path, &self.observed.borrow(), policy, |latest| {
-            let mut value = serde_json::to_value(&*latest).map_err(|e| e.to_string())?;
-            merge_changes(&mut value, &previous, &next);
-            *latest = serde_json::from_value(value).map_err(|e| e.to_string())?;
-            Ok(())
-        })?;
+        let allow_repair = user_edit && previous != next;
+        let written = update_inner(
+            &self.path,
+            &self.observed.borrow(),
+            allow_repair,
+            |latest| {
+                let mut value = serde_json::to_value(&*latest).map_err(|e| e.to_string())?;
+                merge_changes(&mut value, &previous, &next);
+                *latest = serde_json::from_value(value).map_err(|e| e.to_string())?;
+                Ok(())
+            },
+        )?;
         // Advance only after a successful commit, so failed writes remain retryable.
         if written {
             *self.observed.borrow_mut() = candidate.clone();
@@ -54,18 +57,21 @@ pub(crate) fn update(
     fallback: &Preferences,
     change: impl FnOnce(&mut Preferences) -> Result<(), String>,
 ) -> Result<(), String> {
-    update_inner(path, fallback, ReadPolicy::Strict, change).map(|_| ())
+    update_inner(path, fallback, true, change).map(|_| ())
 }
 
-enum ReadPolicy {
-    Strict,
-    Writer { can_replace_backup: bool },
+pub(crate) fn update_automatically(
+    path: &Path,
+    fallback: &Preferences,
+    change: impl FnOnce(&mut Preferences) -> Result<(), String>,
+) -> Result<(), String> {
+    update_inner(path, fallback, false, change).map(|_| ())
 }
 
 fn update_inner(
     path: &Path,
     fallback: &Preferences,
-    policy: ReadPolicy,
+    allow_repair: bool,
     change: impl FnOnce(&mut Preferences) -> Result<(), String>,
 ) -> Result<bool, String> {
     if let Some(parent) = path.parent() {
@@ -81,10 +87,20 @@ fn update_inner(
         .open(path.with_extension("json.lock"))
         .map_err(|e| e.to_string())?;
     lock.lock().map_err(|e| e.to_string())?;
-    let Some(mut preferences) = read_for_update(path, fallback, policy)? else {
+    let Some((mut preferences, repairing)) = read_for_update(path, fallback, allow_repair)? else {
         return Ok(false);
     };
+    let recovered = if repairing {
+        Some(serde_json::to_value(&preferences).map_err(|error| error.to_string())?)
+    } else {
+        None
+    };
     change(&mut preferences)?;
+    if let Some(recovered) = recovered
+        && serde_json::to_value(&preferences).map_err(|error| error.to_string())? == recovered
+    {
+        return Ok(false);
+    }
     let text = serde_json::to_string_pretty(&preferences).map_err(|e| e.to_string())?;
     Preferences::parse(&text)?;
     crate::platform::save_preferences(path, &text).map_err(|e| e.to_string())?;
@@ -94,16 +110,13 @@ fn update_inner(
 fn read_for_update(
     path: &Path,
     fallback: &Preferences,
-    policy: ReadPolicy,
-) -> Result<Option<Preferences>, String> {
-    let ReadPolicy::Writer { can_replace_backup } = policy else {
-        return crate::preference_load::read_valid(path)
-            .map(|prefs| Some(prefs.unwrap_or_else(|| fallback.clone())))
-            .map_err(|error| error.to_string());
-    };
+    allow_repair: bool,
+) -> Result<Option<(Preferences, bool)>, String> {
     let original = match fs::read(path) {
         Ok(original) => original,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Some(fallback.clone())),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(Some((fallback.clone(), false)));
+        }
         Err(error) => return Err(error.to_string()),
     };
     let text = std::str::from_utf8(&original);
@@ -111,10 +124,10 @@ fn read_for_update(
         .map_err(|error| error.to_string())
         .and_then(crate::preference_load::parse_object);
     match parsed {
-        Ok(preferences) => Ok(Some(preferences)),
+        Ok(preferences) => Ok(Some((preferences, false))),
         Err(error) if !crate::preference_load::has_matching_backup(path, &original) => Err(error),
-        Err(_) if !can_replace_backup => Ok(None),
-        Err(_) => Ok(Some(crate::preference_load::recover(text.ok()).0)),
+        Err(_) if !allow_repair => Ok(None),
+        Err(_) => Ok(Some((crate::preference_load::recover(text.ok()).0, true))),
     }
 }
 

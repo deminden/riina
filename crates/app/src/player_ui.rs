@@ -266,10 +266,14 @@ fn persist_recent_open_documents(
     preferences_path: &std::path::Path,
     documents: &[riina_core::RecentMedia],
 ) -> std::io::Result<()> {
-    crate::preference_store::update(preferences_path, &Preferences::default(), |preferences| {
-        preferences.recent_open_documents = documents.to_vec();
-        Ok(())
-    })
+    crate::preference_store::update_automatically(
+        preferences_path,
+        &Preferences::default(),
+        |preferences| {
+            preferences.recent_open_documents = documents.to_vec();
+            Ok(())
+        },
+    )
     .map_err(std::io::Error::other)
 }
 
