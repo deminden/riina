@@ -128,7 +128,9 @@ fn defer_resize_surfaces(
     );
     // Win32 requires one parent per DeferWindowPos batch. The two top-level
     // surfaces are siblings; mpv's child surfaces belong in a separate batch.
+    // SAFETY: the count reserves entries for the live top-level windows below.
     let batch = unsafe { BeginDeferWindowPos(2) }.map_err(|error| error.to_string())?;
+    // SAFETY: the live batch receives the retained host HWND on its UI thread.
     let batch = unsafe {
         DeferWindowPos(
             batch,
@@ -144,6 +146,8 @@ fn defer_resize_surfaces(
     .map_err(|error| error.to_string())?;
     let overlay_x = host_x.saturating_add(client_origin.x.saturating_sub(rectangles(host)?.0.left));
     let overlay_y = host_y.saturating_add(client_origin.y.saturating_sub(rectangles(host)?.0.top));
+    // SAFETY: the previous deferred operation returned this batch, and the
+    // retained overlay has the same native parent as the host.
     let batch = unsafe {
         DeferWindowPos(
             batch,
@@ -157,11 +161,13 @@ fn defer_resize_surfaces(
         )
     }
     .map_err(|error| error.to_string())?;
+    // SAFETY: this consumes the live batch returned by the final deferred operation.
     unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())?;
     if video_windows.is_empty() {
         return Ok(());
     }
     let count = i32::try_from(video_windows.len()).map_err(|error| error.to_string())?;
+    // SAFETY: the checked count reserves entries for this host's child windows.
     let mut batch = unsafe { BeginDeferWindowPos(count) }.map_err(|error| error.to_string())?;
     for &video in video_windows {
         // SAFETY: video is the mpv child of this host. Its window thread pumps
@@ -181,6 +187,7 @@ fn defer_resize_surfaces(
         }
         .map_err(|error| error.to_string())?
     }
+    // SAFETY: the final deferred operation returned this live child-window batch.
     unsafe { EndDeferWindowPos(batch) }.map_err(|error| error.to_string())
 }
 
@@ -193,8 +200,10 @@ unsafe extern "system" fn find_mpv_child(hwnd: HWND, parameter: LPARAM) -> BOOL 
     // SAFETY: EnumChildWindows invokes this callback synchronously with the
     // live stack context supplied by mpv_child_window.
     let search = unsafe { &mut *(parameter.0 as *mut MpvChildSearch) };
+    // SAFETY: the enumerator supplies the current child HWND by value.
     if unsafe { GetParent(hwnd) }.is_ok_and(|parent| parent == search.parent) {
         let mut title = [0_u16; 128];
+        // SAFETY: the child is enumerated by Windows and the title buffer is writable.
         let length = unsafe { GetWindowTextW(hwnd, &mut title) }.max(0) as usize;
         let title = String::from_utf16_lossy(&title[..length.min(title.len())]);
         let title = title.to_ascii_lowercase();
@@ -227,7 +236,10 @@ fn visible_mpv_child_windows(parent: HWND) -> Vec<HWND> {
     // resize that stale HWND on every alignment tick; it is aligned when shown.
     mpv_child_windows(parent)
         .into_iter()
-        .filter(|window| unsafe { IsWindowVisible(*window) }.as_bool())
+        .filter(|window| {
+            // SAFETY: this query accepts the HWND value even during a child-window handoff.
+            unsafe { IsWindowVisible(*window) }.as_bool()
+        })
         .collect()
 }
 
@@ -386,10 +398,13 @@ pub(crate) fn align_surfaces(
     }
     .map_err(|error| error.to_string())?;
     if !video_windows.is_empty() {
+        // SAFETY: the count reserves entries for the retained host's direct children.
         let mut batch =
             unsafe { BeginDeferWindowPos(i32::try_from(video_windows.len()).unwrap_or(i32::MAX)) }
                 .map_err(|error| error.to_string())?;
         for video in video_windows {
+            // SAFETY: the previous operation returned this live batch and the HWND
+            // comes from enumeration of this same host's direct children.
             batch = unsafe {
                 DeferWindowPos(
                     batch,
@@ -550,8 +565,11 @@ mod tests {
         assert_eq!(size(rectangles(host.0).unwrap().0), frame);
         assert_eq!(size(rectangles(overlay.0).unwrap().1), client);
         assert_eq!(size(rectangles(child.0).unwrap().1), client);
-        assert!(!unsafe { IsWindowVisible(host.0) }.as_bool());
-        assert!(!unsafe { IsWindowVisible(overlay.0) }.as_bool());
+        // SAFETY: the test retains both windows on their owning thread for the queries.
+        unsafe {
+            assert!(!IsWindowVisible(host.0).as_bool());
+            assert!(!IsWindowVisible(overlay.0).as_bool());
+        }
     }
 
     #[test]

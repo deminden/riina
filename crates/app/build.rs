@@ -1,5 +1,9 @@
 use std::{env, path::PathBuf};
 
+#[expect(
+    clippy::expect_used,
+    reason = "Cargo must fail the build when required UI or icon generation fails"
+)]
 fn main() {
     // Slint recursively lowers the shortcut expressions. The growing parity
     // interface exceeds the build script's default Windows stack; reserve a

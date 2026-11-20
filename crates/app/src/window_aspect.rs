@@ -46,6 +46,10 @@ enum WindowTarget {
     NativeHost(slint::Weak<NativeVideoHost>),
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn connect_with_target(
     app: &PlayerWindow,
     target: WindowTarget,

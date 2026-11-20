@@ -74,6 +74,10 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
     });
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(
     app: &PlayerWindow,
     player: &riina_mpv::CommandSender,

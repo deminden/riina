@@ -147,6 +147,10 @@ fn follow_player_theme(picker: &FontPicker, app: &PlayerWindow, timer: &Rc<slint
     );
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub fn connect(app: &PlayerWindow) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
     let appearance_timer = Rc::new(slint::Timer::default());

@@ -34,6 +34,10 @@ impl Equalizer {
         }
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "The static control order contains every equalizer variant"
+    )]
     pub fn index(self) -> usize {
         Self::ALL
             .iter()
@@ -111,6 +115,10 @@ impl AspectRatio {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "The fixed Unicode decimal pattern is validated by the parser tests"
+)]
 fn decimal(value: &str) -> bool {
     static DIGITS: LazyLock<regex::Regex> = LazyLock::new(|| {
         regex::Regex::new(r"\A\p{Nd}+\z").expect("The fixed decimal-digit pattern is valid")

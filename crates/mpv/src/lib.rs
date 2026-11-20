@@ -192,6 +192,14 @@ impl Player {
         Self::start_options(path, false, options, notify)
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "Fixed mpv option and property names contain no interior NULs"
+    )]
     fn start_options(
         path: &Path,
         headless: bool,

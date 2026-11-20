@@ -472,6 +472,10 @@ pub fn natural_compare(left: &str, right: &str) -> Ordering {
 }
 
 #[cfg(target_os = "linux")]
+#[expect(
+    clippy::expect_used,
+    reason = "The preceding peek proves the iterator has another digit"
+)]
 fn digit_run(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) -> String {
     let mut run = String::new();
     while chars.peek().is_some_and(char::is_ascii_digit) {

@@ -6,7 +6,15 @@ use slint::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-slint::include_modules!();
+#[expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "These operations are emitted by the Slint widget generator"
+)]
+mod generated_ui {
+    slint::include_modules!();
+}
+use generated_ui::*;
 
 #[path = "quick_settings/track_navigation.rs"]
 mod track_navigation;
@@ -23,6 +31,10 @@ fn flush() {
     slint::platform::update_timers_and_animations();
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "Widget tests require a working headless player"
+)]
 fn player(pane: i32) -> PlayerWindow {
     i_slint_backend_testing::init_no_event_loop();
     let app = PlayerWindow::new().unwrap();
@@ -38,6 +50,10 @@ fn player(pane: i32) -> PlayerWindow {
     app
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "A missing accessible field must fail the widget test"
+)]
 fn field(app: &PlayerWindow, label: &str) -> ElementHandle {
     let mut found = ElementHandle::find_by_accessible_label(app, label);
     let field = found
@@ -223,6 +239,10 @@ fn disabling_a_field_discards_its_draft_and_blocks_accessible_edits() {
     assert!(submissions.borrow().is_empty());
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "The widget test retains the player through tab selection"
+)]
 fn connect_settings_tabs(app: &PlayerWindow) {
     let weak = app.as_weak();
     app.on_select_settings_pane(move |pane| {
@@ -235,6 +255,10 @@ fn connect_settings_tabs(app: &PlayerWindow) {
     });
 }
 
+#[expect(
+    clippy::panic,
+    reason = "A missing button must fail the widget test with its label"
+)]
 fn button(app: &PlayerWindow, label: &str) -> ElementHandle {
     ElementHandle::find_by_accessible_label(app, label)
         .find(|element| {
@@ -665,6 +689,10 @@ fn narrow_controller_keeps_actions_disjoint_and_centers_when_symmetric_space_fit
     }
 }
 
+#[expect(
+    clippy::panic,
+    reason = "A missing child must fail the widget test with its ID"
+)]
 fn descendant(element: &ElementHandle, id: &str) -> ElementHandle {
     element
         .query_descendants()

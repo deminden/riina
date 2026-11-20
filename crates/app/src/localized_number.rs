@@ -101,6 +101,10 @@ fn with_locale<T>(action: impl FnOnce(&NumberLocale) -> T) -> T {
     NUMBER_LOCALE.with(|locale| with_cached_locale(locale, identifier, action))
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "The cache is initialized under the same borrow before it is read"
+)]
 fn with_cached_locale<T>(
     cache: &std::cell::RefCell<Option<(Option<String>, NumberLocale)>>,
     identifier: Option<String>,

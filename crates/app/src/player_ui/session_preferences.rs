@@ -2,6 +2,10 @@
 use super::*;
 
 impl UiSession {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
     pub(crate) fn save(&self, app: &PlayerWindow) -> Result<(), Box<dyn std::error::Error>> {
         let mut prefs = Preferences {
             volume: (app.get_volume() as f64).min(if app.get_volume_boost() {

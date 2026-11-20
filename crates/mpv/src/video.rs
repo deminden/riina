@@ -19,7 +19,9 @@ unsafe extern "C" fn resolve(context: *mut c_void, name: *const c_char) -> *mut 
     // SAFETY: the resolver lives throughout render_context_create. render.h
     // borrows init parameters for that call; libmpv_gl.c resolves all functions in init.
     let resolver = unsafe { &*context.cast::<Resolver<'_>>() };
-    (resolver.callback)(unsafe { CStr::from_ptr(name) }).cast_mut()
+    // SAFETY: libmpv supplies a NUL-terminated GL symbol for this synchronous callback.
+    let name = unsafe { CStr::from_ptr(name) };
+    (resolver.callback)(name).cast_mut()
 }
 
 unsafe extern "C" fn repaint_requested(context: *mut c_void) {
@@ -42,13 +44,15 @@ pub struct VideoSurface {
 
 impl VideoSurface {
     /// # Safety
-    /// Call inside Slint's RenderingSetup with its OpenGL context current. Drop
-    /// inside RenderingTeardown with that same context current.
+    /// Call inside Slint's RenderingSetup with its OpenGL context current and
+    /// resolve symbols from that context. Drop inside RenderingTeardown with
+    /// that same context current.
     pub unsafe fn new(
         player: Player,
         loader: &dyn Fn(&CStr) -> *const c_void,
         repaint_callback: Repaint,
     ) -> Result<Self, String> {
+        // SAFETY: the caller supplies the current Slint GL context and its symbol loader.
         let gl = Rc::new(unsafe { glow::Context::from_loader_function_cstr(|name| loader(name)) });
         let mut resolver = Resolver { callback: loader };
         // render.h: initialization parameters are borrowed for render_context_create only.
@@ -68,6 +72,8 @@ impl VideoSurface {
             Param::end(),
         ];
         let mut context = std::ptr::null_mut();
+        // SAFETY: the player retains the live handle. The init parameters and
+        // resolver stay alive for this call on the current GL thread.
         unsafe {
             player.api.check((player.api.render_create)(
                 &mut context,
@@ -75,18 +81,22 @@ impl VideoSurface {
                 params.as_mut_ptr(),
             ))?;
         }
+        // SAFETY: the host GL context remains current on this thread.
         let texture = match unsafe { gl.create_texture() } {
             Ok(texture) => texture,
             Err(error) => {
+                // SAFETY: creation succeeded and this thread alone owns the render context.
                 unsafe {
                     (player.api.render_free)(context);
                 }
                 return Err(error);
             }
         };
+        // SAFETY: the host GL context remains current on this thread.
         let fbo = match unsafe { gl.create_framebuffer() } {
             Ok(fbo) => fbo,
             Err(error) => {
+                // SAFETY: both objects were created here and are owned by this setup call.
                 unsafe {
                     gl.delete_texture(texture);
                     (player.api.render_free)(context);
@@ -95,6 +105,8 @@ impl VideoSurface {
             }
         };
         let mut repaint = Box::new(repaint_callback);
+        // SAFETY: the boxed callback has a stable address and is cleared before either
+        // its allocation or the live context is released.
         unsafe {
             (player.api.render_callback)(
                 context,
@@ -137,9 +149,10 @@ impl VideoSurface {
             kind: 6,
             data: (&mut bytes as *mut crate::ffi::ByteArray).cast(),
         };
-        self.player
-            .api
-            .check(unsafe { set_parameter(self.context, parameter) })?;
+        // SAFETY: libmpv copies the profile during this call on the current render
+        // thread. The descriptor and the borrowed profile remain live until it returns.
+        let result = unsafe { set_parameter(self.context, parameter) };
+        self.player.api.check(result)?;
         self.icc_profile = Some(profile.to_vec());
         Ok(())
     }
@@ -153,6 +166,8 @@ impl VideoSurface {
     pub unsafe fn render(&mut self, width: u32, height: u32) -> Result<(), String> {
         let width = width.clamp(1, 8192);
         let height = height.clamp(1, 8192);
+        // SAFETY: this surface owns the framebuffer. Its attachment is prepared by
+        // render_into while the caller's current GL context is active.
         unsafe { self.render_into(self.fbo, width, height, glow::RGBA8 as i32) }
     }
 
@@ -173,6 +188,8 @@ impl VideoSurface {
         let width = width.clamp(1, 8192);
         let height = height.clamp(1, 8192);
         let framebuffer = glow::NativeFramebuffer(framebuffer);
+        // SAFETY: the caller supplies a complete framebuffer in the current context
+        // and retains its attachments for the synchronous render call.
         unsafe { self.render_into(framebuffer, width, height, format) }
     }
 
@@ -181,6 +198,7 @@ impl VideoSurface {
     /// # Safety
     /// Call on the render thread for this live context after composing the frame.
     pub unsafe fn report_swap(&self) {
+        // SAFETY: the surface owns the live context and the caller is on its render thread.
         unsafe { (self.player.api.render_report_swap)(self.context) };
     }
 
@@ -194,6 +212,8 @@ impl VideoSurface {
         let gl = &self.gl;
         // mpv documents the state it does not restore in render_gl.h. Preserve it
         // together with bindings affected by our texture allocation.
+        // SAFETY: the caller keeps the GL context current and the framebuffer live
+        // throughout the render, including restoration of the caller's GL state.
         unsafe {
             let draw = NonZeroU32::new(gl.get_parameter_i32(glow::DRAW_FRAMEBUFFER_BINDING) as u32)
                 .map(glow::NativeFramebuffer);

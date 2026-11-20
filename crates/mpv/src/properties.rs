@@ -33,6 +33,7 @@ pub(super) unsafe fn observed_property_value(
     // SAFETY: MPV_FORMAT_NODE selects the live node arm and the callback copies
     // it before the current mpv_wait_event result is replaced.
     let node = unsafe { &*property.data.cast::<ffi::Node>() };
+    // SAFETY: the worker has not waited for another event, so node-owned data is live.
     let value = unsafe { node.copy_json()? };
     let encoded = serde_json::to_vec(&value).map_err(|error| error.to_string())?;
     if encoded.len() > 1024 * 1024 {
@@ -51,6 +52,10 @@ fn metadata_value(value: &serde_json::Value, key: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
     // SAFETY: caller processes the event before asking mpv for another one. Format
     // tags are checked before dereferencing; unavailable properties remain unknown.
@@ -121,7 +126,9 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
         return;
     }
     if property.format == 6 {
+        // SAFETY: non-null MPV_FORMAT_NODE data points to a node owned by this event.
         let node = unsafe { &*property.data.cast::<ffi::Node>() };
+        // SAFETY: the worker copies the node tree before waiting for the next event.
         let result = unsafe { node.copy_json() }.and_then(|value| {
             match name {
                 b"ab-loop-a" | b"ab-loop-b" => {
@@ -197,6 +204,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             state.error = Some(format!("Cannot decode mpv property: {error}"));
         }
     } else if property.format == 4 {
+        // SAFETY: MPV_FORMAT_INT64 data points to a live, non-null i64 for this event.
         let value = unsafe { *property.data.cast::<i64>() };
         if name == b"video-rotate" {
             state.video_rotation = Some(value);
@@ -210,6 +218,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             state.video_equalizer[option.index()] = (-100..=100).contains(&value).then_some(value);
         }
     } else if property.format == 5 {
+        // SAFETY: MPV_FORMAT_DOUBLE data points to a live, non-null double for this event.
         let value = unsafe { *property.data.cast::<f64>() };
         if !value.is_finite() {
             match name {
@@ -251,6 +260,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             _ => {}
         }
     } else if property.format == 3 {
+        // SAFETY: MPV_FORMAT_FLAG data points to mpv's live, non-null C int flag.
         let flag = unsafe { *property.data.cast::<i32>() } != 0;
         match name {
             b"pause" => state.paused = flag,
@@ -277,8 +287,10 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             _ => {}
         }
     } else if property.format == 1 {
+        // SAFETY: MPV_FORMAT_STRING property events carry a pointer to the C string pointer.
         let text = unsafe { *property.data.cast::<*const std::ffi::c_char>() };
         if !text.is_null() {
+            // SAFETY: the event owns the NUL-terminated string until the next wait_event call.
             let value = unsafe { CStr::from_ptr(text) }
                 .to_string_lossy()
                 .into_owned();
@@ -476,10 +488,8 @@ mod dynamic_property_tests {
             data: (&mut node as *mut ffi::Node).cast(),
         };
         // SAFETY: the node and name remain valid while the helper copies them.
-        assert_eq!(
-            unsafe { observed_property_value(&property) }.unwrap(),
-            serde_json::json!(42)
-        );
+        let value = unsafe { observed_property_value(&property) }.unwrap();
+        assert_eq!(value, serde_json::json!(42));
     }
 
     #[test]
@@ -491,10 +501,8 @@ mod dynamic_property_tests {
             data: std::ptr::null_mut(),
         };
         // SAFETY: null property data is explicitly represented as JSON null.
-        assert_eq!(
-            unsafe { observed_property_value(&property) }.unwrap(),
-            serde_json::Value::Null
-        );
+        let value = unsafe { observed_property_value(&property) }.unwrap();
+        assert_eq!(value, serde_json::Value::Null);
     }
 }
 

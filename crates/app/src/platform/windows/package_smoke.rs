@@ -47,6 +47,10 @@ impl Runner {
         }
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
     fn tick(&mut self, app: &PlayerWindow, host: &NativeVideoHost) -> Result<bool, String> {
         if self.started.elapsed() > Duration::from_secs(40) {
             return Err(format!(
@@ -218,6 +222,10 @@ impl Runner {
     }
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "Encoding an already constructed JSON value to memory is infallible"
+)]
 pub(super) fn start(app: &PlayerWindow, host: &NativeVideoHost) -> Option<SmokeRun> {
     let output = PathBuf::from(std::env::var_os("RIINA_GUI_SMOKE_REPORT")?);
     if !output.is_absolute() {
@@ -328,10 +336,11 @@ fn surfaces(app: &PlayerWindow, host: &NativeVideoHost) -> Result<Surfaces, Stri
         return Err("Controls detached from video".into());
     }
     // SAFETY: host remains retained on this UI thread.
+    let menu = unsafe { GetMenu(host_hwnd) }.0 as isize;
     Ok(Surfaces {
         video,
         controls,
-        menu: unsafe { GetMenu(host_hwnd) }.0 as isize,
+        menu,
     })
 }
 fn check_audio_menu(host: &NativeVideoHost) -> Result<(), String> {

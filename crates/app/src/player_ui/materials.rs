@@ -161,6 +161,10 @@ pub(super) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<
 }
 
 #[cfg(target_os = "windows")]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install_native_video_material_sampler(
     app: &PlayerWindow,
     sender: riina_mpv::CommandSender,

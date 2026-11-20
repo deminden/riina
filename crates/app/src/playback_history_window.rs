@@ -123,6 +123,10 @@ pub(crate) fn install(
     (slot, timer)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn connect_window(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
@@ -421,7 +425,14 @@ fn context_selection_in_row_order(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The callbacks share window identity, selection and history state"
+)]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn connect_context_actions(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,

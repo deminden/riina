@@ -267,6 +267,10 @@ pub(crate) fn download(api_key: &str, file_id: u64) -> Result<(String, Vec<u8>),
     Ok((file_name, bytes))
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(crate) fn connect_player(
     app: &crate::PlayerWindow,
     sender: riina_mpv::CommandSender,

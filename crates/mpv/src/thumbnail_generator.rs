@@ -132,6 +132,10 @@ impl Generator {
     }
 
     /// Reads a generated frame or completion result without blocking the UI.
+    #[expect(
+        clippy::expect_used,
+        reason = "Only Drop takes the event receiver from the generator"
+    )]
     pub fn try_recv(&self) -> Result<Event, TryRecvError> {
         self.events
             .as_ref()

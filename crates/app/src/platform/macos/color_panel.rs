@@ -20,6 +20,7 @@ define_class!(
     #[ivars = ColorPanelTargetIvars]
     struct ColorPanelTarget;
 
+    // SAFETY: NSObject provides the protocol implementation for this subclass.
     unsafe impl NSObjectProtocol for ColorPanelTarget {}
 
     impl ColorPanelTarget {
@@ -57,10 +58,14 @@ impl MacSubtitleColorPanel {
         let target = ColorPanelTarget::alloc(main_thread).set_ivars(ColorPanelTargetIvars {
             changed: Rc::new(changed),
         });
+        // SAFETY: NSObject initializes the allocated, ivar-initialized target on the main thread.
         let target = unsafe { objc2::msg_send![super(target), init] };
         // NSControl stores the action target weakly; this wrapper retains it
         // until another color well replaces the shared panel's target.
+        // SAFETY: a retained Objective-C target can be borrowed as its AnyObject base.
         let target_object = unsafe { &*Retained::as_ptr(&target).cast::<AnyObject>() };
+        // SAFETY: the shared panel is on the main thread, and the retained target
+        // implements this selector with the expected color panel argument.
         unsafe {
             panel.setTarget(Some(target_object));
             panel.setAction(Some(sel!(colorPanelDidChange:)));

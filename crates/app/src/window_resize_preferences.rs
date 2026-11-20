@@ -119,7 +119,10 @@ fn geometry_from_preferences(window: &PreferencesWindow) -> Result<InitialGeomet
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Geometry validation receives independent size and position controls"
+)]
 fn geometry(
     size_enabled: bool,
     size_axis: i32,

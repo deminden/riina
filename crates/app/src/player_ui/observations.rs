@@ -33,6 +33,10 @@ pub(super) struct UiUpdateResources<'a> {
     pub(super) transition_release_generation: &'a AtomicU64,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn update_ui(
     app: &PlayerWindow,
     state: Playback,

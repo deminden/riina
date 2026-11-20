@@ -30,17 +30,20 @@ pub fn resolve_shortcut_path(path: &Path) -> Option<PathBuf> {
 
     // File selection runs on a worker thread, so this apartment is independent
     // from the UI thread and remains alive for every shell interface call below.
+    // SAFETY: the reserved argument is null and the guard balances success on this thread.
     unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }
         .ok()
         .ok()?;
     struct Apartment;
     impl Drop for Apartment {
         fn drop(&mut self) {
+            // SAFETY: the guard is created only after successful initialization on this worker.
             unsafe { CoUninitialize() };
         }
     }
     let _apartment = Apartment;
 
+    // SAFETY: COM is initialized on this worker and ShellLink exposes IShellLinkW.
     let link: IShellLinkW =
         unsafe { CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER) }.ok()?;
     let persisted: IPersistFile = link.cast().ok()?;
@@ -49,9 +52,12 @@ pub fn resolve_shortcut_path(path: &Path) -> Option<PathBuf> {
         .encode_wide()
         .chain(Some(0))
         .collect::<Vec<_>>();
+    // SAFETY: the source path is NUL-terminated UTF-16 and remains live for Load.
     unsafe { persisted.Load(PCWSTR(source.as_ptr()), STGM_READ) }.ok()?;
 
     let mut target = vec![0_u16; 32_768];
+    // SAFETY: the binding passes the writable slice and length. The optional find-data
+    // output is unused and may be null.
     unsafe { link.GetPath(&mut target, std::ptr::null_mut(), 0) }.ok()?;
     let length = target.iter().position(|unit| *unit == 0)?;
     if length == 0 {
@@ -69,9 +75,11 @@ pub fn is_remote_volume(path: &Path) -> bool {
         .chain(Some(0))
         .collect::<Vec<_>>();
     let mut volume = vec![0_u16; 1024];
+    // SAFETY: the source is NUL-terminated and the binding receives the writable buffer length.
     if unsafe { GetVolumePathNameW(PCWSTR(source.as_ptr()), &mut volume) }.is_err() {
         return false;
     }
+    // SAFETY: the successful query wrote a NUL-terminated volume path into this live buffer.
     unsafe { GetDriveTypeW(PCWSTR(volume.as_ptr())) == DRIVE_REMOTE }
 }
 

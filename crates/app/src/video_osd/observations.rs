@@ -71,6 +71,10 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Option<Message> {
     let previous = previous?;
     if previous.generation != state.generation

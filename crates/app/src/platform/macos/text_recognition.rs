@@ -79,7 +79,7 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
 
     let color_space = CGColorSpace::new_device_rgb()
         .ok_or_else(|| "Could not create an RGB color space for text recognition".to_owned())?;
-    // The provider borrows the owned captured frame and the synchronous Vision
+    // SAFETY: the provider borrows the captured frame and the synchronous Vision
     // request finishes before either the image or provider leaves this function.
     let provider = unsafe {
         CGDataProvider::with_data(
@@ -91,6 +91,8 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
     }
     .ok_or_else(|| "Could not expose the captured frame to Vision".to_owned())?;
     let bitmap_info = CGBitmapInfo(CGImageAlphaInfo::Last.0 | CGImageByteOrderInfo::Order32Big.0);
+    // SAFETY: the checked frame contains the specified RGBA rows. The provider
+    // stays live through the image request and no decode array is supplied.
     let image = unsafe {
         CGImage::new(
             frame.width as usize,
@@ -109,6 +111,7 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
     .ok_or_else(|| "Could not create an image for text recognition".to_owned())?;
 
     let options = NSDictionary::<VNImageOption, AnyObject>::new();
+    // SAFETY: the retained image and its options remain live for handler initialization.
     let handler = unsafe {
         VNImageRequestHandler::initWithCGImage_options(
             VNImageRequestHandler::alloc(),
@@ -135,6 +138,7 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
             let text = candidate.string().to_string();
             // Vision uses a normalized bottom-left origin; the player overlay
             // uses pixel coordinates measured down from the frame's top edge.
+            // SAFETY: the typed observation is retained while its bounds are copied.
             let bounds = unsafe { observation.boundingBox() };
             if let Some(region) = from_vision_box(
                 text,

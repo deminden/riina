@@ -28,6 +28,10 @@ pub(super) struct Context<'a> {
     pub latest_playback: &'a Arc<Mutex<Playback>>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     let Context {
         player,

@@ -10,6 +10,10 @@ use riina_core::{
 use rquickjs::{Ctx, Object, Value, function::Func};
 use std::sync::{Arc, Mutex};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(
     ctx: Ctx<'_>,
     events: Arc<Mutex<Vec<HostEvent>>>,

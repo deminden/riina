@@ -5,7 +5,7 @@ pub(crate) fn current_locale_identifier() -> Option<String> {
     use windows::Win32::Globalization::GetUserDefaultLocaleName;
     // LOCALE_NAME_MAX_LENGTH from the Windows SDK, including the terminator.
     let mut name = [0_u16; 85];
-    // The SDK bound includes the terminator. The wrapper borrows the complete
+    // SAFETY: the SDK bound includes the terminator. The wrapper borrows the complete
     // writable array for the call; decode only the reported initialized prefix.
     let length = unsafe { GetUserDefaultLocaleName(&mut name) };
     let length = usize::try_from(length).ok()?.checked_sub(1)?;

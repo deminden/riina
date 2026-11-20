@@ -40,6 +40,7 @@ fn bring_all_native_windows_to_front(active: &winit::window::Window) -> Option<R
         matching.push(active_window);
     }
     for candidate in matching {
+        // SAFETY: IsIconic only queries the enumerated HWND and accepts stale handles.
         if unsafe { IsIconic(candidate) }.as_bool() {
             // SAFETY: candidate is a visible top-level Riina HWND from EnumWindows.
             let _ = unsafe { ShowWindowAsync(candidate, SW_RESTORE) };
@@ -64,6 +65,7 @@ fn bring_all_native_windows_to_front(active: &winit::window::Window) -> Option<R
     }
     // The menu action is user initiated. Windows still enforces foreground
     // activation rules, and owned dialogs retain their native z-order relation.
+    // SAFETY: active is the HWND of the borrowed Winit window for this call.
     if !unsafe { SetForegroundWindow(active) }.as_bool() {
         return Some(Err(
             "Windows did not allow the active Riina window to focus".into(),
@@ -78,6 +80,7 @@ pub(crate) fn minimize_all_riina_windows() -> Result<(), String> {
         // Owned transparent popups must follow their owner; minimizing them
         // independently can leave video and controls in different restore states.
         if unsafe { GetAncestor(window, GA_ROOTOWNER) } == window {
+            // SAFETY: this HWND came from top-level enumeration and is passed by value.
             let _ = unsafe { ShowWindowAsync(window, SW_MINIMIZE) };
         }
     }
@@ -98,6 +101,7 @@ fn matching_visible_windows() -> Result<Vec<HWND>, String> {
     .map_err(|error| format!("Could not enumerate Riina windows: {error}"))?;
     Ok(candidates
         .into_iter()
+        // SAFETY: the visibility query accepts an HWND value and returns false if it is stale.
         .filter(|(candidate, _)| unsafe { IsWindowVisible(*candidate) }.as_bool())
         .filter(|(_, process_id)| {
             process_image_path(*process_id)
@@ -109,6 +113,8 @@ fn matching_visible_windows() -> Result<Vec<HWND>, String> {
 }
 
 unsafe extern "system" fn collect_window(window: HWND, parameter: LPARAM) -> BOOL {
+    // SAFETY: the synchronous EnumWindows call holds the unique Vec borrow until
+    // enumeration returns and uses that same Vec pointer for each callback.
     let windows = unsafe { &mut *(parameter.0 as *mut Vec<(HWND, u32)>) };
     let mut process_id = 0;
     // SAFETY: process_id is writable and window is supplied by EnumWindows.

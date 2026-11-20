@@ -43,6 +43,10 @@ fn scroll(app: &PlayerWindow, delta: f32) {
     flush();
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "A missing scroll page must fail the widget test"
+)]
 fn page_y(app: &PlayerWindow) -> f32 {
     // The page body remains visible when the first card scrolls out of view.
     ElementHandle::find_by_element_id(app, "PlayerWindow::sidebar-page")

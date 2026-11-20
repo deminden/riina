@@ -454,6 +454,10 @@ struct PluginDirectory {
     name: String,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn handle_command(
     command: PluginCommand,
     paths: &PluginHostPaths,

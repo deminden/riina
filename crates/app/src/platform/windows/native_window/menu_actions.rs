@@ -16,6 +16,10 @@ macro_rules! forward {
     };
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_open_media_file, || {
         app.invoke_open_file();

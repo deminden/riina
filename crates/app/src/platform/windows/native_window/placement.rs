@@ -67,6 +67,7 @@ pub(super) fn center_host_in_work_area(
     }
     // Position by the measured outer frame so DPI conversion cannot shift the
     // caption edge; shrink only when that frame exceeds the usable area.
+    // SAFETY: this HWND belongs to the live Winit window borrowed on its UI thread.
     let _ = unsafe {
         SetWindowPos(
             hwnd,

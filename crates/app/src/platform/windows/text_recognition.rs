@@ -51,6 +51,7 @@ pub(crate) fn recognize(
 
 fn with_apartment<T>(operation: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     // Each worker owns its WinRT apartment, avoiding assumptions about Slint's UI apartment.
+    // SAFETY: this worker initializes its own apartment and the guard balances success.
     unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.map_err(|error| error.to_string())?;
     struct Apartment;
     impl Drop for Apartment {

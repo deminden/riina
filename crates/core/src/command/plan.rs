@@ -6,6 +6,10 @@ use crate::{
 };
 
 impl Command {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
         let mut resume_on_load = false;
         if matches!(self, Self::CaptureFrame) && state.phase != Phase::Paused {

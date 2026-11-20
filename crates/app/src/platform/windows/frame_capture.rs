@@ -168,13 +168,13 @@ struct ReadbackContext {
     staging: Option<(u32, u32, ID3D11Texture2D)>,
 }
 
-// D3D11 device/context interfaces are not apartment-bound. The immediate
-// context is accessed only through the mutex containing this owner.
+// SAFETY: the device supports multithreaded use, and the shared mutex
+// serializes every use of its immediate context.
 unsafe impl Send for ReadbackContext {}
 
 struct AgileCaptureDevice(IDirect3DDevice);
 
-// The WinRT Direct3D device is agile and may be used by the free-threaded
+// SAFETY: the WinRT Direct3D device is agile and may be used by the free-threaded
 // frame-pool callback on another thread.
 unsafe impl Send for AgileCaptureDevice {}
 
@@ -211,6 +211,7 @@ fn capture_worker(
 ) {
     // The frame-pool callback is free-threaded, so its initialization and WinRT
     // object lifetime belong to a dedicated MTA thread rather than Slint's UI.
+    // SAFETY: this worker initializes its own apartment and balances success below.
     if let Err(error) = unsafe { RoInitialize(RO_INIT_MULTITHREADED) } {
         let _ = ready.send(Err(format!(
             "Could not initialize Windows Runtime: {error}"
@@ -228,9 +229,14 @@ fn capture_worker(
             let _ = ready.send(Err(error));
         }
     }
+    // SAFETY: RoInitialize succeeded on this thread and capture objects are now dropped.
     unsafe { RoUninitialize() };
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, String> {
     let mut device = None;
     let mut immediate_context = None;
@@ -256,6 +262,7 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
     let dxgi_device: IDXGIDevice = device
         .cast()
         .map_err(|error| format!("Could not query the capture DXGI device: {error}"))?;
+    // SAFETY: the retained DXGI interface belongs to the capture device and outlives the call.
     let inspectable = unsafe { CreateDirect3D11DeviceFromDXGIDevice(&dxgi_device) }
         .map_err(|error| format!("Could not expose the D3D11 device to WinRT: {error}"))?;
     let winrt_device: IDirect3DDevice = inspectable
@@ -265,6 +272,7 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
     let interop: IGraphicsCaptureItemInterop =
         factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()
             .map_err(|error| format!("Could not load Windows Graphics Capture interop: {error}"))?;
+    // SAFETY: Windows receives the source HWND by value and validates it for capture.
     let item: GraphicsCaptureItem = unsafe { interop.CreateForWindow(hwnd) }
         .map_err(|error| format!("Could not capture the native video window: {error}"))?;
     let size = item
@@ -357,6 +365,7 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
                     .and_then(|surface| {
                         let access: IDirect3DDxgiInterfaceAccess =
                             surface.cast().map_err(|error| error.to_string())?;
+                        // SAFETY: the live WinRT frame is backed by this D3D11 surface.
                         let source: ID3D11Texture2D =
                             unsafe { access.GetInterface() }.map_err(|error| error.to_string())?;
                         let mut readback = callback_readback

@@ -272,6 +272,10 @@ impl SystemMediaControls {
         self.install_targets(forward_interval, backward_interval);
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
     pub(crate) fn publish_playback(&mut self, state: &Playback, thumbnail_preview_enabled: bool) {
         let active = !matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed);
         if !active {
@@ -559,6 +563,7 @@ impl SystemMediaControls {
                 MPNowPlayingPlaybackState::Playing
             });
         }
+        // SAFETY: the command center is retained and accessed on the main UI thread.
         let repeat_command = unsafe { self.center.changeRepeatModeCommand() };
         let repeat_type = match state.loop_mode {
             LoopMode::Off => MPRepeatType::Off,
@@ -636,6 +641,7 @@ impl SystemMediaControls {
 
     unsafe fn add_simple(&mut self, command: Retained<MPRemoteCommand>, action: RemoteMediaAction) {
         let sender = self.sender.clone();
+        // SAFETY: the caller owns the command on the UI thread and the handler only queues actions.
         unsafe { self.add_handler(command, move |_| enqueue(&sender, action.clone())) };
     }
 
@@ -645,7 +651,9 @@ impl SystemMediaControls {
         handler: impl Fn(NonNull<MPRemoteCommandEvent>) -> MPRemoteCommandHandlerStatus + 'static,
     ) {
         let block: RcBlock<HandlerBlock> = RcBlock::new(handler);
+        // SAFETY: the UI thread retains the command and MediaPlayer copies the callback block.
         let target = unsafe { command.addTargetWithHandler(&block) };
+        // SAFETY: the target is registered on the same live command on the UI thread.
         unsafe { command.setEnabled(true) };
         self.targets.push(RegisteredTarget { command, target });
     }
@@ -662,6 +670,7 @@ impl SystemMediaControls {
             Some(interval) => NSArray::from_retained_slice(&[interval]),
             None => NSArray::<NSNumber>::from_slice(&[]),
         };
+        // SAFETY: the retained array contains only valid positive interval numbers.
         unsafe { command.setPreferredIntervals(&values) };
     }
 
@@ -698,8 +707,10 @@ fn now_playing_artwork(path: &str) -> Option<Retained<MPMediaItemArtwork>> {
     let url = CFURL::from_file_path(path)?;
     // ImageIO creates an orientation-correct thumbnail directly from the file,
     // avoiding a full-resolution decode for large external cover images.
+    // SAFETY: the retained URL references a local file for the decoder call.
     let source = unsafe { CGImageSource::with_url(&url, None) }?;
     let thumbnail = image_source_thumbnail_options();
+    // SAFETY: the source and thumbnail options remain live for the synchronous decode.
     let image = unsafe { source.thumbnail_at_index(0, Some(thumbnail.as_opaque())) }?;
     let size = CGSize::new(
         CGImage::width(Some(&image)) as f64,
@@ -862,6 +873,7 @@ fn capture_quick_look_request(url: &NSURL, cancel: &AtomicBool) -> Result<Vec<u8
     if cancel.load(Ordering::Acquire) {
         return Err("Now Playing artwork extraction was cancelled".into());
     }
+    // SAFETY: the retained local URL and fixed positive size describe this request.
     let request = unsafe {
         QLThumbnailGenerationRequest::initWithFileAtURL_size_scale_representationTypes(
             QLThumbnailGenerationRequest::alloc(),
@@ -871,6 +883,7 @@ fn capture_quick_look_request(url: &NSURL, cancel: &AtomicBool) -> Result<Vec<u8
             QLThumbnailGenerationRequestRepresentationTypes::LowQualityThumbnail,
         )
     };
+    // SAFETY: Quick Look returns its retained shared generator for background work.
     let generator = unsafe { QLThumbnailGenerator::sharedGenerator() };
     let (sender, receiver) = mpsc::sync_channel(1);
     let completion: RcBlock<dyn Fn(*mut QLThumbnailRepresentation, *mut NSError)> = RcBlock::new(
@@ -887,6 +900,7 @@ fn capture_quick_look_request(url: &NSURL, cancel: &AtomicBool) -> Result<Vec<u8
             let _ = sender.send(result);
         },
     );
+    // SAFETY: the request is retained until completion and Quick Look copies the block.
     unsafe {
         generator.generateBestRepresentationForRequest_completionHandler(&request, &completion)
     };
@@ -894,6 +908,7 @@ fn capture_quick_look_request(url: &NSURL, cancel: &AtomicBool) -> Result<Vec<u8
     loop {
         if cancel.load(Ordering::Acquire) && !cancellation_requested {
             // The completion block remains alive until Quick Look confirms cancellation.
+            // SAFETY: the original generator and request remain retained across cancellation.
             unsafe { generator.cancelRequest(&request) };
             cancellation_requested = true;
         }
@@ -1022,10 +1037,8 @@ fn position_handler(
             return MPRemoteCommandHandlerStatus::CommandFailed;
         };
         // SAFETY: the typed event was checked immediately above.
-        enqueue(
-            &sender,
-            RemoteMediaAction::Position(unsafe { event.positionTime() }),
-        )
+        let position = unsafe { event.positionTime() };
+        enqueue(&sender, RemoteMediaAction::Position(position))
     }
 }
 
@@ -1039,10 +1052,8 @@ fn rate_handler(
             return MPRemoteCommandHandlerStatus::CommandFailed;
         };
         // SAFETY: the typed event was checked immediately above.
-        enqueue(
-            &sender,
-            RemoteMediaAction::Rate(unsafe { event.playbackRate() }),
-        )
+        let rate = unsafe { event.playbackRate() };
+        enqueue(&sender, RemoteMediaAction::Rate(rate))
     }
 }
 

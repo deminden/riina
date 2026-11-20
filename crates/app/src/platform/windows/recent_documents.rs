@@ -21,6 +21,7 @@ const APP_USER_MODEL_ID: &str = "org.riina.player";
 
 pub fn initialize() -> io::Result<()> {
     let app_id = wide(APP_USER_MODEL_ID);
+    // SAFETY: app_id is NUL-terminated UTF-16 and survives the process-identity call.
     unsafe { SetCurrentProcessExplicitAppUserModelID(PCWSTR(app_id.as_ptr())) }
         .map_err(io::Error::other)
 }
@@ -63,16 +64,19 @@ pub fn clear() -> io::Result<()> {
 fn clear_on_shell_apartment() -> io::Result<()> {
     // Jump List interfaces require COM. Use a dedicated STA so the caller's UI
     // apartment and its event loop are unaffected by Shell initialization.
+    // SAFETY: the reserved argument is null and the guard balances success on this thread.
     unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }
         .ok()
         .map_err(io::Error::other)?;
     struct Apartment;
     impl Drop for Apartment {
         fn drop(&mut self) {
+            // SAFETY: the guard is created only after successful initialization on this thread.
             unsafe { CoUninitialize() };
         }
     }
     let _apartment = Apartment;
+    // SAFETY: COM is initialized on this thread and the Shell class supports this interface.
     let destinations: IApplicationDestinations =
         unsafe { CoCreateInstance(&ApplicationDestinations, None, CLSCTX_INPROC_SERVER) }
             .map_err(io::Error::other)?;

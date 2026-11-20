@@ -9,6 +9,10 @@ use refresh::refresh;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Duration};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(crate) fn connect(
     app: &PlayerWindow,
     decoder_player: riina_mpv::CommandSender,

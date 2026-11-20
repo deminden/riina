@@ -5,6 +5,10 @@ use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     let aspect_player = player.clone();
     let weak = app.as_weak();

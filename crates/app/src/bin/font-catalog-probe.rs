@@ -2,6 +2,10 @@
 #[path = "../font_catalog.rs"]
 mod font_catalog;
 
+#[expect(
+    clippy::print_stdout,
+    reason = "The font catalog probe writes its report to stdout"
+)]
 fn main() {
     let started = std::time::Instant::now();
     let families = font_catalog::installed_families();

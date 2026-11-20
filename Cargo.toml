@@ -23,3 +23,14 @@ wry = { version = "=0.57.0", default-features = false }
 [workspace.lints.rust]
 # Every FFI operation needs its own reviewed unsafe boundary, even inside unsafe fn.
 unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "deny"
+too_many_lines = "deny"
+too_many_arguments = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"

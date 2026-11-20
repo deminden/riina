@@ -41,15 +41,19 @@ pub(crate) struct PipFrameSource {
 
 impl PipFrameSource {
     /// # Safety
-    /// Must be called while Slint's macOS OpenGL context is current.
+    /// Must be called while Slint's macOS OpenGL context is current. The
+    /// loader must resolve GL symbols for that same context.
     pub(crate) unsafe fn new(
         loader: &dyn Fn(&CStr) -> *const std::ffi::c_void,
     ) -> Result<Self, String> {
+        // SAFETY: querying the calling thread's current CGL context takes no arguments.
         let context = unsafe { CGLGetCurrentContext() };
         if context.is_null() {
             return Err("The macOS OpenGL context is unavailable".into());
         }
+        // SAFETY: the caller supplies a symbol loader for the checked current context.
         let gl = unsafe { glow::Context::from_loader_function_cstr(|name| loader(name)) };
+        // SAFETY: that CGL context remains current on this thread during allocation.
         let framebuffer = unsafe { gl.create_framebuffer() }.map_err(|e| e.to_string())?;
         Ok(Self {
             gl,
@@ -67,6 +71,10 @@ impl PipFrameSource {
 
     /// # Safety
     /// Must run on the same current CGL context used to create this source.
+    #[expect(
+        clippy::expect_used,
+        reason = "A pool is initialized for every nonzero bounded size and Core Video outputs are checked for null"
+    )]
     pub(crate) unsafe fn sample(
         &mut self,
         video: &mut riina_mpv::video::VideoSurface,
@@ -94,6 +102,7 @@ impl PipFrameSource {
         let pool = self.pool.as_ref().expect("pool initialized for frame size");
         let mut pixel_buffer = std::ptr::null_mut();
         let aux = allocation_limit_attributes()?;
+        // SAFETY: the pool and attribute dictionary are live and the out pointer is writable.
         let status = unsafe {
             CVPixelBufferPool::create_pixel_buffer_with_aux_attributes(
                 None,
@@ -107,25 +116,28 @@ impl PipFrameSource {
             // while AVKit retains all three previously enqueued surfaces.
             return Ok(None);
         }
+        // SAFETY: the successful Create call returns a retained, non-null pixel buffer.
         let pixel_buffer =
             unsafe { CFRetained::from_raw(NonNull::new(pixel_buffer).expect("checked non-null")) };
         let surface = CVPixelBufferGetIOSurface(Some(&pixel_buffer)).ok_or_else(|| {
             "Core Video did not allocate an IOSurface-backed pixel buffer".to_owned()
         })?;
-        let texture = unsafe { self.gl.create_texture() }.map_err(|e| e.to_string())?;
-        let previous_draw = NonZeroU32::new(unsafe {
-            self.gl.get_parameter_i32(glow::DRAW_FRAMEBUFFER_BINDING) as u32
-        })
-        .map(glow::NativeFramebuffer);
-        let previous_read = NonZeroU32::new(unsafe {
-            self.gl.get_parameter_i32(glow::READ_FRAMEBUFFER_BINDING) as u32
-        })
-        .map(glow::NativeFramebuffer);
-        let previous_texture = NonZeroU32::new(unsafe {
-            self.gl.get_parameter_i32(glow::TEXTURE_BINDING_RECTANGLE) as u32
-        })
-        .map(glow::NativeTexture);
+        // SAFETY: the caller keeps the creating context current. These binding
+        // queries return values from that context and do not take host pointers.
+        let (texture, previous_draw, previous_read, previous_texture) = unsafe {
+            (
+                self.gl.create_texture().map_err(|e| e.to_string())?,
+                NonZeroU32::new(self.gl.get_parameter_i32(glow::DRAW_FRAMEBUFFER_BINDING) as u32)
+                    .map(glow::NativeFramebuffer),
+                NonZeroU32::new(self.gl.get_parameter_i32(glow::READ_FRAMEBUFFER_BINDING) as u32)
+                    .map(glow::NativeFramebuffer),
+                NonZeroU32::new(self.gl.get_parameter_i32(glow::TEXTURE_BINDING_RECTANGLE) as u32)
+                    .map(glow::NativeTexture),
+            )
+        };
         let result = (|| {
+            // SAFETY: this context owns the texture and framebuffer, and the
+            // retained pixel buffer supplies the IOSurface for the attachment.
             unsafe {
                 self.gl.bind_texture(TEXTURE_RECTANGLE, Some(texture));
                 self.gl
@@ -179,6 +191,8 @@ impl PipFrameSource {
             }
             create_sample(&pixel_buffer, presentation_time)
         })();
+        // SAFETY: the original CGL context is still current. The saved objects
+        // belong to it and this call owns the temporary texture.
         unsafe {
             self.gl
                 .bind_framebuffer(glow::DRAW_FRAMEBUFFER, previous_draw);
@@ -196,7 +210,9 @@ impl Drop for PipFrameSource {
     fn drop(&mut self) {
         // A dead context releases its own objects. Never issue deletion through
         // an unrelated context if the window teardown did not run first.
+        // SAFETY: querying the calling thread's current CGL context takes no arguments.
         if unsafe { CGLGetCurrentContext() } == self.context {
+            // SAFETY: the creating context is current and this source owns the framebuffer.
             unsafe { self.gl.delete_framebuffer(self.framebuffer) };
         }
     }
@@ -211,12 +227,18 @@ fn bounded_dimensions((width, height): (u32, u32)) -> (u32, u32) {
     )
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "The Core Video pool output is checked for null after creation"
+)]
 fn create_pool(size: (u32, u32)) -> Result<CFRetained<CVPixelBufferPool>, String> {
     let format = cf_number(kCVPixelFormatType_32BGRA as i32);
     let width = cf_number(size.0 as i32);
     let height = cf_number(size.1 as i32);
+    // SAFETY: a retained Core Foundation dictionary can be used as its base CF type.
     let iosurface =
         unsafe { CFRetained::cast_unchecked::<CFType>(CFDictionary::<CFString, CFType>::empty()) };
+    // SAFETY: the immutable CFString keys are provided by the linked Core Video framework.
     let keys = unsafe {
         [
             kCVPixelBufferPixelFormatTypeKey,
@@ -234,8 +256,10 @@ fn create_pool(size: (u32, u32)) -> Result<CFRetained<CVPixelBufferPool>, String
         CFBoolean::new(true),
     ];
     let attributes = CFDictionary::<CFString, CFType>::from_slices(&keys, &values);
+    // SAFETY: erasing the generic key/value types keeps the same CFDictionary object.
     let attributes = unsafe { CFRetained::cast_unchecked::<CFDictionary>(attributes) };
     let mut pool = std::ptr::null_mut();
+    // SAFETY: the retained dictionary describes the buffers and the out pointer is writable.
     let status = unsafe {
         CVPixelBufferPool::create(None, None, Some(&attributes), NonNull::from(&mut pool))
     };
@@ -244,26 +268,35 @@ fn create_pool(size: (u32, u32)) -> Result<CFRetained<CVPixelBufferPool>, String
             "Core Video could not create the PiP buffer pool ({status})"
         ));
     }
+    // SAFETY: Core Video transferred ownership of the checked non-null pool.
     Ok(unsafe { CFRetained::from_raw(NonNull::new(pool).expect("checked non-null")) })
 }
 
 fn allocation_limit_attributes() -> Result<CFRetained<CFDictionary>, String> {
     let limit = cf_number(POOL_LIMIT);
+    // SAFETY: this immutable CFString key is provided by Core Video.
     let keys = unsafe { [kCVPixelBufferPoolAllocationThresholdKey] };
     let values: [&CFType; 1] = [limit.as_ref()];
     let attributes = CFDictionary::<CFString, CFType>::from_slices(&keys, &values);
+    // SAFETY: the cast erases generic parameters of the same live dictionary.
     Ok(unsafe { CFRetained::cast_unchecked::<CFDictionary>(attributes) })
 }
 
 fn cf_number(value: i32) -> CFRetained<CFType> {
+    // SAFETY: the retained CFNumber is a Core Foundation object.
     unsafe { CFRetained::cast_unchecked::<CFType>(CFNumber::new_i32(value)) }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "The Core Media creation outputs are checked for null"
+)]
 fn create_sample(
     pixel_buffer: &CVPixelBuffer,
     presentation_time: CMTime,
 ) -> Result<CFRetained<CMSampleBuffer>, String> {
     let mut format_description: *const CMVideoFormatDescription = std::ptr::null();
+    // SAFETY: the pixel buffer is borrowed for the call and the out pointer is writable.
     let status = unsafe {
         CMVideoFormatDescriptionCreateForImageBuffer(
             None,
@@ -276,15 +309,21 @@ fn create_sample(
             "Core Media could not describe the PiP frame ({status})"
         ));
     }
+    // SAFETY: the successful Create call returned one retained format description.
     let format_description = unsafe {
         CFRetained::from_raw(NonNull::new(format_description.cast_mut()).expect("checked non-null"))
     };
-    let mut timing = CMSampleTimingInfo {
-        duration: unsafe { CMTime::new(1, 30) },
-        presentationTimeStamp: presentation_time,
-        decodeTimeStamp: unsafe { kCMTimeInvalid },
+    // SAFETY: the timescale is positive and Core Media exports the immutable invalid time.
+    let mut timing = unsafe {
+        CMSampleTimingInfo {
+            duration: CMTime::new(1, 30),
+            presentationTimeStamp: presentation_time,
+            decodeTimeStamp: kCMTimeInvalid,
+        }
     };
     let mut sample = std::ptr::null_mut();
+    // SAFETY: the format was created from this pixel buffer, and the timing
+    // descriptor and sample out pointer remain live for the call.
     let status = unsafe {
         CMSampleBuffer::create_ready_with_image_buffer(
             None,
@@ -299,5 +338,6 @@ fn create_sample(
             "Core Media could not create the PiP sample ({status})"
         ));
     }
+    // SAFETY: the successful Create call returned one retained, non-null sample.
     Ok(unsafe { CFRetained::from_raw(NonNull::new(sample).expect("checked non-null")) })
 }

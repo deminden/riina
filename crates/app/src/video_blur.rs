@@ -33,6 +33,10 @@ fn blur_native_windows_sample(sample: &image::RgbaImage) -> image::RgbaImage {
 }
 
 #[cfg(any(target_os = "windows", test))]
+#[expect(
+    clippy::expect_used,
+    reason = "The output buffer is sized from the input dimensions"
+)]
 fn blur_native_windows_sample_with_steps(
     sample: &image::RgbaImage,
     sample_step_x: i32,
@@ -194,6 +198,10 @@ pub(crate) fn sampled_frame_pixels(
 }
 
 #[cfg(any(target_os = "windows", test))]
+#[expect(
+    clippy::expect_used,
+    reason = "The output buffer is sized from the requested dimensions"
+)]
 fn resize_native_windows_material_sample(
     sample: &image::RgbaImage,
     width: u32,
@@ -352,21 +360,29 @@ pub(crate) struct VideoBlurSurface {
 impl VideoBlurSurface {
     /// # Safety
     /// Call from Slint's `RenderingSetup` with the window's GL context current.
+    /// Resolve symbols from that context and drop this surface during its
+    /// `RenderingTeardown`, before the renderer releases the context.
     pub(crate) unsafe fn new(
         loader: &dyn Fn(&CStr) -> *const std::ffi::c_void,
     ) -> Result<Self, String> {
+        // SAFETY: the caller supplies the loader for the current Slint GL context.
         let gl = Rc::new(unsafe { glow::Context::from_loader_function_cstr(|name| loader(name)) });
+        // SAFETY: the setup callback keeps the context current while the shaders link.
         let program = unsafe { create_program(&gl)? };
+        // SAFETY: the host GL context is still current for texture allocation.
         let texture = match unsafe { gl.create_texture() } {
             Ok(value) => value,
             Err(error) => {
+                // SAFETY: setup owns the linked program and has not exposed it.
                 unsafe { gl.delete_program(program) };
                 return Err(error);
             }
         };
+        // SAFETY: the host GL context is still current for framebuffer allocation.
         let framebuffer = match unsafe { gl.create_framebuffer() } {
             Ok(value) => value,
             Err(error) => {
+                // SAFETY: setup owns both successfully allocated objects in this context.
                 unsafe {
                     gl.delete_texture(texture);
                     gl.delete_program(program);
@@ -374,9 +390,11 @@ impl VideoBlurSurface {
                 return Err(error);
             }
         };
+        // SAFETY: the current host context owns the vertex array namespace.
         let vertex_array = match unsafe { gl.create_vertex_array() } {
             Ok(value) => value,
             Err(error) => {
+                // SAFETY: setup owns the framebuffer, texture and program here.
                 unsafe {
                     gl.delete_framebuffer(framebuffer);
                     gl.delete_texture(texture);
@@ -385,9 +403,11 @@ impl VideoBlurSurface {
                 return Err(error);
             }
         };
+        // SAFETY: the current host context owns the buffer namespace.
         let vertex_buffer = match unsafe { gl.create_buffer() } {
             Ok(value) => value,
             Err(error) => {
+                // SAFETY: these handles are exclusively owned by the failed setup.
                 unsafe {
                     gl.delete_vertex_array(vertex_array);
                     gl.delete_framebuffer(framebuffer);
@@ -397,14 +417,21 @@ impl VideoBlurSurface {
                 return Err(error);
             }
         };
-        let source_uniform = unsafe { gl.get_uniform_location(program, "source_frame") };
-        let step_uniform = unsafe { gl.get_uniform_location(program, "sample_step") };
-        let grain_uniform = unsafe { gl.get_uniform_location(program, "grain_strength") };
+        // SAFETY: the program has linked successfully in this current GL context.
+        let (source_uniform, step_uniform, grain_uniform) = unsafe {
+            (
+                gl.get_uniform_location(program, "source_frame"),
+                gl.get_uniform_location(program, "sample_step"),
+                gl.get_uniform_location(program, "grain_strength"),
+            )
+        };
         let grain_strength = if cfg!(target_os = "windows") {
             0.05
         } else {
             0.0
         };
+        // SAFETY: the current context owns both vertex objects, and QUAD holds
+        // exactly the initialized bytes supplied for the synchronous upload.
         unsafe {
             gl.bind_vertex_array(Some(vertex_array));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));
@@ -452,6 +479,8 @@ impl VideoBlurSurface {
         let gl = &self.gl;
         // Slint and mpv share this context. Preserve the bindings and rasterization state that
         // our full-screen pass changes so the renderer can continue its frame.
+        // SAFETY: the caller keeps the source texture alive in the current context
+        // throughout this draw and the restoration of the caller's GL state.
         unsafe {
             let old_draw_framebuffer =
                 NonZeroU32::new(gl.get_parameter_i32(glow::DRAW_FRAMEBUFFER_BINDING) as u32)
@@ -599,6 +628,8 @@ impl VideoBlurSurface {
 
 impl Drop for VideoBlurSurface {
     fn drop(&mut self) {
+        // SAFETY: the constructor requires drop with this GL context current.
+        // The exclusively owned program and GL objects are released here once.
         unsafe {
             self.gl.delete_buffer(self.vertex_buffer);
             self.gl.delete_vertex_array(self.vertex_array);
@@ -610,15 +641,21 @@ impl Drop for VideoBlurSurface {
 }
 
 unsafe fn create_program(gl: &glow::Context) -> Result<glow::NativeProgram, String> {
+    // SAFETY: the caller supplies the current context for this vertex shader.
     let vertex = unsafe { compile_shader(gl, glow::VERTEX_SHADER, VERTEX_SHADER)? };
+    // SAFETY: the same context is current for fragment shader compilation.
     let fragment = match unsafe { compile_shader(gl, glow::FRAGMENT_SHADER, FRAGMENT_SHADER) } {
         Ok(shader) => shader,
         Err(error) => {
+            // SAFETY: this call owns the unattached vertex shader.
             unsafe { gl.delete_shader(vertex) };
             return Err(error);
         }
     };
+    // SAFETY: this call is still on the thread with the context current.
     let program = unsafe { gl.create_program() }.map_err(|error| error.to_string())?;
+    // SAFETY: all three handles were created here and remain exclusively owned
+    // while linking in the current context.
     unsafe {
         gl.attach_shader(program, vertex);
         gl.attach_shader(program, fragment);
@@ -632,8 +669,11 @@ unsafe fn create_program(gl: &glow::Context) -> Result<glow::NativeProgram, Stri
         gl.delete_shader(vertex);
         gl.delete_shader(fragment);
     }
+    // SAFETY: the newly linked program is still live in the current context.
     if !unsafe { gl.get_program_link_status(program) } {
+        // SAFETY: the failed link leaves the program valid for its diagnostic query.
         let log = unsafe { gl.get_program_info_log(program) };
+        // SAFETY: the failed program is owned here and has not been returned.
         unsafe { gl.delete_program(program) };
         return Err(format!("Could not link video-blur shader: {log}"));
     }
@@ -645,13 +685,18 @@ unsafe fn compile_shader(
     kind: u32,
     source: &str,
 ) -> Result<glow::NativeShader, String> {
+    // SAFETY: the caller supplies the current context and an OpenGL shader stage.
     let shader = unsafe { gl.create_shader(kind) }.map_err(|error| error.to_string())?;
+    // SAFETY: the shader is still exclusively owned and GL copies the source during the call.
     unsafe {
         gl.shader_source(shader, source);
         gl.compile_shader(shader);
     }
+    // SAFETY: the shader remains live in its current context after compilation.
     if !unsafe { gl.get_shader_compile_status(shader) } {
+        // SAFETY: the failed compilation leaves the shader valid for its diagnostic query.
         let log = unsafe { gl.get_shader_info_log(shader) };
+        // SAFETY: this call owns the failed shader and has not attached it to a program.
         unsafe { gl.delete_shader(shader) };
         return Err(format!("Could not compile video-blur shader: {log}"));
     }

@@ -21,6 +21,10 @@ use std::sync::{
     mpsc::{self, Receiver, SyncSender},
 };
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn run_entry_worker(
     source: String,
     plugin_identifier: String,

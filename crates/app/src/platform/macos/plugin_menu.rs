@@ -37,12 +37,13 @@ impl MacPluginMenuObserver {
             let Some(main_thread) = MainThreadMarker::new() else {
                 return;
             };
-            // AppKit posts this notification with its NSMenu as the object.
-            // SAFETY: the notification name below guarantees the object is an NSMenu.
+            // SAFETY: the callback receives a live notification for this call.
             let Some(menu_object) = (unsafe { notification.as_ref() }).object() else {
                 return;
             };
-            let menu = unsafe { &*Retained::as_ptr(&menu_object).cast::<NSMenu>() };
+            let Ok(menu) = menu_object.downcast::<NSMenu>() else {
+                return;
+            };
             if !menu.title().isEqualToString(&menu_title) {
                 return;
             }

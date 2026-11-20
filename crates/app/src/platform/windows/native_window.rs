@@ -28,6 +28,10 @@ use surfaces::{
     sync_native_theme,
 };
 use winit::platform::windows::WindowAttributesExtWindows;
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub fn run(
     media: Vec<OsString>,
     resume_position: Option<f64>,

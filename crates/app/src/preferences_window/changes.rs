@@ -9,6 +9,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn connect(
     app: &PlayerWindow,
     window: &PreferencesWindow,

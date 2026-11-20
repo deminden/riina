@@ -260,6 +260,10 @@ impl Editor {
         Ok(())
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
     pub fn install(&self, app: &PlayerWindow, sender: CommandSender) {
         lock(&self.0).sender = Some(sender.clone());
         let editor = self.clone();

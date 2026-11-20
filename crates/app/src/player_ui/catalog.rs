@@ -126,6 +126,10 @@ pub(super) fn should_fallback_removed_audio_device(
         })
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn update_catalog(app: &PlayerWindow, state: &Playback) {
     app.set_downloaded_subtitle_save_available(
         crate::file_actions::downloaded_subtitle_path(state).is_some(),

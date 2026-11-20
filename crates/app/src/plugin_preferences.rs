@@ -28,6 +28,10 @@ struct InstalledPlugin {
     directory: PathBuf,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(crate) fn connect(
     window: &PreferencesWindow,
     app: &PlayerWindow,

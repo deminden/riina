@@ -208,6 +208,10 @@ fn install_for_kind(
     (slot, timer)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn connect_window(
     app: &PlayerWindow,
     window: &VideoFiltersWindow,

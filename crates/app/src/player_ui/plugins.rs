@@ -23,6 +23,10 @@ pub(super) struct InstalledPluginUi {
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(
     app: &PlayerWindow,
     native: Option<&platform::NativePresentation>,

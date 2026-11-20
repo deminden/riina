@@ -51,6 +51,7 @@ impl Drop for WindowSizing {
             // SAFETY: keep refdata alive through removal from the live HWND.
             let removed =
                 unsafe { RemoveWindowSubclass(self.hwnd, Some(sizing_proc), pointer) }.as_bool();
+            // SAFETY: IsWindow takes a handle value even if the subclass's window has closed.
             if !removed && unsafe { IsWindow(Some(self.hwnd)) }.as_bool() {
                 Box::leak(context);
             }
@@ -91,17 +92,21 @@ unsafe extern "system" fn sizing_proc(
     }
     let mut outer = RECT::default();
     let mut client = RECT::default();
-    // SAFETY: both rectangles are writable and hwnd is the callback's live window.
-    if unsafe { GetWindowRect(hwnd, &mut outer) }.is_err()
-        || unsafe { GetClientRect(hwnd, &mut client) }.is_err()
-    {
+    // SAFETY: the callback HWND is live and outer is writable.
+    if unsafe { GetWindowRect(hwnd, &mut outer) }.is_err() {
+        return result;
+    }
+    // SAFETY: the callback HWND is live and client is writable.
+    if unsafe { GetClientRect(hwnd, &mut client) }.is_err() {
         return result;
     }
     let mut monitor = MONITORINFO {
         cbSize: std::mem::size_of::<MONITORINFO>() as u32,
         ..Default::default()
     };
+    // SAFETY: the sizing callback supplies the HWND being resized.
     let handle = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+    // SAFETY: monitor is writable with cbSize initialized for MONITORINFO.
     if !unsafe { GetMonitorInfoW(handle, &mut monitor) }.as_bool() {
         return result;
     }
@@ -109,6 +114,7 @@ unsafe extern "system" fn sizing_proc(
     let outer_size = size(outer);
     let frame_width = outer_size.width.saturating_sub(client_size.width);
     let frame_height = outer_size.height.saturating_sub(client_size.height);
+    // SAFETY: the sizing callback retains this HWND for the duration of the query.
     let scale = f64::from(unsafe { GetDpiForWindow(hwnd) }.max(96)) / 96.0;
     let margin = (24.0 * scale).round() as u32;
     let work = size(monitor.rcWork);

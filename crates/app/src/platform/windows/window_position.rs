@@ -22,6 +22,7 @@ pub(crate) fn work_area(
     window: &winit::window::Window,
 ) -> Option<riina_core::window_resize::ScreenRect> {
     let hwnd = hwnd(window)?;
+    // SAFETY: the HWND was obtained from the live borrowed Winit window.
     let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
     work_area_for_monitor(monitor)
 }
@@ -222,6 +223,10 @@ enum FrameSizing {
     Interface,
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "The owner rectangle exists only when an owner handle was supplied"
+)]
 fn place_child(child: &winit::window::Window, owner: Option<HWND>, sizing: FrameSizing) -> bool {
     let Some(child_hwnd) = hwnd(child) else {
         return false;
@@ -236,6 +241,7 @@ fn place_child(child: &winit::window::Window, owner: Option<HWND>, sizing: Frame
         // playback also hides its owner while the welcome surface is visible.
         // A hidden HWND can report its default (often upper-left) rectangle,
         // which is not a useful placement anchor.
+        // SAFETY: the visibility query takes the caller's optional owner handle by value.
         if !unsafe { IsWindowVisible(owner) }.as_bool() {
             return None;
         }
@@ -248,6 +254,7 @@ fn place_child(child: &winit::window::Window, owner: Option<HWND>, sizing: Frame
     });
     let owner_work_area = if owner_rect.is_some() {
         let owner = owner.expect("a visible owner rectangle has a live owner HWND");
+        // SAFETY: this is the same owner HWND the rectangle query just accepted.
         let monitor = unsafe { MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST) };
         work_area_for_monitor(monitor)
     } else {

@@ -5,6 +5,10 @@ use riina_core::{Command, control_preferences::SeekType, plugin::WindowAction};
 use rquickjs::{Ctx, Object, function::Func};
 use std::sync::{Arc, Mutex};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install_plugin_core_api<'js>(
     ctx: Ctx<'js>,
     iina_api: Object<'js>,

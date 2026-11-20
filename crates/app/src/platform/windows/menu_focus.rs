@@ -109,21 +109,25 @@ impl MenuFocus {
         if visible {
             if let Some(menu) = context.detached_menu.get() {
                 // Muda retains ownership of the stable root HMENU while detached.
+                // SAFETY: the live menu is being reattached on the owner window's UI thread.
                 unsafe { SetMenu(self.hwnd, Some(menu)) }.map_err(|error| error.to_string())?;
                 context.detached_menu.set(None);
             } else {
                 return Ok(());
             }
         } else {
+            // SAFETY: the menu owner retains this HWND on its UI thread.
             let menu = unsafe { GetMenu(self.hwnd) };
             if menu.0.is_null() {
                 return Ok(());
             }
+            // SAFETY: the same UI thread detaches the menu without releasing Muda's handle.
             unsafe { SetMenu(self.hwnd, None) }.map_err(|error| error.to_string())?;
             context.detached_menu.set(Some(menu));
         }
         // Recalculate the non-client strip once, without removing/reinserting
         // every menu entry or replacing the host's underlying menu object.
+        // SAFETY: the menu owner remains live on this thread for the redraw.
         unsafe { DrawMenuBar(self.hwnd) }.map_err(|error| error.to_string())
     }
 }
@@ -132,9 +136,11 @@ fn update_information_label(menu: HMENU, prefix: &str, label: &str) -> windows::
     // Informational rows refresh just before their submenu paints. Feeding
     // each continuous playback/slider update into Slint would rebuild the bar
     // and repeatedly change the native video client's height.
+    // SAFETY: the synchronous popup notification supplies the live menu on this thread.
     let count = unsafe { GetMenuItemCount(Some(menu)) };
     for index in 0..count {
         let mut title = [0_u16; 128];
+        // SAFETY: the positional index is from this menu and the output slice is writable.
         let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
         if length > 0 && String::from_utf16_lossy(&title[..length as usize]).starts_with(prefix) {
             let mut label: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
@@ -156,15 +162,19 @@ fn update_information_label(menu: HMENU, prefix: &str, label: &str) -> windows::
 fn plugin_menu_handle(hwnd: HWND) -> isize {
     // A Slint rebuild can replace submenu handles. Resolve the current handle
     // at activation instead of comparing against an earlier menu generation.
+    // SAFETY: the menu notification supplies the live owner HWND on this thread.
     let menu = unsafe { GetMenu(hwnd) };
     if menu.0.is_null() {
         return 0;
     }
+    // SAFETY: the checked non-null menu belongs to the owner during this query.
     let count = unsafe { GetMenuItemCount(Some(menu)) };
     for index in 0..count {
         let mut title = [0u16; 64];
+        // SAFETY: the positional index is from this menu and the title slice is writable.
         let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
         if length > 0 && String::from_utf16_lossy(&title[..length as usize]) == "Plugin" {
+            // SAFETY: the same live menu still owns the submenu at this index.
             return unsafe { GetSubMenu(menu, index) }.0 as isize;
         }
     }
@@ -489,6 +499,7 @@ mod tests {
         // Hidden and disabled: native focus calls cannot activate this test
         // window. Posted system commands are removed, never dispatched.
         let host = TestWindow(
+            // SAFETY: STATIC is a built-in class and all borrowed strings are static.
             unsafe {
                 CreateWindowExW(
                     WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
@@ -511,7 +522,10 @@ mod tests {
         let lifecycle =
             MenuFocus::install(host.0.0 as isize, app.as_weak(), active.clone()).unwrap();
         let enter = lifecycle.context.as_ref().unwrap().enter_message;
+        // SAFETY: GetForegroundWindow requires no input pointers.
         let foreground = unsafe { GetForegroundWindow() };
+        // SAFETY: the test owns this window on the current thread, and the message
+        // parameters are scalar values consumed by its live subclass.
         unsafe {
             SendMessageW(
                 host.0,
@@ -525,6 +539,7 @@ mod tests {
         assert_eq!(lifecycle.context.as_ref().unwrap().generation.get(), 1);
         let mut command = MSG::default();
         assert!(
+            // SAFETY: PeekMessageW writes to a live MSG on the test window's thread.
             unsafe {
                 PeekMessageW(
                     &mut command,
@@ -538,6 +553,7 @@ mod tests {
         );
         assert_eq!(command.lParam.0, i32::from(b' ') as isize);
         assert!(
+            // SAFETY: the test still owns the queue filter HWND and writable MSG.
             !unsafe {
                 PeekMessageW(
                     &mut command,
@@ -549,7 +565,9 @@ mod tests {
             }
             .as_bool()
         );
-        assert_eq!(unsafe { GetForegroundWindow() }, foreground);
+        // SAFETY: GetForegroundWindow requires no input pointers.
+        let current_foreground = unsafe { GetForegroundWindow() };
+        assert_eq!(current_foreground, foreground);
     }
 
     #[test]
@@ -557,6 +575,7 @@ mod tests {
         // Use the built-in class without a Slint event loop or playback DLL.
         // Off-screen, non-activating windows cannot steal the user's focus.
         let host = test_host();
+        // SAFETY: the parent belongs to this thread and STATIC is a built-in class.
         let child = TestWindow(unsafe {
             CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
@@ -576,6 +595,7 @@ mod tests {
         });
         // Confirm the native default being guarded: the redraw batch hides
         // both the host and the independently owned playback child.
+        // SAFETY: the test retains both windows and sends only scalar messages on their thread.
         unsafe {
             SendMessageW(host.0, WM_SETREDRAW, Some(WPARAM(0)), None);
             assert!(!IsWindowVisible(child.0).as_bool());
@@ -607,12 +627,14 @@ mod tests {
         use windows::Win32::Foundation::RECT;
         use windows::Win32::UI::WindowsAndMessaging::GetMenuState;
         let host = test_host();
-        // SAFETY: this thread owns all menus/windows and retains them below.
         let menu = TestMenu {
             hwnd: host.0,
+            // SAFETY: the new menu is released by TestMenu on this thread.
             menu: unsafe { CreateMenu() }.unwrap(),
         };
+        // SAFETY: the test thread creates the submenu before attaching it to TestMenu.
         let audio = unsafe { CreatePopupMenu() }.unwrap();
+        // SAFETY: both menus and the host are live on this thread, and the labels are static UTF-16.
         unsafe {
             AppendMenuW(audio, MF_STRING | MF_DISABLED, 1, w!("Volume: 100")).unwrap();
             AppendMenuW(audio, MF_STRING, 2, w!("Volume +")).unwrap();
@@ -629,6 +651,7 @@ mod tests {
         )
         .unwrap();
         let mut before = RECT::default();
+        // SAFETY: the live host is test-owned and the rectangle is writable.
         unsafe { GetClientRect(host.0, &mut before) }.unwrap();
         for (prefix, label, position) in [
             ("Volume:", "Volume: 0", 0),
@@ -641,6 +664,7 @@ mod tests {
             update_information_label(audio, prefix, label).unwrap();
             let mut after = RECT::default();
             let mut text = [0_u16; 128];
+            // SAFETY: the test retains the host and submenu, and both output buffers are writable.
             unsafe {
                 GetClientRect(host.0, &mut after).unwrap();
                 assert_eq!(GetMenu(host.0), menu.menu);
@@ -658,11 +682,17 @@ mod tests {
         }
         for _ in 0..3 {
             lifecycle.set_visible(false).unwrap();
-            assert!(unsafe { GetMenu(host.0) }.0.is_null());
-            assert!(unsafe { IsWindowVisible(host.0) }.as_bool());
+            // SAFETY: both queries use the live test-owned host on its thread.
+            unsafe {
+                assert!(GetMenu(host.0).0.is_null());
+                assert!(IsWindowVisible(host.0).as_bool());
+            }
             lifecycle.set_visible(true).unwrap();
-            assert_eq!(unsafe { GetMenu(host.0) }, menu.menu);
-            assert_eq!(unsafe { GetSubMenu(menu.menu, 0) }, audio);
+            // SAFETY: both queries use the retained host and the reattached menu.
+            unsafe {
+                assert_eq!(GetMenu(host.0), menu.menu);
+                assert_eq!(GetSubMenu(menu.menu, 0), audio);
+            }
         }
     }
 }

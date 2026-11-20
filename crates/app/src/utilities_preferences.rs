@@ -4,6 +4,10 @@ use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use slint::ComponentHandle;
 use std::{fs, io, path::Path};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(crate) fn connect(
     window: &PreferencesWindow,
     preferences_path: &Path,

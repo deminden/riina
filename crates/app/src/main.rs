@@ -92,7 +92,16 @@ mod window_resize_preferences;
 use platform::file_dialog;
 use player_ui::configure_player;
 use slint::ComponentHandle;
-slint::include_modules!();
+
+#[expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "These operations are emitted by the Slint widget generator"
+)]
+mod generated_ui {
+    slint::include_modules!();
+}
+pub use generated_ui::*;
 
 struct StartupArguments {
     media: Vec<std::ffi::OsString>,
@@ -267,8 +276,8 @@ fn prepare_online_video_path(
         .network_online_videos
         .process_search_path(&executable, std::env::var_os("PATH").as_deref())
         .map_err(std::io::Error::other)?;
-    // This runs before Slint or the playback worker creates threads, so no thread
-    // can observe a partially updated environment while mpv resolves yt-dlp.
+    // SAFETY: main runs this before initializing Slint, loading libmpv or
+    // starting workers that might read the shared process environment.
     unsafe { std::env::set_var("PATH", path) };
     Ok(())
 }

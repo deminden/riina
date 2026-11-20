@@ -16,6 +16,10 @@ use std::{
     time::Duration,
 };
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install(
     app: &PlayerWindow,
     player: &Player,
@@ -96,6 +100,7 @@ pub(super) fn install(
                             Ok(video) => {
                                 // The video-backed material is an optional visual enhancement:
                                 // failure to create it must not prevent playback.
+                                // SAFETY: RenderingSetup has this window's GL context current.
                                 match unsafe {
                                     crate::video_blur::VideoBlurSurface::new(&get_proc_address)
                                 } {
@@ -105,8 +110,10 @@ pub(super) fn install(
                                 #[cfg(target_os = "macos")]
                                 if let Some(manager) =
                                     render_picture_in_picture.borrow_mut().as_mut()
-                                    && let Err(error) =
+                                    && let Err(error) = {
+                                        // SAFETY: this rendering setup callback holds the active CGL context.
                                         unsafe { manager.configure_rendering(&get_proc_address) }
+                                    }
                                     && let Some(app) = render_weak.upgrade()
                                 {
                                     app.set_status(
@@ -211,6 +218,8 @@ pub(super) fn install(
                                             )
                                         } {
                                             Ok(()) => {
+                                                // SAFETY: the blur surface owns this texture from
+                                                // the current context, and it is used by this window.
                                                 let image = unsafe {
                                                     slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
                                                         blur.texture_id(),
@@ -226,6 +235,8 @@ pub(super) fn install(
                                 } else {
                                     set_video_material_sample(&app, slint::Image::default(), false);
                                 }
+                                // SAFETY: the video surface owns this texture from
+                                // the current context, and it is used by this window.
                                 let image = unsafe {
                                     slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
                                         video.texture_id(),
@@ -237,7 +248,10 @@ pub(super) fn install(
                                 #[cfg(target_os = "macos")]
                                 if let Some(manager) =
                                     render_picture_in_picture.borrow_mut().as_mut()
-                                    && let Err(error) = unsafe { manager.render_frame(video) }
+                                    && let Err(error) = {
+                                        // SAFETY: the window's renderer owns the current CGL context.
+                                        unsafe { manager.render_frame(video) }
+                                    }
                                 {
                                     app.set_status(
                                         format!("PiP frame rendering failed: {error}").into(),

@@ -10,6 +10,10 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+#[expect(
+    clippy::expect_used,
+    reason = "A missing fixture root must fail the native test"
+)]
 fn fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -273,6 +277,10 @@ fn audio_device_selection_updates_the_live_engine() {
     drop(player);
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "Failed fixture responses must be visible to the native test"
+)]
 fn serve_http_fixture(
     listener: TcpListener,
     fixture: Vec<u8>,
@@ -812,6 +820,10 @@ fn screenshot_content_respects_active_subtitle_visibility() {
 
 #[test]
 #[ignore = "requires provisioned libmpv; writes native PNG captures to ignored tools"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn screenshots_complete_only_after_native_success() {
     let root = fixture_root();
     let output = root.join("tools/screenshot-test").join(format!(
@@ -1525,6 +1537,10 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies managed crop replacement and source geometry"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     use riina_core::crop::{FILTER_LABEL, Preset};
     let root = fixture_root();
@@ -1935,6 +1951,17 @@ fn crop_projection_preserves_source_selection_under_native_display_overrides() {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "A missing configured library must fail the native test"
+)]
+#[cfg_attr(
+    not(target_os = "windows"),
+    expect(
+        clippy::panic,
+        reason = "Other targets require an explicit library for native tests"
+    )
+)]
 fn test_library(root: &std::path::Path) -> PathBuf {
     if let Some(path) = std::env::var_os("RIINA_TEST_MPV_LIBRARY") {
         let path = PathBuf::from(path);
@@ -2061,6 +2088,11 @@ impl Drop for TemporaryMedia {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    reason = "Incomplete PCM fixture creation must fail the test"
+)]
 fn create_long_seek_fixture() -> TemporaryMedia {
     // Keep the sample rate typical so headless audio backends do not add
     // seconds of timestamp latency while a seek is paused and observed.
@@ -3187,6 +3219,10 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies independent primary and secondary subtitle lanes"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn secondary_subtitles_keep_selection_and_visibility_independent() {
     let root = fixture_root();
     let fixture = |name: &str| {
@@ -3611,6 +3647,10 @@ fn ab_repeat_observes_points_and_wraps_playback() {
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies subtitle cue navigation with observed clock and text"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn subtitle_navigation_seeks_cues_without_changing_delay() {
     let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
@@ -4154,6 +4194,10 @@ fn wait_for(
 
 #[test]
 #[ignore = "requires provisioned libmpv; exercises real native playback"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn playback_pause_seek_stop_failure_and_shutdown() {
     let root = fixture_root();
     let (sender, receiver) = mpsc::channel();
@@ -4538,6 +4582,10 @@ fn ui_open_files_command_starts_real_media() {
 
 #[test]
 #[ignore = "requires provisioned libmpv; exercises real catalog workflows"]
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn chapters_external_tracks_and_playlist_editing() {
     let root = fixture_root();
     let fixture = |name: &str| {

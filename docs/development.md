@@ -126,6 +126,13 @@ argument array with `@('xtask', 'check')` for the full gate or
 prerequisites, GUI procedure and the latest scoped results. Keep implementation
 and verification states separate in the requirement inventories.
 
+Clippy enforces the 150-line function and seven-argument limits, documented
+unsafe blocks, and explicit error handling in application code. Existing
+exceptions are marked on the relevant item with a reason. The two modules
+containing only generated Slint widget code expect the unwrap and panic lints
+from the generator. The Rust source line-length check permits an exception list
+that shrinks as those lines are reformatted or moved.
+
 Quick Settings input, category navigation and narrow-header geometry regressions
 in `crates/app/tests/quick_settings_input.rs` run with the workspace tests. They exercise the generated player controls through
 Slint's headless test backend, including pointer/key input and focus changes.

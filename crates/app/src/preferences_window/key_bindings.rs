@@ -2,6 +2,10 @@
 use crate::{PlayerWindow, PreferencesWindow};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
     let selected_profile_window = window.as_weak();
     let selected_profile_parent = app.as_weak();

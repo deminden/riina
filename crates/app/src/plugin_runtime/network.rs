@@ -20,6 +20,10 @@ pub(super) struct NetworkWorkerContext {
     pub(super) active: Arc<AtomicUsize>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install<'js>(
     ctx: Ctx<'js>,
     file_system: PluginFiles,

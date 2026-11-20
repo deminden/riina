@@ -36,6 +36,7 @@ impl Drop for MenuProxy {
         let removed =
             unsafe { RemoveWindowSubclass(self.controls, Some(menu_proxy_proc), pointer) }
                 .as_bool();
+        // SAFETY: the handle value can be queried after the controls window has closed.
         if !removed && unsafe { IsWindow(Some(self.controls)) }.as_bool() {
             // A live callback must never retain freed refdata if removal fails.
             Box::leak(std::mem::replace(
@@ -105,6 +106,7 @@ mod tests {
     }
     impl Drop for TestWindow {
         fn drop(&mut self) {
+            // SAFETY: this guard owns the test window on its creating thread.
             let _ = unsafe { DestroyWindow(self.0) };
         }
     }
@@ -115,6 +117,7 @@ mod tests {
         let controls = TestWindow::new();
         let proxy = MenuProxy::install(controls.0, owner.0).unwrap();
         let id = (&*proxy.owner as *const HWND) as usize;
+        // SAFETY: the static message name is NUL-terminated UTF-16.
         let message = unsafe { RegisterWindowMessageW(w!("riina.native-menu.enter")) };
         assert_ne!(message, 0);
         for character in [0, i32::from(b' '), i32::from(b'f')] {
@@ -138,6 +141,7 @@ mod tests {
         }
         drop(proxy);
         // Removal by Drop must have retired the exact registered callback.
+        // SAFETY: the controls test HWND is still live and the numeric ID is compared by value.
         assert!(!unsafe { RemoveWindowSubclass(controls.0, Some(menu_proxy_proc), id) }.as_bool());
     }
 }

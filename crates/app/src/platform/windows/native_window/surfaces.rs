@@ -49,8 +49,10 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     let hwnd = HWND(handle.hwnd.get() as *mut _);
     // Winit may provide WS_EX_LAYERED for per-pixel alpha composition. Preserve
     // its style and remove only the click-through flag that blocks control input.
+    // SAFETY: the borrowed controls HWND is live and GWL_EXSTYLE reads style bits by value.
     let extended_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
     let interactive_style = extended_style & !(WS_EX_TRANSPARENT.0 as isize);
+    // SAFETY: the borrowed controls HWND is live and GWL_STYLE reads style bits by value.
     let style = unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) };
     // Slint's popup can retain caption flags despite its frameless attributes.
     // A fully extended DWM frame would paint a second set of caption buttons
@@ -80,6 +82,7 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
             .map_err(|error| format!("Could not enable native video control input: {error}"))?;
         }
     }
+    // SAFETY: the controls window remains live while the applied style is checked.
     let effective_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
     if effective_style & (WS_EX_TRANSPARENT.0 as isize) != 0 {
         return Err("The native video overlay is still mouse-transparent".into());
@@ -87,12 +90,14 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     if (effective_style ^ extended_style) & (WS_EX_LAYERED.0 as isize) != 0 {
         return Err("The native video overlay lost its layered composition style".into());
     }
+    // SAFETY: the controls window remains live while the applied frame bits are checked.
     if unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } & (frame.0 as isize) != 0 {
         return Err("The native video overlay still has a non-client frame".into());
     }
     // An empty blur region enables pixel alpha without requesting an opaque
     // whole-window backdrop. A null region instead covers the entire client,
     // including the otherwise clear fullscreen area around the controller.
+    // SAFETY: the empty rectangle is supplied by value and the caller owns any returned region.
     let region = unsafe { CreateRectRgn(0, 0, 0, 0) };
     if region.0.is_null() {
         return Err("Could not create the controls' transparent composition region".into());
@@ -106,8 +111,9 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     // Windows 8+ no longer blurs with this legacy API, but Microsoft documents
     // that it still enables DWM to honor this window's per-pixel alpha values.
     // The actual Windows material comes from the sampled-video Acrylic layer.
+    // SAFETY: the controls HWND, initialized settings and GDI region remain live for DWM.
     let result = unsafe { DwmEnableBlurBehindWindow(hwnd, &blur_behind) };
-    // DWM copies the region; release our GDI object even if composition failed.
+    // SAFETY: DWM copies the region and this call still owns the original GDI object.
     let _ = unsafe { DeleteObject(region.into()) };
     result
         .map_err(|error| format!("Could not restore video-overlay alpha composition: {error}"))?;

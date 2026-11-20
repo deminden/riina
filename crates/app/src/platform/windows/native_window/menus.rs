@@ -36,6 +36,10 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     app.invoke_video_menu_changed();
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     let settings_pane = if app.get_settings_at_leading() {
         app.get_leading_sidebar()

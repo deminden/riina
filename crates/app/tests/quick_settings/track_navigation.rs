@@ -1,5 +1,9 @@
 use super::*;
 
+#[expect(
+    clippy::panic,
+    reason = "A missing track row must fail the test with its label"
+)]
 fn track_row(app: &PlayerWindow, label: &str) -> ElementHandle {
     ElementHandle::find_by_accessible_label(app, label)
         .find(|element| {
@@ -30,6 +34,10 @@ fn tracks(count: usize, selected: usize) -> slint::ModelRc<CatalogRow> {
     ))
 }
 
+#[expect(
+    clippy::panic,
+    reason = "An unknown track kind is a test fixture error"
+)]
 fn set_tracks(app: &PlayerWindow, kind: i32, count: usize, selected: usize) {
     let model = tracks(count, selected);
     match kind {

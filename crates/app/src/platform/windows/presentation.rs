@@ -109,16 +109,19 @@ pub(super) fn hdr_display_active_for(window: &Window) -> bool {
     };
     // Windows exposes the active output color space through DXGI. Matching the
     // window's monitor avoids enabling HDR controls for another attached screen.
+    // SAFETY: the borrowed Win32 handle identifies the live window for this monitor query.
     let monitor =
         unsafe { MonitorFromWindow(HWND(raw.hwnd.get() as *mut _), MONITOR_DEFAULTTONEAREST) };
     if monitor.0.is_null() {
         return false;
     }
+    // SAFETY: IDXGIFactory1 is a supported factory interface and the binding owns its output.
     let Ok(factory) = (unsafe { CreateDXGIFactory1::<IDXGIFactory1>() }) else {
         return false;
     };
     let mut adapter_index = 0;
     loop {
+        // SAFETY: the factory stays live and returns an error when the index is exhausted.
         let adapter = match unsafe { factory.EnumAdapters1(adapter_index) } {
             Ok(adapter) => adapter,
             Err(error) if error.code() == DXGI_ERROR_NOT_FOUND => break,
@@ -126,6 +129,7 @@ pub(super) fn hdr_display_active_for(window: &Window) -> bool {
         };
         let mut output_index = 0;
         loop {
+            // SAFETY: the retained adapter stays live during output enumeration.
             let output = match unsafe { adapter.EnumOutputs(output_index) } {
                 Ok(output) => output,
                 Err(error) if error.code() == DXGI_ERROR_NOT_FOUND => break,
@@ -135,6 +139,7 @@ pub(super) fn hdr_display_active_for(window: &Window) -> bool {
             let Ok(output) = output.cast::<IDXGIOutput6>() else {
                 continue;
             };
+            // SAFETY: output was queried for IDXGIOutput6 and is retained for the call.
             let Ok(description) = (unsafe { output.GetDesc1() }) else {
                 continue;
             };

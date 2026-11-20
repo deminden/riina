@@ -10,6 +10,10 @@ use std::{
 };
 const MAX_OPEN_FILE_HANDLES: usize = 64;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
 pub(super) fn install_plugin_file_api<'js>(
     ctx: Ctx<'js>,
     globals: Object<'js>,

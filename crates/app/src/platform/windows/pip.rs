@@ -35,15 +35,19 @@ impl DwmThumbnail {
     pub(crate) fn register(destination: HWND, source: HWND) -> Result<Self, String> {
         // DWM owns the live projection; libmpv keeps one decoder and one native
         // output window, while the PiP window supplies only its compact controls.
+        // SAFETY: both HWNDs belong to the retained PiP and playback windows.
         let handle = unsafe { DwmRegisterThumbnail(destination, source) }
             .map_err(|error| format!("Could not attach the video to PiP: {error}"))?;
+        // SAFETY: successful registration produced this live thumbnail handle.
         let source_size = match unsafe { DwmQueryThumbnailSourceSize(handle) } {
             Ok(size) if size.cx > 0 && size.cy > 0 => size,
             Ok(_) => {
+                // SAFETY: this branch owns the registered handle and exits after releasing it.
                 let _ = unsafe { DwmUnregisterThumbnail(handle) };
                 return Err("The video window has no drawable size".into());
             }
             Err(error) => {
+                // SAFETY: the failed query has not consumed the registered handle.
                 let _ = unsafe { DwmUnregisterThumbnail(handle) };
                 return Err(format!(
                     "Could not inspect the video surface for PiP: {error}"
@@ -70,11 +74,13 @@ impl DwmThumbnail {
             fSourceClientAreaOnly: BOOL(1),
             ..Default::default()
         };
+        // SAFETY: this owner retains the registration and the properties are initialized.
         unsafe { DwmUpdateThumbnailProperties(self.handle, &properties) }
             .map_err(|error| format!("Could not update the PiP video surface: {error}"))
     }
 
     fn refresh_layout(&mut self, width: u32, height: u32, scale_factor: f64) -> Result<(), String> {
+        // SAFETY: the thumbnail handle is retained for this synchronous layout query.
         let source_size = unsafe { DwmQueryThumbnailSourceSize(self.handle) }
             .map_err(|error| format!("Could not inspect the PiP video surface: {error}"))?;
         if source_size.cx <= 0 || source_size.cy <= 0 {
@@ -97,7 +103,7 @@ impl DwmThumbnail {
 
 impl Drop for DwmThumbnail {
     fn drop(&mut self) {
-        // Registration is process-local and must be released before either HWND.
+        // SAFETY: this owner releases its registration once, before either HWND is destroyed.
         let _ = unsafe { DwmUnregisterThumbnail(self.handle) };
     }
 }

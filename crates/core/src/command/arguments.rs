@@ -4,6 +4,10 @@ use crate::{
 };
 
 impl Command {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "decomposition tracked in docs/review"
+    )]
     pub fn mpv_args(&self) -> Result<Vec<String>, String> {
         let args: Vec<String> = match self {
             Self::Load(path) if !path.is_empty() && !path.contains('\0') => {

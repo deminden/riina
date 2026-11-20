@@ -69,6 +69,7 @@ fn open_selection(
         struct Apartment;
         impl Drop for Apartment {
             fn drop(&mut self) {
+                // SAFETY: this guard is created only after COM succeeds on the dialog thread.
                 unsafe {
                     CoUninitialize();
                 }

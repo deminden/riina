@@ -131,6 +131,10 @@ pub(crate) fn download(
     Ok((format!("shooter-{id}.{extension}"), bytes))
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "Formatting into a String cannot return an I/O error"
+)]
 fn shooter_hash(path: &Path) -> Result<(String, u64), String> {
     let mut file = File::open(path)
         .map_err(|error| format!("Could not open local media for Shooter.cn matching: {error}"))?;

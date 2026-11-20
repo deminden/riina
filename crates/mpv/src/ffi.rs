@@ -61,13 +61,14 @@ impl Node {
     /// Copy an event-owned node before the next wait_event invalidates its storage.
     /// Unsupported formats fail rather than interpreting an inactive union member.
     pub unsafe fn copy_json(&self) -> Result<serde_json::Value, String> {
+        // SAFETY: the caller keeps the mpv node and its referenced data live for the copy.
         unsafe { self.copy_json_at(0) }
     }
 
     /// Copies a screenshot-raw reply while its command event still owns the node.
     pub unsafe fn copy_rgba_frame(&self) -> Result<riina_core::CapturedFrame, String> {
-        // SAFETY: `format` selects the map arm before the union pointer is read.
         let list = if self.format == 8 {
+            // SAFETY: MPV_FORMAT_NODE_MAP selects the list arm of this live reply.
             unsafe { self.value.list }
         } else {
             std::ptr::null()
@@ -99,16 +100,33 @@ impl Node {
             // SAFETY: every listed node is readable until the next wait_event call.
             let value = unsafe { &*list.values.add(index) };
             match key {
-                b"w" if value.format == 4 => width = Some(unsafe { value.value.integer }),
-                b"h" if value.format == 4 => height = Some(unsafe { value.value.integer }),
+                b"w" if value.format == 4 => {
+                    // SAFETY: the width node is live and tagged MPV_FORMAT_INT64.
+                    width = Some(unsafe { value.value.integer });
+                }
+                b"h" if value.format == 4 => {
+                    // SAFETY: the height node is live and tagged MPV_FORMAT_INT64.
+                    height = Some(unsafe { value.value.integer });
+                }
                 b"stride" if value.format == 4 => {
+                    // SAFETY: the stride node is live and tagged MPV_FORMAT_INT64.
                     stride = Some(unsafe { value.value.integer });
                 }
-                b"format" if value.format == 1 && !unsafe { value.value.string }.is_null() => {
-                    format = Some(unsafe { CStr::from_ptr(value.value.string) }.to_bytes());
+                b"format" if value.format == 1 => {
+                    // SAFETY: MPV_FORMAT_STRING selects the string arm of the live node.
+                    let text = unsafe { value.value.string };
+                    if !text.is_null() {
+                        // SAFETY: mpv keeps this NUL-terminated string alive for the reply.
+                        format = Some(unsafe { CStr::from_ptr(text) }.to_bytes());
+                    }
                 }
-                b"data" if value.format == 9 && !unsafe { value.value.byte_array }.is_null() => {
-                    bytes = Some(unsafe { &*value.value.byte_array });
+                b"data" if value.format == 9 => {
+                    // SAFETY: MPV_FORMAT_BYTE_ARRAY selects this pointer arm.
+                    let array = unsafe { value.value.byte_array };
+                    if !array.is_null() {
+                        // SAFETY: the non-null descriptor belongs to the live command reply.
+                        bytes = Some(unsafe { &*array });
+                    }
                 }
                 _ => {}
             }
@@ -427,10 +445,8 @@ mod tests {
             };
             // SAFETY: this local node contains an active double, just as a
             // color-only native target's undefined aspect-ratio property does.
-            assert_eq!(
-                unsafe { node.copy_json() }.unwrap(),
-                serde_json::Value::Null
-            );
+            let value = unsafe { node.copy_json() }.unwrap();
+            assert_eq!(value, serde_json::Value::Null);
         }
     }
 
@@ -459,6 +475,7 @@ mod tests {
             value: NodeValue { integer: 0 },
             format: 999,
         };
+        // SAFETY: the local node has an unsupported tag, so the copy reads no union member.
         assert!(unsafe { unknown.copy_json() }.is_err());
     }
 }

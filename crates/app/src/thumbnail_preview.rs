@@ -61,6 +61,10 @@ impl PreviewTask {
         })
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "Only Drop removes the preview event receiver"
+    )]
     fn try_recv(&self) -> Result<PreviewEvent, mpsc::TryRecvError> {
         self.events
             .as_ref()
