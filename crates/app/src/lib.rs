@@ -31,13 +31,7 @@ mod player_manager;
 mod player_ui;
 mod playlist_export;
 mod playlist_metadata;
-mod plugin_files;
-mod plugin_github;
-mod plugin_host;
-mod plugin_http;
-mod plugin_packages;
-mod plugin_runtime;
-mod plugin_snapshot;
+mod plugins;
 mod preferences;
 mod screenshot_osd;
 mod screenshot_output;
@@ -60,6 +54,10 @@ mod window_controls;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 use player_ui::configure_player;
+use plugins::{
+    plugin_files, plugin_github, plugin_host, plugin_http, plugin_packages, plugin_runtime,
+    plugin_snapshot,
+};
 use preferences::{
     advanced_preferences, appearance_preferences, audio_preferences, codec_preferences,
     control_preferences, key_binding_preferences, key_binding_profiles, language_token_preferences,

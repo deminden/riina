@@ -41,6 +41,7 @@ For macOS/Linux setup, see [port development](port-development.md).
 | `crates/mpv/` | libmpv FFI, worker, observations and rendering integration |
 | `crates/app/src/` | Application orchestration and UI adapters |
 | `crates/app/src/preferences/` | Preference loading, persistence, section adapters and settings window |
+| `crates/app/src/plugins/` | Plugin installation, execution, permissions and event handling |
 | `crates/app/src/platform/` | OS services, native windows and presentation |
 | `crates/ui/ui/` | Slint components and design tokens |
 | `scripts/` | Dependency setup, checks, packaging and capture tools |
