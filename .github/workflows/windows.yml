@@ -8,6 +8,8 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
         with:
@@ -15,6 +17,17 @@ jobs:
       - name: Pinned Rust toolchain
         shell: pwsh
         run: rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+      - name: Restore Rust dependency and compiler outputs
+        id: rust-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml', 'clippy.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml', 'clippy.toml', '.cargo/config.toml') }}-
       - name: Reference integrity and traceability
         shell: pwsh
         run: |
@@ -43,6 +56,57 @@ jobs:
         run: cargo test --workspace --locked
       - name: Actual Windows application compilation
         run: cargo build --release --locked --target x86_64-pc-windows-msvc
-      - name: Native runtime prerequisites
+      - name: Preserve compiler outputs
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
+
+  native:
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+      - name: Pinned Rust toolchain
+        run: rustup toolchain install 1.99.0 --profile minimal
+      - name: Restore the pinned development runtime archive
+        id: mpv-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        with:
+          path: tools/mpv-dev.7z
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('scripts/fetch-mpv.ps1') }}
+      - name: Verify and unpack the pinned development DLL
         shell: pwsh
-        run: Write-Output 'Native libmpv integration, GUI, audible output, HDR and hardware checks require a separately provisioned target machine; the explicitly ignored native test is not runtime evidence from this job.'
+        run: ./scripts/fetch-mpv.ps1
+      - name: Preserve the verified runtime archive
+        if: steps.mpv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        with:
+          path: tools/mpv-dev.7z
+          key: ${{ steps.mpv-cache.outputs.cache-primary-key }}
+      - name: Native engine tests with null output
+        run: cargo xtask native
+      - name: Verification scope
+        shell: pwsh
+        run: Write-Output 'This job verifies the engine on the pinned DLL with null output. GUI, HDR, hardware decoding and audible output require separate evidence.'
+
+  advisories:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
+      - name: Audit the locked Rust dependencies
+        run: |
+          archive=cargo-audit-x86_64-unknown-linux-gnu-v0.23.0.tgz
+          audit_dir="$(mktemp -d)"
+          cd "$audit_dir"
+          curl --fail --location --silent --show-error --output "$archive" \
+            "https://github.com/rustsec/rustsec/releases/download/cargo-audit%2Fv0.23.0/$archive"
+          printf '%s  %s\n' 'b77993532b253fcbf550996d7716465ec3d734d4e74e7f87bfb65a19add0fb59' "$archive" \
+            | sha256sum --check --strict
+          tar -xzf "$archive"
+          "./${archive%.tgz}/cargo-audit" audit --file "$GITHUB_WORKSPACE/Cargo.lock"

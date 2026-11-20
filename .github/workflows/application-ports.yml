@@ -12,6 +12,8 @@ jobs:
       matrix:
         os: [macos-26, xcode-27, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
+    env:
+      CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # verified v7.0.1
       - name: Linux GUI build prerequisites
@@ -22,6 +24,17 @@ jobs:
           pkg-config --modversion gtk+-3.0 webkit2gtk-4.1
       - name: Pinned Rust toolchain
         run: rustup toolchain install 1.99.0 --profile minimal --component clippy
+      - name: Restore Rust dependency and compiler outputs
+        id: rust-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ matrix.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml', 'clippy.toml', '.cargo/config.toml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-${{ matrix.os }}-${{ github.job }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', '**/Cargo.toml', 'clippy.toml', '.cargo/config.toml') }}-
       - name: Full application lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Application and shared unit tests
@@ -33,5 +46,14 @@ jobs:
         run: |
           python3 scripts/package-macos-app.py target/debug/riina "$RUNNER_TEMP/Riina.app"
           plutil -lint "$RUNNER_TEMP/Riina.app/Contents/Info.plist"
+      - name: Preserve compiler outputs
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # verified v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
       # A linked application is necessary but insufficient: native dialogs,
       # playback, fullscreen, accessibility and rendering require runtime evidence.

@@ -23,6 +23,23 @@ class ApplicationPortsTests(unittest.TestCase):
         self.assertIn("package-macos-app.py", source)
         self.assertIn("plutil -lint", source)
 
+    def test_application_jobs_share_no_duplicate_core_workflow(self):
+        self.assertFalse((ROOT / ".github/workflows/core.yml").exists())
+        for name in ("windows.yml", "application-ports.yml"):
+            source = (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
+            self.assertIn("actions/cache/restore@", source)
+            self.assertIn("actions/cache/save@", source)
+            self.assertIn("hashFiles('rust-toolchain.toml', 'Cargo.lock'", source)
+            self.assertIn("cargo test --workspace --locked", source)
+
+    def test_windows_native_push_job_uses_the_verified_development_archive(self):
+        source = (ROOT / ".github/workflows/windows.yml").read_text(encoding="utf-8")
+        native = source.split("\n  native:\n", 1)[1].split("\n  advisories:\n", 1)[0]
+        self.assertIn("if: github.event_name == 'push'", native)
+        self.assertIn("hashFiles('scripts/fetch-mpv.ps1')", native)
+        self.assertLess(native.index("./scripts/fetch-mpv.ps1"), native.index("cargo xtask native"))
+        self.assertIn("GUI, HDR, hardware decoding and audible output require separate evidence", native)
+
 
 if __name__ == "__main__":
     unittest.main()
