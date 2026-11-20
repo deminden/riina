@@ -1,15 +1,10 @@
 //! Application orchestration for the Riina executable.
 
 mod about_window;
-mod advanced_preferences;
-mod appearance_preferences;
 mod assrt_subtitles;
-mod audio_preferences;
 mod auto_playlist;
 #[doc(hidden)]
 pub mod automatic_music_mode;
-mod codec_preferences;
-mod control_preferences;
 mod crop_editor;
 mod debug_dump;
 mod diagnostics;
@@ -20,26 +15,14 @@ mod font_catalog;
 mod font_picker;
 mod fullscreen_info;
 mod http;
-mod key_binding_preferences;
-mod key_binding_profiles;
 mod language_names;
-mod language_token_preferences;
-mod layout_preferences;
-mod liquid_glass_preferences;
 mod localized_number;
 mod log_viewer;
 mod media_open;
 mod music_mode_layout;
-mod network_cache_preferences;
-mod network_connection_preferences;
-mod network_ytdl_preferences;
 mod online_subtitles_credentials;
-mod online_subtitles_preferences;
 mod open_subtitles;
 mod opening_fullscreen;
-mod osc_preferences;
-mod osd_preferences;
-mod pip_preferences;
 mod platform;
 mod playback_history;
 mod playback_history_store;
@@ -53,43 +36,41 @@ mod plugin_github;
 mod plugin_host;
 mod plugin_http;
 mod plugin_packages;
-mod plugin_preferences;
 mod plugin_runtime;
 mod plugin_snapshot;
-mod preference_load;
-mod preference_store;
-mod preferences_window;
+mod preferences;
 mod screenshot_osd;
 mod screenshot_output;
-mod screenshot_preferences;
 mod seek_osd;
 mod settings_search;
 mod shooter_subtitles;
-mod sidebar_preferences;
-mod subtitle_auto_load_preferences;
 mod subtitle_discovery;
-mod subtitle_other_preferences;
-mod subtitle_position_preferences;
-mod subtitle_preferences;
 mod subtitle_priority;
 mod subtitle_series;
 mod thumbnail_cache;
-mod thumbnail_preferences;
 mod thumbnail_preview;
-mod tone_mapping_preferences;
 mod transition_frame;
 mod ui_dialogs;
 mod ui_models;
-mod utilities_preferences;
 mod video_blur;
 mod video_filter_window;
 mod video_osd;
 mod window_aspect;
 mod window_controls;
-mod window_resize_preferences;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 use player_ui::configure_player;
+use preferences::{
+    advanced_preferences, appearance_preferences, audio_preferences, codec_preferences,
+    control_preferences, key_binding_preferences, key_binding_profiles, language_token_preferences,
+    layout_preferences, liquid_glass_preferences, network_cache_preferences,
+    network_connection_preferences, network_ytdl_preferences, online_subtitles_preferences,
+    osc_preferences, osd_preferences, pip_preferences, plugin_preferences, preference_load,
+    preference_store, preferences_window, screenshot_preferences, sidebar_preferences,
+    subtitle_auto_load_preferences, subtitle_other_preferences, subtitle_position_preferences,
+    subtitle_preferences, thumbnail_preferences, tone_mapping_preferences, utilities_preferences,
+    window_resize_preferences,
+};
 use riina_ui::*;
 use slint::ComponentHandle;
 

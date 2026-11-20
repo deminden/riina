@@ -38,15 +38,12 @@ fn concurrent_players_do_not_lose_read_modify_write_updates() {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let gate = path.with_extension("start");
     let ready = path.with_extension("ready");
+    let (_, module) = module_path!().split_once("::").unwrap();
+    let worker_test = format!("{module}::preference_process_worker");
     let mut workers = Vec::new();
     for index in 0..4 {
         let child = std::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "preference_store::tests::preference_process_worker",
-                "--ignored",
-                "--nocapture",
-            ])
+            .args(["--exact", &worker_test, "--ignored", "--nocapture"])
             .env("RIINA_TEST_PREFERENCES", &path)
             .env("RIINA_TEST_WRITER", index.to_string())
             .spawn()
