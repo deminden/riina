@@ -18,6 +18,51 @@ fn fixture_root() -> PathBuf {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies worker panic reporting and final-owner teardown"]
+fn a_panicking_observer_reports_failure_then_joins_on_final_owner_drop() {
+    let root = fixture_root();
+    let (sender, receiver) = mpsc::channel();
+    let did_panic = std::sync::atomic::AtomicBool::new(false);
+    let player = start_test_player(&test_library(&root), true, move |state| {
+        if state.phase == Phase::Playing
+            && !did_panic.swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
+            panic!("deliberate observer failure");
+        }
+        let _ = sender.send(state);
+    })
+    .unwrap();
+    let peer = player.clone();
+    let commands = player.command_sender();
+    player
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let failed = wait_for(&receiver, |state| state.phase == Phase::Failed);
+    assert_eq!(
+        failed.error.as_deref(),
+        Some("The playback engine stopped unexpectedly; reopen the file")
+    );
+    assert_eq!(
+        commands.send(Command::Stop).unwrap_err(),
+        "The playback engine has stopped"
+    );
+    drop(player);
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(mpsc::TryRecvError::Empty)
+    ));
+    drop(peer);
+    assert!(matches!(
+        receiver.recv_timeout(Duration::from_secs(1)),
+        Err(mpsc::RecvTimeoutError::Disconnected)
+    ));
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies close with queued paused-frame work"]
 fn closing_with_queued_frame_work_terminates_and_reopens() {
     let root = fixture_root();

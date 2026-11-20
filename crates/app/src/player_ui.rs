@@ -17,6 +17,7 @@ mod video_controls;
 use audio_controls::set_audio_equalizer_controls;
 mod materials;
 mod observations;
+mod observer_state;
 mod plugin_menus;
 mod plugins;
 use catalog::{
@@ -30,7 +31,6 @@ mod session_preferences;
 
 use plugin_menus::reorder_plugin_menu_rows;
 
-use crate::seek_osd::SeekOsd;
 use crate::{
     MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     preference_load::LoadedPreferences,
@@ -397,6 +397,7 @@ pub(crate) struct UiSession {
     _hdr_display_timer: Option<Rc<slint::Timer>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
+    _observer_state: observer_state::ObserverRegistration,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
     _pause_resume_timer: Rc<slint::Timer>,
@@ -870,18 +871,15 @@ pub(crate) fn configure_player(
         });
     }
     let queued = Arc::new(AtomicBool::new(false));
-    let displayed = Arc::new(std::sync::Mutex::new(None));
     let crop_editor = crate::crop_editor::Editor::default();
     let observed_crop_editor = crop_editor.clone();
-    let last_seek = Arc::new(std::sync::Mutex::new(SeekOsd::default()));
     let mut video_osd =
         crate::video_osd::VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
     video_osd.set_volume_limit(prefs.volume_limit());
-    let last_video = Arc::new(std::sync::Mutex::new(video_osd));
-    let feedback_video_osd = last_video.clone();
-    let last_screenshot = Arc::new(std::sync::Mutex::new(
-        crate::screenshot_osd::ScreenshotOsd::default(),
-    ));
+    let observer_state = observer_state::UiObserverState::new(video_osd);
+    let feedback_video_osd = observer_state.video.clone();
+    let observer_state = observer_state::ObserverRegistration::new(observer_state);
+    let observer_id = observer_state.id();
     let screenshot_scratch = Arc::new(crate::screenshot_output::Scratch::default());
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(
         crate::opening_fullscreen::OpeningFullscreen::default(),
@@ -942,10 +940,6 @@ pub(crate) fn configure_player(
         let latest = latest.clone();
         let queued = queued.clone();
         let weak = app_weak.clone();
-        let displayed = displayed.clone();
-        let last_seek = last_seek.clone();
-        let last_video = last_video.clone();
-        let last_screenshot = last_screenshot.clone();
         let crop_editor = observed_crop_editor.clone();
         let notify_saved_video_filters = notify_video_filter_settings.clone();
         let notify_saved_audio_filters = notify_audio_filter_settings.clone();
@@ -958,11 +952,8 @@ pub(crate) fn configure_player(
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             if let Some(app) = weak.upgrade()
+                && let Some(observer) = observer_id.lookup()
                 && let Some(playback_mailbox::Delivery { state, captures }) = latest.take()
-                && let Ok(mut displayed) = displayed.lock()
-                && let Ok(mut last_seek) = last_seek.lock()
-                && let Ok(mut last_video) = last_video.lock()
-                && let Ok(mut last_screenshot) = last_screenshot.lock()
             {
                 let first_loaded = (!app.get_loaded()
                     || app.get_window_geometry_source().parse::<u64>().ok()
@@ -997,10 +988,7 @@ pub(crate) fn configure_player(
                         #[cfg(target_os = "windows")]
                         transition_release_generation: transition_release_generation.as_ref(),
                     },
-                    &mut displayed,
-                    &mut last_seek,
-                    &mut last_video,
-                    &mut last_screenshot,
+                    &mut observer.borrow_mut(),
                 );
                 if resize_for_media {
                     // Apply the complete geometry after automatic music mode has
@@ -2476,6 +2464,7 @@ pub(crate) fn configure_player(
         _hdr_display_timer: hdr_display_timer,
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: recovery.and_then(|recovery| recovery.announce(app)),
+        _observer_state: observer_state,
         _appearance_timer: appearance_timer,
         _pause_resume_timer: pause_resume_timer,
         _thumbnail_preview_timer: thumbnail_preview_timer,

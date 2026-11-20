@@ -15,7 +15,10 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
         for capacity in [1, 2, 64] {
             for seed in [1_u64, 17, 0x5eed] {
                 let (sender, receiver) = mpsc::sync_channel(capacity);
-                let commands = CommandSender(sender.clone());
+                let commands = CommandSender {
+                    sender: sender.clone(),
+                    stopped: Default::default(),
+                };
                 let wakeup = WakeupContext {
                     sender,
                     queued: std::sync::atomic::AtomicBool::new(false),
@@ -121,7 +124,10 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
 #[test]
 fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
     let (sender, receiver) = mpsc::sync_channel(3);
-    let command_sender = CommandSender(sender);
+    let command_sender = CommandSender {
+        sender,
+        stopped: Default::default(),
+    };
     command_sender.set_paused(true).unwrap();
     command_sender.toggle_pause().unwrap();
     command_sender.set_paused(false).unwrap();
@@ -197,7 +203,10 @@ fn full_intent_queue_does_not_leave_wakeup_permanently_armed() {
 #[test]
 fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
     let (sender, receiver) = mpsc::sync_channel(1);
-    let commands = CommandSender(sender);
+    let commands = CommandSender {
+        sender,
+        stopped: Default::default(),
+    };
     assert!(
         commands
             .send(Command::Shutdown)
@@ -218,9 +227,13 @@ fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
 #[test]
 fn only_the_final_owner_delivers_shutdown_even_when_command_senders_survive() {
     let (sender, receiver) = mpsc::sync_channel(1);
-    let commands = CommandSender(sender.clone());
+    let commands = CommandSender {
+        sender: sender.clone(),
+        stopped: Default::default(),
+    };
     let owner = Rc::new(Owner {
         sender,
+        stopped: commands.stopped.clone(),
         thread: None,
     });
     let renderer_owner = owner.clone();

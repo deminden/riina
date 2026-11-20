@@ -30,6 +30,7 @@ pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;
 pub mod subtitle_controls;
+pub mod sync;
 pub mod thumbnail_preferences;
 pub mod time_input;
 pub mod timing_controls;

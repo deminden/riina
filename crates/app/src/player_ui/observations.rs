@@ -1,13 +1,15 @@
 //! Apply one playback snapshot to the window and its transient controls.
 use super::{
     catalog::{current_chapter, should_fallback_removed_audio_device, update_catalog},
-    clear_screenshot_preview, media_geometry_requires_resize, window_video_geometry,
+    clear_screenshot_preview, media_geometry_requires_resize,
+    observer_state::UiObserverState,
+    window_video_geometry,
 };
 #[cfg(target_os = "macos")]
 use crate::platform;
 use crate::{
     PlayerWindow,
-    seek_osd::{self, Change, SeekOsd},
+    seek_osd::{self, Change},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, TrackKind, time_label};
 #[cfg(target_os = "macos")]
@@ -35,11 +37,14 @@ pub(super) fn update_ui(
     app: &PlayerWindow,
     state: Playback,
     resources: UiUpdateResources<'_>,
-    displayed: &mut Option<Playback>,
-    last_seek: &mut SeekOsd,
-    last_video: &mut crate::video_osd::VideoOsd,
-    last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
+    observer: &mut UiObserverState,
 ) -> bool {
+    let UiObserverState {
+        displayed,
+        seek: last_seek,
+        video: last_video,
+        screenshot: last_screenshot,
+    } = observer;
     use riina_core::video_reflection::Axis;
     if app.get_native_video() {
         let show_transition = {
@@ -233,13 +238,20 @@ pub(super) fn update_ui(
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
     }
-    last_video.set_volume_limit(if app.get_volume_boost() { 200.0 } else { 100.0 });
-    last_video.set_disable_speed(app.get_disable_osd_speed());
-    last_video.set_disable_pause_resume(app.get_disable_osd_pause_resume());
-    let video_message = last_video.observe(&state);
-    if !app.get_osd_enabled() {
-        last_video.clear_pending();
-    } else if let Some(message) = video_message {
+    let video_message = {
+        let mut video = last_video.borrow_mut();
+        video.set_volume_limit(if app.get_volume_boost() { 200.0 } else { 100.0 });
+        video.set_disable_speed(app.get_disable_osd_speed());
+        video.set_disable_pause_resume(app.get_disable_osd_pause_resume());
+        let message = video.observe(&state);
+        if app.get_osd_enabled() {
+            message
+        } else {
+            video.clear_pending();
+            None
+        }
+    };
+    if let Some(message) = video_message {
         app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
         app.set_video_osd_text(message.text.into());
         app.set_video_osd_progress(message.progress.unwrap_or(-1.0));

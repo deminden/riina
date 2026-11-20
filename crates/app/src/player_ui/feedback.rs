@@ -2,11 +2,7 @@
 use crate::{PlayerWindow, platform};
 use riina_core::Command;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 pub(super) fn clear_screenshot_preview(app: &PlayerWindow) {
     app.set_screenshot_preview_visible(false);
@@ -82,7 +78,7 @@ pub(super) fn install(
     app: &PlayerWindow,
     player: &riina_mpv::CommandSender,
     screenshot_scratch: Arc<crate::screenshot_output::Scratch>,
-    last_video: Arc<Mutex<crate::video_osd::VideoOsd>>,
+    last_video: Rc<RefCell<crate::video_osd::VideoOsd>>,
 ) {
     let disable_video_osd = last_video.clone();
     let pending_video_osd = last_video;
@@ -138,9 +134,7 @@ pub(super) fn install(
         disable_seek_timer.stop();
         disable_video_timer.stop();
         disable_screenshot_timer.stop();
-        if let Ok(mut video_osd) = disable_video_osd.lock() {
-            video_osd.clear_pending();
-        }
+        disable_video_osd.borrow_mut().clear_pending();
         app.set_seek_osd_visible(false);
         app.set_video_osd_visible(false);
         app.set_video_osd_request_feedback(false);
@@ -273,17 +267,12 @@ pub(super) fn install(
             move || {
                 let Some(app) = weak.upgrade() else { return };
                 if !app.get_osd_enabled() {
-                    if let Ok(mut video_osd) = pending_video_osd.lock() {
-                        video_osd.clear_pending();
-                    }
+                    pending_video_osd.borrow_mut().clear_pending();
                     app.set_video_osd_visible(false);
                     app.set_video_osd_request_feedback(false);
                     return;
                 }
-                let next = pending_video_osd
-                    .lock()
-                    .ok()
-                    .and_then(|mut video_osd| video_osd.take_pending());
+                let next = pending_video_osd.borrow_mut().take_pending();
                 if let Some(message) = next {
                     app.set_video_osd_request_feedback(
                         message.kind == crate::video_osd::Kind::Aspect,

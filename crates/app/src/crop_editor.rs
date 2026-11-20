@@ -5,6 +5,7 @@ use riina_core::{
     crop_drag::{Drag, Edge},
     crop_geometry::{DisplayRect, Point, Projection, SourceRect},
     crop_session::Session,
+    sync::lock,
     video_viewport::Viewport,
 };
 use riina_mpv::CommandSender;
@@ -31,7 +32,7 @@ pub struct Editor(Arc<Mutex<Data>>);
 impl Editor {
     pub fn observe(&self, app: &PlayerWindow, state: &Playback) {
         {
-            let mut data = self.0.lock().expect("Crop editor state is available");
+            let mut data = lock(&self.0);
             if data
                 .session
                 .as_ref()
@@ -64,7 +65,7 @@ impl Editor {
 
     fn refresh(&self, app: &PlayerWindow) {
         let (editing, delogo, ready, rectangle, screen, content) = {
-            let data = self.0.lock().expect("Crop editor state is available");
+            let data = lock(&self.0);
             let session_ready = data
                 .session
                 .as_ref()
@@ -137,7 +138,7 @@ impl Editor {
                 })
             };
             let viewport = picture.and_then(|picture| Viewport::new(window_size, picture).ok());
-            let mut data = self.0.lock().expect("Crop editor state is available");
+            let mut data = lock(&self.0);
             if data.viewport != Some(viewport)
                 && let Some(sender) = data.sender.as_ref()
             {
@@ -194,7 +195,7 @@ impl Editor {
         delogo: bool,
     ) -> Result<(), String> {
         {
-            let mut data = self.0.lock().expect("Crop editor state is available");
+            let mut data = lock(&self.0);
             if data.session.is_some() {
                 return Ok(());
             }
@@ -222,7 +223,7 @@ impl Editor {
         confirm: bool,
     ) -> Result<(), String> {
         {
-            let mut data = self.0.lock().expect("Crop editor state is available");
+            let mut data = lock(&self.0);
             let Some(session) = data.session.as_ref() else {
                 return Ok(());
             };
@@ -260,10 +261,7 @@ impl Editor {
     }
 
     pub fn install(&self, app: &PlayerWindow, sender: CommandSender) {
-        self.0
-            .lock()
-            .expect("Crop editor state is available")
-            .sender = Some(sender.clone());
+        lock(&self.0).sender = Some(sender.clone());
         let editor = self.clone();
         let weak = app.as_weak();
         let begin_sender = sender.clone();
@@ -305,7 +303,7 @@ impl Editor {
         app.on_crop_preset(move |index| {
             if let Some(app) = weak.upgrade() {
                 {
-                    let mut data = editor.0.lock().expect("Crop editor state is available");
+                    let mut data = lock(&editor.0);
                     let Some(session) = data.session.as_ref() else {
                         return;
                     };
@@ -349,7 +347,7 @@ impl Editor {
             if let Some(app) = weak.upgrade()
                 && app.get_crop_ready()
             {
-                let mut data = editor.0.lock().expect("Crop editor state is available");
+                let mut data = lock(&editor.0);
                 if let Ok(projection) = Self::projection(&data, &app) {
                     let point = Point {
                         x: f64::from(x),
@@ -394,7 +392,7 @@ impl Editor {
         app.on_move_crop_drag(move |x, y| {
             if let Some(app) = weak.upgrade() {
                 {
-                    let mut data = editor.0.lock().expect("Crop editor state is available");
+                    let mut data = lock(&editor.0);
                     if let Some(drag) = data.drag
                         && let Ok(projection) = Self::projection(&data, &app)
                     {
@@ -414,11 +412,7 @@ impl Editor {
         });
         let editor = self.clone();
         app.on_end_crop_drag(move || {
-            editor
-                .0
-                .lock()
-                .expect("Crop editor state is available")
-                .drag = None;
+            lock(&editor.0).drag = None;
         });
     }
 }

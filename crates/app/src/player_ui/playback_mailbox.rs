@@ -1,6 +1,6 @@
 //! Drain owned observations before clipboard work, UI callbacks or native transitions.
 use crate::screenshot_output::Completions;
-use riina_core::Playback;
+use riina_core::{Playback, sync::lock};
 use std::sync::Mutex;
 
 #[derive(Default)]
@@ -19,14 +19,13 @@ pub(super) struct Delivery {
 
 impl Mailbox {
     pub fn publish(&self, state: Playback) {
-        if let Ok(mut pending) = self.0.lock() {
-            pending.captures.observe(&state);
-            pending.state = Some(state);
-        }
+        let mut pending = lock(&self.0);
+        pending.captures.observe(&state);
+        pending.state = Some(state);
     }
 
     pub fn take(&self) -> Option<Delivery> {
-        let mut pending = self.0.lock().ok()?;
+        let mut pending = lock(&self.0);
         Some(Delivery {
             state: pending.state.take()?,
             captures: pending.captures.take(),

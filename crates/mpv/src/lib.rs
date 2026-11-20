@@ -16,6 +16,7 @@ use riina_core::{Command, Phase, Playback};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ffi::{CStr, CString, c_void},
+    panic::{AssertUnwindSafe, catch_unwind},
     path::Path,
     rc::Rc,
     sync::{
@@ -73,6 +74,7 @@ impl WakeupContext {
 
 struct Owner {
     sender: SyncSender<Message>,
+    stopped: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -105,16 +107,25 @@ pub struct Player {
 }
 
 #[derive(Clone)]
-pub struct CommandSender(SyncSender<Message>);
+pub struct CommandSender {
+    sender: SyncSender<Message>,
+    stopped: Arc<AtomicBool>,
+}
 
 impl CommandSender {
     pub fn send(&self, command: Command) -> Result<(), String> {
         if command == Command::Shutdown {
             return Err("Player shutdown is reserved for its final owner".into());
         }
-        self.0
+        if self.stopped.load(Ordering::Acquire) {
+            return Err("The playback engine has stopped".into());
+        }
+        self.sender
             .try_send(Message::Intent(command))
-            .map_err(|e| format!("Player command was not accepted: {e}"))
+            .map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => format!("Player command was not accepted: {error}"),
+                mpsc::TrySendError::Disconnected(_) => "The playback engine has stopped".into(),
+            })
     }
 
     /// All accepted intents use the same FIFO; a full queue rejects explicitly.
@@ -191,6 +202,8 @@ impl Player {
         let worker_api = api.clone();
         let (sender, receiver) = mpsc::sync_channel(64);
         let callback_sender = sender.clone();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let worker_stopped = stopped.clone();
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         let thread = std::thread::Builder::new().name("mpv-events".into()).spawn(move || {
             #[cfg(windows)]
@@ -323,6 +336,7 @@ impl Player {
                         trace_shutdown("shutdown accepted; terminating pending playback work");
                         break;
                     }
+                    if catch_unwind(AssertUnwindSafe(|| {
                     if matches!(message, Message::Wake) {
                         callback.queued.store(false, Ordering::Release);
                     }
@@ -379,7 +393,7 @@ impl Player {
                                     notify(state.clone());
                                 }
                             }
-                            continue;
+                            return;
                         }
                         if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) {
                             pending_drop_subtitles.clear();
@@ -715,6 +729,26 @@ impl Player {
                     }
                     state.reconcile();
                     notify(state.clone());
+                    })).is_err() {
+                        worker_stopped.store(true, Ordering::Release);
+                        diag("The native player event worker stopped unexpectedly");
+                        state.phase = Phase::Failed;
+                        state.error = Some(
+                            "The playback engine stopped unexpectedly; reopen the file".into(),
+                        );
+                        // The event worker still owns the handle. Stop media without
+                        // destroying a core that a shared OpenGL surface still uses.
+                        let stop = [c"stop".as_ptr(), std::ptr::null()];
+                        (worker_api.command)(handle, 0, stop.as_ptr());
+                        let _ = catch_unwind(AssertUnwindSafe(|| notify(state.clone())));
+                        for queued in &receiver {
+                            if matches!(queued, Message::Shutdown) {
+                                trace_shutdown("shutdown accepted; terminating pending playback work");
+                                break;
+                            }
+                        }
+                        break;
+                    }
                 }
                 (worker_api.wakeup)(handle, None, std::ptr::null_mut());
                 trace_shutdown("wakeup callback unregistered; terminating native core");
@@ -730,6 +764,7 @@ impl Player {
         Ok(Self {
             owner: Rc::new(Owner {
                 sender,
+                stopped,
                 thread: Some(thread),
             }),
             api,
@@ -742,7 +777,10 @@ impl Player {
     }
 
     pub fn command_sender(&self) -> CommandSender {
-        CommandSender(self.owner.sender.clone())
+        CommandSender {
+            sender: self.owner.sender.clone(),
+            stopped: self.owner.stopped.clone(),
+        }
     }
 }
 
