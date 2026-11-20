@@ -5097,13 +5097,13 @@ dependencies = [
  "rfd",
  "riina-core",
  "riina-mpv",
+ "riina-ui",
  "roxmltree 0.20.0",
  "rquickjs",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "slint",
- "slint-build",
  "sys-locale",
  "trash",
  "ttf-parser",
@@ -5135,6 +5135,14 @@ dependencies = [
  "libloading 0.9.0",
  "riina-core",
  "serde_json",
+]
+
+[[package]]
+name = "riina-ui"
+version = "4.2.1"
+dependencies = [
+ "slint",
+ "slint-build",
 ]
 
 [[package]]

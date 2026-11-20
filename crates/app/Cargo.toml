@@ -38,6 +38,7 @@ lofty = "=0.25.4"
 arboard = { version = "=3.6.1", default-features = false, features = ["image-data", "wayland-data-control"] }
 riina-core = { path = "../core" }
 riina-mpv = { path = "../mpv" }
+riina-ui = { path = "../ui" }
 zip.workspace = true
 rquickjs = { version = "=0.14.0", default-features = false, features = ["std"] }
 encoding_rs = "=0.8.42"
@@ -48,7 +49,6 @@ base64 = "=0.23.1"
 keyring = "=4.2.0"
 
 [build-dependencies]
-slint-build.workspace = true
 winresource = "=0.1.31"
 
 [target.'cfg(target_os = "windows")'.dependencies]

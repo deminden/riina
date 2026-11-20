@@ -1,6 +1,7 @@
 //! Real player widgets on Slint's headless backend; native focus is checked separately.
 use i_slint_backend_testing::ElementHandle;
-use riina_app::*;
+use riina_app::automatic_music_mode;
+use riina_ui::*;
 use slint::{
     ComponentHandle, LogicalPosition, LogicalSize,
     platform::{Key, PointerEventButton, WindowEvent},

@@ -90,17 +90,8 @@ mod window_resize_preferences;
 #[cfg(target_os = "windows")]
 use platform::file_dialog;
 use player_ui::configure_player;
+use riina_ui::*;
 use slint::ComponentHandle;
-
-#[expect(
-    clippy::panic,
-    clippy::unwrap_used,
-    reason = "These operations are emitted by the Slint widget generator"
-)]
-mod generated_ui {
-    slint::include_modules!();
-}
-pub use generated_ui::*;
 
 struct StartupArguments {
     media: Vec<std::ffi::OsString>,
