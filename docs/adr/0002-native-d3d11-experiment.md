@@ -8,7 +8,7 @@ invariants, including the one-scanline controls adjustment.
 
 The standalone `d3d11-probe` binary and its minimal overlay have been removed
 after the production player superseded them. Its dated evidence remains below.
-The current host UI is `crates/app/ui/native-video.slint`.
+The current host UI is `crates/ui/ui/native-video.slint`.
 
 The Windows application uses this route by default and accepts `--shared-gl` to
 select GL composition for diagnostics. `--native-video` remains an explicit alias.

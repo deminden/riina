@@ -4,9 +4,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "crates/app/ui/preferences.slint").read_text(encoding="utf-8")
-PLAYER_SOURCE = (ROOT / "crates/app/ui/player.slint").read_text(encoding="utf-8")
-QUICK_TABS_SOURCE = (ROOT / "crates/app/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
+SOURCE = (ROOT / "crates/ui/ui/preferences.slint").read_text(encoding="utf-8")
+PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
+QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
 EXPECTED = [
     "General", "Interface", "Video", "Audio", "Subtitles", "Network", "Control",
@@ -324,7 +324,7 @@ def main():
     icons = [icon for _, icon, _, _ in nav]
     assert len(set(icons)) == len(EXPECTED), f"Settings page symbols must be distinct: {icons!r}"
     for icon in icons:
-        path = (ROOT / "crates/app/ui" / icon).resolve()
+        path = (ROOT / "crates/ui/ui" / icon).resolve()
         assert path.is_relative_to(icon_root) and path.is_file(), f"Missing settings symbol: {icon}"
 
     bodies = {int(index) for index in re.findall(r"if root\.selected-pane == (\d+)", SOURCE)}

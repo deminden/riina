@@ -41,7 +41,7 @@ For macOS/Linux setup, see [port development](port-development.md).
 | `crates/mpv/` | libmpv FFI, worker, observations and rendering integration |
 | `crates/app/src/` | Application orchestration and UI adapters |
 | `crates/app/src/platform/` | OS services, native windows and presentation |
-| `crates/app/ui/` | Slint components and design tokens |
+| `crates/ui/ui/` | Slint components and design tokens |
 | `scripts/` | Dependency setup, checks, packaging and capture tools |
 | `tests/fixtures/` | Original synthetic media and provenance |
 | `tests/visual/` | Capture manifests and presentation evidence |

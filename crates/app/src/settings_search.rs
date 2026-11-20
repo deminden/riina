@@ -670,17 +670,17 @@ const ENTRIES: &[Entry] = &[
 
 fn page_icon(page_index: i32) -> Image {
     let data: &[u8] = match page_index {
-        0 => include_bytes!("../ui/../../../assets/icons/settings.svg"),
-        1 => include_bytes!("../ui/../../../assets/icons/interface.svg"),
-        2 => include_bytes!("../ui/../../../assets/icons/video-page.svg"),
-        3 => include_bytes!("../ui/../../../assets/icons/audio-page.svg"),
-        4 => include_bytes!("../ui/../../../assets/icons/subtitles-page.svg"),
-        5 => include_bytes!("../ui/../../../assets/icons/network.svg"),
-        6 => include_bytes!("../ui/../../../assets/icons/control.svg"),
-        7 => include_bytes!("../ui/../../../assets/icons/keybindings.svg"),
-        8 => include_bytes!("../ui/../../../assets/icons/advanced.svg"),
-        9 => include_bytes!("../ui/../../../assets/icons/plugins.svg"),
-        _ => include_bytes!("../ui/../../../assets/icons/utilities.svg"),
+        0 => include_bytes!("../../../assets/icons/settings.svg"),
+        1 => include_bytes!("../../../assets/icons/interface.svg"),
+        2 => include_bytes!("../../../assets/icons/video-page.svg"),
+        3 => include_bytes!("../../../assets/icons/audio-page.svg"),
+        4 => include_bytes!("../../../assets/icons/subtitles-page.svg"),
+        5 => include_bytes!("../../../assets/icons/network.svg"),
+        6 => include_bytes!("../../../assets/icons/control.svg"),
+        7 => include_bytes!("../../../assets/icons/keybindings.svg"),
+        8 => include_bytes!("../../../assets/icons/advanced.svg"),
+        9 => include_bytes!("../../../assets/icons/plugins.svg"),
+        _ => include_bytes!("../../../assets/icons/utilities.svg"),
     };
     Image::load_from_svg_data(data).unwrap_or_default()
 }

@@ -18,7 +18,7 @@ fn main() {
             let debug_info = env::var("DEBUG").as_deref() == Ok("true")
                 || env::var("SLINT_EMIT_DEBUG_INFO").as_deref() == Ok("1");
             slint_build::compile_with_config(
-                "../app/ui/player.slint",
+                "ui/player.slint",
                 slint_build::CompilerConfiguration::new().with_debug_info(debug_info),
             )
             .expect("compile the custom player interface");
