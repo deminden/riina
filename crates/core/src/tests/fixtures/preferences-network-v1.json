@@ -1,0 +1,275 @@
+{
+  "leading_sidebar_width": 360,
+  "trailing_sidebar_width": 360,
+  "settings_at_leading": false,
+  "playlist_at_leading": true,
+  "plugins_at_leading": true,
+  "edge_to_edge_video": true,
+  "docked_controls": false,
+  "unlock_window_aspect_ratio": false,
+  "window_resize": {
+    "option": "video_size10",
+    "timing": "when_opened_manually",
+    "use_physical_resolution": true,
+    "initial_geometry": {
+      "size": null,
+      "position": null
+    }
+  },
+  "compact_ui": false,
+  "osc_position": 0,
+  "control_bar_position_horizontal": 0.5,
+  "control_bar_position_vertical": 0.1,
+  "control_bar": {
+    "auto_hide_enabled": true,
+    "auto_hide_timeout_secs": 2.5,
+    "toolbar_buttons": 15,
+    "toolbar_order": [
+      7,
+      2,
+      1,
+      0,
+      3,
+      4,
+      5,
+      6,
+      8
+    ]
+  },
+  "always_float_on_top": false,
+  "always_show_on_top_icon": false,
+  "action_after_launch": "welcome_window",
+  "allow_multiple_windows": true,
+  "group_simultaneous_opens_in_playlist": false,
+  "allow_duplicate_players": false,
+  "playlist_auto_add": true,
+  "playlist_auto_play_next": true,
+  "playlist_show_metadata": true,
+  "playlist_show_metadata_in_music_mode": true,
+  "auto_repeat": false,
+  "default_repeat_mode": "playlist",
+  "quit_when_no_opened_window": false,
+  "keep_open_on_file_end": true,
+  "pause_when_open": false,
+  "play_when_entering_fullscreen": false,
+  "pause_when_leaving_fullscreen": false,
+  "pause_when_inactive": false,
+  "pause_when_minimized": false,
+  "pause_when_goes_to_sleep": true,
+  "fullscreen_when_open": false,
+  "resume_last_position": true,
+  "auto_switch_to_music_mode": true,
+  "disable_animations": false,
+  "music_mode_show_playlist": false,
+  "music_mode_show_album_art": true,
+  "schema_version": 1,
+  "volume": 100.0,
+  "volume_boost": false,
+  "advanced": {
+    "enabled": false,
+    "logging_enabled": false,
+    "log_level": "debug",
+    "use_mpv_osd": false,
+    "use_config_directory": false,
+    "config_directory": "~/.config/mpv/",
+    "user_options": []
+  },
+  "audio": {
+    "audio_threads": 0,
+    "driver": "default",
+    "device": "auto",
+    "device_description": "Autoselect device",
+    "spdif": [],
+    "initial_volume_enabled": false,
+    "initial_volume": 100,
+    "replay_gain": "off",
+    "replay_gain_preamp": 0.0,
+    "replay_gain_clip": false,
+    "replay_gain_fallback": 0.0,
+    "gapless": "weak",
+    "preferred_languages": ""
+  },
+  "audio_equalizer": {
+    "gains_db": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "selected_profile": "custom",
+    "selected_profile_is_user": false,
+    "user_profiles": {}
+  },
+  "video_filters": {
+    "saved": []
+  },
+  "audio_filters": {
+    "saved": []
+  },
+  "hdr_enabled": true,
+  "load_icc_profile": true,
+  "live_text_enabled": false,
+  "hdr_tone_mapping": {
+    "enabled": true,
+    "target_peak_override_enabled": false,
+    "target_peak_nits": 400,
+    "algorithm": "auto",
+    "param_override_enabled": false,
+    "param": 1.0
+  },
+  "video_threads": 0,
+  "controls": {
+    "pinch_action": "adjust_window_size",
+    "force_touch_action": "none",
+    "single_click_action": "hide_osc",
+    "double_click_action": "fullscreen",
+    "right_click_action": "pause",
+    "middle_click_action": "none",
+    "accepts_first_mouse": false,
+    "vertical_scroll_action": "volume",
+    "horizontal_scroll_action": "seek",
+    "disable_play_slider_scrolling": false,
+    "disable_volume_slider_scrolling": false,
+    "seek_type": "keyframe",
+    "relative_seek_amount": 3,
+    "volume_sensitivity": 3,
+    "speed_sensitivity": 3
+  },
+  "key_bindings": {
+    "current_profile": "IINA Default",
+    "use_system_media_controls": true,
+    "display_raw_values": false
+  },
+  "liquid_glass": {
+    "osd": true,
+    "osc": true,
+    "sidebar": true
+  },
+  "hardware_decoder": "auto",
+  "subtitle_ass_override": "scale",
+  "secondary_subtitle_ass_override": "scale",
+  "subtitle_position": {
+    "horizontal": "center",
+    "vertical": "bottom",
+    "position": 100.0,
+    "display_in_letterbox": true,
+    "scale_with_window": true,
+    "margin_x": 25.0,
+    "margin_y": 22.0
+  },
+  "subtitle_other": {
+    "preferred_languages": "",
+    "default_encoding": "auto"
+  },
+  "subtitle_auto_load": {
+    "mode": "intelligent",
+    "priority_keywords": "",
+    "search_paths": "./*"
+  },
+  "online_subtitles": {
+    "provider": "open-subtitles",
+    "auto_search": false,
+    "auto_search_threshold_minutes": 20
+  },
+  "subtitle_font": "sans-serif",
+  "subtitle_font_size": 55.0,
+  "subtitle_text_style": {
+    "text_color": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "bold": false,
+    "italic": false,
+    "blur": 0.0,
+    "spacing": 0.0,
+    "outline_size": 3.0,
+    "outline_color": [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "shadow_offset": 0.0,
+    "shadow_color": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "theme_material": "dark",
+  "dark": true,
+  "compact": false,
+  "enable_osd": true,
+  "disable_osd_file_start": false,
+  "disable_osd_pause_resume": false,
+  "disable_osd_speed": false,
+  "disable_osd_seek": false,
+  "osd_timeout_secs": 1.0,
+  "osd_text_size": 20.0,
+  "display_time_and_battery_in_fullscreen": false,
+  "show_chapter_pos": false,
+  "picture_in_picture": {
+    "window_behavior": "hide",
+    "pause_when_entering": false,
+    "toggle_by_minimizing": false,
+    "minimize_toggle_video_only": false
+  },
+  "screenshot": {
+    "destinations": {
+      "save_to_file": true,
+      "copy_to_clipboard": false
+    },
+    "encoding": {
+      "format": "png",
+      "template": "%F-%n"
+    },
+    "directory": null,
+    "include_subtitles": true,
+    "show_preview": true
+  },
+  "network": {
+    "user_agent": "player agent",
+    "http_proxy": "http://proxy.example:8080",
+    "rtsp_transport": "http"
+  },
+  "network_cache": {
+    "enabled": false,
+    "pause_initial": true,
+    "pause_wait_secs": 2.5,
+    "prefetch_secs": 12000.0,
+    "buffer_size_kib": 512000.0,
+    "show_buffering_throbber": false,
+    "show_seeking_throbber": false
+  },
+  "network_online_videos": {
+    "enabled": true,
+    "search_path": "",
+    "raw_options": ""
+  },
+  "thumbnail_preview": {
+    "enabled": true,
+    "maximum_cache_size_mb": 500,
+    "enable_for_remote_files": false,
+    "width": 120
+  },
+  "recent_media": [
+    {
+      "path": "C:\\Фильмы\\a.mkv",
+      "title": "A film",
+      "position": 87.25
+    }
+  ],
+  "record_recent_files": true,
+  "track_all_files_in_recent_open_menu": true,
+  "recent_open_documents": [],
+  "record_playback_history": true
+}
