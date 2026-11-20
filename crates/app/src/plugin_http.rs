@@ -1,6 +1,12 @@
 //! One bounded redirect and credential policy for every plugin HTTP transport.
-use riina_core::plugin::network_url_allowed;
+use riina_core::plugin::{
+    NetworkGrant, network_address_is_restricted, network_host_is_restricted, network_url_grant,
+};
 use std::time::{Duration, Instant};
+use ureq::unversioned::{
+    resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver},
+    transport::{DefaultConnector, NextTimeout},
+};
 const NETWORK_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_NETWORK_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_PLUGIN_DOWNLOAD_BYTES: usize = 64 * 1024 * 1024;
@@ -119,7 +125,55 @@ fn redirect_policy(
     if current.scheme() == "https" && next.scheme() == "http" {
         return Err("HTTPS redirects to insecure HTTP are not allowed".into());
     }
+    if is_public_host(current) && !is_public_host(next) {
+        return Err("HTTP redirect crossed into a restricted network".into());
+    }
     Ok(())
+}
+
+fn is_public_host(url: &url::Url) -> bool {
+    url.host_str()
+        .is_some_and(|host| !network_host_is_restricted(host))
+}
+
+#[derive(Debug)]
+struct PluginResolver {
+    public_only: bool,
+}
+
+impl Resolver for PluginResolver {
+    fn resolve(
+        &self,
+        uri: &ureq::http::Uri,
+        config: &ureq::config::Config,
+        timeout: NextTimeout,
+    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+        let addresses = DefaultResolver::default().resolve(uri, config, timeout)?;
+        // Proxy addresses are not the destination. The proxy resolves the
+        // destination itself, so the address check applies to direct requests.
+        if !self.public_only || config.proxy().is_some() {
+            return Ok(addresses);
+        }
+        self.filter_addresses(addresses)
+    }
+}
+
+impl PluginResolver {
+    fn filter_addresses(
+        &self,
+        addresses: ResolvedSocketAddrs,
+    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+        let mut allowed = self.empty();
+        for &address in &addresses {
+            if !network_address_is_restricted(address.ip()) {
+                allowed.push(address);
+            }
+        }
+        if allowed.is_empty() {
+            return Err(ureq::Error::HostNotFound);
+        }
+        Ok(allowed)
+    }
 }
 
 fn fetch(
@@ -134,20 +188,25 @@ fn fetch(
     // earlier URL or plugin-supplied transport metadata.
     headers.remove(ureq::http::header::HOST);
     headers.remove(ureq::http::header::CONTENT_LENGTH);
+    let mut redirected_from_public_host = false;
     for hop in 0..=10 {
-        if !network_url_allowed(url.as_str(), domains) {
+        let Some(grant) = network_url_grant(&url, domains) else {
             return Err("HTTP target is not in the plugin's allowed domains".into());
-        }
+        };
         let remaining = NETWORK_TIMEOUT.saturating_sub(started.elapsed());
         if remaining.is_zero() {
             return Err("HTTP request exceeded the 30 second timeout".into());
         }
-        let agent = ureq::Agent::new_with_config(
+        let agent = ureq::Agent::with_parts(
             ureq::Agent::config_builder()
                 .timeout_global(Some(remaining))
                 .max_redirects(0)
                 .http_status_as_error(false)
                 .build(),
+            DefaultConnector::new(),
+            PluginResolver {
+                public_only: grant == NetworkGrant::Wildcard || redirected_from_public_host,
+            },
         );
         let mut request = ureq::http::Request::builder()
             .method(method.clone())
@@ -171,10 +230,11 @@ fn fetch(
         let next = url
             .join(location.to_str().map_err(|e| e.to_string())?)
             .map_err(|e| format!("Invalid HTTP redirect URL: {e}"))?;
-        if !network_url_allowed(next.as_str(), domains) {
+        if network_url_grant(&next, domains).is_none() {
             return Err("HTTP redirect target is not in the plugin's allowed domains".into());
         }
         redirect_policy(&url, &next, &mut headers)?;
+        redirected_from_public_host = is_public_host(&url);
         if (status == 303 && method != ureq::http::Method::HEAD)
             || (matches!(status, 301 | 302) && method == ureq::http::Method::POST)
         {

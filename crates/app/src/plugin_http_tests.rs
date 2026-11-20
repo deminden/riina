@@ -5,6 +5,34 @@ use std::{
     thread::JoinHandle,
 };
 
+#[test]
+fn a_public_redirect_must_stay_outside_restricted_networks() {
+    let public = url::Url::parse("https://example.test/").unwrap();
+    let next_public = url::Url::parse("https://media.example.test/").unwrap();
+    let local = url::Url::parse("https://localhost./").unwrap();
+    let mut headers = ureq::http::HeaderMap::new();
+    assert!(redirect_policy(&public, &local, &mut headers).is_err());
+    assert!(redirect_policy(&public, &next_public, &mut headers).is_ok());
+    assert!(redirect_policy(&local, &public, &mut headers).is_ok());
+}
+
+#[test]
+fn the_direct_resolver_filters_restricted_addresses_before_connecting() {
+    let resolver = PluginResolver { public_only: true };
+    let local = "[::1]:443".parse().unwrap();
+    let public = "198.51.100.2:443".parse().unwrap();
+    let mut addresses = resolver.empty();
+    addresses.push(local);
+    assert!(matches!(
+        resolver.filter_addresses(addresses),
+        Err(ureq::Error::HostNotFound)
+    ));
+    let mut addresses = resolver.empty();
+    addresses.push(local);
+    addresses.push(public);
+    assert_eq!(&*resolver.filter_addresses(addresses).unwrap(), [public]);
+}
+
 #[derive(Debug)]
 struct Request {
     head: String,

@@ -1,5 +1,11 @@
 //! Validated plugin metadata shared by installation, permissions and runtime setup.
 
+mod network;
+
+pub use network::{
+    NetworkGrant, network_address_is_restricted, network_host_is_restricted, network_url_allowed,
+    network_url_grant,
+};
 use serde::Deserialize;
 use std::{
     collections::BTreeSet,
@@ -467,37 +473,6 @@ impl Manifest {
     }
 }
 
-/// Validate an HTTP(S) URL against manifest exact-host and subdomain patterns.
-pub fn network_url_allowed(value: &str, domains: &[String]) -> bool {
-    let Ok(url) = url::Url::parse(value) else {
-        return false;
-    };
-    if !matches!(url.scheme(), "http" | "https")
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
-        return false;
-    }
-    let Some(host) = url.host_str() else {
-        return false;
-    };
-    let host = host.to_ascii_lowercase();
-    domains.iter().any(|pattern| {
-        if pattern == "*" {
-            return true;
-        }
-        if let Some(domain) = pattern.strip_prefix("*.") {
-            let domain = domain.to_ascii_lowercase();
-            host.len() > domain.len()
-                && host
-                    .strip_suffix(&domain)
-                    .is_some_and(|prefix| prefix.ends_with('.'))
-        } else {
-            host == pattern.to_ascii_lowercase()
-        }
-    })
-}
-
 fn nonempty(value: String, field: &str) -> Result<String, String> {
     if value.trim().is_empty() {
         Err(format!("Plugin manifest field {field} cannot be empty"))
@@ -535,6 +510,9 @@ fn valid_repository(value: &str) -> bool {
 
 fn valid_domain_pattern(value: &str) -> bool {
     if value == "*" {
+        return true;
+    }
+    if network::literal_address(value).is_some() && !value.ends_with('.') {
         return true;
     }
     let domain = value.strip_prefix("*.").unwrap_or(value);

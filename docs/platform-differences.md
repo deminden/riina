@@ -114,6 +114,14 @@ for the ownership and composition invariants.
 All plugin HTTP transports share one independent hardening policy:
 
 - Revalidate allowed manifest hosts at each redirect.
+- Require an exact manifest host for local, private, loopback, link-local and
+  unspecified destinations. Wildcard grants allow public hosts and public
+  address literals.
+- Reject redirects from a public host to restricted destinations, including when
+  the manifest names the restricted host exactly.
+- Filter resolved addresses for direct wildcard requests and direct redirects
+  from public hosts. Configured proxies resolve destination names themselves,
+  leaving their destination address classification to the proxy.
 - Remove authorization, cookies and related sensitive headers on an origin change
   (scheme, host or effective port).
 - Reject HTTPS-to-HTTP redirects; explicit initial HTTP requests remain allowed
@@ -123,6 +131,11 @@ All plugin HTTP transports share one independent hardening policy:
 This policy is an intentional adaptation, not a claim of identical IINA
 networking behavior. Native code, external helpers and plugin permissions retain
 the trust boundaries described in the [product contract](product-spec.md).
+
+IINA's plugin guide describes an all-domain wildcard, and the pinned v1.5.0
+host check matches manifest hosts without classifying addresses.
+[IINA plugin development guide](https://docs.iina.io/pages/dev-guide.html)
+[Pinned host check](https://github.com/iina/iina/blob/fbcff4df7183b335880396af0655f6bb89d46442/iina/JavascriptPluginInstance.swift#L80-L96)
 
 ## Evidence required for closure
 
