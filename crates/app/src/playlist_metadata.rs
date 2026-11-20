@@ -1,6 +1,7 @@
 //! Small asynchronous tag cache for audio labels in the playlist.
 
 use lofty::{file::TaggedFileExt, probe::Probe, tag::ItemKey};
+use riina_core::sync::lock;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -40,9 +41,7 @@ fn cache() -> &'static Cache {
                 while let Ok(path) = receiver.recv() {
                     let metadata = read_metadata(&path);
                     let Some(cache) = CACHE.get() else { continue };
-                    let Ok(mut entries) = cache.entries.lock() else {
-                        continue;
-                    };
+                    let mut entries = lock(&cache.entries);
                     if let Some(entry) = entries.get_mut(&path) {
                         *entry = metadata;
                         cache.revision.fetch_add(1, Ordering::Release);
@@ -63,7 +62,7 @@ pub(crate) fn revision() -> u64 {
 pub(crate) fn lookup(reference: &str) -> Option<Metadata> {
     let path = local_audio_path(reference)?;
     let cache = cache();
-    let mut entries = cache.entries.lock().ok()?;
+    let mut entries = lock(&cache.entries);
     if let Some(metadata) = entries.get(&path) {
         return metadata.clone();
     }

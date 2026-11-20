@@ -124,6 +124,7 @@ pub(super) fn install<'js>(
         api.set(
             "__unsubscribePlayerEvent",
             Func::from(move |name: String| {
+                // Delivery already denies names from a poisoned subscription set.
                 if let Ok(mut subscriptions) = subscriptions.lock() {
                     subscriptions.remove(&name);
                 }

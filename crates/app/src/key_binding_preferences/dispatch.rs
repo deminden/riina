@@ -248,9 +248,10 @@ fn dispatch_mapping(
         RuntimeAction::Quit => app.invoke_quit_riina(),
         RuntimeAction::Stop => app.invoke_stop(),
         RuntimeAction::ShowProgress => {
-            let message = latest_playback.lock().ok().and_then(|playback| {
+            let message = {
+                let playback = riina_core::sync::lock(latest_playback);
                 crate::video_osd::progress_message(playback.position, playback.duration)
-            });
+            };
             if let Some(message) = message {
                 app.set_video_osd_request_feedback(false);
                 app.set_video_osd_text(message.text.into());
@@ -304,12 +305,7 @@ pub(crate) fn reveal_current_media(
     app: &PlayerWindow,
     latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
 ) {
-    let location = latest_playback
-        .lock()
-        .ok()
-        .map_or(CurrentMediaLocation::NoMedia, |playback| {
-            current_media_location(&playback)
-        });
+    let location = current_media_location(&riina_core::sync::lock(latest_playback));
     let path = match location {
         CurrentMediaLocation::NoMedia => {
             app.set_status("There is no current media file to reveal".into());

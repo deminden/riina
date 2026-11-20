@@ -25,6 +25,7 @@ impl ExecutionControl {
     }
 
     pub(super) fn begin(&self) {
+        // A poisoned execution budget stays failed closed in interrupted().
         if let Ok(mut deadline) = self.deadline.lock() {
             *deadline = Instant::now() + MAX_EXECUTION_TIME;
         }

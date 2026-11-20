@@ -119,7 +119,8 @@ pub(super) fn update_ui(
     }
     let previous_generation = app.get_window_geometry_source().parse::<u64>().ok();
     app.set_window_geometry_source(state.generation.to_string().into());
-    if let Ok(settings) = resources.saved_video_filters.lock() {
+    {
+        let settings = riina_core::sync::lock(resources.saved_video_filters);
         let active = state.video_filters.as_deref().unwrap_or_default();
         crate::ui_models::set_rows_if_changed(
             &app.get_saved_video_filter_rows(),
@@ -127,7 +128,8 @@ pub(super) fn update_ui(
             |rows| app.set_saved_video_filter_rows(rows),
         );
     }
-    if let Ok(settings) = resources.saved_audio_filters.lock() {
+    {
+        let settings = riina_core::sync::lock(resources.saved_audio_filters);
         let active = state.audio_filters.as_deref().unwrap_or_default();
         crate::ui_models::set_rows_if_changed(
             &app.get_saved_audio_filter_rows(),

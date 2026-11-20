@@ -16,9 +16,7 @@ pub(super) fn record_plugin_message(
     data: serde_json::Value,
 ) -> Result<(), String> {
     validate_plugin_message(&name, &data)?;
-    let mut events = events
-        .lock()
-        .map_err(|_| "Plugin event queue was poisoned".to_owned())?;
+    let mut events = riina_core::sync::lock(events);
     if events.len() >= MAX_HOST_EVENTS {
         return Err("Plugin event queue is full".into());
     }
@@ -42,9 +40,7 @@ pub(super) fn record_overlay(
         .lock()
         .map_err(|_| "Plugin overlay state was poisoned".to_owned())?
         .apply(intent)?;
-    let Ok(mut events) = events.lock() else {
-        return Err("Plugin event queue was poisoned".into());
-    };
+    let mut events = riina_core::sync::lock(events);
     let current_bytes = events.iter().map(host_event_size).sum::<usize>();
     let requested_bytes = effects.iter().map(overlay_effect_size).sum::<usize>();
     if effects
@@ -95,9 +91,7 @@ pub(super) fn record_plugin_sidebar(
     if size > MAX_PLUGIN_MESSAGE_BYTES {
         return Err("Sidebar request exceeds the 1 MiB limit".into());
     }
-    let Ok(mut events) = events.lock() else {
-        return Err("Plugin event queue was poisoned".into());
-    };
+    let mut events = riina_core::sync::lock(events);
     let current_bytes = events.iter().map(host_event_size).sum::<usize>();
     if events.len() >= MAX_HOST_EVENTS || current_bytes.saturating_add(size) > MAX_HOST_OUTPUT_BYTES
     {
@@ -130,9 +124,7 @@ pub(super) fn record_plugin_menu(
     if bytes > MAX_PLUGIN_MESSAGE_BYTES {
         return Err("Plugin menu exceeds the 1 MiB limit".into());
     }
-    let Ok(mut events) = events.lock() else {
-        return Err("Plugin event queue was poisoned".into());
-    };
+    let mut events = riina_core::sync::lock(events);
     events.retain(|event| !matches!(event, HostEvent::MenuUpdate(_)));
     let current_bytes = events.iter().map(host_event_size).sum::<usize>();
     if events.len() < MAX_HOST_EVENTS
@@ -175,9 +167,7 @@ pub(super) fn overlay_js_error(message: String) -> rquickjs::Error {
 }
 
 pub(super) fn record(events: &Mutex<Vec<HostEvent>>, event: HostEvent) {
-    let Ok(mut events) = events.lock() else {
-        return;
-    };
+    let mut events = riina_core::sync::lock(events);
     if events.len() >= MAX_HOST_EVENTS {
         return;
     }

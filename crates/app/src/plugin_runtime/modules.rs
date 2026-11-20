@@ -163,6 +163,7 @@ fn load_plugin_module<'js>(
         function.call((module,))
     })();
 
+    // Keep failed module ancestry unavailable to subsequent require() calls.
     if let Ok(mut current_files) = package.current_files.lock() {
         current_files.pop();
     }

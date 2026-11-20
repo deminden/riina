@@ -3,6 +3,7 @@ use crate::PlayerWindow;
 use riina_core::{
     Phase, Playback,
     music_mode::{AudioStatus, State},
+    sync::lock,
 };
 use slint::ComponentHandle;
 use std::{
@@ -23,9 +24,7 @@ pub(crate) fn install(
         Duration::from_millis(100),
         move || {
             let Some(app) = weak.upgrade() else { return };
-            if let Ok(playback) = playback.lock() {
-                observe(&app, &playback, &mode);
-            }
+            observe(&app, &lock(&playback), &mode);
         },
     );
     timer
@@ -35,7 +34,7 @@ pub(crate) fn install(
 // timer supplies the missing observation when a paused catalog becomes quiet.
 pub(crate) fn observe(app: &PlayerWindow, playback: &Playback, mode: &Mutex<State>) {
     let transition = {
-        let Ok(mut mode) = mode.lock() else { return };
+        let mut mode = lock(mode);
         let status = if matches!(
             playback.phase,
             Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended

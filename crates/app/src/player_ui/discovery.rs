@@ -47,9 +47,7 @@ pub(super) fn install(
             else {
                 return;
             };
-            let Ok(state) = priority_playback.lock().map(|state| state.clone()) else {
-                return;
-            };
+            let state = riina_core::sync::lock(&priority_playback).clone();
             if preferences.mode == riina_core::subtitle_controls::AutoLoadMode::Disabled {
                 subtitle_discovery_ready_controller.mark_ready(state.generation);
             }
@@ -66,9 +64,10 @@ pub(super) fn install(
                     let Some(command) = crate::auto_playlist::prepare(&request, &snapshot) else {
                         return;
                     };
-                    let still_current = playback.lock().ok().is_some_and(|state| {
-                        crate::auto_playlist::request_is_current(&request_check, &state)
-                    });
+                    let still_current = crate::auto_playlist::request_is_current(
+                        &request_check,
+                        &riina_core::sync::lock(&playback),
+                    );
                     if still_current && let Err(error) = sender.send(command) {
                         let _ = slint::invoke_from_event_loop(move || {
                             if let Some(app) = weak_app.upgrade() {
@@ -92,19 +91,19 @@ pub(super) fn install(
                     let files =
                         crate::subtitle_discovery::find_matching_files(&media_path, &preferences);
                     let expected_path = media_path.to_string_lossy().into_owned();
-                    let current = ready.is_current(request)
-                        && playback.lock().ok().is_some_and(|state| {
-                            state.generation == generation
-                                && matches!(
-                                    state.phase,
-                                    Phase::Playing | Phase::Paused | Phase::Buffering
-                                )
-                                && state
-                                    .playlist
-                                    .iter()
-                                    .find(|entry| entry.current)
-                                    .is_some_and(|entry| entry.filename == expected_path)
-                        });
+                    let current = ready.is_current(request) && {
+                        let state = riina_core::sync::lock(&playback);
+                        state.generation == generation
+                            && matches!(
+                                state.phase,
+                                Phase::Playing | Phase::Paused | Phase::Buffering
+                            )
+                            && state
+                                .playlist
+                                .iter()
+                                .find(|entry| entry.current)
+                                .is_some_and(|entry| entry.filename == expected_path)
+                    };
                     if current
                         && !files.is_empty()
                         && let Err(error) = sender.send(Command::AddSubtitlesWithoutSelection(

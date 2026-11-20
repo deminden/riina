@@ -99,9 +99,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
                     }
                     return;
                 };
-                let Ok(playback) = timer_playback.lock() else {
-                    return;
-                };
+                let playback = riina_core::sync::lock(&timer_playback);
                 let (engine, ffmpeg) = engine_version_labels(&playback);
                 window.set_engine_label(engine.into());
                 window.set_ffmpeg_label(ffmpeg.into());

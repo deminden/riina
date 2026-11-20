@@ -52,15 +52,13 @@ pub(crate) fn install(
                 0
             });
         let matches = |settings: &Settings| {
-            settings.lock().ok().and_then(|settings| {
-                settings
-                    .saved
-                    .iter()
-                    .find(|saved| {
-                        saved.shortcut_key == key.as_str() && saved.shortcut_modifiers == modifiers
-                    })
-                    .map(|saved| saved.filter.clone())
-            })
+            riina_core::sync::lock(settings)
+                .saved
+                .iter()
+                .find(|saved| {
+                    saved.shortcut_key == key.as_str() && saved.shortcut_modifiers == modifiers
+                })
+                .map(|saved| saved.filter.clone())
         };
         let command = matches(&shortcut_video_settings)
             .map(riina_core::Command::ToggleVideoFilter)
@@ -412,7 +410,7 @@ fn connect_window(
         };
         let index = token.parse::<usize>().ok();
         let filter = index.and_then(|index| {
-            let playback = remove_latest.lock().ok()?;
+            let playback = riina_core::sync::lock(&remove_latest);
             if remove_is_audio {
                 playback.audio_filters.as_ref()?.get(index).cloned()
             } else {
@@ -655,9 +653,7 @@ fn refresh(
             })
             .collect::<Vec<_>>(),
     )));
-    let Ok(settings) = settings.lock() else {
-        return;
-    };
+    let settings = riina_core::sync::lock(settings);
     let rows = saved_filter_rows(&settings.saved, filters);
     window.set_saved_filters(ModelRc::new(VecModel::from(rows.clone())));
     if is_audio {
@@ -673,13 +669,8 @@ fn refresh_player_menu_rows(
     settings: &Settings,
     is_audio: bool,
 ) {
-    let playback = latest
-        .lock()
-        .map(|playback| playback.clone())
-        .unwrap_or_default();
-    let Ok(settings) = settings.lock() else {
-        return;
-    };
+    let playback = riina_core::sync::lock(latest).clone();
+    let settings = riina_core::sync::lock(settings);
     let active = if is_audio {
         playback.audio_filters.as_deref().unwrap_or_default()
     } else {

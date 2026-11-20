@@ -1,5 +1,5 @@
 use crate::{PlayerWindow, key_binding_preferences::CurrentMediaLocation};
-use riina_core::{Command, Playback};
+use riina_core::{Command, Playback, sync::lock};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use slint::winit_030::WinitWindowAccessor;
@@ -19,10 +19,7 @@ pub(crate) fn save_downloaded_subtitle(
     host: Option<slint::Weak<crate::NativeVideoHost>>,
     latest_playback: &Arc<Mutex<Playback>>,
 ) {
-    let path = latest_playback
-        .lock()
-        .ok()
-        .and_then(|playback| downloaded_subtitle_path(&playback));
+    let path = downloaded_subtitle_path(&lock(latest_playback));
     let Some(path) = path else {
         app.set_status("Select a subtitle downloaded by Riina before saving it".into());
         return;
@@ -100,6 +97,7 @@ pub(crate) fn delete_current_media(
     latest_playback: &Arc<Mutex<Playback>>,
     player: CommandSender,
 ) {
+    // A destructive file action requires a current, intact playback snapshot.
     let snapshot = latest_playback.lock().ok().map(|playback| playback.clone());
     let Some(snapshot) = snapshot else {
         app.set_status("Could not read the current media item".into());
@@ -152,12 +150,10 @@ pub(crate) fn delete_current_media(
                 };
                 match result {
                     Ok(()) => {
-                        let still_listed = observed_playback.lock().is_ok_and(|playback| {
-                            playback
-                                .playlist
-                                .iter()
-                                .any(|entry| entry.id == entry_id && entry.filename == filename)
-                        });
+                        let still_listed = lock(&observed_playback)
+                            .playlist
+                            .iter()
+                            .any(|entry| entry.id == entry_id && entry.filename == filename);
                         if still_listed
                             && let Err(error) =
                                 player.send(Command::RemovePlaylistId(entry_id))

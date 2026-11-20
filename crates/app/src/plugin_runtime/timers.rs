@@ -24,10 +24,7 @@ impl PluginTimers {
             return Err("Plugin timer delay must be between 0 and 86400000 milliseconds".into());
         }
         let delay = Duration::from_secs_f64(delay_ms / 1000.0);
-        let mut deadlines = self
-            .deadlines
-            .lock()
-            .map_err(|_| "Plugin timer queue was poisoned".to_owned())?;
+        let mut deadlines = riina_core::sync::lock(&self.deadlines);
         if deadlines.len() >= MAX_ACTIVE_TIMERS {
             return Err("Plugin has reached the 256 active timer limit".into());
         }
@@ -37,15 +34,11 @@ impl PluginTimers {
     }
 
     fn cancel(&self, id: u32) {
-        if let Ok(mut deadlines) = self.deadlines.lock() {
-            deadlines.remove(&id);
-        }
+        riina_core::sync::lock(&self.deadlines).remove(&id);
     }
 
     pub(super) fn next_wait(&self) -> Option<Duration> {
-        self.deadlines
-            .lock()
-            .ok()?
+        riina_core::sync::lock(&self.deadlines)
             .values()
             .copied()
             .min()
@@ -53,7 +46,7 @@ impl PluginTimers {
     }
 
     pub(super) fn take_due(&self) -> Option<u32> {
-        let mut deadlines = self.deadlines.lock().ok()?;
+        let mut deadlines = riina_core::sync::lock(&self.deadlines);
         let now = Instant::now();
         let id = deadlines
             .iter()

@@ -22,10 +22,7 @@ pub(super) fn install(
         }
         let Some(app) = weak.upgrade() else { return };
         let settings = {
-            let Ok(mut settings) = audio_eq_settings.lock() else {
-                app.set_status("Audio equalizer settings are unavailable".into());
-                return;
-            };
+            let mut settings = riina_core::sync::lock(&audio_eq_settings);
             let values = app.get_audio_equalizer_values();
             if values.row_count() == settings.gains_db.len() {
                 for (index, gain) in settings.gains_db.iter_mut().enumerate() {
@@ -51,10 +48,7 @@ pub(super) fn install(
     let weak = app.as_weak();
     app.on_select_audio_equalizer_profile(move |index| {
         let Some(app) = weak.upgrade() else { return };
-        let Ok(mut settings) = audio_eq_settings_for_profile.lock() else {
-            app.set_status("Audio equalizer settings are unavailable".into());
-            return;
-        };
+        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_profile);
         let Some(index) = usize::try_from(index).ok() else {
             app.set_status("Unknown audio equalizer profile".into());
             return;
@@ -83,9 +77,7 @@ pub(super) fn install(
         if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
             return "An audio equalizer profile already has that name".into();
         }
-        let Ok(settings) = audio_eq_settings_for_validation.lock() else {
-            return "Audio equalizer settings are unavailable".into();
-        };
+        let settings = riina_core::sync::lock(&audio_eq_settings_for_validation);
         let validation = match mode {
             1 => settings.validate_new_profile_name(name.as_str()),
             2 => {
@@ -107,10 +99,7 @@ pub(super) fn install(
             app.set_status("An audio equalizer profile already has that name".into());
             return false;
         }
-        let Ok(mut settings) = audio_eq_settings_for_save.lock() else {
-            app.set_status("Audio equalizer settings are unavailable".into());
-            return false;
-        };
+        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_save);
         if let Err(error) = settings.save_profile(name.as_str()) {
             app.set_status(error.into());
             return false;
@@ -129,10 +118,7 @@ pub(super) fn install(
             app.set_status("An audio equalizer profile already has that name".into());
             return false;
         }
-        let Ok(mut settings) = audio_eq_settings_for_rename.lock() else {
-            app.set_status("Audio equalizer settings are unavailable".into());
-            return false;
-        };
+        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_rename);
         let current = settings.selected_profile.clone().unwrap_or_default();
         if let Err(error) = settings.rename_profile(&current, replacement.as_str()) {
             app.set_status(error.into());
@@ -145,10 +131,7 @@ pub(super) fn install(
     let weak = app.as_weak();
     app.on_delete_audio_equalizer_profile(move || {
         let Some(app) = weak.upgrade() else { return };
-        let Ok(mut settings) = audio_eq_settings_for_delete.lock() else {
-            app.set_status("Audio equalizer settings are unavailable".into());
-            return;
-        };
+        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_delete);
         let selected = settings.selected_profile.clone().unwrap_or_default();
         if let Err(error) = settings.remove_profile(&selected) {
             app.set_status(error.into());

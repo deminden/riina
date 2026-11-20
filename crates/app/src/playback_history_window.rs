@@ -279,24 +279,21 @@ fn connect_window(
         let Some(window) = weak_window.upgrade() else {
             return;
         };
-        let group_labels = history_for_collapse
-            .lock()
-            .ok()
-            .map(|history| {
-                build_rows(
-                    history.entries(),
-                    window.get_search_text().as_str(),
-                    window.get_search_mode(),
-                    window.get_group_mode(),
-                    &HashSet::new(),
-                    &HashSet::new(),
-                )
-                .into_iter()
-                .filter(|row| row.is_group)
-                .map(|row| row.label.to_string())
-                .collect::<HashSet<_>>()
-            })
-            .unwrap_or_default();
+        let group_labels = {
+            let history = riina_core::sync::lock(&history_for_collapse);
+            build_rows(
+                history.entries(),
+                window.get_search_text().as_str(),
+                window.get_search_mode(),
+                window.get_group_mode(),
+                &HashSet::new(),
+                &HashSet::new(),
+            )
+            .into_iter()
+            .filter(|row| row.is_group)
+            .map(|row| row.label.to_string())
+            .collect::<HashSet<_>>()
+        };
         *groups_for_collapse
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = group_labels;
@@ -311,16 +308,11 @@ fn connect_window(
             return;
         };
         let path = path.to_string();
-        let position = history_for_open
-            .lock()
-            .ok()
-            .and_then(|history| {
-                history
-                    .entries()
-                    .iter()
-                    .find(|entry| entry.path == path)
-                    .and_then(|entry| entry.progress)
-            })
+        let position = riina_core::sync::lock(&history_for_open)
+            .entries()
+            .iter()
+            .find(|entry| entry.path == path)
+            .and_then(|entry| entry.progress)
             .unwrap_or(0.0);
         media_open_history_entry(&app, path, position, player_for_open.clone());
     });
@@ -630,12 +622,7 @@ fn refresh(
     history: &HistoryState,
     collapsed_groups: &CollapsedGroups,
 ) {
-    let Ok(history) = history.lock() else {
-        window.set_rows(ModelRc::new(VecModel::from(
-            Vec::<PlaybackHistoryRow>::new(),
-        )));
-        return;
-    };
+    let history = riina_core::sync::lock(history);
     let selected = read_selected_paths(window);
     let mut rows = build_rows(
         history.entries(),

@@ -189,42 +189,44 @@ impl UiSession {
                 }
             }
         }
-        if let Ok(state) = self.latest_playback.lock()
-            && let Some(position) = state
+        {
+            let state = riina_core::sync::lock(&self.latest_playback);
+            if let Some(position) = state
                 .position
                 .filter(|value| value.is_finite() && *value >= 0.0)
-            && !matches!(state.phase, Phase::Loading | Phase::Failed)
-            && let Some(entry) = state.playlist.iter().find(|entry| entry.current)
-        {
-            let title = entry
-                .title
-                .as_ref()
-                .filter(|title| !title.trim().is_empty())
-                .cloned()
-                .unwrap_or_else(|| {
-                    if state.title.trim().is_empty() {
-                        PathBuf::from(&entry.filename).file_name().map_or_else(
-                            || entry.filename.clone(),
-                            |name| name.to_string_lossy().into_owned(),
-                        )
-                    } else {
-                        state.title.clone()
-                    }
+                && !matches!(state.phase, Phase::Loading | Phase::Failed)
+                && let Some(entry) = state.playlist.iter().find(|entry| entry.current)
+            {
+                let title = entry
+                    .title
+                    .as_ref()
+                    .filter(|title| !title.trim().is_empty())
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        if state.title.trim().is_empty() {
+                            PathBuf::from(&entry.filename).file_name().map_or_else(
+                                || entry.filename.clone(),
+                                |name| name.to_string_lossy().into_owned(),
+                            )
+                        } else {
+                            state.title.clone()
+                        }
+                    });
+                let position = if app.get_resume_last_position() {
+                    position
+                } else {
+                    prefs
+                        .recent_media
+                        .iter()
+                        .find(|item| item.path == entry.filename)
+                        .map_or(0.0, |item| item.position)
+                };
+                prefs.remember_media(riina_core::RecentMedia {
+                    path: entry.filename.clone(),
+                    title,
+                    position,
                 });
-            let position = if app.get_resume_last_position() {
-                position
-            } else {
-                prefs
-                    .recent_media
-                    .iter()
-                    .find(|item| item.path == entry.filename)
-                    .map_or(0.0, |item| item.position)
-            };
-            prefs.remember_media(riina_core::RecentMedia {
-                path: entry.filename.clone(),
-                title,
-                position,
-            });
+            }
         }
         self.preference_writer
             .save_session(&prefs)

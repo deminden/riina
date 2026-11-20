@@ -88,14 +88,10 @@ struct CaptureOwner {
 
 impl Drop for CaptureOwner {
     fn drop(&mut self) {
-        if let Ok(mut shutdown) = self.shutdown.lock()
-            && let Some(shutdown) = shutdown.take()
-        {
+        if let Some(shutdown) = riina_core::sync::lock(&self.shutdown).take() {
             let _ = shutdown.send(());
         }
-        if let Ok(mut worker) = self.worker.lock()
-            && let Some(worker) = worker.take()
-        {
+        if let Some(worker) = riina_core::sync::lock(&self.worker).take() {
             let _ = worker.join();
         }
     }
@@ -148,8 +144,8 @@ impl FrameCapture {
             // A readback may be in flight while the surface is hidden or
             // re-enabled. Give each visibility period its own publish epoch.
             self.0.state.epoch.fetch_add(1, Ordering::AcqRel);
-            if !enabled && let Ok(mut latest) = self.0.state.latest.lock() {
-                *latest = None;
+            if !enabled {
+                *riina_core::sync::lock(&self.0.state.latest) = None;
             }
         }
     }
@@ -158,13 +154,11 @@ impl FrameCapture {
         // Prevent a frame from the previous media generation being published
         // after this clear while its GPU readback is still in progress.
         self.0.state.epoch.fetch_add(1, Ordering::AcqRel);
-        if let Ok(mut latest) = self.0.state.latest.lock() {
-            *latest = None;
-        }
+        *riina_core::sync::lock(&self.0.state.latest) = None;
     }
 
     pub(crate) fn latest(&self) -> Option<MaterialFrameSample> {
-        self.0.state.latest.lock().ok()?.clone()
+        riina_core::sync::lock(&self.0.state.latest).clone()
     }
 }
 
@@ -313,9 +307,13 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
                     return Ok(());
                 }
             };
-            if let Ok(mut pool_size) = callback_pool_size.lock()
-                && *pool_size != (content_size.Width, content_size.Height)
-            {
+            // The native pool might have been resized mid-update. A poisoned
+            // size record cannot establish matching dimensions for a readback.
+            let Ok(mut pool_size) = callback_pool_size.lock() else {
+                let _ = frame.Close();
+                return Ok(());
+            };
+            if *pool_size != (content_size.Width, content_size.Height) {
                 let size = SizeInt32 {
                     Width: content_size.Width,
                     Height: content_size.Height,
@@ -328,6 +326,7 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
                 let _ = frame.Close();
                 return Ok(());
             }
+            drop(pool_size);
 
             if !callback_state.enabled.load(Ordering::Acquire) {
                 let _ = frame.Close();
@@ -379,7 +378,8 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
                     {
                         return Ok(());
                     }
-                    if let Ok(mut latest) = callback_state.latest.lock() {
+                    {
+                        let mut latest = riina_core::sync::lock(&callback_state.latest);
                         let newer_than_published = latest.as_ref().is_none_or(|previous| {
                             match (compositor_time, previous.compositor_time) {
                                 (Some(current), Some(previous)) => current > previous,

@@ -378,9 +378,10 @@ fn install_file_drop(
             if !input.phase_empty
                 && input.phase_ended
                 && let Some(generation) = event_trackpad_pause_generation.replace(None)
-                && event_playback
-                    .lock()
-                    .is_ok_and(|state| state.generation == generation)
+                && {
+                    let current = riina_core::sync::lock(&event_playback).generation;
+                    current == generation
+                }
                 && let Err(error) = event_player.set_paused(false)
                 && let Some(app) = event_app.upgrade()
             {
@@ -465,13 +466,16 @@ fn scroll_action_handler(
                 if !input.phase_empty
                     && input.phase_began
                     && trackpad_pause_generation.get().is_none()
-                    && let Some(state) = playback.lock().ok().map(|state| state.clone())
-                    && state.phase == Phase::Playing
-                    && !state.paused
                 {
-                    match player.set_paused(true) {
-                        Ok(()) => trackpad_pause_generation.set(Some(state.generation)),
-                        Err(error) => app.set_status(error.into()),
+                    let generation = {
+                        let state = riina_core::sync::lock(&playback);
+                        (state.phase == Phase::Playing && !state.paused).then_some(state.generation)
+                    };
+                    if let Some(generation) = generation {
+                        match player.set_paused(true) {
+                            Ok(()) => trackpad_pause_generation.set(Some(generation)),
+                            Err(error) => app.set_status(error.into()),
+                        }
                     }
                 }
                 Command::SeekWithType {

@@ -13,7 +13,6 @@ use objc2_av_kit::{
 };
 use objc2_core_media::{
     CMClock, CMTime, CMTimeRange, CMTimebase, CMVideoDimensions, kCMTimePositiveInfinity,
-    kCMTimeRangeInvalid,
 };
 use objc2_foundation::{NSObject, NSObjectProtocol};
 use riina_core::{Command, Playback, VideoParameters};
@@ -55,9 +54,7 @@ define_class!(
             &self,
             _controller: &AVPictureInPictureController,
         ) -> CMTimeRange {
-            let Ok(playback) = self.ivars().playback.lock() else {
-                return unsafe { kCMTimeRangeInvalid };
-            };
+            let playback = riina_core::sync::lock(&self.ivars().playback);
             let duration = playback
                 .duration
                 .filter(|value| value.is_finite() && *value >= 0.0);
@@ -240,9 +237,7 @@ impl MacPictureInPicture {
     }
 
     pub(crate) fn synchronize_playback(&mut self) {
-        let Ok(playback) = self.playback.lock() else {
-            return;
-        };
+        let playback = riina_core::sync::lock(&self.playback);
         let position = playback
             .position
             .filter(|value| value.is_finite() && *value >= 0.0)
@@ -254,8 +249,10 @@ impl MacPictureInPicture {
         } else {
             1.0
         };
-        if playback.completed_seeks != self.last_seek_generation {
-            self.last_seek_generation = playback.completed_seeks;
+        let completed_seeks = playback.completed_seeks;
+        drop(playback);
+        if completed_seeks != self.last_seek_generation {
+            self.last_seek_generation = completed_seeks;
             self.has_sample = false;
             if let Some(source) = self.frame_source.as_mut() {
                 source.reset_after_seek();
@@ -291,9 +288,7 @@ impl MacPictureInPicture {
         &mut self,
         video: &mut riina_mpv::video::VideoSurface,
     ) -> Result<(), String> {
-        let Ok(playback) = self.playback.lock() else {
-            return Ok(());
-        };
+        let playback = riina_core::sync::lock(&self.playback);
         let size = video_dimensions(&playback);
         let active = unsafe { self.controller.isPictureInPictureActive() };
         let is_paused = playback.paused || playback.buffering || playback.seeking;

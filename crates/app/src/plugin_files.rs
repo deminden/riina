@@ -119,6 +119,8 @@ impl PluginFiles {
     }
 
     pub(crate) fn set_player_context(&self, context: PluginPlayerFileContext) {
+        // File permissions depend on this context. Keep a poisoned scope
+        // unavailable rather than authorizing requests through a partial update.
         if let Ok(mut current) = self.player_context.lock() {
             *current = context;
         }

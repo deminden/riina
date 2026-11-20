@@ -188,9 +188,9 @@ pub(super) fn install(
                             app.set_status(text.into());
                         }
                         crate::plugin_host::PluginHostMessage::PlayerCommand(command) => {
-                            let result = player_commands.lock().ok().and_then(|sender| {
-                                sender.as_ref().map(|sender| sender.send(command))
-                            });
+                            let result = riina_core::sync::lock(&player_commands)
+                                .as_ref()
+                                .map(|sender| sender.send(command));
                             if let Some(Err(error)) = result {
                                 app.set_status(
                                     format!("Plugin player command failed: {error}").into(),
@@ -198,11 +198,9 @@ pub(super) fn install(
                             }
                         }
                         crate::plugin_host::PluginHostMessage::ObserveMpvProperty(property) => {
-                            let result = player_commands.lock().ok().and_then(|sender| {
-                                sender.as_ref().map(|sender| {
-                                    sender.send(Command::ObserveMpvProperty(property))
-                                })
-                            });
+                            let result = riina_core::sync::lock(&player_commands)
+                                .as_ref()
+                                .map(|sender| sender.send(Command::ObserveMpvProperty(property)));
                             if let Some(Err(error)) = result {
                                 app.set_status(
                                     format!("Could not observe mpv plugin property: {error}")

@@ -174,6 +174,7 @@ pub(super) fn run_entry_worker(
                 .push(module_context.entry.clone());
         }
         let evaluated = ctx.eval::<Value, _>(source.as_str()).map(|_| ());
+        // A poisoned ancestry stack cannot establish the base of a require.
         if let Some(module_context) = module_context.as_ref()
             && let Ok(mut current_files) = module_context.current_files.lock()
         {
@@ -235,6 +236,7 @@ pub(super) fn run_entry_worker(
                 "menu action",
             ),
             Some(RuntimeCommand::DeliverOverlayMessage(name, data)) => {
+                // An interrupted subscription update must not admit a message.
                 if !worker_overlay_state.lock().is_ok_and(|state| {
                     matches!(
                         state.receive_message(name.clone(), data.clone()),
@@ -249,6 +251,7 @@ pub(super) fn run_entry_worker(
                 )
             }
             Some(RuntimeCommand::DeliverSidebarMessage(name, data)) => {
+                // An interrupted subscription update must not admit a message.
                 if !worker_sidebar_state.lock().is_ok_and(|state| {
                     matches!(
                         state.receive_message(name.clone(), data.clone()),

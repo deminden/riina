@@ -79,9 +79,7 @@ pub(super) fn install_pause_on_minimize(
                     || app.window().is_minimized(),
                     |host| host.window().is_minimized(),
                 );
-            let Some(state) = playback.lock().ok().map(|state| state.clone()) else {
-                return;
-            };
+            let state = riina_core::sync::lock(&playback).clone();
             if now_minimized && !minimized && app.get_pause_when_minimized() && pause.pause(&state)
             {
                 app.invoke_set_paused(true);
@@ -206,20 +204,19 @@ fn dispatch_system_media_action(
                 && (player_window_was_focused || some_player_window_is_focused())
                 && !paused_by_inactive.is_pending()
             {
-                let state = latest_playback.lock().ok().map(|state| state.clone());
-                if let Some(state) = state
-                    && paused_by_inactive.pause(&state)
-                {
+                let state = riina_core::sync::lock(latest_playback).clone();
+                if paused_by_inactive.pause(&state) {
                     app.invoke_set_paused(true);
                 }
             }
         }
         Action::Active => *application_active = true,
         Action::Sleep if app.get_pause_when_goes_to_sleep() => {
-            if latest_playback
-                .lock()
-                .is_ok_and(|state| state.phase == Phase::Playing && !state.paused)
-            {
+            let should_pause = {
+                let state = riina_core::sync::lock(latest_playback);
+                state.phase == Phase::Playing && !state.paused
+            };
+            if should_pause {
                 app.invoke_set_paused(true);
             }
         }
@@ -286,11 +283,11 @@ pub(super) fn install_system_media(
                 controls_tick
                     .borrow_mut()
                     .synchronize(active, &profile, forward, backward);
-                let current = playback.lock().ok().map(|state| state.clone());
-                if active && let Some(current) = current.as_ref() {
+                if active {
+                    let current = riina_core::sync::lock(&playback).clone();
                     controls_tick
                         .borrow_mut()
-                        .publish_playback(current, app.get_thumbnail_preview_enabled());
+                        .publish_playback(&current, app.get_thumbnail_preview_enabled());
                 }
                 let actions = controls_tick.borrow().drain_actions().collect::<Vec<_>>();
                 for action in actions {
@@ -316,18 +313,15 @@ pub(super) fn install_system_media(
                         && some_player_window_is_focused()
                         && !paused_by_inactive.is_pending()
                     {
-                        let state = playback.lock().ok().map(|state| state.clone());
-                        if let Some(state) = state
-                            && paused_by_inactive.pause(&state)
-                        {
+                        let state = riina_core::sync::lock(&playback).clone();
+                        if paused_by_inactive.pause(&state) {
                             app.invoke_set_paused(true);
                         }
-                    } else if application_active
-                        && focused
-                        && let Some(state) = playback.lock().ok().map(|state| state.clone())
-                        && paused_by_inactive.resume(&state)
-                    {
-                        app.invoke_set_paused(false);
+                    } else if application_active && focused {
+                        let state = riina_core::sync::lock(&playback).clone();
+                        if paused_by_inactive.resume(&state) {
+                            app.invoke_set_paused(false);
+                        }
                     }
                 }
                 if !app.get_pause_when_inactive() {

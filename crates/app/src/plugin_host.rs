@@ -1012,9 +1012,8 @@ fn host_message(plugin_name: &str, event: HostEvent) -> PluginHostMessage {
 }
 
 fn record(messages: &Mutex<Vec<PluginHostMessage>>, message: PluginHostMessage) {
-    if let Ok(mut messages) = messages.lock()
-        && messages.len() < MAX_PENDING_MESSAGES
-    {
+    let mut messages = riina_core::sync::lock(messages);
+    if messages.len() < MAX_PENDING_MESSAGES {
         messages.push(message);
     }
 }

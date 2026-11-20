@@ -350,9 +350,8 @@ pub(super) fn install_playlist_metadata_refresh(
                 return;
             }
             observed.set(Some(state));
-            if let Ok(playback) = playback.lock() {
-                update_catalog(&app, &playback.clone());
-            }
+            let snapshot = riina_core::sync::lock(&playback).clone();
+            update_catalog(&app, &snapshot);
         },
     );
     timer

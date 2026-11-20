@@ -141,9 +141,7 @@ pub(crate) fn connect(
             .name("plugin-github-install".into())
             .spawn(move || {
                 let result = crate::plugin_github::stage_repository(&source, &plugins);
-                if let Ok(mut pending) = results.lock() {
-                    pending.insert(id, result);
-                }
+                riina_core::sync::lock(&results).insert(id, result);
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(window) = weak_result.upgrade() {
                         window.invoke_plugin_github_install_completed(id as i32);
@@ -168,10 +166,7 @@ pub(crate) fn connect(
     window.on_plugin_github_install_completed(move |id| {
         let Some(window) = weak.upgrade() else { return };
         let Ok(id) = u64::try_from(id) else { return };
-        let staged = results
-            .lock()
-            .ok()
-            .and_then(|mut pending| pending.remove(&id));
+        let staged = riina_core::sync::lock(&results).remove(&id);
         window.set_plugin_github_installing(false);
         let Some(staged) = staged else {
             window.set_plugin_update_status(
@@ -254,9 +249,7 @@ pub(crate) fn connect(
             );
             let plugins_to_check = entries.borrow().clone();
             let generation = generations.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
-            if let Ok(mut available) = available_updates_for_refresh.lock() {
-                available.clear();
-            }
+            riina_core::sync::lock(&available_updates_for_refresh).clear();
             window.set_plugin_update_status("Checking for plugin updates…".into());
             let weak_result = weak.clone();
             let generations_result = generations.clone();
@@ -268,9 +261,7 @@ pub(crate) fn connect(
                     if generations_result.load(Ordering::Relaxed) != generation {
                         return;
                     }
-                    if let Ok(mut available) = available_updates_result.lock() {
-                        *available = versions;
-                    }
+                    *riina_core::sync::lock(&available_updates_result) = versions;
                     let _ = slint::invoke_from_event_loop(move || {
                         if generations_result.load(Ordering::Relaxed) == generation
                             && let Some(window) = weak_result.upgrade()
@@ -329,10 +320,7 @@ pub(crate) fn connect(
         let Some(window) = weak.upgrade() else { return };
         let Ok(id) = u64::try_from(id) else { return };
         window.set_plugin_github_installing(false);
-        let staged = staged_updates_for_stage
-            .lock()
-            .ok()
-            .and_then(|mut pending| pending.remove(&id));
+        let staged = riina_core::sync::lock(&staged_updates_for_stage).remove(&id);
         let Some(staged) = staged else {
             window.set_plugin_update_status("Plugin update completed without a staged package.".into());
             return;
@@ -383,9 +371,7 @@ pub(crate) fn connect(
                     host.as_ref(),
                     should_activate,
                 );
-                if let Ok(mut pending) = results.lock() {
-                    pending.insert(id_for_result, result);
-                }
+                riina_core::sync::lock(&results).insert(id_for_result, result);
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(window) = weak_result.upgrade() {
                         window.invoke_plugin_update_completed(id_for_result as i32);
@@ -410,15 +396,10 @@ pub(crate) fn connect(
         let Some(window) = weak.upgrade() else { return };
         window.set_plugin_github_installing(false);
         let Ok(id) = u64::try_from(id) else { return };
-        let result = update_results
-            .lock()
-            .ok()
-            .and_then(|mut pending| pending.remove(&id));
+        let result = riina_core::sync::lock(&update_results).remove(&id);
         match result {
             Some(Ok(())) => {
-                if let Ok(mut available) = available_updates_for_completion.lock() {
-                    available.clear();
-                }
+                riina_core::sync::lock(&available_updates_for_completion).clear();
                 refresh(
                     &window,
                     &plugins,
@@ -546,10 +527,9 @@ pub(crate) fn connect(
         let Some(plugin) = entries.borrow().get(index).cloned() else {
             return;
         };
-        let latest = updates
-            .lock()
-            .ok()
-            .and_then(|versions| versions.get(&plugin.manifest.identifier).cloned());
+        let latest = riina_core::sync::lock(&updates)
+            .get(&plugin.manifest.identifier)
+            .cloned();
         if let Some(latest) = latest {
             if let Some(window) = weak.upgrade()
                 && window.get_plugin_github_installing()
@@ -594,9 +574,7 @@ pub(crate) fn connect(
                             Ok(staged)
                         })
                         .map(|staged| (staged, plugin_for_update));
-                    if let Ok(mut pending) = staged.lock() {
-                        pending.insert(id, result);
-                    }
+                    riina_core::sync::lock(&staged).insert(id, result);
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(window) = weak_result.upgrade() {
                             window.invoke_plugin_update_staged(id as i32);

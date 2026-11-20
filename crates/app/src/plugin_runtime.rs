@@ -350,6 +350,7 @@ impl PluginRuntimeSession {
     }
 
     pub(crate) fn is_subscribed_to_player_event(&self, name: &str) -> bool {
+        // Delivery requires a valid subscription even after a failed update.
         self.player_event_subscriptions
             .lock()
             .is_ok_and(|subscriptions| subscriptions.contains(name))

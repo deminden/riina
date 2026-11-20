@@ -20,9 +20,8 @@ static WATCHER: OnceLock<Mutex<Option<JoinHandle<()>>>> = OnceLock::new();
 
 pub(crate) fn system_reduce_motion_enabled() -> bool {
     let watcher = WATCHER.get_or_init(|| Mutex::new(None));
-    if let Ok(mut watcher) = watcher.lock()
-        && watcher.is_none()
-    {
+    let mut watcher = riina_core::sync::lock(watcher);
+    if watcher.is_none() {
         *watcher = thread::Builder::new()
             .name("riina-xdg-accessibility".into())
             .spawn(watch_settings)

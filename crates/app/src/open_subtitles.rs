@@ -293,10 +293,11 @@ pub(crate) fn connect_player(
         let Some(app) = app_weak.upgrade() else {
             return;
         };
-        let current = playback_callback
-            .lock()
-            .ok()
-            .and_then(|state| state.playlist.iter().find(|entry| entry.current).cloned());
+        let current = riina_core::sync::lock(&playback_callback)
+            .playlist
+            .iter()
+            .find(|entry| entry.current)
+            .cloned();
         let Some(current) = current else {
             app.set_status("Open media before searching for subtitles".into());
             return;
@@ -357,9 +358,7 @@ pub(crate) fn connect_player(
                 window.set_status_text(format!("Searching {}…", provider_name(provider)).into());
                 window.set_selected_count(0);
                 selection.borrow_mut().clear();
-                if let Ok(mut rows) = rows.lock() {
-                    rows.clear();
-                }
+                riina_core::sync::lock(&rows).clear();
                 window.set_results(ModelRc::new(VecModel::from(
                     Vec::<crate::OnlineSubtitleRow>::new(),
                 )));
@@ -383,9 +382,7 @@ pub(crate) fn connect_player(
                             Ok(found) => {
                                 let count = found.len();
                                 let model = ui_rows(&found, &ResultSelection::default());
-                                if let Ok(mut rows) = rows.lock() {
-                                    *rows = found;
-                                }
+                                *riina_core::sync::lock(&rows) = found;
                                 window.set_selected_count(0);
                                 window.set_results(ModelRc::new(VecModel::from(model)));
                                 window.set_status_text(if count == 0 {
@@ -451,12 +448,13 @@ pub(crate) fn connect_player(
                     return;
                 };
                 let selected = selection.borrow().indices();
-                let selected_rows = rows.lock().ok().map(|rows| {
+                let selected_rows = {
+                    let rows = riina_core::sync::lock(&rows);
                     selected
                         .iter()
                         .filter_map(|index| rows.get(*index).cloned())
                         .collect::<Vec<_>>()
-                }).unwrap_or_default();
+                };
                 if selected_rows.is_empty() {
                     return;
                 }
@@ -622,9 +620,7 @@ pub(crate) fn connect_player(
                 *pending_search.borrow_mut() = None;
                 return;
             }
-            let Ok(state) = auto_playback.lock().map(|state| state.clone()) else {
-                return;
-            };
+            let state = riina_core::sync::lock(&auto_playback).clone();
             let duration = state.duration.unwrap_or_default();
             if !matches!(
                 state.phase,

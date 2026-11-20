@@ -36,7 +36,7 @@ use crate::{
     preference_load::LoadedPreferences,
     ui_dialogs::{self, Purpose},
 };
-use riina_core::{Command, Phase, Playback, Preferences, TrackKind, time_label};
+use riina_core::{Command, Phase, Playback, Preferences, TrackKind, sync::lock, time_label};
 use riina_mpv::Player;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
@@ -515,9 +515,7 @@ pub(crate) fn configure_player(
     let audio_equalizer = Arc::new(std::sync::Mutex::new(prefs.audio_equalizer.clone()));
     let saved_video_filters = Arc::new(std::sync::Mutex::new(prefs.video_filters.clone()));
     let saved_audio_filters = Arc::new(std::sync::Mutex::new(prefs.audio_filters.clone()));
-    if let Ok(settings) = audio_equalizer.lock() {
-        set_audio_equalizer_controls(app, &settings);
-    }
+    set_audio_equalizer_controls(app, &lock(&audio_equalizer));
     let playback_history_path = crate::playback_history_store::path_for_preferences(&prefs_path);
     let mut playback_history_write_path = Some(playback_history_path.clone());
     let playback_history_entries = match crate::playback_history_store::load(
@@ -908,9 +906,7 @@ pub(crate) fn configure_player(
     let notify = move |state: Playback| {
         // This closure remains owned by the engine until native destruction.
         let _retain_until_native_teardown = &worker_scratch;
-        if let Ok(mut latest_playback) = observed_playback.lock() {
-            *latest_playback = state.clone();
-        }
+        *lock(&observed_playback) = state.clone();
         let (plugin_context, history_error) = crate::plugin_snapshot::observe_playback(
             &state,
             &notify_plugin_recent_media,
@@ -926,14 +922,16 @@ pub(crate) fn configure_player(
                 }
             });
         }
-        if let Ok(mut last_context) = last_notified_plugin_file_context.lock()
-            && *last_context != plugin_context
-            && let Some(host) = &notify_plugin_host
-            && host
-                .update_player_file_context(plugin_context.clone())
-                .is_ok()
         {
-            *last_context = plugin_context;
+            let mut last_context = lock(&last_notified_plugin_file_context);
+            if *last_context != plugin_context
+                && let Some(host) = &notify_plugin_host
+                && host
+                    .update_player_file_context(plugin_context.clone())
+                    .is_ok()
+            {
+                *last_context = plugin_context;
+            }
         }
         #[cfg(target_os = "macos")]
         notify_picture_in_picture_state_dirty.store(true, Ordering::Release);
@@ -966,20 +964,15 @@ pub(crate) fn configure_player(
                         state.phase,
                         Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
                     );
-                let enter_fullscreen = opening_fullscreen.lock().is_ok_and(|mut opening| {
-                    opening.observe(
-                        &state,
-                        app.get_fullscreen_when_open(),
-                        app.get_fullscreen(),
-                        false,
-                    )
-                });
+                let enter_fullscreen = lock(&opening_fullscreen).observe(
+                    &state,
+                    app.get_fullscreen_when_open(),
+                    app.get_fullscreen(),
+                    false,
+                );
                 let clipboard_error = crate::screenshot_output::copy(&app, &captures);
                 crop_editor.observe(&app, &state);
-                let audio_device_sender = audio_device_sender
-                    .lock()
-                    .ok()
-                    .and_then(|sender| sender.clone());
+                let audio_device_sender = lock(&audio_device_sender).clone();
                 crate::automatic_music_mode::observe(&app, &state, &music_mode_state);
                 let resize_for_media = update_ui(
                     &app,
@@ -1068,9 +1061,7 @@ pub(crate) fn configure_player(
         latest_playback.clone(),
         music_mode_state.clone(),
     );
-    if let Ok(mut sender) = plugin_command_sender.lock() {
-        *sender = Some(player.command_sender());
-    }
+    *lock(&plugin_command_sender) = Some(player.command_sender());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
     let (online_subtitles_window, online_subtitles_timer) = crate::open_subtitles::connect_player(
         app,
@@ -1177,9 +1168,7 @@ pub(crate) fn configure_player(
             let Ok(settings) = crate::thumbnail_preferences::current_player(&app) else {
                 return;
             };
-            let Ok(state) = thumbnail_playback.lock().map(|state| state.clone()) else {
-                return;
-            };
+            let state = lock(&thumbnail_playback).clone();
             let ready =
                 thumbnail_tick
                     .borrow_mut()
@@ -1212,9 +1201,7 @@ pub(crate) fn configure_player(
             slint::TimerMode::Repeated,
             Duration::from_millis(80),
             move || {
-                let Ok(state) = playback.lock().map(|state| state.clone()) else {
-                    return;
-                };
+                let state = lock(&playback).clone();
                 let navigation = {
                     let mut pending = timer_pending_navigation.borrow_mut();
                     pending
@@ -1445,8 +1432,8 @@ pub(crate) fn configure_player(
         }
     });
     app.on_toggle_music_mode(move || {
-        if let (Some(app), Ok(mut mode)) = (weak.upgrade(), manual_music_mode.lock()) {
-            let active = mode.toggle_manually();
+        if let Some(app) = weak.upgrade() {
+            let active = lock(&manual_music_mode).toggle_manually();
             if active && app.get_fullscreen() {
                 app.invoke_toggle_fullscreen();
             }
@@ -1455,9 +1442,7 @@ pub(crate) fn configure_player(
     });
     let automatic_music_mode = music_mode_state.clone();
     app.on_auto_switch_music_mode_changed(move |enabled| {
-        if let Ok(mut mode) = automatic_music_mode.lock() {
-            mode.set_auto_switch(enabled);
-        }
+        lock(&automatic_music_mode).set_auto_switch(enabled);
     });
     let clear_history_plugin_host = plugin_host_handle.clone();
     let clear_history_latest_playback = latest_playback.clone();
@@ -1778,12 +1763,10 @@ pub(crate) fn configure_player(
             return;
         };
         let device = device.to_string();
-        let available = audio_device_state.lock().ok().is_some_and(|state| {
-            state
-                .audio_devices
-                .iter()
-                .any(|available| available.name == device)
-        });
+        let available = lock(&audio_device_state)
+            .audio_devices
+            .iter()
+            .any(|available| available.name == device);
         if !available {
             app.set_status("That audio device is no longer available".into());
             return;
@@ -1856,7 +1839,7 @@ pub(crate) fn configure_player(
             token
                 .parse::<usize>()
                 .ok()
-                .and_then(|index| selection_state.lock().ok()?.chapters.get(index).cloned())
+                .and_then(|index| lock(&selection_state).chapters.get(index).cloned())
                 .and_then(|chapter| chapter.title)
         } else {
             None

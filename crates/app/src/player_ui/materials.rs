@@ -192,9 +192,7 @@ pub(super) fn install_native_video_material_sampler(
         move || {
             let Some(app) = weak.upgrade() else { return };
             let materials_enabled = app.get_system_materials_enabled();
-            let Ok(state) = latest.lock().map(|state| state.clone()) else {
-                return;
-            };
+            let state = riina_core::sync::lock(&latest).clone();
             let completed_transform = transform_results.try_recv().ok();
             let material_visible = materials_enabled
                 && app.get_native_video()
