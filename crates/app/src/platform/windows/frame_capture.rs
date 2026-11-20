@@ -366,7 +366,7 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
                         readback_sample(HWND(callback_hwnd as *mut _), &source, &mut readback)
                     });
             if std::env::var_os("RIINA_TRACE_MATERIAL").is_some() {
-                eprintln!(
+                crate::diagnostics::warn!(
                     "Windows material WGC readback_ms={}",
                     readback_started.elapsed().as_millis(),
                 );
@@ -408,7 +408,9 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
                         .failed_readback_logged
                         .swap(true, Ordering::AcqRel)
                     {
-                        eprintln!("Windows video material capture fell back to mpv: {error}");
+                        crate::diagnostics::warn!(
+                            "Windows video material capture fell back to mpv: {error}"
+                        );
                     }
                 }
             }

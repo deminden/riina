@@ -117,7 +117,7 @@ impl Runner {
                 app.set_controls_visible(true);
                 app.invoke_activity();
                 app.window().request_redraw();
-                eprintln!("riina-gui-smoke: fullscreen controller revealed");
+                crate::diagnostics::warn!("riina-gui-smoke: fullscreen controller revealed");
             }
             5 => {
                 if !app.get_controls_visible() || !app.get_controls_rendered() {
@@ -207,7 +207,7 @@ impl Runner {
 pub(super) fn start(app: &PlayerWindow, host: &NativeVideoHost) -> Option<SmokeRun> {
     let output = PathBuf::from(std::env::var_os("RIINA_GUI_SMOKE_REPORT")?);
     if !output.is_absolute() {
-        eprintln!("GUI smoke report must be absolute");
+        crate::diagnostics::warn!("GUI smoke report must be absolute");
         let _ = slint::quit_event_loop();
         return None;
     }
@@ -238,7 +238,7 @@ pub(super) fn start(app: &PlayerWindow, host: &NativeVideoHost) -> Option<SmokeR
             });
             if let Err(error) = std::fs::write(&output, serde_json::to_vec_pretty(&report).unwrap())
             {
-                eprintln!("Could not save GUI smoke evidence: {error}");
+                crate::diagnostics::warn!("Could not save GUI smoke evidence: {error}");
             }
             // The runner checks process exit separately: a stalled decoder shutdown
             // must fail even when all playback and controls checks completed.
@@ -250,8 +250,9 @@ pub(super) fn start(app: &PlayerWindow, host: &NativeVideoHost) -> Option<SmokeR
 
 fn check_preferences() -> Result<(), String> {
     let path = crate::platform::preferences_path().map_err(|e| e.to_string())?;
-    let saved =
-        riina_core::Preferences::parse(&std::fs::read_to_string(path).map_err(|e| e.to_string())?)?;
+    let saved = crate::preference_load::read_valid(&path)
+        .map_err(|error| error.to_string())?
+        .ok_or("Preferences were not saved")?;
     if saved.video_threads != 7
         || saved.load_icc_profile
         || saved.audio.audio_threads != 3

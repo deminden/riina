@@ -19,13 +19,33 @@ use std::{
     path::Path,
     rc::Rc,
     sync::{
-        Arc,
+        Arc, OnceLock,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, SyncSender},
     },
     thread::JoinHandle,
     time::Instant,
 };
+
+static DIAGNOSTIC_SINK: OnceLock<fn(&str)> = OnceLock::new();
+
+pub fn set_diagnostic_sink(sink: fn(&str)) {
+    let _ = DIAGNOSTIC_SINK.set(sink);
+}
+
+fn diag(message: &str) {
+    if let Some(sink) = DIAGNOSTIC_SINK.get() {
+        sink(message);
+    } else {
+        // Native test binaries and library callers can run without an app log.
+        use std::io::Write;
+        let _ = writeln!(std::io::stderr(), "{message}");
+    }
+}
+
+macro_rules! diagnostic {
+    ($($args:tt)*) => { diag(&format!($($args)*)) };
+}
 
 enum Message {
     Intent(Command),
@@ -65,7 +85,7 @@ impl Drop for Owner {
             if thread.join().is_ok() {
                 trace_shutdown("event worker joined");
             } else {
-                eprintln!("The native player event worker panicked during shutdown");
+                diagnostic!("The native player event worker panicked during shutdown");
             }
         }
     }
@@ -73,7 +93,7 @@ impl Drop for Owner {
 
 fn trace_shutdown(stage: &str) {
     if std::env::var_os("RIINA_TEST_TRACE_SHUTDOWN").is_some() {
-        eprintln!("mpv shutdown: {stage}");
+        diagnostic!("mpv shutdown: {stage}");
     }
 }
 
@@ -414,7 +434,7 @@ impl Player {
                                     }
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
                                         if matches!(command, Command::CaptureMaterialFrame) {
-                                            eprintln!("Could not request a Windows video material frame: {error}");
+                                            diagnostic!("Could not request a Windows video material frame: {error}");
                                         } else {
                                             state.error = Some(error);
                                             resume_on_load = false;
@@ -517,7 +537,7 @@ impl Player {
                                                 .check(event.error)
                                                 .err()
                                                 .unwrap_or_else(|| format!("mpv error {}", event.error));
-                                            eprintln!("Could not capture the Windows video material frame: {reason}");
+                                            diagnostic!("Could not capture the Windows video material frame: {reason}");
                                         } else if !frame_capture
                                             && !transition_capture
                                             && !incoming_transition_capture
@@ -530,9 +550,9 @@ impl Player {
                                     } else if frame_capture || transition_capture || incoming_transition_capture || material_capture {
                                         if event.data.is_null() {
                                             if material_capture {
-                                                eprintln!("mpv returned no result data for the Windows video material frame");
+                                                diagnostic!("mpv returned no result data for the Windows video material frame");
                                             } else {
-                                                eprintln!("mpv returned no frame for an asynchronous frame capture");
+                                                diagnostic!("mpv returned no frame for an asynchronous frame capture");
                                             }
                                         } else {
                                             // SAFETY: COMMAND_REPLY keeps this raw frame alive only until
@@ -548,7 +568,7 @@ impl Player {
                                                     let frame = match frame {
                                                         Ok(frame) => Arc::new(frame),
                                                         Err(error) => {
-                                                            eprintln!("Could not reduce an asynchronous material frame: {error}");
+                                                            diagnostic!("Could not reduce an asynchronous material frame: {error}");
                                                             continue;
                                                         }
                                                     };
@@ -589,9 +609,9 @@ impl Player {
                                                     }
                                                 }
                                                 Err(error) if material_capture => {
-                                                    eprintln!("Could not decode the Windows video material frame: {error}");
+                                                    diagnostic!("Could not decode the Windows video material frame: {error}");
                                                 }
-                                                Err(error) => eprintln!("Could not copy an asynchronous frame capture: {error}"),
+                                                Err(error) => diagnostic!("Could not copy an asynchronous frame capture: {error}"),
                                             }
                                         }
                                     } else if let Some(path) = screenshot {
@@ -681,7 +701,7 @@ impl Player {
                                             state.observed_mpv_properties.insert(name, value);
                                         }
                                         Err(error) => {
-                                            eprintln!(
+                                            diagnostic!(
                                                 "Could not copy observed mpv plugin property: {error}"
                                             );
                                         }

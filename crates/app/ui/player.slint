@@ -1593,6 +1593,7 @@ export component PlayerWindow inherits Window {
     in-out property <bool> screenshot-include-subtitles: true;
     in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
+    in property <string> startup-status;
     in property <float> position: 0;
     in property <float> duration: 0;
     in property <float> ab-loop-a: 0;
@@ -3866,8 +3867,9 @@ export component PlayerWindow inherits Window {
                 vertical-alignment: center; overflow: elide;
             }
         }
-        if status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
-            text: status; color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
+        if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
+            text: startup-status == "" ? status : startup-status;
+            color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
         if music-mode && music-mode-show-playlist : Rectangle {
             x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
             background: root.dark-theme ? #17171b : #f0f0f2;

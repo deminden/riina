@@ -281,9 +281,9 @@ pub(crate) fn connect(
             window.set_selected_pane(target_pane);
             app.set_preferences_target_pane(-1);
         }
-        let stored_audio = std::fs::read_to_string(&path)
+        let stored_audio = crate::preference_load::read_valid(&path)
             .ok()
-            .and_then(|text| riina_core::Preferences::parse(&text).ok())
+            .flatten()
             .map(|preferences| preferences.audio)
             .unwrap_or_else(|| baseline.audio.clone());
         let available_devices = latest_playback

@@ -6,28 +6,49 @@ use std::{
 };
 
 pub(crate) fn save(path: &Path, contents: &str) -> std::io::Result<()> {
+    let pending = stage(path, contents.as_bytes(), false)?;
+    replace(&pending.0, path)?;
+    sync_parent(path)
+}
+
+pub(crate) fn save_new(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let pending = stage(path, contents, true)?;
+    // Publish the intact, synced copy without replacing any existing backup.
+    std::fs::hard_link(&pending.0, path)?;
+    sync_parent(path)
+}
+
+fn stage(path: &Path, contents: &[u8], private: bool) -> std::io::Result<PendingReplacement> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    if private {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    #[cfg(not(unix))]
+    let _ = private;
     let (pending, mut file) = loop {
         let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
         let candidate = path.with_extension(format!("{}.{sequence}.tmp", std::process::id()));
         // Exclusive creation defines cleanup ownership. Concurrent sessions and
         // leftovers from an earlier process must never be truncated or removed.
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&candidate)
-        {
+        match options.open(&candidate) {
             Ok(file) => break (PendingReplacement(candidate), file),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(error),
         }
     };
-    file.write_all(contents.as_bytes())?;
+    file.write_all(contents)?;
     file.sync_all()?;
     drop(file);
-    replace(&pending.0, path)?;
+    Ok(pending)
+}
+
+fn sync_parent(_path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
-    if let Some(parent) = path.parent() {
+    if let Some(parent) = _path.parent() {
         std::fs::File::open(parent)?.sync_all()?;
     }
     Ok(())

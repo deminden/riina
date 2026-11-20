@@ -174,13 +174,9 @@ fn open_in_separate_players(
     }
     let preferences_path =
         crate::platform::preferences_path().map_err(|error| error.to_string())?;
-    let preferences = match std::fs::read_to_string(preferences_path) {
-        Ok(text) => riina_core::Preferences::parse(&text).map_err(|error| error.to_string())?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            riina_core::Preferences::default()
-        }
-        Err(error) => return Err(error.to_string()),
-    };
+    let preferences = crate::preference_load::read_valid(&preferences_path)
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
     if !preferences.allow_multiple_windows {
         return Ok(false);
     }

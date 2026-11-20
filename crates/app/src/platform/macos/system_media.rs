@@ -403,7 +403,7 @@ impl SystemMediaControls {
                 snapshot.generation,
             ) {
                 Ok(task) => self.artwork_task = Some(task),
-                Err(error) => eprintln!("{error}"),
+                Err(error) => crate::diagnostics::warn!("{error}"),
             }
         }
         let artwork_finished = self
@@ -419,7 +419,7 @@ impl SystemMediaControls {
                     true
                 }
                 Err(error) if error != "Now Playing artwork extraction was cancelled" => {
-                    eprintln!("Could not extract Now Playing artwork: {error}");
+                    crate::diagnostics::warn!("Could not extract Now Playing artwork: {error}");
                     false
                 }
                 Err(_) => false,

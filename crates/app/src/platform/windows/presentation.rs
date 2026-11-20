@@ -51,7 +51,7 @@ impl NativePresentation {
         let material_capture = match FrameCapture::start(HWND(hwnd as *mut _)) {
             Ok(capture) => Some(capture),
             Err(error) => {
-                eprintln!(
+                crate::diagnostics::warn!(
                     "Windows video material capture unavailable; using mpv sampling: {error}"
                 );
                 None

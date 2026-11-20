@@ -100,7 +100,7 @@ pub(super) fn install(
                                     crate::video_blur::VideoBlurSurface::new(&get_proc_address)
                                 } {
                                     Ok(blur) => blur_surface = Some(blur),
-                                    Err(error) => eprintln!("Could not initialize video blur: {error}"),
+                                    Err(error) => crate::diagnostics::warn!("Could not initialize video blur: {error}"),
                                 }
                                 #[cfg(target_os = "macos")]
                                 if let Some(manager) =
@@ -154,7 +154,7 @@ pub(super) fn install(
                                 if let Some(bytes) = profile.as_deref() {
                                     // SAFETY: this callback runs on Slint's current GL render context.
                                     if let Err(error) = unsafe { video.set_icc_profile(bytes) } {
-                                        eprintln!("Could not install the macOS display ICC profile: {error}");
+                                        crate::diagnostics::warn!("Could not install the macOS display ICC profile: {error}");
                                         profile = None;
                                     }
                                 }
@@ -173,7 +173,7 @@ pub(super) fn install(
                                 if let Err(error) = render_player
                                     .send(Command::SetIccProfileAuto(should_use_icc))
                                 {
-                                    eprintln!("Could not update macOS display ICC processing: {error}");
+                                    crate::diagnostics::warn!("Could not update macOS display ICC processing: {error}");
                                 } else {
                                     icc_profile_auto_active = Some(should_use_icc);
                                 }
@@ -220,7 +220,7 @@ pub(super) fn install(
                                                 };
                                                 set_video_material_sample(&app, image, true);
                                             }
-                                            Err(error) => eprintln!("Could not render video blur: {error}"),
+                                            Err(error) => crate::diagnostics::warn!("Could not render video blur: {error}"),
                                         }
                                     }
                                 } else {

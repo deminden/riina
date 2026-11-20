@@ -395,7 +395,7 @@ fn run_preview_task(
                 &complete,
             )
         {
-            eprintln!("Could not store thumbnail cache entry: {error}");
+            crate::diagnostics::warn!("Could not store thumbnail cache entry: {error}");
         }
     }
     let _ = send_preview_event(events, PreviewEvent::Finished(outcome), cancel);

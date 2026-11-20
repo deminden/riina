@@ -172,7 +172,7 @@ pub(super) fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
                             .ok()
                             .map(|_| (rect.left, rect.top, rect.right, rect.bottom))
                     };
-                    eprintln!(
+                    crate::diagnostics::warn!(
                         "Native video alignment HWNDs: host={host_hwnd:?} bounds={:?}; controls={overlay_hwnd:?} bounds={:?}",
                         host_hwnd.and_then(bounds),
                         overlay_hwnd.and_then(bounds),
@@ -210,7 +210,7 @@ pub(super) fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
                     }
                 });
                 if should_report {
-                    eprintln!("Could not align native video controls atomically: {error}");
+                    crate::diagnostics::warn!("Could not align native video controls atomically: {error}");
                 }
             } else {
                 aligned = true;

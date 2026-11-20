@@ -80,7 +80,7 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
             && let Err(error) =
                 super::super::bring_to_front::bring_all_riina_windows_to_front(host.window())
         {
-            eprintln!("Could not bring all Riina windows forward: {error}");
+            crate::diagnostics::warn!("Could not bring all Riina windows forward: {error}");
         }
     });
     forward!(host, app, on_close_player, || {

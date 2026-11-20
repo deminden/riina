@@ -136,9 +136,7 @@ impl UiSession {
         prefs.record_playback_history = self.record_playback_history.load(Ordering::Acquire);
         // The Settings window persists audio engine preferences immediately;
         // preserve those newer values when the player writes its final state.
-        if let Ok(text) = std::fs::read_to_string(&self.prefs_path)
-            && let Ok(saved) = Preferences::parse(&text)
-        {
+        if let Ok(Some(saved)) = crate::preference_load::read_valid(&self.prefs_path) {
             prefs.audio = saved.audio;
             prefs.advanced = saved.advanced;
             prefs.allow_multiple_windows = saved.allow_multiple_windows;

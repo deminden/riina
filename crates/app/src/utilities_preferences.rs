@@ -221,9 +221,7 @@ pub(crate) fn clear_playback_history(preferences_path: &Path) -> Result<usize, S
 }
 
 pub(crate) fn preserve_saved_history(preferences: &mut riina_core::Preferences, path: &Path) {
-    if let Ok(text) = fs::read_to_string(path)
-        && let Ok(saved) = riina_core::Preferences::parse(&text)
-    {
+    if let Ok(Some(saved)) = crate::preference_load::read_valid(path) {
         preferences.recent_media = saved.recent_media;
         preferences.playback_history = saved.playback_history;
     }

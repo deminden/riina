@@ -106,7 +106,7 @@ fn start_material_transform_worker() -> (
                     let output_offset =
                         ((output.height / 2 * output.width + output.width / 2) * 4) as usize;
                     if let Some(rgb) = output.rgba.get(output_offset..output_offset + 3) {
-                        eprintln!(
+                        crate::diagnostics::warn!(
                             "Windows material center source={} input={:02X}{:02X}{:02X} blurred={:02X}{:02X}{:02X}",
                             request.key.source.label(),
                             input_center[0], input_center[1], input_center[2],
@@ -124,7 +124,7 @@ fn start_material_transform_worker() -> (
             }
         });
     if let Err(error) = worker {
-        eprintln!("Could not start the Windows material transform worker: {error}");
+        crate::diagnostics::warn!("Could not start the Windows material transform worker: {error}");
     }
     (request_sender, result_receiver)
 }
@@ -263,7 +263,7 @@ pub(super) fn install_native_video_material_sampler(
                             timer_displayed_at.set(result.captured_at);
                             timer_displayed_position.set(state.position);
                             if trace_material_samples {
-                                eprintln!(
+                                crate::diagnostics::warn!(
                                     "Windows material sample source={} generation={} revision={} age_ms={} transform_ms={}",
                                     key.source.label(),
                                     key.generation,
@@ -276,7 +276,7 @@ pub(super) fn install_native_video_material_sampler(
                             }
                         }
                         Err(error) => {
-                            eprintln!("Could not prepare the Windows video material frame: {error}");
+                            crate::diagnostics::warn!("Could not prepare the Windows video material frame: {error}");
                         }
                     }
                 }
@@ -386,7 +386,7 @@ pub(super) fn install_native_video_material_sampler(
                 // turn this visual-only sampler into a 10 Hz log/command loop.
                 timer_request.set(Some((state.generation, state.material_frame_revision, now)));
                 if let Err(error) = result {
-                    eprintln!("Could not request a Windows video material sample: {error}");
+                    crate::diagnostics::warn!("Could not request a Windows video material sample: {error}");
                 }
             }
         },

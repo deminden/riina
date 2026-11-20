@@ -147,13 +147,9 @@ fn open_player(
     }
     let preferences_path =
         crate::platform::preferences_path().map_err(|error| error.to_string())?;
-    let preferences = match std::fs::read_to_string(preferences_path) {
-        Ok(text) => riina_core::Preferences::parse(&text).map_err(|error| error.to_string())?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            riina_core::Preferences::default()
-        }
-        Err(error) => return Err(error.to_string()),
-    };
+    let loaded =
+        crate::preference_load::load(&preferences_path).map_err(|error| error.to_string())?;
+    let preferences = &loaded.preferences;
     let grouped_request = crate::media_open::grouped_open_request(
         media.len(),
         preferences.group_simultaneous_opens_in_playlist,
@@ -195,8 +191,9 @@ fn open_player(
     }
     let app = PlayerWindow::new().map_err(|error| error.to_string())?;
     app.set_native_video(false);
-    let session = crate::player_ui::configure_player(&app, None, selected, None, resume_position)
-        .map_err(|error| error.to_string())?;
+    let session =
+        crate::player_ui::configure_player(&app, None, selected, None, resume_position, loaded)
+            .map_err(|error| error.to_string())?;
     let manager = PlayerManager {
         state: state.clone(),
     };
@@ -260,7 +257,7 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
         let players = std::mem::take(&mut state.borrow_mut().players);
         for player in players {
             if let Err(error) = player.session.save(&player.app) {
-                eprintln!("Could not save player state before quitting: {error}");
+                crate::diagnostics::warn!("Could not save player state before quitting: {error}");
             }
             if let Some(welcome) = &player.welcome {
                 let _ = welcome.hide();
@@ -298,7 +295,7 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
         if quit_when_empty {
             let _ = slint::quit_event_loop();
         } else if !from_welcome && let Err(error) = show_welcome(state) {
-            eprintln!("Could not reopen the welcome window: {error}");
+            crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
             let _ = slint::quit_event_loop();
         }
     }
@@ -309,7 +306,9 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     app.set_native_video(false);
     let welcome = WelcomeWindow::new()?;
     crate::appearance_preferences::install_system_typography(&welcome);
-    let session = crate::player_ui::configure_player(&app, None, Vec::new(), Some(&welcome), None)?;
+    let loaded = crate::preference_load::load(&crate::platform::preferences_path()?)?;
+    let session =
+        crate::player_ui::configure_player(&app, None, Vec::new(), Some(&welcome), None, loaded)?;
     let manager = PlayerManager {
         state: state.clone(),
     };

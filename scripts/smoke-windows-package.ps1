@@ -32,6 +32,17 @@ function Capture-SmokeDesktop([string]$Stage) {
     if (!$capture.HasNonBlackProbe -or $capture.Width -lt 1 -or $capture.Height -lt 1) { throw "Invalid full-desktop capture at $Stage" }
     Write-Output $capture
 }
+function Test-ControllerRevealTrace {
+    # Current builds write the marker to the profile log. Older saved
+    # candidates report it through stderr.
+    foreach ($trace in @((Join-Path $profile 'riina/riina.log'), (Join-Path $root 'stderr.log'))) {
+        if ((Get-Content -LiteralPath $trace -Raw -ErrorAction SilentlyContinue) -match
+            'riina-gui-smoke: fullscreen controller revealed') {
+            return $true
+        }
+    }
+    return $false
+}
 try {
     if (Test-Path -LiteralPath $ReportPath) { throw 'Refusing to use a stale smoke report; select a new report path.' }
     $env:LOCALAPPDATA = $profile
@@ -43,8 +54,7 @@ try {
     $captured = $false
     while (!$process.WaitForExit(200)) {
         if ($clock.Elapsed.TotalSeconds -gt 60) { throw 'Packaged application did not complete playback/fullscreen/shutdown smoke within 60 seconds.' }
-        if ($CaptureDesktop -and !$captured -and (Test-Path -LiteralPath (Join-Path $root 'stderr.log')) -and
-            (Get-Content -LiteralPath (Join-Path $root 'stderr.log') -Raw) -match 'riina-gui-smoke: fullscreen controller revealed') {
+        if ($CaptureDesktop -and !$captured -and (Test-ControllerRevealTrace)) {
             Capture-SmokeDesktop 'fullscreen'
             $captured = $true
         }

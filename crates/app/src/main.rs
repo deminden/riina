@@ -13,6 +13,7 @@ mod codec_preferences;
 mod control_preferences;
 mod crop_editor;
 mod debug_dump;
+mod diagnostics;
 mod file_actions;
 mod file_selection;
 mod file_types;
@@ -55,6 +56,7 @@ mod plugin_packages;
 mod plugin_preferences;
 pub mod plugin_runtime;
 mod plugin_snapshot;
+mod preference_load;
 mod preference_store;
 mod preferences_window;
 mod screenshot_osd;
@@ -97,10 +99,32 @@ struct StartupArguments {
     owner_center: Option<(i32, i32)>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::process::ExitCode {
+    diagnostics::install_panic_hook();
+    riina_mpv::set_diagnostic_sink(|message| {
+        diagnostics::log(diagnostics::Level::Info, "mpv", message);
+    });
+    match run() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            diagnostics::error!("Could not start or run Riina: {error}");
+            platform::show_fatal_error("Riina could not continue", &error.to_string());
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let preferences_path = platform::preferences_path()?;
+    if let Some(profile) = preferences_path.parent()
+        && let Err(error) = diagnostics::init(profile)
+    {
+        diagnostics::warn!("Could not open the profile log: {error}");
+    }
     platform::initialize_recent_documents();
-    prepare_online_video_path()?;
-    let action_after_launch = player_ui::action_after_launch()?;
+    let loaded = preference_load::load(&preferences_path)?;
+    prepare_online_video_path(&loaded.preferences)?;
+    let action_after_launch = loaded.preferences.action_after_launch;
     let startup = take_startup_arguments(std::env::args_os().skip(1))?;
     let (_shared_gl, _native_video, media) = startup_arguments(startup.media.into_iter());
     let resume_position = startup.resume_position;
@@ -110,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
     if !_shared_gl {
-        return platform::native_window::run(media, resume_position, owner_center);
+        return platform::native_window::run(media, resume_position, owner_center, loaded);
     }
     #[cfg(not(target_os = "windows"))]
     if _native_video {
@@ -133,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = {
         use slint::winit_030::winit::platform::macos::WindowAttributesExtMacOS;
 
-        let accepts_first_mouse = player_ui::accepts_first_mouse_at_launch()?;
+        let accepts_first_mouse = loaded.preferences.controls.accepts_first_mouse;
         backend.with_winit_window_attributes_hook(move |attributes| {
             attributes.with_accepts_first_mouse(accepts_first_mouse)
         })
@@ -152,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(welcome) = welcome.as_ref() {
         crate::appearance_preferences::install_system_typography(welcome);
     }
-    let session = configure_player(&app, None, media, welcome.as_ref(), resume_position)?;
+    let session = configure_player(&app, None, media, welcome.as_ref(), resume_position, loaded)?;
     player_manager.attach(
         &app,
         welcome.as_ref().map(|window| window.clone_strong()),
@@ -234,15 +258,9 @@ fn startup_arguments(
     (shared_gl, native_video, media)
 }
 
-fn prepare_online_video_path() -> Result<(), Box<dyn std::error::Error>> {
-    let path = platform::preferences_path()?;
-    let preferences = match std::fs::read_to_string(path) {
-        Ok(text) => riina_core::Preferences::parse(&text).map_err(std::io::Error::other)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            riina_core::Preferences::default()
-        }
-        Err(error) => return Err(error.into()),
-    };
+fn prepare_online_video_path(
+    preferences: &riina_core::Preferences,
+) -> Result<(), Box<dyn std::error::Error>> {
     let executable = std::env::current_exe()?;
     let path = preferences
         .network_online_videos

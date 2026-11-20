@@ -6,6 +6,7 @@ mod surfaces;
 use crate::{
     NativeVideoHost, PlayerWindow,
     player_ui::{UiSession, configure_player},
+    preference_load::LoadedPreferences,
 };
 use placement::{center_host_in_work_area, schedule_startup_center};
 use slint::{
@@ -31,9 +32,14 @@ pub fn run(
     media: Vec<OsString>,
     resume_position: Option<f64>,
     owner_center: Option<(i32, i32)>,
+    loaded: LoadedPreferences,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let action_after_launch = crate::player_ui::action_after_launch()?;
-    let initial_native_theme = crate::player_ui::windows_initial_theme()?;
+    let action_after_launch = loaded.preferences.action_after_launch;
+    let initial_native_theme = match loaded.preferences.effective_theme_material() {
+        riina_core::ThemeMaterial::Dark => Some(winit::window::Theme::Dark),
+        riina_core::ThemeMaterial::Light => Some(winit::window::Theme::Light),
+        riina_core::ThemeMaterial::System => None,
+    };
     let supplied_media_argument = !media.is_empty();
     let owner = Arc::new(AtomicIsize::new(0));
     let hook_owner = owner.clone();
@@ -100,6 +106,8 @@ pub fn run(
     let event_startup_center_pending = startup_center_pending.clone();
     let event_startup_media_loaded = startup_media_loaded.clone();
     let event_startup_center_generation = startup_center_generation.clone();
+    let startup_failure = Rc::new(RefCell::new(None));
+    let initialization_failure = startup_failure.clone();
     host.show()?;
     slint::spawn_local(async move {
         let Some(host) = weak_host.upgrade() else {
@@ -119,7 +127,7 @@ pub fn run(
             {
                 Some(Ok(())) => true,
                 Some(Err(error)) => {
-                    eprintln!(
+                    crate::diagnostics::warn!(
                         "Windows system backdrop unavailable; keeping the renderer fallback: {error}"
                     );
                     false
@@ -188,7 +196,7 @@ pub fn run(
                             }
                             let mut last_error = timer_material_last_error.borrow_mut();
                             if last_error.as_deref() != Some(error.as_str()) {
-                                eprintln!("Could not update the Windows system backdrop policy: {error}");
+                                crate::diagnostics::warn!("Could not update the Windows system backdrop policy: {error}");
                                 *last_error = Some(error);
                             }
                             let retry_delay = timer_material_retry_delay.get();
@@ -455,6 +463,7 @@ pub fn run(
                 media,
                 welcome.as_ref(),
                 resume_position,
+                loaded,
             )?;
             startup_center_pending.set(!app.get_initial_window_position_enabled());
             let commands = configured
@@ -570,13 +579,14 @@ pub fn run(
         }
         .await;
         if let Err(error) = result {
-            eprintln!("Native player startup failed: {error}");
             close(
                 &startup_session,
                 &startup_pip,
                 startup_chrome.borrow().as_ref(),
             );
             let _ = host.hide();
+            *initialization_failure.borrow_mut() = Some(error);
+            let _ = slint::quit_event_loop();
         }
     })?;
     let event_chrome = chrome.clone();
@@ -693,6 +703,9 @@ pub fn run(
     surface_alignment_timer.stop();
     material_policy_timer.stop();
     close(&session, &pip_controller, chrome.borrow().as_ref());
+    if let Some(error) = startup_failure.borrow_mut().take() {
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -714,7 +727,7 @@ fn close(
         if let Some(app) = app
             && let Err(error) = session.save(app)
         {
-            eprintln!("Preferences were not saved: {error}");
+            crate::diagnostics::warn!("Preferences were not saved: {error}");
         }
         // Callbacks retain only senders. Dropping this sole owner joins the VO worker
         // before either HWND disappears; no orphan decoder can use a destroyed host.

@@ -68,6 +68,7 @@ pub(crate) fn restore_preferences(
     preferences: &mut riina_core::Preferences,
     saved_json: Option<&str>,
     preferences_path: &Path,
+    clean_migrated_file: bool,
 ) -> Result<(), String> {
     restore_preferences_with(
         preferences,
@@ -76,7 +77,11 @@ pub(crate) fn restore_preferences(
         load,
         store,
         |path, text| {
-            let fallback = riina_core::Preferences::parse(text).map_err(std::io::Error::other)?;
+            if !clean_migrated_file {
+                return Ok(());
+            }
+            let fallback =
+                crate::preference_load::parse_object(text).map_err(std::io::Error::other)?;
             crate::preference_store::update(path, &fallback, |_| Ok(()))
                 .map_err(std::io::Error::other)
         },

@@ -71,7 +71,7 @@ impl OverlayTrace {
                     }
                     (alpha_bits, framebuffer)
                 };
-                eprintln!(
+                crate::diagnostics::warn!(
                     "native-alpha fullscreen={} controls={} rendered={} viewport={viewport:?} alpha_bits={alpha_bits} framebuffer={framebuffer} rgba={pixels:?}",
                     app.get_fullscreen(),
                     app.get_controls_visible(),

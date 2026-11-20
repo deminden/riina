@@ -15,6 +15,38 @@ mod plugin_resources;
 pub(crate) mod settings_file;
 
 #[cfg(target_os = "windows")]
+pub(crate) fn show_fatal_error(title: &str, text: &str) {
+    use ::windows::{
+        Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW},
+        core::PCWSTR,
+    };
+    let title: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
+    let text: Vec<u16> = text
+        .replace('\0', "�")
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    // SAFETY: both UTF-16 strings are terminated and owned until the dialog returns.
+    unsafe {
+        MessageBoxW(
+            None,
+            PCWSTR(text.as_ptr()),
+            PCWSTR(title.as_ptr()),
+            MB_OK | MB_ICONERROR,
+        );
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn show_fatal_error(title: &str, text: &str) {
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title(title)
+        .set_description(text)
+        .show();
+}
+
+#[cfg(target_os = "windows")]
 type MaterialPolicyMonitor = Box<dyn FnMut(bool) -> bool>;
 #[cfg(target_os = "windows")]
 type RegisteredMaterialPolicyMonitor = (isize, WindowsBackdropKind, MaterialPolicyMonitor);
@@ -164,7 +196,7 @@ fn watch_windows_backdrop_policy<W, Get, Set, GetTheme>(
                 }
                 backdrop_ready = false;
                 if last_error.as_deref() != Some(error.as_str()) {
-                    eprintln!(
+                    crate::diagnostics::warn!(
                         "Could not update Windows {} backdrop policy: {error}",
                         backdrop.title
                     );
@@ -401,14 +433,16 @@ fn enable_windows_backdrop<W, Get, Set, GetTheme>(
         let native = match window.window().winit_window().await {
             Ok(native) => native,
             Err(error) => {
-                eprintln!("Windows {title} window unavailable; keeping its solid surface: {error}");
+                crate::diagnostics::warn!(
+                    "Windows {title} window unavailable; keeping its solid surface: {error}"
+                );
                 return;
             }
         };
         let identity = match windows::materials::window_identity(&native) {
             Ok(identity) => identity,
             Err(error) => {
-                eprintln!("Could not identify the Windows {title} window: {error}");
+                crate::diagnostics::warn!("Could not identify the Windows {title} window: {error}");
                 return;
             }
         };
@@ -424,7 +458,7 @@ fn enable_windows_backdrop<W, Get, Set, GetTheme>(
                         set_for_task(&window, false);
                     }
                     backdrop_ready = false;
-                    eprintln!(
+                    crate::diagnostics::warn!(
                         "Windows {title} backdrop unavailable; keeping its solid surface: {error}"
                     );
                 }
@@ -444,7 +478,7 @@ fn enable_windows_backdrop<W, Get, Set, GetTheme>(
             get_theme,
         );
     }) {
-        eprintln!("Could not schedule the Windows {title} material: {error}");
+        crate::diagnostics::warn!("Could not schedule the Windows {title} material: {error}");
     }
 }
 

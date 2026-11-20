@@ -33,12 +33,11 @@ use plugin_menus::reorder_plugin_menu_rows;
 use crate::seek_osd::SeekOsd;
 use crate::{
     MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
+    preference_load::LoadedPreferences,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, Phase, Playback, Preferences, TrackKind, time_label};
 use riina_mpv::Player;
-#[cfg(target_os = "windows")]
-use slint::winit_030::winit;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
@@ -100,7 +99,7 @@ fn queue_playlist_navigation(
 ) {
     if !capture_transition_first {
         if let Err(error) = sender.send(command) {
-            eprintln!("Could not navigate the playlist: {error}");
+            crate::diagnostics::warn!("Could not navigate the playlist: {error}");
         }
         return;
     }
@@ -117,11 +116,11 @@ fn queue_playlist_navigation(
     };
     if needs_capture && let Err(error) = sender.send(Command::CaptureTransitionFrame) {
         let commands = pending.borrow_mut().take().map(|(commands, _)| commands);
-        eprintln!("Could not capture the outgoing video frame: {error}");
+        crate::diagnostics::warn!("Could not capture the outgoing video frame: {error}");
         if let Some(commands) = commands {
             for command in commands {
                 if let Err(error) = sender.send(command) {
-                    eprintln!("Could not navigate the playlist: {error}");
+                    crate::diagnostics::warn!("Could not navigate the playlist: {error}");
                 }
             }
         }
@@ -397,6 +396,7 @@ pub(crate) struct UiSession {
     _presentation: Option<platform::NativePresentation>,
     _hdr_display_timer: Option<Rc<slint::Timer>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
+    _preference_recovery_notice: Option<Rc<slint::Timer>>,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
     _pause_resume_timer: Rc<slint::Timer>,
@@ -464,49 +464,13 @@ impl Drop for UiSession {
     }
 }
 
-pub(crate) fn action_after_launch()
--> Result<riina_core::ActionAfterLaunch, Box<dyn std::error::Error>> {
-    Ok(load_preferences()?.action_after_launch)
-}
-
-#[cfg(target_os = "windows")]
-pub(crate) fn windows_initial_theme()
--> Result<Option<winit::window::Theme>, Box<dyn std::error::Error>> {
-    Ok(match load_preferences()?.effective_theme_material() {
-        riina_core::ThemeMaterial::Dark => Some(winit::window::Theme::Dark),
-        riina_core::ThemeMaterial::Light => Some(winit::window::Theme::Light),
-        riina_core::ThemeMaterial::System => None,
-    })
-}
-
-fn load_preferences() -> Result<Preferences, Box<dyn std::error::Error>> {
-    let path = platform::preferences_path()?;
-    match std::fs::read_to_string(path) {
-        Ok(text) => Preferences::parse(&text)
-            .map_err(std::io::Error::other)
-            .map_err(Into::into),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Preferences::default()),
-        Err(error) => Err(error.into()),
-    }
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) fn accepts_first_mouse_at_launch() -> Result<bool, Box<dyn std::error::Error>> {
-    let path = platform::preferences_path()?;
-    let preferences = match std::fs::read_to_string(path) {
-        Ok(text) => Preferences::parse(&text).map_err(std::io::Error::other)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Preferences::default(),
-        Err(error) => return Err(error.into()),
-    };
-    Ok(preferences.controls.accepts_first_mouse)
-}
-
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
     media: Vec<std::ffi::OsString>,
     welcome: Option<&WelcomeWindow>,
     startup_resume_position: Option<f64>,
+    loaded: LoadedPreferences,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     {
@@ -530,19 +494,16 @@ pub(crate) fn configure_player(
             .map(slint::SharedString::from)
             .collect::<Vec<_>>(),
     )));
-    let saved_preferences = match std::fs::read_to_string(&prefs_path) {
-        Ok(text) => Some(text),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-        Err(error) => return Err(error.into()),
-    };
-    let mut prefs = match saved_preferences.as_deref() {
-        Some(text) => Preferences::parse(text).map_err(std::io::Error::other)?,
-        None => Preferences::default(),
-    };
+    let LoadedPreferences {
+        preferences: mut prefs,
+        source_text,
+        recovery,
+    } = loaded;
     if let Err(error) = crate::online_subtitles_credentials::restore_preferences(
         &mut prefs,
-        saved_preferences.as_deref(),
+        source_text.as_deref(),
         &prefs_path,
+        recovery.is_none(),
     ) {
         app.set_status(format!("OpenSubtitles credential storage: {error}").into());
     }
@@ -1279,7 +1240,7 @@ pub(crate) fn configure_player(
                 if let Some(commands) = navigation {
                     for command in commands {
                         if let Err(error) = sender.send(command) {
-                            eprintln!("Could not navigate the playlist: {error}");
+                            crate::diagnostics::warn!("Could not navigate the playlist: {error}");
                         }
                     }
                 }
@@ -1304,7 +1265,9 @@ pub(crate) fn configure_player(
                         Ok(()) => timer_outgoing_attempt.set(Some((state.generation, now))),
                         Err(error) => {
                             timer_outgoing_attempt.set(None);
-                            eprintln!("Could not retain the outgoing video frame: {error}");
+                            crate::diagnostics::warn!(
+                                "Could not retain the outgoing video frame: {error}"
+                            );
                         }
                     }
                 }
@@ -1406,7 +1369,9 @@ pub(crate) fn configure_player(
                     // track metadata appeared. Wait for host geometry to settle,
                     // then require a successful raw capture before uncovering.
                     if let Err(error) = sender.send(Command::CaptureIncomingTransitionFrame) {
-                        eprintln!("Could not capture the incoming video frame: {error}");
+                        crate::diagnostics::warn!(
+                            "Could not capture the incoming video frame: {error}"
+                        );
                     } else {
                         timer_incoming_attempt.set(Some((state.generation, now)));
                     }
@@ -2510,6 +2475,7 @@ pub(crate) fn configure_player(
         _presentation: native,
         _hdr_display_timer: hdr_display_timer,
         _live_text_timer: live_text_timer,
+        _preference_recovery_notice: recovery.and_then(|recovery| recovery.announce(app)),
         _appearance_timer: appearance_timer,
         _pause_resume_timer: pause_resume_timer,
         _thumbnail_preview_timer: thumbnail_preview_timer,

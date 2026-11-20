@@ -50,7 +50,7 @@ fn cache() -> &'static Cache {
                 }
             });
         if let Err(error) = worker {
-            eprintln!("Could not start playlist metadata reader: {error}");
+            crate::diagnostics::warn!("Could not start playlist metadata reader: {error}");
         }
         cache
     })
