@@ -1,9 +1,33 @@
 //! Keep the Interface > Window controls and shared resize policy in one mapping.
+use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::window_resize::{
     GeometryUnit, HorizontalAnchor, InitialGeometry, InitialPosition, InitialSize, ResizeOption,
     ResizeTiming, Settings, SizeAxis, VerticalAnchor,
 };
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        all.window_resize
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.window_resize = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        from_preferences(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_preferences(window, *self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, *self);
+    }
+}
 
 pub(crate) fn from_player(app: &PlayerWindow) -> Result<Settings, String> {
     Ok(Settings {

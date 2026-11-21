@@ -801,7 +801,9 @@ fn configure_with_engine(
     app.set_edge_to_edge_video(prefs.edge_to_edge_video);
     app.set_docked_controls(prefs.docked_controls);
     app.set_unlock_window_aspect_ratio(prefs.unlock_window_aspect_ratio);
-    crate::window_resize_preferences::install_player(app, prefs.window_resize);
+    crate::preferences::model::install_player_section::<riina_core::window_resize::Settings>(
+        &prefs, app,
+    );
     app.set_compact_ui(prefs.compact_ui);
     app.set_always_float_on_top(prefs.always_float_on_top);
     app.set_always_show_on_top_icon(prefs.always_show_on_top_icon);

@@ -173,7 +173,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_window_resize) = read_or_refresh(
-            crate::window_resize_preferences::from_preferences(&window),
+            model.read_section::<riina_core::window_resize::Settings>(&window),
             &app,
             &window,
         ) else {
@@ -530,7 +530,7 @@ fn connect_with_credentials(
         app.set_resume_last_position(window.get_resume_last_position());
         app.set_record_playback_history(window.get_record_playback_history());
         app.set_launch_action_index(window.get_launch_action_index().clamp(0, 2));
-        crate::window_resize_preferences::install_player(&app, selected_window_resize);
+        selected_window_resize.write_player(&app);
         app.set_osd_enabled(window.get_osd_enabled());
         app.set_disable_osd_speed(window.get_disable_osd_speed());
         app.set_disable_osd_seek(window.get_disable_osd_seek());
@@ -650,7 +650,6 @@ fn connect_with_credentials(
                 edge_to_edge_video: app.get_edge_to_edge_video(),
                 docked_controls: app.get_docked_controls(),
                 unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
-                window_resize: selected_window_resize,
                 compact_ui: app.get_compact_ui(),
                 osc_position: app.get_osc_position() as u8,
                 control_bar_position_horizontal: f64::from(
@@ -682,6 +681,7 @@ fn connect_with_credentials(
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_window_resize.put(&mut preferences);
             // Utilities can clear history while this window remains open;
             // preserve that live system action over its original snapshot.
             crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
