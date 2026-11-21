@@ -2,7 +2,9 @@
 #![cfg(target_os = "windows")]
 
 use i_slint_renderer_software::{MinimalSoftwareWindow, RepaintBufferType};
-use riina_ui::{CatalogRow, PlayerWindow, PreferencesSearchResult, PreferencesWindow};
+use riina_ui::{
+    CatalogRow, LiveTextRegion, PlayerWindow, PreferencesSearchResult, PreferencesWindow,
+};
 use slint::{
     ComponentHandle, Image, PhysicalSize, PlatformError, Rgb8Pixel, SharedPixelBuffer, Window,
     platform::{Platform, WindowAdapter},
@@ -182,6 +184,7 @@ fn player_and_settings_match_their_pixels() -> Result<(), Box<dyn Error>> {
     slint::platform::set_platform(Box::new(OffscreenPlatform))?;
     let baselines = Baselines::windows()?;
     player_frames(&baselines)?;
+    player_overlay_frames(&baselines)?;
     settings_frames(&baselines)?;
     settings_overlay_frames(&baselines)?;
     Ok(())
@@ -217,6 +220,60 @@ fn player_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
             baselines.verify(&format!("player-{theme}-{name}"), window.window(), size)?;
             window.hide()?;
         }
+    }
+    Ok(())
+}
+
+fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+    type OverlaySetup = fn(&PlayerWindow);
+    let cases: [(&str, OverlaySetup); 6] = [
+        ("player-seek-osd", |window| {
+            window.set_seek_position_label("0:18".into());
+            window.set_seek_duration_label("1:12".into());
+            window.set_seek_osd_visible(true);
+        }),
+        ("player-playback-osd", |window| {
+            window.set_video_osd_text("Volume: 64%".into());
+            window.set_video_osd_progress(0.64);
+            window.set_video_osd_visible(true);
+        }),
+        ("player-plugin-osd", |window| {
+            window.set_plugin_osd_message("Plugin message".into());
+        }),
+        ("player-fullscreen-info", |window| {
+            window.set_fullscreen(true);
+            window.set_display_time_and_battery_in_fullscreen(true);
+            window.set_fullscreen_info_time("16:45".into());
+            window.set_fullscreen_info_battery("82%".into());
+            window.set_fullscreen_info_battery_level(82.0);
+        }),
+        ("player-crop-video", |window| {
+            window.set_crop_picture_x(24.0);
+            window.set_crop_picture_y(50.0);
+            window.set_crop_picture_width(800.0);
+            window.set_crop_picture_height(450.0);
+            window.set_crop_editing(true);
+        }),
+        ("player-live-text", |window| {
+            window.set_live_text_enabled(true);
+            window.set_live_text_selectable(true);
+            window.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(vec![
+                LiveTextRegion {
+                    text: "Selectable text".into(),
+                    x: 0.24,
+                    y: 0.32,
+                    width: 0.30,
+                    height: 0.08,
+                },
+            ])));
+        }),
+    ];
+    for (name, setup) in cases {
+        let window = player(PlaybackState::Paused, true, (0, 0), Layout::Standard)?;
+        window.set_video_blurred_frame(test_picture());
+        setup(&window);
+        baselines.verify(name, window.window(), PhysicalSize::new(1000, 640))?;
+        window.hide()?;
     }
     Ok(())
 }

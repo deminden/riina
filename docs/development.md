@@ -158,6 +158,8 @@ or removed.
 Quick Settings input, category navigation and narrow-header geometry regressions
 in `crates/app/tests/quick_settings_input.rs` run with the workspace tests. They exercise the generated player controls through
 Slint's headless test backend, including pointer/key input and focus changes.
+The generated UI crate skips its empty unit-test harness, so the workspace suite
+compiles the generated widgets only for their consumers.
 Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit
 that metadata. Native window/input and physical-display checks remain separate.
@@ -165,9 +167,8 @@ On Windows, `cargo test -p riina --test headless_visual --locked` compares
 decoded RGBA pixels with the PNGs under `tests/visual/headless/windows/`.
 The software renderer uses a fixed clock and dimensions. The corpus covers
 playing, paused and stopped states, both player themes, all sidebar panes,
-compact and docked controls, Music Mode, all 11 light Settings pages, and
-Settings search, key mapping, profile creation/deletion, plugin installation
-and default application overlays.
+compact and docked controls, Music Mode, on-screen displays, crop geometry,
+Live Text, all 11 light Settings pages, and their search and modal overlays.
 The test runs on Windows to keep system-font rasterization consistent.
 Set `RIINA_UPDATE_HEADLESS_BASELINES=1` only when intentionally regenerating
 the corpus, then rerun without it and inspect the affected frames. These
