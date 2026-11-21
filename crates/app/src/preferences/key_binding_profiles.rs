@@ -239,37 +239,12 @@ fn write_new(path: &Path, contents: &[u8]) -> Result<(), ProfileError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    struct Fixture(PathBuf);
-
-    impl Fixture {
-        fn new() -> Self {
-            static NEXT: AtomicU64 = AtomicU64::new(0);
-            let path = std::env::temp_dir().join(format!(
-                "riina-key-profiles-{}-{}-{}",
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            fs::create_dir(&path).unwrap();
-            Self(path)
-        }
-    }
-
-    impl Drop for Fixture {
-        fn drop(&mut self) {
-            fs::remove_dir_all(&self.0).unwrap();
-        }
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn user_profiles_create_duplicate_edit_import_rename_and_delete_safely() {
-        let fixture = Fixture::new();
-        let store = ProfileStore::at(fixture.0.join("profiles")).unwrap();
+        let fixture = TempDir::new("key-profiles").unwrap();
+        let store = ProfileStore::at(fixture.path().join("profiles")).unwrap();
         store.create("Cinema").unwrap();
         store
             .save(
@@ -289,7 +264,7 @@ mod tests {
         );
         assert_eq!(store.list().unwrap().len(), 2);
 
-        let import = fixture.0.join("imported.conf");
+        let import = fixture.path().join("imported.conf");
         fs::write(&import, "LEFT seek -5\n").unwrap();
         store.import(&import).unwrap();
         assert_eq!(store.load("imported").unwrap()[0].action, "seek -5");
@@ -302,8 +277,8 @@ mod tests {
 
     #[test]
     fn invalid_or_builtin_names_cannot_be_written() {
-        let fixture = Fixture::new();
-        let profiles = fixture.0.join("profiles");
+        let fixture = TempDir::new("key-profiles").unwrap();
+        let profiles = fixture.path().join("profiles");
         let store = ProfileStore::at(profiles.clone()).unwrap();
         for name in ["", "..", "../escape", "IINA Default", "trailing."] {
             assert!(store.create(name).is_err(), "{name:?}");
@@ -313,10 +288,10 @@ mod tests {
 
     #[test]
     fn malformed_import_does_not_create_a_profile() {
-        let fixture = Fixture::new();
-        let profiles = fixture.0.join("profiles");
+        let fixture = TempDir::new("key-profiles").unwrap();
+        let profiles = fixture.path().join("profiles");
         let store = ProfileStore::at(profiles.clone()).unwrap();
-        let import = fixture.0.join("broken.conf");
+        let import = fixture.path().join("broken.conf");
         fs::write(&import, "SPACE\n").unwrap();
         assert!(store.import(&import).is_err());
         assert_eq!(store.list().unwrap().len(), 0);

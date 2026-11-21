@@ -257,56 +257,38 @@ fn remove_entry(path: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{load, store};
-    use std::{fs, path::PathBuf, time::SystemTime};
+    use std::fs;
 
-    struct TempTree(PathBuf);
-
-    impl TempTree {
-        fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            let root = std::env::temp_dir().join(format!(
-                "riina-thumbnail-cache-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&root).unwrap();
-            Self(root)
-        }
-    }
-
-    impl Drop for TempTree {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn cache_round_trip_is_bound_to_source_and_width() {
-        let temp = TempTree::new();
-        let source = temp.0.join("clip.mkv");
+        let temp = TempDir::new("thumbnail-cache").unwrap();
+        let source = temp.path().join("clip.mkv");
         fs::write(&source, b"fixture media identity").unwrap();
         let frames = (0..=100)
             .map(|index| (f64::from(index), vec![index as u8, 4, 9]))
             .collect::<Vec<_>>();
-        store(&temp.0.join("cache"), &source, 240, 500, &frames).unwrap();
+        store(&temp.path().join("cache"), &source, 240, 500, &frames).unwrap();
         assert_eq!(
-            load(&temp.0.join("cache"), &source, 240, 500).unwrap(),
+            load(&temp.path().join("cache"), &source, 240, 500).unwrap(),
             Some(frames)
         );
         assert_eq!(
-            load(&temp.0.join("cache"), &source, 320, 500).unwrap(),
+            load(&temp.path().join("cache"), &source, 320, 500).unwrap(),
             None
         );
-        assert_eq!(load(&temp.0.join("cache"), &source, 240, 0).unwrap(), None);
+        assert_eq!(
+            load(&temp.path().join("cache"), &source, 240, 0).unwrap(),
+            None
+        );
     }
 
     #[test]
     fn cache_rejects_incomplete_entries_without_returning_partial_frames() {
-        let temp = TempTree::new();
-        let source = temp.0.join("clip.mkv");
-        let root = temp.0.join("cache");
+        let temp = TempDir::new("thumbnail-cache").unwrap();
+        let source = temp.path().join("clip.mkv");
+        let root = temp.path().join("cache");
         fs::write(&source, b"fixture media identity").unwrap();
         let frames = (0..=100)
             .map(|index| (f64::from(index), vec![index as u8, 4, 9]))
@@ -319,9 +301,9 @@ mod tests {
 
     #[test]
     fn cache_budget_evicts_an_entry_that_exceeds_the_limit() {
-        let temp = TempTree::new();
-        let source = temp.0.join("clip.mkv");
-        let root = temp.0.join("cache");
+        let temp = TempDir::new("thumbnail-cache").unwrap();
+        let source = temp.path().join("clip.mkv");
+        let root = temp.path().join("cache");
         fs::write(&source, b"fixture media identity").unwrap();
         let frames = (0..=100)
             .map(|index| (f64::from(index), vec![index as u8; 12 * 1024]))

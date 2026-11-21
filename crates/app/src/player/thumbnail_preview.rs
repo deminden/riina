@@ -459,33 +459,10 @@ mod tests {
     use riina_core::thumbnail_preferences::Settings;
     use std::{
         fs,
-        path::PathBuf,
         sync::{Arc, atomic::AtomicBool, mpsc},
-        time::SystemTime,
     };
 
-    struct TempTree(PathBuf);
-
-    impl TempTree {
-        fn new() -> Self {
-            let nonce = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos();
-            let root = std::env::temp_dir().join(format!(
-                "riina-thumbnail-preview-{}-{nonce}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&root).unwrap();
-            Self(root)
-        }
-    }
-
-    impl Drop for TempTree {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn only_absolute_local_files_are_started_by_the_player() {
@@ -538,9 +515,9 @@ mod tests {
 
     #[test]
     fn preview_worker_reuses_cached_frames_without_opening_libmpv() {
-        let temp = TempTree::new();
-        let source = temp.0.join("clip.mkv");
-        let cache = temp.0.join("cache");
+        let temp = TempDir::new("thumbnail-preview").unwrap();
+        let source = temp.path().join("clip.mkv");
+        let cache = temp.path().join("cache");
         fs::write(&source, b"fixture media identity").unwrap();
         let cached = (0..THUMBNAIL_COUNT)
             .map(|index| (index as f64, vec![index as u8, 7, 8]))
@@ -551,7 +528,7 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancel.clone();
         let (sender, receiver) = mpsc::sync_channel(EVENT_CAPACITY);
-        let missing_library = temp.0.join("libmpv-must-not-open-on-cache-hit.dll");
+        let missing_library = temp.path().join("libmpv-must-not-open-on-cache-hit.dll");
         let worker_source = source.clone();
         let worker_cache = cache.clone();
         let worker = std::thread::spawn(move || {

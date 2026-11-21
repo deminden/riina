@@ -171,17 +171,12 @@ fn clipped(value: &str) -> String {
 mod tests {
     use super::{MAX_FIELD_CHARS, write_to};
     use riina_core::{Phase, Playback, PlaylistEntry};
-    use std::{fs, time::SystemTime};
+    use riina_test_support::TempDir;
+    use std::fs;
 
     #[test]
     fn debug_dump_saves_useful_player_state_and_warnable_media_paths() {
-        let directory = std::env::temp_dir().join(format!(
-            "riina-debug-dump-test-{}",
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let directory = TempDir::new("debug-dump").unwrap();
         let mut playlist = vec![PlaylistEntry {
             id: 1,
             filename: "C:\\Private\\family-video.mkv".into(),
@@ -209,7 +204,7 @@ mod tests {
             ..Playback::default()
         };
 
-        let path = write_to(&directory, &playback).unwrap();
+        let path = write_to(directory.path(), &playback).unwrap();
         assert!(
             path.file_name()
                 .unwrap()
@@ -223,7 +218,5 @@ mod tests {
         assert!(contents.contains("513 total; showing at most 512"));
         assert!(!contents.contains("private-tail.mkv"));
         assert!(contents.contains("[truncated]"));
-
-        fs::remove_dir_all(directory).unwrap();
     }
 }

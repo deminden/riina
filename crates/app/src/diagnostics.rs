@@ -147,39 +147,18 @@ fn redact(message: &str) -> String {
 mod tests {
     use super::*;
 
-    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-
-    struct Profile(std::path::PathBuf);
-
-    impl Profile {
-        fn new() -> Self {
-            let profile = std::env::temp_dir().join(format!(
-                "riina-diagnostics-{}-{}-{}",
-                std::process::id(),
-                chrono::Utc::now().timestamp_nanos_opt().unwrap(),
-                NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            ));
-            fs::create_dir(&profile).unwrap();
-            Self(profile)
-        }
-    }
-
-    impl Drop for Profile {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn rotates_only_above_the_threshold_and_replaces_the_previous_log() {
-        let profile = Profile::new();
-        let current = profile.0.join("riina.log");
-        let previous = profile.0.join("riina.previous.log");
+        let profile = TempDir::new("diagnostics").unwrap();
+        let current = profile.path().join("riina.log");
+        let previous = profile.path().join("riina.previous.log");
         File::create(&current)
             .unwrap()
             .set_len(ROTATION_LIMIT)
             .unwrap();
-        drop(open_log(&profile.0).unwrap());
+        drop(open_log(profile.path()).unwrap());
         assert!(!previous.exists());
         assert_eq!(fs::metadata(&current).unwrap().len(), ROTATION_LIMIT);
 
@@ -190,25 +169,25 @@ mod tests {
             .unwrap()
             .set_len(ROTATION_LIMIT + 1)
             .unwrap();
-        writeln!(open_log(&profile.0).unwrap(), "new log").unwrap();
+        writeln!(open_log(profile.path()).unwrap(), "new log").unwrap();
         assert_eq!(fs::metadata(&previous).unwrap().len(), ROTATION_LIMIT + 1);
         assert_eq!(fs::read_to_string(&current).unwrap(), "new log\n");
     }
 
     #[test]
     fn panic_hook_records_a_named_thread_and_location_in_an_isolated_process() {
-        let profile = Profile::new();
+        let profile = TempDir::new("diagnostics").unwrap();
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
                 "diagnostics::tests::panic_hook_child",
                 "--ignored",
             ])
-            .env("RIINA_TEST_DIAGNOSTICS_PROFILE", &profile.0)
+            .env("RIINA_TEST_DIAGNOSTICS_PROFILE", profile.path())
             .status()
             .unwrap();
         assert!(status.success());
-        let log = fs::read_to_string(profile.0.join("riina.log")).unwrap();
+        let log = fs::read_to_string(profile.path().join("riina.log")).unwrap();
         assert!(log.contains("ERROR [panic] Thread diagnostic-test at diagnostics.rs:"));
         assert!(log.contains("controlled panic"));
     }
