@@ -565,9 +565,10 @@ and before publishing. Launch long checks asynchronously, continue independent
 work and record the revision covered. Do not start duplicate runs for status.
 
 The current workspace runs `plugin_panel_opens_on_the_saved_side` as a pure
-sidebar routing test. The release workflow skips that test only when rechecking
-the saved `v0.3.6` source tag. The test at that tag constructs a renderer-backed
-`PlayerWindow`, which requires a graphical session.
+sidebar routing test. The test at the immutable `v0.3.6` commit constructs a
+renderer-backed `PlayerWindow`, which requires a graphical session. During that
+historical candidate's test step, the workflow marks the test ignored with this
+reason and restores the exact source bytes before compiling the package.
 
 ### Native playback
 

@@ -294,16 +294,29 @@ jobs:
           retention-days: 7
       - name: Lint and unit tests
         shell: pwsh
-        env:
-          RELEASE_SOURCE_TAG: ${{ inputs.release_source_tag }}
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           cargo clippy --workspace --all-targets --locked -- -D warnings
-          if ($env:RELEASE_SOURCE_TAG -eq 'v0.3.6') {
-            Write-Host 'The v0.3.6 plugin sidebar test creates a renderer-backed window; exclude this headless-only test for this historical source tag.'
-            cargo test --workspace --locked -- --skip plugin_panel_opens_on_the_saved_side
-          } else {
+          if ($env:RIINA_SOURCE_SHA -ne 'c6fad10e70a3b71c5f5a76977759bfc3f4f9327c') {
             cargo test --workspace --locked
+            return
+          }
+          # Only the immutable v0.3.6 test needs a graphical renderer.
+          # Restore its original bytes before the package build.
+          $file = (Resolve-Path 'crates/app/src/sidebar_preferences.rs').Path
+          $original = [IO.File]::ReadAllBytes($file)
+          $text = [Text.Encoding]::UTF8.GetString($original)
+          $signature = '    fn plugin_panel_opens_on_the_saved_side() {'
+          if ([regex]::Matches($text, [regex]::Escape($signature)).Count -ne 1) {
+            throw 'Expected exactly one historical renderer-backed sidebar test'
+          }
+          $newline = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+          $ignore = '    #[ignore = "requires a graphical Slint renderer on v0.3.6"]'
+          try {
+            [IO.File]::WriteAllText($file, $text.Replace($signature, $ignore + $newline + $signature))
+            cargo test --workspace --locked
+          } finally {
+            [IO.File]::WriteAllBytes($file, $original)
           }
       - name: Build and assemble portable package
         id: package-build
