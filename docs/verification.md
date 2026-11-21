@@ -418,6 +418,15 @@ changed by 187, 424 and 407 pixels during playback, respectively, and both
 paused comparisons in the first session stayed identical. The cause of the
 intermittent rendering failure remains open.
 
+The controller and Layout-sidebar candidate at `3924dc9` passed strict
+Clippy, 799 workspace tests and locked application builds on Linux. It also
+passed the locked Windows workspace build. A Linux diagnostic using the same
+private display, with hardware decoding and debug logging disabled, still
+showed black video on its first launch. A relaunch with that profile and a
+launch with a fresh profile each changed 224 of 7,099 sampled pixels during
+playback. All three sessions joined their native workers and exited. Software
+decoding alone did not resolve the rendering failure.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. The GLES context also
 reported that the optional video-blur shader requires desktop GLSL. Linux
@@ -552,6 +561,7 @@ retaining Services and visibility actions. A focused Apple-target probe compiled
 all eleven macOS platform modules with strict Clippy. The full application check
 from Windows stopped in a native dependency before application compilation.
 Native menu interaction, exact order/shortcuts and Mac playback remain unverified.
+
 ### macOS Picture-in-Picture session 2026-11-21
 
 An isolated `aarch64-apple-darwin` source check and strict Clippy run compiled
@@ -559,6 +569,7 @@ the AVKit adapter, frame bridge, and platform session against the pinned
 Objective-C dependencies. The probe used stub Slint controls. Windows passed
 the full workspace gate after moving the portable PiP bindings. Full macOS
 application linking and AVKit playback still need native verification.
+
 The Settings color-panel binding also passed strict Clippy for
 `aarch64-apple-darwin` against the real AppKit color panel and stub Slint
 controls. Native interaction with the panel remains unverified.
