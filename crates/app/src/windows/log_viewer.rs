@@ -342,30 +342,10 @@ fn follow_while_visible(
     reader: &Rc<RefCell<LogReader>>,
     subsystem_values: &Rc<RefCell<Vec<String>>>,
 ) {
-    if timer.running() {
-        return;
-    }
-    let timer_handle = Rc::downgrade(timer);
-    let close_timer = timer_handle.clone();
-    viewer.window().on_close_requested(move || {
-        if let Some(timer) = close_timer.upgrade() {
-            timer.stop();
-        }
-        slint::CloseRequestResponse::HideWindow
-    });
-    let viewer = viewer.as_weak();
     let reader = reader.clone();
     let subsystem_values = subsystem_values.clone();
-    timer.start(slint::TimerMode::Repeated, REFRESH_INTERVAL, move || {
-        if let Some(viewer) = viewer
-            .upgrade()
-            .filter(|viewer| viewer.window().is_visible())
-        {
-            refresh_view(&viewer, &reader, &subsystem_values);
-        } else if let Some(timer) = timer_handle.upgrade() {
-            // Programmatic hides do not invoke the native close handler.
-            timer.stop();
-        }
+    super::visible_refresh::start(viewer, timer, REFRESH_INTERVAL, move |viewer| {
+        refresh_view(viewer, &reader, &subsystem_values);
     });
 }
 

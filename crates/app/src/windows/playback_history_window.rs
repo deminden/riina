@@ -40,6 +40,8 @@ pub(crate) fn install(
     let slot = Rc::new(RefCell::new(None::<PlaybackHistoryWindow>));
     let last_revision = Rc::new(Cell::new(None::<u64>));
     let collapsed_groups = Arc::new(Mutex::new(HashSet::new()));
+    let timer = Rc::new(slint::Timer::default());
+    let show_timer = timer.clone();
     let weak_app = app.as_weak();
     let show_slot = slot.clone();
     let show_history = playback_history.clone();
@@ -77,9 +79,6 @@ pub(crate) fn install(
                     collapsed_groups: show_collapsed_groups.clone(),
                 },
             );
-            window
-                .window()
-                .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
             crate::platform::center_auxiliary_window(&window, &app);
             *show_slot.borrow_mut() = Some(window.clone_strong());
             window
@@ -90,36 +89,24 @@ pub(crate) fn install(
             app.set_status(format!("Could not show Playback History: {error}").into());
         } else {
             crate::platform::enable_history_acrylic(&window);
+            let history = show_history.clone();
+            let last_revision = show_last_revision.clone();
+            let collapsed_groups = show_collapsed_groups.clone();
+            super::visible_refresh::start(
+                &window,
+                &show_timer,
+                Duration::from_millis(500),
+                move |window| {
+                    let current_revision = revision(&history);
+                    if last_revision.get() != Some(current_revision) {
+                        refresh(window, &history, &collapsed_groups);
+                        last_revision.set(Some(current_revision));
+                    }
+                },
+            );
         }
     });
 
-    let timer = Rc::new(slint::Timer::default());
-    let timer_slot = slot.clone();
-    let timer_history = playback_history;
-    let timer_revision = last_revision;
-    let timer_collapsed_groups = collapsed_groups;
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(500),
-        move || {
-            let Some(window) = timer_slot
-                .borrow()
-                .as_ref()
-                .map(|window| window.clone_strong())
-            else {
-                return;
-            };
-            if !window.window().is_visible() {
-                return;
-            }
-            let current_revision = revision(&timer_history);
-            if timer_revision.get() == Some(current_revision) {
-                return;
-            }
-            refresh(&window, &timer_history, &timer_collapsed_groups);
-            timer_revision.set(Some(current_revision));
-        },
-    );
     (slot, timer)
 }
 

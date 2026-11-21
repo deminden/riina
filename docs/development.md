@@ -221,8 +221,8 @@ when the timer's work is needed.
 | Owner | Interval | Work | When needed |
 |---|---:|---|---|
 | Platform material monitor | 500 ms | Refresh native acrylic policy | While registered auxiliary surfaces are alive |
-| Video and audio filter window | 300 ms | Refresh live filter rows | While the filter editor is visible |
-| Playback History window | 500 ms | Refresh visible history and grouping | While Playback History is visible |
+| Video and audio filter window | 300 ms | Refresh live filter rows | Starts after show, stops on close or when a tick finds the window hidden |
+| Playback History window | 500 ms | Refresh visible history and grouping | Starts after show, stops on close or when a tick finds the window hidden |
 | Log Viewer | 500 ms | Read and append new log records | Starts after show, stops on close or when a tick finds the window hidden |
 | Font Picker | 250 ms | Refresh appearance and available font results | While Font Picker is visible |
 | About window appearance | 250 ms | Follow the owner's theme | While About is visible |

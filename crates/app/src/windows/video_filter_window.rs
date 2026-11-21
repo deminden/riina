@@ -89,6 +89,8 @@ fn install_for_kind(
     is_audio: bool,
 ) -> (WindowSlot, Rc<slint::Timer>) {
     let slot = Rc::new(RefCell::new(None::<VideoFiltersWindow>));
+    let timer = Rc::new(slint::Timer::default());
+    let show_timer = timer.clone();
     let show_slot = slot.clone();
     let show_latest = latest.clone();
     let show_settings = settings.clone();
@@ -161,9 +163,6 @@ fn install_for_kind(
                 show_path.clone(),
                 is_audio,
             );
-            window
-                .window()
-                .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
             crate::platform::center_auxiliary_window(&window, &app);
             *show_slot.borrow_mut() = Some(window.clone_strong());
             window
@@ -173,6 +172,19 @@ fn install_for_kind(
             app.set_status(format!("Could not show filter window: {error}").into());
         } else {
             crate::platform::enable_video_filters_acrylic(&window);
+            let app = app.as_weak();
+            let latest = show_latest.clone();
+            let settings = show_settings.clone();
+            super::visible_refresh::start(
+                &window,
+                &show_timer,
+                Duration::from_millis(300),
+                move |window| {
+                    if let Some(app) = app.upgrade() {
+                        refresh(&app, window, &latest, &settings, is_audio);
+                    }
+                },
+            );
         }
     };
     if is_audio {
@@ -181,30 +193,6 @@ fn install_for_kind(
         app.on_open_video_filters(open_filter_window);
     }
 
-    let timer = Rc::new(slint::Timer::default());
-    let timer_app = app.as_weak();
-    let timer_slot = slot.clone();
-    let timer_latest = latest;
-    let timer_settings = settings;
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(300),
-        move || {
-            let Some(app) = timer_app.upgrade() else {
-                return;
-            };
-            let Some(window) = timer_slot
-                .borrow()
-                .as_ref()
-                .map(VideoFiltersWindow::clone_strong)
-            else {
-                return;
-            };
-            if window.window().is_visible() {
-                refresh(&app, &window, &timer_latest, &timer_settings, is_audio);
-            }
-        },
-    );
     (slot, timer)
 }
 
