@@ -481,6 +481,19 @@ the reusable `-PrivateDesktop` driver. Minimize and restore exercised the native
 owner's property-change events. The executable and report paths contained
 spaces, the input desktop stayed unchanged, and the Riina process exited.
 
+The locked Windows x64 builds at `ee3ce7a` and `8bdb6e3` also passed all ten
+checks after extracting host events and then assigning ownership to `NativeApp`.
+The separate-desktop runs took 9.149 s and 9.331 s, respectively, and each player
+exited. `ee3ce7a` also passed the 53 pinned-libmpv playback tests with null audio.
+
+## Linux x64 Settings refactor checks 2026-11-21
+
+An exact `da50ecd` checkout in WSL completed strict Clippy, 803 workspace tests,
+and a locked x86-64 Linux application build. The generated executable is a
+64-bit ELF and its dynamic dependencies resolved in the disposable test setup.
+This cohort verifies the Settings refactor through compilation and tests.
+Intermittent black video in the isolated shared-GL sessions remains open.
+
 ## Running checks
 
 ### Portable and workspace checks
