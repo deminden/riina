@@ -8,9 +8,10 @@ use std::{
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     rc::Rc,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
+const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 const MAX_LOG_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_LOG_ENTRIES: usize = 8_000;
 const MAX_LINE_BYTES: usize = 16 * 1024;
@@ -297,32 +298,11 @@ pub(crate) fn connect(
     let reader = Rc::new(RefCell::new(LogReader::new(log_path.clone())));
     let subsystem_values = Rc::new(RefCell::new(vec![String::new()]));
     let timer = Rc::new(slint::Timer::default());
-    let timer_slot = slot.clone();
-    let timer_reader = reader.clone();
-    let timer_subsystems = subsystem_values.clone();
-    timer.start(
-        slint::TimerMode::Repeated,
-        std::time::Duration::from_millis(500),
-        move || {
-            let Some(viewer) = timer_slot
-                .borrow()
-                .as_ref()
-                .map(ComponentHandle::clone_strong)
-            else {
-                return;
-            };
-            if viewer.window().is_visible() {
-                refresh_view(&viewer, &timer_reader, &timer_subsystems);
-            }
-        },
-    );
-    let keep_timer_alive = timer.clone();
     let show_slot = slot.clone();
     let show_reader = reader.clone();
     let show_subsystems = subsystem_values.clone();
     let owner = app.as_weak();
     preferences.on_advanced_open_log_viewer(move || {
-        let _timer_lifetime = &keep_timer_alive;
         let Some(app) = owner.upgrade() else { return };
         let viewer = if let Some(viewer) = show_slot.borrow().as_ref() {
             viewer.clone_strong()
@@ -342,9 +322,6 @@ pub(crate) fn connect(
                 show_subsystems.clone(),
                 log_path.clone(),
             );
-            viewer
-                .window()
-                .on_close_requested(|| slint::CloseRequestResponse::HideWindow);
             crate::platform::center_auxiliary_window(&viewer, &app);
             *show_slot.borrow_mut() = Some(viewer.clone_strong());
             viewer
@@ -354,6 +331,40 @@ pub(crate) fn connect(
             app.set_status(format!("Could not show Log Viewer: {error}").into());
         } else {
             crate::platform::enable_log_viewer_acrylic(&viewer);
+            follow_while_visible(&viewer, &timer, &show_reader, &show_subsystems);
+        }
+    });
+}
+
+fn follow_while_visible(
+    viewer: &LogViewerWindow,
+    timer: &Rc<slint::Timer>,
+    reader: &Rc<RefCell<LogReader>>,
+    subsystem_values: &Rc<RefCell<Vec<String>>>,
+) {
+    if timer.running() {
+        return;
+    }
+    let timer_handle = Rc::downgrade(timer);
+    let close_timer = timer_handle.clone();
+    viewer.window().on_close_requested(move || {
+        if let Some(timer) = close_timer.upgrade() {
+            timer.stop();
+        }
+        slint::CloseRequestResponse::HideWindow
+    });
+    let viewer = viewer.as_weak();
+    let reader = reader.clone();
+    let subsystem_values = subsystem_values.clone();
+    timer.start(slint::TimerMode::Repeated, REFRESH_INTERVAL, move || {
+        if let Some(viewer) = viewer
+            .upgrade()
+            .filter(|viewer| viewer.window().is_visible())
+        {
+            refresh_view(&viewer, &reader, &subsystem_values);
+        } else if let Some(timer) = timer_handle.upgrade() {
+            // Programmatic hides do not invoke the native close handler.
+            timer.stop();
         }
     });
 }
@@ -577,8 +588,13 @@ fn refresh_view(
 
 #[cfg(test)]
 mod tests {
-    use super::{LogReader, filter_entries, parse_entry};
-    use std::{collections::VecDeque, fs, io::Write, time::SystemTime};
+    use super::{
+        LogReader, LogViewerWindow, REFRESH_INTERVAL, filter_entries, follow_while_visible,
+        parse_entry,
+    };
+    use riina_test_support::TempDir;
+    use slint::{ComponentHandle, Model, platform::WindowEvent};
+    use std::{cell::RefCell, collections::VecDeque, fs, io::Write, rc::Rc};
 
     #[test]
     fn parses_mpv_timestamp_level_subsystem_and_message() {
@@ -612,8 +628,51 @@ mod tests {
     }
 
     #[test]
+    fn polling_only_runs_while_the_log_viewer_is_visible() -> Result<(), Box<dyn std::error::Error>>
+    {
+        i_slint_backend_testing::init_no_event_loop();
+        let directory = TempDir::new("riina-log-viewer-timer")?;
+        let path = directory.path().join("riina.log");
+        fs::write(&path, b"[0.1][info][core] first\n")?;
+        let viewer = LogViewerWindow::new()?;
+        let timer = Rc::new(slint::Timer::default());
+        let reader = Rc::new(RefCell::new(LogReader::new(path.clone())));
+        let subsystems = Rc::new(RefCell::new(vec![String::new()]));
+
+        i_slint_backend_testing::mock_elapsed_time(REFRESH_INTERVAL);
+        assert!(!timer.running());
+        assert_eq!(viewer.get_rows().row_count(), 0);
+
+        viewer.show()?;
+        follow_while_visible(&viewer, &timer, &reader, &subsystems);
+        assert!(timer.running());
+        i_slint_backend_testing::mock_elapsed_time(REFRESH_INTERVAL);
+        assert_eq!(viewer.get_rows().row_count(), 1);
+
+        viewer.window().dispatch_event(WindowEvent::CloseRequested);
+        assert!(!timer.running());
+        assert!(!viewer.window().is_visible());
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&path)?
+            .write_all(b"[0.2][info][core] second\n")?;
+        i_slint_backend_testing::mock_elapsed_time(REFRESH_INTERVAL);
+        assert_eq!(viewer.get_rows().row_count(), 1);
+
+        viewer.show()?;
+        follow_while_visible(&viewer, &timer, &reader, &subsystems);
+        i_slint_backend_testing::mock_elapsed_time(REFRESH_INTERVAL);
+        assert_eq!(viewer.get_rows().row_count(), 2);
+        viewer.hide()?;
+        i_slint_backend_testing::mock_elapsed_time(REFRESH_INTERVAL);
+        assert!(!timer.running());
+        Ok(())
+    }
+
+    #[test]
     fn incremental_reader_keeps_partial_lines_until_the_next_append() {
-        let path = temp_log_path();
+        let directory = TempDir::new("riina-log-viewer").unwrap();
+        let path = directory.path().join("riina.log");
         let mut file = fs::File::create(&path).unwrap();
         file.write_all(b"[0.1][info][core] first\n[0.2][warn][core] par")
             .unwrap();
@@ -627,31 +686,18 @@ mod tests {
         assert!(reader.refresh().unwrap());
         assert_eq!(reader.entries.len(), 2);
         assert_eq!(reader.entries.back().unwrap().message, "partial");
-        let _ = fs::remove_file(path);
     }
 
     #[test]
     fn reader_resets_after_the_log_is_replaced_with_a_shorter_file() {
-        let path = temp_log_path();
+        let directory = TempDir::new("riina-log-viewer").unwrap();
+        let path = directory.path().join("riina.log");
         fs::write(&path, b"[0.1][info][core] old line\n").unwrap();
         let mut reader = LogReader::new(path.clone());
         reader.refresh().unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(5));
         fs::write(&path, b"[0.2][info][core] new\n").unwrap();
         assert!(reader.refresh().unwrap());
         assert_eq!(reader.entries.len(), 1);
         assert_eq!(reader.entries.front().unwrap().message, "new");
-        let _ = fs::remove_file(path);
-    }
-
-    fn temp_log_path() -> std::path::PathBuf {
-        std::env::temp_dir().join(format!(
-            "riina-log-viewer-{}-{}.log",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ))
     }
 }
