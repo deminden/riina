@@ -1,10 +1,12 @@
 mod audio_controls;
 mod catalog;
 mod context;
+mod control_actions;
 mod delays;
 mod dialogs;
 mod discovery;
 mod engine_start;
+mod features;
 mod feedback;
 #[cfg(test)]
 pub(crate) mod glue_tests;
@@ -32,7 +34,6 @@ mod plugin_menus;
 mod plugins;
 mod subtitle_controls;
 mod video_controls;
-use catalog::install_playlist_metadata_refresh;
 use context::{PlayerContext, bind};
 use engine_start::EngineStart;
 mod session_preferences;
@@ -43,7 +44,7 @@ use crate::{
     PlayerWindow, WelcomeWindow, media_open, platform, preference_load::LoadedPreferences,
     preferences::model::PreferenceModel,
 };
-use riina_core::{Command, Phase, Playback, Preferences, sync::lock};
+use riina_core::{Command, Phase, Playback, Preferences};
 use riina_mpv::Player;
 use slint::ComponentHandle;
 use std::{
@@ -170,17 +171,7 @@ pub(crate) struct UiSession {
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
     _pause_resume_timer: Rc<slint::Timer>,
-    _thumbnail_preview_timer: Rc<slint::Timer>,
-    _transition_frame_timer: Option<Rc<slint::Timer>>,
-    _video_materials: platform::video_materials::Monitor,
-    _subtitle_priority_timer: Rc<slint::Timer>,
-    _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
-    _playback_history_window: crate::playback_history_window::Guard,
-    _filter_windows: crate::video_filter_window::Guard,
-    _playlist_metadata_timer: Rc<slint::Timer>,
-    _automatic_music_mode_timer: Rc<slint::Timer>,
-    _file_drop_timer: Rc<slint::Timer>,
-    _player_window_focus: input::PlayerWindowFocusRegistration,
+    _features: features::PlaybackFeatures,
     prefs_path: PathBuf,
     pub(crate) preference_model: PreferenceModel,
     audio_equalizer: Arc<std::sync::Mutex<riina_core::audio_equalizer::Settings>>,
@@ -356,67 +347,31 @@ fn configure_with_engine(
             return Err(std::io::Error::other(error).into());
         }
     };
-    let playback_history_window = history.install_window(
-        app,
-        &command_sender,
-        &prefs_path,
-        plugin_host_handle.clone(),
-        latest_playback.clone(),
-    );
-    let filter_windows = crate::video_filter_window::install(
-        app,
-        latest_playback.clone(),
-        saved_video_filters.clone(),
-        saved_audio_filters.clone(),
-        command_sender.clone(),
-        prefs_path.clone(),
-    );
-    let playlist_metadata_timer = install_playlist_metadata_refresh(app, latest_playback.clone());
-    let automatic_music_mode_timer = crate::automatic_music_mode::install(
-        app,
-        latest_playback.clone(),
-        music_mode_state.clone(),
-    );
-    *lock(&plugin_command_sender) = Some(command_sender.clone());
-    let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
-    let online_subtitles_window = crate::open_subtitles::connect_player(
-        app,
-        command_sender.clone(),
-        latest_playback.clone(),
-        subtitle_discovery_ready.clone(),
-    );
-    let subtitle_priority_timer = discovery::install(
-        app,
-        &command_sender,
-        latest_playback.clone(),
-        subtitle_discovery_ready,
-    );
-    picture_in_picture.bind(app, &command_sender, &latest_playback);
-    let input::InstalledInput {
-        file_drop_timer,
-        player_window_focus,
+    let features::Installed {
+        guards,
+        live_text_timer,
+        pending_navigation,
         #[cfg(target_os = "macos")]
         mac_scroll_event_monitor,
-    } = input::install(app, &command_sender, latest_playback.clone());
-    let thumbnail_preview_timer =
-        thumbnail_actions::install(app, &latest_playback, plugin_host_handle.clone());
-    let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
-    let transition_frame_timer = transitions::install(
-        capture_transition_first,
-        native.as_ref(),
-        &command_sender,
-        &latest_playback,
-        &pending_navigation,
-        &transition_release_generation,
-    );
-    let video_materials = platform::video_materials::Monitor::install(
+    } = features::install(
         app,
-        native.as_ref(),
-        &command_sender,
-        &latest_playback,
+        features::Inputs {
+            native: native.as_ref(),
+            commands: &command_sender,
+            playback: &latest_playback,
+            prefs_path: &prefs_path,
+            history: &history,
+            plugin_host: plugin_host_handle.as_ref(),
+            plugin_commands: &plugin_command_sender,
+            saved_video_filters: &saved_video_filters,
+            saved_audio_filters: &saved_audio_filters,
+            music_mode: &music_mode_state,
+            transition_release_generation: &transition_release_generation,
+            picture_in_picture: &picture_in_picture,
+            system_media: &system_media,
+            capture_transition_first,
+        },
     );
-    system_media.bind(&command_sender);
-    let live_text_timer = live_text::install(app, command_sender.clone(), latest_playback.clone());
     let weak = app.as_weak();
     let toolbar_settings_window = weak.clone();
     app.on_toolbar_settings_changed(move || {
@@ -449,99 +404,21 @@ fn configure_with_engine(
             latest_playback.clone(),
         ),
     );
-    let opening_player = command_sender.clone();
-    let opening_app = app.as_weak();
-    let resume_player = command_sender.clone();
-    let resume_app = app.as_weak();
-    let resume_welcome = welcome.map(WelcomeWindow::as_weak);
-    let recent_media_for_resume = recent_media.clone();
-    app.on_resume_last_position_changed(move |enabled| {
-        if let Err(error) = resume_player.send(Command::SetResumeLastPosition(enabled))
-            && let Some(app) = resume_app.upgrade()
-        {
-            app.set_status(error.into());
-        }
-        if let Some(welcome) = resume_welcome.as_ref().and_then(slint::Weak::upgrade) {
-            media_actions::recent::refresh_welcome_history(
-                &welcome,
-                &recent_media_for_resume.borrow(),
-                enabled,
-            );
-        }
-    });
+    media_actions::install_resume_preference(app, &command_sender, welcome, &recent_media);
     history.install_recording_action(app);
-    app.on_pause_when_open_changed(move |pause| {
-        if let Err(error) = opening_player.send(Command::SetPauseWhenOpen(pause))
-            && let Some(app) = opening_app.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
-    crate::window_controls::install(app, native.as_ref().map(platform::NativePresentation::host));
-    crop_editor.install(app, command_sender.clone());
-    video_controls::install_reflection(app, &command_sender);
-    feedback::install(app, &command_sender, screenshot_scratch, feedback_video_osd);
-    video_controls::install_deinterlace(app, &command_sender);
-    transport::install_pause(app, &context);
-    input::install_mpv_input_action(app, &context);
-    bind!(context, app, on_toggle_mute, Command::ToggleMute);
-    let hdr_player = command_sender.clone();
-    hdr_output::install(app, move |command| hdr_player.send(command));
-    transport::install_stop_and_steps(app, &context);
-    playlist_actions::install_navigation(
+    media_actions::install_pause_on_open(app, &command_sender);
+    control_actions::install(
         app,
-        &command_sender,
-        &pending_navigation,
-        capture_transition_first,
-    );
-    transport::install_speed(app, &context);
-    video_controls::install(app, &command_sender);
-    bind!(
-        context,
-        app,
-        on_reset_subtitle_delay,
-        Command::SubtitleDelay(0.0)
-    );
-    audio_controls::install(app, &command_sender, audio_equalizer.clone());
-    subtitle_controls::install(app, &command_sender);
-    bind!(context, app, on_reset_audio_delay, Command::AudioDelay(0.0));
-    transport::install_loops(app, &context);
-    bind!(
-        context,
-        app,
-        on_toggle_secondary_subtitle_visibility,
-        Command::ToggleSecondarySubtitleVisibility
-    );
-    catalog::install_track_cycles(app, &context);
-    audio_controls::install_audio_device(app, &command_sender, &latest_playback);
-    bind!(
-        context,
-        app,
-        on_toggle_subtitle_visibility,
-        Command::ToggleSubtitleVisibility
-    );
-    subtitle_controls::install_encoding(app, &command_sender);
-    catalog::install_catalog_selection(app, &context);
-    delays::install_sliders(app, &command_sender);
-    playlist_actions::install(
-        app,
-        &command_sender,
-        &pending_navigation,
-        capture_transition_first,
-    );
-    dialogs::install_browse(
-        app,
-        &command_sender,
-        native.as_ref().map(platform::NativePresentation::host),
-    );
-    transport::install_seek(app, &command_sender);
-    dialogs::install_time_and_url(app, &command_sender);
-    audio_controls::install_volume(app, &command_sender);
-    transport::install_relative_speed(app, &command_sender);
-    audio_controls::install_volume_adjustment(app, &command_sender);
-    window_actions::install_fullscreen(
-        app,
-        native.as_ref().map(platform::NativePresentation::host),
+        control_actions::Inputs {
+            context: &context,
+            native: native.as_ref(),
+            crop_editor: &crop_editor,
+            screenshot_scratch,
+            feedback_video_osd,
+            audio_equalizer: &audio_equalizer,
+            pending_navigation: &pending_navigation,
+            capture_transition_first,
+        },
     );
     media_actions::install(
         app,
@@ -599,17 +476,7 @@ fn configure_with_engine(
         _observer_state: observer_state,
         _appearance_timer: appearance_timer,
         _pause_resume_timer: pause_resume_timer,
-        _thumbnail_preview_timer: thumbnail_preview_timer,
-        _transition_frame_timer: transition_frame_timer,
-        _video_materials: video_materials,
-        _subtitle_priority_timer: subtitle_priority_timer,
-        _online_subtitles_window: online_subtitles_window,
-        _playback_history_window: playback_history_window,
-        _filter_windows: filter_windows,
-        _playlist_metadata_timer: playlist_metadata_timer,
-        _automatic_music_mode_timer: automatic_music_mode_timer,
-        _file_drop_timer: file_drop_timer,
-        _player_window_focus: player_window_focus,
+        _features: guards,
         _plugin_host: plugin_host,
         _plugin_host_timer: plugin_host_timer,
         _plugin_osd_timer: plugin_osd_timer,

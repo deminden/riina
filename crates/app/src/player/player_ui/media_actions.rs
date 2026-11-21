@@ -7,7 +7,7 @@ use crate::{
     ui_dialogs::{self, Purpose},
 };
 use recent::{persist_recent_open_documents, remember_recent_open_document};
-use riina_core::RecentMedia;
+use riina_core::{Command, RecentMedia};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{
@@ -65,6 +65,40 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     install_help_and_debug(app, context.latest_playback);
     install_welcome_recent(app, &context, &welcome_window, &pending_welcome_open);
     install_media_opened(app, &context, &welcome_window);
+}
+
+pub(super) fn install_resume_preference(
+    app: &PlayerWindow,
+    commands: &CommandSender,
+    welcome: Option<&WelcomeWindow>,
+    recent_media: &Rc<RefCell<Vec<RecentMedia>>>,
+) {
+    let resume_player = commands.clone();
+    let resume_app = app.as_weak();
+    let resume_welcome = welcome.map(WelcomeWindow::as_weak);
+    let recent_media_for_resume = recent_media.clone();
+    app.on_resume_last_position_changed(move |enabled| {
+        if let Err(error) = resume_player.send(Command::SetResumeLastPosition(enabled))
+            && let Some(app) = resume_app.upgrade()
+        {
+            app.set_status(error.into());
+        }
+        if let Some(welcome) = resume_welcome.as_ref().and_then(slint::Weak::upgrade) {
+            recent::refresh_welcome_history(&welcome, &recent_media_for_resume.borrow(), enabled);
+        }
+    });
+}
+
+pub(super) fn install_pause_on_open(app: &PlayerWindow, commands: &CommandSender) {
+    let opening_player = commands.clone();
+    let opening_app = app.as_weak();
+    app.on_pause_when_open_changed(move |pause| {
+        if let Err(error) = opening_player.send(Command::SetPauseWhenOpen(pause))
+            && let Some(app) = opening_app.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
 }
 
 fn install_renderer_ready(
