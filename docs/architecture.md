@@ -63,8 +63,10 @@ until the worker replaces or updates them. `playback_mailbox` coalesces pending
 updates to the UI thread.
 Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
-catalogs into Slint. Plugin entry workers have a separate runtime and send player
-intents through the existing command path.
+catalogs into Slint. Each player instance owns its audio and timeline globals,
+so changing those observations in one window leaves the other players' views
+independent. Plugin entry workers have a separate runtime and send player intents
+through the existing command path.
 
 The app's named background tasks register until their work returns. Their
 owners retain join handles where teardown depends on the work completing.
@@ -92,10 +94,11 @@ preference writer. See [Add a preference](recipes/add-a-preference.md).
 The Windows native presentation owns the video target used by the D3D11 route.
 The shared GL renderer uses the current Slint context. Video textures and the
 blur pass use the same framebuffer binding operations. Window focus, dialog
-modality, clipboard access, desktop materials and OS media integration belong
-to platform services. Platform session resources are held until the decoder
-worker has joined. Test playback can use null native output or a recording engine to
-exercise UI callbacks without a native window. Windows software-rendered pixel
+modality, clipboard access, window document identity, file associations, and OS
+media integration belong to platform services. `SessionExtras` keeps each
+platform's input and auxiliary presentation alive through decoder shutdown.
+Test playback can use null native output or a recording engine to exercise UI
+callbacks without a native window. Windows software-rendered pixel
 baselines cover the Slint surfaces. The platform service recipe shows how to
 add a native query without coupling its caller to the target.
 [Add a platform service](recipes/add-a-platform-service.md)

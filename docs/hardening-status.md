@@ -15,7 +15,13 @@ format. See [Verification](verification.md) for the scope of the runtime checks.
 | H8 Unsafe boundaries | Enforce documented unsafe blocks through workspace Clippy. | `dda8174` |
 | H9 Plugin output routing | Use typed routes for plugin-driven effects and bounded output. | `7bcec50` |
 | H14 Background task ownership | Name application workers, log panics, report running tasks at exit and centralize weak window delivery. | `e5f0dc9`, `475d58a` |
+| O2 Composition roots | Separate the Windows host and player session ownership, and split the history, crop and playback feedback handlers. Windows strict Clippy passed at the 150-line threshold. | `fc2bdb7`, `8bdb6e3`, `4684478` |
 | O4 App and UI crate boundaries | Test app callbacks through the library target and compile Slint in its own crate. | `acb0fbf`, `57346d1`, `721035b` |
 | O6 Native worker ownership | Group pending replies, own the core in the event worker and share immutable playback snapshots. | `75eb5f4`, `8ed8c1a`, `2ef80b2`, `5802d69` |
 | O7 Command planning and frame state | Separate argument and plan domains, share filter-chain planning and use typed frame slots. | `2f49a5c`, `8e9a1fb`, `ae692a8` |
 | D2 and D3 Duplicate command logic | Share audio and video filter commands and use one replay plan for ended playback. The command goldens cover both. | `8e9a1fb`, `ae692a8` |
+
+| In progress | Verified progress | Local commits |
+|---|---|---|
+| O3 Slint structure | Windows widget tests and all 51 software-rendered reference comparisons passed after extracting per-window playback observations and moving title bar and sidebar colors into the theme. The `PlayerWindow` line target remains open. | `2c55e3c`, `d6c0916`, `68ff8c3`, `7490fa8` |
+| O5 Platform boundary | Native window input, plugin presentation, window document identity, text recognition and file association work now use platform adapters. The plan's source scan counts 28 target conditionals outside `platform/`. Full macOS application verification remains open. | `7226679`, `e529719` |
