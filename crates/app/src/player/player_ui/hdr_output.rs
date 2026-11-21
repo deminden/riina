@@ -79,6 +79,36 @@ pub(crate) fn update_display(app: &PlayerWindow, active: bool) {
     }
 }
 
+pub(super) fn install_display_observer(
+    app: &PlayerWindow,
+    prefs: &riina_core::Preferences,
+    native: Option<&crate::platform::NativePresentation>,
+) -> Option<std::rc::Rc<slint::Timer>> {
+    use std::{rc::Rc, time::Duration};
+
+    app.set_hdr_enabled(prefs.hdr_enabled);
+    app.set_default_hdr_mode_enabled(prefs.hdr_enabled);
+    app.set_load_icc_profile(prefs.load_icc_profile);
+    app.set_hdr_display_active(
+        native.is_some_and(|presentation| presentation.hdr_display_active()),
+    );
+    native.map(|presentation| {
+        let timer = Rc::new(slint::Timer::default());
+        let display = presentation.clone();
+        let weak = app.as_weak();
+        timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_secs(2),
+            move || {
+                if let Some(app) = weak.upgrade() {
+                    update_display(&app, display.hdr_display_active());
+                }
+            },
+        );
+        timer
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

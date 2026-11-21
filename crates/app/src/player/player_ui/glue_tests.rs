@@ -5,7 +5,7 @@ use crate::CatalogSelection;
 use riina_core::TrackKind;
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
-use std::{io, sync::mpsc::TryRecvError};
+use std::{io, sync::mpsc::TryRecvError, time::Duration};
 
 pub(crate) struct Harness {
     pub(crate) app: PlayerWindow,

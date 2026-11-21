@@ -1,8 +1,95 @@
 //! Build initial engine options and issue the saved player commands in startup order.
-use super::engine_start::EngineOptions;
-use riina_core::{Command, Preferences};
+use super::{
+    audio_controls::set_audio_equalizer_controls, engine_start::EngineOptions,
+    history_session::LoadedHistory,
+};
+use crate::{
+    PlayerWindow,
+    preference_load::{LoadedPreferences, Recovery},
+};
+use riina_core::{Command, Preferences, audio_equalizer, sync::lock, video_filters};
 use riina_mpv::CommandSender;
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
+
+pub(super) struct PreparedSettings {
+    pub(super) prefs: Preferences,
+    pub(super) recovery: Option<Recovery>,
+    pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
+    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) history: LoadedHistory,
+}
+
+pub(super) fn prepare_settings(
+    app: &PlayerWindow,
+    prefs_path: &Path,
+    loaded: LoadedPreferences,
+    use_system_services: bool,
+) -> PreparedSettings {
+    let plugin_menu_order = std::fs::read_to_string(prefs_path.with_file_name("plugin-order.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
+        .unwrap_or_default();
+    app.set_plugin_menu_order(slint::ModelRc::new(slint::VecModel::from(
+        plugin_menu_order
+            .into_iter()
+            .map(slint::SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
+    let LoadedPreferences {
+        preferences: mut prefs,
+        source_text,
+        recovery,
+    } = loaded;
+    if use_system_services
+        && let Err(error) = crate::online_subtitles_credentials::restore_preferences(
+            &mut prefs,
+            source_text.as_deref(),
+            prefs_path,
+            recovery.is_none(),
+        )
+    {
+        app.set_status(format!("OpenSubtitles credential storage: {error}").into());
+    }
+    let audio_equalizer = Arc::new(Mutex::new(prefs.audio_equalizer.clone()));
+    let saved_video_filters = Arc::new(Mutex::new(prefs.video_filters.clone()));
+    let saved_audio_filters = Arc::new(Mutex::new(prefs.audio_filters.clone()));
+    set_audio_equalizer_controls(app, &lock(&audio_equalizer));
+    let history = LoadedHistory::load(app, prefs_path, &mut prefs);
+    PreparedSettings {
+        prefs,
+        recovery,
+        audio_equalizer,
+        saved_video_filters,
+        saved_audio_filters,
+        history,
+    }
+}
+
+pub(super) fn options_for_session(
+    app: &PlayerWindow,
+    prefs: &Preferences,
+    prefs_path: &Path,
+) -> std::io::Result<EngineOptions> {
+    let watch_later_directory = prefs_path.with_file_name("watch-later");
+    std::fs::create_dir_all(&watch_later_directory)?;
+    let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(prefs_path, "io.iina.ytdl");
+    app.set_network_ytdl_plugin_active(ytdl_plugin_active);
+    let advanced_options = crate::advanced_preferences::engine_options(&prefs.advanced, prefs_path);
+    engine_options(
+        prefs,
+        &watch_later_directory,
+        OptionsFlags {
+            ytdl_plugin_active,
+            platform_manages_icc: cfg!(target_os = "macos"),
+        },
+        advanced_options,
+    )
+    .map_err(std::io::Error::other)
+}
 
 pub(super) struct OptionsFlags {
     pub(super) ytdl_plugin_active: bool,

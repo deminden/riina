@@ -11,7 +11,6 @@ pub(crate) mod glue_tests;
 pub(crate) mod hdr_output;
 mod history_session;
 pub(crate) mod lifecycle;
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod live_text;
 mod media_actions;
 mod music_mode;
@@ -26,14 +25,13 @@ mod window_actions;
 use feedback::clear_screenshot_preview;
 mod initial_projection;
 pub(crate) mod input;
-mod subtitle_controls;
-mod video_controls;
-use audio_controls::set_audio_equalizer_controls;
 mod observation_dispatch;
 mod observations;
 mod observer_state;
 mod plugin_menus;
 mod plugins;
+mod subtitle_controls;
+mod video_controls;
 use catalog::install_playlist_metadata_refresh;
 use context::{PlayerContext, bind};
 use engine_start::EngineStart;
@@ -56,7 +54,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
@@ -438,37 +436,15 @@ fn configure_with_engine(
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     let picture_in_picture = platform::PictureInPictureSession::new(app);
     let prefs_path = engine_start.preferences_path()?;
-    let plugin_menu_order = std::fs::read_to_string(prefs_path.with_file_name("plugin-order.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
-        .unwrap_or_default();
-    app.set_plugin_menu_order(slint::ModelRc::new(slint::VecModel::from(
-        plugin_menu_order
-            .into_iter()
-            .map(slint::SharedString::from)
-            .collect::<Vec<_>>(),
-    )));
-    let LoadedPreferences {
-        preferences: mut prefs,
-        source_text,
-        recovery,
-    } = loaded;
     let use_system_services = engine_start.uses_system_services();
-    if use_system_services
-        && let Err(error) = crate::online_subtitles_credentials::restore_preferences(
-            &mut prefs,
-            source_text.as_deref(),
-            &prefs_path,
-            recovery.is_none(),
-        )
-    {
-        app.set_status(format!("OpenSubtitles credential storage: {error}").into());
-    }
-    let audio_equalizer = Arc::new(std::sync::Mutex::new(prefs.audio_equalizer.clone()));
-    let saved_video_filters = Arc::new(std::sync::Mutex::new(prefs.video_filters.clone()));
-    let saved_audio_filters = Arc::new(std::sync::Mutex::new(prefs.audio_filters.clone()));
-    set_audio_equalizer_controls(app, &lock(&audio_equalizer));
-    let history = history_session::LoadedHistory::load(app, &prefs_path, &mut prefs);
+    let startup::PreparedSettings {
+        prefs,
+        recovery,
+        audio_equalizer,
+        saved_video_filters,
+        saved_audio_filters,
+        history,
+    } = startup::prepare_settings(app, &prefs_path, loaded, use_system_services);
     let plugin_host = match crate::plugin_host::PluginHost::start(
         &prefs_path,
         &prefs.recent_media,
@@ -494,83 +470,26 @@ fn configure_with_engine(
         plugin_osd_timer,
         plugin_command_sender,
     } = plugins::install(app, native.as_ref(), plugin_host_handle.clone());
-    app.set_live_text_enabled(prefs.live_text_enabled);
-    app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
-    app.set_live_text_available(false);
-    #[cfg(target_os = "macos")]
-    app.set_live_text_selectable(true);
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    if use_system_services {
-        let weak = app.as_weak();
-        let _ = platform::text_recognition::check_availability(move |available| {
-            let _ = crate::background::to_ui(weak, move |app| {
-                app.set_live_text_available(available);
-                if !available {
-                    app.set_live_text_enabled(false);
-                }
-            });
-        });
-    }
-    app.set_hdr_enabled(prefs.hdr_enabled);
-    app.set_default_hdr_mode_enabled(prefs.hdr_enabled);
-    app.set_load_icc_profile(prefs.load_icc_profile);
-    app.set_hdr_display_active(
-        native
-            .as_ref()
-            .is_some_and(|presentation| presentation.hdr_display_active()),
-    );
-    let hdr_display_timer = native.as_ref().map(|presentation| {
-        let timer = Rc::new(slint::Timer::default());
-        let display = presentation.clone();
-        let weak = app.as_weak();
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_secs(2),
-            move || {
-                if let Some(app) = weak.upgrade() {
-                    hdr_output::update_display(&app, display.hdr_display_active());
-                }
-            },
-        );
-        timer
-    });
+    live_text::initialize(app, prefs.live_text_enabled, use_system_services);
+    let hdr_display_timer = hdr_output::install_display_observer(app, &prefs, native.as_ref());
     let recent_media = Rc::new(RefCell::new(prefs.recent_media.clone()));
     let recent_open_documents = Rc::new(RefCell::new(prefs.recent_open_documents.clone()));
     let recent_open_cleared = Rc::new(Cell::new(false));
     let history = history.start_tracking(&prefs_path, &prefs);
-    let watch_later_directory = prefs_path.with_file_name("watch-later");
-    std::fs::create_dir_all(&watch_later_directory)?;
-    let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(&prefs_path, "io.iina.ytdl");
-    app.set_network_ytdl_plugin_active(ytdl_plugin_active);
-    let advanced_options =
-        crate::advanced_preferences::engine_options(&prefs.advanced, &prefs_path);
-    let engine_options = startup::engine_options(
+    let engine_options = startup::options_for_session(app, &prefs, &prefs_path)?;
+    let initial_projection::SessionProjection {
+        latest_playback,
+        pause_resume_timer,
+        system_media,
+        appearance_timer,
+    } = initial_projection::install_session(
+        app,
         &prefs,
-        &watch_later_directory,
-        startup::OptionsFlags {
-            ytdl_plugin_active,
-            platform_manages_icc: cfg!(target_os = "macos"),
-        },
-        advanced_options,
-    )
-    .map_err(std::io::Error::other)?;
-    initial_projection::install_platform(app, &prefs);
-    let latest_playback = crate::PlaybackStore::default();
-    crate::about_window::connect(app, latest_playback.clone());
-    let pause_resume_timer = lifecycle::install_pause_on_minimize(
-        app,
-        native.as_ref().map(|presentation| presentation.host()),
-        latest_playback.clone(),
+        &prefs_path,
+        native.as_ref(),
+        welcome,
+        &recent_open_documents,
     );
-    crate::preferences::model::install_player_sections(&prefs, app);
-    crate::key_binding_preferences::install_player(
-        app,
-        &prefs.key_bindings,
-        latest_playback.clone(),
-    );
-    let system_media = platform::SystemMediaSession::new(app, latest_playback.clone());
-    initial_projection::install_media(app, &prefs, welcome, &recent_open_documents);
-    let appearance_timer = initial_projection::install_layout(app, &prefs, &prefs_path);
     let app_weak = app.as_weak();
     // Only one pending state snapshot is retained; a decoder can produce updates
     // faster than the UI consumes them without growing the application event queue.
@@ -694,14 +613,7 @@ fn configure_with_engine(
         &latest_playback,
     );
     system_media.bind(&command_sender);
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    let live_text_timer = Some(live_text::install(
-        app,
-        command_sender.clone(),
-        latest_playback.clone(),
-    ));
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let live_text_timer = None;
+    let live_text_timer = live_text::install(app, command_sender.clone(), latest_playback.clone());
     let weak = app.as_weak();
     let toolbar_settings_window = weak.clone();
     app.on_toolbar_settings_changed(move || {
@@ -710,40 +622,7 @@ fn configure_with_engine(
         }
     });
     crate::osc_preferences::refresh_visible_order(app);
-    let clipboard_parent = weak.clone();
-    app.on_copy_live_text(move |text| {
-        if let Err(error) = crate::platform::clipboard::copy_text(text.as_str())
-            && let Some(app) = clipboard_parent.upgrade()
-        {
-            app.set_status(format!("Could not copy recognized text: {error}").into());
-        }
-    });
-    let live_text_parent = weak.clone();
-    let live_text_path = prefs_path.clone();
-    app.on_toggle_live_text(move || {
-        let Some(app) = live_text_parent.upgrade() else {
-            return;
-        };
-        if !app.get_live_text_available() {
-            app.set_status("Live Text is unavailable on this system".into());
-            return;
-        }
-        let enabled = !app.get_live_text_enabled();
-        let result = crate::preference_store::update(
-            &live_text_path,
-            &Preferences::default(),
-            |preferences| {
-                preferences.live_text_enabled = enabled;
-                Ok(())
-            },
-        );
-        match result {
-            Ok(()) => app.set_live_text_enabled(enabled),
-            Err(error) => {
-                app.set_status(format!("Could not save Live Text preference: {error}").into())
-            }
-        }
-    });
+    live_text::install_actions(app, &prefs_path);
     music_mode::install_actions(app, &music_mode_state);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(

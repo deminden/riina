@@ -4,7 +4,47 @@ use crate::{PlayerWindow, WelcomeWindow};
 use riina_core::{Preferences, RecentMedia};
 use std::{cell::RefCell, path::Path, rc::Rc};
 
-pub(super) fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
+pub(super) struct SessionProjection {
+    pub(super) latest_playback: crate::PlaybackStore,
+    pub(super) pause_resume_timer: Rc<slint::Timer>,
+    pub(super) system_media: crate::platform::SystemMediaSession,
+    pub(super) appearance_timer: Rc<slint::Timer>,
+}
+
+pub(super) fn install_session(
+    app: &PlayerWindow,
+    prefs: &Preferences,
+    prefs_path: &std::path::Path,
+    native: Option<&crate::platform::NativePresentation>,
+    welcome: Option<&WelcomeWindow>,
+    recent_open_documents: &Rc<RefCell<Vec<riina_core::RecentMedia>>>,
+) -> SessionProjection {
+    install_platform(app, prefs);
+    let latest_playback = crate::PlaybackStore::default();
+    crate::about_window::connect(app, latest_playback.clone());
+    let pause_resume_timer = super::lifecycle::install_pause_on_minimize(
+        app,
+        native.map(|presentation| presentation.host()),
+        latest_playback.clone(),
+    );
+    crate::preferences::model::install_player_sections(prefs, app);
+    crate::key_binding_preferences::install_player(
+        app,
+        &prefs.key_bindings,
+        latest_playback.clone(),
+    );
+    let system_media = crate::platform::SystemMediaSession::new(app, latest_playback.clone());
+    install_media(app, prefs, welcome, recent_open_documents);
+    let appearance_timer = install_layout(app, prefs, prefs_path);
+    SessionProjection {
+        latest_playback,
+        pause_resume_timer,
+        system_media,
+        appearance_timer,
+    }
+}
+
+fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
     app.set_volume_boost(prefs.volume_boost);
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.set_disable_animations(prefs.disable_animations);
@@ -26,7 +66,7 @@ pub(super) fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
 }
 
-pub(super) fn install_media(
+fn install_media(
     app: &PlayerWindow,
     prefs: &Preferences,
     welcome: Option<&WelcomeWindow>,
@@ -77,11 +117,7 @@ pub(super) fn install_media(
     app.set_launch_action_index(prefs.action_after_launch.index());
 }
 
-pub(super) fn install_layout(
-    app: &PlayerWindow,
-    prefs: &Preferences,
-    prefs_path: &Path,
-) -> Rc<slint::Timer> {
+fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) -> Rc<slint::Timer> {
     app.set_leading_sidebar_width(prefs.leading_sidebar_width as f32);
     app.set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
     app.set_settings_at_leading(prefs.settings_at_leading);

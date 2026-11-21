@@ -1,12 +1,19 @@
 //! Paused-frame capture and asynchronous recognition are scoped to one frame identity.
-use riina_core::{Phase, Playback};
+use crate::{PlayerWindow, platform};
+use riina_core::Preferences;
+use riina_mpv::CommandSender;
+use slint::ComponentHandle;
+use std::{path::Path, rc::Rc};
+
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+use riina_core::Phase;
+#[cfg(test)]
+use riina_core::Playback;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 use {
-    crate::{LiveTextRegion, PlayerWindow, platform},
+    crate::LiveTextRegion,
     riina_core::Command,
-    slint::ComponentHandle,
     std::{
-        rc::Rc,
         sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
@@ -15,106 +22,87 @@ use {
     },
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct FrameKey {
-    generation: u64,
-    position: Option<u64>,
-    completed_seeks: u64,
-}
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+mod capture;
+#[cfg(test)]
+use capture::RecognitionKey;
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
+use capture::{CaptureAction, CaptureState, FrameKey};
 
-impl FrameKey {
-    fn from_playback(state: &Playback) -> Self {
-        Self {
-            generation: state.generation,
-            position: state
-                .position
-                .filter(|value| value.is_finite())
-                .map(f64::to_bits),
-            completed_seeks: state.completed_seeks,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct RecognitionKey {
-    frame: FrameKey,
-    capture: u64,
-}
-
-impl RecognitionKey {
-    fn is_current(self, state: &Playback) -> bool {
-        state.phase == Phase::Paused
-            && self.frame == FrameKey::from_playback(state)
-            && self.capture == state.captured_frame.revision
-    }
-}
-
-#[derive(Clone, Copy)]
-struct CaptureRequest {
-    frame: FrameKey,
-    before_capture: u64,
-    before_finished: u64,
-}
-
-#[derive(Default)]
-struct CaptureState {
-    pending: Option<CaptureRequest>,
-    ready: Option<RecognitionKey>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum CaptureAction {
-    Capture,
-    Wait,
-    Recognize(RecognitionKey),
-}
-
-impl CaptureState {
-    fn observe(&mut self, state: &Playback) -> CaptureAction {
-        let frame = FrameKey::from_playback(state);
-        if let Some(pending) = self.pending.take()
-            && pending.frame.generation == state.generation
-        {
-            if pending.before_finished == state.finished_frame_capture_requests {
-                self.pending = Some(pending);
-                return CaptureAction::Wait;
-            }
-            if pending.frame == frame && pending.before_capture != state.captured_frame.revision {
-                self.ready = Some(RecognitionKey {
-                    frame,
-                    capture: state.captured_frame.revision,
-                });
-            }
-        }
-        if let Some(ready) = self.ready.filter(|key| key.is_current(state)) {
-            return CaptureAction::Recognize(ready);
-        }
-        self.ready = None;
-        self.pending = Some(CaptureRequest {
-            frame,
-            before_capture: state.captured_frame.revision,
-            before_finished: state.finished_frame_capture_requests,
+pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services: bool) {
+    app.set_live_text_enabled(enabled);
+    app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
+    app.set_live_text_available(false);
+    #[cfg(target_os = "macos")]
+    app.set_live_text_selectable(true);
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    if use_system_services {
+        let weak = app.as_weak();
+        let _ = platform::text_recognition::check_availability(move |available| {
+            let _ = crate::background::to_ui(weak, move |app| {
+                app.set_live_text_available(available);
+                if !available {
+                    app.set_live_text_enabled(false);
+                }
+            });
         });
-        CaptureAction::Capture
     }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let _ = use_system_services;
+}
 
-    fn request_failed(&mut self) {
-        self.pending = None;
-    }
+pub(super) fn install_actions(app: &PlayerWindow, prefs_path: &Path) {
+    let clipboard_parent = app.as_weak();
+    app.on_copy_live_text(move |text| {
+        if let Err(error) = crate::platform::clipboard::copy_text(text.as_str())
+            && let Some(app) = clipboard_parent.upgrade()
+        {
+            app.set_status(format!("Could not copy recognized text: {error}").into());
+        }
+    });
+    let live_text_parent = app.as_weak();
+    let live_text_path = prefs_path.to_owned();
+    app.on_toggle_live_text(move || {
+        let Some(app) = live_text_parent.upgrade() else {
+            return;
+        };
+        if !app.get_live_text_available() {
+            app.set_status("Live Text is unavailable on this system".into());
+            return;
+        }
+        let enabled = !app.get_live_text_enabled();
+        let result = crate::preference_store::update(
+            &live_text_path,
+            &Preferences::default(),
+            |preferences| {
+                preferences.live_text_enabled = enabled;
+                Ok(())
+            },
+        );
+        match result {
+            Ok(()) => app.set_live_text_enabled(enabled),
+            Err(error) => {
+                app.set_status(format!("Could not save Live Text preference: {error}").into())
+            }
+        }
+    });
+}
 
-    fn invalidate(&mut self) {
-        // Keep an outstanding request until its reply arrives. Otherwise an old
-        // reply after a seek or re-enable could be mistaken for the new frame.
-        self.ready = None;
-    }
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub(super) fn install(
+    _: &PlayerWindow,
+    _: CommandSender,
+    _: crate::PlaybackStore,
+) -> Option<Rc<slint::Timer>> {
+    None
 }
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 pub(super) fn install(
     app: &PlayerWindow,
-    sender: riina_mpv::CommandSender,
+    sender: CommandSender,
     latest: crate::PlaybackStore,
-) -> Rc<slint::Timer> {
+) -> Option<Rc<slint::Timer>> {
     let mut capture_state = CaptureState::default();
     let mut displayed_frame = None;
     let mut recognized_capture = None;
@@ -219,7 +207,7 @@ pub(super) fn install(
             }
         },
     );
-    timer
+    Some(timer)
 }
 
 #[cfg(test)]
