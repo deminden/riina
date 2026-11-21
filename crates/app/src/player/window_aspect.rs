@@ -65,10 +65,6 @@ enum WindowTarget {
     NativeHost(slint::Weak<NativeVideoHost>),
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn connect_with_target(
     app: &PlayerWindow,
     target: WindowTarget,
@@ -76,12 +72,33 @@ fn connect_with_target(
     source: &MediaGeometry,
 ) -> WindowEventFilter {
     let previous_size = Rc::new(Cell::new(initial_size));
-    let action_target = target.clone();
-    let resize_generation = Rc::new(Cell::new(app.get_media_request_generation()));
     let initial_geometry_applied = Rc::new(Cell::new(false));
-    let media_resize_state = previous_size.clone();
-    let resize_target = target.clone();
-    let initial_state = initial_geometry_applied.clone();
+    register_media_resize(
+        app,
+        target.clone(),
+        previous_size.clone(),
+        initial_geometry_applied.clone(),
+    );
+    register_window_level(app, &target);
+    register_aspect_resize(
+        app,
+        target.clone(),
+        previous_size.clone(),
+        initial_geometry_applied,
+        source.clone(),
+    );
+    register_fit_to_video(app, target.clone(), previous_size.clone());
+    register_resize_command(app, target.clone(), previous_size.clone());
+    resize_filter(app, previous_size, target)
+}
+
+fn register_media_resize(
+    app: &PlayerWindow,
+    resize_target: WindowTarget,
+    media_resize_state: Rc<Cell<PixelSize>>,
+    initial_state: Rc<Cell<bool>>,
+) {
+    let resize_generation = Rc::new(Cell::new(app.get_media_request_generation()));
     let media_pending = Rc::new(Cell::new(false));
     app.on_resize_window_for_media({
         let weak = app.as_weak();
@@ -173,49 +190,13 @@ fn connect_with_target(
                         ) else {
                             return;
                         };
-                        #[cfg(target_os = "windows")]
-                        let positioned = settings.initial_geometry.position.is_none()
-                            && window
-                                .with_winit_window(|native| {
-                                    if let Some(overlay) = resize_overlay(&resize_target, &app) {
-                                        overlay
-                                            .with_winit_window(|overlay| {
-                                                crate::platform::resize_content(
-                                                    native,
-                                                    placement.size,
-                                                    true,
-                                                    Some(overlay),
-                                                )
-                                                .is_ok()
-                                            })
-                                            .unwrap_or(false)
-                                    } else {
-                                        crate::platform::resize_content(
-                                            native,
-                                            placement.size,
-                                            true,
-                                            None,
-                                        )
-                                        .is_ok()
-                                    }
-                                })
-                                .unwrap_or(false);
-                        #[cfg(not(target_os = "windows"))]
-                        let positioned = false;
-                        if !positioned {
-                            window.set_size(PhysicalSize::new(
-                                placement.size.width,
-                                placement.size.height,
-                            ));
-                            let position = PhysicalPosition::new(placement.x, placement.y);
-                            let position = if settings.initial_geometry.position.is_none() {
-                                center_outer_frame(window, placement.size).unwrap_or(position)
-                            } else {
-                                position
-                            };
-                            window.set_position(position);
-                        }
-                        window.request_redraw();
+                        place_initial_media(
+                            window,
+                            &resize_target,
+                            &app,
+                            placement,
+                            settings.initial_geometry.position.is_none(),
+                        );
                         initial_state.set(true);
                         media_resize_state.set(placement.size);
                     } else {
@@ -234,7 +215,55 @@ fn connect_with_target(
             });
         }
     });
+}
 
+fn place_initial_media(
+    window: &slint::Window,
+    _target: &WindowTarget,
+    _app: &PlayerWindow,
+    placement: riina_core::window_resize::Placement,
+    center: bool,
+) {
+    #[cfg(target_os = "windows")]
+    let positioned = center
+        && window
+            .with_winit_window(|native| {
+                if let Some(overlay) = resize_overlay(_target, _app) {
+                    overlay
+                        .with_winit_window(|overlay| {
+                            crate::platform::resize_content(
+                                native,
+                                placement.size,
+                                true,
+                                Some(overlay),
+                            )
+                            .is_ok()
+                        })
+                        .unwrap_or(false)
+                } else {
+                    crate::platform::resize_content(native, placement.size, true, None).is_ok()
+                }
+            })
+            .unwrap_or(false);
+    #[cfg(not(target_os = "windows"))]
+    let positioned = false;
+    if !positioned {
+        window.set_size(PhysicalSize::new(
+            placement.size.width,
+            placement.size.height,
+        ));
+        let position = PhysicalPosition::new(placement.x, placement.y);
+        let position = if center {
+            center_outer_frame(window, placement.size).unwrap_or(position)
+        } else {
+            position
+        };
+        window.set_position(position);
+    }
+    window.request_redraw();
+}
+
+fn register_window_level(app: &PlayerWindow, target: &WindowTarget) {
     let level_target = target.clone();
     let level_pending = Rc::new(Cell::new(false));
     app.on_window_level_changed({
@@ -248,15 +277,20 @@ fn connect_with_target(
             }
         }
     });
-    apply_window_level(app, &target);
+    apply_window_level(app, target);
+}
 
-    let aspect_resize_state = previous_size.clone();
+fn register_aspect_resize(
+    app: &PlayerWindow,
+    action_target: WindowTarget,
+    aspect_resize_state: Rc<Cell<PixelSize>>,
+    aspect_initial_state: Rc<Cell<bool>>,
+    media_geometry: MediaGeometry,
+) {
     let aspect_pending = Rc::new(Cell::new(false));
     let aspect_source = Rc::new(Cell::new(None::<Option<u64>>));
-    let media_geometry = source.clone();
     let aspect_request_generation = Rc::new(Cell::new(app.get_media_request_generation()));
     let aspect_resize_allowed = Rc::new(Cell::new(true));
-    let aspect_initial_state = initial_geometry_applied.clone();
     app.on_window_aspect_changed({
         let weak = app.as_weak();
         move || {
@@ -329,9 +363,13 @@ fn connect_with_target(
             });
         }
     });
+}
 
-    let fit_state = previous_size.clone();
-    let fit_target = target.clone();
+fn register_fit_to_video(
+    app: &PlayerWindow,
+    fit_target: WindowTarget,
+    fit_state: Rc<Cell<PixelSize>>,
+) {
     app.on_fit_window_to_video({
         let weak = app.as_weak();
         move || {
@@ -364,9 +402,13 @@ fn connect_with_target(
             });
         }
     });
+}
 
-    let menu_size_target = target.clone();
-    let menu_size_state = previous_size.clone();
+fn register_resize_command(
+    app: &PlayerWindow,
+    menu_size_target: WindowTarget,
+    menu_size_state: Rc<Cell<PixelSize>>,
+) {
     app.on_resize_window_command({
         let weak = app.as_weak();
         move |index| {
@@ -460,8 +502,6 @@ fn connect_with_target(
             });
         }
     });
-
-    resize_filter(app, previous_size, target)
 }
 
 fn media_resize_applies(
