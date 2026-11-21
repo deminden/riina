@@ -656,32 +656,15 @@ mod tests {
     use riina_core::subtitle_controls::{AutoLoadMode, AutoLoadPreferences};
     use std::path::{Path, PathBuf};
 
-    struct TestTree(PathBuf);
+    struct TestTree(riina_test_support::TempDir);
 
     impl TestTree {
         fn new() -> Self {
-            static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-            let base = std::env::temp_dir();
-            loop {
-                let stamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos();
-                let path = base.join(format!(
-                    "riina-subtitles-{}-{stamp}-{}",
-                    std::process::id(),
-                    NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                ));
-                match std::fs::create_dir(&path) {
-                    Ok(()) => return Self(path),
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                    Err(error) => panic!("Cannot create subtitle fixture: {error}"),
-                }
-            }
+            Self(riina_test_support::TempDir::new("subtitle-discovery").unwrap())
         }
 
         fn file(&self, path: &str) -> PathBuf {
-            let path = self.0.join(path);
+            let path = self.0.path().join(path);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(&path, []).unwrap();
             path
@@ -689,14 +672,6 @@ mod tests {
 
         fn media(&self) -> PathBuf {
             self.file("Movie.mkv")
-        }
-    }
-
-    impl Drop for TestTree {
-        fn drop(&mut self) {
-            let base = std::env::temp_dir();
-            assert_eq!(self.0.parent(), Some(base.as_path()));
-            std::fs::remove_dir_all(&self.0).unwrap();
         }
     }
 
@@ -771,8 +746,8 @@ mod tests {
         assert_eq!(
             find_matching_files(&media, &preferences(AutoLoadMode::Filename, "subs")),
             [
-                tree.0.join("subs/alt.My Movie.srt"),
-                tree.0.join("subs/MY MOVIE.en.srt")
+                tree.0.path().join("subs/alt.My Movie.srt"),
+                tree.0.path().join("subs/MY MOVIE.en.srt")
             ]
         );
     }

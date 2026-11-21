@@ -309,20 +309,9 @@ fn webview_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use riina_test_support::TempDir;
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use wry::http::StatusCode;
-
-    fn temporary_root() -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "riina-plugin-sidebar-webview-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ))
-    }
 
     #[test]
     fn sidebar_document_urls_reject_escape_paths() {
@@ -333,8 +322,8 @@ mod tests {
 
     #[test]
     fn package_protocol_serves_only_canonical_files_inside_the_package() {
-        let root = temporary_root();
-        fs::create_dir_all(&root).unwrap();
+        let directory = TempDir::new("plugin-sidebar").unwrap();
+        let root = directory.path();
         fs::write(root.join("index.html"), "<p>sidebar</p>").unwrap();
         let canonical_root = root.canonicalize().unwrap();
 
@@ -356,7 +345,5 @@ mod tests {
             .unwrap();
         let response = resource_response(&canonical_root, escape);
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
-
-        fs::remove_dir_all(root).unwrap();
     }
 }

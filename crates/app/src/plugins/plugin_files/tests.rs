@@ -1,29 +1,24 @@
 use super::*;
+use riina_test_support::TempDir;
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 
-static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
-
-fn temporary_files() -> (PluginFiles, PathBuf) {
-    let root = std::env::temp_dir().join(format!(
-        "riina-plugin-files-{}-{}",
-        std::process::id(),
-        NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
-    ));
+fn temporary_files() -> (PluginFiles, TempDir) {
+    let directory = TempDir::new("plugin-files").unwrap();
+    let root = directory.path();
     (
         PluginFiles {
             data_root: root.join(".data"),
             temp_root: root.join(".tmp"),
             player_context: Arc::new(Mutex::new(PluginPlayerFileContext::default())),
         },
-        root,
+        directory,
     )
 }
 
 #[test]
 fn destination_creation_is_exclusive_outside_private_storage() {
-    let (files, root) = temporary_files();
-    fs::create_dir_all(&root).unwrap();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     let outside = root.join("outside.bin");
     let mut first = files.open_destination(&outside).unwrap();
     first.write_all(b"original").unwrap();
@@ -43,12 +38,12 @@ fn destination_creation_is_exclusive_outside_private_storage() {
             .is_err()
     );
     assert_eq!(fs::read(outside).unwrap(), b"original");
-    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
 fn text_reads_enforce_the_size_boundary() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     files
         .write_text("@data/limit.txt", &"a".repeat(MAX_FILE_BYTES), false)
         .unwrap();
@@ -71,7 +66,6 @@ fn text_reads_enforce_the_size_boundary() {
             .unwrap_err()
             .contains("4 MiB")
     );
-    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
@@ -255,7 +249,7 @@ fn player_context_reports_window_geometry_and_mode_changes() {
 
 #[test]
 fn plugin_data_paths_support_bounded_text_and_listing() {
-    let (files, root) = temporary_files();
+    let (files, _directory) = temporary_files();
     files
         .write_text("@data/state.json", "{\"ready\":true}", false)
         .unwrap();
@@ -272,18 +266,17 @@ fn plugin_data_paths_support_bounded_text_and_listing() {
 
     files.delete("@data/state.json").unwrap();
     assert!(!files.exists("@data/state.json", false).unwrap());
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn private_plugin_paths_reject_traversal_and_require_grant_for_absolute_paths() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     assert!(
         files
             .write_text("@data/../../outside.txt", "denied", false)
             .is_err()
     );
-    fs::create_dir_all(&root).unwrap();
     let external = root.join("external.txt");
     assert!(
         files
@@ -295,12 +288,12 @@ fn private_plugin_paths_reject_traversal_and_require_grant_for_absolute_paths() 
         .write_text(external.to_str().unwrap(), "granted", true)
         .unwrap();
     assert_eq!(fs::read_to_string(&external).unwrap(), "granted");
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn private_paths_normalize_dot_segments_without_escaping_the_plugin_root() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     files
         .write_text("@data/nested/../normalized.txt", "inside", false)
         .unwrap();
@@ -321,12 +314,12 @@ fn private_paths_normalize_dot_segments_without_escaping_the_plugin_root() {
             .is_err()
     );
     assert!(!root.join("outside.txt").exists());
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn current_media_and_external_track_aliases_use_player_context() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     let media_dir = root.join("media");
     fs::create_dir_all(&media_dir).unwrap();
     fs::write(media_dir.join("captions.srt"), "subtitle").unwrap();
@@ -350,12 +343,12 @@ fn current_media_and_external_track_aliases_use_player_context() {
     );
     assert_eq!(files.read_text("@audio/7", "{}", false).unwrap(), "audio");
     assert!(files.read_text("@sub/88", "{}", false).is_err());
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn move_scopes_private_paths_and_requires_grant_for_external_paths() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     assert!(files.trash("@data/", false).is_err());
     files
         .write_text("@data/source.txt", "saved", false)
@@ -400,14 +393,13 @@ fn move_scopes_private_paths_and_requires_grant_for_external_paths() {
         fs::read_to_string(&external_destination).unwrap(),
         "external"
     );
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn writes_outside_plugin_storage_do_not_overwrite_existing_files() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     let external = root.join("external.txt");
-    fs::create_dir_all(&root).unwrap();
     fs::write(&external, "keep").unwrap();
     assert!(
         files
@@ -415,12 +407,12 @@ fn writes_outside_plugin_storage_do_not_overwrite_existing_files() {
             .is_err()
     );
     assert_eq!(fs::read_to_string(&external).unwrap(), "keep");
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn binary_handles_seek_read_and_write_with_bounded_operations() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     files.write_text("@data/binary.bin", "abcd", false).unwrap();
 
     let mut reader = files
@@ -453,12 +445,12 @@ fn binary_handles_seek_read_and_write_with_bounded_operations() {
         .open_handle("@data/binary.bin", "read", false)
         .unwrap();
     assert!(oversized_read.read(MAX_FILE_BYTES + 1).is_err());
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn reveal_path_requires_an_existing_file_and_filesystem_grant_for_external_paths() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     files
         .write_text("@data/reveal.txt", "visible", false)
         .unwrap();
@@ -478,12 +470,12 @@ fn reveal_path_requires_an_existing_file_and_filesystem_grant_for_external_paths
         external.canonicalize().unwrap()
     );
     assert!(files.existing_path("@data/missing.txt", false).is_err());
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn text_read_supports_iina_encoding_names_and_rejects_malformed_input() {
-    let (files, root) = temporary_files();
+    let (files, directory) = temporary_files();
+    let root = directory.path();
     let path = root.join(".data/encoded.txt");
     fs::create_dir_all(path.parent().unwrap()).unwrap();
 
@@ -568,12 +560,12 @@ fn text_read_supports_iina_encoding_names_and_rejects_malformed_input() {
             .unwrap_err()
             .contains("Unknown or unsupported")
     );
-    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
 fn accepted_long_plugin_identifiers_have_isolated_private_storage() {
-    let (_, root) = temporary_files();
+    let (_, directory) = temporary_files();
+    let root = directory.path();
     let prefix = format!("org.example.{}", "a".repeat(128));
     let identifiers = [format!("{prefix}.alpha"), format!("{prefix}.beta")];
     for identifier in &identifiers {
@@ -604,7 +596,6 @@ fn accepted_long_plugin_identifiers_have_isolated_private_storage() {
         "second plugin"
     );
     assert_ne!(first.temp_root, second.temp_root);
-    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

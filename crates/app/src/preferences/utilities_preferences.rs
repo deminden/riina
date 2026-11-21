@@ -403,19 +403,12 @@ fn format_size(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn temporary_directory() -> std::path::PathBuf {
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("riina-utilities-{}-{nonce}", std::process::id()))
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn clear_progress_removes_entries_and_preserves_its_directory() {
-        let root = temporary_directory();
+        let directory = TempDir::new("utilities").unwrap();
+        let root = directory.path();
         let watch_later = root.join("watch-later");
         fs::create_dir_all(watch_later.join("nested")).unwrap();
         fs::write(watch_later.join("one.conf"), b"resume").unwrap();
@@ -424,12 +417,12 @@ mod tests {
         assert_eq!(clear_watch_later(&watch_later).unwrap(), 10);
         assert!(watch_later.is_dir());
         assert_eq!(fs::read_dir(&watch_later).unwrap().count(), 0);
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn clear_progress_refuses_an_unrelated_directory() {
-        let path = temporary_directory().join("documents");
+        let directory = TempDir::new("utilities").unwrap();
+        let path = directory.path().join("documents");
         assert_eq!(
             clear_watch_later(&path).unwrap_err().kind(),
             io::ErrorKind::InvalidInput
@@ -438,7 +431,8 @@ mod tests {
 
     #[test]
     fn clear_thumbnail_cache_removes_entries_and_preserves_its_directory() {
-        let root = temporary_directory().join("riina");
+        let directory = TempDir::new("utilities").unwrap();
+        let root = directory.path().join("riina");
         let cache = root.join("thumb_cache");
         fs::create_dir_all(cache.join("nested")).unwrap();
         fs::write(cache.join("one.jpg"), b"image").unwrap();
@@ -447,12 +441,12 @@ mod tests {
         assert_eq!(clear_thumbnail_cache(&cache).unwrap(), 9);
         assert!(cache.is_dir());
         assert_eq!(fs::read_dir(&cache).unwrap().count(), 0);
-        fs::remove_dir_all(root.parent().unwrap()).unwrap();
     }
 
     #[test]
     fn clear_thumbnail_cache_refuses_a_directory_outside_its_owned_path() {
-        let path = temporary_directory().join("documents").join("thumb_cache");
+        let directory = TempDir::new("utilities").unwrap();
+        let path = directory.path().join("documents").join("thumb_cache");
         assert_eq!(
             clear_thumbnail_cache(&path).unwrap_err().kind(),
             io::ErrorKind::InvalidInput
@@ -468,8 +462,8 @@ mod tests {
 
     #[test]
     fn clear_history_preserves_recent_media_and_other_preferences() {
-        let root = temporary_directory();
-        fs::create_dir_all(&root).unwrap();
+        let directory = TempDir::new("utilities").unwrap();
+        let root = directory.path();
         let path = root.join("preferences.json");
         let preferences = riina_core::Preferences {
             volume: 63.0,
@@ -503,26 +497,24 @@ mod tests {
             .unwrap()
             .is_empty()
         );
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn clear_history_does_not_replace_unreadable_preferences() {
-        let root = temporary_directory();
-        fs::create_dir_all(&root).unwrap();
+        let directory = TempDir::new("utilities").unwrap();
+        let root = directory.path();
         let path = root.join("preferences.json");
         let original = b"{ invalid settings";
         fs::write(&path, original).unwrap();
 
         assert!(clear_playback_history(&path).is_err());
         assert_eq!(fs::read(&path).unwrap(), original);
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn stale_preferences_keep_the_latest_saved_history_state() {
-        let root = temporary_directory();
-        fs::create_dir_all(&root).unwrap();
+        let directory = TempDir::new("utilities").unwrap();
+        let root = directory.path();
         let path = root.join("preferences.json");
         let mut saved = riina_core::Preferences::default();
         saved.recent_media.clear();
@@ -545,6 +537,5 @@ mod tests {
         preserve_saved_history(&mut stale, &path);
         assert!(stale.recent_media.is_empty());
         assert!(stale.playback_history.is_empty());
-        fs::remove_dir_all(root).unwrap();
     }
 }

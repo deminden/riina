@@ -390,21 +390,9 @@ fn unique_directory_name(prefix: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        io::Cursor,
-        sync::atomic::{AtomicU64, Ordering},
-    };
+    use riina_test_support::TempDir;
+    use std::io::Cursor;
     use zip::{ZipWriter, write::SimpleFileOptions};
-
-    static NEXT_TEST: AtomicU64 = AtomicU64::new(0);
-
-    fn temp_directory() -> PathBuf {
-        let id = NEXT_TEST.fetch_add(1, Ordering::Relaxed);
-        let path =
-            std::env::temp_dir().join(format!("riina-plugin-package-{}-{id}", std::process::id()));
-        fs::create_dir_all(&path).unwrap();
-        path
-    }
 
     #[test]
     fn the_copy_budget_stops_reading_after_the_first_excess_byte() {
@@ -423,7 +411,8 @@ mod tests {
 
     #[test]
     fn the_sweep_preserves_recent_and_leased_staging_directories() {
-        let root = temp_directory();
+        let directory = TempDir::new("plugin-package").unwrap();
+        let root = directory.path();
         let live = root.join(unique_directory_name(STAGE_PREFIX));
         let abandoned = root.join(unique_directory_name(STAGE_PREFIX));
         let other = root.join(".plugin-stage-personal");
@@ -435,11 +424,11 @@ mod tests {
         let lease = StageLease::acquire(&live).unwrap();
 
         let now = SystemTime::now();
-        sweep(&root, now, |_, _| unreachable!()).unwrap();
+        sweep(root, now, |_, _| unreachable!()).unwrap();
         assert!(abandoned.exists());
 
         sweep(
-            &root,
+            root,
             now + STALE_STAGE_AGE + Duration::from_secs(60),
             |_, _| unreachable!(),
         )
@@ -449,18 +438,18 @@ mod tests {
         assert!(!abandoned.exists());
         assert!(!marker.exists());
         drop(lease);
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn the_sweep_reports_an_orphaned_backup_and_leaves_it_available() {
-        let root = temp_directory();
+        let directory = TempDir::new("plugin-package").unwrap();
+        let root = directory.path();
         let backup = root.join(unique_directory_name(BACKUP_PREFIX));
         fs::create_dir(&backup).unwrap();
         fs::write(backup.join("Info.json"), INFO).unwrap();
         fs::write(backup.join("main.js"), "let test = true;").unwrap();
         let mut reported = Vec::new();
-        sweep(&root, SystemTime::now(), |name, identifier| {
+        sweep(root, SystemTime::now(), |name, identifier| {
             reported.push((name.to_owned(), identifier.to_owned()));
         })
         .unwrap();
@@ -473,9 +462,8 @@ mod tests {
         );
         assert!(backup.is_dir());
         fs::create_dir(root.join("org.test.plugin.iinaplugin")).unwrap();
-        sweep(&root, SystemTime::now(), |_, _| unreachable!()).unwrap();
+        sweep(root, SystemTime::now(), |_, _| unreachable!()).unwrap();
         assert!(backup.is_dir());
-        fs::remove_dir_all(root).unwrap();
     }
 
     fn archive(entries: &[(&str, &[u8])]) -> Vec<u8> {
@@ -493,7 +481,8 @@ mod tests {
 
     #[test]
     fn archive_is_staged_then_installed_only_after_validation() {
-        let base = temp_directory();
+        let directory = TempDir::new("plugin-package").unwrap();
+        let base = directory.path();
         let plugins = base.join("plugins");
         fs::create_dir_all(&plugins).unwrap();
         let archive_path = base.join("plugin.iinaplgz");
@@ -511,12 +500,12 @@ mod tests {
         let installed = staged.install(&plugins).unwrap();
         assert!(installed.join("Info.json").is_file());
         assert_eq!(fs::read_dir(&plugins).unwrap().count(), 1);
-        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]
     fn archive_rejects_path_traversal_duplicate_manifests_and_missing_entry() {
-        let base = temp_directory();
+        let directory = TempDir::new("plugin-package").unwrap();
+        let base = directory.path();
         let plugins = base.join("plugins");
         fs::create_dir_all(&plugins).unwrap();
         for (index, entries) in [
@@ -540,6 +529,5 @@ mod tests {
             assert!(stage_archive(&path, &plugins).is_err());
         }
         assert_eq!(fs::read_dir(&plugins).unwrap().count(), 0);
-        fs::remove_dir_all(base).unwrap();
     }
 }
