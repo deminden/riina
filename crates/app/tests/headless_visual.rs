@@ -85,6 +85,19 @@ impl Baselines {
                 .zip(pixels)
                 .filter(|(expected, actual)| expected != actual)
                 .count();
+            if changed != 0
+                && let Some(directory) = std::env::var_os("RIINA_HEADLESS_MISMATCH_DIR")
+            {
+                let directory = PathBuf::from(directory);
+                std::fs::create_dir_all(&directory)?;
+                image::save_buffer(
+                    directory.join(format!("{name}.png")),
+                    actual,
+                    size.width,
+                    size.height,
+                    image::ColorType::Rgba8,
+                )?;
+            }
             assert_eq!(changed, 0, "{name} differs from {}", path.display());
         }
         Ok(())

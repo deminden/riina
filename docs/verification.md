@@ -427,6 +427,14 @@ launch with a fresh profile each changed 224 of 7,099 sampled pixels during
 playback. All three sessions joined their native workers and exited. Software
 decoding alone did not resolve the rendering failure.
 
+The Settings and session candidate at `2135aa7` passed strict Clippy, 800
+workspace tests and a locked x64 application build in the same Linux environment.
+With native debug logging enabled, the first session showed black video while
+the playback clock advanced. The relaunch and fresh-profile sessions each changed
+399 of 7,099 sampled pixels during playback. All three loaded the installed libmpv
+and joined their workers on exit. The first session logged that mpv had shown a
+frame, although the full virtual display capture still showed black video.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. The GLES context also
 reported that the optional video-blur shader requires desktop GLSL. Linux
