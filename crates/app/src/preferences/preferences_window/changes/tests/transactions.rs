@@ -19,10 +19,10 @@ impl Transaction {
         i_slint_backend_testing::init_no_event_loop();
         let profile = TestPath::new();
         let initial = Preferences::default();
-        crate::preference_store::Writer::new(profile.0.clone(), initial.clone())
+        crate::preference_store::Writer::new(profile.file.clone(), initial.clone())
             .save(&initial)
             .unwrap();
-        let player = Harness::start(profile.0.clone(), false).unwrap();
+        let player = Harness::start(profile.file.clone(), false).unwrap();
         let window = PreferencesWindow::new().unwrap();
 
         crate::advanced_preferences::install_window(&window, &initial.advanced);
@@ -39,7 +39,7 @@ impl Transaction {
             &player.app,
             &window,
             player.sender.clone(),
-            profile.0.clone(),
+            profile.file.clone(),
             player.session.preference_model.clone(),
             Arc::new(Mutex::new(riina_core::Playback::default())),
             credentials,
@@ -57,7 +57,7 @@ impl Transaction {
     }
 
     fn bytes(&self) -> Vec<u8> {
-        std::fs::read(&self.profile.0).unwrap()
+        std::fs::read(&self.profile.file).unwrap()
     }
 
     fn expected_subtitle_reload(&self) -> Command {
@@ -237,7 +237,7 @@ fn volume_boost_sends_its_command_before_subtitle_reload() {
 #[test]
 fn pause_when_open_callback_observes_the_persisted_edit_and_fires_once() {
     let transaction = Transaction::new();
-    let path = transaction.profile.0.clone();
+    let path = transaction.profile.file.clone();
     let observed = std::rc::Rc::new(std::cell::Cell::new(0));
     let calls = observed.clone();
     transaction
@@ -285,7 +285,7 @@ fn resume_policy_sends_its_command_only_when_changed() {
 #[test]
 fn record_history_callback_fires_after_the_file_changes_and_only_once() {
     let transaction = Transaction::new();
-    let path = transaction.profile.0.clone();
+    let path = transaction.profile.file.clone();
     let observed = std::rc::Rc::new(std::cell::Cell::new(0));
     let calls = observed.clone();
     transaction
@@ -368,7 +368,7 @@ fn rejected_subtitle_reload_restores_an_independent_live_setting() {
 fn music_mode_callback_reads_the_updated_preference_file() {
     let transaction = Transaction::new();
     i_slint_backend_testing::mock_elapsed_time(std::time::Duration::ZERO);
-    let path = transaction.profile.0.clone();
+    let path = transaction.profile.file.clone();
     let observed = std::rc::Rc::new(std::cell::Cell::new(None));
     let value = observed.clone();
     transaction
@@ -541,7 +541,7 @@ fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
     let transaction = Transaction::new();
     let baseline = transaction.profile.read();
     let writer =
-        crate::preference_store::Writer::new(transaction.profile.0.clone(), baseline.clone());
+        crate::preference_store::Writer::new(transaction.profile.file.clone(), baseline.clone());
     let mut foreign = baseline;
     foreign.audio.audio_threads = 5;
     writer.save(&foreign).unwrap();

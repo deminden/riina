@@ -3,23 +3,22 @@ use riina_core::Preferences;
 
 mod transactions;
 
-struct TestPath(PathBuf);
+struct TestPath {
+    file: PathBuf,
+    _directory: riina_test_support::TempDir,
+}
+
 impl TestPath {
     fn new() -> Self {
-        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        Self(std::env::temp_dir().join(format!(
-            "riina-preferences-window-{}-{}/preferences.json",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        )))
+        let directory = riina_test_support::TempDir::new("preferences-window").unwrap();
+        Self {
+            file: directory.path().join("preferences.json"),
+            _directory: directory,
+        }
     }
+
     fn read(&self) -> Preferences {
-        Preferences::parse(&std::fs::read_to_string(&self.0).unwrap()).unwrap()
-    }
-}
-impl Drop for TestPath {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(self.0.parent().unwrap());
+        Preferences::parse(&std::fs::read_to_string(&self.file).unwrap()).unwrap()
     }
 }
 
@@ -36,7 +35,7 @@ fn music_mode_choices_are_saved_immediately_and_can_return_to_defaults() {
     let (app, window) = windows();
     let path = TestPath::new();
     let initial = Preferences::default();
-    let model = PreferenceModel::new(path.0.clone(), initial.clone());
+    let model = PreferenceModel::new(path.file.clone(), initial.clone());
     window.set_auto_switch_to_music_mode(!initial.auto_switch_to_music_mode);
     window.set_music_mode_show_playlist(!initial.music_mode_show_playlist);
     window.set_music_mode_show_album_art(!initial.music_mode_show_album_art);
@@ -91,9 +90,9 @@ fn failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable() {
     let (app, window) = windows();
     let path = TestPath::new();
     let initial = Preferences::default();
-    let model = PreferenceModel::new(path.0.clone(), initial.clone());
+    let model = PreferenceModel::new(path.file.clone(), initial.clone());
     // A directory in place of the preferences file reliably rejects the write.
-    std::fs::create_dir_all(&path.0).unwrap();
+    std::fs::create_dir_all(&path.file).unwrap();
     window.set_auto_switch_to_music_mode(!initial.auto_switch_to_music_mode);
     window.set_music_mode_show_playlist(!initial.music_mode_show_playlist);
     window.set_music_mode_show_album_art(!initial.music_mode_show_album_art);
@@ -110,7 +109,7 @@ fn failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable() {
         app.get_music_mode_show_album_art(),
         initial.music_mode_show_album_art
     );
-    std::fs::remove_dir(&path.0).unwrap();
+    std::fs::remove_dir(&path.file).unwrap();
     save_preferences(&window, &app, &model, initial).unwrap();
     assert_eq!(
         path.read().music_mode_show_playlist,

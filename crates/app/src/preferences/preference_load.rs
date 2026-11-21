@@ -201,31 +201,17 @@ fn quarantine(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicU64;
+    use riina_test_support::TempDir;
 
-    struct Profile(PathBuf);
+    struct Profile(TempDir);
 
     impl Profile {
         fn new() -> Self {
-            static NEXT: AtomicU64 = AtomicU64::new(0);
-            let path = std::env::temp_dir().join(format!(
-                "riina-preference-recovery-{}-{}-{}",
-                std::process::id(),
-                chrono::Utc::now().timestamp_nanos_opt().unwrap(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            fs::create_dir(&path).unwrap();
-            Self(path)
+            Self(TempDir::new("preference-recovery").unwrap())
         }
 
         fn preferences(&self) -> PathBuf {
-            self.0.join("preferences.json")
-        }
-    }
-
-    impl Drop for Profile {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
+            self.0.path().join("preferences.json")
         }
     }
 

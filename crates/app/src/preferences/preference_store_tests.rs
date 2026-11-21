@@ -1,15 +1,10 @@
 use super::*;
-fn path(label: &str) -> PathBuf {
-    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    std::env::temp_dir().join(format!(
-        "riina-store-{}-{}-{label}/preferences.json",
-        std::process::id(),
-        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    ))
-}
+use riina_test_support::TempDir;
+
 #[test]
 fn independent_writers_preserve_settings_and_can_return_to_initial_values() {
-    let path = path("interleave");
+    let profile = TempDir::new("interleave").unwrap();
+    let path = profile.path().join("preferences.json");
     let initial = Preferences::default();
     let settings = Writer::new(path.clone(), initial.clone());
     let layout = Writer::new(path.clone(), initial.clone());
@@ -30,12 +25,11 @@ fn independent_writers_preserve_settings_and_can_return_to_initial_values() {
     let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(saved.video_threads, initial.video_threads);
     assert_eq!(saved.leading_sidebar_width, resized.leading_sidebar_width);
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 #[test]
 fn concurrent_players_do_not_lose_read_modify_write_updates() {
-    let path = path("concurrent");
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let profile = TempDir::new("concurrent").unwrap();
+    let path = profile.path().join("preferences.json");
     let gate = path.with_extension("start");
     let ready = path.with_extension("ready");
     let (_, module) = module_path!().split_once("::").unwrap();
@@ -73,7 +67,6 @@ fn concurrent_players_do_not_lose_read_modify_write_updates() {
     // Every process performs a read/modify/write. A process-local mutex cannot
     // satisfy this total, even if each individual replacement is atomic.
     assert_eq!(saved.video_threads, 4 * 12, "lost a cross-process update");
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 struct ChildGuard(std::process::Child);
@@ -124,7 +117,8 @@ fn preference_process_worker() {
 #[test]
 fn stale_writer_sequences_match_explicit_field_ownership_model() {
     for seed in [1_u64, 17, 0x5eed] {
-        let path = path(&format!("model-{seed}"));
+        let profile = TempDir::new(&format!("model-{seed}")).unwrap();
+        let path = profile.path().join("preferences.json");
         let initial = Preferences::default();
         let writers: Vec<_> = (0..4)
             .map(|_| Writer::new(path.clone(), initial.clone()))
@@ -183,13 +177,13 @@ fn stale_writer_sequences_match_explicit_field_ownership_model() {
                 "seed {seed}, step {step}, writer {index}"
             );
         }
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }
 
 #[test]
 fn rejected_changes_preserve_bytes_release_lock_and_do_not_advance_writer() {
-    let path = path("rollback");
+    let profile = TempDir::new("rollback").unwrap();
+    let path = profile.path().join("preferences.json");
     let initial = Preferences::default();
     let writer = Writer::new(path.clone(), initial.clone());
     writer.save(&initial).unwrap();
@@ -219,7 +213,6 @@ fn rejected_changes_preserve_bytes_release_lock_and_do_not_advance_writer() {
         saved.volume, 37.0,
         "failed save must not change the writer's observed snapshot"
     );
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[test]
@@ -228,8 +221,8 @@ fn explicit_edit_repairs_a_backed_up_profile_and_preserves_recovered_settings() 
         br#"{"schema_version":19,"volume":29,"video_threads":"bad"}"#.as_slice(),
         b"\xff\xfe",
     ] {
-        let path = path("backed-up-repair");
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let profile = TempDir::new("backed-up-repair").unwrap();
+        let path = profile.path().join("preferences.json");
         std::fs::write(&path, original).unwrap();
         let loaded = crate::preference_load::load(&path).unwrap();
         let backup = loaded.recovery.unwrap().quarantined_as.unwrap();
@@ -247,14 +240,13 @@ fn explicit_edit_repairs_a_backed_up_profile_and_preserves_recovered_settings() 
         assert_eq!(saved.volume, initial.volume);
         assert_eq!(saved.video_threads, 7);
         assert_eq!(std::fs::read(backup).unwrap(), original);
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }
 
 #[test]
 fn an_older_backup_does_not_authorize_replacing_newly_damaged_bytes() {
-    let path = path("changed-damage");
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let profile = TempDir::new("changed-damage").unwrap();
+    let path = profile.path().join("preferences.json");
     std::fs::write(&path, b"old damage").unwrap();
     let initial = crate::preference_load::load(&path).unwrap().preferences;
     let writer = Writer::new(path.clone(), initial.clone());
@@ -265,13 +257,12 @@ fn an_older_backup_does_not_authorize_replacing_newly_damaged_bytes() {
     };
     assert!(writer.save(&next).is_err());
     assert_eq!(std::fs::read(&path).unwrap(), b"new damage");
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[test]
 fn explicit_field_update_repairs_a_backed_up_profile_but_automatic_updates_wait() {
-    let path = path("field-repair");
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let profile = TempDir::new("field-repair").unwrap();
+    let path = profile.path().join("preferences.json");
     let original = br#"{"schema_version":19,"volume":29}"#;
     std::fs::write(&path, original).unwrap();
     let loaded = crate::preference_load::load(&path).unwrap();
@@ -288,12 +279,12 @@ fn explicit_field_update_repairs_a_backed_up_profile_but_automatic_updates_wait(
     assert_eq!(saved.volume, 29.0);
     assert_eq!(saved.video_threads, 3);
     assert_eq!(std::fs::read(backup).unwrap(), original);
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[test]
 fn optional_theme_removal_and_history_clear_preserve_newer_network_settings() {
-    let path = path("optional-history");
+    let profile = TempDir::new("optional-history").unwrap();
+    let path = profile.path().join("preferences.json");
     let initial = Preferences::default();
     let appearance = Writer::new(path.clone(), initial.clone());
     let session = Writer::new(path.clone(), initial.clone());
@@ -325,13 +316,13 @@ fn optional_theme_removal_and_history_clear_preserve_newer_network_settings() {
     assert_eq!(saved.theme_material, initial.theme_material);
     assert!(saved.recent_media.is_empty());
     assert_eq!(saved.network.user_agent, "newer setting");
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[cfg(target_os = "windows")]
 #[test]
 fn failed_atomic_commit_can_retry_the_identical_candidate() {
-    let path = path("commit-retry");
+    let profile = TempDir::new("commit-retry").unwrap();
+    let path = profile.path().join("preferences.json");
     let initial = Preferences::default();
     let writer = Writer::new(path.clone(), initial.clone());
     writer.save(&initial).unwrap();
@@ -356,7 +347,6 @@ fn failed_atomic_commit_can_retry_the_identical_candidate() {
         2,
         "only preferences and the stable lock file should remain"
     );
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[test]
@@ -407,8 +397,8 @@ fn json_merge_handles_removal_arrays_and_type_changes_without_losing_siblings() 
 }
 #[test]
 fn invalid_existing_file_is_preserved_and_failed_write_can_be_retried() {
-    let path = path("failure");
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let profile = TempDir::new("failure").unwrap();
+    let path = profile.path().join("preferences.json");
     std::fs::write(&path, "not json").unwrap();
     let initial = Preferences::default();
     let writer = Writer::new(path.clone(), initial.clone());
@@ -424,5 +414,4 @@ fn invalid_existing_file_is_preserved_and_failed_write_can_be_retried() {
             .video_threads,
         3
     );
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

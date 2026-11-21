@@ -2,31 +2,8 @@
 
 use super::*;
 use riina_mpv::{CommandSender, RecordingEngine};
-use std::{fs, io, sync::mpsc::TryRecvError};
-
-struct TestProfile(PathBuf);
-
-impl TestProfile {
-    fn new() -> io::Result<Self> {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        loop {
-            let id = NEXT.fetch_add(1, Ordering::Relaxed);
-            let path =
-                std::env::temp_dir().join(format!("riina-player-glue-{}-{id}", std::process::id()));
-            match fs::create_dir(&path) {
-                Ok(()) => return Ok(Self(path)),
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-                Err(error) => return Err(error),
-            }
-        }
-    }
-}
-
-impl Drop for TestProfile {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
-}
+use riina_test_support::TempDir;
+use std::{io, sync::mpsc::TryRecvError};
 
 pub(crate) struct Harness {
     pub(crate) app: PlayerWindow,
@@ -100,10 +77,10 @@ fn player_callbacks_and_playback_projection_work_headlessly() -> io::Result<()> 
         .split_once("::")
         .map_or(module_path!(), |(_, path)| path);
     let worker = format!("{module}::player_glue_worker");
-    let profile = TestProfile::new()?;
+    let profile = TempDir::new("player-glue")?;
     let mut child = std::process::Command::new(std::env::current_exe()?)
         .args(["--ignored", "--exact", &worker])
-        .env("RIINA_TEST_GLUE_PROFILE", &profile.0)
+        .env("RIINA_TEST_GLUE_PROFILE", profile.path())
         .spawn()?;
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {

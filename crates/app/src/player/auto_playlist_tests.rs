@@ -1,31 +1,18 @@
 use super::*;
 use riina_core::PlaylistEntry;
-use std::sync::atomic::{AtomicU64, Ordering};
+use riina_test_support::TempDir;
 
-struct Folder(PathBuf);
+struct Folder(TempDir);
 
 impl Folder {
     fn new() -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!(
-            "riina-folder-{}-{}-日本語",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(TempDir::new("folder-日本語").unwrap())
     }
 
     fn file(&self, name: &str) -> String {
-        let path = self.0.join(name);
+        let path = self.0.path().join(name);
         std::fs::write(&path, []).unwrap();
         path.to_str().unwrap().to_owned()
-    }
-}
-
-impl Drop for Folder {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
     }
 }
 
@@ -54,11 +41,17 @@ fn discovery_orders_each_media_group_and_excludes_hidden_nested_and_existing_fil
     folder.file("audio 10.wav");
     folder.file(".hidden.mp4");
     folder.file("notes.txt");
-    std::fs::create_dir(folder.0.join("nested.mp4")).unwrap();
+    std::fs::create_dir(folder.0.path().join("nested.mp4")).unwrap();
     let mut state = state(&current);
     state.playlist.push(PlaylistEntry {
         id: 32,
-        filename: folder.0.join("audio 10.wav").to_str().unwrap().into(),
+        filename: folder
+            .0
+            .path()
+            .join("audio 10.wav")
+            .to_str()
+            .unwrap()
+            .into(),
         title: None,
         current: false,
         playing: false,
@@ -102,7 +95,7 @@ fn worker_results_cannot_attach_to_a_new_media_or_generation() {
     assert!(!request_is_current(&request, &state));
     assert!(prepare(&request, &state).is_none());
     state.generation -= 1;
-    state.playlist[0].filename = folder.0.join("next.mp4").to_str().unwrap().into();
+    state.playlist[0].filename = folder.0.path().join("next.mp4").to_str().unwrap().into();
     assert!(prepare(&request, &state).is_none());
 }
 
