@@ -26,7 +26,8 @@ pub(super) fn install(app: &PlayerWindow, send: impl Fn(Command) -> Result<(), S
     let weak = app.as_weak();
     app.on_set_hdr_enabled(move |enabled| {
         let Some(app) = weak.upgrade() else { return };
-        if !app.get_hdr_source_detected() || (enabled && !app.get_hdr_display_active()) {
+        let video = app.global::<riina_ui::PlaybackVideoState>();
+        if !video.get_hdr_source_detected() || (enabled && !video.get_hdr_display_active()) {
             app.set_status("HDR needs an HDR source and an HDR-enabled display".into());
             return;
         }
@@ -42,17 +43,18 @@ fn apply(
     requested: bool,
     send: &impl Fn(Command) -> Result<(), String>,
 ) -> bool {
-    let enabled = requested && app.get_hdr_source_detected() && app.get_hdr_display_active();
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    let enabled = requested && video.get_hdr_source_detected() && video.get_hdr_display_active();
     match send(Command::SetHdrEnabledWithIcc {
         enabled,
         load_icc_profile: use_display_profile(
             app.get_load_icc_profile(),
-            app.get_hdr_source_detected(),
+            video.get_hdr_source_detected(),
             cfg!(target_os = "windows") && app.get_native_video(),
         ),
     }) {
         Ok(()) => {
-            app.set_hdr_enabled(enabled);
+            video.set_hdr_enabled(enabled);
             true
         }
         Err(error) => {
@@ -71,8 +73,9 @@ fn use_display_profile(requested: bool, hdr_source: bool, windows_native: bool) 
 }
 
 pub(crate) fn update_display(app: &PlayerWindow, active: bool) {
-    if app.get_hdr_display_active() != active {
-        app.set_hdr_display_active(active);
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    if video.get_hdr_display_active() != active {
+        video.set_hdr_display_active(active);
         // Display observations arrive independently of playback snapshots,
         // including while paused or after switching Windows HDR off.
         app.invoke_refresh_hdr_output();
@@ -86,10 +89,11 @@ pub(super) fn install_display_observer(
 ) -> Option<std::rc::Rc<slint::Timer>> {
     use std::{rc::Rc, time::Duration};
 
-    app.set_hdr_enabled(prefs.hdr_enabled);
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    video.set_hdr_enabled(prefs.hdr_enabled);
     app.set_default_hdr_mode_enabled(prefs.hdr_enabled);
     app.set_load_icc_profile(prefs.load_icc_profile);
-    app.set_hdr_display_active(
+    video.set_hdr_display_active(
         native.is_some_and(|presentation| presentation.hdr_display_active()),
     );
     native.map(|presentation| {
@@ -121,7 +125,8 @@ mod tests {
         let app = PlayerWindow::new().unwrap();
         app.set_load_icc_profile(true);
         app.set_native_video(true);
-        app.set_hdr_source_detected(true);
+        let video = app.global::<riina_ui::PlaybackVideoState>();
+        video.set_hdr_source_detected(true);
         let commands = Rc::new(RefCell::new(Vec::new()));
         let observed = commands.clone();
         install(&app, move |command| {
@@ -131,9 +136,9 @@ mod tests {
         // HDR-to-SDR conversion uses the native output target. Opening SDR
         // media restores the user's profile; shared rendering also retains it.
         app.invoke_reset_hdr_output();
-        app.set_hdr_source_detected(false);
+        video.set_hdr_source_detected(false);
         app.invoke_reset_hdr_output();
-        app.set_hdr_source_detected(true);
+        video.set_hdr_source_detected(true);
         app.set_native_video(false);
         app.invoke_reset_hdr_output();
         let profiles: Vec<_> = commands
@@ -162,7 +167,8 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new().unwrap();
         app.set_default_hdr_mode_enabled(true);
-        app.set_hdr_source_detected(true);
+        let video = app.global::<riina_ui::PlaybackVideoState>();
+        video.set_hdr_source_detected(true);
         app.set_paused(true);
         app.set_load_icc_profile(false);
         let commands = Rc::new(RefCell::new(Vec::new()));
@@ -172,9 +178,9 @@ mod tests {
             Ok(())
         });
         update_display(&app, true);
-        assert!(app.get_hdr_enabled());
+        assert!(video.get_hdr_enabled());
         update_display(&app, false);
-        assert!(!app.get_hdr_enabled());
+        assert!(!video.get_hdr_enabled());
         update_display(&app, false);
         update_display(&app, true);
         let modes: Vec<_> = commands
@@ -199,32 +205,34 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new().unwrap();
         app.set_default_hdr_mode_enabled(true);
-        app.set_hdr_source_detected(true);
+        let video = app.global::<riina_ui::PlaybackVideoState>();
+        video.set_hdr_source_detected(true);
         install(&app, |_| Ok(()));
         update_display(&app, true);
         app.invoke_set_hdr_enabled(false);
         update_display(&app, false);
         update_display(&app, true);
-        assert!(!app.get_hdr_enabled());
+        assert!(!video.get_hdr_enabled());
         app.invoke_reset_hdr_output();
-        assert!(app.get_hdr_enabled());
-        app.set_hdr_source_detected(false);
+        assert!(video.get_hdr_enabled());
+        video.set_hdr_source_detected(false);
         app.invoke_refresh_hdr_output();
-        assert!(!app.get_hdr_enabled());
+        assert!(!video.get_hdr_enabled());
     }
 
     #[test]
     fn sdr_display_cannot_enable_hdr_and_failed_updates_keep_confirmed_state() {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new().unwrap();
-        app.set_hdr_enabled(false);
-        app.set_hdr_source_detected(true);
+        let video = app.global::<riina_ui::PlaybackVideoState>();
+        video.set_hdr_enabled(false);
+        video.set_hdr_source_detected(true);
         app.set_default_hdr_mode_enabled(true);
         install(&app, |_| Err("engine closed".into()));
         app.invoke_set_hdr_enabled(true);
-        assert!(!app.get_hdr_enabled());
+        assert!(!video.get_hdr_enabled());
         update_display(&app, true);
-        assert!(!app.get_hdr_enabled());
+        assert!(!video.get_hdr_enabled());
         assert!(app.get_status().contains("engine closed"));
     }
 }

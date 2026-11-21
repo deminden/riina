@@ -431,7 +431,8 @@ fn update_transport(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
-    app.set_video_aspect_known(state.video_aspect_override.is_some());
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    video.set_video_aspect_known(state.video_aspect_override.is_some());
     let display_aspect = state.display_video_parameters().and_then(|video| {
         riina_core::window_aspect::display_aspect_ratio(
             video.w,
@@ -467,41 +468,41 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
         display_aspect
     };
     app.set_music_mode_artwork_aspect_ratio(artwork_aspect.unwrap_or(0.0) as f32);
-    app.set_video_aspect_index(
+    video.set_video_aspect_index(
         state
             .video_aspect
             .preset_index()
             .map_or(-1, |index| index as i32),
     );
-    app.set_video_aspect_menu_index(
+    video.set_video_aspect_menu_index(
         state
             .video_aspect
             .menu_index()
             .map_or(-1, |index| index as i32),
     );
-    app.set_video_rotation_known(state.video_rotation.is_some());
+    video.set_video_rotation_known(state.video_rotation.is_some());
     app.set_deinterlace_known(state.deinterlace.is_some() && state.video.is_some());
     app.set_deinterlace_enabled(state.deinterlace.unwrap_or(false));
-    app.set_video_crop_known(
+    video.set_video_crop_known(
         state.video_filters.is_some()
             && state
                 .video
                 .as_ref()
                 .is_some_and(|video| video.w > 0 && video.h > 0),
     );
-    app.set_video_crop_index(
+    video.set_video_crop_index(
         riina_core::crop::observed_index(state).map_or(-1, |index| index as i32),
     );
-    app.set_video_crop_menu_index(
+    video.set_video_crop_menu_index(
         riina_core::crop::observed_menu_index(state).map_or(-1, |index| index as i32),
     );
-    app.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
+    video.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
         state
             .video_equalizer
             .map(|value| value.unwrap_or(0) as i32)
             .to_vec(),
     )));
-    app.set_video_equalizer_known(slint::ModelRc::new(slint::VecModel::from(
+    video.set_video_equalizer_known(slint::ModelRc::new(slint::VecModel::from(
         state.video_equalizer.map(|value| value.is_some()).to_vec(),
     )));
     if let Some(gains) = state.audio_equalizer {
@@ -510,14 +511,14 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
                 gains.map(|gain| gain as f32).to_vec(),
             )));
     }
-    app.set_hardware_decoding_known(state.hardware_decoding.is_some());
-    app.set_hardware_decoding_enabled(
+    video.set_hardware_decoding_known(state.hardware_decoding.is_some());
+    video.set_hardware_decoding_enabled(
         state
             .hardware_decoding
             .as_deref()
             .is_some_and(|mode| mode != "no"),
     );
-    app.set_video_rotation_index(
+    video.set_video_rotation_index(
         state
             .video_rotation
             .filter(|value| matches!(value, 0 | 90 | 180 | 270))
@@ -593,8 +594,9 @@ fn update_hdr_source(app: &PlayerWindow, state: &Playback, first_loaded: bool) {
         .or(state.video_target.as_ref())
         .or(state.video_output.as_ref())
         .is_some_and(riina_core::VideoParameters::is_hdr);
-    let hdr_source_changed = app.get_hdr_source_detected() != hdr_source_detected;
-    app.set_hdr_source_detected(hdr_source_detected);
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    let hdr_source_changed = video.get_hdr_source_detected() != hdr_source_detected;
+    video.set_hdr_source_detected(hdr_source_detected);
     if first_loaded {
         app.invoke_reset_hdr_output();
     } else if hdr_source_changed {

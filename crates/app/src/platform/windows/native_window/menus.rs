@@ -42,6 +42,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     } else {
         app.get_sidebar()
     };
+    let video = app.global::<riina_ui::PlaybackVideoState>();
     host.set_video_panel_open(settings_pane == 6);
     host.set_audio_panel_open(settings_pane == 1);
     host.set_subtitles_panel_open(settings_pane == 2);
@@ -56,19 +57,19 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_saved_video_filter_rows(app.get_saved_video_filter_rows());
     host.set_saved_audio_filter_rows(app.get_saved_audio_filter_rows());
     host.set_crop_menu_enabled(
-        app.get_loaded() && app.get_video_crop_known() && !app.get_crop_editing(),
+        app.get_loaded() && video.get_video_crop_known() && !app.get_crop_editing(),
     );
-    host.set_crop_menu_labels(app.get_video_crop_menu_labels());
-    host.set_crop_menu_index(app.get_video_crop_menu_index());
+    host.set_crop_menu_labels(video.get_video_crop_menu_labels());
+    host.set_crop_menu_index(video.get_video_crop_menu_index());
     host.set_aspect_menu_enabled(
-        app.get_loaded() && app.get_video_aspect_known() && !app.get_crop_editing(),
+        app.get_loaded() && video.get_video_aspect_known() && !app.get_crop_editing(),
     );
-    host.set_aspect_menu_labels(app.get_video_aspect_menu_labels());
-    host.set_video_aspect_menu_index(app.get_video_aspect_menu_index());
+    host.set_aspect_menu_labels(video.get_video_aspect_menu_labels());
+    host.set_video_aspect_menu_index(video.get_video_aspect_menu_index());
     host.set_rotation_menu_enabled(
-        app.get_loaded() && app.get_video_rotation_known() && !app.get_crop_editing(),
+        app.get_loaded() && video.get_video_rotation_known() && !app.get_crop_editing(),
     );
-    host.set_video_rotation_index(app.get_video_rotation_index());
+    host.set_video_rotation_index(video.get_video_rotation_index());
     host.set_deinterlace_menu_enabled(
         app.get_loaded() && app.get_deinterlace_known() && !app.get_crop_editing(),
     );
@@ -119,7 +120,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         |rows| host.set_chapter_menu_rows(rows),
     );
     sync_catalog_rows(
-        app.get_video_tracks(),
+        video.get_video_tracks(),
         &host.get_video_track_menu_rows(),
         |row| row.selected,
         |rows| host.set_video_track_menu_rows(rows),

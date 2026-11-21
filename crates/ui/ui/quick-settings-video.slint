@@ -1,4 +1,4 @@
-import { CatalogRow } from "catalog-row.slint";
+import { PlaybackVideoState } from "playback-video-state.slint";
 import { Theme } from "theme.slint";
 import { PlayerSlider } from "shared-controls.slint";
 import { Tool } from "player-tool.slint";
@@ -11,11 +11,6 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     in property <bool> animations-disabled;
     in property <bool> compact-ui;
     in property <bool> dark-theme;
-    in property <bool> hardware-decoding-enabled;
-    in property <bool> hardware-decoding-known;
-    in property <bool> hdr-display-active;
-    in property <bool> hdr-enabled;
-    in property <bool> hdr-source-detected;
     in property <color> interactive-accent-color;
     in property <bool> loaded;
     in property <bool> platform-windows;
@@ -34,18 +29,6 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     in property <float> speed-slider-position;
     in property <float> speed-value;
     callback track-selected(int, string);
-    in property <int> video-aspect-index;
-    in property <bool> video-aspect-known;
-    in property <[string]> video-aspect-presets;
-    in property <int> video-crop-index;
-    in property <bool> video-crop-known;
-    in property <[string]> video-crop-presets;
-    in property <[bool]> video-equalizer-known;
-    in property <[int]> video-equalizer-values;
-    in property <int> video-rotation-index;
-    in property <bool> video-rotation-known;
-    in property <int> video-track-selected-index;
-    in property <[CatalogRow]> video-tracks;
     in property <color> windows-accent-color;
     in property <color> windows-accent-foreground;
     in property <bool> windows-sidebar-material-active;
@@ -54,7 +37,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     spacing: root.compact-ui ? 16px : 18px;
     QuickSettingsTrackList {
         width: parent.width;
-        tracks: root.video-tracks; observed-index: root.video-track-selected-index;
+        tracks: PlaybackVideoState.video-tracks; observed-index: PlaybackVideoState.video-track-selected-index;
         track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
         dark-theme: root.dark-theme;
         accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
@@ -74,15 +57,15 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         accent-foreground: root.windows-accent-foreground;
         card-fill: root.sidebar-card-material-fill;
         card-edge: root.dark-theme ? #ffffff18 : #00000014;
-        aspect-presets: root.video-aspect-presets;
-        aspect-index: root.video-aspect-index;
-        rotation-index: root.video-rotation-index;
-        crop-presets: root.video-crop-presets;
-        crop-index: root.video-crop-index;
-        crop-enabled: root.loaded && root.video-crop-known;
+        aspect-presets: PlaybackVideoState.video-aspect-presets;
+        aspect-index: PlaybackVideoState.video-aspect-index;
+        rotation-index: PlaybackVideoState.video-rotation-index;
+        crop-presets: PlaybackVideoState.video-crop-presets;
+        crop-index: PlaybackVideoState.video-crop-index;
+        crop-enabled: root.loaded && PlaybackVideoState.video-crop-known;
         crop-changed(value) => { root.set-video-crop(value); }
-        aspect-enabled: root.loaded && root.video-aspect-known;
-        rotation-enabled: root.loaded && root.video-rotation-known;
+        aspect-enabled: root.loaded && PlaybackVideoState.video-aspect-known;
+        rotation-enabled: root.loaded && PlaybackVideoState.video-rotation-known;
         aspect-changed(value) => { root.set-video-aspect(value); }
         rotation-changed(value) => { root.set-video-rotation(value); }
     }
@@ -168,7 +151,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     Rectangle {
         // IINA wraps hardware decode and optional HDR in one
         // card, with the same sidebar spacing as its other rows.
-        height: root.hdr-source-detected && root.hdr-display-active
+        height: PlaybackVideoState.hdr-source-detected && PlaybackVideoState.hdr-display-active
         ? (root.compact-ui ? 66px : 74px)
         : (root.compact-ui ? 40px : 44px);
         border-radius: 8px; border-width: 1px;
@@ -182,16 +165,16 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                 windows-acrylic-surface: root.windows-sidebar-material-active;
                 accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                 focus-accent-color: root.interactive-accent-color;
-                hardware-enabled: root.hardware-decoding-enabled;
-                hardware-known: root.hardware-decoding-known;
+                hardware-enabled: PlaybackVideoState.hardware-decoding-enabled;
+                hardware-known: PlaybackVideoState.hardware-decoding-known;
                 hardware-changed(value) => { root.set-hardware-decoding(value); }
             }
-            if root.hdr-source-detected && root.hdr-display-active : HdrControls {
+            if PlaybackVideoState.hdr-source-detected && PlaybackVideoState.hdr-display-active : HdrControls {
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
                 accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                 focus-accent-color: root.interactive-accent-color;
-                hdr-enabled: root.hdr-enabled;
+                hdr-enabled: PlaybackVideoState.hdr-enabled;
                 hdr-available: true;
                 hdr-changed(value) => { root.set-hdr-enabled(value); }
             }
@@ -220,14 +203,14 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     vertical-alignment: center; }
                 PlayerSlider { dark-theme: root.dark-theme; height: 14px; minimum: -100; maximum: 100; step: 1;
                     neutral-mark: true;
-                    value: root.video-equalizer-values[index]; hint: label;
-                    enabled: root.video-equalizer-known[index];
+                    value: PlaybackVideoState.video-equalizer-values[index]; hint: label;
+                    enabled: PlaybackVideoState.video-equalizer-known[index];
                     changed(value) => { root.set-video-equalizer(index, value); }
                 }
                 Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 16px; height: 14px; icon-size: 14px;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     icon: @image-url("../../../assets/icons/reset.svg");
-                    hint: "Reset " + label; enabled: root.video-equalizer-known[index];
+                    hint: "Reset " + label; enabled: PlaybackVideoState.video-equalizer-known[index];
                     activated => { root.set-video-equalizer(index, 0); }
                 }
             }

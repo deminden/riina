@@ -1,3 +1,5 @@
+import { PlaybackVideoState } from "playback-video-state.slint";
+export { PlaybackVideoState } from "playback-video-state.slint";
 import { PlayerOsdState } from "player-osd-state.slint";
 export { PlayerOsdState } from "player-osd-state.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
@@ -305,13 +307,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <[PluginMenuRow]> plugin-menu-rows: [];
     in property <[string]> plugin-menu-order: [];
     changed plugin-menu-rows => { root.video-menu-changed(); }
-    in-out property <bool> hdr-enabled: true;
     in-out property <bool> default-hdr-mode-enabled: true;
     in-out property <bool> load-icc-profile: true;
-    in property <bool> hdr-display-active: false;
     callback refresh-hdr-output();
     callback reset-hdr-output();
-    in property <bool> hdr-source-detected: false;
     in-out property <bool> live-text-enabled: false;
     changed live-text-enabled => { root.video-menu-changed(); root.toolbar-settings-changed(); }
     in-out property <bool> live-text-available: false;
@@ -529,40 +528,31 @@ export component PlayerWindow inherits PlayerMenuWindow {
     private property <float> volume-limit: volume-boost ? 200 : 100;
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
-    in property <int> video-track-selected-index: 0;
     in property <int> subtitle-track-selected-index: 0;
     in property <int> secondary-subtitle-track-selected-index: 0;
     private property <[MenuCatalogRow]> audio-device-menu-rows: PlaybackAudioState.audio-device-menu-rows;
     changed audio-device-menu-rows => { root.video-menu-changed(); }
-    in property <[CatalogRow]> video-tracks;
+    private property <[CatalogRow]> video-tracks: PlaybackVideoState.video-tracks;
     changed video-tracks => { root.video-menu-changed(); }
-    in property <[string]> video-aspect-presets;
-    in-out property <int> video-aspect-index: 0;
-    in property <bool> video-aspect-known: false;
-    in property <[string]> video-aspect-menu-labels;
-    in property <int> video-aspect-menu-index: 0;
+    private property <bool> video-aspect-known: PlaybackVideoState.video-aspect-known;
+    private property <[string]> video-aspect-menu-labels: PlaybackVideoState.video-aspect-menu-labels;
+    private property <int> video-aspect-menu-index: PlaybackVideoState.video-aspect-menu-index;
     changed video-aspect-known => { root.video-menu-changed(); }
     changed video-aspect-menu-labels => { root.video-menu-changed(); }
     changed video-aspect-menu-index => { root.video-menu-changed(); }
-    in property <bool> video-rotation-known: false;
-    in property <int> video-rotation-index: -1;
+    private property <bool> video-rotation-known: PlaybackVideoState.video-rotation-known;
+    private property <int> video-rotation-index: PlaybackVideoState.video-rotation-index;
     changed video-rotation-known => { root.video-menu-changed(); }
     changed video-rotation-index => { root.video-menu-changed(); }
-    in property <[string]> video-crop-presets;
-    in property <int> video-crop-index: -1;
-    in property <bool> video-crop-known: false;
-    in property <[string]> video-crop-menu-labels;
-    in property <int> video-crop-menu-index: -1;
+    private property <bool> video-crop-known: PlaybackVideoState.video-crop-known;
+    private property <[string]> video-crop-menu-labels: PlaybackVideoState.video-crop-menu-labels;
+    private property <int> video-crop-menu-index: PlaybackVideoState.video-crop-menu-index;
     changed video-crop-known => { root.video-menu-changed(); }
     changed video-crop-menu-labels => { root.video-menu-changed(); }
     changed video-crop-menu-index => { root.video-menu-changed(); }
-    in property <bool> hardware-decoding-known: false;
-    in property <bool> hardware-decoding-enabled: false;
-    in property <[int]> video-equalizer-values;
     in property <float> speed-slider-position: 8;
     in property <string> speed-edit-value: "1";
     changed speed-edit-value => { root.video-menu-changed(); }
-    in property <[bool]> video-equalizer-known;
     in property <[CatalogRow]> subtitle-tracks;
     in property <[CatalogRow]> secondary-subtitle-tracks;
     in property <[CatalogRow]> subtitle-encoding-options;
@@ -1176,11 +1166,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             animations-disabled: root.animations-disabled;
                             compact-ui: root.compact-ui;
                             dark-theme: root.dark-theme;
-                            hardware-decoding-enabled: root.hardware-decoding-enabled;
-                            hardware-decoding-known: root.hardware-decoding-known;
-                            hdr-display-active: root.hdr-display-active;
-                            hdr-enabled: root.hdr-enabled;
-                            hdr-source-detected: root.hdr-source-detected;
                             interactive-accent-color: root.interactive-accent-color;
                             loaded: root.loaded;
                             platform-windows: root.platform-windows;
@@ -1199,18 +1184,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             speed-slider-position: root.speed-slider-position;
                             speed-value: root.speed-value;
                             track-selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
-                            video-aspect-index: root.video-aspect-index;
-                            video-aspect-known: root.video-aspect-known;
-                            video-aspect-presets: root.video-aspect-presets;
-                            video-crop-index: root.video-crop-index;
-                            video-crop-known: root.video-crop-known;
-                            video-crop-presets: root.video-crop-presets;
-                            video-equalizer-known: root.video-equalizer-known;
-                            video-equalizer-values: root.video-equalizer-values;
-                            video-rotation-index: root.video-rotation-index;
-                            video-rotation-known: root.video-rotation-known;
-                            video-track-selected-index: root.video-track-selected-index;
-                            video-tracks: root.video-tracks;
                             windows-accent-color: root.windows-accent-color;
                             windows-accent-foreground: root.windows-accent-foreground;
                             windows-sidebar-material-active: root.windows-sidebar-material-active;

@@ -418,6 +418,7 @@ impl MaterialSampler {
 }
 
 fn material_visible(app: &PlayerWindow) -> bool {
+    let video = app.global::<riina_ui::PlaybackVideoState>();
     let osd = app.global::<riina_ui::PlayerOsdState>();
     app.get_system_materials_enabled()
         && app.get_native_video()
@@ -425,7 +426,7 @@ fn material_visible(app: &PlayerWindow) -> bool {
         && !app.get_crop_editing()
         // The Slint overlay is SDR. Keep the native HDR composition
         // on its existing tint instead of mixing an 8-bit screenshot.
-        && !(app.get_hdr_source_detected() && app.get_hdr_enabled())
+        && !(video.get_hdr_source_detected() && video.get_hdr_enabled())
         && ((app.get_liquid_glass_osc()
             && app.get_loaded()
             && (app.get_controls_visible() || app.get_music_mode()))

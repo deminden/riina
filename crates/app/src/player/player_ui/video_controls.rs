@@ -29,7 +29,9 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
         let Some(app) = weak.upgrade() else { return };
         refresh_video_menu(&app);
         if !app.get_loaded()
-            || !app.get_video_aspect_known()
+            || !app
+                .global::<riina_ui::PlaybackVideoState>()
+                .get_video_aspect_known()
             || app.get_crop_editing()
             || app.get_dialog_open()
         {
@@ -91,7 +93,9 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
         let Some(app) = weak.upgrade() else { return };
         refresh_video_menu(&app);
         if !app.get_loaded()
-            || !app.get_video_crop_known()
+            || !app
+                .global::<riina_ui::PlaybackVideoState>()
+                .get_video_crop_known()
             || app.get_crop_editing()
             || app.get_dialog_open()
         {
@@ -139,7 +143,9 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
         let Some(app) = weak.upgrade() else { return };
         refresh_video_menu(&app);
         if !app.get_loaded()
-            || !app.get_video_rotation_known()
+            || !app
+                .global::<riina_ui::PlaybackVideoState>()
+                .get_video_rotation_known()
             || app.get_crop_editing()
             || app.get_dialog_open()
         {
@@ -200,12 +206,13 @@ pub(super) fn refresh_video_menu(app: &PlayerWindow) {
     // Native check items toggle before dispatch. A no-op or rejected command
     // cannot dirty the observed selection, so renew the model identity to make
     // Slint rebuild the menu from confirmed state rather than that local toggle.
-    app.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    video.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
         riina_core::crop::MENU_LABELS
             .map(slint::SharedString::from)
             .to_vec(),
     )));
-    app.set_video_aspect_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+    video.set_video_aspect_menu_labels(slint::ModelRc::new(slint::VecModel::from(
         riina_core::video_controls::ASPECT_MENU_PRESETS
             .map(slint::SharedString::from)
             .to_vec(),

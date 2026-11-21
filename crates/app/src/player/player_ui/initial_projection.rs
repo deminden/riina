@@ -5,6 +5,7 @@ use super::{
 };
 use crate::{PlayerWindow, WelcomeWindow};
 use riina_core::{Preferences, RecentMedia};
+use slint::ComponentHandle;
 use std::{cell::RefCell, path::Path, rc::Rc};
 
 pub(super) struct SessionProjection {
@@ -87,11 +88,12 @@ fn install_media(
         welcome.set_app_version(env!("CARGO_PKG_VERSION").into());
         refresh_welcome_history(welcome, &prefs.recent_media, prefs.resume_last_position);
     }
-    app.set_video_aspect_presets(slint::ModelRc::new(slint::VecModel::from(
-        riina_core::video_controls::ASPECT_PRESETS
-            .map(slint::SharedString::from)
-            .to_vec(),
-    )));
+    app.global::<riina_ui::PlaybackVideoState>()
+        .set_video_aspect_presets(slint::ModelRc::new(slint::VecModel::from(
+            riina_core::video_controls::ASPECT_PRESETS
+                .map(slint::SharedString::from)
+                .to_vec(),
+        )));
     crate::screenshot_preferences::install(app, &prefs.screenshot);
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
@@ -142,11 +144,12 @@ fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) ->
     crate::sidebar_preferences::connect(app, prefs_path.to_path_buf(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.to_path_buf(), prefs.clone());
     refresh_video_menu(app);
-    app.set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
-        riina_core::crop::LABELS
-            .map(slint::SharedString::from)
-            .to_vec(),
-    )));
+    app.global::<riina_ui::PlaybackVideoState>()
+        .set_video_crop_presets(slint::ModelRc::new(slint::VecModel::from(
+            riina_core::crop::LABELS
+                .map(slint::SharedString::from)
+                .to_vec(),
+        )));
     app.set_primary_shortcut_is_meta(cfg!(target_os = "macos"));
     app.set_current_file_manager_name(
         if cfg!(target_os = "macos") {

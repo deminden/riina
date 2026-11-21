@@ -44,9 +44,10 @@ impl DisplayColor {
                 .profile
                 .as_ref()
                 .is_some_and(|(_, profile, _)| profile.is_some());
-            let hdr_output_active = app.get_hdr_source_detected()
-                && app.get_hdr_enabled()
-                && app.get_hdr_display_active();
+            let video = app.global::<riina_ui::PlaybackVideoState>();
+            let hdr_output_active = video.get_hdr_source_detected()
+                && video.get_hdr_enabled()
+                && video.get_hdr_display_active();
             let should_use_icc =
                 app.get_load_icc_profile() && profile_available && !hdr_output_active;
             if self.active != Some(should_use_icc) {

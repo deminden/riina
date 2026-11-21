@@ -48,8 +48,10 @@ fn set_tracks(app: &PlayerWindow, kind: i32, count: usize, selected: usize) {
                 .set_audio_tracks(model);
         }
         6 => {
-            app.set_video_track_selected_index(selected as i32);
-            app.set_video_tracks(model);
+            app.global::<riina_ui::PlaybackVideoState>()
+                .set_video_track_selected_index(selected as i32);
+            app.global::<riina_ui::PlaybackVideoState>()
+                .set_video_tracks(model);
         }
         2 => {
             app.set_subtitle_track_selected_index(selected as i32);
@@ -219,15 +221,16 @@ fn disabled_and_empty_lists_cannot_dispatch_stale_track_tokens() {
 #[test]
 fn language_badges_fit_the_name_and_narrow_card_in_both_themes() {
     let app = player(6);
-    app.set_video_tracks(slint::ModelRc::new(slint::VecModel::from(vec![
-        CatalogRow {
-            token: "1".into(),
-            label: "Video with a long track title".into(),
-            language: "Português (Brasil)".into(),
-            selected: true,
-            ..Default::default()
-        },
-    ])));
+    app.global::<riina_ui::PlaybackVideoState>()
+        .set_video_tracks(slint::ModelRc::new(slint::VecModel::from(vec![
+            CatalogRow {
+                token: "1".into(),
+                label: "Video with a long track title".into(),
+                language: "Português (Brasil)".into(),
+                selected: true,
+                ..Default::default()
+            },
+        ])));
     for dark in [false, true] {
         app.set_dark_theme(dark);
         for width in [285.0, 440.0, 960.0] {

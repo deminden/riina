@@ -230,8 +230,9 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
         let model = slint::ModelRc::new(slint::VecModel::from(rows));
         match kind {
             TrackKind::Video => {
-                app.set_video_track_selected_index(selected_index);
-                app.set_video_tracks(model);
+                let video = app.global::<riina_ui::PlaybackVideoState>();
+                video.set_video_track_selected_index(selected_index);
+                video.set_video_tracks(model);
             }
             TrackKind::Audio => {
                 app.global::<riina_ui::PlaybackAudioState>()

@@ -1,0 +1,26 @@
+import { CatalogRow } from "catalog-row.slint";
+
+// Per-window video observations are shared by the video pane and menus.
+export global PlaybackVideoState {
+    in-out property <int> video-track-selected-index: 0;
+    in-out property <[CatalogRow]> video-tracks;
+    in-out property <[string]> video-aspect-presets;
+    in-out property <int> video-aspect-index: 0;
+    in-out property <bool> video-aspect-known: false;
+    in-out property <[string]> video-aspect-menu-labels;
+    in-out property <int> video-aspect-menu-index: 0;
+    in-out property <bool> video-rotation-known: false;
+    in-out property <int> video-rotation-index: -1;
+    in-out property <[string]> video-crop-presets;
+    in-out property <int> video-crop-index: -1;
+    in-out property <bool> video-crop-known: false;
+    in-out property <[string]> video-crop-menu-labels;
+    in-out property <int> video-crop-menu-index: -1;
+    in-out property <bool> hardware-decoding-known: false;
+    in-out property <bool> hardware-decoding-enabled: false;
+    in-out property <[int]> video-equalizer-values;
+    in-out property <[bool]> video-equalizer-known;
+    in-out property <bool> hdr-display-active: false;
+    in-out property <bool> hdr-source-detected: false;
+    in-out property <bool> hdr-enabled: true;
+}

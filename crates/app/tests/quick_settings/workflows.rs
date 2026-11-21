@@ -61,7 +61,8 @@ fn page_y(app: &PlayerWindow) -> f32 {
 fn settings_pages_keep_independent_scroll_positions() {
     let app = player(6);
     app.window().set_size(LogicalSize::new(1000.0, 320.0));
-    app.set_video_tracks(model());
+    app.global::<riina_ui::PlaybackVideoState>()
+        .set_video_tracks(model());
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_tracks(model());
     app.set_subtitle_tracks(model());
