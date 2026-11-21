@@ -25,6 +25,14 @@ impl PreferenceSection for Cache {
     fn write_player(&self, app: &PlayerWindow) {
         install_player(app, self);
     }
+
+    fn live_commands(&self, previous: &Self) -> Vec<Command> {
+        if self == previous {
+            Vec::new()
+        } else {
+            vec![Command::NetworkCache(self.clone())]
+        }
+    }
 }
 
 fn parse_number<T: std::str::FromStr>(text: &str, label: &str) -> Result<T, String> {
@@ -106,10 +114,8 @@ pub(crate) fn apply(
     previous: &Cache,
     selected: &Cache,
 ) -> Result<(), String> {
-    if previous != selected {
-        player
-            .send(Command::NetworkCache(selected.clone()))
-            .map_err(|error| error.to_string())?;
+    for command in selected.live_commands(previous) {
+        player.send(command)?;
         install_player(app, selected);
     }
     Ok(())
@@ -121,8 +127,8 @@ pub(crate) fn restore(
     previous: &Cache,
     selected: &Cache,
 ) {
-    if previous != selected {
-        let _ = player.send(Command::NetworkCache(previous.clone()));
+    for command in previous.live_commands(selected) {
+        let _ = player.send(command);
         install_player(app, previous);
     }
 }

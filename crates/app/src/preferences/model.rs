@@ -2,7 +2,7 @@
 
 use crate::{PlayerWindow, PreferencesWindow, preference_store::Writer};
 use riina_core::{
-    Preferences, control_preferences, liquid_glass, network_preferences, online_subtitles,
+    Command, Preferences, control_preferences, liquid_glass, network_preferences, online_subtitles,
     osc_preferences, pip_preferences, subtitle_controls, thumbnail_preferences, window_resize,
 };
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
@@ -28,6 +28,9 @@ pub(crate) trait PreferenceSection: Clone + PartialEq {
     fn write_window(&self, window: &PreferencesWindow);
     // Engine-only sections are consumed by engine configuration or commands.
     fn write_player(&self, _app: &PlayerWindow) {}
+    fn live_commands(&self, _previous: &Self) -> Vec<Command> {
+        Vec::new()
+    }
     fn needs_restart(&self, _previous: &Self) -> bool {
         false
     }

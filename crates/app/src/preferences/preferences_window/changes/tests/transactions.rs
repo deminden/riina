@@ -480,6 +480,24 @@ fn valid_video_thread_count_reaches_the_engine_and_file_once() {
 }
 
 #[test]
+fn cache_edits_apply_the_saved_policy_after_subtitle_reload() {
+    let transaction = Transaction::new();
+    let enabled = !transaction.window.get_network_cache_enabled();
+    transaction.window.set_network_cache_enabled(enabled);
+    let commands = transaction.apply();
+    let saved = transaction.profile.read();
+    assert_eq!(saved.network_cache.enabled, enabled);
+    assert_eq!(transaction.player.app.get_network_cache_enabled(), enabled);
+    assert_eq!(
+        commands,
+        [
+            Command::SubtitleAutoLoad(saved.subtitle_auto_load),
+            Command::NetworkCache(saved.network_cache)
+        ]
+    );
+}
+
+#[test]
 fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
     let transaction = Transaction::new();
     let before = transaction.bytes();
