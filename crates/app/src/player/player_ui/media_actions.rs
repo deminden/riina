@@ -27,25 +27,33 @@ pub(super) struct Context<'a> {
     pub latest_playback: &'a crate::PlaybackStore,
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
+type WelcomeHandle = Option<slint::Weak<WelcomeWindow>>;
+type OpenHost = Option<slint::Weak<NativeVideoHost>>;
+type WelcomeRequests = Rc<RefCell<Option<PendingWelcomeOpen>>>;
+
 pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
-    let Context {
-        commands,
-        open_host,
-        welcome,
-        recent_media,
-        recent_open_documents,
-        recent_open_cleared,
-        prefs_path,
-        latest_playback,
-    } = context;
-    let open_player = commands.clone();
-    let weak = app.as_weak();
-    let welcome_window = welcome.map(|welcome| welcome.as_weak());
+    let welcome_window = context.welcome.map(ComponentHandle::as_weak);
     let pending_welcome_open = Rc::new(RefCell::new(None));
+    install_renderer_ready(app, context.commands, &pending_welcome_open);
+    install_external_file_actions(
+        app,
+        context.commands,
+        &context.open_host,
+        context.latest_playback,
+    );
+    install_file_open(app, context.commands, &context.open_host, &welcome_window);
+    install_open_recent_menu(app, &context);
+    install_url_open(app, &context, &welcome_window, &pending_welcome_open);
+    install_help_and_debug(app, context.latest_playback);
+    install_welcome_recent(app, &context, &welcome_window, &pending_welcome_open);
+    install_media_opened(app, &context, &welcome_window);
+}
+
+fn install_renderer_ready(
+    app: &PlayerWindow,
+    commands: &CommandSender,
+    pending_welcome_open: &WelcomeRequests,
+) {
     let ready_pending = pending_welcome_open.clone();
     let ready_app = app.as_weak();
     let ready_player = commands.clone();
@@ -56,12 +64,14 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             dispatch_welcome_open(&app, request, &ready_player);
         }
     });
-    let file_welcome = welcome_window.clone();
-    let file_open_host = open_host.clone();
-    let file_dialog_host = open_host.clone();
-    let new_window_app = app.as_weak();
-    let new_window_host = open_host.clone();
-    let new_window_sender = open_player.clone();
+}
+
+fn install_external_file_actions(
+    app: &PlayerWindow,
+    commands: &CommandSender,
+    open_host: &OpenHost,
+    latest_playback: &crate::PlaybackStore,
+) {
     let reveal_media_app = app.as_weak();
     let reveal_media_playback = latest_playback.clone();
     app.on_reveal_current_media(move || {
@@ -95,7 +105,7 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     });
     let delete_media_app = app.as_weak();
     let delete_media_playback = latest_playback.clone();
-    let delete_media_player = open_player.clone();
+    let delete_media_player = commands.clone();
     app.on_delete_current_media(move || {
         if let Some(app) = delete_media_app.upgrade() {
             crate::file_actions::delete_current_media(
@@ -105,6 +115,22 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             );
         }
     });
+}
+
+fn install_file_open(
+    app: &PlayerWindow,
+    commands: &CommandSender,
+    open_host: &OpenHost,
+    welcome_window: &WelcomeHandle,
+) {
+    let open_player = commands.clone();
+    let weak = app.as_weak();
+    let file_welcome = welcome_window.clone();
+    let file_open_host = open_host.clone();
+    let file_dialog_host = open_host.clone();
+    let new_window_app = app.as_weak();
+    let new_window_host = open_host.clone();
+    let new_window_sender = open_player.clone();
     app.on_open_in_new_window(move || {
         if let Some(app) = new_window_app.upgrade() {
             ui_dialogs::open(
@@ -141,6 +167,16 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             );
         }
     });
+}
+
+fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
+    let Context {
+        commands,
+        recent_open_documents,
+        prefs_path,
+        recent_open_cleared,
+        ..
+    } = *context;
     let remember_documents = recent_open_documents.clone();
     let remember_preferences_path = prefs_path.clone();
     let remember_app = app.as_weak();
@@ -213,6 +249,16 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             }
         }
     });
+}
+
+fn install_url_open(
+    app: &PlayerWindow,
+    context: &Context<'_>,
+    welcome_window: &WelcomeHandle,
+    pending_welcome_open: &WelcomeRequests,
+) {
+    let commands = context.commands;
+    let open_host = &context.open_host;
     let open_url = commands.clone();
     let weak = app.as_weak();
     let open_url_host = open_host.clone();
@@ -251,6 +297,9 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             }
         }
     });
+}
+
+fn install_help_and_debug(app: &PlayerWindow, latest_playback: &crate::PlaybackStore) {
     let weak = app.as_weak();
     app.on_open_help_link(move |destination| {
         let Some(app) = weak.upgrade() else {
@@ -290,6 +339,17 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             Err(error) => app.set_status(format!("Could not save debug information: {error}").into()),
         }
     });
+}
+
+fn install_welcome_recent(
+    app: &PlayerWindow,
+    context: &Context<'_>,
+    welcome_window: &WelcomeHandle,
+    pending_welcome_open: &WelcomeRequests,
+) {
+    let commands = context.commands;
+    let open_host = &context.open_host;
+    let recent_media = context.recent_media;
     let recent_player = commands.clone();
     let recent_host = open_host.clone();
     let recent_media_for_open = recent_media.clone();
@@ -331,6 +391,11 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             }
         }
     });
+}
+
+fn install_media_opened(app: &PlayerWindow, context: &Context<'_>, welcome_window: &WelcomeHandle) {
+    let recent_open_documents = context.recent_open_documents;
+    let prefs_path = context.prefs_path;
     let opened_documents = recent_open_documents.clone();
     let opened_preferences_path = prefs_path.clone();
     let opened_app = app.as_weak();
