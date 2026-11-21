@@ -1,3 +1,5 @@
+import { MusicModePlaylist } from "music-mode-playlist.slint";
+import { CatalogSidebarRow, PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
 import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
@@ -1002,20 +1004,20 @@ export component PlayerWindow inherits Window {
     callback select-settings-pane(int);
     callback select-playlist-pane(int);
     callback sidebar-resize-finished();
-    in-out property <string> selected-playlist-token: "";
-    in-out property <[string]> selected-playlist-tokens: [];
+    in-out property <string> selected-playlist-token <=> PlaylistInteraction.selected-playlist-token;
+    in-out property <[string]> selected-playlist-tokens <=> PlaylistInteraction.selected-playlist-tokens;
     in-out property <[string]> plugin-sidebar-identifiers: [];
     in-out property <[string]> plugin-sidebar-labels: [];
     in-out property <string> plugin-sidebar-selected-identifier: "";
     in-out property <int> plugin-sidebar-selected-index: -1;
-    in-out property <string> playlist-drag-token: "";
-    in-out property <float> playlist-drag-start-x: 0;
-    in-out property <float> playlist-drag-start-y: 0;
-    in-out property <bool> playlist-drag-active: false;
-    in-out property <int> playlist-drop-index: -1;
-    in-out property <bool> playlist-drag-extend: false;
-    in-out property <bool> playlist-drag-range: false;
-    in-out property <int> playlist-focus-index: -1;
+    in-out property <string> playlist-drag-token <=> PlaylistInteraction.playlist-drag-token;
+    in-out property <float> playlist-drag-start-x <=> PlaylistInteraction.playlist-drag-start-x;
+    in-out property <float> playlist-drag-start-y <=> PlaylistInteraction.playlist-drag-start-y;
+    in-out property <bool> playlist-drag-active <=> PlaylistInteraction.playlist-drag-active;
+    in-out property <int> playlist-drop-index <=> PlaylistInteraction.playlist-drop-index;
+    in-out property <bool> playlist-drag-extend <=> PlaylistInteraction.playlist-drag-extend;
+    in-out property <bool> playlist-drag-range <=> PlaylistInteraction.playlist-drag-range;
+    in-out property <int> playlist-focus-index <=> PlaylistInteraction.playlist-focus-index;
     callback select-playlist-row(int, bool, bool) -> [string];
     in property <float> audio-delay: 0;
     in property <string> audio-delay-text: "0";
@@ -2029,148 +2031,19 @@ export component PlayerWindow inherits Window {
                             }
                             }
                         }
-                        for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): Rectangle {
+                        for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): CatalogSidebarRow {
                             width: parent.width;
-                            property <int> current-playlist-focus-index: root.playlist-focus-index;
-                            height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
-                                : (root.playlist-metadata-visible ? 38px : 30px);
-                            background: (pane-kind == 2 || pane-kind == 6) ? transparent
-                                : row.selected ? (root.dark-theme ? #ffffff15 : #168bff20) : transparent;
-                    accessible-role: button; accessible-label: pane-kind == 4 && row.path != ""
-                        ? row.label + (row.detail != "" ? ", " + row.detail : "") + ", " + row.path : row.label;
-                            if pane-kind == 2 || pane-kind == 6 : Rectangle {
-                                x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
-                                background: root.dark-theme ? #ffffff20 : #00000020;
-                            }
-                            if pane-kind == 4 && root.playlist-drag-active && root.playlist-drop-index == index : Rectangle {
-                                x: 0; y: 0; width: parent.width; height: 2px; background: root.interactive-accent-color;
-                            }
-                            if pane-kind == 4 && root.playlist-drag-active && root.playlist-drop-index == root.playlist.length && index == root.playlist.length - 1 : Rectangle {
-                                x: 0; y: parent.height - 2px; width: parent.width; height: 2px; background: root.interactive-accent-color;
-                            }
-                            accessible-action-default => { root.select-item(root.selection-for-pane(pane-kind), row.token); }
-                            if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 3px; background: transparent; }
-                            if (pane-kind == 4 ? row.playing : row.selected) : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: root.interactive-accent-color; border-radius: 2px; }
-                            if pane-kind == 4 && row.detail != "" : VerticalLayout {
-                                x: 12px; y: 3px; width: parent.width - 18px; height: parent.height - 6px;
-                                spacing: 0px;
-                                Text { text: row.label; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
-                                    vertical-alignment: center; overflow: elide; }
-                                Text { text: row.detail; color: root.dark-theme ? #a7a7ad : #66666b; font-size: 10px;
-                                    vertical-alignment: center; overflow: elide; }
-                            }
-                            if pane-kind != 4 || row.detail == "" : Text { x: 12px;
-                                width: parent.width - 18px - (row.language != "" ? 42px : 0px);
-                                text: row.label;
-                                color: row.token == "no"
-                                    ? (root.dark-theme ? #a7a7ad : #6b6b70)
-                                    : (root.dark-theme ? #dddddd : #29292d);
-                                font-size: 12px;
-                                vertical-alignment: center; overflow: elide; }
-                            if row.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
-                                y: (parent.height - self.height) / 2; border-radius: 3px;
-                                background: root.dark-theme ? #ffffff20 : #00000010;
-                                Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
-                            TouchArea {
-                                clicked => { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-item(root.selection-for-pane(pane-kind), row.token); }
-                                    if pane-kind == 4 { root.selected-playlist-token = row.token; } }
-                                double-clicked => { if pane-kind >= 3 { root.select-item(root.selection-for-pane(pane-kind), row.token); root.selected-playlist-token = ""; root.selected-playlist-tokens = []; } }
-                                pointer-event(event) => {
-                                    if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                                        root.playlist-drag-token = row.token;
-                                        root.playlist-focus-index = index;
-                                        root.playlist-drag-start-x = self.mouse-x / 1px;
-                                        root.playlist-drag-start-y = self.mouse-y / 1px;
-                                        root.playlist-drag-active = false;
-                                        root.playlist-drag-extend = event.modifiers.control || event.modifiers.meta;
-                                        root.playlist-drag-range = event.modifiers.shift;
-                                        root.playlist-drop-index = index;
-                                    } else if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.up && root.playlist-drag-token == row.token {
-                                        if root.playlist-drag-active {
-                                            root.reorder-playlist(root.selected-playlist-tokens, root.playlist-drop-index);
-                                        } else {
-                                            root.selected-playlist-tokens = root.select-playlist-row(index,
-                                                root.playlist-drag-extend, root.playlist-drag-range);
-                                        }
-                                        root.selected-playlist-token = row.token;
-                                        root.playlist-drag-token = "";
-                                        root.playlist-drag-active = false;
-                                        root.playlist-drop-index = -1;
-                                    }
-                                }
-                                moved => {
-                                    if pane-kind == 4 && self.pressed && root.playlist-drag-token == row.token {
-                                        let distance-x = abs(self.mouse-x / 1px - root.playlist-drag-start-x);
-                                        let distance-y = abs(self.mouse-y / 1px - root.playlist-drag-start-y);
-                                        if distance-x + distance-y >= 5 {
-                                            if !row.selected
-                                                || root.playlist-drag-extend || root.playlist-drag-range {
-                                                root.selected-playlist-tokens = root.select-playlist-row(index,
-                                                    root.playlist-drag-extend, root.playlist-drag-range);
-                                            }
-                                            root.selected-playlist-token = row.token;
-                                            root.playlist-drag-active = true;
-                                            // The layout's 1px gap is included in the displayed row stride.
-                                            let content-y = (parent.y + self.mouse-y)
-                                                / (root.playlist-metadata-visible ? 39px : 31px);
-                                            root.playlist-drop-index = clamp(floor(content-y), 0, root.playlist.length);
-                                        }
-                                    }
-                                }
-                            }
-                            if pane-kind == 4 : ContextMenuArea {
-                                Menu {
-                                    MenuItem { title: "Play"; activated => { root.playlist-action(12, row.token); } }
-                                    MenuItem { title: "Play in New Window"; activated => { root.playlist-action(9, row.token); } }
-                                    MenuItem { title: "Remove"; activated => { root.playlist-action(1, row.token); } }
-                                    MenuSeparator {}
-                                    MenuItem { title: "Cut"; activated => { root.playlist-action(7, row.token); } }
-                                    MenuItem { title: "Copy"; activated => { root.playlist-action(6, row.token); } }
-                                    MenuItem { title: "Paste"; activated => { root.playlist-action(8, row.token); } }
-                                    MenuSeparator {}
-                                    MenuItem { title: "Move Up"; enabled: index > 0;
-                                        activated => { root.playlist-action(2, row.token); } }
-                                    MenuItem { title: "Move Down"; enabled: index + 1 < root.playlist.length;
-                                        activated => { root.playlist-action(3, row.token); } }
-                                    if row.network : MenuSeparator {}
-                                    if row.network : MenuItem {
-                                        title: "Open in Browser";
-                                        activated => { root.playlist-action(10, row.token); }
-                                    }
-                                    if row.network : MenuItem {
-                                        title: "Copy URL";
-                                        activated => { root.playlist-action(11, row.token); }
-                                    }
-                                }
-                            }
-                            row-focus := FocusScope {
-                                width: 0px;
-                                key-pressed(event) => {
-                                    // Preserve global playback shortcuts while a catalog row has focus.
-                                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                                    if event.text == Key.Return {
-                                        root.select-item(root.selection-for-pane(pane-kind), row.token);
-                                        root.selected-playlist-token = "";
-                                        return accept;
-                                    }
-                                    if pane-kind == 4 && (event.text == Key.UpArrow || event.text == Key.DownArrow)
-                                        && root.playlist.length > 0 {
-                                        let next-index = event.text == Key.UpArrow
-                                            ? max(0, index - 1)
-                                            : min(root.playlist.length - 1, index + 1);
-                                        root.playlist-focus-index = next-index;
-                                        root.selected-playlist-tokens = root.select-playlist-row(next-index,
-                                            event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
-                                        root.selected-playlist-token = root.playlist[next-index].token;
-                                        return accept;
-                                    }
-                                    return reject;
-                                }
-                            }
-                            changed current-playlist-focus-index => {
-                                if pane-kind == 4 && current-playlist-focus-index == index { row-focus.focus(); }
-                            }
+                            entry: row;
+                            index: index;
+                            pane-kind: pane-kind;
+                            playlist: root.playlist;
+                            dark-theme: root.dark-theme;
+                            interactive-accent-color: root.interactive-accent-color;
+                            playlist-metadata-visible: root.playlist-metadata-visible;
+                            select-row(token) => { root.select-item(root.selection-for-pane(pane-kind), token); }
+                            select-playlist-row(index, extend, range) => { root.select-playlist-row(index, extend, range) }
+                            reorder-playlist(tokens, index) => { root.reorder-playlist(tokens, index); }
+                            playlist-action(action, token) => { root.playlist-action(action, token); }
                         }
                         if pane-kind == 6 : VerticalLayout {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
@@ -3035,49 +2908,22 @@ export component PlayerWindow inherits Window {
         if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
             text: startup-status == "" ? status : startup-status;
             color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
-        if music-mode && music-mode-show-playlist : Rectangle {
+        if music-mode && music-mode-show-playlist : MusicModePlaylist {
             x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
-            background: root.dark-theme ? #17171b : #f0f0f2;
-            ScrollView {
-                width: parent.width; height: parent.height;
-                VerticalLayout {
-                    spacing: 1px;
-                    for row in root.playlist : Rectangle {
-                        height: root.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
-                        background: row.selected || root.selected-playlist-token == row.token
-                            ? (root.dark-theme ? #ffffff1c : #168bff24) :
-                            music-row-touch.has-hover ? (root.dark-theme ? #ffffff10 : #0000000a) : transparent;
-                        if row.playing : Image {
-                            x: 8px; y: 8px; width: 14px; height: 14px;
-                            source: @image-url("../../../assets/icons/play.svg");
-                            image-fit: contain; colorize: root.platform-windows ? root.windows-accent-color : #168bff;
-                        }
-                        if row.detail != "" : VerticalLayout {
-                            x: row.playing ? 28px : 10px; y: 3px;
-                            width: parent.width - (row.playing ? 38px : 20px); height: parent.height - 6px;
-                            spacing: 0px;
-                            Text { text: row.label; color: root.dark-theme ? #eeeeee : #29292d;
-                                font-size: 12px; vertical-alignment: center; overflow: elide; }
-                            Text { text: row.detail; color: root.dark-theme ? #a7a7ad : #6b6b72;
-                                font-size: 10px; vertical-alignment: center; overflow: elide; }
-                        }
-                        if row.detail == "" : Text { x: row.playing ? 28px : 10px;
-                            width: parent.width - (row.playing ? 38px : 20px); text: row.label;
-                            color: root.dark-theme ? #eeeeee : #29292d; font-size: 12px;
-                            vertical-alignment: center; overflow: elide; }
-                        music-row-touch := TouchArea {
-                            clicked => {
-                                root.selected-playlist-token = row.token;
-                                root.selected-playlist-tokens = [row.token];
-                            }
-                            double-clicked => {
-                                root.selected-playlist-token = "";
-                                root.selected-playlist-tokens = [];
-                                root.select-item(CatalogSelection.playlist, row.token);
-                            }
-                        }
-                    }
-                }
+            dark-theme: root.dark-theme;
+            playlist-metadata-visible: root.playlist-metadata-visible;
+            playlist: root.playlist;
+            selected-playlist-token: root.selected-playlist-token;
+            platform-windows: root.platform-windows;
+            windows-accent-color: root.windows-accent-color;
+            select-row(token) => {
+                root.selected-playlist-token = token;
+                root.selected-playlist-tokens = [token];
+            }
+            play-row(token) => {
+                root.selected-playlist-token = "";
+                root.selected-playlist-tokens = [];
+                root.select-item(CatalogSelection.playlist, token);
             }
         }
         if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : FullscreenInfoOsd {

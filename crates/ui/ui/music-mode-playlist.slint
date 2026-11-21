@@ -1,0 +1,49 @@
+import { ScrollView } from "std-widgets.slint";
+import { CatalogRow } from "catalog-row.slint";
+
+export component MusicModePlaylist inherits Rectangle {
+    in property <bool> dark-theme;
+    in property <bool> playlist-metadata-visible;
+    in property <[CatalogRow]> playlist;
+    in property <string> selected-playlist-token;
+    in property <bool> platform-windows;
+    in property <color> windows-accent-color;
+    callback select-row(string);
+    callback play-row(string);
+
+    background: root.dark-theme ? #17171b : #f0f0f2;
+    ScrollView {
+        width: parent.width; height: parent.height;
+        VerticalLayout {
+            spacing: 1px;
+            for row in root.playlist : Rectangle {
+                height: root.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
+                background: row.selected || root.selected-playlist-token == row.token
+                    ? (root.dark-theme ? #ffffff1c : #168bff24) :
+                    music-row-touch.has-hover ? (root.dark-theme ? #ffffff10 : #0000000a) : transparent;
+                if row.playing : Image {
+                    x: 8px; y: 8px; width: 14px; height: 14px;
+                    source: @image-url("../../../assets/icons/play.svg");
+                    image-fit: contain; colorize: root.platform-windows ? root.windows-accent-color : #168bff;
+                }
+                if row.detail != "" : VerticalLayout {
+                    x: row.playing ? 28px : 10px; y: 3px;
+                    width: parent.width - (row.playing ? 38px : 20px); height: parent.height - 6px;
+                    spacing: 0px;
+                    Text { text: row.label; color: root.dark-theme ? #eeeeee : #29292d;
+                        font-size: 12px; vertical-alignment: center; overflow: elide; }
+                    Text { text: row.detail; color: root.dark-theme ? #a7a7ad : #6b6b72;
+                        font-size: 10px; vertical-alignment: center; overflow: elide; }
+                }
+                if row.detail == "" : Text { x: row.playing ? 28px : 10px;
+                    width: parent.width - (row.playing ? 38px : 20px); text: row.label;
+                    color: root.dark-theme ? #eeeeee : #29292d; font-size: 12px;
+                    vertical-alignment: center; overflow: elide; }
+                music-row-touch := TouchArea {
+                    clicked => { root.select-row(row.token); }
+                    double-clicked => { root.play-row(row.token); }
+                }
+            }
+        }
+    }
+}
