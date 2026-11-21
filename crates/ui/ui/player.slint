@@ -1,3 +1,4 @@
+import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
 import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
 import { SidebarTab, SidebarSectionTitle, SidebarPositionToggle, SidebarSideChoice, SubtitleVisibilityRow, SidebarAction, SubtitleLaneSegment } from "player-sidebar-controls.slint";
@@ -1273,6 +1274,17 @@ export component PlayerWindow inherits Window {
             kind == 5 ? CatalogSelection.secondary-subtitle :
             kind == 6 ? CatalogSelection.video-track : CatalogSelection.unknown;
     }
+    private property <OsdMaterial> osd-material: {
+        active: root.active-liquid-glass-osd,
+        native-tint: root.platform-windows || root.native-video,
+        frame: root.video-blurred-frame,
+        video-x: root.video-inset-leading,
+        video-y: root.video-inset-top,
+        video-width: root.render-width,
+        video-height: root.render-height,
+        sample-opacity: root.video-material-sample-opacity,
+    };
+
     callback browse-files(int);
     callback set-delay(int, float);
     callback set-delay-text(int, string) -> bool;
@@ -2999,59 +3011,26 @@ export component PlayerWindow inherits Window {
             close-requested => { root.close-player(); }
             back-requested => { root.toggle-music-mode(); }
         }
-        // Geometry is estimated from the reviewed 320×180 reference capture.
-        if loaded && !crop-editing : Rectangle {
-            clip: true;
-            x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
-            opacity: root.seek-osd-visible && root.osd-enabled ? 1 : 0;
-            animate opacity { duration: root.osd-fade-duration; }
-            border-radius: 14px;
-            background: root.active-liquid-glass-osd
-                ? (root.platform-windows || root.native-video ? #181818c4 : #181818dc)
-                : #181818;
-            if root.active-liquid-glass-osd : Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.video-material-sample-opacity;
-                image-fit: contain;
-            }
-            seek-clock := HorizontalLayout {
-                x: 16px; y: 8px; width: parent.width - 32px; height: 25px; spacing: 5px;
-                Text { text: seek-position-label; color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
-                Text { text: "/ " + seek-duration-label; color: #b0b0b0; font-size: root.osd-text-size * 1px; font-weight: 600; }
-            }
-            Rectangle { x: 16px; y: 35px; height: 2px;
-                width: (parent.width - 32px) * clamp(position / max(0.001, duration), 0, 1);
-                background: root.platform-windows ? root.windows-accent-color : #168bff; border-radius: 1px; }
+        if loaded && !crop-editing : SeekOsd {
+            material: root.osd-material;
+            seek-position-label: root.seek-position-label;
+            seek-duration-label: root.seek-duration-label;
+            seek-osd-visible: root.seek-osd-visible;
+            osd-enabled: root.osd-enabled;
+            osd-text-size: root.osd-text-size;
+            position: root.position;
+            duration: root.duration;
+            progress-color: root.platform-windows ? root.windows-accent-color : #168bff;
+            osd-fade-duration: root.osd-fade-duration;
         }
-        if !root.plugin-osd-message.is-empty && !crop-editing : Rectangle {
-            clip: true;
+        if !root.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
             x: (parent.width - self.width) / 2;
             y: max(8px,
                 parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
-            width: min(420px, parent.width - 32px); height: 40px;
-            border-radius: 8px;
-            background: root.native-video
-                ? (root.active-liquid-glass-osd ? #17171bc8 : #17171b)
-                : #17171be8;
-            border-width: 1px; border-color: #ffffff24;
-            if root.active-liquid-glass-osd : Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.video-material-sample-opacity;
-                image-fit: contain;
-            }
-            Text {
-                x: 14px; y: 5px; width: parent.width - 28px; height: parent.height - 10px;
-                text: root.plugin-osd-message; color: #ffffff; font-size: 13px;
-                vertical-alignment: center; overflow: elide;
-            }
+            width: min(420px, parent.width - 32px);
+            material: root.osd-material;
+            plugin-osd-message: root.plugin-osd-message;
+            native-video: root.native-video;
         }
         if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
             text: startup-status == "" ? status : startup-status;
@@ -3101,74 +3080,29 @@ export component PlayerWindow inherits Window {
                 }
             }
         }
-        if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : Rectangle {
-            clip: true;
+        if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : FullscreenInfoOsd {
             private property <length> card-width: min(340px, parent.width - 16px -
                 (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
             x: parent.width - self.card-width -
                 (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
             y: (root.compact-ui ? 38px : 42px) +
                 (root.osc-position == 1 ? root.osc-height : 0px);
-            width: self.card-width; height: 77px;
-            border-radius: root.active-liquid-glass-osd ? 16px : 10px;
-            background: root.active-liquid-glass-osd
-                ? (root.platform-windows || root.native-video ? #1b1b20c8 : #1b1b20d8)
-                : #1b1b20;
-            border-width: 1px; border-color: #ffffff22;
-            if root.active-liquid-glass-osd : Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.video-material-sample-opacity;
-                image-fit: contain;
-            }
-            Text { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
-                text: root.media-title; color: white; font-size: 18px; overflow: elide; }
-            HorizontalLayout { x: 16px; y: 39px; width: parent.width - 32px; height: 24px; spacing: 4px;
-                Rectangle { width: 22px; height: 22px; border-radius: 11px;
-                    border-width: 2px; border-color: #d0d0d4;
-                    Rectangle { x: 9px; y: 4px; width: 2px; height: 7px; background: #d0d0d4; }
-                    Rectangle { x: 10px; y: 10px; width: 6px; height: 2px; background: #d0d0d4; }
-                }
-                Text { text: root.fullscreen-info-time; color: #d0d0d4; font-family: "monospace"; font-size: 18px; font-weight: 700; vertical-alignment: center; }
-                Rectangle { width: 2px; height: 16px; background: #ffffff55; }
-                if root.fullscreen-info-battery != "" : HorizontalLayout {
-                    spacing: 4px;
-                    Rectangle { width: 22px; height: 12px; border-radius: 2px;
-                        border-width: 1px; border-color: #d0d0d4;
-                        Rectangle { x: 3px; y: 3px; width: 15px * root.fullscreen-info-battery-level / 100; height: 4px; background: #d0d0d4; }
-                        Rectangle { x: 22px; y: 4px; width: 2px; height: 4px; background: #d0d0d4; }
-                    }
-                    Text { text: root.fullscreen-info-battery; color: #d0d0d4; font-size: 13px; font-weight: 700; vertical-alignment: center; }
-                }
-            }
+            width: self.card-width;
+            material: root.osd-material;
+            media-title: root.media-title;
+            fullscreen-info-time: root.fullscreen-info-time;
+            fullscreen-info-battery: root.fullscreen-info-battery;
+            fullscreen-info-battery-level: root.fullscreen-info-battery-level;
         }
-        if loaded : Rectangle {
-            clip: true;
-            x: 8px; y: 49px; width: video-message.preferred-width + 32px;
-            height: video-osd-progress >= 0 ? 50px : 41px;
-            opacity: root.video-osd-visible && root.osd-enabled ? 1 : 0;
-            animate opacity { duration: root.osd-fade-duration; }
-            border-radius: 14px;
-            background: root.active-liquid-glass-osd
-                ? (root.platform-windows || root.native-video ? #181818c4 : #181818dc)
-                : #181818;
-            if root.active-liquid-glass-osd : Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.video-material-sample-opacity;
-                image-fit: contain;
-            }
-            video-message := Text { x: 16px; y: 8px; text: root.video-osd-text;
-                color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
-            if root.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;
-                width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
-                height: 2px; background: root.platform-windows ? root.windows-accent-color : #168bff; border-radius: 1px; }
+        if loaded : PlaybackOsd {
+            material: root.osd-material;
+            video-osd-visible: root.video-osd-visible;
+            osd-enabled: root.osd-enabled;
+            osd-text-size: root.osd-text-size;
+            video-osd-text: root.video-osd-text;
+            video-osd-progress: root.video-osd-progress;
+            progress-color: root.platform-windows ? root.windows-accent-color : #168bff;
+            osd-fade-duration: root.osd-fade-duration;
         }
         if loaded && !crop-editing : ScreenshotPreview {
             x: 8px; y: 49px;

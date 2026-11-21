@@ -1,0 +1,156 @@
+export struct OsdMaterial {
+    active: bool,
+    native-tint: bool,
+    frame: image,
+    video-x: length,
+    video-y: length,
+    video-width: length,
+    video-height: length,
+    sample-opacity: float,
+}
+
+component OsdVideoSample inherits Image {
+    in property <OsdMaterial> material;
+    in property <length> card-x;
+    in property <length> card-y;
+
+    source: material.frame;
+    x: material.video-x - card-x;
+    y: material.video-y - card-y;
+    width: material.video-width;
+    height: material.video-height;
+    opacity: material.sample-opacity;
+    image-fit: contain;
+}
+
+// Geometry is estimated from the reviewed 320×180 reference capture.
+export component SeekOsd inherits Rectangle {
+    in property <OsdMaterial> material;
+    in property <string> seek-position-label;
+    in property <string> seek-duration-label;
+    in property <bool> seek-osd-visible;
+    in property <bool> osd-enabled;
+    in property <float> osd-text-size;
+    in property <float> position;
+    in property <float> duration;
+    in property <color> progress-color;
+    in property <duration> osd-fade-duration;
+
+    clip: true;
+    x: 8px; y: 49px; width: max(147px, seek-clock.preferred-width + 32px); height: 50px;
+    opacity: root.seek-osd-visible && root.osd-enabled ? 1 : 0;
+    animate opacity { duration: root.osd-fade-duration; }
+    border-radius: 14px;
+    background: root.material.active
+        ? (root.material.native-tint ? #181818c4 : #181818dc)
+        : #181818;
+    if root.material.active : OsdVideoSample {
+        material: root.material;
+        card-x: parent.x;
+        card-y: parent.y;
+    }
+    seek-clock := HorizontalLayout {
+        x: 16px; y: 8px; width: parent.width - 32px; height: 25px; spacing: 5px;
+        Text { text: seek-position-label; color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
+        Text { text: "/ " + seek-duration-label; color: #b0b0b0; font-size: root.osd-text-size * 1px; font-weight: 600; }
+    }
+    Rectangle { x: 16px; y: 35px; height: 2px;
+        width: (parent.width - 32px) * clamp(position / max(0.001, duration), 0, 1);
+        background: root.progress-color; border-radius: 1px; }
+}
+
+export component PluginOsd inherits Rectangle {
+    in property <OsdMaterial> material;
+    in property <string> plugin-osd-message;
+    in property <bool> native-video;
+
+    clip: true;
+    height: 40px;
+    border-radius: 8px;
+    background: root.native-video
+        ? (root.material.active ? #17171bc8 : #17171b)
+        : #17171be8;
+    border-width: 1px; border-color: #ffffff24;
+    if root.material.active : OsdVideoSample {
+        material: root.material;
+        card-x: parent.x;
+        card-y: parent.y;
+    }
+    Text {
+        x: 14px; y: 5px; width: parent.width - 28px; height: parent.height - 10px;
+        text: root.plugin-osd-message; color: #ffffff; font-size: 13px;
+        vertical-alignment: center; overflow: elide;
+    }
+}
+
+export component FullscreenInfoOsd inherits Rectangle {
+    in property <OsdMaterial> material;
+    in property <string> media-title;
+    in property <string> fullscreen-info-time;
+    in property <string> fullscreen-info-battery;
+    in property <float> fullscreen-info-battery-level;
+
+    clip: true;
+    height: 77px;
+    border-radius: root.material.active ? 16px : 10px;
+    background: root.material.active
+        ? (root.material.native-tint ? #1b1b20c8 : #1b1b20d8)
+        : #1b1b20;
+    border-width: 1px; border-color: #ffffff22;
+    if root.material.active : OsdVideoSample {
+        material: root.material;
+        card-x: parent.x;
+        card-y: parent.y;
+    }
+    Text { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
+        text: root.media-title; color: white; font-size: 18px; overflow: elide; }
+    HorizontalLayout { x: 16px; y: 39px; width: parent.width - 32px; height: 24px; spacing: 4px;
+        Rectangle { width: 22px; height: 22px; border-radius: 11px;
+            border-width: 2px; border-color: #d0d0d4;
+            Rectangle { x: 9px; y: 4px; width: 2px; height: 7px; background: #d0d0d4; }
+            Rectangle { x: 10px; y: 10px; width: 6px; height: 2px; background: #d0d0d4; }
+        }
+        Text { text: root.fullscreen-info-time; color: #d0d0d4; font-family: "monospace"; font-size: 18px; font-weight: 700; vertical-alignment: center; }
+        Rectangle { width: 2px; height: 16px; background: #ffffff55; }
+        if root.fullscreen-info-battery != "" : HorizontalLayout {
+            spacing: 4px;
+            Rectangle { width: 22px; height: 12px; border-radius: 2px;
+                border-width: 1px; border-color: #d0d0d4;
+                Rectangle { x: 3px; y: 3px; width: 15px * root.fullscreen-info-battery-level / 100; height: 4px; background: #d0d0d4; }
+                Rectangle { x: 22px; y: 4px; width: 2px; height: 4px; background: #d0d0d4; }
+            }
+            Text { text: root.fullscreen-info-battery; color: #d0d0d4; font-size: 13px; font-weight: 700; vertical-alignment: center; }
+        }
+    }
+}
+
+export component PlaybackOsd inherits Rectangle {
+    in property <OsdMaterial> material;
+    in property <bool> video-osd-visible;
+    in property <bool> osd-enabled;
+    in property <float> osd-text-size;
+    in property <string> video-osd-text;
+    in property <float> video-osd-progress;
+    in property <color> progress-color;
+    in property <duration> osd-fade-duration;
+
+    clip: true;
+    x: 8px; y: 49px; width: video-message.preferred-width + 32px;
+    height: video-osd-progress >= 0 ? 50px : 41px;
+    opacity: root.video-osd-visible && root.osd-enabled ? 1 : 0;
+    animate opacity { duration: root.osd-fade-duration; }
+    border-radius: 14px;
+    background: root.material.active
+        ? (root.material.native-tint ? #181818c4 : #181818dc)
+        : #181818;
+    if root.material.active : OsdVideoSample {
+        material: root.material;
+        card-x: parent.x;
+        card-y: parent.y;
+    }
+    video-message := Text { x: 16px; y: 8px; text: root.video-osd-text;
+        color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
+    if root.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;
+        width: (parent.width - 32px) * clamp(root.video-osd-progress, 0, 1);
+        height: 2px; background: root.progress-color; border-radius: 1px; }
+}

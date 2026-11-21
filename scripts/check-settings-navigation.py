@@ -17,6 +17,7 @@ SUBTITLES_SOURCE = (ROOT / "crates/ui/ui/preferences-subtitles.slint").read_text
 NETWORK_SOURCE = (ROOT / "crates/ui/ui/preferences-network.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read_text(encoding="utf-8")
+PLAYER_OSD_SOURCE = (ROOT / "crates/ui/ui/player-osd.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
 EXPECTED = [
@@ -366,11 +367,13 @@ def main():
     )
     assert (
         re.search(
-            r"if fullscreen\s*&&\s*loaded\s*&&\s*controls-visible\s*&&\s*display-time-and-battery-in-fullscreen\s*&&\s*!crop-editing",
+            r"if fullscreen\s*&&\s*loaded\s*&&\s*controls-visible\s*&&\s*display-time-and-battery-in-fullscreen\s*&&\s*!crop-editing\s*:\s*FullscreenInfoOsd",
             PLAYER_SOURCE,
         )
-        and 'text: root.fullscreen-info-time' in PLAYER_SOURCE
-        and 'text: root.fullscreen-info-battery' in PLAYER_SOURCE
+        and all(
+            f"{field}: root.{field};" in PLAYER_SOURCE and f"text: root.{field};" in PLAYER_OSD_SOURCE
+            for field in ("fullscreen-info-time", "fullscreen-info-battery")
+        )
         and 'changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }' in PLAYER_SOURCE
         and re.search(r"changed fullscreen => \{[^}]*root\.refresh-fullscreen-info\(\);", PLAYER_SOURCE)
         and re.search(r"changed crop-editing => \{[^}]*root\.refresh-fullscreen-info\(\);", PLAYER_SOURCE)
