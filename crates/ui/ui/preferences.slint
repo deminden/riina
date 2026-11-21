@@ -1,3 +1,7 @@
+import { AdvancedPreferencesPage } from "preferences-advanced.slint";
+import { ControlPreferencesPage } from "preferences-control.slint";
+import { AudioPreferencesPage } from "preferences-audio.slint";
+import { VideoPreferencesPage } from "preferences-video.slint";
 import { UtilitiesPreferencesPage } from "preferences-utilities.slint";
 import { PreferenceNavItem, PreferenceSubNavItem } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchField, PreferenceSearchResultCell } from "preferences-search.slint";
@@ -6,11 +10,11 @@ import { KeyBindingRow, KeyBindingActionRow, KeyBindingIconButton, KeyBindingPro
 export { KeyBindingRow } from "preferences-key-bindings.slint";
 import { PluginPreferencesRow, PluginPageIconButton, PluginPreferencesRowView, PluginPageActionButton } from "preferences-plugins.slint";
 export { PluginPreferencesRow } from "preferences-plugins.slint";
-import { MotionSettings, AdvancedMpvOptionRow, FolderChooser, PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, ToolbarPreferenceRow, PreferenceNumericInput, LanguageTokenEditor, PreferenceChoiceRow, PreferenceRadioRow, PreferenceToggle, GeneralDisclosureRow, GeneralSettingToggle, PreferenceOptionCard, PreferenceSensitivityRow, PreferenceDisclosure, PreferenceDetailRow } from "preferences-controls.slint";
+import { MotionSettings, AdvancedMpvOptionRow, FolderChooser, PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, ToolbarPreferenceRow, PreferenceNumericInput, LanguageTokenEditor, PreferenceChoiceRow, PreferenceRadioRow, PreferenceToggle, GeneralDisclosureRow, GeneralSettingToggle, PreferenceOptionCard, PreferenceDisclosure, PreferenceDetailRow } from "preferences-controls.slint";
 export { AdvancedMpvOptionRow } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
 import { CheckBox, ComboBox, ScrollView, Palette } from "std-widgets.slint";
-import { NativeTypography, PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
+import { NativeTypography, SubtitleColorWell } from "shared-controls.slint";
 
 export component PreferencesWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
@@ -1230,167 +1234,28 @@ export component PreferencesWindow inherits Window {
         }
         }
     }
-    if root.selected-pane == 2 : ScrollView {
+    if root.selected-pane == 2 : VideoPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-y <=> root.video-scroll-position;
-        content-height: root.platform-macos
-            ? (root.tone-mapping-expanded
-                ? (root.live-text-available ? 1130px : 1020px)
-                : (root.live-text-available ? 870px : 760px))
-            : (root.tone-mapping-expanded
-                ? (root.live-text-available ? 1030px : 920px)
-                : (root.live-text-available ? 770px : 660px));
-        content-width: self.visible-width;
-        horizontal-scrollbar-policy: always-off;
-        Rectangle {
-            width: parent.width;
-            height: root.platform-macos
-                ? (root.tone-mapping-expanded
-                    ? (root.live-text-available ? 1130px : 1020px)
-                    : (root.live-text-available ? 870px : 760px))
-                : (root.tone-mapping-expanded
-                    ? (root.live-text-available ? 1030px : 920px)
-                    : (root.live-text-available ? 770px : 660px));
-            Text { x: 22px; y: 16px; text: "Video";
-                font-size: 15px; font-weight: 600; color: #222222; }
-            Text { x: 20px; y: 52px; text: "Decoding";
-                font-size: 12px; font-weight: 600; color: #737379; }
-            Rectangle {
-                x: 20px; y: 76px; width: parent.width - 40px; height: 282px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 16px; y: 10px; text: "Number of threads";
-                    font-size: 11px; color: #252529; }
-                PreferenceNumericInput { x: parent.width - 62px; y: 7px; width: 42px; height: 24px;
-                    text <=> root.video-threads-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 16px; y: 30px; text: "Default: 0 (Auto)";
-                    font-size: 9px; color: #77777d; }
-                Text { x: 16px; y: 56px; text: "Hardware decoder";
-                    font-size: 11px; color: #252529; }
-                PreferenceOptionCard { x: 36px; y: 78px; width: parent.width - 56px;
-                    title: "Disabled"; description: "Disable hardware decoding.";
-                    selected: root.hardware-decoder-index == 0;
-                    activated => { root.hardware-decoder-index = 0; root.settings-changed(); }
-                }
-                PreferenceOptionCard { x: 36px; y: 136px; width: parent.width - 56px;
-                    title: "Auto";
-                    description: "Enable hardware decoding. However, most of the video filters won't work properly.";
-                    selected: root.hardware-decoder-index == 1;
-                    activated => { root.hardware-decoder-index = 1; root.settings-changed(); }
-                }
-                PreferenceOptionCard { x: 36px; y: 194px; width: parent.width - 56px;
-                    title: "Auto (Copy)";
-                    description: "Enable hardware decoding. It will consume double the memory but work with video filters.";
-                    selected: root.hardware-decoder-index == 2;
-                    activated => { root.hardware-decoder-index = 2; root.settings-changed(); }
-                }
-            }
-            if root.live-text-available : Rectangle {
-                x: 20px; y: 378px; width: parent.width - 40px; height: 88px;
-                Text { x: 8px; y: 0px; text: "Live Text";
-                    font-size: 12px; font-weight: 600; color: #737379; }
-                Rectangle { x: 0px; y: 24px; width: parent.width; height: 64px;
-                    border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                    PreferenceSwitch { x: 16px; y: 7px; width: parent.width - 32px; height: 24px;
-                        label: "Live Text"; checked <=> root.live-text-enabled;
-                        toggled => { root.settings-changed(); }
-                    }
-                    Text { x: 16px; y: 32px; width: parent.width - 32px; height: 26px;
-                        text: "Show a text-selection overlay when video is paused.";
-                        font-size: 9px; color: #77777d; wrap: word-wrap; }
-                }
-            }
-            Text { x: 20px; y: root.live-text-available ? 492px : 378px; text: "Color and HDR";
-                font-size: 12px; font-weight: 600; color: #737379; }
-            if root.platform-macos : Rectangle {
-                x: 20px; y: root.live-text-available ? 516px : 402px;
-                width: parent.width - 40px; height: 84px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                PreferenceSwitch { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
-                    label: "Load ICC profile"; checked <=> root.load-icc-profile;
-                    toggled => { root.settings-changed(); }
-                }
-                Text { x: 36px; y: 38px; width: parent.width - 52px; height: 38px;
-                    text: "Load the current display profile to transform video RGB to screen output. (Only for SDR mode)";
-                    font-size: 9px; color: #77777d; wrap: word-wrap;
-                }
-            }
-            Rectangle {
-                x: 20px;
-                y: (root.live-text-available ? 516px : 402px)
-                    + (root.platform-macos ? 100px : 0px);
-                width: parent.width - 40px; height: 84px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                PreferenceSwitch { x: 16px; y: 8px; width: parent.width - 32px; height: 24px;
-                    label: "Enable HDR mode"; checked <=> root.default-hdr-mode-enabled;
-                    toggled => { root.settings-changed(); }
-                }
-                Text { x: 36px; y: 38px; width: parent.width - 52px; height: 38px;
-                    text: "Enable HDR mode by default when playing HDR videos.";
-                    font-size: 9px; color: #77777d; wrap: word-wrap;
-                }
-            }
-            Rectangle {
-                x: 20px;
-                y: (root.live-text-available ? 516px : 402px)
-                    + (root.platform-macos ? 200px : 100px);
-                width: parent.width - 40px;
-                height: root.tone-mapping-expanded ? 376px : 84px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                PreferenceToggle { x: 12px; y: 8px; width: parent.width - 24px;
-                    label: "Tone Mapping"; checked <=> root.tone-mapping-enabled;
-                    toggled => { root.settings-changed(); }
-                }
-                Text { x: 20px; y: 41px; width: parent.width - 40px; height: 22px;
-                    text: "Map high dynamic range video for the display.";
-                    font-size: 9px; color: #77777d; wrap: word-wrap; }
-                PreferenceDisclosure { x: 24px; y: 62px;
-                    width: parent.width - 48px;
-                    label: "Tone mapping options"; expanded: root.tone-mapping-expanded;
-                    toggled => { root.tone-mapping-expanded = !root.tone-mapping-expanded; }
-                }
-                if root.tone-mapping-expanded : Rectangle {
-                    x: 0; y: 90px; width: parent.width; height: 278px; background: transparent;
-                    PreferenceToggle { x: 24px; y: 0; width: parent.width - 48px;
-                        label: "Override target peak";
-                        checked <=> root.tone-mapping-target-peak-enabled;
-                        enabled: root.tone-mapping-enabled;
-                        toggled => { root.settings-changed(); }
-                    }
-                    PreferenceNumericInput { x: 36px; y: 35px; width: 58px; height: 24px;
-                        text <=> root.tone-mapping-target-peak-text;
-                        enabled: root.tone-mapping-enabled && root.tone-mapping-target-peak-enabled;
-                        accepted => { root.settings-changed(); }
-                    }
-                    Text { x: 100px; y: 35px; height: 24px; text: "nits (10–10,000)";
-                        font-size: 9px; color: #77777d; vertical-alignment: center; }
-                    Text { x: 24px; y: 68px; text: "Algorithm";
-                        font-size: 10px; color: #252529; }
-                    ComboBox { x: 24px; y: 84px; width: parent.width - 48px; height: 25px;
-                        model: root.tone-mapping-algorithm-options;
-                        current-index <=> root.tone-mapping-algorithm-index;
-                        enabled: root.tone-mapping-enabled;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceToggle { x: 24px; y: 119px; width: parent.width - 48px;
-                        label: "Override tone-mapping parameter";
-                        checked <=> root.tone-mapping-param-enabled;
-                        enabled: root.tone-mapping-enabled;
-                        toggled => { root.settings-changed(); }
-                    }
-                    PreferenceNumericInput { x: 36px; y: 154px; width: 72px; height: 24px;
-                        text <=> root.tone-mapping-param-text;
-                        enabled: root.tone-mapping-enabled && root.tone-mapping-param-enabled;
-                        accepted => { root.settings-changed(); }
-                    }
-                    Text { x: 116px; y: 154px; width: parent.width - 132px; height: 32px;
-                        text: "Uses the selected algorithm's parameter.";
-                        font-size: 9px; color: #77777d; vertical-alignment: center; wrap: word-wrap; }
-                }
-            }
-        }
+        video-scroll-position <=> root.video-scroll-position;
+        platform-macos: root.platform-macos;
+        tone-mapping-expanded <=> root.tone-mapping-expanded;
+        live-text-available: root.live-text-available;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        video-threads-text <=> root.video-threads-text;
+        settings-changed => { root.settings-changed(); }
+        hardware-decoder-index <=> root.hardware-decoder-index;
+        live-text-enabled <=> root.live-text-enabled;
+        load-icc-profile <=> root.load-icc-profile;
+        default-hdr-mode-enabled <=> root.default-hdr-mode-enabled;
+        tone-mapping-enabled <=> root.tone-mapping-enabled;
+        tone-mapping-target-peak-enabled <=> root.tone-mapping-target-peak-enabled;
+        tone-mapping-target-peak-text <=> root.tone-mapping-target-peak-text;
+        tone-mapping-algorithm-options: root.tone-mapping-algorithm-options;
+        tone-mapping-algorithm-index <=> root.tone-mapping-algorithm-index;
+        tone-mapping-param-enabled <=> root.tone-mapping-param-enabled;
+        tone-mapping-param-text <=> root.tone-mapping-param-text;
     }
+
     if root.selected-pane == 4 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-y <=> root.subtitle-scroll-position;
@@ -1558,65 +1423,39 @@ export component PreferencesWindow inherits Window {
             }
         }
     }
-    if root.selected-pane == 3 : ScrollView {
+    if root.selected-pane == 3 : AudioPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.audio-content-height;
-        content-width: self.visible-width;
-        content-y <=> root.audio-scroll-position;
-        horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: root.audio-content-height;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 28px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 28px; y: 50px; text: "Hardware"; font-size: 13px; font-weight: 600; color: #77777d; }
-        Rectangle {
-            x: 20px; y: 76px; width: parent.width - 40px; height: 240px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            Text { x: 14px; y: 8px; width: 150px; height: 26px; text: "Number of threads"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            PreferenceNumericInput { label: "Audio decoding threads"; font-size: 12px; x: 250px; y: 9px; width: 70px; height: 24px; text <=> root.audio-threads-text; accepted => { root.settings-changed(); } }
-            Text { x: 176px; y: 32px; width: parent.width - 194px; height: 16px; text: "Default: 0 (Auto)"; font-size: 10px; color: #77777d; vertical-alignment: center; }
-            Text { x: 14px; y: 54px; width: 150px; height: 26px; text: "Audio driver"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            ComboBox { x: 176px; y: 54px; width: parent.width - 194px; height: 25px; model: root.audio-driver-options; current-index <=> root.audio-driver-index; selected => { root.settings-changed(); } }
-            Text { x: 14px; y: 90px; width: 150px; height: 26px; text: "Preferred audio device"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            ComboBox { x: 176px; y: 90px; width: parent.width - 194px; height: 25px; model: root.audio-device-options; current-index <=> root.audio-device-index; selected => { root.settings-changed(); } }
-            Text { x: 14px; y: 130px; text: "S/PDIF output"; font-size: 12px; font-weight: 600; color: #252529; }
-            CheckBox { x: 14px; y: 158px; text: "AC-3"; checked <=> root.audio-spdif-ac3; toggled => { root.settings-changed(); } }
-            CheckBox { x: 104px; y: 158px; text: "DTS"; checked <=> root.audio-spdif-dts; toggled => { root.settings-changed(); } }
-            CheckBox { x: 194px; y: 158px; text: "DTS-HD"; checked <=> root.audio-spdif-dts-hd; toggled => { root.settings-changed(); } }
-            CheckBox { x: 14px; y: 188px; text: "E-AC-3"; checked <=> root.audio-spdif-eac3; toggled => { root.settings-changed(); } }
-            CheckBox { x: 104px; y: 188px; text: "TrueHD"; checked <=> root.audio-spdif-truehd; toggled => { root.settings-changed(); } }
-        }
-        Text { x: 28px; y: root.audio-volume-title-y; text: "Volume"; font-size: 13px; font-weight: 600; color: #77777d; }
-        Rectangle {
-            x: 20px; y: root.audio-volume-title-y + 26px; width: parent.width - 40px; height: 250px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            CheckBox { x: 14px; y: 12px; height: 24px; text: "Allow volume boost (up to 200%)"; checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
-            Text { x: 14px; y: 48px; width: 150px; height: 26px; text: "Initial volume"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            CheckBox { x: 168px; y: 48px; text: "Enable"; checked <=> root.audio-initial-volume-enabled; toggled => { root.settings-changed(); } }
-            PreferenceNumericInput { label: "Initial audio volume"; font-size: 12px; x: 270px; y: 49px; width: 68px; height: 24px; enabled: root.audio-initial-volume-enabled; text <=> root.audio-initial-volume-text; accepted => { root.settings-changed(); } }
-            Text { x: 14px; y: 86px; width: 150px; height: 26px; text: "ReplayGain"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            ComboBox { x: 176px; y: 86px; width: parent.width - 194px; height: 25px; model: root.audio-replay-gain-options; current-index <=> root.audio-replay-gain-index; selected => { root.settings-changed(); } }
-            Text { x: 14px; y: 124px; width: 150px; height: 26px; text: "ReplayGain preamp (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            PreferenceNumericInput { label: "ReplayGain preamp in decibels"; font-size: 12px; x: 176px; y: 125px; width: 68px; height: 24px; text <=> root.audio-replay-gain-preamp-text; accepted => { root.settings-changed(); } }
-            CheckBox { x: 14px; y: 158px; height: 24px; text: "Prevent clipping"; checked <=> root.audio-replay-gain-clip; toggled => { root.settings-changed(); } }
-            Text { x: 14px; y: 194px; width: 150px; height: 38px; text: "ReplayGain fallback (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
-            PreferenceNumericInput { label: "ReplayGain fallback in decibels"; font-size: 12px; x: 176px; y: 201px; width: 68px; height: 24px; text <=> root.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
-        }
-        Text { x: 28px; y: root.audio-other-title-y; text: "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
-        Rectangle {
-            x: 20px; y: root.audio-other-title-y + 26px; width: parent.width - 40px; height: 220px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            Text { x: 14px; y: 14px; width: 150px; height: 26px; text: "Gapless playback"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px; model: root.audio-gapless-options; current-index <=> root.audio-gapless-index; selected => { root.settings-changed(); } }
-            Text { x: 14px; y: 52px; width: 150px; height: 34px; text: "Preferred languages"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            LanguageTokenEditor { x: 176px; y: 56px; width: parent.width - 194px; height: 24px;
-                tokens: root.audio-language-tokens;
-                add-token(entry) => { root.add-audio-language-token(entry); }
-                remove-token(index) => { root.remove-audio-language-token(index); }
-            }
-            Text { x: 176px; y: 84px; width: parent.width - 194px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: #77777d; wrap: word-wrap; }
-        }
-        }
+        audio-content-height: root.audio-content-height;
+        audio-scroll-position <=> root.audio-scroll-position;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        audio-threads-text <=> root.audio-threads-text;
+        settings-changed => { root.settings-changed(); }
+        audio-driver-options: root.audio-driver-options;
+        audio-driver-index <=> root.audio-driver-index;
+        audio-device-options: root.audio-device-options;
+        audio-device-index <=> root.audio-device-index;
+        audio-spdif-ac3 <=> root.audio-spdif-ac3;
+        audio-spdif-dts <=> root.audio-spdif-dts;
+        audio-spdif-dts-hd <=> root.audio-spdif-dts-hd;
+        audio-spdif-eac3 <=> root.audio-spdif-eac3;
+        audio-spdif-truehd <=> root.audio-spdif-truehd;
+        audio-volume-title-y: root.audio-volume-title-y;
+        volume-boost <=> root.volume-boost;
+        audio-initial-volume-enabled <=> root.audio-initial-volume-enabled;
+        audio-initial-volume-text <=> root.audio-initial-volume-text;
+        audio-replay-gain-options: root.audio-replay-gain-options;
+        audio-replay-gain-index <=> root.audio-replay-gain-index;
+        audio-replay-gain-preamp-text <=> root.audio-replay-gain-preamp-text;
+        audio-replay-gain-clip <=> root.audio-replay-gain-clip;
+        audio-replay-gain-fallback-text <=> root.audio-replay-gain-fallback-text;
+        audio-other-title-y: root.audio-other-title-y;
+        audio-gapless-options: root.audio-gapless-options;
+        audio-gapless-index <=> root.audio-gapless-index;
+        audio-language-tokens: root.audio-language-tokens;
+        add-audio-language-token(value1) => { root.add-audio-language-token(value1); }
+        remove-audio-language-token(value1) => { root.remove-audio-language-token(value1); }
     }
+
     if root.selected-pane == 5 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-height: root.network-content-height; content-width: self.visible-width;
@@ -1790,93 +1629,25 @@ export component PreferencesWindow inherits Window {
             }
         }
     }
-    if root.selected-pane == 6 : ScrollView {
+    if root.selected-pane == 6 : ControlPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: 760px; content-width: self.visible-width;
-        horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: 760px;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-            Text { x: 28px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: #222222; }
-            Text { x: 28px; y: 52px; text: "Trackpad"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: 82px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                VerticalLayout { spacing: 0px;
-                    PreferenceChoiceRow { label: "Pinch to"; options: ["Adjust window size", "Fullscreen", "None"];
-                        selected-index <=> root.control-pinch-index;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceChoiceRow { label: "Force Touch to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC"];
-                        selected-index <=> root.control-force-touch-choice;
-                        selected => { root.settings-changed(); }
-                    }
-                }
-            }
-
-            Text { x: 28px; y: 174px; text: "Mouse"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 200px; width: parent.width - 40px; height: 204px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                VerticalLayout { spacing: 0px;
-                    PreferenceChoiceRow { label: "Single click to"; options: ["None", "Pause/Resume", "Hide OSC"];
-                        selected-index <=> root.control-single-click-choice;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceChoiceRow { label: "Double click to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
-                        selected-index <=> root.control-double-click-choice;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceChoiceRow { label: "Right click to"; options: ["None", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
-                        selected-index <=> root.control-right-click-choice;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceChoiceRow { label: "Middle click to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
-                        selected-index <=> root.control-middle-click-choice;
-                        selected => { root.settings-changed(); }
-                    }
-                    Rectangle { height: 28px;
-                    PreferenceSwitch { x: 35px; width: parent.width - 47px; label: "Accepts first mouse click when not focused";
-                        checked <=> root.control-accepts-first-mouse;
-                        toggled => { root.settings-changed(); }
-                    }
-                    }
-                }
-            }
-
-            Text { x: 28px; y: 418px; text: "Scroll"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 444px; width: parent.width - 40px; height: 80px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                VerticalLayout { spacing: 0px;
-                    PreferenceChoiceRow { label: "Scroll vertically to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
-                        selected-index <=> root.control-vertical-scroll-index;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceChoiceRow { label: "Scroll horizontally to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
-                        selected-index <=> root.control-horizontal-scroll-index;
-                        selected => { root.settings-changed(); }
-                    }
-                }
-            }
-
-            Text { x: 28px; y: 538px; text: "Scrolling sensitivity"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 564px; width: parent.width - 40px; height: 152px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                VerticalLayout { spacing: 0px;
-                    PreferenceChoiceRow { label: "Seek type"; options: ["Keyframe seek", "Exact seek", "Auto"];
-                        selected-index <=> root.control-seek-type-index;
-                        selected => { root.settings-changed(); }
-                    }
-                    PreferenceSensitivityRow { label: "Relative seek amount"; value <=> root.control-relative-seek-amount;
-                        changed => { root.settings-changed(); }
-                    }
-                    PreferenceSensitivityRow { label: "Sensitivity for speed"; value <=> root.control-speed-sensitivity;
-                        changed => { root.settings-changed(); }
-                    }
-                    PreferenceSensitivityRow { label: "Sensitivity for volume"; value <=> root.control-volume-sensitivity;
-                        changed => { root.settings-changed(); }
-                    }
-                }
-            }
-        }
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        control-pinch-index <=> root.control-pinch-index;
+        settings-changed => { root.settings-changed(); }
+        control-force-touch-choice <=> root.control-force-touch-choice;
+        control-single-click-choice <=> root.control-single-click-choice;
+        control-double-click-choice <=> root.control-double-click-choice;
+        control-right-click-choice <=> root.control-right-click-choice;
+        control-middle-click-choice <=> root.control-middle-click-choice;
+        control-accepts-first-mouse <=> root.control-accepts-first-mouse;
+        control-vertical-scroll-index <=> root.control-vertical-scroll-index;
+        control-horizontal-scroll-index <=> root.control-horizontal-scroll-index;
+        control-seek-type-index <=> root.control-seek-type-index;
+        control-relative-seek-amount <=> root.control-relative-seek-amount;
+        control-speed-sensitivity <=> root.control-speed-sensitivity;
+        control-volume-sensitivity <=> root.control-volume-sensitivity;
     }
+
     if root.selected-pane == 7 : ScrollView {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         content-width: self.visible-width;
@@ -2049,135 +1820,27 @@ export component PreferencesWindow inherits Window {
             }
         }
     }
-    if root.selected-pane == 8 : ScrollView {
+    if root.selected-pane == 8 : AdvancedPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: 760px; content-width: self.visible-width;
-        horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: 760px;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-            Text { x: 28px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
-
-            Rectangle { x: 20px; y: 53px; width: parent.width - 40px; height: 74px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Image { x: 34px; y: 10px; width: 16px; height: 16px;
-                    source: @image-url("../../../assets/icons/advanced.svg"); image-fit: contain; }
-                Text { x: 57px; y: 8px; width: parent.width - 110px; height: 23px;
-                    text: "Enable advanced settings"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceSwitch { x: parent.width - 66px; y: 8px; width: 42px; height: 28px;
-                    label: "Enable advanced settings"; checked: root.advanced-enabled;
-                    toggled => { root.advanced-enabled = !root.advanced-enabled; root.advanced-settings-changed(); }
-                }
-                Text { x: 57px; y: 32px; width: parent.width - 80px; height: 34px;
-                    text: "The following settings require restarting Riina to take effect.";
-                    font-size: 10px; color: #74747a; wrap: word-wrap; vertical-alignment: top; }
-            }
-
-            Text { x: 28px; y: 146px; text: "Logging"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 181px; width: parent.width - 40px; height: 90px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Image { x: 35px; y: 8px; width: 14px; height: 14px;
-                    source: @image-url("../../../assets/icons/log-level.svg"); image-fit: contain; }
-                Text { x: 57px; y: 0px; width: 120px; height: 40px;
-                    text: "Log level"; font-size: 12px; color: root.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
-                ComboBox { x: 176px; y: 7px; width: parent.width - 190px; height: 25px;
-                    model: ["Verbose", "Debug", "Warning", "Error"];
-                    current-index <=> root.advanced-log-level-index; enabled: root.advanced-enabled;
-                    selected => { root.advanced-settings-changed(); }
-                }
-                Text { x: 57px; y: 42px; width: 130px; height: 40px;
-                    text: "Enable logging to file"; font-size: 12px;
-                    color: root.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; wrap: word-wrap; }
-                PreferenceActionButton { x: 178px; y: 49px; width: 112px; label: "Open Log Directory";
-                    enabled: root.advanced-enabled;
-                    activated => { root.advanced-open-log-folder(); }
-                }
-                PreferenceSwitch { x: parent.width - 66px; y: 45px; width: 42px; height: 28px;
-                    label: "Enable logging to file"; enabled: root.advanced-enabled;
-                    checked: root.advanced-logging-enabled;
-                    toggled => { root.advanced-logging-enabled = !root.advanced-logging-enabled; root.advanced-settings-changed(); }
-                }
-            }
-            Rectangle { x: 20px; y: 287px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Image { x: 35px; y: 13px; width: 14px; height: 14px;
-                    source: @image-url("../../../assets/icons/log-viewer.svg"); image-fit: contain; }
-                Text { x: 57px; y: 0px; width: parent.width - 122px; height: parent.height;
-                    text: "Open the log viewer"; font-size: 12px; color: root.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
-                PreferenceActionButton { x: parent.width - 60px; y: 9px; width: 36px; label: "→";
-                    enabled: root.advanced-enabled; activated => { root.advanced-open-log-viewer(); }
-                }
-            }
-
-            Text { x: 28px; y: 348px; text: "mpv Settings"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 375px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Image { x: 35px; y: 13px; width: 14px; height: 14px;
-                    source: @image-url("../../../assets/icons/mpv-osd.svg"); image-fit: contain; }
-                Text { x: 57px; y: 0px; width: parent.width - 110px; height: parent.height;
-                    text: "Use mpv's OSD"; font-size: 12px; color: root.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
-                PreferenceSwitch { x: parent.width - 66px; y: 7px; width: 42px; height: 28px;
-                    label: "Use mpv's OSD"; enabled: root.advanced-enabled;
-                    checked: root.advanced-use-mpv-osd;
-                    toggled => { root.advanced-use-mpv-osd = !root.advanced-use-mpv-osd; root.advanced-settings-changed(); }
-                }
-            }
-            Rectangle { x: 20px; y: 433px; width: parent.width - 40px; height: 74px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Image { x: 35px; y: 13px; width: 14px; height: 14px;
-                    source: @image-url("../../../assets/icons/config-directory.svg"); image-fit: contain; }
-                Text { x: 57px; y: 0px; width: parent.width - 132px; height: 32px;
-                    text: "Use config directory"; font-size: 11px;
-                    color: root.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
-                Rectangle { x: 57px; y: 38px; width: parent.width - 138px; height: 24px;
-                    clip: true;
-                    background: #ffffff; border-width: 1px; border-color: #c8c8cd; border-radius: 3px;
-                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                        text <=> root.advanced-config-directory-text;
-                        accessible-label: "mpv config directory"; single-line: true;
-                        enabled: root.advanced-enabled && root.advanced-use-config-directory;
-                        accepted => { root.advanced-settings-changed(); }
-                    }
-                }
-                PreferenceActionButton { x: parent.width - 69px; y: 38px; width: 53px; label: "Choose…";
-                    enabled: root.advanced-enabled && root.advanced-use-config-directory;
-                    activated => { root.advanced-choose-config-directory(); }
-                }
-                PreferenceSwitch { x: parent.width - 62px; y: 7px; width: 42px; height: 28px;
-                    label: "Use config directory"; enabled: root.advanced-enabled;
-                    checked: root.advanced-use-config-directory;
-                    toggled => { root.advanced-use-config-directory = !root.advanced-use-config-directory; root.advanced-settings-changed(); }
-                }
-            }
-            Text { x: 28px; y: 536px; text: "Additional mpv options"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Text { x: 28px; y: 558px; width: parent.width - 48px; height: 30px;
-                text: "Paste an option in key=value format to fill both fields automatically. Changes take effect after restarting Riina.";
-                font-size: 10px; color: #74747a; wrap: word-wrap; }
-            Rectangle { x: 20px; y: 591px; width: parent.width - 40px; height: 150px;
-                border-width: 1px; border-color: #dedee1; border-radius: 8px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 8px; y: 3px; width: 164px; height: 20px; text: "Key"; font-size: 10px; font-weight: 600; color: #77777d; vertical-alignment: center; }
-                Text { x: 179px; y: 3px; width: parent.width - 224px; height: 20px; text: "Value"; font-size: 10px; font-weight: 600; color: #77777d; vertical-alignment: center; }
-                for option[index] in root.advanced-mpv-options: Rectangle {
-                    x: 6px; y: 24px + index * 22px; width: parent.width - 12px; height: 20px;
-                    background: root.advanced-mpv-option-selection == index ? #e5edf7 : transparent;
-                    TextInput { x: 2px; y: 0px; width: 164px; height: parent.height;
-                        text: option.name; font-size: 10px; color: #29292d; enabled: root.advanced-enabled;
-                        accepted => { root.advanced-mpv-option-selection = index; root.advanced-option-edited(index, self.text, option.value); root.settings-changed(); }
-                    }
-                    TextInput { x: 173px; y: 0px; width: parent.width - 220px; height: parent.height;
-                        text: option.value; font-size: 10px; color: #29292d; enabled: root.advanced-enabled;
-                        accepted => { root.advanced-mpv-option-selection = index; root.advanced-option-edited(index, option.name, self.text); root.settings-changed(); }
-                    }
-                }
-                PreferenceActionButton { x: 8px; y: parent.height - 29px; width: 26px; label: "+";
-                    enabled: root.advanced-enabled; activated => { root.advanced-option-added(); }
-                }
-                PreferenceActionButton { x: 40px; y: parent.height - 29px; width: 26px; label: "−";
-                    enabled: root.advanced-enabled && root.advanced-mpv-option-selection >= 0;
-                    activated => { root.advanced-option-removed(root.advanced-mpv-option-selection); }
-                }
-            }
-        }
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        advanced-enabled <=> root.advanced-enabled;
+        advanced-settings-changed => { root.advanced-settings-changed(); }
+        advanced-log-level-index <=> root.advanced-log-level-index;
+        advanced-open-log-folder => { root.advanced-open-log-folder(); }
+        advanced-logging-enabled <=> root.advanced-logging-enabled;
+        advanced-open-log-viewer => { root.advanced-open-log-viewer(); }
+        advanced-use-mpv-osd <=> root.advanced-use-mpv-osd;
+        advanced-config-directory-text <=> root.advanced-config-directory-text;
+        advanced-use-config-directory <=> root.advanced-use-config-directory;
+        advanced-choose-config-directory => { root.advanced-choose-config-directory(); }
+        advanced-mpv-options: root.advanced-mpv-options;
+        advanced-mpv-option-selection <=> root.advanced-mpv-option-selection;
+        advanced-option-edited(value1, value2, value3) => { root.advanced-option-edited(value1, value2, value3); }
+        settings-changed => { root.settings-changed(); }
+        advanced-option-added => { root.advanced-option-added(); }
+        advanced-option-removed(value1) => { root.advanced-option-removed(value1); }
     }
+
     if root.selected-pane == 9 : Rectangle {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;

@@ -1,0 +1,91 @@
+import { PreferenceNumericInput, LanguageTokenEditor } from "preferences-controls.slint";
+import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+
+export component AudioPreferencesPage inherits ScrollView {
+    in property <length> audio-content-height;
+    in-out property <length> audio-scroll-position;
+    in property <bool> mica-backdrop-enabled;
+    in-out property <string> audio-threads-text;
+    callback settings-changed();
+    in property <[string]> audio-driver-options;
+    in-out property <int> audio-driver-index;
+    in property <[string]> audio-device-options;
+    in-out property <int> audio-device-index;
+    in-out property <bool> audio-spdif-ac3;
+    in-out property <bool> audio-spdif-dts;
+    in-out property <bool> audio-spdif-dts-hd;
+    in-out property <bool> audio-spdif-eac3;
+    in-out property <bool> audio-spdif-truehd;
+    in property <length> audio-volume-title-y;
+    in-out property <bool> volume-boost;
+    in-out property <bool> audio-initial-volume-enabled;
+    in-out property <string> audio-initial-volume-text;
+    in property <[string]> audio-replay-gain-options;
+    in-out property <int> audio-replay-gain-index;
+    in-out property <string> audio-replay-gain-preamp-text;
+    in-out property <bool> audio-replay-gain-clip;
+    in-out property <string> audio-replay-gain-fallback-text;
+    in property <length> audio-other-title-y;
+    in property <[string]> audio-gapless-options;
+    in-out property <int> audio-gapless-index;
+    in property <[string]> audio-language-tokens;
+    callback add-audio-language-token(string);
+    callback remove-audio-language-token(int);
+
+    content-height: root.audio-content-height;
+    content-width: self.visible-width;
+    content-y <=> root.audio-scroll-position;
+    horizontal-scrollbar-policy: always-off;
+    Rectangle { width: parent.width; height: root.audio-content-height;
+    background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
+    Text { x: 28px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: #222222; }
+    Text { x: 28px; y: 50px; text: "Hardware"; font-size: 13px; font-weight: 600; color: #77777d; }
+    Rectangle {
+        x: 20px; y: 76px; width: parent.width - 40px; height: 240px;
+        border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
+        Text { x: 14px; y: 8px; width: 150px; height: 26px; text: "Number of threads"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        PreferenceNumericInput { label: "Audio decoding threads"; font-size: 12px; x: 250px; y: 9px; width: 70px; height: 24px; text <=> root.audio-threads-text; accepted => { root.settings-changed(); } }
+        Text { x: 176px; y: 32px; width: parent.width - 194px; height: 16px; text: "Default: 0 (Auto)"; font-size: 10px; color: #77777d; vertical-alignment: center; }
+        Text { x: 14px; y: 54px; width: 150px; height: 26px; text: "Audio driver"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 54px; width: parent.width - 194px; height: 25px; model: root.audio-driver-options; current-index <=> root.audio-driver-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 90px; width: 150px; height: 26px; text: "Preferred audio device"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 90px; width: parent.width - 194px; height: 25px; model: root.audio-device-options; current-index <=> root.audio-device-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 130px; text: "S/PDIF output"; font-size: 12px; font-weight: 600; color: #252529; }
+        CheckBox { x: 14px; y: 158px; text: "AC-3"; checked <=> root.audio-spdif-ac3; toggled => { root.settings-changed(); } }
+        CheckBox { x: 104px; y: 158px; text: "DTS"; checked <=> root.audio-spdif-dts; toggled => { root.settings-changed(); } }
+        CheckBox { x: 194px; y: 158px; text: "DTS-HD"; checked <=> root.audio-spdif-dts-hd; toggled => { root.settings-changed(); } }
+        CheckBox { x: 14px; y: 188px; text: "E-AC-3"; checked <=> root.audio-spdif-eac3; toggled => { root.settings-changed(); } }
+        CheckBox { x: 104px; y: 188px; text: "TrueHD"; checked <=> root.audio-spdif-truehd; toggled => { root.settings-changed(); } }
+    }
+    Text { x: 28px; y: root.audio-volume-title-y; text: "Volume"; font-size: 13px; font-weight: 600; color: #77777d; }
+    Rectangle {
+        x: 20px; y: root.audio-volume-title-y + 26px; width: parent.width - 40px; height: 250px;
+        border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
+        CheckBox { x: 14px; y: 12px; height: 24px; text: "Allow volume boost (up to 200%)"; checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
+        Text { x: 14px; y: 48px; width: 150px; height: 26px; text: "Initial volume"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        CheckBox { x: 168px; y: 48px; text: "Enable"; checked <=> root.audio-initial-volume-enabled; toggled => { root.settings-changed(); } }
+        PreferenceNumericInput { label: "Initial audio volume"; font-size: 12px; x: 270px; y: 49px; width: 68px; height: 24px; enabled: root.audio-initial-volume-enabled; text <=> root.audio-initial-volume-text; accepted => { root.settings-changed(); } }
+        Text { x: 14px; y: 86px; width: 150px; height: 26px; text: "ReplayGain"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 86px; width: parent.width - 194px; height: 25px; model: root.audio-replay-gain-options; current-index <=> root.audio-replay-gain-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 124px; width: 150px; height: 26px; text: "ReplayGain preamp (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        PreferenceNumericInput { label: "ReplayGain preamp in decibels"; font-size: 12px; x: 176px; y: 125px; width: 68px; height: 24px; text <=> root.audio-replay-gain-preamp-text; accepted => { root.settings-changed(); } }
+        CheckBox { x: 14px; y: 158px; height: 24px; text: "Prevent clipping"; checked <=> root.audio-replay-gain-clip; toggled => { root.settings-changed(); } }
+        Text { x: 14px; y: 194px; width: 150px; height: 38px; text: "ReplayGain fallback (dB)"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
+        PreferenceNumericInput { label: "ReplayGain fallback in decibels"; font-size: 12px; x: 176px; y: 201px; width: 68px; height: 24px; text <=> root.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
+    }
+    Text { x: 28px; y: root.audio-other-title-y; text: "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
+    Rectangle {
+        x: 20px; y: root.audio-other-title-y + 26px; width: parent.width - 40px; height: 220px;
+        border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
+        Text { x: 14px; y: 14px; width: 150px; height: 26px; text: "Gapless playback"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px; model: root.audio-gapless-options; current-index <=> root.audio-gapless-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 52px; width: 150px; height: 34px; text: "Preferred languages"; font-size: 12px; color: #252529; vertical-alignment: center; }
+        LanguageTokenEditor { x: 176px; y: 56px; width: parent.width - 194px; height: 24px;
+            tokens: root.audio-language-tokens;
+            add-token(entry) => { root.add-audio-language-token(entry); }
+            remove-token(index) => { root.remove-audio-language-token(index); }
+        }
+        Text { x: 176px; y: 84px; width: parent.width - 194px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: #77777d; wrap: word-wrap; }
+    }
+    }
+}

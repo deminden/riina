@@ -8,6 +8,9 @@ SOURCE = (ROOT / "crates/ui/ui/preferences.slint").read_text(encoding="utf-8")
 CONTROLS_SOURCE = (ROOT / "crates/ui/ui/preferences-controls.slint").read_text(encoding="utf-8")
 UTILITIES_SOURCE = (ROOT / "crates/ui/ui/preferences-utilities.slint").read_text(encoding="utf-8")
 THEME_SOURCE = (ROOT / "crates/ui/ui/theme.slint").read_text(encoding="utf-8")
+AUDIO_SOURCE = (ROOT / "crates/ui/ui/preferences-audio.slint").read_text(encoding="utf-8")
+ADVANCED_SOURCE = (ROOT / "crates/ui/ui/preferences-advanced.slint").read_text(encoding="utf-8")
+VIDEO_SOURCE = (ROOT / "crates/ui/ui/preferences-video.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
@@ -205,17 +208,15 @@ def main():
     assert "else { root.selected-interface-section = 6; }" in interface_body.group(1), (
         "The final Interface subsection must remain selectable at the scroll limit"
     )
-    video_body = re.search(
-        r"if root\.selected-pane == 2\s*:\s*ScrollView\s*\{(.*?)"
-        r"(?=\n\s*if root\.selected-pane == 4\s*:)" ,
-        SOURCE,
-        re.DOTALL,
+    assert "if root.selected-pane == 2 : VideoPreferencesPage" in SOURCE
+    assert "VideoPreferencesPage inherits ScrollView" in VIDEO_SOURCE, (
+        "Video preferences must keep a dedicated scrollable pane"
     )
-    assert video_body, "Video preferences must keep a dedicated scrollable pane"
-    video = video_body.group(1)
+    video = VIDEO_SOURCE
     assert "content-y <=> root.video-scroll-position" in video, (
         "Video Settings search results must scroll to their selected section"
     )
+    assert "video-scroll-position <=> root.video-scroll-position;" in SOURCE
     for label in ["Decoding", "Number of threads", "Hardware decoder", "Color and HDR"]:
         assert f'text: "{label}"' in video, f"Video preferences are missing {label!r}"
     assert 'label: "Tone Mapping"' in video, "Video preferences are missing tone mapping"
@@ -225,6 +226,7 @@ def main():
         "tone-mapping-param-enabled", "tone-mapping-param-text",
     ]:
         assert f"<=> root.{prop}" in video, f"Video tone mapping is not bound to {prop}"
+        assert f"{prop} <=> root.{prop};" in SOURCE, f"Video page must forward {prop}"
     assert 'model: root.tone-mapping-algorithm-options;' in video, (
         "Tone-mapping algorithm choices must preserve the reference order"
     )
@@ -332,27 +334,17 @@ def main():
 
     bodies = {int(index) for index in re.findall(r"if root\.selected-pane == (\d+)", SOURCE)}
     assert bodies == set(range(len(EXPECTED))), f"Missing or extra page routes: {bodies!r}"
-    audio_pages = list(re.finditer(
-        r"if root\.selected-pane == 3\s*:(.*?)(?=\n\s*if root\.selected-pane == \d+\s*:|\Z)",
-        SOURCE,
-        re.DOTALL,
-    ))
-    audio = next(
-        (match for match in audio_pages if "x: 200px; y: 0;" in match.group(1)),
-        None,
+    assert "if root.selected-pane == 3 : AudioPreferencesPage" in SOURCE, (
+        "Audio must remain the fourth Settings page"
     )
-    advanced = re.search(
-        r"if root\.selected-pane == 8\s*:(.*?)(?=\n\s*if root\.selected-pane == \d+\s*:|\Z)",
-        SOURCE,
-        re.DOTALL,
-    )
-    assert audio and "Allow volume boost (up to 200%)" in audio.group(1), (
+    assert "Allow volume boost (up to 200%)" in AUDIO_SOURCE, (
         "The opt-in volume cap belongs with Audio settings"
     )
-    audio_body = audio.group(1)
+    audio_body = AUDIO_SOURCE
     assert "ScrollView" in audio_body and "content-y <=> root.audio-scroll-position" in audio_body, (
         "Audio sections must share one scroll page"
     )
+    assert "audio-scroll-position <=> root.audio-scroll-position;" in SOURCE
     headings = [audio_body.find(f'text: "{label}"') for label in ("Hardware", "Volume", "Other")]
     assert all(position >= 0 for position in headings) and headings == sorted(headings), (
         "Audio must expose Hardware, Volume and Other in reference order"
@@ -368,7 +360,8 @@ def main():
         and "height: root.audio-content-height;" in audio_body
         and "root.height + audio-other-title-y - 16px" in SOURCE
     ), "Jumping to Other must retain a full viewport of Audio background"
-    assert advanced and "Allow volume boost" not in advanced.group(1), (
+    assert "if root.selected-pane == 8 : AdvancedPreferencesPage" in SOURCE
+    assert "Allow volume boost" not in ADVANCED_SOURCE, (
         "The volume control must not be hidden under Advanced"
     )
     assert (
