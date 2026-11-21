@@ -1,5 +1,6 @@
 mod audio_controls;
 mod catalog;
+mod context;
 mod dialogs;
 mod discovery;
 mod engine_start;
@@ -29,6 +30,7 @@ use catalog::{
     install_playlist_metadata_refresh, install_playlist_selection, playlist_paste_index,
     selected_playlist_ids, selected_playlist_paths,
 };
+use context::{PlayerContext, bind};
 use engine_start::EngineStart;
 #[cfg(target_os = "windows")]
 use materials::{install_native_video_material_sampler, install_windows_material_policy_monitor};
@@ -1457,13 +1459,21 @@ fn configure_with_engine(
     let clear_history_latest_playback = latest_playback.clone();
     let clear_history_recent_media = plugin_recent_media.clone();
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
-    crate::preferences_window::connect(
+    let context = PlayerContext::new(
         app,
         command_sender.clone(),
-        prefs_path.clone(),
-        preference_model.clone(),
         latest_playback.clone(),
+        preference_model.clone(),
         plugin_host_handle,
+        prefs_path.clone(),
+    );
+    crate::preferences_window::connect(
+        app,
+        context.commands().clone(),
+        context.preferences_path().to_path_buf(),
+        context.preferences().clone(),
+        context.playback().clone(),
+        context.plugin_host().cloned(),
         {
             let path = prefs_path.clone();
             let playback_history = playback_history.clone();
@@ -1568,103 +1578,12 @@ fn configure_with_engine(
             app.set_status(error.into());
         }
     });
-    macro_rules! connect {
-        ($method:ident, $command:expr) => {{
-            let player = command_sender.clone();
-            let weak = app.as_weak();
-            app.$method(move || {
-                let command = $command;
-                let show_stop = matches!(&command, Command::Stop);
-                if let Some(app) = weak.upgrade() {
-                    app.invoke_activity();
-                    if matches!(command, Command::Stop) {
-                        media_open::invalidate(&app);
-                    }
-                }
-                match player.send(command) {
-                    Err(error) => {
-                        if let Some(app) = weak.upgrade() {
-                            app.set_status(error.into());
-                        }
-                    }
-                    Ok(()) if show_stop => {
-                        if let Some(app) = weak.upgrade() {
-                            let message = crate::video_osd::action_message(
-                                crate::video_osd::ActionFeedback::Stop,
-                            );
-                            show_osd_message(&app, message.text, true);
-                        }
-                    }
-                    Ok(()) => {}
-                }
-            });
-        }};
-    }
-    // Let mpv toggle its current state: UI pause snapshots can lag an in-flight
-    // transition, while the playback worker serializes this action with engine events.
-    let pause_player = command_sender.clone();
-    let pause_app = app.as_weak();
-    app.on_toggle_pause(move || {
-        let Some(app) = pause_app.upgrade() else {
-            return;
-        };
-        app.invoke_activity();
-        if let Err(error) = pause_player.toggle_pause() {
-            app.set_status(error.into());
-        }
-    });
-    let set_pause_player = command_sender.clone();
-    let set_pause_app = app.as_weak();
-    app.on_set_paused(move |paused| {
-        let Some(app) = set_pause_app.upgrade() else {
-            return;
-        };
-        app.invoke_activity();
-        if let Err(error) = set_pause_player.send(Command::SetPaused(paused)) {
-            app.set_status(error.into());
-        }
-    });
-    let input_action_player = command_sender.clone();
-    let input_action_app = app.as_weak();
-    app.on_execute_mpv_input_action(move |action| {
-        let Some(app) = input_action_app.upgrade() else {
-            return;
-        };
-        app.invoke_activity();
-        if let Err(error) = input_action_player.send(Command::MpvInputAction(action.to_string())) {
-            app.set_status(error.into());
-        }
-    });
-    connect!(on_toggle_mute, Command::ToggleMute);
+    transport::install_pause(app, &context);
+    input::install_mpv_input_action(app, &context);
+    bind!(context, app, on_toggle_mute, Command::ToggleMute);
     let hdr_player = command_sender.clone();
     hdr_output::install(app, move |command| hdr_player.send(command));
-    connect!(on_stop, Command::Stop);
-    connect!(on_frame_step, Command::FrameStep);
-    connect!(on_frame_back_step, Command::FrameBackStep);
-    let chapter_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_adjust_chapter(move |direction| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        if let Err(error) = chapter_player.send(Command::AdjustChapter(direction))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
-    let subtitle_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_subtitle_seek(move |direction| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        if let Err(error) = subtitle_player.send(Command::SubtitleSeek(direction))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
+    transport::install_stop_and_steps(app, &context);
     let playlist_navigation_sender = command_sender.clone();
     let sender = playlist_navigation_sender.clone();
     let pending = pending_navigation.clone();
@@ -1694,71 +1613,42 @@ fn configure_with_engine(
             capture_transition_first,
         );
     });
-    connect!(on_reset_speed, Command::Speed(1.0));
-    let speed_slider_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_set_speed_slider(move |position| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            let result = riina_core::speed_controls::from_slider(position.into())
-                .map_err(str::to_owned)
-                .and_then(|command| speed_slider_player.send(command));
-            if let Err(error) = result {
-                app.set_status(error.into());
-            }
-        }
-    });
-    let speed_text_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_set_speed_text(move |text| {
-        let result = riina_core::speed_controls::from_text(text.as_str())
-            .map_err(str::to_owned)
-            .and_then(|command| speed_text_player.send(command));
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = result {
-                app.set_status(error.into());
-                return false;
-            }
-        }
-        true
-    });
+    transport::install_speed(app, &context);
     video_controls::install(app, &command_sender);
-    connect!(on_reset_subtitle_delay, Command::SubtitleDelay(0.0));
+    bind!(
+        context,
+        app,
+        on_reset_subtitle_delay,
+        Command::SubtitleDelay(0.0)
+    );
     audio_controls::install(app, &command_sender, audio_equalizer.clone());
     subtitle_controls::install(app, &command_sender);
-    connect!(on_reset_audio_delay, Command::AudioDelay(0.0));
-    connect!(on_cycle_ab_loop, Command::CycleAbLoop);
-    let ab_loop_player = command_sender.clone();
-    let ab_loop_app = app.as_weak();
-    app.on_set_ab_loop_point(move |point, value| {
-        let Some(app) = ab_loop_app.upgrade() else {
-            return;
-        };
-        if !app.get_loaded() || !value.is_finite() {
-            return;
-        }
-        let point = match point {
-            0 => riina_core::AbLoopPoint::A,
-            1 => riina_core::AbLoopPoint::B,
-            _ => return,
-        };
-        app.invoke_activity();
-        if let Err(error) = ab_loop_player.send(Command::SetAbLoopPoint {
-            point,
-            value: Some(f64::from(value)),
-        }) {
-            app.set_status(error.into());
-        }
-    });
-    connect!(on_toggle_file_loop, Command::ToggleFileLoop);
-    connect!(
+    bind!(context, app, on_reset_audio_delay, Command::AudioDelay(0.0));
+    transport::install_loops(app, &context);
+    bind!(
+        context,
+        app,
         on_toggle_secondary_subtitle_visibility,
         Command::ToggleSecondarySubtitleVisibility
     );
-    connect!(on_cycle_audio_track, Command::CycleTrack(TrackKind::Audio));
-    connect!(on_cycle_subtitle_track, Command::CycleTrack(TrackKind::Sub));
-    connect!(on_cycle_video_track, Command::CycleTrack(TrackKind::Video));
+    bind!(
+        context,
+        app,
+        on_cycle_audio_track,
+        Command::CycleTrack(TrackKind::Audio)
+    );
+    bind!(
+        context,
+        app,
+        on_cycle_subtitle_track,
+        Command::CycleTrack(TrackKind::Sub)
+    );
+    bind!(
+        context,
+        app,
+        on_cycle_video_track,
+        Command::CycleTrack(TrackKind::Video)
+    );
     let audio_device_player = command_sender.clone();
     let audio_device_state = latest_playback.clone();
     let audio_device_app = app.as_weak();
@@ -1780,7 +1670,9 @@ fn configure_with_engine(
             app.set_status(error.into());
         }
     });
-    connect!(
+    bind!(
+        context,
+        app,
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility
     );

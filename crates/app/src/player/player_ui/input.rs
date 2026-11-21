@@ -665,3 +665,11 @@ pub(super) fn install(
         mac_scroll_event_monitor,
     }
 }
+pub(super) fn install_mpv_input_action(app: &PlayerWindow, context: &super::PlayerContext) {
+    use super::bind;
+    bind!(context, app, on_execute_mpv_input_action, |ctx, action| {
+        let Some(app) = ctx.app() else { return };
+        app.invoke_activity();
+        ctx.send(Command::MpvInputAction(action.to_string()));
+    });
+}
