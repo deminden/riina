@@ -33,6 +33,10 @@ transport, audio and subtitle controls, media actions, plugins and rendering.
 `PlayerContext` shares weak window access, the command sender and state needed
 by UI callbacks. It does not own the native player.
 
+`riina-core::Command::plan` routes intents to the playback, seek, audio, video,
+filter, subtitle, playlist, track, capture, network and screenshot modules.
+See [Add a playback command](recipes/add-a-command.md).
+
 ## Playback and threading
 
 ```mermaid

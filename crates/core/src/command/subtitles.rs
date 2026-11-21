@@ -1,5 +1,6 @@
 use super::{Command, cmd, flag, set};
 use crate::subtitle_controls;
+use crate::{Playback, TrackKind, valid_path};
 
 impl Command {
     pub(super) fn subtitles_args(&self) -> Result<Vec<String>, String> {
@@ -121,5 +122,111 @@ impl Command {
             _ => return Err("The requested value is out of range or non-finite".into()),
         };
         Ok(args)
+    }
+}
+
+pub(super) fn encoding(state: &Playback, encoding: &str) -> Result<Vec<Vec<String>>, String> {
+    if !subtitle_controls::SUBTITLE_ENCODING_CHOICES
+        .iter()
+        .any(|(_, code)| *code == encoding)
+    {
+        return Err("Unsupported subtitle encoding".into());
+    }
+    let mut commands = vec![set("sub-codepage", encoding)];
+    commands.extend(
+        state
+            .tracks
+            .iter()
+            .filter(|track| track.kind == TrackKind::Sub)
+            .map(|track| vec!["sub-reload".into(), track.id.to_string()]),
+    );
+    Ok(commands)
+}
+
+pub(super) fn auto_load(
+    preferences: &subtitle_controls::AutoLoadPreferences,
+) -> Result<Vec<Vec<String>>, String> {
+    preferences.validate().map_err(str::to_owned)?;
+    let mut commands = vec![set("sub-auto", preferences.mpv_matching_mode())];
+    commands.push(set(
+        "sub-file-paths",
+        preferences.mpv_search_paths().unwrap_or_default(),
+    ));
+    Ok(commands)
+}
+
+pub(super) fn add(state: &Playback, path: &str) -> Result<Vec<Vec<String>>, String> {
+    if !valid_path(path) {
+        return Err("Invalid subtitle path".into());
+    }
+    // Reload an existing external file to avoid duplicate tracks, as IINA does.
+    Ok(
+        if let Some(track) = state.tracks.iter().find(|track| {
+            track.kind == TrackKind::Sub
+                && track
+                    .external_filename
+                    .as_deref()
+                    .is_some_and(|existing| same_external_path(existing, path))
+        }) {
+            vec![vec!["sub-reload".into(), track.id.to_string()]]
+        } else {
+            vec![cmd(["sub-add", path])]
+        },
+    )
+}
+
+pub(super) fn add_without_selection(
+    state: &Playback,
+    paths: &[String],
+) -> Result<Vec<Vec<String>>, String> {
+    const MAX_SUBTITLES_PER_SCAN: usize = 64;
+    if paths.len() > MAX_SUBTITLES_PER_SCAN {
+        return Err("Subtitle search returned too many matching files".into());
+    }
+    let mut added = Vec::<&str>::new();
+    let mut commands = Vec::new();
+    for path in paths {
+        if !valid_path(path) {
+            return Err("Invalid subtitle path".into());
+        }
+        let exists = state.tracks.iter().any(|track| {
+            track.kind == TrackKind::Sub
+                && track
+                    .external_filename
+                    .as_deref()
+                    .is_some_and(|existing| same_external_path(existing, path))
+        }) || added
+            .iter()
+            .any(|existing| same_external_path(existing, path));
+        if !exists {
+            added.push(path);
+            commands.push(vec!["sub-add".into(), path.clone(), "auto".into()]);
+        }
+    }
+    Ok(commands)
+}
+
+fn same_external_path(left: &str, right: &str) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        fn identity(path: &str) -> (bool, &str) {
+            if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+                (true, path)
+            } else if let Some(path) = path.strip_prefix(r"\\?\") {
+                (false, path)
+            } else if let Some(path) = path.strip_prefix(r"\\") {
+                (true, path)
+            } else {
+                (false, path)
+            }
+        }
+        // mpv may omit the verbatim prefix returned by Windows canonicalize.
+        // Compare that spelling equivalently without filesystem I/O or treating
+        // case-sensitive names, aliases or different volumes as the same file.
+        identity(left) == identity(right)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        left == right
     }
 }

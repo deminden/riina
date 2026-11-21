@@ -1,4 +1,5 @@
 use super::{Command, cmd, flag, set};
+use crate::{Playback, audio_equalizer};
 
 impl Command {
     pub(super) fn audio_args(&self) -> Result<Vec<String>, String> {
@@ -18,4 +19,39 @@ impl Command {
         };
         Ok(args)
     }
+}
+
+pub(super) fn equalizer(state: &Playback, gains: &[f64; 10]) -> Result<Vec<Vec<String>>, String> {
+    let filter = audio_equalizer::lavfi_filter(gains).map_err(str::to_owned)?;
+    let mut commands = Vec::new();
+    if state
+        .audio_equalizer
+        .is_some_and(|current| current.iter().any(|gain| *gain != 0.0))
+    {
+        commands.push(vec![
+            "af".into(),
+            "remove".into(),
+            format!("@{}", audio_equalizer::FILTER_LABEL),
+        ]);
+    }
+    if let Some(filter) = filter {
+        commands.push(vec!["af".into(), "add".into(), filter]);
+    }
+    Ok(commands)
+}
+
+pub(super) fn adjust_volume(delta: f64, boost: bool) -> Result<Vec<Vec<String>>, String> {
+    if !delta.is_finite() {
+        return Err("The volume adjustment must be finite".into());
+    }
+    Ok(volume_adjustment(delta, boost))
+}
+
+pub(super) fn volume_adjustment(delta: f64, boost: bool) -> Vec<Vec<String>> {
+    // Native add clamps against the active range and uses the engine's current
+    // volume. A zero adjustment also clamps when the user turns boost off.
+    vec![
+        set("volume-max", if boost { "200" } else { "100" }),
+        vec!["add".into(), "volume".into(), delta.to_string()],
+    ]
 }

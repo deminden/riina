@@ -1,4 +1,5 @@
 use super::{Command, cmd, flag, set};
+use crate::{LoopMode, Phase, Playback, hdr_preferences};
 use crate::{playlist_end_policy, valid_path};
 
 impl Command {
@@ -52,5 +53,40 @@ impl Command {
             _ => return Err("The requested value is out of range or non-finite".into()),
         };
         Ok(args)
+    }
+}
+
+pub(super) fn stop(state: &Playback) -> Vec<Vec<String>> {
+    let active = matches!(
+        state.phase,
+        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
+    );
+    let mut commands = Vec::with_capacity(2);
+    if active && state.save_position_on_quit == Some(true) {
+        commands.push(cmd(["write-watch-later-config"]));
+    }
+    commands.push(cmd(["stop"]));
+    commands
+}
+
+pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>>, String> {
+    let mut commands = hdr_preferences::output_commands(false, None)?;
+    commands.extend([
+        set("pause", flag(state.pause_when_open)),
+        intent.mpv_args()?,
+    ]);
+    Ok(commands)
+}
+
+pub(super) fn replay_from_eof() -> Vec<Vec<String>> {
+    // Changing the pause flag at EOF leaves mpv on the last frame.
+    vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
+}
+
+pub(super) fn set_loop_mode_commands(mode: LoopMode) -> Vec<Vec<String>> {
+    match mode {
+        LoopMode::Off => vec![set("loop-playlist", "no"), set("loop-file", "no")],
+        LoopMode::File => vec![set("loop-file", "inf")],
+        LoopMode::Playlist => vec![set("loop-playlist", "inf"), set("loop-file", "no")],
     }
 }
