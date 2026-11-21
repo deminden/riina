@@ -15,6 +15,8 @@ mod media_actions;
 mod playback_mailbox;
 mod rendering;
 mod startup;
+mod thumbnail_actions;
+mod transitions;
 mod transport;
 mod window_actions;
 use feedback::clear_screenshot_preview;
@@ -60,8 +62,6 @@ use std::{
 
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
 
-const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
-const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
 pub(crate) fn help_menu_url(destination: &str) -> Option<&'static str> {
     match destination {
         "help" => Some("https://github.com/deminden/riina#status"),
@@ -351,10 +351,16 @@ fn media_geometry_requires_resize(
         && (previous_generation != Some(state.generation) || geometry_was_missing)
 }
 
+enum SessionResource<T> {
+    Live(T),
+    #[cfg(test)]
+    Recorded(glue_tests::DropProbe),
+}
+
 pub(crate) struct UiSession {
     // Native callbacks retain senders only. Field order keeps the target alive
     // until this sole native player owner has joined its decoder worker.
-    pub(crate) player: Option<Player>,
+    player: Option<SessionResource<Player>>,
     #[cfg(target_os = "windows")]
     _plugin_overlay_presenter: Rc<RefCell<platform::PluginOverlayPresenter>>,
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
@@ -374,7 +380,7 @@ pub(crate) struct UiSession {
     _plugin_host: Option<crate::plugin_host::PluginHost>,
     _plugin_host_timer: Option<Rc<slint::Timer>>,
     _plugin_osd_timer: Option<Rc<slint::Timer>>,
-    _presentation: Option<platform::NativePresentation>,
+    _presentation: Option<SessionResource<platform::NativePresentation>>,
     _hdr_display_timer: Option<Rc<slint::Timer>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
@@ -432,6 +438,27 @@ fn dispatch_welcome_open(
     }
 }
 
+impl UiSession {
+    #[cfg(target_os = "windows")]
+    pub(crate) fn player(&self) -> Option<&Player> {
+        match self.player.as_ref()? {
+            SessionResource::Live(player) => Some(player),
+            #[cfg(test)]
+            SessionResource::Recorded(_) => None,
+        }
+    }
+
+    pub(crate) fn release_player(&mut self) {
+        if let Some(player) = self.player.take() {
+            match player {
+                SessionResource::Live(player) => drop(player),
+                #[cfg(test)]
+                SessionResource::Recorded(probe) => drop(probe),
+            }
+        }
+    }
+}
+
 impl Drop for UiSession {
     fn drop(&mut self) {
         #[cfg(target_os = "macos")]
@@ -441,7 +468,7 @@ impl Drop for UiSession {
         // Release session ownership before its presentation on every platform.
         // Native playback joins here; GL callbacks retain their player until the
         // renderer has released its surface during RenderingTeardown.
-        self.player.take();
+        self.release_player();
     }
 }
 
@@ -1093,226 +1120,17 @@ fn configure_with_engine(
         #[cfg(target_os = "macos")]
         mac_scroll_event_monitor,
     } = input::install(app, &command_sender, latest_playback.clone());
-    let thumbnail_preview_timer = Rc::new(slint::Timer::default());
-    let thumbnail_controller =
-        Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
-    let thumbnail_hover = thumbnail_controller.clone();
-    let thumbnail_weak = app.as_weak();
-    app.on_timeline_hovered(move |seconds| {
-        if let Some(app) = thumbnail_weak.upgrade() {
-            thumbnail_hover.borrow_mut().hover(&app, f64::from(seconds));
-        }
-    });
-    let thumbnail_weak = app.as_weak();
-    let thumbnail_playback = latest_playback.clone();
-    let thumbnail_tick = thumbnail_controller.clone();
-    let thumbnail_library = platform::playback_library();
-    let thumbnail_plugin_host = plugin_host_handle.clone();
-    thumbnail_preview_timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(80),
-        move || {
-            let Some(app) = thumbnail_weak.upgrade() else {
-                return;
-            };
-            let Ok(settings) = crate::thumbnail_preferences::current_player(&app) else {
-                return;
-            };
-            let state = lock(&thumbnail_playback).clone();
-            let ready =
-                thumbnail_tick
-                    .borrow_mut()
-                    .observe(&app, &state, &settings, &thumbnail_library);
-            if ready && let Some(host) = &thumbnail_plugin_host {
-                let _ = host.notify_thumbnails_ready();
-            }
-        },
-    );
+    let thumbnail_preview_timer =
+        thumbnail_actions::install(app, &latest_playback, plugin_host_handle.clone());
     let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
-    let transition_frame_timer = if capture_transition_first {
-        let timer = Rc::new(slint::Timer::default());
-        let playback = latest_playback.clone();
-        let sender = command_sender.clone();
-        let captured_generation = Rc::new(Cell::new(None::<u64>));
-        let outgoing_capture_attempt = Rc::new(Cell::new(None::<(u64, Instant)>));
-        let incoming_capture_attempt = Rc::new(Cell::new(None::<(u64, Instant)>));
-        let incoming_capture_stability = Rc::new(Cell::new(None::<(u64, u64, u8, Instant)>));
-        let surface_host = native.as_ref().map(|presentation| presentation.host());
-        let surface_geometry = Rc::new(Cell::new(None::<(u64, slint::PhysicalSize, u64, Instant)>));
-        let timer_generation = captured_generation.clone();
-        let timer_outgoing_attempt = outgoing_capture_attempt.clone();
-        let timer_incoming_attempt = incoming_capture_attempt.clone();
-        let timer_incoming_stability = incoming_capture_stability.clone();
-        let timer_transition_release_generation = transition_release_generation.clone();
-        let timer_pending_navigation = pending_navigation.clone();
-        let timer_surface_host = surface_host.clone();
-        let timer_surface_geometry = surface_geometry.clone();
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(80),
-            move || {
-                let state = lock(&playback).clone();
-                let navigation = {
-                    let mut pending = timer_pending_navigation.borrow_mut();
-                    pending
-                        .as_ref()
-                        .is_some_and(|(_, requested_at)| {
-                            state.transition_frame.generation == Some(state.generation)
-                                && state
-                                    .transition_frame
-                                    .captured_at
-                                    .is_some_and(|captured_at| captured_at >= *requested_at)
-                                || requested_at.elapsed() >= MANUAL_TRANSITION_CAPTURE_TIMEOUT
-                        })
-                        .then(|| pending.take().map(|(commands, _)| commands))
-                        .flatten()
-                };
-                if let Some(commands) = navigation {
-                    for command in commands {
-                        if let Err(error) = sender.send(command) {
-                            crate::diagnostics::warn!("Could not navigate the playlist: {error}");
-                        }
-                    }
-                }
-                if state.transition_frame.generation == Some(state.generation) {
-                    // Only a successful asynchronous reply confirms that mpv
-                    // retained a frame. Queue acceptance alone is not enough:
-                    // the D3D11 output can reject a capture while reconfiguring.
-                    timer_generation.set(Some(state.generation));
-                    timer_outgoing_attempt.set(None);
-                }
-                let now = Instant::now();
-                if crate::transition_frame::outgoing_capture_due(
-                    &state,
-                    timer_generation.get(),
-                    timer_outgoing_attempt.get(),
-                    now,
-                ) {
-                    // Capture before mpv tears down and reconfigures its
-                    // D3D11 output. Retry rejected or failed captures while
-                    // there is still time before the playlist advances.
-                    match sender.send(Command::CaptureTransitionFrame) {
-                        Ok(()) => timer_outgoing_attempt.set(Some((state.generation, now))),
-                        Err(error) => {
-                            timer_outgoing_attempt.set(None);
-                            crate::diagnostics::warn!(
-                                "Could not retain the outgoing video frame: {error}"
-                            );
-                        }
-                    }
-                }
-                if state
-                    .transition_frame
-                    .generation
-                    .is_some_and(|generation| generation < state.generation)
-                    && crate::transition_frame::incoming_has_video(&state)
-                    && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
-                    && crate::transition_frame::incoming_capture_window_active(
-                        &state,
-                        Instant::now(),
-                    )
-                    && crate::transition_frame::incoming_capture_ready(&state)
-                {
-                    let now = Instant::now();
-                    // Decoder captures can remain healthy while mpv's native
-                    // child HWND is hidden or changing size. Check the actual
-                    // presentation surface before considering cover release;
-                    // doing this after the capture-stability branch let a
-                    // stale but valid decoder frame uncover a blank swap chain.
-                    let surface_stable = timer_surface_host
-                        .as_ref()
-                        .and_then(slint::Weak::upgrade)
-                        .is_some_and(|host| {
-                            let size = host.window().size();
-                            let Some(surface_signature) =
-                                crate::platform::native_video_surface_signature(host.window())
-                            else {
-                                timer_surface_geometry.set(None);
-                                return false;
-                            };
-                            match timer_surface_geometry.get() {
-                                Some((generation, previous_size, previous_surface, since))
-                                    if generation == state.generation
-                                        && previous_size == size
-                                        && previous_surface == surface_signature =>
-                                {
-                                    now.duration_since(since) >= INCOMING_SURFACE_STABLE_FOR
-                                }
-                                _ => {
-                                    timer_surface_geometry.set(Some((
-                                        state.generation,
-                                        size,
-                                        surface_signature,
-                                        now,
-                                    )));
-                                    false
-                                }
-                            }
-                        });
-                    let capture_is_usable = state.incoming_transition_frame.generation
-                        == Some(state.generation)
-                        && crate::transition_frame::incoming_frame_is_usable(&state);
-                    if capture_is_usable {
-                        let revision = state.incoming_transition_frame.revision;
-                        let stable_capture = match timer_incoming_stability.get() {
-                            Some((generation, last_revision, count, since))
-                                if generation == state.generation && last_revision == revision =>
-                            {
-                                (generation, last_revision, count, since)
-                            }
-                            Some((generation, _, count, since))
-                                if generation == state.generation =>
-                            {
-                                (generation, revision, count.saturating_add(1), since)
-                            }
-                            _ => (state.generation, revision, 1, now),
-                        };
-                        timer_incoming_stability.set(Some(stable_capture));
-                        let (_, _, count, since) = stable_capture;
-                        if crate::transition_frame::incoming_cover_release_ready(
-                            count,
-                            since,
-                            now,
-                            surface_stable,
-                        ) {
-                            timer_transition_release_generation
-                                .store(state.generation, Ordering::Release);
-                            return;
-                        }
-                    } else {
-                        timer_incoming_stability.set(None);
-                    }
-                    let retry_wait_elapsed =
-                        timer_incoming_attempt
-                            .get()
-                            .is_none_or(|(generation, attempted_at)| {
-                                generation != state.generation
-                                    || now.duration_since(attempted_at)
-                                        >= Duration::from_millis(240)
-                            });
-                    if !retry_wait_elapsed {
-                        return;
-                    }
-                    if !surface_stable {
-                        return;
-                    }
-                    // Do not uncover the native child just because time-pos or
-                    // track metadata appeared. Wait for host geometry to settle,
-                    // then require a successful raw capture before uncovering.
-                    if let Err(error) = sender.send(Command::CaptureIncomingTransitionFrame) {
-                        crate::diagnostics::warn!(
-                            "Could not capture the incoming video frame: {error}"
-                        );
-                    } else {
-                        timer_incoming_attempt.set(Some((state.generation, now)));
-                    }
-                }
-            },
-        );
-        Some(timer)
-    } else {
-        None
-    };
+    let transition_frame_timer = transitions::install(
+        capture_transition_first,
+        native.as_ref(),
+        &command_sender,
+        &latest_playback,
+        &pending_navigation,
+        &transition_release_generation,
+    );
     #[cfg(target_os = "windows")]
     let native_material_timer = native.is_some().then(|| {
         install_native_video_material_sampler(
@@ -2040,7 +1858,7 @@ fn configure_with_engine(
         )?;
     }
     Ok(UiSession {
-        player,
+        player: player.map(SessionResource::Live),
         #[cfg(target_os = "windows")]
         _plugin_overlay_presenter: plugin_overlay_presenter,
         #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
@@ -2057,7 +1875,7 @@ fn configure_with_engine(
         _mac_scroll_event_monitor: mac_scroll_event_monitor,
         #[cfg(target_os = "macos")]
         _mac_plugin_menu_observer: mac_plugin_menu_observer,
-        _presentation: native,
+        _presentation: native.map(SessionResource::Live),
         _hdr_display_timer: hdr_display_timer,
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: recovery.and_then(|recovery| recovery.announce(app)),

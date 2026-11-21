@@ -471,8 +471,7 @@ pub fn run(
             )?;
             startup_center_pending.set(!app.get_initial_window_position_enabled());
             let commands = configured
-                .player
-                .as_ref()
+                .player()
                 .ok_or("The player engine was not initialized")?
                 .command_sender();
             *startup_pip.borrow_mut() = Some(
@@ -735,6 +734,6 @@ fn close(
         }
         // Callbacks retain only senders. Dropping this sole owner joins the VO worker
         // before either HWND disappears; no orphan decoder can use a destroyed host.
-        session.player.take();
+        session.release_player();
     }
 }

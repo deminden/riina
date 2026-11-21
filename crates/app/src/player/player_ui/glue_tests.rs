@@ -76,6 +76,31 @@ impl Harness {
     }
 }
 
+pub(super) struct DropProbe(&'static str, Rc<RefCell<Vec<&'static str>>>);
+
+impl Drop for DropProbe {
+    fn drop(&mut self) {
+        self.1.borrow_mut().push(self.0);
+    }
+}
+
+fn exercise_teardown(profile: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let order = Rc::new(RefCell::new(Vec::new()));
+    let Harness { mut session, .. } =
+        Harness::start(profile.join("teardown/preferences.json"), false)?;
+    session.player = Some(SessionResource::Recorded(DropProbe(
+        "player",
+        order.clone(),
+    )));
+    session._presentation = Some(SessionResource::Recorded(DropProbe(
+        "presentation",
+        order.clone(),
+    )));
+    drop(session);
+    assert_eq!(&*order.borrow(), &["player", "presentation"]);
+    Ok(())
+}
+
 #[test]
 fn player_callbacks_and_playback_projection_work_headlessly() -> io::Result<()> {
     // Slint registers a process-wide proxy for a backend with an event loop.
@@ -118,6 +143,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var_os("RIINA_TEST_GLUE_PROFILE").ok_or("Expected an isolated test profile")?,
     );
     exercise_startup(&profile)?;
+    exercise_teardown(&profile)?;
     let harness = Harness::start(profile.join("shared/preferences.json"), false)?;
     exercise_transport_and_tracks(&harness);
     exercise_transport_settings(&harness);
