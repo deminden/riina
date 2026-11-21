@@ -1,16 +1,7 @@
 use super::*;
 use riina_core::PlaylistEntry;
 
-fn temporary_path(label: &str) -> PathBuf {
-    std::env::temp_dir().join(format!(
-        "riina-history-{label}-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ))
-}
+use riina_test_support::TempDir;
 
 fn entries() -> Vec<riina_core::playback_history::Entry> {
     ["first", "second", "third"]
@@ -26,7 +17,8 @@ fn entries() -> Vec<riina_core::playback_history::Entry> {
 
 #[test]
 fn selected_history_rows_are_removed_in_one_persisted_change() {
-    let path = temporary_path("batch");
+    let temp = TempDir::new("riina-history-batch").unwrap();
+    let path = temp.path().join("history.json");
     let original = entries();
     let mut history =
         PlaybackHistoryState::with_persistence(original.clone(), Some(path.clone()), None);
@@ -57,12 +49,12 @@ fn selected_history_rows_are_removed_in_one_persisted_change() {
         0
     );
     assert_eq!(history.revision(), revision + 1);
-    std::fs::remove_file(path).unwrap();
 }
 
 #[test]
 fn a_failed_history_batch_keeps_every_row_and_revision() {
-    let blocked_parent = temporary_path("blocked");
+    let temp = TempDir::new("riina-history-blocked").unwrap();
+    let blocked_parent = temp.path().join("blocked");
     std::fs::write(&blocked_parent, "not a directory").unwrap();
     let original = entries();
     let mut history = PlaybackHistoryState::with_persistence(
@@ -80,7 +72,6 @@ fn a_failed_history_batch_keeps_every_row_and_revision() {
     assert_eq!(history.entries(), original);
     assert_eq!(history.revision(), revision);
     assert_eq!(history.pending_progress_paths, pending);
-    std::fs::remove_file(blocked_parent).unwrap();
 }
 
 #[test]
@@ -122,14 +113,8 @@ fn playback_history_records_a_loaded_media_once_per_generation() {
 
 #[test]
 fn playback_history_is_saved_when_a_media_generation_is_first_observed() {
-    let path = std::env::temp_dir().join(format!(
-        "riina-history-observed-{}-{}.json",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let temp = TempDir::new("riina-history-observed").unwrap();
+    let path = temp.path().join("history.json");
     let mut state = PlaybackHistoryState::with_persistence(Vec::new(), Some(path.clone()), None);
     let mut playback = Playback {
         generation: 1,
@@ -150,12 +135,12 @@ fn playback_history_is_saved_when_a_media_generation_is_first_observed() {
     let saved = crate::playback_history_store::load(&path, &[]).unwrap();
     assert_eq!(saved, state.entries());
     assert_eq!(saved.len(), 1);
-    std::fs::remove_file(path).unwrap();
 }
 
 #[test]
 fn playback_history_fills_late_duration_without_resetting_visit_or_progress() {
-    let path = std::env::temp_dir().join(format!("riina-history-late-{}.json", std::process::id()));
+    let temp = TempDir::new("riina-history-late").unwrap();
+    let path = temp.path().join("history.json");
     let mut history = PlaybackHistoryState::with_persistence(Vec::new(), Some(path.clone()), None);
     let mut playback = Playback {
         generation: 1,
@@ -195,19 +180,12 @@ fn playback_history_fills_late_duration_without_resetting_visit_or_progress() {
     playback.duration = Some(90.0);
     history.observe(1, &playback, false);
     assert_eq!(history.revision(), revision + 1);
-    std::fs::remove_file(path).unwrap();
 }
 
 #[test]
 fn restored_playback_history_reads_progress_from_mpv_watch_later() {
-    let root = std::env::temp_dir().join(format!(
-        "riina-history-watch-later-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let temp = TempDir::new("riina-history-watch-later").unwrap();
+    let root = temp.path();
     let watch_later = root.join("watch-later");
     std::fs::create_dir_all(&watch_later).unwrap();
     let archive_path = root.join("playback-history.json");
@@ -247,5 +225,4 @@ fn restored_playback_history_reads_progress_from_mpv_watch_later() {
         crate::playback_history_store::load(&archive_path, &[]).unwrap()[0].progress,
         Some(42.25)
     );
-    std::fs::remove_dir_all(root).unwrap();
 }

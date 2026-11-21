@@ -208,7 +208,7 @@ fn clean_text(value: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::{ApiEntry, checked_download_url, clean_text, is_supported_subtitle, shooter_hash};
-    use std::io::Write;
+    use riina_test_support::TempDir;
 
     #[test]
     fn parses_shooter_response_and_filters_unsupported_or_external_files() {
@@ -245,15 +245,13 @@ mod tests {
 
     #[test]
     fn hashes_only_four_bounded_samples_from_local_media() {
-        let mut path = std::env::temp_dir();
-        path.push(format!("riina-shooter-hash-{}.bin", std::process::id()));
-        let mut file = std::fs::File::create(&path).unwrap();
-        for value in 0..(16 * 1024) {
-            file.write_all(&[(value % 251) as u8]).unwrap();
-        }
-        drop(file);
+        let directory = TempDir::new("riina-shooter-hash").unwrap();
+        let path = directory.path().join("sample.bin");
+        let bytes = (0..16 * 1024)
+            .map(|value| (value % 251) as u8)
+            .collect::<Vec<_>>();
+        std::fs::write(&path, bytes).unwrap();
         let (hash, size) = shooter_hash(&path).unwrap();
-        let _ = std::fs::remove_file(path);
         assert_eq!(size, 16 * 1024);
         assert_eq!(hash.split(';').count(), 4);
         assert!(hash.split(';').all(|part| part.len() == 32));
@@ -261,11 +259,10 @@ mod tests {
 
     #[test]
     fn rejects_too_small_media_and_unsafe_download_urls() {
-        let mut path = std::env::temp_dir();
-        path.push(format!("riina-shooter-small-{}.bin", std::process::id()));
+        let directory = TempDir::new("riina-shooter-small").unwrap();
+        let path = directory.path().join("sample.bin");
         std::fs::write(&path, [0_u8; 4096]).unwrap();
         assert!(shooter_hash(&path).unwrap_err().contains("12 KiB"));
-        let _ = std::fs::remove_file(path);
         assert!(checked_download_url("http://www.shooter.cn/a.srt").is_err());
         assert!(checked_download_url("https://shooter.cn@attacker.example/a.srt").is_err());
         assert!(checked_download_url("https://attacker.example/a.srt").is_err());

@@ -123,17 +123,7 @@ pub(crate) fn save(path: &Path, entries: &[Entry]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn temporary_path() -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "riina-playback-history-{}-{}.json",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ))
-    }
+    use riina_test_support::TempDir;
 
     fn entry(path: &str, date_ms: u64) -> Entry {
         Entry {
@@ -146,7 +136,8 @@ mod tests {
 
     #[test]
     fn archive_is_atomic_json_with_versioned_load_and_legacy_migration() {
-        let path = temporary_path();
+        let directory = TempDir::new("riina-playback-history").unwrap();
+        let path = directory.path().join("history.json");
         let legacy = [entry("legacy.mkv", 1)];
         assert_eq!(load(&path, &legacy).unwrap(), legacy);
 
@@ -158,12 +149,12 @@ mod tests {
                 .unwrap()
                 .contains("\"schema_version\": 1")
         );
-        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
     fn unsupported_or_invalid_archives_are_preserved_as_errors() {
-        let path = temporary_path();
+        let directory = TempDir::new("riina-playback-history").unwrap();
+        let path = directory.path().join("history.json");
         std::fs::write(&path, r#"{"schema_version":2,"entries":[]}"#).unwrap();
         assert!(load(&path, &[]).unwrap_err().contains("Unsupported"));
         std::fs::write(
@@ -172,7 +163,6 @@ mod tests {
         )
         .unwrap();
         assert!(load(&path, &[]).unwrap_err().contains("invalid"));
-        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -215,28 +205,20 @@ mod tests {
 
     #[test]
     fn watch_later_progress_reads_only_a_valid_start_value_from_the_first_line() {
-        let directory = std::env::temp_dir().join(format!(
-            "riina-watch-later-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&directory).unwrap();
+        let temp = TempDir::new("riina-watch-later").unwrap();
+        let directory = temp.path();
         let media = "https://media.example/video.mkv";
-        let file = watch_later_file_path(media, &directory, false).unwrap();
+        let file = watch_later_file_path(media, directory, false).unwrap();
 
         std::fs::write(&file, "start=42.25\nvolume=30\n").unwrap();
         assert_eq!(
-            progress_from_watch_later(media, &directory, false),
+            progress_from_watch_later(media, directory, false),
             Some(42.25)
         );
 
         for invalid in ["volume=30\nstart=42.25\n", "start=NaN\n", "start=-1\n"] {
             std::fs::write(&file, invalid).unwrap();
-            assert_eq!(progress_from_watch_later(media, &directory, false), None);
+            assert_eq!(progress_from_watch_later(media, directory, false), None);
         }
-        std::fs::remove_dir_all(directory).unwrap();
     }
 }
