@@ -289,8 +289,7 @@ fn add_native_windows_material_grain(sample: &mut image::RgbaImage) {
     }
 }
 
-const VERTEX_SHADER: &str = r#"#version 150
-in vec2 position;
+const VERTEX_SHADER: &str = r#"in vec2 position;
 in vec2 texture_coordinate;
 out vec2 uv;
 void main() {
@@ -299,8 +298,7 @@ void main() {
 }
 "#;
 
-const FRAGMENT_SHADER: &str = r#"#version 150
-uniform sampler2D source_frame;
+const FRAGMENT_SHADER: &str = r#"uniform sampler2D source_frame;
 uniform vec2 sample_step;
 uniform float grain_strength;
 in vec2 uv;
@@ -645,9 +643,17 @@ unsafe fn compile_shader(
 ) -> Result<glow::NativeShader, String> {
     // SAFETY: the caller supplies the current context and an OpenGL shader stage.
     let shader = unsafe { gl.create_shader(kind) }.map_err(|error| error.to_string())?;
+    // FemtoVG can create an OpenGL ES context on Linux. Use the same
+    // shader body with the version and precision declarations it requires.
+    let preamble = if gl.version().is_embedded {
+        "#version 300 es\nprecision highp float;\nprecision highp int;\n"
+    } else {
+        "#version 150\n"
+    };
+    let source = format!("{preamble}{source}");
     // SAFETY: the shader is still exclusively owned and GL copies the source during the call.
     unsafe {
-        gl.shader_source(shader, source);
+        gl.shader_source(shader, &source);
         gl.compile_shader(shader);
     }
     // SAFETY: the shader remains live in its current context after compilation.

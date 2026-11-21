@@ -443,10 +443,18 @@ The black output was already present before Slint sampled the video texture.
 The probe also recorded occasional mpv render timing warnings in both the
 failing and working sessions. All three sessions quit and joined their workers.
 
+The startup-stage candidate at `7a81835` passed strict Clippy, 802 workspace
+tests and a locked x64 application build. In its private display check, video
+remained black during playback in the first two sessions. The fresh-profile
+session changed 429 of 7,099 sampled pixels during playback. All three opened
+their own fixture, loaded the installed libmpv and joined their workers on exit.
+
 A separate profile that explicitly selected null audio advanced the playback
-clock with a black video surface in the virtual display. The GLES context also
-reported that the optional video-blur shader requires desktop GLSL. Linux
-package, real display and audio endpoint verification remain open.
+clock with a black video surface in the virtual display. That run also exposed
+a desktop GLSL version directive in the optional blur shader. The updated
+shader linked in both Mesa OpenGL 4.5 and OpenGL ES 3.2 software contexts.
+Linux package, visual blur, real display and audio endpoint verification remain
+open.
 
 ## Running checks
 
