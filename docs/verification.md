@@ -540,3 +540,10 @@ retaining Services and visibility actions. A focused Apple-target probe compiled
 all eleven macOS platform modules with strict Clippy. The full application check
 from Windows stopped in a native dependency before application compilation.
 Native menu interaction, exact order/shortcuts and Mac playback remain unverified.
+### macOS Picture-in-Picture session 2026-11-21
+
+An isolated `aarch64-apple-darwin` source check and strict Clippy run compiled
+the AVKit adapter, frame bridge, and platform session against the pinned
+Objective-C dependencies. The probe used stub Slint controls. Windows passed
+the full workspace gate after moving the portable PiP bindings. Full macOS
+application linking and AVKit playback still need native verification.

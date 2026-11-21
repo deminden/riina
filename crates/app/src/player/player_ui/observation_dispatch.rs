@@ -22,8 +22,7 @@ pub(super) struct PlaybackNotification {
     pub(super) latest: Arc<Mailbox>,
     pub(super) history: HistoryObservation,
     pub(super) delivery: WindowDelivery,
-    #[cfg(target_os = "macos")]
-    pub(super) picture_in_picture_state_dirty: Arc<AtomicBool>,
+    pub(super) picture_in_picture_state_dirty: Option<Arc<AtomicBool>>,
     // The engine callback keeps the capture scratch alive until native destruction.
     pub(super) _screenshot_scratch: Arc<Scratch>,
 }
@@ -32,9 +31,9 @@ impl PlaybackNotification {
     pub(super) fn publish(&self, state: Arc<Playback>) {
         *lock(&self.reported_playback) = state.clone();
         self.history.publish(&self.delivery.app, &state);
-        #[cfg(target_os = "macos")]
-        self.picture_in_picture_state_dirty
-            .store(true, Ordering::Release);
+        if let Some(changed) = &self.picture_in_picture_state_dirty {
+            changed.store(true, Ordering::Release);
+        }
 
         self.latest.publish(state);
         if self.queued.swap(true, Ordering::AcqRel) {

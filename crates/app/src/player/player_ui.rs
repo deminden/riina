@@ -496,17 +496,7 @@ fn configure_with_engine(
         media_geometry,
     }: SessionStartup,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
-    #[cfg(target_os = "linux")]
-    {
-        let weak = app.as_weak();
-        app.on_toggle_picture_in_picture(move || {
-            if let Some(app) = weak.upgrade() {
-                app.set_status(
-                    "Picture-in-Picture is unavailable on this presentation path".into(),
-                );
-            }
-        });
-    }
+    let picture_in_picture = platform::PictureInPictureSession::new(app);
     let prefs_path = engine_start.preferences_path()?;
     let plugin_menu_order = std::fs::read_to_string(prefs_path.with_file_name("plugin-order.json"))
         .ok()
@@ -756,10 +746,6 @@ fn configure_with_engine(
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(
         crate::opening_fullscreen::OpeningFullscreen::default(),
     ));
-    #[cfg(target_os = "macos")]
-    let picture_in_picture = Rc::new(RefCell::new(None::<platform::MacPictureInPicture>));
-    #[cfg(target_os = "macos")]
-    let picture_in_picture_state_dirty = Arc::new(AtomicBool::new(false));
     let notification = observation_dispatch::PlaybackNotification {
         reported_playback: observed_playback,
         queued,
@@ -785,8 +771,7 @@ fn configure_with_engine(
             #[cfg(target_os = "windows")]
             transition_release_generation: notify_transition_release_generation,
         },
-        #[cfg(target_os = "macos")]
-        picture_in_picture_state_dirty: picture_in_picture_state_dirty.clone(),
+        picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
         _screenshot_scratch: screenshot_scratch.clone(),
     };
     let notify = move |state| notification.publish(state);
@@ -856,68 +841,7 @@ fn configure_with_engine(
         latest_playback.clone(),
         subtitle_discovery_ready,
     );
-    #[cfg(target_os = "macos")]
-    let picture_in_picture = {
-        let manager = objc2::MainThreadMarker::new()
-            .ok_or_else(|| std::io::Error::other("PiP setup must run on the macOS main thread"))
-            .and_then(|mtm| {
-                platform::MacPictureInPicture::new(
-                    command_sender.clone(),
-                    latest_playback.clone(),
-                    mtm,
-                )
-                .map_err(std::io::Error::other)
-            });
-        let manager = match manager {
-            Ok(manager) => Some(manager),
-            Err(error) => {
-                app.set_status(format!("macOS PiP unavailable: {error}").into());
-                None
-            }
-        };
-        *picture_in_picture.borrow_mut() = manager;
-        let weak_app = app.as_weak();
-        let toggle_manager = picture_in_picture.clone();
-        app.on_toggle_picture_in_picture(move || {
-            let result = toggle_manager
-                .borrow_mut()
-                .as_mut()
-                .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
-                .and_then(platform::MacPictureInPicture::toggle);
-            if let Err(error) = result
-                && let Some(app) = weak_app.upgrade()
-            {
-                app.set_status(error.into());
-            }
-        });
-        picture_in_picture.clone()
-    };
-    #[cfg(target_os = "macos")]
-    let picture_in_picture_timer = {
-        let manager = picture_in_picture.clone();
-        let dirty = picture_in_picture_state_dirty.clone();
-        let weak_app = app.as_weak();
-        let timer = slint::Timer::default();
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(100),
-            move || {
-                let mut active = false;
-                if let Some(manager) = manager.borrow_mut().as_mut() {
-                    active = manager.is_active();
-                    if dirty.swap(false, Ordering::AcqRel) {
-                        manager.synchronize_playback();
-                    }
-                }
-                if let Some(app) = weak_app.upgrade()
-                    && app.get_picture_in_picture_active() != active
-                {
-                    app.set_picture_in_picture_active(active);
-                }
-            },
-        );
-        Rc::new(timer)
-    };
+    picture_in_picture.bind(app, &command_sender, &latest_playback);
     let input::InstalledInput {
         file_drop_timer,
         player_window_focus,
@@ -1339,7 +1263,7 @@ fn configure_with_engine(
             startup_resume_position,
             prefs.volume,
             #[cfg(target_os = "macos")]
-            picture_in_picture.clone(),
+            picture_in_picture.render_manager(),
         )?;
     }
     Ok(UiSession {
@@ -1352,10 +1276,7 @@ fn configure_with_engine(
             _system_media_controls: system_media_controls,
             #[cfg(target_os = "macos")]
             _system_media_controls_timer: system_media_controls_timer,
-            #[cfg(target_os = "macos")]
             _picture_in_picture: picture_in_picture,
-            #[cfg(target_os = "macos")]
-            _picture_in_picture_timer: picture_in_picture_timer,
             #[cfg(target_os = "macos")]
             _mac_scroll_event_monitor: mac_scroll_event_monitor,
             #[cfg(target_os = "macos")]

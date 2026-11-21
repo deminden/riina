@@ -1,9 +1,10 @@
 //! Linux owns the native webview presenter alongside the shared GL player.
-use crate::platform::PluginSidebarPresenter;
+use crate::platform::{PictureInPictureSession, PluginSidebarPresenter};
 use std::{cell::RefCell, rc::Rc};
 
 pub(crate) struct SessionExtras {
     pub(crate) _plugin_sidebar_presenter: Rc<RefCell<PluginSidebarPresenter>>,
+    pub(crate) _picture_in_picture: PictureInPictureSession,
 }
 
 impl SessionExtras {

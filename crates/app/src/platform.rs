@@ -11,6 +11,8 @@ use std::{
 pub(crate) mod clipboard;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
+mod pip_session;
+pub(crate) use pip_session::PictureInPictureSession;
 mod plugin_resources;
 pub(crate) mod settings_file;
 
