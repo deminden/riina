@@ -260,21 +260,17 @@ export component PlayerWindow inherits PlayerMenuWindow {
     // WinUI's LayerOnAcrylicFillColorDefault is 3.5% white in dark mode and
     // 25% in light mode. Use it only for cards over an active Windows video blur.
     private property <color> sidebar-card-material-fill:
-        platform-windows && active-liquid-glass-sidebar
-            ? (dark-theme ? #ffffff09 : #ffffff40)
-            : (dark-theme ? #ffffff08 : #ffffff88);
+        Theme.sidebar-card-layer(dark-theme, windows-sidebar-material-active);
     private property <bool> windows-sidebar-material-active:
         platform-windows && active-liquid-glass-sidebar;
     private property <color> sidebar-control-material-fill:
-        windows-sidebar-material-active
-            ? (dark-theme ? #ffffff0f : #f9f9f94d)
-            : (dark-theme ? #ffffff15 : #0000000b);
+        Theme.sidebar-control-layer(dark-theme, windows-sidebar-material-active);
     // IINA keeps selected category tabs neutral; appearance and preset choices
     // retain their blue/accent selection treatment on each platform.
     private property <color> quick-settings-tab-selected-fill:
-        dark-theme ? #ffffff1f : #00000014;
+        Theme.sidebar-category-selection(dark-theme);
     private property <color> quick-settings-tab-selected-foreground:
-        dark-theme ? #ffffff : #29292d;
+        Theme.sidebar-category-text(dark-theme);
     in property <bool> native-transition-frame: false;
     in property <bool> show-player-title-row: false;
     in-out property <bool> dialog-open: false;
@@ -294,7 +290,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <int> media-request-generation: 0;
     no-frame: native-video;
     // Native output sits behind this window even while loading or between files.
-    background: native-video ? transparent : #111111;
+    background: native-video ? transparent : Theme.player-empty-surface;
     in property <image> video-frame;
     in property <image> video-blurred-frame;
     in property <bool> video-material-sample-ready: false;
@@ -328,10 +324,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> system-reduce-motion: false;
     in property <bool> platform-macos: false;
     in property <bool> platform-windows: false;
-    in-out property <color> windows-accent-color: #0078d4;
-    in-out property <color> windows-accent-foreground: #ffffff;
+    in-out property <color> windows-accent-color: Theme.windows-default-accent;
+    in-out property <color> windows-accent-foreground: Theme.windows-default-accent-text;
     private property <color> interactive-accent-color:
-        root.platform-windows ? root.windows-accent-color : #90b7ef;
+        root.platform-windows ? root.windows-accent-color : Theme.player-focus-accent;
     private property <bool> animations-disabled: root.disable-animations ||
         (root.system-reduce-motion && !root.platform-macos);
     private property <bool> macos-sidebar-reduce-motion-fade:
@@ -726,14 +722,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <string> subtitle-font;
     in property <bool> subtitle-font-known: false;
     in-out property <float> subtitle-font-size-preference: 55;
-    in-out property <color> subtitle-text-preference-color: #ffffff;
+    in-out property <color> subtitle-text-preference-color: Theme.subtitle-text-default;
     in-out property <bool> subtitle-bold-preference: false;
     in-out property <bool> subtitle-italic-preference: false;
-    in-out property <color> subtitle-background-preference-color: #00000000;
+    in-out property <color> subtitle-background-preference-color: Theme.subtitle-background-default;
     in-out property <float> subtitle-outline-size-preference: 3;
-    in-out property <color> subtitle-outline-preference-color: #000000;
+    in-out property <color> subtitle-outline-preference-color: Theme.subtitle-outline-default;
     in-out property <float> subtitle-shadow-offset-preference: 0;
-    in-out property <color> subtitle-shadow-preference-color: #00000000;
+    in-out property <color> subtitle-shadow-preference-color: Theme.subtitle-shadow-default;
     in-out property <float> subtitle-blur-preference: 0;
     in-out property <float> subtitle-spacing-preference: 0;
     in property <float> subtitle-outline-size: 0;
@@ -1269,11 +1265,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         if pane-kind == 7 && root.plugin-sidebar-selected-identifier == "" : VerticalLayout {
                             spacing: 6px;
                             Text { text: "Plugins can provide content in this panel.";
-                                color: root.dark-theme ? #dddddd : #29292d;
+                                color: Theme.sidebar-heading-text(root.dark-theme);
                                 font-size: 12px; wrap: word-wrap; }
                             if root.plugin-sidebar-labels.length == 0 : Text {
                                 text: "Enabled plugins with sidebar tabs appear here.";
-                                color: root.dark-theme ? #aaaaaa : #66666b;
+                                color: Theme.sidebar-empty-caption(root.dark-theme);
                                 font-size: 11px; wrap: word-wrap; }
                         }
                         for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): CatalogSidebarRow {
@@ -1585,7 +1581,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             osd-text-size: root.osd-text-size;
             position: root.position;
             duration: root.duration;
-            progress-color: root.platform-windows ? root.windows-accent-color : #168bff;
+            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-fade-duration: root.osd-fade-duration;
         }
         if !root.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
@@ -1599,7 +1595,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
             text: startup-status == "" ? status : startup-status;
-            color: root.dark-theme ? #bbbbbb : #55555b; font-size: 11px; overflow: elide; }
+            color: Theme.player-status-text(root.dark-theme); font-size: 11px; overflow: elide; }
         if music-mode && music-mode-show-playlist : MusicModePlaylist {
             x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
             dark-theme: root.dark-theme;
@@ -1639,7 +1635,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             osd-text-size: root.osd-text-size;
             video-osd-text: root.video-osd-text;
             video-osd-progress: root.video-osd-progress;
-            progress-color: root.platform-windows ? root.windows-accent-color : #168bff;
+            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-fade-duration: root.osd-fade-duration;
         }
         if loaded && !crop-editing : ScreenshotPreview {

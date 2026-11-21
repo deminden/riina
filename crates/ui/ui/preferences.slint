@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { KeyBindingDialogs } from "preferences-key-binding-dialogs.slint";
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { KeyBindingsPreferencesPage } from "preferences-key-binding-page.slint";
@@ -43,7 +44,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> mica-backdrop-enabled: false;
     // Layer the Settings surfaces over Windows Mica and preserve their solid
     // colors when the native backdrop is unavailable.
-    background: mica-backdrop-enabled ? transparent : #ffffff;
+    background: mica-backdrop-enabled ? transparent : Theme.settings-content-surface(false);
     in-out property <int> selected-pane: 0;
     in-out property <int> selected-general-section: 0;
     in-out property <int> selected-subtitle-section: 0;

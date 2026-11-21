@@ -81,4 +81,42 @@ export global Theme {
     public pure function music-mode-volume-surface(dark: bool, material: bool) -> color {
         return material ? (dark ? #25252beF : #f5f5f7f0) : (dark ? #303036 : #eeeeF2);
     }
+
+    out property <color> player-empty-surface: #111111;
+    out property <color> windows-default-accent: #0078d4;
+    out property <color> windows-default-accent-text: #ffffff;
+    out property <color> player-focus-accent: #90b7ef;
+    out property <color> playback-progress-accent: #168bff;
+    out property <color> subtitle-text-default: #ffffff;
+    out property <color> subtitle-background-default: #00000000;
+    out property <color> subtitle-outline-default: #000000;
+    out property <color> subtitle-shadow-default: #00000000;
+
+    public pure function player-status-text(dark: bool) -> color {
+        return dark ? #bbbbbb : #55555b;
+    }
+
+    public pure function sidebar-card-layer(dark: bool, windows-material: bool) -> color {
+        return windows-material ? (dark ? #ffffff09 : #ffffff40) : (dark ? #ffffff08 : #ffffff88);
+    }
+
+    public pure function sidebar-control-layer(dark: bool, windows-material: bool) -> color {
+        return windows-material ? (dark ? #ffffff0f : #f9f9f94d) : (dark ? #ffffff15 : #0000000b);
+    }
+
+    public pure function sidebar-category-selection(dark: bool) -> color {
+        return dark ? #ffffff1f : #00000014;
+    }
+
+    public pure function sidebar-category-text(dark: bool) -> color {
+        return dark ? #ffffff : #29292d;
+    }
+
+    public pure function sidebar-heading-text(dark: bool) -> color {
+        return dark ? #dddddd : #29292d;
+    }
+
+    public pure function sidebar-empty-caption(dark: bool) -> color {
+        return dark ? #aaaaaa : #66666b;
+    }
 }
