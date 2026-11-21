@@ -3,6 +3,7 @@ use super::builtins::{BUILTIN_PROFILES, mappings_for};
 use super::keys::shortcut_keys;
 use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
+use slint::ComponentHandle;
 use slint::{ModelRc, SharedString, VecModel};
 
 pub(super) fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
@@ -89,13 +90,15 @@ pub(super) fn matches_query(mapping: &Mapping, raw: bool, query: &str) -> bool {
 
 fn set_rows(window: &PreferencesWindow, mappings: &[Mapping], raw: bool, query: &str) {
     let query = query.trim().to_lowercase();
-    window.set_key_binding_rows(ModelRc::new(VecModel::from(
-        mappings
-            .iter()
-            .filter(|mapping| matches_query(mapping, raw, &query))
-            .map(|mapping| display_row(mapping, raw))
-            .collect::<Vec<_>>(),
-    )));
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_rows(ModelRc::new(VecModel::from(
+            mappings
+                .iter()
+                .filter(|mapping| matches_query(mapping, raw, &query))
+                .map(|mapping| display_row(mapping, raw))
+                .collect::<Vec<_>>(),
+        )));
 }
 
 pub(super) fn visible_source_indices(mappings: &[Mapping], raw: bool, query: &str) -> Vec<usize> {
@@ -118,8 +121,12 @@ fn selected_mapping_index(
 ) -> Result<usize, String> {
     let visible = visible_source_indices(
         mappings,
-        window.get_key_binding_display_raw_values(),
-        &window.get_key_binding_search_query(),
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_display_raw_values(),
+        &window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_search_query(),
     );
     usize::try_from(row)
         .ok()
@@ -128,7 +135,10 @@ fn selected_mapping_index(
 }
 
 pub(crate) fn mapping_for_row(window: &PreferencesWindow, row: i32) -> Result<Mapping, String> {
-    let profile = window.get_key_binding_current_profile().to_string();
+    let profile = window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .get_key_binding_current_profile()
+        .to_string();
     if is_builtin_profile(&profile) {
         return Err("Built-in key binding sets are read-only".into());
     }
@@ -148,7 +158,10 @@ pub(crate) fn save_mapping(
     comment: &str,
     kind_index: i32,
 ) -> Result<(), String> {
-    let profile = window.get_key_binding_current_profile().to_string();
+    let profile = window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .get_key_binding_current_profile()
+        .to_string();
     if is_builtin_profile(&profile) {
         return Err("Built-in key binding sets are read-only".into());
     }
@@ -184,15 +197,24 @@ pub(crate) fn save_mapping(
     set_rows(
         window,
         &mappings,
-        window.get_key_binding_display_raw_values(),
-        &window.get_key_binding_search_query(),
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_display_raw_values(),
+        &window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_search_query(),
     );
-    window.set_key_binding_selected_row(-1);
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_selected_row(-1);
     Ok(())
 }
 
 pub(crate) fn remove_mapping(window: &PreferencesWindow, row: i32) -> Result<(), String> {
-    let profile = window.get_key_binding_current_profile().to_string();
+    let profile = window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .get_key_binding_current_profile()
+        .to_string();
     if is_builtin_profile(&profile) {
         return Err("Built-in key binding sets are read-only".into());
     }
@@ -208,10 +230,16 @@ pub(crate) fn remove_mapping(window: &PreferencesWindow, row: i32) -> Result<(),
     set_rows(
         window,
         &mappings,
-        window.get_key_binding_display_raw_values(),
-        &window.get_key_binding_search_query(),
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_display_raw_values(),
+        &window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_search_query(),
     );
-    window.set_key_binding_selected_row(-1);
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_selected_row(-1);
     Ok(())
 }
 
@@ -243,37 +271,56 @@ pub(crate) fn install_window(
     settings: &Settings,
 ) -> Result<(), String> {
     let names = profile_names(settings)?;
-    window.set_key_binding_profiles(ModelRc::new(VecModel::from(
-        names
-            .iter()
-            .cloned()
-            .map(SharedString::from)
-            .collect::<Vec<_>>(),
-    )));
-    window.set_key_binding_profile_index(
-        names
-            .iter()
-            .position(|name| name == &settings.current_profile)
-            .unwrap_or(0) as i32,
-    );
-    window.set_key_binding_current_profile(settings.current_profile.clone().into());
-    window.set_key_binding_use_system_media_controls(settings.use_system_media_controls);
-    window.set_key_binding_display_raw_values(settings.display_raw_values);
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_profiles(ModelRc::new(VecModel::from(
+            names
+                .iter()
+                .cloned()
+                .map(SharedString::from)
+                .collect::<Vec<_>>(),
+        )));
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_profile_index(
+            names
+                .iter()
+                .position(|name| name == &settings.current_profile)
+                .unwrap_or(0) as i32,
+        );
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_current_profile(settings.current_profile.clone().into());
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_use_system_media_controls(settings.use_system_media_controls);
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_display_raw_values(settings.display_raw_values);
     let mappings = mappings_for(&settings.current_profile)?;
     set_rows(
         window,
         &mappings,
         settings.display_raw_values,
-        &window.get_key_binding_search_query(),
+        &window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_search_query(),
     );
     Ok(())
 }
 
 pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, String> {
     let settings = Settings {
-        current_profile: window.get_key_binding_current_profile().to_string(),
-        use_system_media_controls: window.get_key_binding_use_system_media_controls(),
-        display_raw_values: window.get_key_binding_display_raw_values(),
+        current_profile: window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_current_profile()
+            .to_string(),
+        use_system_media_controls: window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_use_system_media_controls(),
+        display_raw_values: window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_display_raw_values(),
     };
     settings.validate().map_err(str::to_owned)?;
     Ok(settings)
@@ -284,22 +331,36 @@ pub(crate) fn select_profile(window: &PreferencesWindow, name: &str) -> Result<(
     set_rows(
         window,
         &mappings,
-        window.get_key_binding_display_raw_values(),
-        &window.get_key_binding_search_query(),
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_display_raw_values(),
+        &window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_search_query(),
     );
-    window.set_key_binding_selected_row(-1);
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_selected_row(-1);
     Ok(())
 }
 
 pub(crate) fn search(window: &PreferencesWindow, query: &str) -> Result<(), String> {
-    let mappings = mappings_for(&window.get_key_binding_current_profile())?;
+    let mappings = mappings_for(
+        &window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_current_profile(),
+    )?;
     set_rows(
         window,
         &mappings,
-        window.get_key_binding_display_raw_values(),
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_display_raw_values(),
         query,
     );
-    window.set_key_binding_selected_row(-1);
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .set_key_binding_selected_row(-1);
     Ok(())
 }
 

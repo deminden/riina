@@ -17,7 +17,9 @@ impl VisibleSettings {
         let audio_devices = Rc::downgrade(&self.audio_devices);
         window.window().on_close_requested(move || {
             if let Some(window) = weak.upgrade()
-                && !window.get_folder_dialog_open()
+                && !window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .get_folder_dialog_open()
             {
                 if let Some(motion) = motion.upgrade() {
                     motion.stop();
@@ -107,13 +109,17 @@ mod tests {
         assert!(timers.motion.running());
         assert!(timers.audio_devices.running());
 
-        window.set_folder_dialog_open(true);
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .set_folder_dialog_open(true);
         window.window().dispatch_event(WindowEvent::CloseRequested);
         assert!(window.window().is_visible());
         assert!(timers.motion.running());
         assert!(timers.audio_devices.running());
 
-        window.set_folder_dialog_open(false);
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .set_folder_dialog_open(false);
         window.window().dispatch_event(WindowEvent::CloseRequested);
         assert!(!window.window().is_visible());
         assert!(!timers.motion.running());

@@ -1,4 +1,5 @@
 //! Collect and restore the General tab's playback and opening policy.
+use slint::ComponentHandle;
 
 use super::refresh;
 use crate::{PlayerWindow, PreferencesWindow};
@@ -99,24 +100,60 @@ impl Policy {
 
     fn from_window(window: &PreferencesWindow) -> Self {
         Self {
-            pause_when_open: window.get_pause_when_open(),
-            play_when_entering_fullscreen: window.get_play_when_entering_fullscreen(),
-            pause_when_leaving_fullscreen: window.get_pause_when_leaving_fullscreen(),
-            pause_when_inactive: window.get_pause_when_inactive(),
-            pause_when_minimized: window.get_pause_when_minimized(),
-            pause_when_goes_to_sleep: window.get_pause_when_goes_to_sleep(),
-            quit_when_no_opened_window: window.get_quit_when_no_opened_window(),
-            keep_open_on_file_end: window.get_keep_open_on_file_end(),
-            playlist_auto_play_next: window.get_playlist_auto_play_next(),
-            playlist_auto_add: window.get_playlist_auto_add(),
-            playlist_show_metadata: window.get_playlist_show_metadata(),
-            playlist_show_metadata_in_music_mode: window.get_playlist_show_metadata_in_music_mode(),
-            auto_repeat: window.get_auto_repeat(),
-            default_repeat_mode: window.get_default_repeat_mode_index(),
-            fullscreen_when_open: window.get_fullscreen_when_open(),
-            resume_last_position: window.get_resume_last_position(),
-            record_playback_history: window.get_record_playback_history(),
-            launch_action: window.get_launch_action_index(),
+            pause_when_open: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_pause_when_open(),
+            play_when_entering_fullscreen: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_play_when_entering_fullscreen(),
+            pause_when_leaving_fullscreen: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_pause_when_leaving_fullscreen(),
+            pause_when_inactive: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_pause_when_inactive(),
+            pause_when_minimized: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_pause_when_minimized(),
+            pause_when_goes_to_sleep: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_pause_when_goes_to_sleep(),
+            quit_when_no_opened_window: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_quit_when_no_opened_window(),
+            keep_open_on_file_end: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_keep_open_on_file_end(),
+            playlist_auto_play_next: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_playlist_auto_play_next(),
+            playlist_auto_add: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_playlist_auto_add(),
+            playlist_show_metadata: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_playlist_show_metadata(),
+            playlist_show_metadata_in_music_mode: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_playlist_show_metadata_in_music_mode(),
+            auto_repeat: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_auto_repeat(),
+            default_repeat_mode: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_default_repeat_mode_index(),
+            fullscreen_when_open: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_fullscreen_when_open(),
+            resume_last_position: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_resume_last_position(),
+            record_playback_history: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_record_playback_history(),
+            launch_action: window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_launch_action_index(),
         }
     }
 

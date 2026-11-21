@@ -345,24 +345,40 @@ fn settings_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> 
             window.set_selected_search_index(1);
         }),
         ("settings-key-mapping-dialog", 7, |window| {
-            window.set_key_binding_editor_key("Ctrl+P".into());
-            window.set_key_binding_editor_action("cycle pause".into());
-            window.set_key_binding_editor_open(true);
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_editor_key("Ctrl+P".into());
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_editor_action("cycle pause".into());
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_editor_open(true);
         }),
         ("settings-key-profile-create-dialog", 7, |window| {
-            window.set_key_binding_profile_editor_name("Viewing".into());
-            window.set_key_binding_profile_editor_open(true);
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_profile_editor_name("Viewing".into());
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_profile_editor_open(true);
         }),
         ("settings-key-profile-delete-dialog", 7, |window| {
-            window.set_key_binding_profile_delete_confirm_open(true);
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_profile_delete_confirm_open(true);
         }),
         ("settings-plugin-install-dialog", 9, |window| {
             window.set_plugin_github_repository("example/plugin".into());
             window.set_plugin_github_sheet_open(true);
         }),
         ("settings-default-app-dialog", 10, |window| {
-            window.set_utilities_default_audio(false);
-            window.set_utilities_default_app_sheet_open(true);
+            window
+                .global::<riina_ui::UtilitySettingsState>()
+                .set_utilities_default_audio(false);
+            window
+                .global::<riina_ui::UtilitySettingsState>()
+                .set_utilities_default_app_sheet_open(true);
         }),
     ];
     for (name, page, setup) in cases {

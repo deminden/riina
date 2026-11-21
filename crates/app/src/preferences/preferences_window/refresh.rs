@@ -3,6 +3,8 @@ use crate::PlayerWindow;
 use slint::ComponentHandle;
 
 pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
+    let general = window.global::<riina_ui::GeneralSettingsState>();
+    let subtitles = window.global::<crate::SubtitleSettingsState>();
     window.set_surface_material_title(crate::platform::surface_material_title().into());
     if let Ok(settings) = crate::online_subtitles_preferences::current_player(app) {
         crate::online_subtitles_preferences::install_window(window, &settings);
@@ -34,58 +36,49 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     if let Ok(settings) = crate::key_binding_preferences::current_player(app) {
         let _ = crate::key_binding_preferences::refresh(window, &settings);
     }
-    window
-        .global::<crate::SubtitleSettingsState>()
-        .set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
-    window
-        .global::<crate::SubtitleSettingsState>()
+    subtitles.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
+    subtitles
         .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());
-    window
-        .global::<crate::SubtitleSettingsState>()
-        .set_subtitle_font(app.get_subtitle_font());
-    window
-        .global::<crate::SubtitleSettingsState>()
-        .set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
-            app.get_subtitle_font_size_preference(),
-        ));
+    subtitles.set_subtitle_font(app.get_subtitle_font());
+    subtitles.set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
+        app.get_subtitle_font_size_preference(),
+    ));
     if let Ok(style) = crate::subtitle_preferences::current_style(app) {
         crate::subtitle_preferences::install_window_style(window, style);
     }
-    window.set_pause_when_open(app.get_pause_when_open());
-    window.set_play_when_entering_fullscreen(app.get_play_when_entering_fullscreen());
-    window.set_pause_when_leaving_fullscreen(app.get_pause_when_leaving_fullscreen());
-    window.set_pause_when_inactive(app.get_pause_when_inactive());
-    window.set_pause_when_minimized(app.get_pause_when_minimized());
-    window.set_pause_when_goes_to_sleep(app.get_pause_when_goes_to_sleep());
-    window.set_pause_policies_available(cfg!(target_os = "macos"));
-    window.set_quit_when_no_opened_window(app.get_quit_when_no_opened_window());
-    window.set_keep_open_on_file_end(app.get_keep_open_on_file_end());
-    window.set_playlist_auto_play_next(app.get_playlist_auto_play_next());
-    window.set_playlist_auto_add(app.get_playlist_auto_add());
-    window.set_playlist_show_metadata(app.get_playlist_show_metadata());
-    window.set_playlist_show_metadata_in_music_mode(app.get_playlist_show_metadata_in_music_mode());
-    window.set_auto_repeat(app.get_auto_repeat());
-    window.set_default_repeat_mode_index(app.get_default_repeat_mode_index());
-    window.set_fullscreen_when_open(app.get_fullscreen_when_open());
-    window.set_resume_last_position(app.get_resume_last_position());
-    window.set_record_playback_history(app.get_record_playback_history());
-    window.set_record_recent_files(app.get_record_recent_files());
-    window.set_track_all_files_in_recent_open_menu(app.get_track_all_files_in_recent_open_menu());
-    window.set_launch_action_index(app.get_launch_action_index());
-    window.set_auto_switch_to_music_mode(app.get_auto_switch_to_music_mode());
-    window.set_music_mode_show_playlist(app.get_music_mode_show_playlist());
-    window.set_music_mode_show_album_art(app.get_music_mode_show_album_art());
+    general.set_pause_when_open(app.get_pause_when_open());
+    general.set_play_when_entering_fullscreen(app.get_play_when_entering_fullscreen());
+    general.set_pause_when_leaving_fullscreen(app.get_pause_when_leaving_fullscreen());
+    general.set_pause_when_inactive(app.get_pause_when_inactive());
+    general.set_pause_when_minimized(app.get_pause_when_minimized());
+    general.set_pause_when_goes_to_sleep(app.get_pause_when_goes_to_sleep());
+    general.set_pause_policies_available(cfg!(target_os = "macos"));
+    general.set_quit_when_no_opened_window(app.get_quit_when_no_opened_window());
+    general.set_keep_open_on_file_end(app.get_keep_open_on_file_end());
+    general.set_playlist_auto_play_next(app.get_playlist_auto_play_next());
+    general.set_playlist_auto_add(app.get_playlist_auto_add());
+    general.set_playlist_show_metadata(app.get_playlist_show_metadata());
+    general
+        .set_playlist_show_metadata_in_music_mode(app.get_playlist_show_metadata_in_music_mode());
+    general.set_auto_repeat(app.get_auto_repeat());
+    general.set_default_repeat_mode_index(app.get_default_repeat_mode_index());
+    general.set_fullscreen_when_open(app.get_fullscreen_when_open());
+    general.set_resume_last_position(app.get_resume_last_position());
+    general.set_record_playback_history(app.get_record_playback_history());
+    general.set_record_recent_files(app.get_record_recent_files());
+    general.set_track_all_files_in_recent_open_menu(app.get_track_all_files_in_recent_open_menu());
+    general.set_launch_action_index(app.get_launch_action_index());
+    general.set_auto_switch_to_music_mode(app.get_auto_switch_to_music_mode());
+    general.set_music_mode_show_playlist(app.get_music_mode_show_playlist());
+    general.set_music_mode_show_album_art(app.get_music_mode_show_album_art());
     window.set_osc_position(app.get_osc_position());
     window.set_show_chapter_pos(app.get_show_chapter_pos());
     if let Ok(settings) = crate::pip_preferences::current_player(app) {
         crate::pip_preferences::install_preferences(window, settings);
     }
     window.set_hardware_decoder_index(app.get_hardware_decoder_index());
-    window
-        .global::<crate::SubtitleSettingsState>()
-        .set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
-    window
-        .global::<crate::SubtitleSettingsState>()
+    subtitles.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
+    subtitles
         .set_subtitle_ass_override_secondary_index(app.get_secondary_subtitle_ass_override_index());
     if let Ok(position) = crate::subtitle_position_preferences::current_player(app) {
         crate::subtitle_position_preferences::install_window(window, position);
@@ -110,13 +103,13 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         .iter()
         .position(|format| *format == app.get_screenshot_format().as_str())
         .map_or(-1, |index| index as i32);
-    window.set_format_index(index);
-    window.set_include_subtitles(app.get_screenshot_include_subtitles());
-    window.set_show_preview(app.get_screenshot_show_preview());
-    window.set_save_to_file(app.get_screenshot_save_to_file());
-    window.set_copy_to_clipboard(app.get_screenshot_copy_to_clipboard());
+    general.set_format_index(index);
+    general.set_include_subtitles(app.get_screenshot_include_subtitles());
+    general.set_show_preview(app.get_screenshot_show_preview());
+    general.set_save_to_file(app.get_screenshot_save_to_file());
+    general.set_copy_to_clipboard(app.get_screenshot_copy_to_clipboard());
     window.set_custom_directory(app.get_screenshot_custom_directory());
-    window.set_directory(if app.get_screenshot_custom_directory() {
+    general.set_directory(if app.get_screenshot_custom_directory() {
         app.get_screenshot_directory()
     } else {
         dirs::picture_dir()

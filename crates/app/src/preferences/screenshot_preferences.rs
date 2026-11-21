@@ -1,6 +1,7 @@
 //! Screenshot intent shared by capture and session persistence.
 use crate::PlayerWindow;
 use riina_core::screenshot::{Format, Settings};
+use slint::ComponentHandle;
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {
     app.set_screenshot_save_to_file(settings.destinations.save_to_file);
@@ -17,17 +18,40 @@ pub(crate) fn project_window_edit(app: &PlayerWindow, window: &crate::Preference
     let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
     // AVIF can be configured externally but has no item in the pinned
     // General pane. Editing another control must preserve that choice.
-    if let Ok(index) = usize::try_from(window.get_format_index())
-        && let Some(format) = formats.get(index)
+    if let Ok(index) = usize::try_from(
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_format_index(),
+    ) && let Some(format) = formats.get(index)
     {
         app.set_screenshot_format((*format).into());
     }
-    app.set_screenshot_include_subtitles(window.get_include_subtitles());
-    app.set_screenshot_show_preview(window.get_show_preview());
-    app.set_screenshot_save_to_file(window.get_save_to_file());
-    app.set_screenshot_copy_to_clipboard(window.get_copy_to_clipboard());
+    app.set_screenshot_include_subtitles(
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_include_subtitles(),
+    );
+    app.set_screenshot_show_preview(
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_show_preview(),
+    );
+    app.set_screenshot_save_to_file(
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_save_to_file(),
+    );
+    app.set_screenshot_copy_to_clipboard(
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_copy_to_clipboard(),
+    );
     app.set_screenshot_custom_directory(window.get_custom_directory());
-    app.set_screenshot_directory(window.get_directory());
+    app.set_screenshot_directory(
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_directory(),
+    );
 }
 
 pub(crate) fn current(app: &PlayerWindow) -> Result<Settings, String> {

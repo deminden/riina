@@ -4,37 +4,49 @@ use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use slint::ComponentHandle;
 use std::{fs, io, path::Path};
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(crate) fn connect(
     window: &PreferencesWindow,
     preferences_path: &Path,
     clear_history: impl Fn() -> Result<usize, String> + 'static,
 ) {
     let watch_later = preferences_path.with_file_name("watch-later");
-    window.set_utilities_progress_size(
-        directory_size(&watch_later)
-            .map(format_size)
-            .unwrap_or_else(|_| "—".into())
-            .into(),
-    );
+    refresh_sizes(window, &watch_later);
+    install_default_app_actions(window);
+    install_cache_and_history_actions(window, watch_later, clear_history);
+}
+
+fn refresh_sizes(window: &PreferencesWindow, watch_later: &Path) {
+    window
+        .global::<riina_ui::UtilitySettingsState>()
+        .set_utilities_progress_size(
+            directory_size(watch_later)
+                .map(format_size)
+                .unwrap_or_else(|_| "—".into())
+                .into(),
+        );
     match thumbnail_cache_directory() {
         Ok(directory) => {
             let size = fs::create_dir_all(&directory)
                 .and_then(|()| directory_size(&directory))
                 .map(format_size)
                 .unwrap_or_else(|_| "—".into());
-            window.set_utilities_thumbnail_size(size.into());
+            window
+                .global::<riina_ui::UtilitySettingsState>()
+                .set_utilities_thumbnail_size(size.into());
         }
-        Err(_) => window.set_utilities_thumbnail_size("—".into()),
+        Err(_) => window
+            .global::<riina_ui::UtilitySettingsState>()
+            .set_utilities_thumbnail_size("—".into()),
     }
+}
 
+fn install_default_app_actions(window: &PreferencesWindow) {
     let weak = window.as_weak();
     window.on_utilities_open_default_apps(move || {
         if let Some(window) = weak.upgrade() {
-            window.set_utilities_default_app_sheet_open(true);
+            window
+                .global::<riina_ui::UtilitySettingsState>()
+                .set_utilities_default_app_sheet_open(true);
         }
     });
 
@@ -43,25 +55,26 @@ pub(crate) fn connect(
         let Some(window) = weak.upgrade() else {
             return;
         };
+        let settings = window.global::<riina_ui::UtilitySettingsState>();
         if !video && !audio && !playlists {
-            window.set_utilities_status("Select at least one media type.".into());
+            settings.set_utilities_status("Select at least one media type.".into());
             return;
         }
         #[cfg(target_os = "linux")]
         {
             let weak_window = window.as_weak();
-            window.set_utilities_status("Updating file associations…".into());
+            settings.set_utilities_status("Updating file associations…".into());
             let worker = crate::background::spawn_named("riina-file-associations", move || {
                     let message = match register_default_file_types(video, audio, playlists) {
                         Ok(count) => default_app_status(count),
                         Err(error) => error,
                     };
                     let _ = crate::background::to_ui(weak_window, move |window| {
-                        window.set_utilities_status(message.into());
+                        window.global::<riina_ui::UtilitySettingsState>().set_utilities_status(message.into());
                     });
                 });
             if let Err(error) = worker {
-                window.set_utilities_status(
+                settings.set_utilities_status(
                     format!("Could not start file-association update: {error}").into(),
                 );
             }
@@ -69,15 +82,21 @@ pub(crate) fn connect(
         #[cfg(not(target_os = "linux"))]
         match register_default_file_types(video, audio, playlists) {
             Ok(count) => match open_default_apps() {
-                Ok(()) => window.set_utilities_status(default_app_status(count).into()),
-                Err(error) => window.set_utilities_status(
+                Ok(()) => settings.set_utilities_status(default_app_status(count).into()),
+                Err(error) => settings.set_utilities_status(
                     format!("Registered {count} file types, but could not open Windows Default Apps: {error}").into(),
                 ),
             },
-            Err(error) => window.set_utilities_status(error.into()),
+            Err(error) => settings.set_utilities_status(error.into()),
         }
     });
+}
 
+fn install_cache_and_history_actions(
+    window: &PreferencesWindow,
+    watch_later: std::path::PathBuf,
+    clear_history: impl Fn() -> Result<usize, String> + 'static,
+) {
     let weak = window.as_weak();
     window.on_utilities_restore_alerts(move || {
         let Some(window) = weak.upgrade() else {
@@ -96,7 +115,9 @@ pub(crate) fn connect(
             .set_description("Restored.")
             .set_buttons(MessageButtons::Ok)
             .show();
-        window.set_utilities_status("Restored.".into());
+        window
+            .global::<riina_ui::UtilitySettingsState>()
+            .set_utilities_status("Restored.".into());
     });
 
     let weak = window.as_weak();
@@ -108,7 +129,9 @@ pub(crate) fn connect(
             .set_title("Clear Saved Playback Progress")
             .set_description(format!(
                 "Delete saved playback positions for all media? Current size: {}.",
-                window.get_utilities_progress_size()
+                window
+                    .global::<riina_ui::UtilitySettingsState>()
+                    .get_utilities_progress_size()
             ))
             .set_buttons(MessageButtons::YesNo)
             .show();
@@ -117,18 +140,24 @@ pub(crate) fn connect(
         }
         match clear_watch_later(&watch_later) {
             Ok(removed_bytes) => {
-                window.set_utilities_progress_size(format_size(0).into());
-                window.set_utilities_status(
-                    format!(
-                        "Saved playback progress cleared ({} removed).",
-                        format_size(removed_bytes)
-                    )
-                    .into(),
-                );
+                window
+                    .global::<riina_ui::UtilitySettingsState>()
+                    .set_utilities_progress_size(format_size(0).into());
+                window
+                    .global::<riina_ui::UtilitySettingsState>()
+                    .set_utilities_status(
+                        format!(
+                            "Saved playback progress cleared ({} removed).",
+                            format_size(removed_bytes)
+                        )
+                        .into(),
+                    );
             }
-            Err(error) => window.set_utilities_status(
-                format!("Could not clear saved playback progress: {error}").into(),
-            ),
+            Err(error) => window
+                .global::<riina_ui::UtilitySettingsState>()
+                .set_utilities_status(
+                    format!("Could not clear saved playback progress: {error}").into(),
+                ),
         }
     });
 
@@ -146,10 +175,13 @@ pub(crate) fn connect(
             return;
         }
         match clear_history() {
-            Ok(removed) => window.set_utilities_status(
-                format!("Playback history cleared ({removed} entries removed).").into(),
-            ),
+            Ok(removed) => window
+                .global::<riina_ui::UtilitySettingsState>()
+                .set_utilities_status(
+                    format!("Playback history cleared ({removed} entries removed).").into(),
+                ),
             Err(error) => window
+                .global::<riina_ui::UtilitySettingsState>()
                 .set_utilities_status(format!("Could not clear playback history: {error}").into()),
         }
     });
@@ -162,7 +194,9 @@ pub(crate) fn connect(
         let directory = match thumbnail_cache_directory() {
             Ok(directory) => directory,
             Err(error) => {
-                window.set_utilities_status(error.into());
+                window
+                    .global::<riina_ui::UtilitySettingsState>()
+                    .set_utilities_status(error.into());
                 return;
             }
         };
@@ -181,16 +215,21 @@ pub(crate) fn connect(
         }
         match clear_thumbnail_cache(&directory) {
             Ok(removed_bytes) => {
-                window.set_utilities_thumbnail_size(format_size(0).into());
-                window.set_utilities_status(
-                    format!(
-                        "Thumbnail cache cleared ({} removed).",
-                        format_size(removed_bytes)
-                    )
-                    .into(),
-                );
+                window
+                    .global::<riina_ui::UtilitySettingsState>()
+                    .set_utilities_thumbnail_size(format_size(0).into());
+                window
+                    .global::<riina_ui::UtilitySettingsState>()
+                    .set_utilities_status(
+                        format!(
+                            "Thumbnail cache cleared ({} removed).",
+                            format_size(removed_bytes)
+                        )
+                        .into(),
+                    );
             }
             Err(error) => window
+                .global::<riina_ui::UtilitySettingsState>()
                 .set_utilities_status(format!("Could not clear thumbnail cache: {error}").into()),
         }
     });

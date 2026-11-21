@@ -2,11 +2,14 @@
 use crate::{PlayerWindow, PreferencesWindow};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
+    install_selection(app, window);
+    install_profile_editor(app, window);
+    install_profile_files(app, window);
+    install_mapping_actions(app, window);
+}
+
+fn install_selection(app: &PlayerWindow, window: &PreferencesWindow) {
     let selected_profile_window = window.as_weak();
     let selected_profile_parent = app.as_weak();
     window.on_key_binding_profile_selected(move |name| {
@@ -25,7 +28,10 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
         let Some(window) = settings_refresh_window.upgrade() else {
             return;
         };
-        let profile = window.get_key_binding_current_profile().to_string();
+        let profile = window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_current_profile()
+            .to_string();
         if let Err(error) = crate::key_binding_preferences::select_profile(&window, &profile)
             && let Some(app) = settings_refresh_parent.upgrade()
         {
@@ -44,6 +50,9 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
             app.set_status(error.into());
         }
     });
+}
+
+fn install_profile_editor(app: &PlayerWindow, window: &PreferencesWindow) {
     let profile_action_window = window.as_weak();
     let profile_action_parent = app.as_weak();
     window.on_key_binding_profile_created(move |name, mode| {
@@ -51,7 +60,10 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
             return;
         };
         let name = name.to_string();
-        let source = window.get_key_binding_current_profile().to_string();
+        let source = window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_current_profile()
+            .to_string();
         let result = (|| {
             let store = crate::key_binding_profiles::ProfileStore::for_current_user()
                 .map_err(|error| error.to_string())?;
@@ -71,7 +83,9 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
             crate::key_binding_preferences::activate_profile(&window, &name)
         })();
         match result {
-            Ok(()) => window.set_key_binding_profile_editor_open(false),
+            Ok(()) => window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_profile_editor_open(false),
             Err(error) => {
                 if let Some(app) = profile_action_parent.upgrade() {
                     app.set_status(error.into());
@@ -82,9 +96,14 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
     let cancel_profile_window = window.as_weak();
     window.on_key_binding_profile_editor_cancelled(move || {
         if let Some(window) = cancel_profile_window.upgrade() {
-            window.set_key_binding_profile_editor_open(false);
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_profile_editor_open(false);
         }
     });
+}
+
+fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
     let import_window = window.as_weak();
     let import_parent = app.as_weak();
     window.on_key_binding_import_profile_requested(move || {
@@ -153,7 +172,10 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
         let Some(window) = delete_window.upgrade() else {
             return;
         };
-        let profile = window.get_key_binding_current_profile().to_string();
+        let profile = window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_current_profile()
+            .to_string();
         let result = crate::key_binding_profiles::ProfileStore::for_current_user()
             .and_then(|store| store.delete(&profile))
             .map_err(|error| error.to_string());
@@ -188,7 +210,10 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
         let Some(window) = reveal_window.upgrade() else {
             return;
         };
-        let name = window.get_key_binding_current_profile().to_string();
+        let name = window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_current_profile()
+            .to_string();
         let result = crate::key_binding_profiles::ProfileStore::for_current_user()
             .map_err(|error| error.to_string())
             .and_then(|store| {
@@ -207,20 +232,39 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
             app.set_status(error.into());
         }
     });
+}
+
+fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
     let add_window = window.as_weak();
     window.on_key_binding_add_requested(move || {
         let Some(window) = add_window.upgrade() else {
             return;
         };
-        if window.get_key_binding_profile_index() < 5 {
+        if window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .get_key_binding_profile_index()
+            < 5
+        {
             return;
         }
-        window.set_key_binding_editor_row(-1);
-        window.set_key_binding_editor_key("".into());
-        window.set_key_binding_editor_action("".into());
-        window.set_key_binding_editor_comment("".into());
-        window.set_key_binding_editor_kind(0);
-        window.set_key_binding_editor_open(true);
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_editor_row(-1);
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_editor_key("".into());
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_editor_action("".into());
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_editor_comment("".into());
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_editor_kind(0);
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_editor_open(true);
     });
     let edit_window = window.as_weak();
     let edit_parent = app.as_weak();
@@ -230,18 +274,30 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
         };
         match crate::key_binding_preferences::mapping_for_row(&window, row) {
             Ok(mapping) => {
-                window.set_key_binding_editor_row(row);
-                window.set_key_binding_editor_key(mapping.key.into());
-                window.set_key_binding_editor_action(mapping.action.into());
-                window.set_key_binding_editor_comment(mapping.comment.unwrap_or_default().into());
-                window.set_key_binding_editor_kind(
-                    if mapping.kind == riina_core::key_bindings::ActionKind::Riina {
-                        1
-                    } else {
-                        0
-                    },
-                );
-                window.set_key_binding_editor_open(true);
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_row(row);
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_key(mapping.key.into());
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_action(mapping.action.into());
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_comment(mapping.comment.unwrap_or_default().into());
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_kind(
+                        if mapping.kind == riina_core::key_bindings::ActionKind::Riina {
+                            1
+                        } else {
+                            0
+                        },
+                    );
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_open(true);
             }
             Err(error) => {
                 if let Some(app) = edit_parent.upgrade() {
@@ -261,7 +317,9 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
                 meta,
             )
         {
-            window.set_key_binding_editor_key(key.into());
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_editor_key(key.into());
         }
     });
     let remove_window = window.as_weak();
@@ -294,7 +352,9 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
             kind,
         ) {
             Ok(()) => {
-                window.set_key_binding_editor_open(false);
+                window
+                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .set_key_binding_editor_open(false);
                 window.invoke_key_binding_settings_changed();
                 window.invoke_settings_changed();
             }
@@ -308,7 +368,9 @@ pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
     let cancel_window = window.as_weak();
     window.on_key_binding_editor_cancelled(move || {
         if let Some(window) = cancel_window.upgrade() {
-            window.set_key_binding_editor_open(false);
+            window
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .set_key_binding_editor_open(false);
         }
     });
 }

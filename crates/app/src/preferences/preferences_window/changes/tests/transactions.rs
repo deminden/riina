@@ -30,10 +30,15 @@ impl Transaction {
         crate::tone_mapping_preferences::install_window(&window, &initial.hdr_tone_mapping);
         window.set_video_threads_text(initial.video_threads.to_string().into());
         crate::network_connection_preferences::install_window(&window, &initial.network);
-        window.set_allow_multiple_windows(initial.allow_multiple_windows);
         window
+            .global::<riina_ui::GeneralSettingsState>()
+            .set_allow_multiple_windows(initial.allow_multiple_windows);
+        window
+            .global::<riina_ui::GeneralSettingsState>()
             .set_group_simultaneous_opens_in_playlist(initial.group_simultaneous_opens_in_playlist);
-        window.set_allow_duplicate_players(initial.allow_duplicate_players);
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .set_allow_duplicate_players(initial.allow_duplicate_players);
         refresh(&window, &player.app);
         connect_with_credentials(
             &player.app,
@@ -80,13 +85,15 @@ impl Transaction {
 }
 
 macro_rules! checkbox_cases {
-    ($($test:ident => $window_get:ident, $window_set:ident, $app_get:ident, $saved:expr;)+) => {
+    ($($test:ident => $([$form:ty])? $window_get:ident, $window_set:ident, $app_get:ident, $saved:expr;)+) => {
         $(
             #[test]
             fn $test() {
                 let transaction = Transaction::new();
-                let target = !transaction.window.$window_get();
-                transaction.window.$window_set(target);
+                let form = &transaction.window;
+                $(let form = form.global::<$form>();)?
+                let target = !form.$window_get();
+                form.$window_set(target);
                 assert_eq!(transaction.apply(), [transaction.expected_subtitle_reload()]);
                 assert_eq!(($saved)(&transaction.profile.read()), target);
                 assert_eq!(transaction.player.app.$app_get(), target);
@@ -97,42 +104,55 @@ macro_rules! checkbox_cases {
 
 checkbox_cases! {
     fullscreen_intent_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_fullscreen_when_open, set_fullscreen_when_open, get_fullscreen_when_open,
         |p: &Preferences| p.fullscreen_when_open;
     fullscreen_entry_resume_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_play_when_entering_fullscreen, set_play_when_entering_fullscreen,
         get_play_when_entering_fullscreen, |p: &Preferences| p.play_when_entering_fullscreen;
     fullscreen_exit_pause_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_pause_when_leaving_fullscreen, set_pause_when_leaving_fullscreen,
         get_pause_when_leaving_fullscreen, |p: &Preferences| p.pause_when_leaving_fullscreen;
     inactive_pause_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_pause_when_inactive, set_pause_when_inactive,
         get_pause_when_inactive, |p: &Preferences| p.pause_when_inactive;
     minimized_pause_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_pause_when_minimized, set_pause_when_minimized,
         get_pause_when_minimized, |p: &Preferences| p.pause_when_minimized;
     sleep_pause_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_pause_when_goes_to_sleep, set_pause_when_goes_to_sleep,
         get_pause_when_goes_to_sleep, |p: &Preferences| p.pause_when_goes_to_sleep;
     quitting_last_player_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_quit_when_no_opened_window, set_quit_when_no_opened_window,
         get_quit_when_no_opened_window, |p: &Preferences| p.quit_when_no_opened_window;
     recent_files_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_record_recent_files, set_record_recent_files,
         get_record_recent_files, |p: &Preferences| p.record_recent_files;
     open_menu_tracking_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_track_all_files_in_recent_open_menu, set_track_all_files_in_recent_open_menu,
         get_track_all_files_in_recent_open_menu, |p: &Preferences| p.track_all_files_in_recent_open_menu;
     playlist_auto_add_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_playlist_auto_add, set_playlist_auto_add, get_playlist_auto_add,
         |p: &Preferences| p.playlist_auto_add;
     playlist_metadata_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_playlist_show_metadata, set_playlist_show_metadata, get_playlist_show_metadata,
         |p: &Preferences| p.playlist_show_metadata;
     music_playlist_metadata_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_playlist_show_metadata_in_music_mode, set_playlist_show_metadata_in_music_mode,
         get_playlist_show_metadata_in_music_mode, |p: &Preferences| p.playlist_show_metadata_in_music_mode;
     repeat_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_auto_repeat, set_auto_repeat, get_auto_repeat, |p: &Preferences| p.auto_repeat;
     chapter_markers_persist_and_project =>
         get_show_chapter_pos, set_show_chapter_pos, get_show_chapter_pos,
@@ -164,9 +184,11 @@ checkbox_cases! {
         get_always_float_on_top, set_always_float_on_top, get_always_float_on_top,
         |p: &Preferences| p.always_float_on_top;
     screenshot_preview_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_show_preview, set_show_preview, get_screenshot_show_preview,
         |p: &Preferences| p.screenshot.show_preview;
     screenshot_subtitle_policy_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
         get_include_subtitles, set_include_subtitles, get_screenshot_include_subtitles,
         |p: &Preferences| p.screenshot.include_subtitles;
 }
@@ -192,6 +214,7 @@ macro_rules! invalid_values {
 
 invalid_values! {
     invalid_repeat_choice_leaves_settings_untouched =>
+        [riina_ui::GeneralSettingsState]
         get_default_repeat_mode_index, set_default_repeat_mode_index, -1;
     invalid_appearance_leaves_settings_untouched =>
         get_appearance_index, set_appearance_index, -1;
@@ -253,7 +276,10 @@ fn pause_when_open_callback_observes_the_persisted_edit_and_fires_once() {
             assert_eq!(saved.pause_when_open, enabled);
             calls.set(calls.get() + 1);
         });
-    transaction.window.set_pause_when_open(true);
+    transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .set_pause_when_open(true);
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
@@ -270,8 +296,14 @@ fn pause_when_open_callback_observes_the_persisted_edit_and_fires_once() {
 #[test]
 fn resume_policy_sends_its_command_only_when_changed() {
     let transaction = Transaction::new();
-    let target = !transaction.window.get_resume_last_position();
-    transaction.window.set_resume_last_position(target);
+    let target = !transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .get_resume_last_position();
+    transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .set_resume_last_position(target);
     assert_eq!(
         transaction.apply(),
         [
@@ -301,7 +333,10 @@ fn record_history_callback_fires_after_the_file_changes_and_only_once() {
             assert_eq!(saved.record_playback_history, enabled);
             calls.set(calls.get() + 1);
         });
-    transaction.window.set_record_playback_history(false);
+    transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .set_record_playback_history(false);
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
@@ -368,10 +403,18 @@ fn rejected_subtitle_reload_restores_an_independent_live_setting() {
     let transaction = Transaction::new();
     let before = transaction.bytes();
     let queued = transaction.saturate();
-    transaction.window.set_fullscreen_when_open(true);
+    transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .set_fullscreen_when_open(true);
     assert_eq!(transaction.apply(), queued);
     assert_eq!(transaction.bytes(), before);
-    assert!(!transaction.window.get_fullscreen_when_open());
+    assert!(
+        !transaction
+            .window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_fullscreen_when_open()
+    );
     assert!(!transaction.player.app.get_fullscreen_when_open());
 }
 
@@ -390,8 +433,14 @@ fn music_mode_callback_reads_the_updated_preference_file() {
             assert_eq!(saved.auto_switch_to_music_mode, enabled);
             value.set(Some(enabled));
         });
-    let target = !transaction.window.get_auto_switch_to_music_mode();
-    transaction.window.set_auto_switch_to_music_mode(target);
+    let target = !transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .get_auto_switch_to_music_mode();
+    transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>()
+        .set_auto_switch_to_music_mode(target);
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]

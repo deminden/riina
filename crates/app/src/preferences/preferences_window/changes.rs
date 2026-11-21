@@ -176,11 +176,17 @@ fn connect_with_credentials(
                 restart_notice,
             ),
             Err(error) => {
-                window.set_allow_multiple_windows(saved.allow_multiple_windows);
-                window.set_group_simultaneous_opens_in_playlist(
-                    saved.group_simultaneous_opens_in_playlist,
-                );
-                window.set_allow_duplicate_players(saved.allow_duplicate_players);
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_allow_multiple_windows(saved.allow_multiple_windows);
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_group_simultaneous_opens_in_playlist(
+                        saved.group_simultaneous_opens_in_playlist,
+                    );
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_allow_duplicate_players(saved.allow_duplicate_players);
                 playback.restore(&app, &window, &decoder_player, &general, &playback_changes);
                 subtitles.restore_tracks(&app, &decoder_player);
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
@@ -213,17 +219,27 @@ fn capture_preferences(
         volume: f64::from(app.get_volume()).min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
         volume_boost: app.get_volume_boost(),
         show_chapter_pos: window.get_show_chapter_pos(),
-        allow_multiple_windows: window.get_allow_multiple_windows(),
-        group_simultaneous_opens_in_playlist: window.get_group_simultaneous_opens_in_playlist(),
-        allow_duplicate_players: window.get_allow_duplicate_players(),
+        allow_multiple_windows: window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_allow_multiple_windows(),
+        group_simultaneous_opens_in_playlist: window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_group_simultaneous_opens_in_playlist(),
+        allow_duplicate_players: window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_allow_duplicate_players(),
         live_text_enabled: window.get_live_text_enabled(),
         load_icc_profile: window.get_load_icc_profile(),
         hdr_enabled: window.get_default_hdr_mode_enabled(),
         disable_animations: window.get_disable_animations(),
         always_float_on_top: window.get_always_float_on_top(),
         always_show_on_top_icon: window.get_always_show_on_top_icon(),
-        record_recent_files: window.get_record_recent_files(),
-        track_all_files_in_recent_open_menu: window.get_track_all_files_in_recent_open_menu(),
+        record_recent_files: window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_record_recent_files(),
+        track_all_files_in_recent_open_menu: window
+            .global::<riina_ui::GeneralSettingsState>()
+            .get_track_all_files_in_recent_open_menu(),
         leading_sidebar_width: app.get_leading_sidebar_width() as u32,
         trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
         settings_at_leading: app.get_settings_at_leading(),
@@ -253,9 +269,15 @@ fn save_preferences(
     model: &PreferenceModel,
     mut preferences: riina_core::Preferences,
 ) -> Result<(), String> {
-    preferences.auto_switch_to_music_mode = window.get_auto_switch_to_music_mode();
-    preferences.music_mode_show_playlist = window.get_music_mode_show_playlist();
-    preferences.music_mode_show_album_art = window.get_music_mode_show_album_art();
+    preferences.auto_switch_to_music_mode = window
+        .global::<riina_ui::GeneralSettingsState>()
+        .get_auto_switch_to_music_mode();
+    preferences.music_mode_show_playlist = window
+        .global::<riina_ui::GeneralSettingsState>()
+        .get_music_mode_show_playlist();
+    preferences.music_mode_show_album_art = window
+        .global::<riina_ui::GeneralSettingsState>()
+        .get_music_mode_show_album_art();
     // These setters trigger automatic-mode and window-geometry callbacks. Apply
     // them only after saving, so a rejected edit cannot alter playback policy.
     let auto_switch = preferences.auto_switch_to_music_mode;

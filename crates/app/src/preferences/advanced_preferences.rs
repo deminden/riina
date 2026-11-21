@@ -149,11 +149,17 @@ pub(crate) fn connect_actions(
         let (Some(app), Some(window)) = (chooser_app.upgrade(), weak_window.upgrade()) else {
             return;
         };
-        if app.get_dialog_open() || window.get_folder_dialog_open() {
+        if app.get_dialog_open()
+            || window
+                .global::<riina_ui::GeneralSettingsState>()
+                .get_folder_dialog_open()
+        {
             return;
         }
         app.set_dialog_open(true);
-        window.set_folder_dialog_open(true);
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .set_folder_dialog_open(true);
         let app = app.as_weak();
         let window = window.as_weak();
         let failure_app = app.clone();
@@ -175,7 +181,9 @@ pub(crate) fn connect_actions(
                         return;
                     };
                     app.set_dialog_open(false);
-                    window.set_folder_dialog_open(false);
+                    window
+                        .global::<riina_ui::GeneralSettingsState>()
+                        .set_folder_dialog_open(false);
                     match result {
                         Ok(Some(directory)) => {
                             window
@@ -194,7 +202,9 @@ pub(crate) fn connect_actions(
             .await;
             if let Err(error) = result {
                 app.set_dialog_open(false);
-                window.set_folder_dialog_open(false);
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_folder_dialog_open(false);
                 app.set_status(error.into());
             }
         });
@@ -204,7 +214,9 @@ pub(crate) fn connect_actions(
                 app.set_status(error.to_string().into());
             }
             if let Some(window) = failure_window.upgrade() {
-                window.set_folder_dialog_open(false);
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_folder_dialog_open(false);
             }
         }
     });

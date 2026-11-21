@@ -2,10 +2,18 @@ import { Theme } from "theme.slint";
 import { CheckBox, ScrollView } from "std-widgets.slint";
 import { PreferenceActionButton, UtilitiesActionRow } from "preferences-controls.slint";
 
+export global UtilitySettingsState {
+    in-out property <string> utilities-progress-size: "0 B";
+    in-out property <string> utilities-thumbnail-size: "0 B";
+    in-out property <string> utilities-status: "";
+    in-out property <bool> utilities-default-app-sheet-open: false;
+    in-out property <bool> utilities-default-video: true;
+    in-out property <bool> utilities-default-audio: true;
+    in-out property <bool> utilities-default-playlist: true;
+}
+
 export component UtilitiesPreferencesPage inherits ScrollView {
     in property <bool> mica-backdrop-enabled;
-    in property <string> utilities-thumbnail-size;
-    in property <string> utilities-status;
     callback utilities-open-default-apps();
     callback utilities-restore-alerts();
     callback utilities-clear-progress();
@@ -50,7 +58,7 @@ export component UtilitiesPreferencesPage inherits ScrollView {
             }
             UtilitiesActionRow { y: 161px; width: parent.width; height: 41px;
                 icon: @image-url("../../../assets/icons/photo.svg"); title: "Clear Thumbnail Cache";
-                metric: root.utilities-thumbnail-size; trash: true;
+                metric: UtilitySettingsState.utilities-thumbnail-size; trash: true;
                 activated => { root.utilities-clear-thumbnail-cache(); }
             }
         }
@@ -64,9 +72,9 @@ export component UtilitiesPreferencesPage inherits ScrollView {
             Text { x: 16px; y: 76px; width: parent.width - 32px; height: 24px;
                 text: "Browser integration is not available yet."; font-size: 10px; color: Theme.settings-disabled-description; vertical-alignment: center; }
         }
-        if !root.utilities-status.is-empty : Text {
+        if !UtilitySettingsState.utilities-status.is-empty : Text {
             x: 20px; y: 660px; width: parent.width - 40px; height: 20px;
-            text: root.utilities-status; font-size: 10px; color: Theme.settings-status-text; wrap: word-wrap;
+            text: UtilitySettingsState.utilities-status; font-size: 10px; color: Theme.settings-status-text; wrap: word-wrap;
         }
     }
 }

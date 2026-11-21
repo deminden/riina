@@ -1,3 +1,4 @@
+import { KeyBindingSettingsState } from "preferences-key-bindings.slint";
 import { CheckBox } from "std-widgets.slint";
 import { PreferenceActionButton } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
@@ -156,6 +157,49 @@ export component KeyBindingMappingDialog inherits Rectangle {
                         root.mapping-kind, root.mapping-row);
                 }
             }
+        }
+    }
+}
+
+export component KeyBindingDialogs inherits Rectangle {
+    background: transparent;
+    callback key-binding-profile-editor-cancelled();
+    callback key-binding-profile-created(string, int);
+    callback key-binding-delete-profile();
+    callback key-binding-editor-cancelled();
+    callback key-binding-key-recorded(string, bool, bool, bool, bool);
+    callback key-binding-mapping-submitted(string, string, string, int, int);
+
+    if KeyBindingSettingsState.key-binding-profile-editor-open : KeyBindingProfileDialog {
+        x: 0px; y: 0px; width: root.width; height: root.height;
+        mode: KeyBindingSettingsState.key-binding-profile-editor-mode;
+        profile-name <=> KeyBindingSettingsState.key-binding-profile-editor-name;
+        cancelled => { root.key-binding-profile-editor-cancelled(); }
+        submitted(profile-name, mode) => { root.key-binding-profile-created(profile-name, mode); }
+    }
+
+    if KeyBindingSettingsState.key-binding-profile-delete-confirm-open : DeleteKeyBindingProfileDialog {
+        x: 0px; y: 0px; width: root.width; height: root.height;
+        cancelled => { KeyBindingSettingsState.key-binding-profile-delete-confirm-open = false; }
+        confirmed => {
+            KeyBindingSettingsState.key-binding-profile-delete-confirm-open = false;
+            root.key-binding-delete-profile();
+        }
+    }
+
+    if KeyBindingSettingsState.key-binding-editor-open : KeyBindingMappingDialog {
+        x: 0px; y: 0px; width: root.width; height: root.height;
+        mapping-key: KeyBindingSettingsState.key-binding-editor-key;
+        mapping-action <=> KeyBindingSettingsState.key-binding-editor-action;
+        mapping-comment <=> KeyBindingSettingsState.key-binding-editor-comment;
+        mapping-kind <=> KeyBindingSettingsState.key-binding-editor-kind;
+        mapping-row: KeyBindingSettingsState.key-binding-editor-row;
+        cancelled => { root.key-binding-editor-cancelled(); }
+        key-recorded(key, control, alt, shift, meta) => {
+            root.key-binding-key-recorded(key, control, alt, shift, meta);
+        }
+        submitted(key, action, comment, kind, row) => {
+            root.key-binding-mapping-submitted(key, action, comment, kind, row);
         }
     }
 }

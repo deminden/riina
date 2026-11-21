@@ -13,7 +13,9 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
             return;
         }
         app.set_dialog_open(true);
-        window.set_folder_dialog_open(true);
+        window
+            .global::<riina_ui::GeneralSettingsState>()
+            .set_folder_dialog_open(true);
         let parent = app.as_weak();
         let weak = window.as_weak();
         let failure_parent = parent.clone();
@@ -35,10 +37,14 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
                         return;
                     };
                     app.set_dialog_open(false);
-                    window.set_folder_dialog_open(false);
+                    window
+                        .global::<riina_ui::GeneralSettingsState>()
+                        .set_folder_dialog_open(false);
                     match result {
                         Ok(Some(directory)) => {
-                            window.set_directory(directory.into());
+                            window
+                                .global::<riina_ui::GeneralSettingsState>()
+                                .set_directory(directory.into());
                             window.set_custom_directory(true);
                             window.invoke_settings_changed();
                         }
@@ -50,7 +56,9 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
             .await;
             if let Err(error) = result {
                 app.set_dialog_open(false);
-                window.set_folder_dialog_open(false);
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_folder_dialog_open(false);
                 app.set_status(error.into());
             }
         });
@@ -60,7 +68,9 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
                 app.set_status(error.to_string().into());
             }
             if let Some(window) = failure_window.upgrade() {
-                window.set_folder_dialog_open(false);
+                window
+                    .global::<riina_ui::GeneralSettingsState>()
+                    .set_folder_dialog_open(false);
             }
         }
     });

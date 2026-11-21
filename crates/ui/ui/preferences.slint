@@ -1,4 +1,4 @@
-import { KeyBindingProfileDialog, DeleteKeyBindingProfileDialog, KeyBindingMappingDialog } from "preferences-key-binding-dialogs.slint";
+import { KeyBindingDialogs } from "preferences-key-binding-dialogs.slint";
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { KeyBindingsPreferencesPage } from "preferences-key-binding-page.slint";
 import { NetworkPreferencesPage } from "preferences-network.slint";
@@ -6,7 +6,8 @@ export { NetworkSettingsState } from "preferences-network.slint";
 import { SubtitleSettingsState, SubtitlesPreferencesPage } from "preferences-subtitles.slint";
 export { SubtitleSettingsState } from "preferences-subtitles.slint";
 import { InterfacePreferencesPage } from "preferences-interface.slint";
-import { GeneralPreferencesPage } from "preferences-general.slint";
+import { GeneralSettingsState, GeneralPreferencesPage } from "preferences-general.slint";
+export { GeneralSettingsState } from "preferences-general.slint";
 import { AdvancedPreferencesPage } from "preferences-advanced.slint";
 export { AdvancedSettingsState } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
@@ -15,12 +16,12 @@ import { AudioPreferencesPage } from "preferences-audio.slint";
 export { AudioSettingsState } from "preferences-audio.slint";
 import { VideoPreferencesPage, VideoSettingsState } from "preferences-video.slint";
 export { VideoSettingsState } from "preferences-video.slint";
-import { UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
+import { UtilitySettingsState, UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
+export { UtilitySettingsState } from "preferences-utilities.slint";
 import { PreferencesNavigation } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchPopup } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
-import { KeyBindingRow } from "preferences-key-bindings.slint";
-export { KeyBindingRow } from "preferences-key-bindings.slint";
+export { KeyBindingRow, KeyBindingSettingsState } from "preferences-key-bindings.slint";
 import { PluginPreferencesRow } from "preferences-plugins.slint";
 export { PluginPreferencesRow } from "preferences-plugins.slint";
 import { MotionSettings, AdvancedMpvOptionRow } from "preferences-controls.slint";
@@ -54,8 +55,6 @@ export component PreferencesWindow inherits Window {
         root.general-screenshots-y + 228px,
         root.height - root.general-screenshots-target);
 
-    in-out property <bool> when-media-opened-expanded: false;
-    in-out property <bool> pause-resume-when-expanded: false;
     in-out property <int> appearance-index: 0;
     in-out property <bool> liquid-glass-expanded: false;
     in-out property <bool> liquid-glass-osd: true;
@@ -133,8 +132,8 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-thumbnail-target: 0px - (interface-thumbnail-y - 13px);
     out property <length> interface-pip-target: 0px - (interface-pip-y - 13px);
     out property <length> interface-accessibility-target: 0px - (interface-accessibility-y - 13px);
-    private property <length> general-expanded-height: (root.when-media-opened-expanded ? 166px : 0px)
-        + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
+    private property <length> general-expanded-height: (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px)
+        + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
     private property <length> general-history-y: 459px + root.general-expanded-height;
     private property <length> general-playlist-y: 680px + root.general-expanded-height;
     private property <length> general-screenshots-y: 928px + root.general-expanded-height;
@@ -213,25 +212,6 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> load-icc-profile <=> VideoSettingsState.load-icc-profile;
     in-out property <bool> default-hdr-mode-enabled <=> VideoSettingsState.default-hdr-mode-enabled;
     in-out property <string> video-threads-text <=> VideoSettingsState.video-threads-text;
-    in-out property <string> key-binding-current-profile: "IINA Default";
-    in-out property <int> key-binding-profile-index: 0;
-    in-out property <[string]> key-binding-profiles: ["IINA Default", "mpv Default", "VLC Default", "Movist Default", "Movist v2 Default"];
-    in-out property <[KeyBindingRow]> key-binding-rows: [];
-    in-out property <string> key-binding-search-query: "";
-    in-out property <bool> key-binding-use-system-media-controls: true;
-    in-out property <bool> key-binding-display-raw-values: false;
-    in-out property <int> key-binding-selected-row: -1;
-    in-out property <bool> key-binding-editor-open: false;
-    in-out property <bool> key-binding-profile-menu-open: false;
-    in-out property <bool> key-binding-profile-editor-open: false;
-    in-out property <bool> key-binding-profile-delete-confirm-open: false;
-    in-out property <int> key-binding-profile-editor-mode: 0;
-    in-out property <string> key-binding-profile-editor-name: "";
-    in-out property <int> key-binding-editor-row: -1;
-    in-out property <string> key-binding-editor-key: "";
-    in-out property <string> key-binding-editor-action: "";
-    in-out property <string> key-binding-editor-comment: "";
-    in-out property <int> key-binding-editor-kind: 0;
     callback key-binding-profile-selected(string);
     callback key-binding-row-selected(int);
     callback key-binding-settings-changed();
@@ -265,45 +245,6 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> osd-enabled: true;
     in-out property <bool> disable-osd-speed: false;
     in-out property <bool> disable-osd-seek: false;
-    in-out property <int> format-index: 0;
-    in-out property <bool> include-subtitles: true;
-    in-out property <bool> show-preview: true;
-    in-out property <bool> save-to-file: true;
-    in-out property <bool> copy-to-clipboard: false;
-    in-out property <int> launch-action-index: 0;
-    in-out property <bool> allow-multiple-windows: true;
-    in-out property <bool> group-simultaneous-opens-in-playlist: false;
-    in-out property <bool> allow-duplicate-players: false;
-    in-out property <bool> playlist-auto-add: true;
-    in-out property <bool> playlist-auto-play-next: true;
-    in-out property <bool> playlist-show-metadata: true;
-    in-out property <bool> playlist-show-metadata-in-music-mode: true;
-    in-out property <bool> auto-repeat: false;
-    in-out property <int> default-repeat-mode-index: 0;
-    in-out property <bool> pause-when-open: false;
-    in-out property <bool> play-when-entering-fullscreen: false;
-    in-out property <bool> pause-when-leaving-fullscreen: false;
-    in-out property <bool> pause-when-inactive: false;
-    in-out property <bool> pause-when-minimized: false;
-    in-out property <bool> pause-when-goes-to-sleep: true;
-    in-out property <bool> pause-policies-available: false;
-    in-out property <bool> quit-when-no-opened-window: false;
-    in-out property <bool> keep-open-on-file-end: true;
-    in-out property <bool> fullscreen-when-open: false;
-    in-out property <bool> resume-last-position: true;
-    in-out property <bool> record-playback-history: true;
-    in-out property <bool> record-recent-files: true;
-    in-out property <bool> track-all-files-in-recent-open-menu: true;
-    in-out property <bool> auto-switch-to-music-mode: true;
-    in-out property <bool> music-mode-show-playlist: false;
-    in-out property <bool> music-mode-show-album-art: true;
-    in-out property <string> utilities-progress-size: "0 B";
-    in-out property <string> utilities-thumbnail-size: "0 B";
-    in-out property <string> utilities-status: "";
-    in-out property <bool> utilities-default-app-sheet-open: false;
-    in-out property <bool> utilities-default-video: true;
-    in-out property <bool> utilities-default-audio: true;
-    in-out property <bool> utilities-default-playlist: true;
     callback settings-changed();
     callback native-subtitle-color-requested(int, color);
     callback open-assrt-token-page();
@@ -350,9 +291,7 @@ export component PreferencesWindow inherits Window {
     callback plugin-enabled-changed(int, bool);
     callback plugin-row-about(int);
     callback plugin-row-actions(int);
-    in-out property <string> directory;
     in-out property <bool> custom-directory: false;
-    in-out property <bool> folder-dialog-open: false;
     PreferencesNavigation {
         x: 0; y: 0; width: 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
@@ -392,47 +331,11 @@ export component PreferencesWindow inherits Window {
         general-playlist-target: root.general-playlist-target;
         general-screenshots-target: root.general-screenshots-target;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        when-media-opened-expanded <=> root.when-media-opened-expanded;
-        pause-resume-when-expanded <=> root.pause-resume-when-expanded;
-        pause-policies-available: root.pause-policies-available;
-        launch-action-index <=> root.launch-action-index;
         settings-changed => { root.settings-changed(); }
-        pause-when-open <=> root.pause-when-open;
-        fullscreen-when-open <=> root.fullscreen-when-open;
-        auto-switch-to-music-mode <=> root.auto-switch-to-music-mode;
-        music-mode-show-playlist <=> root.music-mode-show-playlist;
-        music-mode-show-album-art <=> root.music-mode-show-album-art;
-        play-when-entering-fullscreen <=> root.play-when-entering-fullscreen;
-        pause-when-leaving-fullscreen <=> root.pause-when-leaving-fullscreen;
-        pause-when-inactive <=> root.pause-when-inactive;
-        pause-when-minimized <=> root.pause-when-minimized;
-        pause-when-goes-to-sleep <=> root.pause-when-goes-to-sleep;
-        allow-multiple-windows <=> root.allow-multiple-windows;
-        group-simultaneous-opens-in-playlist <=> root.group-simultaneous-opens-in-playlist;
-        allow-duplicate-players <=> root.allow-duplicate-players;
-        quit-when-no-opened-window <=> root.quit-when-no-opened-window;
-        keep-open-on-file-end <=> root.keep-open-on-file-end;
         general-history-y: root.general-history-y;
-        resume-last-position <=> root.resume-last-position;
-        record-playback-history <=> root.record-playback-history;
-        record-recent-files <=> root.record-recent-files;
-        track-all-files-in-recent-open-menu <=> root.track-all-files-in-recent-open-menu;
         general-playlist-y: root.general-playlist-y;
-        playlist-auto-add <=> root.playlist-auto-add;
-        playlist-auto-play-next <=> root.playlist-auto-play-next;
-        playlist-show-metadata <=> root.playlist-show-metadata;
-        playlist-show-metadata-in-music-mode <=> root.playlist-show-metadata-in-music-mode;
-        auto-repeat <=> root.auto-repeat;
-        default-repeat-mode-index <=> root.default-repeat-mode-index;
         general-screenshots-y: root.general-screenshots-y;
-        save-to-file <=> root.save-to-file;
-        directory: root.directory;
-        folder-dialog-open: root.folder-dialog-open;
         choose-folder => { root.choose-folder(); }
-        format-index <=> root.format-index;
-        copy-to-clipboard <=> root.copy-to-clipboard;
-        include-subtitles <=> root.include-subtitles;
-        show-preview <=> root.show-preview;
     }
 
     if root.selected-pane == 1 : InterfacePreferencesPage {
@@ -598,28 +501,15 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 7 : KeyBindingsPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         window-height: root.height;
-        key-binding-rows: root.key-binding-rows;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        key-binding-use-system-media-controls <=> root.key-binding-use-system-media-controls;
         key-binding-settings-changed => { root.key-binding-settings-changed(); }
         settings-changed => { root.settings-changed(); }
-        key-binding-profiles: root.key-binding-profiles;
-        key-binding-profile-index <=> root.key-binding-profile-index;
-        key-binding-current-profile <=> root.key-binding-current-profile;
         key-binding-profile-selected(value1) => { root.key-binding-profile-selected(value1); }
-        key-binding-profile-delete-confirm-open <=> root.key-binding-profile-delete-confirm-open;
-        key-binding-profile-menu-open <=> root.key-binding-profile-menu-open;
-        key-binding-search-query <=> root.key-binding-search-query;
         key-binding-search-changed(value1) => { root.key-binding-search-changed(value1); }
         key-binding-add-requested => { root.key-binding-add-requested(); }
-        key-binding-selected-row <=> root.key-binding-selected-row;
         key-binding-row-selected(value1) => { root.key-binding-row-selected(value1); }
         key-binding-edit-requested(value1) => { root.key-binding-edit-requested(value1); }
         key-binding-remove-requested(value1) => { root.key-binding-remove-requested(value1); }
-        key-binding-display-raw-values <=> root.key-binding-display-raw-values;
-        key-binding-profile-editor-mode <=> root.key-binding-profile-editor-mode;
-        key-binding-profile-editor-name <=> root.key-binding-profile-editor-name;
-        key-binding-profile-editor-open <=> root.key-binding-profile-editor-open;
         key-binding-import-profile-requested => { root.key-binding-import-profile-requested(); }
         key-binding-reveal-profile => { root.key-binding-reveal-profile(); }
     }
@@ -656,8 +546,6 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 10 : UtilitiesPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        utilities-thumbnail-size: root.utilities-thumbnail-size;
-        utilities-status: root.utilities-status;
         utilities-open-default-apps => { root.utilities-open-default-apps(); }
         utilities-restore-alerts => { root.utilities-restore-alerts(); }
         utilities-clear-progress => { root.utilities-clear-progress(); }
@@ -674,37 +562,14 @@ export component PreferencesWindow inherits Window {
         }
     }
 
-    if root.key-binding-profile-editor-open : KeyBindingProfileDialog {
-        x: 0px; y: 0px; width: root.width; height: root.height;
-        mode: root.key-binding-profile-editor-mode;
-        profile-name <=> root.key-binding-profile-editor-name;
-        cancelled => { root.key-binding-profile-editor-cancelled(); }
-        submitted(profile-name, mode) => { root.key-binding-profile-created(profile-name, mode); }
-    }
-
-    if root.key-binding-profile-delete-confirm-open : DeleteKeyBindingProfileDialog {
-        x: 0px; y: 0px; width: root.width; height: root.height;
-        cancelled => { root.key-binding-profile-delete-confirm-open = false; }
-        confirmed => {
-            root.key-binding-profile-delete-confirm-open = false;
-            root.key-binding-delete-profile();
-        }
-    }
-
-    if root.key-binding-editor-open : KeyBindingMappingDialog {
-        x: 0px; y: 0px; width: root.width; height: root.height;
-        mapping-key: root.key-binding-editor-key;
-        mapping-action <=> root.key-binding-editor-action;
-        mapping-comment <=> root.key-binding-editor-comment;
-        mapping-kind <=> root.key-binding-editor-kind;
-        mapping-row: root.key-binding-editor-row;
-        cancelled => { root.key-binding-editor-cancelled(); }
-        key-recorded(key, control, alt, shift, meta) => {
-            root.key-binding-key-recorded(key, control, alt, shift, meta);
-        }
-        submitted(key, action, comment, kind, row) => {
-            root.key-binding-mapping-submitted(key, action, comment, kind, row);
-        }
+    KeyBindingDialogs {
+        width: root.width; height: root.height;
+        key-binding-profile-editor-cancelled => { root.key-binding-profile-editor-cancelled(); }
+        key-binding-profile-created(name, mode) => { root.key-binding-profile-created(name, mode); }
+        key-binding-delete-profile => { root.key-binding-delete-profile(); }
+        key-binding-editor-cancelled => { root.key-binding-editor-cancelled(); }
+        key-binding-key-recorded(key, control, alt, shift, meta) => { root.key-binding-key-recorded(key, control, alt, shift, meta); }
+        key-binding-mapping-submitted(key, action, comment, kind, row) => { root.key-binding-mapping-submitted(key, action, comment, kind, row); }
     }
 
     if root.plugin-github-sheet-open : PluginInstallDialog {
@@ -715,14 +580,14 @@ export component PreferencesWindow inherits Window {
         cancelled => { root.plugin-github-sheet-open = false; }
     }
 
-    if root.utilities-default-app-sheet-open : DefaultAppDialog {
+    if UtilitySettingsState.utilities-default-app-sheet-open : DefaultAppDialog {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        video <=> root.utilities-default-video;
-        audio <=> root.utilities-default-audio;
-        playlist <=> root.utilities-default-playlist;
-        cancelled => { root.utilities-default-app-sheet-open = false; }
+        video <=> UtilitySettingsState.utilities-default-video;
+        audio <=> UtilitySettingsState.utilities-default-audio;
+        playlist <=> UtilitySettingsState.utilities-default-playlist;
+        cancelled => { UtilitySettingsState.utilities-default-app-sheet-open = false; }
         confirmed(video, audio, playlist) => {
-            root.utilities-default-app-sheet-open = false;
+            UtilitySettingsState.utilities-default-app-sheet-open = false;
             root.utilities-default-apps-requested(video, audio, playlist);
         }
     }
