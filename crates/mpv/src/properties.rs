@@ -52,285 +52,788 @@ fn metadata_value(value: &serde_json::Value, key: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
-pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
-    // SAFETY: caller processes the event before asking mpv for another one. Format
-    // tags are checked before dereferencing; unavailable properties remain unknown.
-    let name = unsafe { CStr::from_ptr(property.name) }.to_bytes();
-    if property.data.is_null() {
-        if let Some(option) = riina_core::video_controls::Equalizer::ALL
-            .into_iter()
-            .find(|option| option.property().as_bytes() == name)
-        {
-            state.video_equalizer[option.index()] = None;
+enum PropertyValue {
+    Node(serde_json::Value),
+    Flag(bool),
+    Double(f64),
+    Integer(i64),
+    Text(String),
+}
+
+pub(super) struct ObservedProperty {
+    pub(super) name: &'static CStr,
+    pub(super) format: std::ffi::c_int,
+    apply: fn(&mut Playback, PropertyValue) -> Result<(), String>,
+    clear: fn(&mut Playback),
+}
+
+macro_rules! property {
+    (@format Node) => { format::NODE };
+    (@format Flag) => { format::FLAG };
+    (@format Double) => { format::DOUBLE };
+    (@format Integer) => { format::INT64 };
+    (@format Text) => { format::STRING };
+    (@clear) => { |_| {} };
+    (@clear $clear:expr) => { $clear };
+    ($name:literal, $kind:ident, |$state:ident, $value:ident| $apply:block $(, $clear:expr)?) => {
+        ObservedProperty {
+            name: $name,
+            format: property!(@format $kind),
+            apply: |$state, property| {
+                if let PropertyValue::$kind($value) = property {
+                    $apply
+                }
+                Ok(())
+            },
+            clear: property!(@clear $($clear)?),
         }
-        match name {
-            b"time-pos" => state.position = None,
-            b"duration" => state.duration = None,
-            b"mpv-version" => state.mpv_version = None,
-            b"ffmpeg-version" => state.ffmpeg_version = None,
-            b"ignore-path-in-watch-later-config" => state.ignore_path_in_watch_later_config = None,
-            b"save-position-on-quit" => state.save_position_on_quit = None,
-            b"track-list" => state.tracks.clear(),
-            b"chapter-list" => state.chapters.clear(),
-            b"playlist" => state.playlist.clear(),
-            b"metadata" => {
-                state.artist = None;
-                state.album = None;
+    };
+}
+
+pub(super) static OBSERVED: &[ObservedProperty] = &[
+    property!(
+        c"time-pos",
+        Double,
+        |state, value| {
+            state.position = (value >= 0.0).then_some(value);
+        },
+        |state| {
+            state.position = None;
+        }
+    ),
+    property!(
+        c"duration",
+        Double,
+        |state, value| {
+            state.duration = (value >= 0.0).then_some(value);
+        },
+        |state| {
+            state.duration = None;
+        }
+    ),
+    property!(c"pause", Flag, |state, flag| {
+        state.paused = flag;
+    }),
+    property!(c"paused-for-cache", Flag, |state, flag| {
+        state.buffering = flag;
+    }),
+    property!(c"seeking", Flag, |state, flag| {
+        state.seeking = flag;
+    }),
+    property!(c"seekable", Flag, |state, flag| {
+        state.seekable = flag;
+    }),
+    property!(
+        c"ignore-path-in-watch-later-config",
+        Flag,
+        |state, flag| {
+            state.ignore_path_in_watch_later_config = Some(flag);
+        },
+        |state| {
+            state.ignore_path_in_watch_later_config = None;
+        }
+    ),
+    property!(
+        c"save-position-on-quit",
+        Flag,
+        |state, flag| {
+            state.save_position_on_quit = Some(flag);
+        },
+        |state| {
+            state.save_position_on_quit = None;
+        }
+    ),
+    property!(c"volume", Double, |state, value| {
+        state.volume = value;
+    }),
+    property!(c"mute", Flag, |state, flag| {
+        state.muted = flag;
+    }),
+    property!(c"speed", Double, |state, value| {
+        state.speed = value;
+    }),
+    property!(c"media-title", Text, |state, value| {
+        state.title = value;
+    }),
+    property!(
+        c"mpv-version",
+        Text,
+        |state, value| {
+            state.mpv_version = Some(value);
+        },
+        |state| {
+            state.mpv_version = None;
+        }
+    ),
+    property!(
+        c"ffmpeg-version",
+        Text,
+        |state, value| {
+            state.ffmpeg_version = Some(value);
+        },
+        |state| {
+            state.ffmpeg_version = None;
+        }
+    ),
+    property!(c"eof-reached", Flag, |state, flag| {
+        if flag {
+            state.phase = Phase::Ended;
+        } else if state.phase == Phase::Ended {
+            state.phase = Phase::Playing;
+        }
+    }),
+    property!(
+        c"current-ao",
+        Text,
+        |state, value| {
+            state.audio_output = Some(value);
+        },
+        |state| {
+            state.audio_output = None;
+        }
+    ),
+    property!(
+        c"audio-device",
+        Text,
+        |state, value| {
+            state.audio_device = Some(value);
+        },
+        |state| {
+            state.audio_device = None;
+        }
+    ),
+    property!(
+        c"hwdec-current",
+        Text,
+        |state, value| {
+            state.hardware_decoder = Some(value);
+        },
+        |state| {
+            state.hardware_decoder = None;
+        }
+    ),
+    property!(
+        c"hwdec",
+        Text,
+        |state, value| {
+            state.hardware_decoding = Some(value);
+        },
+        |state| {
+            state.hardware_decoding = None;
+        }
+    ),
+    property!(
+        c"vf",
+        Node,
+        |state, value| {
+            state.video_filters = Some(serde_json::from_value(value).map_err(|e| e.to_string())?);
+        },
+        |state| {
+            state.video_filters = None;
+        }
+    ),
+    property!(
+        c"af",
+        Node,
+        |state, value| {
+            let raw_filters: Vec<serde_json::Value> =
+                serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+            let filters: Vec<riina_core::crop::VideoFilter> =
+                serde_json::from_value(value).map_err(|e| e.to_string())?;
+            state.audio_equalizer = riina_core::audio_equalizer::observed_gains(&raw_filters);
+            state.audio_filters = Some(filters);
+        },
+        |state| {
+            state.audio_equalizer = None;
+            state.audio_filters = None;
+        }
+    ),
+    property!(
+        c"track-list",
+        Node,
+        |state, value| {
+            state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?;
+            state.track_list_observed = true;
+        },
+        |state| {
+            state.tracks.clear();
+        }
+    ),
+    property!(
+        c"chapter-list",
+        Node,
+        |state, value| {
+            state.chapters = serde_json::from_value(value).map_err(|e| e.to_string())?;
+        },
+        |state| {
+            state.chapters.clear();
+        }
+    ),
+    property!(
+        c"playlist",
+        Node,
+        |state, value| {
+            state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?;
+        },
+        |state| {
+            state.playlist.clear();
+        }
+    ),
+    property!(
+        c"audio-device-list",
+        Node,
+        |state, value| {
+            state.audio_devices = decode_audio_devices(value)?;
+        },
+        |state| {
+            state.audio_devices.clear();
+        }
+    ),
+    property!(
+        c"video-params",
+        Node,
+        |state, value| {
+            state.video = video_parameters(value)?;
+        },
+        |state| {
+            state.video = None;
+        }
+    ),
+    property!(
+        c"video-target-params",
+        Node,
+        |state, value| {
+            state.video_target = video_parameters(value)?;
+        },
+        |state| {
+            state.video_target = None;
+        }
+    ),
+    property!(
+        c"metadata",
+        Node,
+        |state, value| {
+            state.artist = metadata_value(&value, "artist");
+            state.album = metadata_value(&value, "album");
+        },
+        |state| {
+            state.artist = None;
+            state.album = None;
+        }
+    ),
+    property!(
+        c"video-aspect-override",
+        Double,
+        |state, value| {
+            state.video_aspect_override = Some(value);
+        },
+        |state| {
+            state.video_aspect_override = None;
+        }
+    ),
+    property!(
+        c"video-rotate",
+        Integer,
+        |state, value| {
+            state.video_rotation = Some(value);
+        },
+        |state| {
+            state.video_rotation = None;
+        }
+    ),
+    property!(
+        c"deinterlace",
+        Text,
+        |state, value| {
+            state.deinterlace = match value.as_str() {
+                "yes" => Some(true),
+                "no" => Some(false),
+                _ => None,
             }
-            b"audio-device-list" => state.audio_devices.clear(),
-            b"sub-text" => state.subtitle_text = None,
-            b"secondary-sub-text" => state.secondary_subtitle_text = None,
-            b"secondary-sub-visibility" => state.secondary_subtitle_visible = None,
-            b"secondary-sub-delay" => state.secondary_subtitle_delay = None,
-            b"secondary-sub-pos" => state.secondary_subtitle_position = None,
-            b"sub-scale" => state.subtitle_scale = None,
-            b"sub-font-size" => state.subtitle_font_size = None,
-            b"sub-font" => state.subtitle_font = None,
-            b"sub-outline-size" => state.subtitle_outline_size = None,
-            b"sub-color" => state.subtitle_text_color = None,
-            b"sub-outline-color" => state.subtitle_border_color = None,
-            b"sub-back-color" => state.subtitle_shadow_color = None,
-            b"sub-bold" => state.subtitle_bold = None,
-            b"sub-italic" => state.subtitle_italic = None,
-            b"sub-blur" => state.subtitle_blur = None,
-            b"sub-spacing" => state.subtitle_spacing = None,
-            b"sub-shadow-offset" => state.subtitle_shadow_offset = None,
-            b"sub-pos" => state.subtitle_position = None,
-            b"video-params" => state.video = None,
-            b"video-target-params" => state.video_target = None,
-            b"video-out-params" => state.video_output = None,
-            b"vf" => state.video_filters = None,
-            b"af" => {
-                state.audio_equalizer = None;
-                state.audio_filters = None;
-            }
-            b"video-aspect-override" => state.video_aspect_override = None,
-            b"video-rotate" => state.video_rotation = None,
-            b"deinterlace" => state.deinterlace = None,
-            b"deinterlace-active" => state.deinterlace_active = None,
-            b"video-frame-info" => state.video_frame_info = None,
-            b"hwdec-current" => state.hardware_decoder = None,
-            b"hwdec" => state.hardware_decoding = None,
-            b"current-ao" => state.audio_output = None,
-            b"audio-device" => state.audio_device = None,
-            b"loop-file" => state.loop_file = None,
-            b"loop-playlist" => state.loop_playlist = None,
-            b"ab-loop-a" => state.ab_loop_a = None,
-            b"ab-loop-b" => state.ab_loop_b = None,
-            _ => {}
+        },
+        |state| {
+            state.deinterlace = None;
+        }
+    ),
+    property!(
+        c"deinterlace-active",
+        Flag,
+        |state, flag| {
+            state.deinterlace_active = Some(flag);
+        },
+        |state| {
+            state.deinterlace_active = None;
+        }
+    ),
+    property!(
+        c"video-frame-info",
+        Node,
+        |state, value| {
+            state.video_frame_info =
+                if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
+                    None
+                } else {
+                    Some(serde_json::from_value(value).map_err(|e| e.to_string())?)
+                };
+        },
+        |state| {
+            state.video_frame_info = None;
+        }
+    ),
+    property!(
+        c"video-out-params",
+        Node,
+        |state, value| {
+            state.video_output = video_parameters(value)?;
+        },
+        |state| {
+            state.video_output = None;
+        }
+    ),
+    property!(
+        c"brightness",
+        Integer,
+        |state, value| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Brightness.index()] =
+                (-100..=100).contains(&value).then_some(value);
+        },
+        |state| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Brightness.index()] = None;
+        }
+    ),
+    property!(
+        c"contrast",
+        Integer,
+        |state, value| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Contrast.index()] =
+                (-100..=100).contains(&value).then_some(value);
+        },
+        |state| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Contrast.index()] = None;
+        }
+    ),
+    property!(
+        c"saturation",
+        Integer,
+        |state, value| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Saturation.index()] =
+                (-100..=100).contains(&value).then_some(value);
+        },
+        |state| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Saturation.index()] = None;
+        }
+    ),
+    property!(
+        c"gamma",
+        Integer,
+        |state, value| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Gamma.index()] =
+                (-100..=100).contains(&value).then_some(value);
+        },
+        |state| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Gamma.index()] = None;
+        }
+    ),
+    property!(
+        c"hue",
+        Integer,
+        |state, value| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Hue.index()] =
+                (-100..=100).contains(&value).then_some(value);
+        },
+        |state| {
+            state.video_equalizer[riina_core::video_controls::Equalizer::Hue.index()] = None;
+        }
+    ),
+    property!(c"audio-delay", Double, |state, value| {
+        state.audio_delay = value;
+    }),
+    property!(c"sub-delay", Double, |state, value| {
+        state.subtitle_delay = value;
+    }),
+    property!(c"sub-visibility", Flag, |state, flag| {
+        state.subtitle_visible = flag;
+    }),
+    property!(
+        c"sub-scale",
+        Double,
+        |state, value| {
+            state.subtitle_scale = (0.0..=100.0).contains(&value).then_some(value);
+        },
+        |state| {
+            state.subtitle_scale = None;
+        }
+    ),
+    property!(
+        c"sub-pos",
+        Double,
+        |state, value| {
+            state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value);
+        },
+        |state| {
+            state.subtitle_position = None;
+        }
+    ),
+    property!(
+        c"sub-font-size",
+        Double,
+        |state, value| {
+            state.subtitle_font_size = (value > 0.0).then_some(value);
+        },
+        |state| {
+            state.subtitle_font_size = None;
+        }
+    ),
+    property!(
+        c"sub-outline-size",
+        Double,
+        |state, value| {
+            state.subtitle_outline_size = (value >= 0.0).then_some(value);
+        },
+        |state| {
+            state.subtitle_outline_size = None;
+        }
+    ),
+    property!(
+        c"sub-blur",
+        Double,
+        |state, value| {
+            state.subtitle_blur = (0.0..=20.0).contains(&value).then_some(value);
+        },
+        |state| {
+            state.subtitle_blur = None;
+        }
+    ),
+    property!(
+        c"sub-spacing",
+        Double,
+        |state, value| {
+            state.subtitle_spacing = Some(value);
+        },
+        |state| {
+            state.subtitle_spacing = None;
+        }
+    ),
+    property!(
+        c"sub-shadow-offset",
+        Double,
+        |state, value| {
+            state.subtitle_shadow_offset = (value >= 0.0).then_some(value);
+        },
+        |state| {
+            state.subtitle_shadow_offset = None;
+        }
+    ),
+    property!(
+        c"sub-color",
+        Text,
+        |state, value| {
+            state.subtitle_text_color = riina_core::subtitle_color::SubtitleColor::from_mpv(&value);
+        },
+        |state| {
+            state.subtitle_text_color = None;
+        }
+    ),
+    property!(
+        c"sub-outline-color",
+        Text,
+        |state, value| {
+            state.subtitle_border_color =
+                riina_core::subtitle_color::SubtitleColor::from_mpv(&value);
+        },
+        |state| {
+            state.subtitle_border_color = None;
+        }
+    ),
+    property!(
+        c"sub-back-color",
+        Text,
+        |state, value| {
+            state.subtitle_shadow_color =
+                riina_core::subtitle_color::SubtitleColor::from_mpv(&value);
+        },
+        |state| {
+            state.subtitle_shadow_color = None;
+        }
+    ),
+    property!(
+        c"sub-bold",
+        Flag,
+        |state, flag| {
+            state.subtitle_bold = Some(flag);
+        },
+        |state| {
+            state.subtitle_bold = None;
+        }
+    ),
+    property!(
+        c"sub-italic",
+        Flag,
+        |state, flag| {
+            state.subtitle_italic = Some(flag);
+        },
+        |state| {
+            state.subtitle_italic = None;
+        }
+    ),
+    property!(
+        c"sub-font",
+        Text,
+        |state, value| {
+            state.subtitle_font =
+                riina_core::subtitle_controls::valid_font_name(&value).then_some(value);
+        },
+        |state| {
+            state.subtitle_font = None;
+        }
+    ),
+    property!(
+        c"secondary-sub-visibility",
+        Flag,
+        |state, flag| {
+            state.secondary_subtitle_visible = Some(flag);
+        },
+        |state| {
+            state.secondary_subtitle_visible = None;
+        }
+    ),
+    property!(
+        c"secondary-sub-text",
+        Text,
+        |state, value| {
+            state.secondary_subtitle_text = Some(value);
+        },
+        |state| {
+            state.secondary_subtitle_text = None;
+        }
+    ),
+    property!(
+        c"secondary-sub-delay",
+        Double,
+        |state, value| {
+            state.secondary_subtitle_delay = Some(value);
+        },
+        |state| {
+            state.secondary_subtitle_delay = None;
+        }
+    ),
+    property!(
+        c"secondary-sub-pos",
+        Double,
+        |state, value| {
+            state.secondary_subtitle_position = (0.0..=150.0).contains(&value).then_some(value);
+        },
+        |state| {
+            state.secondary_subtitle_position = None;
+        }
+    ),
+    property!(
+        c"sub-text",
+        Text,
+        |state, value| {
+            state.subtitle_text = Some(value);
+        },
+        |state| {
+            state.subtitle_text = None;
+        }
+    ),
+    property!(
+        c"loop-file",
+        Text,
+        |state, value| {
+            state.loop_file = Some(value);
+        },
+        |state| {
+            state.loop_file = None;
+        }
+    ),
+    property!(
+        c"loop-playlist",
+        Text,
+        |state, value| {
+            state.loop_playlist = Some(value);
+        },
+        |state| {
+            state.loop_playlist = None;
+        }
+    ),
+    property!(
+        c"ab-loop-a",
+        Node,
+        |state, value| {
+            state.ab_loop_a = loop_point(&value);
+        },
+        |state| {
+            state.ab_loop_a = None;
+        }
+    ),
+    property!(
+        c"ab-loop-b",
+        Node,
+        |state, value| {
+            state.ab_loop_b = loop_point(&value);
+        },
+        |state| {
+            state.ab_loop_b = None;
+        }
+    ),
+];
+
+fn loop_point(value: &serde_json::Value) -> Option<f64> {
+    // An unset point is usually "no". It must remain distinct from time zero.
+    value
+        .as_f64()
+        .filter(|point| point.is_finite() && *point >= 0.0)
+}
+
+// Source, target and output geometry each have their own field. The target
+// can describe presentation while the source still carries PQ/HLG.
+fn video_parameters(
+    value: serde_json::Value,
+) -> Result<Option<riina_core::VideoParameters>, String> {
+    if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
+        Ok(None)
+    } else {
+        serde_json::from_value(value)
+            .map(Some)
+            .map_err(|error| error.to_string())
+    }
+}
+
+fn observed(name: &[u8]) -> Option<&'static ObservedProperty> {
+    use std::{collections::HashMap, sync::OnceLock};
+    static LOOKUP: OnceLock<HashMap<&'static [u8], &'static ObservedProperty>> = OnceLock::new();
+    LOOKUP
+        .get_or_init(|| {
+            OBSERVED
+                .iter()
+                .map(|property| (property.name.to_bytes(), property))
+                .collect()
+        })
+        .get(name)
+        .copied()
+}
+
+pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
+    // SAFETY: the event holds a live, NUL-terminated property name until the worker waits again.
+    let name = unsafe { CStr::from_ptr(property.name) }.to_bytes();
+    let row = observed(name);
+    if property.data.is_null() {
+        if let Some(row) = row {
+            (row.clear)(state);
         }
         return;
     }
-    if property.format == format::NODE {
-        // SAFETY: non-null MPV_FORMAT_NODE data points to a node owned by this event.
-        let node = unsafe { &*property.data.cast::<ffi::Node>() };
-        // SAFETY: the worker copies the node tree before waiting for the next event.
-        let result = unsafe { node.copy_json() }.and_then(|value| {
-            match name {
-                b"ab-loop-a" | b"ab-loop-b" => {
-                    // Native values are either a numeric timestamp or "no".
-                    // Unknown/unavailable points must not become a zero marker.
-                    let point = value
-                        .as_f64()
-                        .filter(|point| point.is_finite() && *point >= 0.0);
-                    if name == b"ab-loop-a" {
-                        state.ab_loop_a = point;
-                    } else {
-                        state.ab_loop_b = point;
-                    }
+    // SAFETY: the pointer and any borrowed node contents are live through this call.
+    let result = unsafe { property_value(property) }.and_then(|value| {
+        if let (Some(row), Some(value)) = (row, value) {
+            if row.format == format::DOUBLE
+                && matches!(&value, PropertyValue::Double(number) if !number.is_finite())
+            {
+                (row.clear)(state);
+            } else {
+                (row.apply)(state, value)?;
+            }
+        }
+        Ok(())
+    });
+    if let Err(error) = result {
+        state.error = Some(format!("Cannot decode mpv property: {error}"));
+    }
+}
+
+unsafe fn property_value(property: &Property) -> Result<Option<PropertyValue>, String> {
+    let value = match property.format {
+        format::NODE => {
+            // SAFETY: this live non-null payload is tagged as an mpv_node.
+            let node = unsafe { &*property.data.cast::<ffi::Node>() };
+            // SAFETY: the worker copies the tree before waiting for the next event.
+            PropertyValue::Node(unsafe { node.copy_json() }?)
+        }
+        format::FLAG => {
+            // SAFETY: a live flag payload points to a non-null C integer.
+            PropertyValue::Flag(unsafe { *property.data.cast::<i32>() } != 0)
+        }
+        format::DOUBLE => {
+            // SAFETY: this non-null payload is tagged as a C double.
+            PropertyValue::Double(unsafe { *property.data.cast::<f64>() })
+        }
+        format::INT64 => {
+            // SAFETY: this non-null payload is tagged as a 64-bit integer.
+            PropertyValue::Integer(unsafe { *property.data.cast::<i64>() })
+        }
+        format::STRING => {
+            // SAFETY: string payloads carry a pointer to the C string pointer.
+            let text = unsafe { *property.data.cast::<*const std::ffi::c_char>() };
+            if text.is_null() {
+                return Ok(None);
+            }
+            // SAFETY: the event owns this NUL-terminated string until the next wait.
+            PropertyValue::Text(
+                unsafe { CStr::from_ptr(text) }
+                    .to_string_lossy()
+                    .into_owned(),
+            )
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(value))
+}
+
+#[cfg(test)]
+mod observer_table_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn every_observed_property_is_unique_and_projects_a_sample_value() {
+        let mut names = std::collections::HashSet::new();
+        for row in OBSERVED {
+            assert!(names.insert(row.name), "Duplicate property {:?}", row.name);
+            assert!(std::ptr::eq(observed(row.name.to_bytes()).unwrap(), row));
+            let mut state = Playback::default();
+            (row.clear)(&mut state);
+            let cleared = format!("{state:?}");
+            if let Err(error) = (row.apply)(&mut state, sample(row)) {
+                panic!("Could not project {:?}: {error}", row.name);
+            }
+            assert_ne!(
+                format!("{state:?}"),
+                cleared,
+                "No change from {:?}",
+                row.name
+            );
+        }
+    }
+
+    fn sample(row: &ObservedProperty) -> PropertyValue {
+        match row.format {
+            format::FLAG => PropertyValue::Flag(true),
+            format::DOUBLE => PropertyValue::Double(1.25),
+            format::INT64 => PropertyValue::Integer(35),
+            format::STRING => PropertyValue::Text(
+                match row.name.to_bytes() {
+                    b"deinterlace" => "yes",
+                    b"sub-color" | b"sub-outline-color" | b"sub-back-color" => "0.1/0.2/0.3/0.4",
+                    _ => "Example",
                 }
-                b"track-list" => {
-                    state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?;
-                    state.track_list_observed = true;
-                }
-                b"vf" => {
-                    state.video_filters =
-                        Some(serde_json::from_value(value).map_err(|e| e.to_string())?);
-                }
-                b"af" => {
-                    let raw_filters: Vec<serde_json::Value> =
-                        serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
-                    let filters: Vec<riina_core::crop::VideoFilter> =
-                        serde_json::from_value(value).map_err(|e| e.to_string())?;
-                    state.audio_equalizer =
-                        riina_core::audio_equalizer::observed_gains(&raw_filters);
-                    state.audio_filters = Some(filters);
-                }
-                b"chapter-list" => {
-                    state.chapters = serde_json::from_value(value).map_err(|e| e.to_string())?
-                }
-                b"playlist" => {
-                    state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?
-                }
-                b"audio-device-list" => state.audio_devices = decode_audio_devices(value)?,
-                b"metadata" => {
-                    state.artist = metadata_value(&value, "artist");
-                    state.album = metadata_value(&value, "album");
-                }
-                b"video-frame-info" => {
-                    state.video_frame_info =
-                        if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
-                            None
-                        } else {
-                            Some(serde_json::from_value(value).map_err(|e| e.to_string())?)
-                        };
-                }
+                .into(),
+            ),
+            format::NODE => PropertyValue::Node(match row.name.to_bytes() {
+                b"ab-loop-a" | b"ab-loop-b" => json!(1.25),
+                b"track-list" => json!([{"id": 1, "type": "audio"}]),
+                b"chapter-list" => json!([{"time": 1.25, "title": "Opening"}]),
+                b"playlist" => json!([{"id": 1, "filename": "clip.mkv"}]),
+                b"audio-device-list" => json!([{"name": "default", "description": "Test device"}]),
                 b"video-params" | b"video-target-params" | b"video-out-params" => {
-                    // The native VO target describes presentation, while source
-                    // parameters can still carry a PQ/HLG transfer function.
-                    let destination = if name == b"video-params" {
-                        &mut state.video
-                    } else if name == b"video-target-params" {
-                        &mut state.video_target
-                    } else {
-                        &mut state.video_output
-                    };
-                    *destination =
-                        if value.is_null() || value.as_object().is_some_and(|map| map.is_empty()) {
-                            None
-                        } else {
-                            Some(serde_json::from_value(value).map_err(|e| e.to_string())?)
-                        };
+                    json!({"w": 320, "h": 180})
                 }
-                _ => {}
-            }
-            Ok(())
-        });
-        if let Err(error) = result {
-            state.error = Some(format!("Cannot decode mpv property: {error}"));
-        }
-    } else if property.format == format::INT64 {
-        // SAFETY: MPV_FORMAT_INT64 data points to a live, non-null i64 for this event.
-        let value = unsafe { *property.data.cast::<i64>() };
-        if name == b"video-rotate" {
-            state.video_rotation = Some(value);
-        }
-        if let Some(option) = riina_core::video_controls::Equalizer::ALL
-            .into_iter()
-            .find(|option| option.property().as_bytes() == name)
-        {
-            // Unavailable or invalid native values must not masquerade as a
-            // neutral setting in controls that would overwrite an unknown state.
-            state.video_equalizer[option.index()] = (-100..=100).contains(&value).then_some(value);
-        }
-    } else if property.format == format::DOUBLE {
-        // SAFETY: MPV_FORMAT_DOUBLE data points to a live, non-null double for this event.
-        let value = unsafe { *property.data.cast::<f64>() };
-        if !value.is_finite() {
-            match name {
-                b"time-pos" => state.position = None,
-                b"duration" => state.duration = None,
-                b"video-aspect-override" => state.video_aspect_override = None,
-                b"sub-scale" => state.subtitle_scale = None,
-                b"sub-font-size" => state.subtitle_font_size = None,
-                b"sub-outline-size" => state.subtitle_outline_size = None,
-                b"sub-blur" => state.subtitle_blur = None,
-                b"sub-spacing" => state.subtitle_spacing = None,
-                b"sub-shadow-offset" => state.subtitle_shadow_offset = None,
-                b"sub-pos" => state.subtitle_position = None,
-                b"secondary-sub-delay" => state.secondary_subtitle_delay = None,
-                b"secondary-sub-pos" => state.secondary_subtitle_position = None,
-                _ => {}
-            }
-            return;
-        }
-        match name {
-            b"time-pos" => state.position = (value >= 0.0).then_some(value),
-            b"duration" => state.duration = (value >= 0.0).then_some(value),
-            b"volume" => state.volume = value,
-            b"speed" => state.speed = value,
-            b"video-aspect-override" => state.video_aspect_override = Some(value),
-            b"audio-delay" => state.audio_delay = value,
-            b"sub-delay" => state.subtitle_delay = value,
-            b"secondary-sub-delay" => state.secondary_subtitle_delay = Some(value),
-            b"secondary-sub-pos" => {
-                state.secondary_subtitle_position = (0.0..=150.0).contains(&value).then_some(value)
-            }
-            b"sub-scale" => state.subtitle_scale = (0.0..=100.0).contains(&value).then_some(value),
-            b"sub-font-size" => state.subtitle_font_size = (value > 0.0).then_some(value),
-            b"sub-outline-size" => state.subtitle_outline_size = (value >= 0.0).then_some(value),
-            b"sub-blur" => state.subtitle_blur = (0.0..=20.0).contains(&value).then_some(value),
-            b"sub-spacing" => state.subtitle_spacing = Some(value),
-            b"sub-shadow-offset" => state.subtitle_shadow_offset = (value >= 0.0).then_some(value),
-            b"sub-pos" => state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value),
-            _ => {}
-        }
-    } else if property.format == format::FLAG {
-        // SAFETY: MPV_FORMAT_FLAG data points to mpv's live, non-null C int flag.
-        let flag = unsafe { *property.data.cast::<i32>() } != 0;
-        match name {
-            b"pause" => state.paused = flag,
-            b"ignore-path-in-watch-later-config" => {
-                state.ignore_path_in_watch_later_config = Some(flag)
-            }
-            b"save-position-on-quit" => state.save_position_on_quit = Some(flag),
-            b"paused-for-cache" => state.buffering = flag,
-            b"seeking" => state.seeking = flag,
-            b"seekable" => state.seekable = flag,
-            b"mute" => state.muted = flag,
-            b"sub-visibility" => state.subtitle_visible = flag,
-            b"secondary-sub-visibility" => state.secondary_subtitle_visible = Some(flag),
-            b"sub-bold" => state.subtitle_bold = Some(flag),
-            b"sub-italic" => state.subtitle_italic = Some(flag),
-            b"deinterlace-active" => state.deinterlace_active = Some(flag),
-            b"eof-reached" => {
-                if flag {
-                    state.phase = Phase::Ended;
-                } else if state.phase == Phase::Ended {
-                    state.phase = Phase::Playing;
-                }
-            }
-            _ => {}
-        }
-    } else if property.format == format::STRING {
-        // SAFETY: MPV_FORMAT_STRING property events carry a pointer to the C string pointer.
-        let text = unsafe { *property.data.cast::<*const std::ffi::c_char>() };
-        if !text.is_null() {
-            // SAFETY: the event owns the NUL-terminated string until the next wait_event call.
-            let value = unsafe { CStr::from_ptr(text) }
-                .to_string_lossy()
-                .into_owned();
-            match name {
-                b"media-title" => state.title = value,
-                b"mpv-version" => state.mpv_version = Some(value),
-                b"ffmpeg-version" => state.ffmpeg_version = Some(value),
-                b"current-ao" => state.audio_output = Some(value),
-                b"audio-device" => state.audio_device = Some(value),
-                b"hwdec-current" => state.hardware_decoder = Some(value),
-                b"hwdec" => state.hardware_decoding = Some(value),
-                b"deinterlace" => {
-                    state.deinterlace = match value.as_str() {
-                        "yes" => Some(true),
-                        "no" => Some(false),
-                        _ => None,
-                    }
-                }
-                b"sub-text" => state.subtitle_text = Some(value),
-                b"sub-font" => {
-                    state.subtitle_font =
-                        riina_core::subtitle_controls::valid_font_name(&value).then_some(value);
-                }
-                b"sub-color" => {
-                    state.subtitle_text_color =
-                        riina_core::subtitle_color::SubtitleColor::from_mpv(&value)
-                }
-                b"sub-outline-color" => {
-                    state.subtitle_border_color =
-                        riina_core::subtitle_color::SubtitleColor::from_mpv(&value)
-                }
-                b"sub-back-color" => {
-                    state.subtitle_shadow_color =
-                        riina_core::subtitle_color::SubtitleColor::from_mpv(&value)
-                }
-                b"secondary-sub-text" => state.secondary_subtitle_text = Some(value),
-                b"loop-file" => state.loop_file = Some(value),
-                b"loop-playlist" => state.loop_playlist = Some(value),
-                _ => {}
-            }
+                b"video-frame-info" => json!({"interlaced": true}),
+                b"metadata" => json!({"artist": "Test artist"}),
+                b"vf" | b"af" => json!([]),
+                _ => panic!("Provide a node sample for {:?}", row.name),
+            }),
+            _ => panic!("Provide a sample for format {}", row.format),
         }
     }
 }
