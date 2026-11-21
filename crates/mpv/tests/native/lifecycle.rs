@@ -52,11 +52,7 @@ fn closing_with_queued_frame_work_terminates_and_reopens() {
     let library = test_library(&root);
     let media = root.join("tests/fixtures/interlaced-tff.mkv");
     for _ in 0..3 {
-        let (sender, receiver) = mpsc::channel();
-        let player = start_test_player(&library, true, move |state| {
-            let _ = sender.send(state);
-        })
-        .unwrap();
+        let Harness { player, receiver } = Harness::at(&library, Vec::new()).unwrap();
         player.send(Command::SetPauseWhenOpen(true)).unwrap();
         player
             .send(Command::Load(media.to_str().unwrap().into()))
@@ -84,11 +80,7 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
     let library = test_library(&root);
     let media = root.join("tests/fixtures/moving-square.avi");
     let open = || {
-        let (sender, receiver) = mpsc::channel();
-        let player = start_test_player(&library, true, move |state| {
-            let _ = sender.send(state);
-        })
-        .unwrap();
+        let Harness { player, receiver } = Harness::at(&library, Vec::new()).unwrap();
         player
             .send(Command::Load(media.to_str().unwrap().into()))
             .unwrap();
@@ -135,11 +127,7 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
 #[ignore = "requires provisioned libmpv; verifies shutdown is exclusive to the final owner"]
 fn public_shutdown_cannot_invalidate_a_retained_player() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
+    let Harness { player, receiver } = Harness::start(&root).unwrap();
     let retained = player.clone();
     let commands = player.command_sender();
     assert!(player.send(Command::Shutdown).is_err());

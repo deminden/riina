@@ -20,11 +20,7 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
         "interlaced-mpeg2-tff.mkv",
         "interlaced-mpeg2-bff.mkv",
     ] {
-        let (sender, receiver) = mpsc::channel();
-        let player = start_test_player(&test_library(&root), true, move |state| {
-            let _ = sender.send(state);
-        })
-        .unwrap();
+        let Harness { player, receiver } = Harness::start(&root).unwrap();
         player
             .send(Command::HardwareDecoding(
                 riina_core::video_controls::HardwareDecoder::Disabled,
@@ -116,48 +112,40 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
 fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
     use riina_core::{crop::Preset, video_reflection::Axis};
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
+    let harness = Harness::start(&root).unwrap();
     let fixture = root
         .join("tests/fixtures/catalog.mkv")
         .to_string_lossy()
         .into_owned();
-    player.send(Command::Load(fixture.clone())).unwrap();
-    let initial = wait_for(&receiver, |state| {
+    harness.send(Command::Load(fixture.clone())).unwrap();
+    let initial = harness.wait(|state| {
         state.phase == Phase::Playing
             && state.deinterlace == Some(false)
             && state.deinterlace_active == Some(false)
     });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player.send(Command::Volume(37.0)).unwrap();
-    wait_for(&receiver, |state| state.volume == 37.0);
-    player.send(Command::Speed(1.5)).unwrap();
-    wait_for(&receiver, |state| state.speed == 1.5);
-    player
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness.send(Command::Volume(37.0)).unwrap();
+    harness.wait(|state| state.volume == 37.0);
+    harness.send(Command::Speed(1.5)).unwrap();
+    harness.wait(|state| state.speed == 1.5);
+    harness
         .send(Command::VideoCrop(Some(Preset::FourThree)))
         .unwrap();
-    wait_for(&receiver, |state| {
-        riina_core::crop::observed_index(state) == Some(1)
-    });
-    player
+    harness.wait(|state| riina_core::crop::observed_index(state) == Some(1));
+    harness
         .send(Command::VideoReflection {
             axis: Axis::Horizontal,
             enabled: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        Axis::Horizontal.observed(state.video_filters.as_deref()) == Some(true)
-    });
+    harness.wait(|state| Axis::Horizontal.observed(state.video_filters.as_deref()) == Some(true));
     for (index, enabled) in [true, true, false, false, true].into_iter().enumerate() {
-        player.send(Command::Deinterlace(enabled)).unwrap();
+        harness.send(Command::Deinterlace(enabled)).unwrap();
         // The speed barrier distinguishes a repeated no-op from a stale snapshot.
         let speed = 1.0 + index as f64 * 0.125;
-        player.send(Command::Speed(speed)).unwrap();
-        let changed = wait_for(&receiver, |state| {
+        harness.send(Command::Speed(speed)).unwrap();
+        let changed = harness.wait(|state| {
             state.deinterlace == Some(enabled)
                 && state.deinterlace_active == Some(enabled)
                 && state.speed == speed
@@ -180,10 +168,10 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
         );
     }
     for _ in 0..3 {
-        player.send(Command::ToggleDeinterlace).unwrap();
+        harness.send(Command::ToggleDeinterlace).unwrap();
     }
-    player.send(Command::Speed(2.0)).unwrap();
-    let toggled = wait_for(&receiver, |state| {
+    harness.send(Command::Speed(2.0)).unwrap();
+    let toggled = harness.wait(|state| {
         state.deinterlace == Some(false)
             && state.deinterlace_active == Some(false)
             && state.speed == 2.0
@@ -200,12 +188,10 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
         Axis::Horizontal.observed(toggled.video_filters.as_deref()),
         Some(true)
     );
-    player.send(Command::Deinterlace(true)).unwrap();
-    wait_for(&receiver, |state| {
-        state.deinterlace == Some(true) && state.deinterlace_active == Some(true)
-    });
-    player.send(Command::Load(fixture)).unwrap();
-    let replaced = wait_for(&receiver, |state| {
+    harness.send(Command::Deinterlace(true)).unwrap();
+    harness.wait(|state| state.deinterlace == Some(true) && state.deinterlace_active == Some(true));
+    harness.send(Command::Load(fixture)).unwrap();
+    let replaced = harness.wait(|state| {
         state.generation > toggled.generation
             && state.phase == Phase::Playing
             && state.deinterlace == Some(true)
@@ -220,34 +206,28 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
 fn video_equalizer_preserves_other_channels_and_playback_options() {
     use riina_core::video_controls::Equalizer;
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.video_equalizer == [Some(0); 5]
-    });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player.send(Command::Volume(37.0)).unwrap();
-    wait_for(&receiver, |state| state.volume == 37.0);
-    player.send(Command::Speed(1.5)).unwrap();
-    wait_for(&receiver, |state| state.speed == 1.5);
+    harness.wait(|state| state.phase == Phase::Playing && state.video_equalizer == [Some(0); 5]);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness.send(Command::Volume(37.0)).unwrap();
+    harness.wait(|state| state.volume == 37.0);
+    harness.send(Command::Speed(1.5)).unwrap();
+    harness.wait(|state| state.speed == 1.5);
     let mut expected = [Some(0); 5];
     for (option, value) in Equalizer::ALL.into_iter().zip([-100, 100, -27, 13, 61]) {
         expected[option.index()] = Some(value);
-        player
+        harness
             .send(Command::VideoEqualizer { option, value })
             .unwrap();
-        let state = wait_for(&receiver, |state| state.video_equalizer == expected);
+        let state = harness.wait(|state| state.video_equalizer == expected);
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
         assert_eq!(state.speed, 1.5);
@@ -255,10 +235,10 @@ fn video_equalizer_preserves_other_channels_and_playback_options() {
     }
     for option in Equalizer::ALL {
         expected[option.index()] = Some(0);
-        player
+        harness
             .send(Command::VideoEqualizer { option, value: 0 })
             .unwrap();
-        let state = wait_for(&receiver, |state| state.video_equalizer == expected);
+        let state = harness.wait(|state| state.video_equalizer == expected);
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
         assert_eq!(state.speed, 1.5);

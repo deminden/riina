@@ -36,10 +36,7 @@ use harness::*;
 )]
 fn playback_pause_seek_stop_failure_and_shutdown() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
+    let Harness { player, receiver } = Harness::start(&root)
     .expect("Prerequisite failure: provision libmpv and select its absolute path with RIINA_TEST_MPV_LIBRARY");
     player
         .send(Command::Load(

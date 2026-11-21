@@ -4,41 +4,37 @@ use super::*;
 #[ignore = "requires provisioned libmpv; verifies selected last-cue navigation before an automatic loop"]
 fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(
             root.join("tests/fixtures/manual-captions.srt")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .tracks
             .iter()
             .any(|track| track.kind == TrackKind::Sub && track.is_primary_selected())
     });
-    player
+    harness
         .send(Command::Seek {
             seconds: 3.0,
             absolute: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         !state.seeking
             && state
                 .position
@@ -48,26 +44,23 @@ fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
                 .as_deref()
                 .is_some_and(|text| text.contains("Chapter two"))
     });
-    player
+    harness
         .send(Command::SetAbLoop {
             a: Some(2.8),
             b: Some(3.2),
         })
         .unwrap();
-    let before = wait_for(&receiver, |state| {
-        state.ab_loop_a == Some(2.8) && state.ab_loop_b == Some(3.2)
-    });
-    player.send(Command::SubtitleSeek(1)).unwrap();
-    player.send(Command::Volume(37.0)).unwrap();
-    let baseline = wait_for(&receiver, |state| state.volume == 37.0);
+    let before = harness.wait(|state| state.ab_loop_a == Some(2.8) && state.ab_loop_b == Some(3.2));
+    harness.send(Command::SubtitleSeek(1)).unwrap();
+    harness.send(Command::Volume(37.0)).unwrap();
+    let baseline = harness.wait(|state| state.volume == 37.0);
     assert_eq!(
         baseline.completed_navigation_seeks, before.completed_navigation_seeks,
         "Past-last-cue request unexpectedly moved playback"
     );
-    player.send(Command::TogglePause).unwrap();
-    let looped = wait_for(&receiver, |state| {
-        state.completed_seeks > baseline.completed_seeks && !state.seeking
-    });
+    harness.send(Command::TogglePause).unwrap();
+    let looped =
+        harness.wait(|state| state.completed_seeks > baseline.completed_seeks && !state.seeking);
     assert_eq!(
         looped.completed_navigation_seeks,
         baseline.completed_navigation_seeks
@@ -80,46 +73,37 @@ fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
 #[ignore = "requires provisioned libmpv; verifies no-cue navigation does not label an automatic loop"]
 fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::Seek {
             seconds: 0.3,
             absolute: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.completed_navigation_seeks > 0 && !state.seeking
-    });
-    player
+    harness.wait(|state| state.completed_navigation_seeks > 0 && !state.seeking);
+    harness
         .send(Command::SetAbLoop {
             a: Some(0.2),
             b: Some(0.6),
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.ab_loop_a == Some(0.2) && state.ab_loop_b == Some(0.6)
-    });
-    player.send(Command::SubtitleSeek(1)).unwrap();
-    player.send(Command::Volume(37.0)).unwrap();
-    let baseline = wait_for(&receiver, |state| state.volume == 37.0);
-    player.send(Command::TogglePause).unwrap();
-    let looped = wait_for(&receiver, |state| {
-        state.completed_seeks > baseline.completed_seeks && !state.seeking
-    });
+    harness.wait(|state| state.ab_loop_a == Some(0.2) && state.ab_loop_b == Some(0.6));
+    harness.send(Command::SubtitleSeek(1)).unwrap();
+    harness.send(Command::Volume(37.0)).unwrap();
+    let baseline = harness.wait(|state| state.volume == 37.0);
+    harness.send(Command::TogglePause).unwrap();
+    let looped =
+        harness.wait(|state| state.completed_seeks > baseline.completed_seeks && !state.seeking);
     assert_eq!(
         looped.completed_navigation_seeks,
         baseline.completed_navigation_seeks
@@ -133,12 +117,8 @@ fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
 fn subtitle_colors_preserve_alpha_and_other_style_options() {
     use riina_core::subtitle_color::SubtitleColor;
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    let defaults = wait_for(&receiver, |state| {
+    let harness = Harness::start(&root).unwrap();
+    let defaults = harness.wait(|state| {
         state.subtitle_text_color == Some(SubtitleColor::WHITE)
             && state.subtitle_border_color == Some(SubtitleColor::BLACK)
             && state.subtitle_shadow_color == Some(SubtitleColor::CLEAR)
@@ -151,34 +131,32 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
             && state.subtitle_shadow_offset == Some(0.0)
     });
     assert_eq!(defaults.error, None);
-    player
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(
             root.join("tests/fixtures/manual-captions.srt")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let selected = wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_some()
-    });
+    let selected = harness.wait(|state| selected_track(state, TrackKind::Sub).is_some());
     let subtitle_id = selected_track(&selected, TrackKind::Sub);
-    player
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .subtitle_text
             .as_deref()
@@ -187,20 +165,16 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
     let text = SubtitleColor::from_mpv("#80402010").unwrap();
     let border = SubtitleColor::from_mpv("#C0102040").unwrap();
     let shadow = SubtitleColor::from_mpv("#40000000").unwrap();
-    player.send(Command::SubtitleTextColor(text)).unwrap();
-    let colored = wait_for(&receiver, |state| state.subtitle_text_color == Some(text));
+    harness.send(Command::SubtitleTextColor(text)).unwrap();
+    let colored = harness.wait(|state| state.subtitle_text_color == Some(text));
     assert_eq!(colored.subtitle_border_color, Some(SubtitleColor::BLACK));
     assert_eq!(colored.subtitle_shadow_color, Some(SubtitleColor::CLEAR));
-    player.send(Command::SubtitleBorderColor(border)).unwrap();
-    let outlined = wait_for(&receiver, |state| {
-        state.subtitle_border_color == Some(border)
-    });
+    harness.send(Command::SubtitleBorderColor(border)).unwrap();
+    let outlined = harness.wait(|state| state.subtitle_border_color == Some(border));
     assert_eq!(outlined.subtitle_text_color, Some(text));
     assert_eq!(outlined.subtitle_shadow_color, Some(SubtitleColor::CLEAR));
-    player.send(Command::SubtitleShadowColor(shadow)).unwrap();
-    let shaded = wait_for(&receiver, |state| {
-        state.subtitle_shadow_color == Some(shadow)
-    });
+    harness.send(Command::SubtitleShadowColor(shadow)).unwrap();
+    let shaded = harness.wait(|state| state.subtitle_shadow_color == Some(shadow));
     assert_eq!(shaded.subtitle_text_color, Some(text));
     assert_eq!(shaded.subtitle_border_color, Some(border));
     assert_eq!(shaded.subtitle_font_size, Some(55.0));
@@ -217,9 +191,9 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
         Command::SubtitleOutlineSize(4.5),
         Command::SubtitleShadowOffset(2.25),
     ] {
-        player.send(command).unwrap();
+        harness.send(command).unwrap();
     }
-    let styled = wait_for(&receiver, |state| {
+    let styled = harness.wait(|state| {
         state.subtitle_bold == Some(true)
             && state.subtitle_italic == Some(true)
             && state.subtitle_blur == Some(1.25)
@@ -241,9 +215,9 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
         Command::SubtitleOutlineSize(3.0),
         Command::SubtitleShadowOffset(0.0),
     ] {
-        player.send(command).unwrap();
+        harness.send(command).unwrap();
     }
-    let neutral = wait_for(&receiver, |state| {
+    let neutral = harness.wait(|state| {
         state.subtitle_bold == Some(false)
             && state.subtitle_italic == Some(false)
             && state.subtitle_blur == Some(0.0)
@@ -258,9 +232,9 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
         Command::SubtitleBorderColor(SubtitleColor::BLACK),
         Command::SubtitleShadowColor(SubtitleColor::CLEAR),
     ] {
-        player.send(command).unwrap();
+        harness.send(command).unwrap();
     }
-    let restored = wait_for(&receiver, |state| {
+    let restored = harness.wait(|state| {
         state.subtitle_text_color == Some(SubtitleColor::WHITE)
             && state.subtitle_border_color == Some(SubtitleColor::BLACK)
             && state.subtitle_shadow_color == Some(SubtitleColor::CLEAR)
@@ -275,42 +249,34 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
 fn subtitle_font_selection_preserves_other_style_options() {
     use riina_core::subtitle_controls::{DEFAULT_SUBTITLE_FONT, font_from_text};
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    wait_for(&receiver, |state| {
-        state.subtitle_font.as_deref() == Some(DEFAULT_SUBTITLE_FONT)
-    });
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness.wait(|state| state.subtitle_font.as_deref() == Some(DEFAULT_SUBTITLE_FONT));
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(
             root.join("tests/fixtures/manual-captions.srt")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let selected = wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_some()
-    });
+    let selected = harness.wait(|state| selected_track(state, TrackKind::Sub).is_some());
     let subtitle_id = selected_track(&selected, TrackKind::Sub);
-    player
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    let before = wait_for(&receiver, |state| {
+    let before = harness.wait(|state| {
         state
             .subtitle_text
             .as_deref()
@@ -319,15 +285,13 @@ fn subtitle_font_selection_preserves_other_style_options() {
     // The custom entry is an engine preference, not proof a matching font is
     // installed. Missing families must remain eligible for libass fallback.
     for name in ["serif", "monospace", "Riina 字体 Привет", ""] {
-        player.send(font_from_text(name).unwrap()).unwrap();
+        harness.send(font_from_text(name).unwrap()).unwrap();
         let expected = if name.is_empty() {
             DEFAULT_SUBTITLE_FONT
         } else {
             name
         };
-        let changed = wait_for(&receiver, |state| {
-            state.subtitle_font.as_deref() == Some(expected)
-        });
+        let changed = harness.wait(|state| state.subtitle_font.as_deref() == Some(expected));
         assert!(changed.paused);
         assert_eq!(selected_track(&changed, TrackKind::Sub), subtitle_id);
         assert_eq!(changed.subtitle_font_size, before.subtitle_font_size);
@@ -350,30 +314,24 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
             .to_string_lossy()
             .into_owned()
     };
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(fixture("styled-captions.ass")))
         .unwrap();
-    let styled = wait_for(&receiver, |state| {
-        state.subtitle_style_availability().ass_warning
-    });
+    let styled = harness.wait(|state| state.subtitle_style_availability().ass_warning);
     let ass_id = selected_track(&styled, TrackKind::Sub).unwrap();
     assert!(styled.subtitle_style_availability().text_controls);
-    player
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    let decoded = wait_for(&receiver, |state| {
+    let decoded = harness.wait(|state| {
         state
             .subtitle_text
             .as_deref()
@@ -381,38 +339,33 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
     });
     assert!(decoded.paused);
     assert_eq!(decoded.error, None);
-    player
+    harness
         .send(Command::AddSubtitle(fixture("manual-captions.srt")))
         .unwrap();
-    let plain = wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_some_and(|id| id != ass_id)
-    });
+    let plain =
+        harness.wait(|state| selected_track(state, TrackKind::Sub).is_some_and(|id| id != ass_id));
     let plain_id = selected_track(&plain, TrackKind::Sub).unwrap();
     assert!(!plain.subtitle_style_availability().ass_warning);
-    player
+    harness
         .send(Command::SelectSecondarySubtitle(Some(ass_id)))
         .unwrap();
-    let mixed = wait_for(&receiver, |state| {
-        state.subtitle_style_availability().ass_warning
-    });
+    let mixed = harness.wait(|state| state.subtitle_style_availability().ass_warning);
     assert_eq!(selected_track(&mixed, TrackKind::Sub), Some(plain_id));
     assert!(mixed.subtitle_style_availability().text_controls);
     assert!(mixed.paused);
     assert_eq!(mixed.error, None);
-    player
+    harness
         .send(Command::SelectTrack {
             kind: TrackKind::Sub,
             id: None,
         })
         .unwrap();
-    let secondary_only = wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_none()
-    });
+    let secondary_only = harness.wait(|state| selected_track(state, TrackKind::Sub).is_none());
     assert!(secondary_only.subtitle_style_availability().ass_warning);
-    player.send(Command::SelectSecondarySubtitle(None)).unwrap();
-    let disabled = wait_for(&receiver, |state| {
-        !state.subtitle_style_availability().ass_warning
-    });
+    harness
+        .send(Command::SelectSecondarySubtitle(None))
+        .unwrap();
+    let disabled = harness.wait(|state| !state.subtitle_style_availability().ass_warning);
     assert!(disabled.subtitle_style_availability().text_controls);
     assert!(disabled.paused);
     assert_eq!(disabled.error, None);
@@ -432,45 +385,38 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
             .to_string_lossy()
             .into_owned()
     };
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Playing);
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(fixture("manual-captions.srt")))
         .unwrap();
-    let first = wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_some()
-    });
+    let first = harness.wait(|state| selected_track(state, TrackKind::Sub).is_some());
     let primary_id = selected_track(&first, TrackKind::Sub).unwrap();
-    player
+    harness
         .send(Command::AddSubtitle(fixture("secondary-captions.srt")))
         .unwrap();
-    let second = wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_some_and(|id| id != primary_id)
-    });
+    let second = harness
+        .wait(|state| selected_track(state, TrackKind::Sub).is_some_and(|id| id != primary_id));
     let secondary_id = selected_track(&second, TrackKind::Sub).unwrap();
-    player
+    harness
         .send(Command::SelectTrack {
             kind: TrackKind::Sub,
             id: Some(primary_id),
         })
         .unwrap();
-    player
+    harness
         .send(Command::SelectSecondarySubtitle(Some(secondary_id)))
         .unwrap();
-    player
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    let both = wait_for(&receiver, |state| {
+    let both = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state
@@ -491,17 +437,15 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     assert_eq!(selected_track(&both, TrackKind::Sub), Some(primary_id));
     assert!(both.subtitle_visible);
     assert_eq!(both.secondary_subtitle_visible, Some(true));
-    player.send(Command::SecondarySubtitleDelay(1.0)).unwrap();
-    wait_for(&receiver, |state| {
-        state.secondary_subtitle_delay == Some(1.0)
-    });
-    player
+    harness.send(Command::SecondarySubtitleDelay(1.0)).unwrap();
+    harness.wait(|state| state.secondary_subtitle_delay == Some(1.0));
+    harness
         .send(Command::Seek {
             seconds: 2.3,
             absolute: true,
         })
         .unwrap();
-    let shifted = wait_for(&receiver, |state| {
+    let shifted = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.position.is_some_and(|p| (p - 2.3).abs() < 0.05)
@@ -518,12 +462,10 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     assert_eq!(selected_track(&shifted, TrackKind::Sub), Some(primary_id));
     assert_eq!(shifted.error, None);
     for position in [25.0, 0.0, 150.0, 100.0] {
-        player
+        harness
             .send(Command::SecondarySubtitlePosition(position))
             .unwrap();
-        let positioned = wait_for(&receiver, |state| {
-            state.secondary_subtitle_position == Some(position)
-        });
+        let positioned = harness.wait(|state| state.secondary_subtitle_position == Some(position));
         assert!(positioned.paused);
         assert_eq!(positioned.subtitle_position, both.subtitle_position);
         assert_eq!(positioned.subtitle_delay, both.subtitle_delay);
@@ -536,8 +478,8 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     }
     // Exercise the opposite lane after secondary edits to catch target aliasing.
     for position in [40.0, 0.0, 150.0, 100.0] {
-        player.send(Command::SubtitlePosition(position)).unwrap();
-        let positioned = wait_for(&receiver, |state| state.subtitle_position == Some(position));
+        harness.send(Command::SubtitlePosition(position)).unwrap();
+        let positioned = harness.wait(|state| state.subtitle_position == Some(position));
         assert!(positioned.paused);
         assert_eq!(positioned.secondary_subtitle_position, Some(100.0));
         assert_eq!(positioned.subtitle_delay, both.subtitle_delay);
@@ -555,14 +497,12 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         assert_eq!(positioned.error, None);
     }
     // Numeric entry can exceed the visual slider's range in either lane.
-    player.send(Command::SubtitleDelay(6.125)).unwrap();
-    wait_for(&receiver, |state| state.subtitle_delay == 6.125);
-    player
+    harness.send(Command::SubtitleDelay(6.125)).unwrap();
+    harness.wait(|state| state.subtitle_delay == 6.125);
+    harness
         .send(Command::SecondarySubtitleDelay(-7.375))
         .unwrap();
-    let wide_delays = wait_for(&receiver, |state| {
-        state.secondary_subtitle_delay == Some(-7.375)
-    });
+    let wide_delays = harness.wait(|state| state.secondary_subtitle_delay == Some(-7.375));
     assert_eq!(wide_delays.subtitle_delay, 6.125);
     assert!(wide_delays.paused);
     assert_eq!(
@@ -570,20 +510,18 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         Some(primary_id)
     );
     assert_eq!(wide_delays.error, None);
-    player
+    harness
         .send(Command::SubtitleDelay(both.subtitle_delay))
         .unwrap();
-    let before_seek = wait_for(&receiver, |state| {
-        state.subtitle_delay == both.subtitle_delay
-    });
-    player.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
-    player
+    let before_seek = harness.wait(|state| state.subtitle_delay == both.subtitle_delay);
+    harness.send(Command::SecondarySubtitleDelay(0.0)).unwrap();
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         // The requested position can already equal the previous clock. Wait
         // for this seek's completion before treating cached cue text as current;
         // decoder refresh can otherwise clear it while visibility is toggled.
@@ -596,12 +534,10 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
                 .is_some_and(|s| s.contains("bonjour"))
             && state.position.is_some_and(|p| (p - 0.5).abs() < 0.05)
     });
-    player
+    harness
         .send(Command::ToggleSecondarySubtitleVisibility)
         .unwrap();
-    let hidden = wait_for(&receiver, |state| {
-        state.secondary_subtitle_visible == Some(false)
-    });
+    let hidden = harness.wait(|state| state.secondary_subtitle_visible == Some(false));
     assert!(hidden.subtitle_visible);
     assert_eq!(selected_track(&hidden, TrackKind::Sub), Some(primary_id));
     assert!(
@@ -614,24 +550,22 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         hidden.secondary_subtitle_delay,
         hidden.position,
     );
-    player
+    harness
         .send(Command::ToggleSecondarySubtitleVisibility)
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.secondary_subtitle_visible == Some(true)
-    });
-    player.send(Command::ToggleSubtitleVisibility).unwrap();
-    let primary_hidden = wait_for(&receiver, |state| !state.subtitle_visible);
+    harness.wait(|state| state.secondary_subtitle_visible == Some(true));
+    harness.send(Command::ToggleSubtitleVisibility).unwrap();
+    let primary_hidden = harness.wait(|state| !state.subtitle_visible);
     assert_eq!(primary_hidden.secondary_subtitle_visible, Some(true));
-    player.send(Command::ToggleSubtitleVisibility).unwrap();
-    wait_for(&receiver, |state| state.subtitle_visible);
-    player
+    harness.send(Command::ToggleSubtitleVisibility).unwrap();
+    harness.wait(|state| state.subtitle_visible);
+    harness
         .send(Command::SelectTrack {
             kind: TrackKind::Sub,
             id: None,
         })
         .unwrap();
-    let secondary_only = wait_for(&receiver, |state| {
+    let secondary_only = harness.wait(|state| {
         selected_track(state, TrackKind::Sub).is_none()
             && state.tracks.iter().any(|t| {
                 t.kind == TrackKind::Sub
@@ -642,8 +576,10 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     });
     assert!(secondary_only.paused);
     assert_eq!(secondary_only.error, None);
-    player.send(Command::SelectSecondarySubtitle(None)).unwrap();
-    let off = wait_for(&receiver, |state| {
+    harness
+        .send(Command::SelectSecondarySubtitle(None))
+        .unwrap();
+    let off = harness.wait(|state| {
         !state
             .tracks
             .iter()
@@ -651,8 +587,8 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     });
     assert!(off.paused);
     assert_eq!(off.error, None);
-    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
-    let replaced = wait_for(&receiver, |state| {
+    harness.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    let replaced = harness.wait(|state| {
         state.generation > both.generation
             && state.phase == Phase::Playing
             && !state.tracks.iter().any(|t| t.kind == TrackKind::Sub)
@@ -674,43 +610,37 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
 )]
 fn subtitle_navigation_seeks_cues_without_changing_delay() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
-    });
-    player.send(Command::TogglePause).unwrap();
-    let paused = wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1));
+    harness.send(Command::TogglePause).unwrap();
+    let paused = harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(
             root.join("tests/fixtures/manual-captions.srt")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .tracks
             .iter()
             .any(|t| t.kind == TrackKind::Sub && t.external && t.selected)
     });
-    player
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    let first = wait_for(&receiver, |state| {
+    let first = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > paused.completed_seeks
@@ -722,8 +652,8 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     });
     assert_eq!(first.subtitle_font_size, Some(55.0));
     assert_eq!(first.subtitle_outline_size, Some(3.0));
-    player.send(Command::SubtitleSeek(1)).unwrap();
-    let second = wait_for(&receiver, |state| {
+    harness.send(Command::SubtitleSeek(1)).unwrap();
+    let second = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > first.completed_seeks
@@ -736,8 +666,8 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     assert_eq!(second.subtitle_delay, first.subtitle_delay);
     assert!(second.completed_navigation_seeks > first.completed_navigation_seeks);
     assert_eq!(second.error, None);
-    player.send(Command::SubtitleSeek(-1)).unwrap();
-    let returned = wait_for(&receiver, |state| {
+    harness.send(Command::SubtitleSeek(-1)).unwrap();
+    let returned = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > second.completed_seeks
@@ -750,17 +680,15 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     assert_eq!(returned.subtitle_delay, first.subtitle_delay);
     assert!(returned.completed_navigation_seeks > second.completed_navigation_seeks);
     assert_eq!(returned.error, None);
-    player.send(Command::SubtitleDelay(0.25)).unwrap();
-    wait_for(&receiver, |state| {
-        (state.subtitle_delay - 0.25).abs() < 0.001
-    });
-    player
+    harness.send(Command::SubtitleDelay(0.25)).unwrap();
+    harness.wait(|state| (state.subtitle_delay - 0.25).abs() < 0.001);
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    let delayed_first = wait_for(&receiver, |state| {
+    let delayed_first = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > returned.completed_seeks
@@ -770,8 +698,8 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .as_deref()
                 .is_some_and(|text| text.contains("Привет"))
     });
-    player.send(Command::SubtitleSeek(1)).unwrap();
-    let delayed_second = wait_for(&receiver, |state| {
+    harness.send(Command::SubtitleSeek(1)).unwrap();
+    let delayed_second = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > delayed_first.completed_seeks
@@ -782,20 +710,20 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .is_some_and(|text| text.contains("Chapter two"))
     });
     assert!((delayed_second.subtitle_delay - 0.25).abs() < 0.001);
-    player
+    harness
         .send(Command::Seek {
             seconds: 2.8,
             absolute: true,
         })
         .unwrap();
-    let inside = wait_for(&receiver, |state| {
+    let inside = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > delayed_second.completed_seeks
             && state.position.is_some_and(|p| (p - 2.8).abs() < 0.05)
     });
-    player.send(Command::SubtitleSeek(0)).unwrap();
-    let restarted = wait_for(&receiver, |state| {
+    harness.send(Command::SubtitleSeek(0)).unwrap();
+    let restarted = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > inside.completed_seeks
@@ -807,25 +735,21 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     // Queue the burst without reading snapshots: each adjustment must use the
     // decoder's current delay rather than the UI's last observed value.
     for _ in 0..20 {
-        player.send(Command::AdjustSubtitleDelay(0.1)).unwrap();
+        harness.send(Command::AdjustSubtitleDelay(0.1)).unwrap();
     }
-    let increased = wait_for(&receiver, |state| {
-        (state.subtitle_delay - 2.25).abs() < 0.001
-    });
+    let increased = harness.wait(|state| (state.subtitle_delay - 2.25).abs() < 0.001);
     assert!(increased.paused);
     assert_eq!(increased.error, None);
     for _ in 0..4 {
-        player.send(Command::AdjustSubtitleDelay(-0.5)).unwrap();
+        harness.send(Command::AdjustSubtitleDelay(-0.5)).unwrap();
     }
-    let restored = wait_for(&receiver, |state| {
-        (state.subtitle_delay - 0.25).abs() < 0.001
-    });
+    let restored = harness.wait(|state| (state.subtitle_delay - 0.25).abs() < 0.001);
     assert!(restored.paused);
-    player.send(Command::SubtitleDelay(0.0)).unwrap();
-    let reset = wait_for(&receiver, |state| state.subtitle_delay.abs() < 0.001);
+    harness.send(Command::SubtitleDelay(0.0)).unwrap();
+    let reset = harness.wait(|state| state.subtitle_delay.abs() < 0.001);
     assert!(reset.paused);
     assert_eq!(reset.error, None);
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .subtitle_scale
             .is_some_and(|s| (s - 1.0).abs() < 0.001)
@@ -834,64 +758,64 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     // Drain neither observations nor UI updates during the bursts: native
     // relative commands must accumulate against the actual option values.
     for factor in [1.1, 0.9, 1.1] {
-        player.send(Command::MultiplySubtitleScale(factor)).unwrap();
+        harness
+            .send(Command::MultiplySubtitleScale(factor))
+            .unwrap();
     }
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .subtitle_scale
             .is_some_and(|scale| (scale - 1.089).abs() < 0.001)
     });
-    player.send(Command::SubtitleScale(1.0)).unwrap();
-    wait_for(&receiver, |state| {
+    harness.send(Command::SubtitleScale(1.0)).unwrap();
+    harness.wait(|state| {
         state
             .subtitle_scale
             .is_some_and(|scale| (scale - 1.0).abs() < 0.001)
     });
     for _ in 0..10 {
-        player.send(Command::AdjustSubtitleScale(0.1)).unwrap();
+        harness.send(Command::AdjustSubtitleScale(0.1)).unwrap();
     }
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .subtitle_scale
             .is_some_and(|s| (s - 2.0).abs() < 0.001)
     });
     for _ in 0..10 {
-        player.send(Command::AdjustSubtitleScale(-0.1)).unwrap();
+        harness.send(Command::AdjustSubtitleScale(-0.1)).unwrap();
     }
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .subtitle_scale
             .is_some_and(|s| (s - 1.0).abs() < 0.001)
     });
     for _ in 0..15 {
-        player.send(Command::AdjustSubtitlePosition(-1.0)).unwrap();
+        harness.send(Command::AdjustSubtitlePosition(-1.0)).unwrap();
     }
-    wait_for(&receiver, |state| state.subtitle_position == Some(85.0));
+    harness.wait(|state| state.subtitle_position == Some(85.0));
     for _ in 0..15 {
-        player.send(Command::AdjustSubtitlePosition(1.0)).unwrap();
+        harness.send(Command::AdjustSubtitlePosition(1.0)).unwrap();
     }
-    wait_for(&receiver, |state| state.subtitle_position == Some(100.0));
+    harness.wait(|state| state.subtitle_position == Some(100.0));
     for (delta, expected) in [(-100.0, 0.0), (200.0, 100.0), (-99.0, 1.0)] {
-        player.send(Command::AdjustSubtitleScale(delta)).unwrap();
-        wait_for(&receiver, |state| {
+        harness.send(Command::AdjustSubtitleScale(delta)).unwrap();
+        harness.wait(|state| {
             state
                 .subtitle_scale
                 .is_some_and(|s| (s - expected).abs() < 0.001)
         });
     }
     for size in [25.0, 75.0, 55.0] {
-        player.send(Command::SubtitleFontSize(size)).unwrap();
-        let resized = wait_for(&receiver, |state| state.subtitle_font_size == Some(size));
+        harness.send(Command::SubtitleFontSize(size)).unwrap();
+        let resized = harness.wait(|state| state.subtitle_font_size == Some(size));
         assert!(resized.paused);
         assert_eq!(resized.subtitle_position, Some(100.0));
         assert!(resized.subtitle_delay.abs() < 0.001);
         assert_eq!(resized.error, None);
     }
     for width in [0.0, 0.25, 5.0, 3.0] {
-        player.send(Command::SubtitleOutlineSize(width)).unwrap();
-        let outlined = wait_for(&receiver, |state| {
-            state.subtitle_outline_size == Some(width)
-        });
+        harness.send(Command::SubtitleOutlineSize(width)).unwrap();
+        let outlined = harness.wait(|state| state.subtitle_outline_size == Some(width));
         assert!(outlined.paused);
         assert_eq!(outlined.subtitle_font_size, Some(55.0));
         assert_eq!(outlined.subtitle_position, Some(100.0));
@@ -899,8 +823,8 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
         assert_eq!(outlined.error, None);
     }
     for scale in [1.0 / 6.0, 6.0, 1.0] {
-        player.send(Command::SubtitleScale(scale)).unwrap();
-        let scaled = wait_for(&receiver, |state| {
+        harness.send(Command::SubtitleScale(scale)).unwrap();
+        let scaled = harness.wait(|state| {
             state
                 .subtitle_scale
                 .is_some_and(|s| (s - scale).abs() < 0.001)
@@ -917,8 +841,10 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
         assert_eq!(scaled.error, None);
     }
     for (delta, expected) in [(-1000.0, 0.0), (1000.0, 150.0), (-50.0, 100.0)] {
-        player.send(Command::AdjustSubtitlePosition(delta)).unwrap();
-        let adjusted = wait_for(&receiver, |state| state.subtitle_position == Some(expected));
+        harness
+            .send(Command::AdjustSubtitlePosition(delta))
+            .unwrap();
+        let adjusted = harness.wait(|state| state.subtitle_position == Some(expected));
         assert!(adjusted.paused);
         assert_eq!(adjusted.error, None);
         assert!((adjusted.subtitle_delay).abs() < 0.001);

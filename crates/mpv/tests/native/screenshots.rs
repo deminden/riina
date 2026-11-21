@@ -14,40 +14,32 @@ fn screenshot_content_respects_active_subtitle_visibility() {
             .as_nanos()
     ));
     std::fs::create_dir_all(&output).unwrap();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.position.is_some()
-    });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing && state.position.is_some());
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddSubtitle(
             root.join("tests/fixtures/styled-captions.ass")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub).is_some()
-    });
-    player
+    harness.wait(|state| selected_track(state, TrackKind::Sub).is_some());
+    harness
         .send(Command::Seek {
             seconds: 0.5,
             absolute: true,
         })
         .unwrap();
-    let paused = wait_for(&receiver, |state| {
+    let paused = harness.wait(|state| {
         state.paused
             && state
                 .position
@@ -70,22 +62,21 @@ fn screenshot_content_respects_active_subtitle_visibility() {
     .enumerate()
     {
         if name == "hidden" {
-            player.send(Command::ToggleSubtitleVisibility).unwrap();
-            wait_for(&receiver, |state| !state.subtitle_visible);
+            harness.send(Command::ToggleSubtitleVisibility).unwrap();
+            harness.wait(|state| !state.subtitle_visible);
         }
         let path = output
             .join(format!("{name}.png"))
             .to_string_lossy()
             .into_owned();
-        player
+        harness
             .send(Command::ScreenshotToFile {
                 path: path.clone(),
                 content,
             })
             .unwrap();
-        let saved = wait_for(&receiver, |state| {
-            state.completed_screenshots == index as u64 + 1 || state.error.is_some()
-        });
+        let saved = harness
+            .wait(|state| state.completed_screenshots == index as u64 + 1 || state.error.is_some());
         assert_eq!(saved.error, None);
         assert_eq!(saved.screenshot_file.as_deref(), Some(path.as_str()));
         assert!(saved.paused);
@@ -112,33 +103,27 @@ fn screenshots_complete_only_after_native_success() {
             .as_nanos()
     ));
     std::fs::create_dir_all(&output).unwrap();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
+    let harness = Harness::start(&root).unwrap();
     // Failure before any frame exists cannot advertise a saved image.
-    player
+    harness
         .send(Command::ScreenshotToFile {
             path: output.join("no-frame.png").to_string_lossy().into_owned(),
             content: riina_core::screenshot::Content::Video,
         })
         .unwrap();
-    let failed = wait_for(&receiver, |state| state.error.is_some());
+    let failed = harness.wait(|state| state.error.is_some());
     assert_eq!(failed.completed_screenshots, 0);
     assert_eq!(failed.screenshot_file, None);
-    player
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/interlaced-tff.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.position.is_some()
-    });
-    player.send(Command::TogglePause).unwrap();
-    let paused = wait_for(&receiver, |state| state.paused && state.position.is_some());
+    harness.wait(|state| state.phase == Phase::Playing && state.position.is_some());
+    harness.send(Command::TogglePause).unwrap();
+    let paused = harness.wait(|state| state.paused && state.position.is_some());
     for (index, content) in [
         riina_core::screenshot::Content::Video,
         riina_core::screenshot::Content::Subtitles,
@@ -150,15 +135,14 @@ fn screenshots_complete_only_after_native_success() {
             .join(format!("capture-{index}.png"))
             .to_string_lossy()
             .into_owned();
-        player
+        harness
             .send(Command::ScreenshotToFile {
                 path: path.clone(),
                 content,
             })
             .unwrap();
-        let saved = wait_for(&receiver, |state| {
-            state.completed_screenshots == index as u64 + 1 || state.error.is_some()
-        });
+        let saved = harness
+            .wait(|state| state.completed_screenshots == index as u64 + 1 || state.error.is_some());
         assert_eq!(saved.error, None);
         assert_eq!(saved.screenshot_file.as_deref(), Some(path.as_str()));
         assert!(saved.paused);
@@ -176,16 +160,15 @@ fn screenshots_complete_only_after_native_success() {
     let existing = directory.join("interlaced-tff-0001.png");
     std::fs::write(&existing, b"existing image must survive").unwrap();
     for (index, number) in ["0002", "0003"].into_iter().enumerate() {
-        player
+        harness
             .send(Command::Screenshot {
                 directory: directory.to_string_lossy().into_owned(),
                 content: riina_core::screenshot::Content::default(),
                 encoding: riina_core::screenshot::Encoding::default(),
             })
             .unwrap();
-        let saved = wait_for(&receiver, |state| {
-            state.completed_screenshots == index as u64 + 3 || state.error.is_some()
-        });
+        let saved = harness
+            .wait(|state| state.completed_screenshots == index as u64 + 3 || state.error.is_some());
         assert_eq!(saved.error, None);
         let path = PathBuf::from(saved.screenshot_file.unwrap());
         assert_eq!(path, directory.join(format!("interlaced-tff-{number}.png")));
@@ -197,7 +180,7 @@ fn screenshots_complete_only_after_native_success() {
         std::fs::read(existing).unwrap(),
         b"existing image must survive"
     );
-    player
+    harness
         .send(Command::Screenshot {
             directory: directory.to_string_lossy().into_owned(),
             content: riina_core::screenshot::Content::Video,
@@ -207,7 +190,7 @@ fn screenshots_complete_only_after_native_success() {
             },
         })
         .unwrap();
-    let rejected = wait_for(&receiver, |state| state.error.is_some());
+    let rejected = harness.wait(|state| state.error.is_some());
     assert_eq!(rejected.completed_screenshots, 4);
     assert!(
         rejected
@@ -218,20 +201,20 @@ fn screenshots_complete_only_after_native_success() {
     );
     assert!(rejected.paused);
     assert_eq!(rejected.position, paused.position);
-    player
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/interlaced-mpeg2-tff.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state.generation > paused.generation
             && state.phase == Phase::Playing
             && state.position.is_some()
     });
-    player.send(Command::TogglePause).unwrap();
-    let format_paused = wait_for(&receiver, |state| state.paused && state.position.is_some());
+    harness.send(Command::TogglePause).unwrap();
+    let format_paused = harness.wait(|state| state.paused && state.position.is_some());
     let mut formats = Vec::new();
     for (index, format) in [
         riina_core::screenshot::Format::Png,
@@ -244,7 +227,7 @@ fn screenshots_complete_only_after_native_success() {
     .into_iter()
     .enumerate()
     {
-        player
+        harness
             .send(Command::Screenshot {
                 directory: directory.to_string_lossy().into_owned(),
                 content: riina_core::screenshot::Content::Video,
@@ -254,9 +237,8 @@ fn screenshots_complete_only_after_native_success() {
                 },
             })
             .unwrap();
-        let saved = wait_for(&receiver, |state| {
-            state.completed_screenshots == index as u64 + 5 || state.error.is_some()
-        });
+        let saved = harness
+            .wait(|state| state.completed_screenshots == index as u64 + 5 || state.error.is_some());
         assert_eq!(saved.error, None, "{format:?}");
         let path = PathBuf::from(saved.screenshot_file.unwrap());
         assert!(path.is_file());

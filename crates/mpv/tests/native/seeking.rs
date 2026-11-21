@@ -58,30 +58,26 @@ fn create_long_seek_fixture() -> TemporaryMedia {
 #[ignore = "requires provisioned libmpv; verifies navigation feedback provenance"]
 fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let loaded = wait_for(&receiver, |state| state.phase == Phase::Playing);
+    let loaded = harness.wait(|state| state.phase == Phase::Playing);
     assert_eq!(loaded.completed_navigation_seeks, 0);
-    player.send(Command::TogglePause).unwrap();
-    let mut previous = wait_for(&receiver, |state| state.paused);
+    harness.send(Command::TogglePause).unwrap();
+    let mut previous = harness.wait(|state| state.paused);
     for position in [2.0, 2.0, 0.5] {
-        player
+        harness
             .send(Command::Seek {
                 seconds: position,
                 absolute: true,
             })
             .unwrap();
-        let completed = wait_for(&receiver, |state| {
+        let completed = harness.wait(|state| {
             state.completed_navigation_seeks > previous.completed_navigation_seeks
                 && !state.seeking
                 && state
@@ -100,44 +96,40 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
 fn long_relative_seeks_preserve_pause_and_volume() {
     let root = fixture_root();
     let silence = create_long_seek_fixture();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(silence.0.to_string_lossy().into_owned()))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state.phase == Phase::Playing
             && state
                 .duration
                 .is_some_and(|value| (value - 1300.0).abs() < 0.01)
     });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player.send(Command::Volume(37.0)).unwrap();
-    wait_for(&receiver, |state| (state.volume - 37.0).abs() < 0.01);
-    player
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness.send(Command::Volume(37.0)).unwrap();
+    harness.wait(|state| (state.volume - 37.0).abs() < 0.01);
+    harness
         .send(Command::Seek {
             seconds: 100.0,
             absolute: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .position
             .is_some_and(|value| (value - 100.0).abs() < 0.1)
     });
     // Stay away from boundaries: clamping could hide an incorrect seek amount.
     for (seconds, expected) in [(600.0, 700.0), (-600.0, 100.0)] {
-        player
+        harness
             .send(Command::Seek {
                 seconds,
                 absolute: false,
             })
             .unwrap();
-        let sought = wait_for(&receiver, |state| {
+        let sought = harness.wait(|state| {
             state
                 .position
                 // Audio packet timestamps can quantize a keyframe seek by one
@@ -154,11 +146,7 @@ fn long_relative_seeks_preserve_pause_and_volume() {
 #[ignore = "requires provisioned libmpv; verifies A–B point cycling and actual loop playback"]
 fn ab_repeat_observes_points_and_wraps_playback() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
+    let Harness { player, receiver } = Harness::start(&root).unwrap();
     player
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
@@ -252,30 +240,24 @@ fn ab_repeat_observes_points_and_wraps_playback() {
 #[ignore = "requires provisioned libmpv; verifies observed forward/backward frame navigation"]
 fn frame_navigation_moves_one_frame_and_retains_pause() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
-    });
-    player.send(Command::TogglePause).unwrap();
-    let paused = wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1));
+    harness.send(Command::TogglePause).unwrap();
+    let paused = harness.wait(|state| state.paused);
+    harness
         .send(Command::Seek {
             seconds: 2.0,
             absolute: true,
         })
         .unwrap();
-    let mut previous = wait_for(&receiver, |state| {
+    let mut previous = harness.wait(|state| {
         state.paused
             && !state.seeking
             && state.completed_seeks > paused.completed_seeks
@@ -290,8 +272,8 @@ fn frame_navigation_moves_one_frame_and_retains_pause() {
         (Command::FrameBackStep, -1.0),
     ] {
         let from = previous.position.unwrap();
-        player.send(command).unwrap();
-        let next = wait_for(&receiver, |state| {
+        harness.send(command).unwrap();
+        let next = harness.wait(|state| {
             state.paused
                 && !state.seeking
                 && state
@@ -309,11 +291,7 @@ fn frame_navigation_moves_one_frame_and_retains_pause() {
 #[ignore = "requires provisioned libmpv; verifies file-local A–B loop ownership"]
 fn ab_repeat_resets_on_replacement_and_stop() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
+    let harness = Harness::start(&root).unwrap();
     let load = |name: &str| {
         Command::Load(
             root.join("tests/fixtures")
@@ -322,68 +300,61 @@ fn ab_repeat_resets_on_replacement_and_stop() {
                 .into_owned(),
         )
     };
-    player.send(load("catalog.mkv")).unwrap();
-    let first = wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1)
-    });
-    player
+    harness.send(load("catalog.mkv")).unwrap();
+    let first = harness
+        .wait(|state| state.phase == Phase::Playing && state.position.is_some_and(|p| p > 0.1));
+    harness
         .send(Command::SetAbLoop {
             a: Some(0.1),
             b: Some(0.7),
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.ab_loop_a.is_some() && state.ab_loop_b.is_some()
-    });
-    player.send(load("moving-square.avi")).unwrap();
+    harness.wait(|state| state.ab_loop_a.is_some() && state.ab_loop_b.is_some());
+    harness.send(load("moving-square.avi")).unwrap();
     // Going beyond the old B point proves the decoder reset its loop, rather
     // than merely making our cached markers disappear during begin_load.
-    let replacement = wait_for(&receiver, |state| {
+    let replacement = harness.wait(|state| {
         state.generation > first.generation
             && state.phase == Phase::Playing
             && state.position.is_some_and(|p| p > 1.0)
     });
     assert!(replacement.ab_loop_a.is_none() && replacement.ab_loop_b.is_none());
     assert_eq!(replacement.error, None);
-    player
+    harness
         .send(Command::SetAbLoop {
             a: Some(0.8),
             b: Some(1.8),
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.ab_loop_a.is_some() && state.ab_loop_b.is_some()
-    });
-    player.send(Command::Stop).unwrap();
-    let stopped = wait_for(&receiver, |state| state.phase == Phase::Stopped);
+    harness.wait(|state| state.ab_loop_a.is_some() && state.ab_loop_b.is_some());
+    harness.send(Command::Stop).unwrap();
+    let stopped = harness.wait(|state| state.phase == Phase::Stopped);
     assert!(stopped.ab_loop_a.is_none() && stopped.ab_loop_b.is_none());
-    player.send(load("catalog.mkv")).unwrap();
-    let reopened = wait_for(&receiver, |state| {
+    harness.send(load("catalog.mkv")).unwrap();
+    let reopened = harness.wait(|state| {
         state.generation > replacement.generation
             && state.phase == Phase::Playing
             && state.position.is_some_and(|p| p > 2.0)
     });
     assert!(reopened.ab_loop_a.is_none() && reopened.ab_loop_b.is_none());
     assert_eq!(reopened.error, None);
-    player
+    harness
         .send(Command::SetAbLoop {
             a: Some(0.8),
             b: Some(1.8),
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.ab_loop_a.is_some() && state.ab_loop_b.is_some()
-    });
-    player
+    harness.wait(|state| state.ab_loop_a.is_some() && state.ab_loop_b.is_some());
+    harness
         .send(Command::AppendFiles(vec![
             root.join("tests/fixtures/moving-square.avi")
                 .to_string_lossy()
                 .into_owned(),
         ]))
         .unwrap();
-    wait_for(&receiver, |state| state.playlist.len() == 2);
-    player.send(Command::PlaylistNext).unwrap();
-    let advanced = wait_for(&receiver, |state| {
+    harness.wait(|state| state.playlist.len() == 2);
+    harness.send(Command::PlaylistNext).unwrap();
+    let advanced = harness.wait(|state| {
         state.generation > reopened.generation
             && state.phase == Phase::Playing
             && state.position.is_some_and(|p| p > 2.0)

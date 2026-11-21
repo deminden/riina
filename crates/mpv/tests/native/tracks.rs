@@ -4,19 +4,15 @@ use super::*;
 #[ignore = "requires provisioned libmpv; verifies real ISO and BCP 47 track metadata"]
 fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/track-languages.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let loaded = wait_for(&receiver, |state| {
+    let loaded = harness.wait(|state| {
         state.phase == Phase::Playing
             && state
                 .tracks
@@ -42,8 +38,8 @@ fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
             .unwrap();
         assert_eq!(track.lang.as_deref(), language, "{title}");
     }
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
     let id = |title: &str| {
         loaded
             .tracks
@@ -54,19 +50,17 @@ fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
     };
     let primary = id("German captions");
     let secondary = id("Traditional Chinese captions");
-    player
+    harness
         .send(Command::SelectTrack {
             kind: TrackKind::Sub,
             id: Some(primary),
         })
         .unwrap();
-    wait_for(&receiver, |state| {
-        selected_track(state, TrackKind::Sub) == Some(primary)
-    });
-    player
+    harness.wait(|state| selected_track(state, TrackKind::Sub) == Some(primary));
+    harness
         .send(Command::SelectSecondarySubtitle(Some(secondary)))
         .unwrap();
-    let both = wait_for(&receiver, |state| {
+    let both = harness.wait(|state| {
         state
             .tracks
             .iter()
@@ -97,13 +91,9 @@ fn track_cycling_includes_disabled_and_external_tracks() {
             .to_string_lossy()
             .into_owned()
     };
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player.send(Command::Load(fixture("catalog.mkv"))).unwrap();
-    let loaded = wait_for(&receiver, |state| {
+    let harness = Harness::start(&root).unwrap();
+    harness.send(Command::Load(fixture("catalog.mkv"))).unwrap();
+    let loaded = harness.wait(|state| {
         state.phase == Phase::Playing
             && state
                 .tracks
@@ -112,12 +102,12 @@ fn track_cycling_includes_disabled_and_external_tracks() {
     });
     let internal_audio = selected_track(&loaded, TrackKind::Audio).unwrap();
     let video = selected_track(&loaded, TrackKind::Video).unwrap();
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::AddAudio(fixture("external-tone.wav")))
         .unwrap();
-    let external = wait_for(&receiver, |state| {
+    let external = harness.wait(|state| {
         state
             .tracks
             .iter()
@@ -126,18 +116,16 @@ fn track_cycling_includes_disabled_and_external_tracks() {
     let external_audio = selected_track(&external, TrackKind::Audio).unwrap();
     assert_ne!(internal_audio, external_audio);
     for expected in [None, Some(internal_audio), Some(external_audio)] {
-        player.send(Command::CycleTrack(TrackKind::Audio)).unwrap();
-        let cycled = wait_for(&receiver, |state| {
-            selected_track(state, TrackKind::Audio) == expected
-        });
+        harness.send(Command::CycleTrack(TrackKind::Audio)).unwrap();
+        let cycled = harness.wait(|state| selected_track(state, TrackKind::Audio) == expected);
         assert!(cycled.paused);
         assert_eq!(cycled.error, None);
         assert_eq!(selected_track(&cycled, TrackKind::Video), Some(video));
     }
-    player
+    harness
         .send(Command::AddSubtitle(fixture("manual-captions.srt")))
         .unwrap();
-    let subtitle = wait_for(&receiver, |state| {
+    let subtitle = harness.wait(|state| {
         state
             .tracks
             .iter()
@@ -145,10 +133,8 @@ fn track_cycling_includes_disabled_and_external_tracks() {
     });
     let subtitle_id = selected_track(&subtitle, TrackKind::Sub).unwrap();
     for expected in [None, Some(subtitle_id)] {
-        player.send(Command::CycleTrack(TrackKind::Sub)).unwrap();
-        let cycled = wait_for(&receiver, |state| {
-            selected_track(state, TrackKind::Sub) == expected
-        });
+        harness.send(Command::CycleTrack(TrackKind::Sub)).unwrap();
+        let cycled = harness.wait(|state| selected_track(state, TrackKind::Sub) == expected);
         assert!(cycled.paused);
         assert_eq!(cycled.error, None);
         assert_eq!(
@@ -157,10 +143,8 @@ fn track_cycling_includes_disabled_and_external_tracks() {
         );
     }
     for expected in [None, Some(video)] {
-        player.send(Command::CycleTrack(TrackKind::Video)).unwrap();
-        let cycled = wait_for(&receiver, |state| {
-            selected_track(state, TrackKind::Video) == expected
-        });
+        harness.send(Command::CycleTrack(TrackKind::Video)).unwrap();
+        let cycled = harness.wait(|state| selected_track(state, TrackKind::Video) == expected);
         assert!(cycled.paused);
         assert_eq!(cycled.error, None);
         assert_eq!(

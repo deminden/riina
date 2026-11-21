@@ -4,12 +4,8 @@ use super::*;
 #[ignore = "requires provisioned libmpv; exercises generic property observation"]
 fn dynamic_mpv_property_observation_publishes_generic_node_values() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    let startup_versions = wait_for(&receiver, |state| {
+    let harness = Harness::start(&root).unwrap();
+    let startup_versions = harness.wait(|state| {
         state.phase == Phase::Stopped
             && state
                 .mpv_version
@@ -25,17 +21,17 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
         "unexpected native error while observing engine versions before media: {:?}",
         startup_versions.error
     );
-    player
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/moving-square.avi")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
     });
-    let versions = wait_for(&receiver, |state| {
+    let versions = harness.wait(|state| {
         state
             .mpv_version
             .as_deref()
@@ -50,10 +46,10 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
         "unexpected native error while observing engine versions: {:?}",
         versions.error
     );
-    player
+    harness
         .send(Command::ObserveMpvProperty("container-fps".into()))
         .unwrap();
-    let observed = wait_for(&receiver, |state| {
+    let observed = harness.wait(|state| {
         state
             .observed_mpv_properties
             .get("container-fps")
@@ -64,26 +60,22 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
         "unexpected native error: {:?}",
         observed.error
     );
-    drop(player);
+    drop(harness);
 }
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies native event names reach playback snapshots"]
 fn generic_mpv_events_are_retained_for_plugin_listeners() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/moving-square.avi")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let playback = wait_for(&receiver, |state| {
+    let playback = harness.wait(|state| {
         state
             .mpv_events
             .iter()

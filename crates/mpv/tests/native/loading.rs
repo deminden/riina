@@ -8,45 +8,39 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
         .join("tests/fixtures/catalog.mkv")
         .to_string_lossy()
         .into_owned();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player.send(Command::Load(media.clone())).unwrap();
-    let playing = wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.position.is_some()
-    });
+    let harness = Harness::start(&root).unwrap();
+    harness.send(Command::Load(media.clone())).unwrap();
+    let playing = harness.wait(|state| state.phase == Phase::Playing && state.position.is_some());
     assert!(!playing.paused);
     assert!(!playing.pause_when_open);
-    player.send(Command::SetPauseWhenOpen(true)).unwrap();
-    wait_for(&receiver, |state| state.pause_when_open && !state.paused);
-    player.send(Command::Load(media.clone())).unwrap();
-    let replacement = wait_for(&receiver, |state| {
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness.wait(|state| state.pause_when_open && !state.paused);
+    harness.send(Command::Load(media.clone())).unwrap();
+    let replacement = harness.wait(|state| {
         state.generation > playing.generation
             && state.phase == Phase::Paused
             && state.paused
             && state.position.is_some()
     });
-    player
+    harness
         .send(Command::OpenFiles(vec![media.clone(), media.clone()]))
         .unwrap();
-    let batch = wait_for(&receiver, |state| {
+    let batch = harness.wait(|state| {
         state.generation > replacement.generation
             && state.phase == Phase::Paused
             && state.paused
             && state.playlist.len() == 2
     });
-    player
+    harness
         .send(Command::AppendFiles(vec![media.clone()]))
         .unwrap();
-    let appended = wait_for(&receiver, |state| state.playlist.len() == 3);
+    let appended = harness.wait(|state| state.playlist.len() == 3);
     assert_eq!(appended.generation, batch.generation);
     assert!(appended.paused);
-    player.send(Command::SetPauseWhenOpen(false)).unwrap();
-    wait_for(&receiver, |state| !state.pause_when_open && state.paused);
-    player.send(Command::Load(media)).unwrap();
-    wait_for(&receiver, |state| {
+    harness.send(Command::SetPauseWhenOpen(false)).unwrap();
+    harness.wait(|state| !state.pause_when_open && state.paused);
+    harness.send(Command::Load(media)).unwrap();
+    harness.wait(|state| {
         state.generation > batch.generation
             && state.phase == Phase::Playing
             && !state.paused
@@ -87,16 +81,8 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         ]
     };
 
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player_with_options(
-        &test_library(&root),
-        true,
-        options(&enabled_watch_later, true),
-        move |state| {
-            let _ = sender.send(state);
-        },
-    )
-    .unwrap();
+    let Harness { player, receiver } =
+        Harness::with_options(&root, options(&enabled_watch_later, true)).unwrap();
     player.send(Command::Load(media.clone())).unwrap();
     let saved = wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 2.0)
@@ -115,16 +101,8 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     );
     drop(player);
 
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player_with_options(
-        &test_library(&root),
-        true,
-        options(&enabled_watch_later, true),
-        move |state| {
-            let _ = sender.send(state);
-        },
-    )
-    .unwrap();
+    let Harness { player, receiver } =
+        Harness::with_options(&root, options(&enabled_watch_later, true)).unwrap();
     player.send(Command::Load(media.clone())).unwrap();
     let restored = wait_for(&receiver, |state| {
         state.phase == Phase::Playing
@@ -135,16 +113,8 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     assert!(restored.position.unwrap() >= saved.position.unwrap() - 0.5);
     drop(player);
 
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player_with_options(
-        &test_library(&root),
-        true,
-        options(&disabled_watch_later, false),
-        move |state| {
-            let _ = sender.send(state);
-        },
-    )
-    .unwrap();
+    let Harness { player, receiver } =
+        Harness::with_options(&root, options(&disabled_watch_later, false)).unwrap();
     player.send(Command::Load(media.clone())).unwrap();
     wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 1.0)
@@ -169,16 +139,8 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         "disabled resume must not create a watch-later file"
     );
 
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player_with_options(
-        &test_library(&root),
-        true,
-        options(&disabled_watch_later, false),
-        move |state| {
-            let _ = sender.send(state);
-        },
-    )
-    .unwrap();
+    let Harness { player, receiver } =
+        Harness::with_options(&root, options(&disabled_watch_later, false)).unwrap();
     player.send(Command::Load(media)).unwrap();
     let from_start = wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some()
@@ -197,18 +159,14 @@ fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
     let root = fixture_root();
     let media = root.join("tests/fixtures/catalog.mkv");
     let subtitle = root.join("tests/fixtures/manual-captions.srt");
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::OpenFilesWithSubtitles {
             paths: vec![media.to_string_lossy().into_owned()],
             subtitles: vec![subtitle.to_string_lossy().into_owned()],
         })
         .unwrap();
-    let loaded = wait_for(&receiver, |state| {
+    let loaded = harness.wait(|state| {
         state.error.is_some()
             || state.tracks.iter().any(|track| {
                 track.kind == TrackKind::Sub
@@ -231,12 +189,9 @@ fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
 #[ignore = "requires provisioned libmpv; exercises the UI's multi-file open command"]
 fn ui_open_files_command_starts_real_media() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .expect("Provision libmpv and set RIINA_TEST_MPV_LIBRARY to its absolute path");
-    player
+    let harness = Harness::start(&root)
+        .expect("Provision libmpv and set RIINA_TEST_MPV_LIBRARY to its absolute path");
+    harness
         .send(Command::OpenFiles(vec![
             root.join("tests/fixtures/moving-square.avi")
                 .to_string_lossy()
@@ -244,7 +199,7 @@ fn ui_open_files_command_starts_real_media() {
         ]))
         .unwrap();
 
-    let playing = wait_for(&receiver, |state| {
+    let playing = harness.wait(|state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
     });
     assert!(
@@ -269,9 +224,9 @@ fn ui_open_files_command_starts_real_media() {
         param: -0.25,
         ..Default::default()
     };
-    player.send(Command::VideoThreads(4)).unwrap();
-    player.send(Command::SetToneMapping(overridden)).unwrap();
-    player
+    harness.send(Command::VideoThreads(4)).unwrap();
+    harness.send(Command::SetToneMapping(overridden)).unwrap();
+    harness
         .send(Command::SetToneMapping(
             riina_core::hdr_preferences::Settings {
                 enabled: false,
@@ -279,7 +234,7 @@ fn ui_open_files_command_starts_real_media() {
             },
         ))
         .unwrap();
-    let tone_mapping_updated = wait_for(&receiver, |state| {
+    let tone_mapping_updated = harness.wait(|state| {
         state.error.is_some()
             || state
                 .position
@@ -292,16 +247,9 @@ fn ui_open_files_command_starts_real_media() {
 #[ignore = "requires provisioned libmpv; verifies an invalid optional setting does not block playback"]
 fn invalid_optional_startup_option_keeps_media_playable() {
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player_with_options(
-        &test_library(&root),
-        true,
-        vec![("riina-invalid-option".into(), "value".into())],
-        move |state| {
-            let _ = sender.send(state);
-        },
-    )
-    .expect("invalid user options must not fail player initialization");
+    let Harness { player, receiver } =
+        Harness::with_options(&root, vec![("riina-invalid-option".into(), "value".into())])
+            .expect("invalid user options must not fail player initialization");
     let warning = wait_for(&receiver, |state| {
         state
             .error

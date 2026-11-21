@@ -5,28 +5,22 @@ use super::*;
 fn zero_size_crop_offsets_preserve_requested_parameters() {
     use riina_core::crop::{FILTER_LABEL, Rectangle};
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.video_output.is_some()
-    });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player.send(Command::Volume(37.0)).unwrap();
-    let baseline = wait_for(&receiver, |state| state.volume == 37.0);
+    harness.wait(|state| state.phase == Phase::Playing && state.video_output.is_some());
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness.send(Command::Volume(37.0)).unwrap();
+    let baseline = harness.wait(|state| state.volume == 37.0);
     let mut completed = baseline.completed_seeks;
     for (width, height) in [(0, 160), (300, 0), (0, 0)] {
-        player
+        harness
             .send(Command::VideoCropRectangle(Rectangle {
                 x: 10,
                 y: 12,
@@ -34,7 +28,7 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
                 height,
             }))
             .unwrap();
-        let state = wait_for(&receiver, |state| {
+        let state = harness.wait(|state| {
             state.completed_seeks > completed
                 && !state.seeking
                 && state.video_output.as_ref().map(|video| (video.w, video.h)) == Some((320, 180))
@@ -68,10 +62,8 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
             Some((320, 180))
         );
     }
-    player.send(Command::VideoCrop(None)).unwrap();
-    let reset = wait_for(&receiver, |state| {
-        riina_core::crop::observed_index(state) == Some(0)
-    });
+    harness.send(Command::VideoCrop(None)).unwrap();
+    let reset = harness.wait(|state| riina_core::crop::observed_index(state) == Some(0));
     assert_eq!(reset.error, None);
 }
 
@@ -80,24 +72,18 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
 fn zero_size_crop_uses_native_full_source_dimensions() {
     use riina_core::crop::{FILTER_LABEL, Rectangle};
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.video_output.is_some()
-    });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player
+    harness.wait(|state| state.phase == Phase::Playing && state.video_output.is_some());
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness
         .send(Command::VideoCropRectangle(Rectangle {
             x: 0,
             y: 0,
@@ -105,7 +91,7 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
             height: 0,
         }))
         .unwrap();
-    let state = wait_for(&receiver, |state| {
+    let state = harness.wait(|state| {
         state.video_filters.as_ref().is_some_and(|filters| {
             filters
                 .iter()
@@ -119,10 +105,8 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
         Some((320, 180))
     );
     assert_eq!(riina_core::crop::observed_index(&state), Some(6));
-    player.send(Command::VideoCrop(None)).unwrap();
-    let reset = wait_for(&receiver, |state| {
-        riina_core::crop::observed_index(state) == Some(0)
-    });
+    harness.send(Command::VideoCrop(None)).unwrap();
+    let reset = harness.wait(|state| riina_core::crop::observed_index(state) == Some(0));
     assert_eq!(reset.error, None);
 }
 
@@ -135,35 +119,31 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
 fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     use riina_core::crop::{FILTER_LABEL, Preset};
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state.phase == Phase::Playing
             && state.video_filters.is_some()
             && state.video_output.is_some()
     });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
-    player.send(Command::Volume(37.0)).unwrap();
-    wait_for(&receiver, |state| state.volume == 37.0);
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
+    harness.send(Command::Volume(37.0)).unwrap();
+    harness.wait(|state| state.volume == 37.0);
     for preset in Preset::MENU_ALL.into_iter().chain([Preset::TwentyOneNine]) {
         let (width, height) = preset.dimensions(320, 180).unwrap();
         // This fixture decodes to YUV420: libavfilter aligns odd dimensions
         // down to chroma boundaries, while vf retains the requested dimensions.
         let output_width = width & !1;
         let output_height = height & !1;
-        player.send(Command::VideoCrop(Some(preset))).unwrap();
-        let changed = wait_for(&receiver, |state| {
+        harness.send(Command::VideoCrop(Some(preset))).unwrap();
+        let changed = harness.wait(|state| {
             state
                 .video_output
                 .as_ref()
@@ -210,8 +190,8 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
                 .map(|index| index + 1)
         );
     }
-    player.send(Command::VideoCrop(None)).unwrap();
-    let reset = wait_for(&receiver, |state| {
+    harness.send(Command::VideoCrop(None)).unwrap();
+    let reset = harness.wait(|state| {
         state
             .video_output
             .as_ref()
@@ -227,23 +207,23 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     assert_eq!(reset.error, None);
     // Display overrides must not become the coordinate system for later crop
     // requests: every quarter turn still crops the original 320×180 pixels.
-    player
+    harness
         .send(Command::VideoAspect(
             riina_core::video_controls::AspectRatio::from_text("1:1"),
         ))
         .unwrap();
-    wait_for(&receiver, |state| state.video_aspect_override == Some(1.0));
+    harness.wait(|state| state.video_aspect_override == Some(1.0));
     for rotation in [90, 180, 270, 0] {
-        player
+        harness
             .send(Command::VideoRotation(
                 riina_core::video_controls::Rotation::from_degrees(rotation).unwrap(),
             ))
             .unwrap();
-        wait_for(&receiver, |state| state.video_rotation == Some(rotation));
+        harness.wait(|state| state.video_rotation == Some(rotation));
         for preset in Preset::ALL {
             let (width, height) = preset.dimensions(320, 180).unwrap();
-            player.send(Command::VideoCrop(Some(preset))).unwrap();
-            let changed = wait_for(&receiver, |state| {
+            harness.send(Command::VideoCrop(Some(preset))).unwrap();
+            let changed = harness.wait(|state| {
                 state.video_filters.as_ref().is_some_and(|filters| {
                     filters.iter().any(|filter| {
                         filter.label.as_deref() == Some(FILTER_LABEL)
@@ -262,8 +242,8 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
             assert_eq!(changed.volume, 37.0);
             assert_eq!(changed.error, None);
         }
-        player.send(Command::VideoCrop(None)).unwrap();
-        let cleared = wait_for(&receiver, |state| {
+        harness.send(Command::VideoCrop(None)).unwrap();
+        let cleared = harness.wait(|state| {
             state.video_filters.as_ref().is_some_and(|filters| {
                 !filters
                     .iter()
@@ -280,8 +260,10 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
         width: 300,
         height: 160,
     };
-    player.send(Command::VideoCropRectangle(rectangle)).unwrap();
-    let custom = wait_for(&receiver, |state| {
+    harness
+        .send(Command::VideoCropRectangle(rectangle))
+        .unwrap();
+    let custom = harness.wait(|state| {
         state
             .video_output
             .as_ref()
@@ -299,7 +281,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     assert_eq!(custom.video_aspect_override, Some(1.0));
     assert_eq!(custom.error, None);
     assert_eq!(riina_core::crop::observed_index(&custom), Some(6));
-    player
+    harness
         .send(Command::VideoCropRectangle(riina_core::crop::Rectangle {
             x: 0,
             y: 0,
@@ -307,7 +289,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
             height: 180,
         }))
         .unwrap();
-    wait_for(&receiver, |state| {
+    harness.wait(|state| {
         state
             .video_output
             .as_ref()
@@ -318,12 +300,9 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
                     .any(|filter| filter.label.as_deref() == Some(FILTER_LABEL))
             })
     });
-    player.send(Command::VideoCrop(None)).unwrap();
-    player.send(Command::Volume(38.0)).unwrap();
-    assert_eq!(
-        wait_for(&receiver, |state| state.volume == 38.0).error,
-        None
-    );
+    harness.send(Command::VideoCrop(None)).unwrap();
+    harness.send(Command::Volume(38.0)).unwrap();
+    assert_eq!(harness.wait(|state| state.volume == 38.0).error, None);
 }
 
 #[test]
@@ -334,35 +313,29 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
         crop_session::Session,
     };
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let mut state = wait_for(&receiver, |state| {
+    let mut state = harness.wait(|state| {
         state.phase == Phase::Playing && state.video.is_some() && state.video_filters.is_some()
     });
-    player.send(Command::Volume(37.0)).unwrap();
+    harness.send(Command::Volume(37.0)).unwrap();
     for (was_paused, confirm) in [(false, false), (true, false), (false, true), (true, true)] {
         if state.paused != was_paused {
-            player.send(Command::TogglePause).unwrap();
-            wait_for(&receiver, |state| state.paused == was_paused);
+            harness.send(Command::TogglePause).unwrap();
+            harness.wait(|state| state.paused == was_paused);
         }
-        player.send(Command::Speed(1.5)).unwrap();
-        wait_for(&receiver, |state| {
-            state.speed == 1.5 && state.volume == 37.0
-        });
-        player
+        harness.send(Command::Speed(1.5)).unwrap();
+        harness.wait(|state| state.speed == 1.5 && state.volume == 37.0);
+        harness
             .send(Command::VideoCrop(Some(Preset::FourThree)))
             .unwrap();
-        state = wait_for(&receiver, |state| {
+        state = harness.wait(|state| {
             state.video_filters.as_ref().is_some_and(|filters| {
                 filters
                     .iter()
@@ -371,8 +344,8 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
         });
         assert_eq!(state.paused, was_paused);
         let session = Session::begin(&state).unwrap();
-        player.send(Command::EnterCrop(session.clone())).unwrap();
-        let editing = wait_for(&receiver, |state| session.ready(state));
+        harness.send(Command::EnterCrop(session.clone())).unwrap();
+        let editing = harness.wait(|state| session.ready(state));
         assert_eq!(editing.volume, 37.0);
         assert_eq!(editing.speed, 1.5);
         assert_eq!(editing.error, None);
@@ -382,13 +355,13 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
             width: 300,
             height: 160,
         });
-        player
+        harness
             .send(Command::ExitCrop { session, rectangle })
             .unwrap();
         // An unrelated changed option provides a barrier even when restoring
         // an already-paused source does not produce a new pause observation.
-        player.send(Command::Speed(1.25)).unwrap();
-        state = wait_for(&receiver, |state| {
+        harness.send(Command::Speed(1.25)).unwrap();
+        state = harness.wait(|state| {
             state.speed == 1.25
                 && state.paused == was_paused
                 && state.video_filters.as_ref().is_some_and(|filters| {
@@ -414,21 +387,21 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
     }
     let stale = Session::begin(&state).unwrap();
     let previous_generation = state.generation;
-    player
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    let replacement = wait_for(&receiver, |state| {
+    let replacement = harness.wait(|state| {
         state.generation > previous_generation
             && state.phase == Phase::Playing
             && !state.paused
             && state.video.is_some()
             && state.video_filters.is_some()
     });
-    player
+    harness
         .send(Command::ExitCrop {
             session: stale,
             rectangle: Some(Rectangle {
@@ -439,9 +412,8 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
             }),
         })
         .unwrap();
-    let rejected = wait_for(&receiver, |state| {
-        state.error.as_deref() == Some("The video changed while cropping")
-    });
+    let rejected =
+        harness.wait(|state| state.error.as_deref() == Some("The video changed while cropping"));
     assert_eq!(rejected.generation, replacement.generation);
     assert!(!rejected.paused);
     assert_eq!(rejected.volume, 37.0);
@@ -457,23 +429,17 @@ fn crop_projection_preserves_source_selection_under_native_display_overrides() {
         video_controls::{AspectRatio, Rotation},
     };
     let root = fixture_root();
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
                 .to_string_lossy()
                 .into_owned(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Playing && state.video.is_some()
-    });
-    player.send(Command::TogglePause).unwrap();
-    wait_for(&receiver, |state| state.paused);
+    harness.wait(|state| state.phase == Phase::Playing && state.video.is_some());
+    harness.send(Command::TogglePause).unwrap();
+    harness.wait(|state| state.paused);
     let rectangle = Rectangle {
         x: 23,
         y: 17,
@@ -481,19 +447,17 @@ fn crop_projection_preserves_source_selection_under_native_display_overrides() {
         height: 137,
     };
     for (aspect, ratio) in [("Default", -1.0), ("1:1", 1.0), ("4:3", 4.0 / 3.0)] {
-        player
+        harness
             .send(Command::VideoAspect(AspectRatio::from_text(aspect)))
             .unwrap();
-        wait_for(&receiver, |state| {
-            state.video_aspect_override == Some(ratio)
-        });
+        harness.wait(|state| state.video_aspect_override == Some(ratio));
         for degrees in [0, 90, 180, 270] {
-            player
+            harness
                 .send(Command::VideoRotation(
                     Rotation::from_degrees(degrees).unwrap(),
                 ))
                 .unwrap();
-            let state = wait_for(&receiver, |state| {
+            let state = harness.wait(|state| {
                 state
                     .video
                     .as_ref()

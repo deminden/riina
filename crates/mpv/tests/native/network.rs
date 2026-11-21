@@ -11,15 +11,11 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
     let (stop, stopping) = mpsc::channel();
     let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping));
 
-    let (sender, receiver) = mpsc::channel();
-    let player = start_test_player(&test_library(&root), true, move |state| {
-        let _ = sender.send(state);
-    })
-    .unwrap();
-    player
+    let harness = Harness::start(&root).unwrap();
+    harness
         .send(Command::Load(format!("http://{address}/moving-square.avi")))
         .unwrap();
-    let loaded = wait_for(&receiver, |state| {
+    let loaded = harness.wait(|state| {
         state.error.is_some()
             || (state.phase == Phase::Playing
                 && state.position.is_some_and(|position| position > 0.1))
@@ -36,7 +32,7 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
             .iter()
             .any(|track| track.kind == TrackKind::Audio && track.selected)
     );
-    drop(player);
+    drop(harness);
     stop.send(()).unwrap();
     server.join().unwrap().unwrap();
 }

@@ -1,5 +1,43 @@
 use super::*;
 
+pub(super) struct Harness {
+    pub(super) player: Player,
+    pub(super) receiver: mpsc::Receiver<Playback>,
+}
+
+impl Harness {
+    pub(super) fn start(root: &std::path::Path) -> Result<Self, String> {
+        Self::with_options(root, Vec::new())
+    }
+
+    pub(super) fn with_options(
+        root: &std::path::Path,
+        options: Vec<(String, String)>,
+    ) -> Result<Self, String> {
+        Self::at(&test_library(root), options)
+    }
+
+    pub(super) fn at(
+        library: &std::path::Path,
+        options: Vec<(String, String)>,
+    ) -> Result<Self, String> {
+        let (sender, receiver) = mpsc::channel();
+        let player = start_test_player_with_options(library, true, options, move |state| {
+            let _ = sender.send(state);
+        })?;
+        Ok(Self { player, receiver })
+    }
+
+    #[track_caller]
+    pub(super) fn wait(&self, predicate: impl Fn(&Playback) -> bool) -> Playback {
+        wait_for(&self.receiver, predicate)
+    }
+
+    pub(super) fn send(&self, command: Command) -> Result<(), String> {
+        self.player.send(command)
+    }
+}
+
 #[expect(
     clippy::expect_used,
     reason = "A missing fixture root must fail the native test"
