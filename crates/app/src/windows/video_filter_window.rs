@@ -15,6 +15,16 @@ use std::{
 type Settings = Arc<Mutex<video_filters::Settings>>;
 type WindowSlot = Rc<RefCell<Option<VideoFiltersWindow>>>;
 
+struct FilterWindow {
+    _window: WindowSlot,
+    _refresh: Rc<slint::Timer>,
+}
+
+pub(crate) struct Guard {
+    _video: FilterWindow,
+    _audio: FilterWindow,
+}
+
 #[derive(Default)]
 struct PresetDraft {
     index: Option<usize>,
@@ -28,10 +38,7 @@ pub(crate) fn install(
     audio_settings: Settings,
     player: riina_mpv::CommandSender,
     preferences_path: PathBuf,
-) -> (
-    (WindowSlot, Rc<slint::Timer>),
-    (WindowSlot, Rc<slint::Timer>),
-) {
+) -> Guard {
     let shortcut_video_settings = video_settings.clone();
     let shortcut_audio_settings = audio_settings.clone();
     let shortcut_player = player.clone();
@@ -77,7 +84,10 @@ pub(crate) fn install(
         false,
     );
     let audio = install_for_kind(app, latest, audio_settings, player, preferences_path, true);
-    (video, audio)
+    Guard {
+        _video: video,
+        _audio: audio,
+    }
 }
 
 fn install_for_kind(
@@ -87,7 +97,7 @@ fn install_for_kind(
     player: riina_mpv::CommandSender,
     preferences_path: PathBuf,
     is_audio: bool,
-) -> (WindowSlot, Rc<slint::Timer>) {
+) -> FilterWindow {
     let slot = Rc::new(RefCell::new(None::<VideoFiltersWindow>));
     let timer = Rc::new(slint::Timer::default());
     let show_timer = timer.clone();
@@ -193,7 +203,10 @@ fn install_for_kind(
         app.on_open_video_filters(open_filter_window);
     }
 
-    (slot, timer)
+    FilterWindow {
+        _window: slot,
+        _refresh: timer,
+    }
 }
 
 #[expect(

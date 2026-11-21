@@ -326,10 +326,7 @@ pub(crate) struct UiSession {
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
     _playback_history_window: crate::playback_history_window::Guard,
-    _video_filters_window: Rc<RefCell<Option<crate::VideoFiltersWindow>>>,
-    _video_filters_timer: Rc<slint::Timer>,
-    _audio_filters_window: Rc<RefCell<Option<crate::VideoFiltersWindow>>>,
-    _audio_filters_timer: Rc<slint::Timer>,
+    _filter_windows: crate::video_filter_window::Guard,
     _playlist_metadata_timer: Rc<slint::Timer>,
     _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
@@ -644,15 +641,14 @@ fn configure_with_engine(
         plugin_host_handle.clone(),
         latest_playback.clone(),
     );
-    let ((video_filters_window, video_filters_timer), (audio_filters_window, audio_filters_timer)) =
-        crate::video_filter_window::install(
-            app,
-            latest_playback.clone(),
-            saved_video_filters.clone(),
-            saved_audio_filters.clone(),
-            command_sender.clone(),
-            prefs_path.clone(),
-        );
+    let filter_windows = crate::video_filter_window::install(
+        app,
+        latest_playback.clone(),
+        saved_video_filters.clone(),
+        saved_audio_filters.clone(),
+        command_sender.clone(),
+        prefs_path.clone(),
+    );
     let playlist_metadata_timer = install_playlist_metadata_refresh(app, latest_playback.clone());
     let automatic_music_mode_timer = crate::automatic_music_mode::install(
         app,
@@ -923,10 +919,7 @@ fn configure_with_engine(
         _subtitle_priority_timer: subtitle_priority_timer,
         _online_subtitles_window: online_subtitles_window,
         _playback_history_window: playback_history_window,
-        _video_filters_window: video_filters_window,
-        _video_filters_timer: video_filters_timer,
-        _audio_filters_window: audio_filters_window,
-        _audio_filters_timer: audio_filters_timer,
+        _filter_windows: filter_windows,
         _playlist_metadata_timer: playlist_metadata_timer,
         _automatic_music_mode_timer: automatic_music_mode_timer,
         _file_drop_timer: file_drop_timer,
