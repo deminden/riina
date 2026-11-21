@@ -1,13 +1,20 @@
 //! The rendering notifier owns GL resources until the backend tears down its context.
 #[cfg(target_os = "macos")]
+mod display_color;
+
+#[cfg(target_os = "macos")]
 use crate::platform;
 use crate::platform::video_materials::set_video_material_sample;
+use crate::video_blur::VideoBlurSurface;
 use crate::{PlayerWindow, media_open};
 use riina_core::Command;
 use riina_mpv::{Player, video::VideoSurface};
-use slint::ComponentHandle;
+use slint::{ComponentHandle, GraphicsAPI, RenderingState, Weak};
+#[cfg(target_os = "macos")]
+use std::cell::RefCell;
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
+    ffi::OsString,
     rc::Rc,
     sync::{
         Arc,
@@ -16,307 +23,269 @@ use std::{
     time::Duration,
 };
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(
     app: &PlayerWindow,
     player: &Player,
-    media: Vec<std::ffi::OsString>,
+    media: Vec<OsString>,
     startup_resume_position: Option<f64>,
     volume: f64,
     #[cfg(target_os = "macos")] picture_in_picture: Rc<
         RefCell<Option<platform::MacPictureInPicture>>,
     >,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let pending_media = Rc::new(RefCell::new(media));
-    let pending_resume_position = Rc::new(Cell::new(startup_resume_position));
-    let render_weak = app.as_weak();
-    let render_player = player.clone();
-    let render_resume_position = pending_resume_position.clone();
-    let mut surface: Option<VideoSurface> = None;
-    #[cfg(target_os = "macos")]
-    let mut icc_profile_display: Option<(usize, Option<Vec<u8>>, bool)> = None;
-    #[cfg(target_os = "macos")]
-    let mut icc_profile_auto_active: Option<bool> = None;
-    let mut blur_surface: Option<crate::video_blur::VideoBlurSurface> = None;
-    let render_generation = Rc::new(Cell::new(0_u64));
-    let mut started = false;
-    let repaint_pending = Arc::new(AtomicBool::new(false));
-    #[cfg(target_os = "macos")]
-    let render_picture_in_picture = picture_in_picture;
+    let mut session = RenderSession {
+        app: app.as_weak(),
+        player: player.clone(),
+        opening: Some(InitialPlayback {
+            media,
+            resume_position: startup_resume_position,
+            volume,
+        }),
+        surface: None,
+        blur_surface: None,
+        generation: Rc::new(Cell::new(0)),
+        repaint_pending: Arc::new(AtomicBool::new(false)),
+        #[cfg(target_os = "macos")]
+        display_color: display_color::DisplayColor::default(),
+        #[cfg(target_os = "macos")]
+        picture_in_picture,
+    };
     app.window()
-        .set_rendering_notifier(move |state, graphics_api| {
-            match state {
-                slint::RenderingState::RenderingSetup => {
-                    render_generation.set(render_generation.get().wrapping_add(1));
-                    if let Some(app) = render_weak.upgrade()
-                        && app.get_native_video()
-                    {
-                        // Windows native playback is already presented by mpv's
-                        // D3D11 child window. Creating libmpv's OpenGL render API
-                        // context for that same player produces a second video
-                        // feed above it and leaves doubled frames during handoff.
-                        app.set_engine_ready(true);
-                        if !started {
-                            started = true;
-                            let _ = render_player.send(Command::Volume(volume));
-                            let paths = std::mem::take(&mut *pending_media.borrow_mut());
-                            if !paths.is_empty() {
-                                media_open::startup_at(
-                                    &app,
-                                    paths,
-                                    render_resume_position.take(),
-                                    render_player.command_sender(),
-                                );
-                            }
-                        }
-                    } else if let slint::GraphicsAPI::NativeOpenGL { get_proc_address } =
-                        graphics_api
-                    {
-                        let weak = render_weak.clone();
-                        let pending = repaint_pending.clone();
-                        // SAFETY: notifier guarantees that this GL context is current.
-                        match unsafe {
-                            VideoSurface::new(
-                                render_player.clone(),
-                                &get_proc_address,
-                                Box::new(move || {
-                                    if pending.swap(true, Ordering::AcqRel) {
-                                        return;
-                                    }
-                                    let weak = weak.clone();
-                                    let pending = pending.clone();
-                                    let _ = slint::invoke_from_event_loop(move || {
-                                        pending.store(false, Ordering::Release);
-                                        if let Some(app) = weak.upgrade() {
-                                            app.window().request_redraw();
-                                        }
-                                    });
-                                }),
-                            )
-                        } {
-                            Ok(video) => {
-                                // The video-backed material is an optional visual enhancement:
-                                // failure to create it must not prevent playback.
-                                // SAFETY: RenderingSetup has this window's GL context current.
-                                match unsafe {
-                                    crate::video_blur::VideoBlurSurface::new(&get_proc_address)
-                                } {
-                                    Ok(blur) => blur_surface = Some(blur),
-                                    Err(error) => crate::diagnostics::warn!("Could not initialize video blur: {error}"),
-                                }
-                                #[cfg(target_os = "macos")]
-                                if let Some(manager) =
-                                    render_picture_in_picture.borrow_mut().as_mut()
-                                    && let Err(error) = {
-                                        // SAFETY: this rendering setup callback holds the active CGL context.
-                                        unsafe { manager.configure_rendering(&get_proc_address) }
-                                    }
-                                    && let Some(app) = render_weak.upgrade()
-                                {
-                                    app.set_status(
-                                        format!("PiP renderer initialization failed: {error}")
-                                            .into(),
-                                    );
-                                }
-                                surface = Some(video);
-                                if let Some(app) = render_weak.upgrade() {
-                                    app.set_engine_ready(true);
-                                }
-                            }
-                            Err(error) => {
-                                if let Some(app) = render_weak.upgrade() {
-                                    app.set_status(
-                                        format!("Video initialization failed: {error}").into(),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-                slint::RenderingState::BeforeRendering => {
-                    if let (Some(video), Some(app)) = (surface.as_mut(), render_weak.upgrade()) {
-                        #[cfg(target_os = "macos")]
-                        if let Some(display) = platform::display_identity(app.window()) {
-                            if !app.get_load_icc_profile()
-                                && let Some((cached_display, profile, _)) =
-                                    icc_profile_display.take()
-                            {
-                                icc_profile_display =
-                                    Some((cached_display, profile, false));
-                            }
-                            let needs_profile = icc_profile_display
-                                .as_ref()
-                                .is_none_or(|(cached_display, _, attempted)| {
-                                    *cached_display != display
-                                        || (app.get_load_icc_profile() && !attempted)
-                                });
-                            if needs_profile {
-                                let attempted = app.get_load_icc_profile();
-                                let mut profile = attempted
-                                    .then(|| platform::icc_profile_for_window(app.window()))
-                                    .flatten();
-                                if let Some(bytes) = profile.as_deref() {
-                                    // SAFETY: this callback runs on Slint's current GL render context.
-                                    if let Err(error) = unsafe { video.set_icc_profile(bytes) } {
-                                        crate::diagnostics::warn!("Could not install the macOS display ICC profile: {error}");
-                                        profile = None;
-                                    }
-                                }
-                                icc_profile_display = Some((display, profile, attempted));
-                            }
-                            let profile_available = icc_profile_display
-                                .as_ref()
-                                .is_some_and(|(_, profile, _)| profile.is_some());
-                            let hdr_output_active = app.get_hdr_source_detected()
-                                && app.get_hdr_enabled()
-                                && app.get_hdr_display_active();
-                            let should_use_icc = app.get_load_icc_profile()
-                                && profile_available
-                                && !hdr_output_active;
-                            if icc_profile_auto_active != Some(should_use_icc) {
-                                if let Err(error) = render_player
-                                    .send(Command::SetIccProfileAuto(should_use_icc))
-                                {
-                                    crate::diagnostics::warn!("Could not update macOS display ICC processing: {error}");
-                                } else {
-                                    icc_profile_auto_active = Some(should_use_icc);
-                                }
-                            }
-                        }
-                        let scale = app.window().scale_factor();
-                        let width = (app.get_render_width() * scale).clamp(1.0, 8192.0) as u32;
-                        let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
-                        // SAFETY: the notifier uses the same context throughout its lifetime.
-                        match unsafe { video.render(width, height) } {
-                            Ok(()) => {
-                                let sidebar_blur = app.get_liquid_glass_sidebar()
-                                    && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
-                                let controller_blur = app.get_liquid_glass_osc()
-                                    && app.get_loaded()
-                                    && (app.get_controls_visible() || app.get_music_mode());
-                                let osd_blur = app.get_liquid_glass_osd()
-                                    && app.get_loaded()
-                                    && (app.get_video_osd_visible()
-                                        || app.get_seek_osd_visible()
-                                        || !app.get_plugin_osd_message().is_empty()
-                                        || (app.get_fullscreen()
-                                            && app.get_controls_visible()
-                                            && app.get_display_time_and_battery_in_fullscreen()));
-                                let blur_enabled = app.get_system_materials_enabled()
-                                    && (sidebar_blur || controller_blur || osd_blur);
-                                if blur_enabled {
-                                    if let Some(blur) = blur_surface.as_mut() {
-                                        // SAFETY: both textures belong to this window's current GL context.
-                                        match unsafe {
-                                            blur.render(
-                                                glow::NativeTexture(video.texture_id()),
-                                                width,
-                                                height,
-                                            )
-                                        } {
-                                            Ok(()) => {
-                                                // SAFETY: the blur surface owns this texture from
-                                                // the current context, and it is used by this window.
-                                                let image = unsafe {
-                                                    slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
-                                                        blur.texture_id(),
-                                                        (width.div_ceil(4), height.div_ceil(4)).into(),
-                                                    )
-                                                    .build()
-                                                };
-                                                set_video_material_sample(&app, image, true);
-                                            }
-                                            Err(error) => crate::diagnostics::warn!("Could not render video blur: {error}"),
-                                        }
-                                    }
-                                } else {
-                                    set_video_material_sample(&app, slint::Image::default(), false);
-                                }
-                                // SAFETY: the video surface owns this texture from
-                                // the current context, and it is used by this window.
-                                let image = unsafe {
-                                    slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
-                                        video.texture_id(),
-                                        (width, height).into(),
-                                    )
-                                    .build()
-                                };
-                                app.set_video_frame(image);
-                                #[cfg(target_os = "macos")]
-                                if let Some(manager) =
-                                    render_picture_in_picture.borrow_mut().as_mut()
-                                    && let Err(error) = {
-                                        // SAFETY: the window's renderer owns the current CGL context.
-                                        unsafe { manager.render_frame(video) }
-                                    }
-                                {
-                                    app.set_status(
-                                        format!("PiP frame rendering failed: {error}").into(),
-                                    );
-                                }
-                                if !started {
-                                    started = true;
-                                    let _ = render_player.send(Command::Volume(volume));
-                                    let paths = std::mem::take(&mut *pending_media.borrow_mut());
-                                    if !paths.is_empty() {
-                                        media_open::startup_at(
-                                            &app,
-                                            paths,
-                                            render_resume_position.take(),
-                                            render_player.command_sender(),
-                                        );
-                                    }
-                                }
-                            }
-                            Err(error) => {
-                                app.set_status(format!("Video rendering failed: {error}").into())
-                            }
-                        }
-                    }
-                }
-                slint::RenderingState::AfterRendering => {
-                    if let Some(video) = surface.as_ref() {
-                        // Slint presents immediately after this notifier; report at its
-                        // submission boundary so libmpv can pace the next video frame.
-                        // SAFETY: same live renderer and context as the composed frame.
-                        unsafe { video.report_swap() };
-                    }
-                }
-                slint::RenderingState::RenderingTeardown => {
-                    #[cfg(target_os = "macos")]
-                    if let Some(manager) = render_picture_in_picture.borrow_mut().as_mut() {
-                        // SAFETY: RenderingTeardown runs before Slint releases its GL context.
-                        unsafe { manager.teardown_rendering() };
-                    }
-                    drop(blur_surface.take());
-                    drop(surface.take());
-                    #[cfg(target_os = "macos")]
-                    {
-                        icc_profile_display = None;
-                        icc_profile_auto_active = None;
-                    }
-                    // Context loss also needs UI invalidation, but only after
-                    // the backend releases its mutable window borrow. A later
-                    // setup must not have its new frame cleared by stale work.
-                    let retired_generation = render_generation.get();
-                    let generation = render_generation.clone();
-                    let weak = render_weak.clone();
-                    slint::Timer::single_shot(Duration::ZERO, move || {
-                        if generation.get() == retired_generation
-                            && let Some(app) = weak.upgrade()
-                            && !app.get_native_video()
-                        {
-                            app.set_video_frame(slint::Image::default());
-                            set_video_material_sample(&app, slint::Image::default(), false);
-                            app.set_engine_ready(false);
-                        }
-                    });
-                }
-                _ => {}
-            }
+        .set_rendering_notifier(move |state, api| match state {
+            RenderingState::RenderingSetup => session.setup(api),
+            RenderingState::BeforeRendering => session.draw(),
+            RenderingState::AfterRendering => session.submitted(),
+            RenderingState::RenderingTeardown => session.teardown(),
+            _ => {}
         })?;
     Ok(())
+}
+
+struct InitialPlayback {
+    media: Vec<OsString>,
+    resume_position: Option<f64>,
+    volume: f64,
+}
+
+struct RenderSession {
+    app: Weak<PlayerWindow>,
+    player: Player,
+    opening: Option<InitialPlayback>,
+    surface: Option<VideoSurface>,
+    blur_surface: Option<VideoBlurSurface>,
+    generation: Rc<Cell<u64>>,
+    repaint_pending: Arc<AtomicBool>,
+    #[cfg(target_os = "macos")]
+    display_color: display_color::DisplayColor,
+    #[cfg(target_os = "macos")]
+    picture_in_picture: Rc<RefCell<Option<platform::MacPictureInPicture>>>,
+}
+
+impl RenderSession {
+    fn setup(&mut self, api: &GraphicsAPI<'_>) {
+        self.generation.set(self.generation.get().wrapping_add(1));
+        if let Some(app) = self.app.upgrade()
+            && app.get_native_video()
+        {
+            // The D3D11 child already presents this player. An additional GL
+            // context creates a second video feed during playback handoff.
+            app.set_engine_ready(true);
+            self.start_playback(&app);
+            return;
+        }
+        let GraphicsAPI::NativeOpenGL { get_proc_address } = api else {
+            return;
+        };
+        let weak = self.app.clone();
+        let pending = self.repaint_pending.clone();
+        // SAFETY: RenderingSetup has this window's GL context current.
+        let video = unsafe {
+            VideoSurface::new(
+                self.player.clone(),
+                get_proc_address,
+                Box::new(move || request_frame(&weak, &pending)),
+            )
+        };
+        match video {
+            Ok(video) => {
+                // The video-backed material is optional and can fail independently.
+                // SAFETY: RenderingSetup has this window's GL context current.
+                match unsafe { VideoBlurSurface::new(get_proc_address) } {
+                    Ok(blur) => self.blur_surface = Some(blur),
+                    Err(error) => {
+                        crate::diagnostics::warn!("Could not initialize video blur: {error}")
+                    }
+                }
+                #[cfg(target_os = "macos")]
+                if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut()
+                    && let Err(error) = {
+                        // SAFETY: this rendering setup callback holds the active CGL context.
+                        unsafe { manager.configure_rendering(get_proc_address) }
+                    }
+                    && let Some(app) = self.app.upgrade()
+                {
+                    app.set_status(format!("PiP renderer initialization failed: {error}").into());
+                }
+                self.surface = Some(video);
+                if let Some(app) = self.app.upgrade() {
+                    app.set_engine_ready(true);
+                }
+            }
+            Err(error) => {
+                if let Some(app) = self.app.upgrade() {
+                    app.set_status(format!("Video initialization failed: {error}").into());
+                }
+            }
+        }
+    }
+
+    fn draw(&mut self) {
+        let (Some(video), Some(app)) = (self.surface.as_mut(), self.app.upgrade()) else {
+            return;
+        };
+        #[cfg(target_os = "macos")]
+        self.display_color.update(&app, video, &self.player);
+        let scale = app.window().scale_factor();
+        let width = (app.get_render_width() * scale).clamp(1.0, 8192.0) as u32;
+        let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
+        // SAFETY: BeforeRendering holds this surface's GL context.
+        if let Err(error) = unsafe { video.render(width, height) } {
+            app.set_status(format!("Video rendering failed: {error}").into());
+            return;
+        }
+        project_blur(&app, self.blur_surface.as_mut(), video, width, height);
+        // SAFETY: the video surface owns this texture from the current
+        // context, and Slint samples it in the same renderer.
+        let image = unsafe {
+            slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
+                video.texture_id(),
+                (width, height).into(),
+            )
+            .build()
+        };
+        app.set_video_frame(image);
+        #[cfg(target_os = "macos")]
+        if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut()
+            && let Err(error) = {
+                // SAFETY: the window renderer holds the current CGL context.
+                unsafe { manager.render_frame(video) }
+            }
+        {
+            app.set_status(format!("PiP frame rendering failed: {error}").into());
+        }
+        self.start_playback(&app);
+    }
+
+    fn submitted(&self) {
+        if let Some(video) = self.surface.as_ref() {
+            // Slint presents immediately after this notifier. Report at its
+            // submission boundary so libmpv can pace the next frame.
+            // SAFETY: the same renderer and context composed this frame.
+            unsafe { video.report_swap() };
+        }
+    }
+
+    fn teardown(&mut self) {
+        #[cfg(target_os = "macos")]
+        if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut() {
+            // SAFETY: RenderingTeardown runs before Slint releases its GL context.
+            unsafe { manager.teardown_rendering() };
+        }
+        drop(self.blur_surface.take());
+        drop(self.surface.take());
+        #[cfg(target_os = "macos")]
+        {
+            self.display_color = display_color::DisplayColor::default();
+        }
+        // Wait for Slint to release its mutable window borrow. A subsequent
+        // setup owns a new frame and invalidates this cleanup request.
+        let retired_generation = self.generation.get();
+        let generation = self.generation.clone();
+        let weak = self.app.clone();
+        slint::Timer::single_shot(Duration::ZERO, move || {
+            if generation.get() == retired_generation
+                && let Some(app) = weak.upgrade()
+                && !app.get_native_video()
+            {
+                app.set_video_frame(slint::Image::default());
+                set_video_material_sample(&app, slint::Image::default(), false);
+                app.set_engine_ready(false);
+            }
+        });
+    }
+
+    fn start_playback(&mut self, app: &PlayerWindow) {
+        let Some(opening) = self.opening.take() else {
+            return;
+        };
+        let _ = self.player.send(Command::Volume(opening.volume));
+        if !opening.media.is_empty() {
+            media_open::startup_at(
+                app,
+                opening.media,
+                opening.resume_position,
+                self.player.command_sender(),
+            );
+        }
+    }
+}
+
+fn request_frame(weak: &Weak<PlayerWindow>, pending: &Arc<AtomicBool>) {
+    if pending.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let weak = weak.clone();
+    let pending = pending.clone();
+    let _ = slint::invoke_from_event_loop(move || {
+        pending.store(false, Ordering::Release);
+        if let Some(app) = weak.upgrade() {
+            app.window().request_redraw();
+        }
+    });
+}
+
+fn project_blur(
+    app: &PlayerWindow,
+    blur_surface: Option<&mut VideoBlurSurface>,
+    video: &VideoSurface,
+    width: u32,
+    height: u32,
+) {
+    let sidebar_blur = app.get_liquid_glass_sidebar()
+        && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
+    let controller_blur = app.get_liquid_glass_osc()
+        && app.get_loaded()
+        && (app.get_controls_visible() || app.get_music_mode());
+    let osd_blur = app.get_liquid_glass_osd()
+        && app.get_loaded()
+        && (app.get_video_osd_visible()
+            || app.get_seek_osd_visible()
+            || !app.get_plugin_osd_message().is_empty()
+            || (app.get_fullscreen()
+                && app.get_controls_visible()
+                && app.get_display_time_and_battery_in_fullscreen()));
+    let blur_enabled =
+        app.get_system_materials_enabled() && (sidebar_blur || controller_blur || osd_blur);
+    if blur_enabled {
+        if let Some(blur) = blur_surface {
+            // SAFETY: both textures belong to this window's current GL context.
+            match unsafe { blur.render(glow::NativeTexture(video.texture_id()), width, height) } {
+                Ok(()) => {
+                    // SAFETY: the blur surface owns this texture from
+                    // the current context, and it is used by this window.
+                    let image = unsafe {
+                        slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
+                            blur.texture_id(),
+                            (width.div_ceil(4), height.div_ceil(4)).into(),
+                        )
+                        .build()
+                    };
+                    set_video_material_sample(app, image, true);
+                }
+                Err(error) => crate::diagnostics::warn!("Could not render video blur: {error}"),
+            }
+        }
+    } else {
+        set_video_material_sample(app, slint::Image::default(), false);
+    }
 }

@@ -590,6 +590,11 @@ The Settings color-panel binding also passed strict Clippy for
 `aarch64-apple-darwin` against the real AppKit color panel and stub Slint
 controls. Native interaction with the panel remains unverified.
 
+The separated GL rendering notifier passed strict Clippy for
+`aarch64-apple-darwin` against the real mpv surface and AVKit renderer. This
+probe supplied stub Slint and display-profile access. Render timing and active
+display color behavior still need native macOS verification.
+
 ### macOS Now Playing session 2026-11-21
 
 Strict Clippy passed for `aarch64-apple-darwin` on the session's playback and
