@@ -514,13 +514,21 @@ AVKit Picture-in-Picture code and libmpv crate, with stubs for Slint and native
 display-profile access. A full macOS build, presentation and lifecycle check
 remain open.
 
-## Linux x64 Settings refactor checks 2026-11-21
+## Linux x64 application checks 2026-11-21
 
 An exact `da50ecd` checkout in WSL completed strict Clippy, 803 workspace tests,
 and a locked x86-64 Linux application build. The generated executable is a
 64-bit ELF and its dynamic dependencies resolved in the disposable test setup.
 This cohort verifies the Settings refactor through compilation and tests.
-Intermittent black video in the isolated shared-GL sessions remains open.
+
+An exact `9929e0a` checkout also completed strict Clippy, 807 workspace tests,
+and a locked application build. Its x86-64 ELF had no unresolved dynamic
+dependencies in the test setup. Three isolated Xvfb sessions used the same
+video fixture with an initial profile, a relaunch, and a fresh profile. Playback
+reported `pause=false`, and early and late 1280×800 desktop captures showed
+changes in the fixture's video region in all three sessions. Each Riina process
+and virtual display exited. The previously reproduced intermittent black-video
+failure remains open.
 
 ## Running checks
 
