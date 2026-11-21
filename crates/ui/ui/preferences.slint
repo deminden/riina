@@ -8,7 +8,8 @@ import { GeneralPreferencesPage } from "preferences-general.slint";
 import { AdvancedPreferencesPage } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
 import { AudioPreferencesPage } from "preferences-audio.slint";
-import { VideoPreferencesPage } from "preferences-video.slint";
+import { VideoPreferencesPage, VideoSettingsState } from "preferences-video.slint";
+export { VideoSettingsState } from "preferences-video.slint";
 import { UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
 import { PreferencesNavigation } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchPopup } from "preferences-search.slint";
@@ -203,19 +204,10 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> pip-pause-when-entering: false;
     in-out property <bool> pip-toggle-by-minimizing: false;
     in-out property <bool> pip-minimize-toggle-video-only: false;
-    in-out property <int> hardware-decoder-index: 1;
-    in-out property <bool> load-icc-profile: true;
-    in-out property <bool> default-hdr-mode-enabled: true;
-    in-out property <string> video-threads-text: "0";
-    in-out property <bool> tone-mapping-enabled: true;
-    in-out property <bool> tone-mapping-expanded: false;
-    in-out property <bool> tone-mapping-target-peak-enabled: false;
-    in-out property <string> tone-mapping-target-peak-text: "400";
-    in-out property <int> tone-mapping-algorithm-index: 0;
-    in property <[string]> tone-mapping-algorithm-options: [];
-    in-out property <bool> tone-mapping-param-enabled: false;
-    in-out property <string> tone-mapping-param-text: "1";
-    in-out property <length> video-scroll-position: 0px;
+    in-out property <int> hardware-decoder-index <=> VideoSettingsState.hardware-decoder-index;
+    in-out property <bool> load-icc-profile <=> VideoSettingsState.load-icc-profile;
+    in-out property <bool> default-hdr-mode-enabled <=> VideoSettingsState.default-hdr-mode-enabled;
+    in-out property <string> video-threads-text <=> VideoSettingsState.video-threads-text;
     in-out property <int> control-pinch-index: 0;
     in-out property <int> control-force-touch-choice: 0;
     in-out property <int> control-single-click-choice: 2;
@@ -348,7 +340,7 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> advanced-use-mpv-osd: false;
     in-out property <bool> advanced-use-config-directory: false;
     in-out property <string> advanced-config-directory-text: "~/.config/mpv/";
-    in-out property <bool> live-text-enabled: false;
+    in-out property <bool> live-text-enabled <=> VideoSettingsState.live-text-enabled;
     in property <bool> live-text-available: false;
     in property <[AdvancedMpvOptionRow]> advanced-mpv-options: [];
     in-out property <int> advanced-mpv-option-selection: -1;
@@ -639,24 +631,10 @@ export component PreferencesWindow inherits Window {
 
     if root.selected-pane == 2 : VideoPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        video-scroll-position <=> root.video-scroll-position;
         platform-macos: root.platform-macos;
-        tone-mapping-expanded <=> root.tone-mapping-expanded;
         live-text-available: root.live-text-available;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        video-threads-text <=> root.video-threads-text;
         settings-changed => { root.settings-changed(); }
-        hardware-decoder-index <=> root.hardware-decoder-index;
-        live-text-enabled <=> root.live-text-enabled;
-        load-icc-profile <=> root.load-icc-profile;
-        default-hdr-mode-enabled <=> root.default-hdr-mode-enabled;
-        tone-mapping-enabled <=> root.tone-mapping-enabled;
-        tone-mapping-target-peak-enabled <=> root.tone-mapping-target-peak-enabled;
-        tone-mapping-target-peak-text <=> root.tone-mapping-target-peak-text;
-        tone-mapping-algorithm-options: root.tone-mapping-algorithm-options;
-        tone-mapping-algorithm-index <=> root.tone-mapping-algorithm-index;
-        tone-mapping-param-enabled <=> root.tone-mapping-param-enabled;
-        tone-mapping-param-text <=> root.tone-mapping-param-text;
     }
 
     if root.selected-pane == 4 : SubtitlesPreferencesPage {

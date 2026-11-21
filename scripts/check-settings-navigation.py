@@ -215,10 +215,10 @@ def main():
         "Video preferences must keep a dedicated scrollable pane"
     )
     video = VIDEO_SOURCE
-    assert "content-y <=> root.video-scroll-position" in video, (
+    assert "content-y <=> VideoSettingsState.video-scroll-position" in video, (
         "Video Settings search results must scroll to their selected section"
     )
-    assert "video-scroll-position <=> root.video-scroll-position;" in SOURCE
+    assert "video.set_video_scroll_position" in SEARCH_SOURCE
     for label in ["Decoding", "Number of threads", "Hardware decoder", "Color and HDR"]:
         assert f'text: "{label}"' in video, f"Video preferences are missing {label!r}"
     assert 'label: "Tone Mapping"' in video, "Video preferences are missing tone mapping"
@@ -227,9 +227,9 @@ def main():
         "tone-mapping-target-peak-text", "tone-mapping-algorithm-index",
         "tone-mapping-param-enabled", "tone-mapping-param-text",
     ]:
-        assert f"<=> root.{prop}" in video, f"Video tone mapping is not bound to {prop}"
-        assert f"{prop} <=> root.{prop};" in SOURCE, f"Video page must forward {prop}"
-    assert 'model: root.tone-mapping-algorithm-options;' in video, (
+        assert f"<=> VideoSettingsState.{prop}" in video, f"Video tone mapping is not bound to {prop}"
+        assert re.search(rf"in-out property <[^>]+> {prop}:", video), f"Missing Video Settings state for {prop}"
+    assert 'model: VideoSettingsState.tone-mapping-algorithm-options;' in video, (
         "Tone-mapping algorithm choices must preserve the reference order"
     )
     section_routes = re.findall(

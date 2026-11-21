@@ -1,17 +1,20 @@
 use super::model::{PreferenceSection, SectionError};
-use crate::PreferencesWindow;
+use crate::{PreferencesWindow, VideoSettingsState};
 use riina_core::Preferences;
 use riina_core::hdr_preferences::{Algorithm, Settings};
+use slint::ComponentHandle;
+
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
-    window.set_tone_mapping_algorithm_options(slint::ModelRc::new(slint::VecModel::from(
+    let video = window.global::<VideoSettingsState>();
+    video.set_tone_mapping_algorithm_options(slint::ModelRc::new(slint::VecModel::from(
         algorithm_labels(),
     )));
-    window.set_tone_mapping_enabled(settings.enabled);
-    window.set_tone_mapping_target_peak_enabled(settings.target_peak_override_enabled);
-    window.set_tone_mapping_target_peak_text(settings.target_peak_nits.to_string().into());
-    window.set_tone_mapping_algorithm_index(settings.algorithm.index());
-    window.set_tone_mapping_param_enabled(settings.param_override_enabled);
-    window.set_tone_mapping_param_text(settings.param.to_string().into());
+    video.set_tone_mapping_enabled(settings.enabled);
+    video.set_tone_mapping_target_peak_enabled(settings.target_peak_override_enabled);
+    video.set_tone_mapping_target_peak_text(settings.target_peak_nits.to_string().into());
+    video.set_tone_mapping_algorithm_index(settings.algorithm.index());
+    video.set_tone_mapping_param_enabled(settings.param_override_enabled);
+    video.set_tone_mapping_param_text(settings.param.to_string().into());
 }
 
 impl PreferenceSection for Settings {
@@ -33,24 +36,25 @@ impl PreferenceSection for Settings {
 }
 
 pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, String> {
-    let algorithm = Algorithm::from_index(window.get_tone_mapping_algorithm_index())
+    let video = window.global::<VideoSettingsState>();
+    let algorithm = Algorithm::from_index(video.get_tone_mapping_algorithm_index())
         .ok_or_else(|| "Invalid tone-mapping algorithm".to_owned())?;
-    let target_peak_nits = window
+    let target_peak_nits = video
         .get_tone_mapping_target_peak_text()
         .trim()
         .parse::<u32>()
         .map_err(|_| "Tone-mapping target peak must be a whole number".to_owned())?;
-    let param = window
+    let param = video
         .get_tone_mapping_param_text()
         .trim()
         .parse::<f64>()
         .map_err(|_| "Tone-mapping parameter must be a number".to_owned())?;
     let settings = Settings {
-        enabled: window.get_tone_mapping_enabled(),
-        target_peak_override_enabled: window.get_tone_mapping_target_peak_enabled(),
+        enabled: video.get_tone_mapping_enabled(),
+        target_peak_override_enabled: video.get_tone_mapping_target_peak_enabled(),
         target_peak_nits,
         algorithm,
-        param_override_enabled: window.get_tone_mapping_param_enabled(),
+        param_override_enabled: video.get_tone_mapping_param_enabled(),
         param,
     };
     settings.validate().map_err(str::to_owned)?;

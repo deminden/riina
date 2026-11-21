@@ -1,6 +1,6 @@
 //! Exercise Settings routes through the generated accessibility actions.
 use i_slint_backend_testing::{AccessibleRole, ElementHandle};
-use riina_ui::PreferencesWindow;
+use riina_ui::{PreferencesWindow, VideoSettingsState};
 use slint::{ComponentHandle, LogicalSize};
 use std::error::Error;
 
@@ -52,5 +52,25 @@ fn navigation_selects_and_reveals_settings_sections() -> Result<(), Box<dyn Erro
     assert!(settings.get_subtitle_scroll_position() < 0.0);
 
     settings.hide()?;
+    Ok(())
+}
+
+#[test]
+fn video_form_changes_are_scoped_to_one_settings_window() -> Result<(), Box<dyn Error>> {
+    i_slint_backend_testing::init_no_event_loop();
+    let first = PreferencesWindow::new()?;
+    let second = PreferencesWindow::new()?;
+
+    let first_video = first.global::<VideoSettingsState>();
+    first_video.set_tone_mapping_expanded(true);
+    first_video.set_tone_mapping_enabled(false);
+    first_video.set_video_scroll_position(-100.0);
+
+    let second_video = second.global::<VideoSettingsState>();
+    assert!(first_video.get_tone_mapping_expanded());
+    assert!(!first_video.get_tone_mapping_enabled());
+    assert!(!second_video.get_tone_mapping_expanded());
+    assert!(second_video.get_tone_mapping_enabled());
+    assert_eq!(second_video.get_video_scroll_position(), 0.0);
     Ok(())
 }

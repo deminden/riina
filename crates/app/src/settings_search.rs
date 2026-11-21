@@ -1,5 +1,5 @@
 //! Search only controls currently represented in the Settings UI.
-use crate::{PreferencesSearchResult, PreferencesWindow};
+use crate::{PreferencesSearchResult, PreferencesWindow, VideoSettingsState};
 use slint::{ComponentHandle, Image, Model, ModelRc, VecModel};
 use std::collections::BTreeSet;
 
@@ -894,10 +894,11 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         window.set_interface_scroll_position(target);
     }
     if page == 2 {
+        let video = window.global::<VideoSettingsState>();
         if title == "Tone Mapping" {
-            window.set_tone_mapping_expanded(true);
+            video.set_tone_mapping_expanded(true);
         }
-        window.set_video_scroll_position((52 - anchor).max(-540) as f32);
+        video.set_video_scroll_position((52 - anchor).max(-540) as f32);
     }
     if page == 4 {
         if section == "Auto Load" && title != "Subtitle matching mode" {
