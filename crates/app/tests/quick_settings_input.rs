@@ -112,6 +112,36 @@ fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(DelayLane, String)>>
 }
 
 #[test]
+fn player_entry_dialogs_focus_the_field_and_keep_keyboard_actions() {
+    let app = player(0);
+    let submitted_time = Rc::new(RefCell::new(None));
+    let time = submitted_time.clone();
+    app.on_jump_to_time(move |value| *time.borrow_mut() = Some(value.to_string()));
+    app.set_jump_time_dialog_visible(true);
+    flush();
+    assert!(app.get_dialog_open());
+    key(&app, "2");
+    key(&app, "0");
+    assert_eq!(app.get_jump_time_draft(), "20");
+    key(&app, Key::Return);
+    assert_eq!(submitted_time.borrow().as_deref(), Some("20"));
+    key(&app, Key::Escape);
+    assert!(!app.get_jump_time_dialog_visible());
+
+    let submitted_url = Rc::new(RefCell::new(None));
+    let url = submitted_url.clone();
+    app.on_open_url(move |value| *url.borrow_mut() = Some(value.to_string()));
+    app.set_url_dialog_visible(true);
+    flush();
+    assert!(app.get_dialog_open());
+    key(&app, "x");
+    assert_eq!(app.get_url_dialog_draft(), "x");
+    key(&app, Key::Return);
+    assert_eq!(submitted_url.borrow().as_deref(), Some("x"));
+    assert!(!app.get_dialog_open());
+}
+
+#[test]
 fn controller_hide_keeps_delay_focus_and_return_submits_once() {
     let app = player(1);
     let submissions = delay_submissions(&app);

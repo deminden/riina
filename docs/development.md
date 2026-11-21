@@ -220,6 +220,8 @@ The interval is part of the behavior for playback presentation and hover
 feedback. Keep it when narrowing a timer's lifetime. The last column records
 when the timer's work is needed.
 
+Pause on minimize follows the owning window's minimize and restore events.
+
 | Owner | Interval | Work | When needed |
 |---|---:|---|---|
 | Platform material monitor | 500 ms | Refresh native acrylic policy | While registered auxiliary surfaces are alive |
@@ -241,10 +243,9 @@ when the timer's work is needed.
 | Windows startup material policy | 500 ms | Reapply native backdrop settings | While the Windows owner and chrome are active |
 | Windows surface alignment | 16 ms | Align owner, native video and controls | While the native Windows surfaces are attached |
 | Playlist metadata | 300 ms | Refresh the catalog after metadata results or display changes | While a playlist surface can use the results |
-| Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While an eligible automatic transition is pending, including paused playback |
+| Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While media is loaded and automatic switching is enabled, including paused playback |
 | Subtitle priority | 120 ms | Select a matching loaded subtitle track | While subtitle discovery or selection is pending for the current file |
 | Windows picture-in-picture | 250 ms | Refresh paused state and the preview surface | While a PiP window is active |
-| Pause when minimized | 50 ms | Detect minimize and restore transitions | While pause-on-minimize is enabled or owns a pending resume |
 | macOS Now Playing | 50 ms | Sync media controls and drain system actions | While system media controls or application focus policy are active |
 | Windows package smoke | 100 ms | Advance the package verification steps | For the lifetime of the smoke run |
 | Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible |

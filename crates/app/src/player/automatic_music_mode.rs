@@ -27,6 +27,19 @@ pub fn install(
             observe(&app, &lock(&playback), &mode);
         },
     );
+    if !app.get_observe_automatic_music_mode() {
+        timer.stop();
+    }
+    let weak_timer = Rc::downgrade(&timer);
+    app.on_automatic_music_observation_changed(move |enabled| {
+        if let Some(timer) = weak_timer.upgrade() {
+            if enabled && !timer.running() {
+                timer.restart();
+            } else if !enabled {
+                timer.stop();
+            }
+        }
+    });
     timer
 }
 
@@ -47,5 +60,37 @@ pub(crate) fn observe(app: &PlayerWindow, playback: &Playback, mode: &Mutex<Stat
     };
     if let Some(active) = transition {
         app.set_music_mode(active);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn automatic_music_timer_runs_only_for_loaded_media_while_enabled()
+    -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let mode = Arc::new(Mutex::new(State::new(true)));
+        let timer = install(&app, crate::PlaybackStore::default(), mode);
+        assert!(!timer.running());
+
+        app.set_auto_switch_to_music_mode(true);
+        app.set_loaded(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(timer.running());
+
+        app.set_auto_switch_to_music_mode(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!timer.running());
+
+        app.set_auto_switch_to_music_mode(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(timer.running());
+        app.set_loaded(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!timer.running());
+        Ok(())
     }
 }

@@ -2,7 +2,7 @@
 use crate::PlayerWindow;
 use riina_core::{Phase, Playback};
 use slint::ComponentHandle;
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::cell::RefCell;
 
 #[derive(Default)]
 pub(crate) struct AutomaticPause {
@@ -40,102 +40,42 @@ impl AutomaticPause {
     }
 }
 
-#[derive(Default)]
-struct MinimizeWatch {
-    minimized: bool,
-    pause: AutomaticPause,
-}
-
-impl MinimizeWatch {
-    fn observe(
-        &mut self,
-        minimized: bool,
-        enabled: bool,
-        playback: &crate::PlaybackStore,
-    ) -> Option<bool> {
-        let was_minimized = std::mem::replace(&mut self.minimized, minimized);
-        if minimized == was_minimized {
-            return None;
-        }
-        if minimized && enabled {
-            let snapshot = riina_core::sync::lock(playback);
-            self.pause.pause(&snapshot).then_some(true)
-        } else if enabled {
-            let snapshot = riina_core::sync::lock(playback);
-            self.pause.resume(&snapshot).then_some(false)
-        } else {
-            self.pause.cancel();
-            None
-        }
-    }
-}
-
-fn player_is_minimized(
-    app: &PlayerWindow,
-    native_host: Option<&slint::Weak<crate::NativeVideoHost>>,
-) -> bool {
-    // Native Windows playback has a framed owner and a separate controls
-    // surface. Only the owner's minimization represents the player.
-    native_host.and_then(slint::Weak::upgrade).map_or_else(
-        || app.window().is_minimized(),
-        |host| host.window().is_minimized(),
-    )
-}
-
 pub(super) fn install_pause_on_minimize(
     app: &PlayerWindow,
     native_host: Option<slint::Weak<crate::NativeVideoHost>>,
     playback: crate::PlaybackStore,
-) -> Rc<slint::Timer> {
-    let timer = Rc::new(slint::Timer::default());
-    let watch = Rc::new(RefCell::new(MinimizeWatch::default()));
+) {
     let weak_app = app.as_weak();
-    let weak_timer = Rc::downgrade(&timer);
-    let watch_for_tick = watch.clone();
-    let host_for_tick = native_host.clone();
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(50),
-        move || {
-            let Some(app) = weak_app.upgrade() else {
-                return;
-            };
-            let enabled = app.get_pause_when_minimized();
-            let paused = watch_for_tick.borrow_mut().observe(
-                player_is_minimized(&app, host_for_tick.as_ref()),
-                enabled,
-                &playback,
-            );
-            if let Some(paused) = paused {
-                app.invoke_set_paused(paused);
-            }
-            if !app.get_pause_when_minimized()
-                && !watch_for_tick.borrow().pause.is_pending()
-                && let Some(timer) = weak_timer.upgrade()
-            {
-                timer.stop();
-            }
-        },
-    );
-    if !app.get_pause_when_minimized() {
-        timer.stop();
-    }
-    let weak_app = app.as_weak();
-    let weak_timer = Rc::downgrade(&timer);
-    app.on_pause_when_minimized_changed(move |enabled| {
-        let (Some(app), Some(timer)) = (weak_app.upgrade(), weak_timer.upgrade()) else {
+    let pause = RefCell::new(AutomaticPause::default());
+    let on_minimized = move |minimized: bool| {
+        let Some(app) = weak_app.upgrade() else {
             return;
         };
-        if enabled && !timer.running() {
-            // Enabling the setting for an already minimized window should
-            // wait for a new minimize edge.
-            watch.borrow_mut().minimized = player_is_minimized(&app, native_host.as_ref());
-            timer.restart();
-        } else if !enabled && !watch.borrow().pause.is_pending() {
-            timer.stop();
+        let action = {
+            let mut pause = pause.borrow_mut();
+            if app.get_pause_when_minimized() {
+                let state = riina_core::sync::lock(&playback);
+                if minimized {
+                    pause.pause(&state).then_some(true)
+                } else {
+                    pause.resume(&state).then_some(false)
+                }
+            } else {
+                pause.cancel();
+                None
+            }
+        };
+        if let Some(paused) = action {
+            app.invoke_set_paused(paused);
         }
-    });
-    timer
+    };
+    // The framed owner represents Windows playback. The separate control
+    // popup can hide or minimize without changing the player's pause policy.
+    if let Some(host) = native_host.and_then(|host| host.upgrade()) {
+        host.on_window_minimized_changed(on_minimized);
+    } else {
+        app.on_window_minimized_changed(on_minimized);
+    }
 }
 
 #[cfg(test)]
@@ -152,37 +92,41 @@ mod tests {
     }
 
     #[test]
-    fn minimize_timer_runs_only_when_enabled_or_holding_a_pause() -> Result<(), slint::PlatformError>
-    {
+    fn native_owner_minimize_pauses_and_resumes_the_playing_generation()
+    -> Result<(), slint::PlatformError> {
+        use std::{rc::Rc, time::Duration};
+
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new()?;
+        let owner = crate::NativeVideoHost::new()?;
         let playback = std::sync::Arc::new(std::sync::Mutex::new(std::sync::Arc::new(playing())));
-        let timer = install_pause_on_minimize(&app, None, playback);
+        install_pause_on_minimize(&app, Some(owner.as_weak()), playback);
         let decisions = Rc::new(RefCell::new(Vec::new()));
         let observed = decisions.clone();
         app.on_set_paused(move |paused| observed.borrow_mut().push(paused));
-        assert!(!timer.running());
+        let flush_changes = || i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
 
-        app.window().set_minimized(true);
         app.set_pause_when_minimized(true);
-        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
-        assert!(timer.running());
-        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(50));
+        app.window().set_minimized(true);
+        flush_changes();
         assert!(decisions.borrow().is_empty());
 
-        app.window().set_minimized(false);
-        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(50));
-        app.window().set_minimized(true);
-        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(50));
+        owner.window().set_minimized(true);
+        flush_changes();
         assert_eq!(*decisions.borrow(), [true]);
+        owner.window().set_minimized(false);
+        flush_changes();
+        assert_eq!(*decisions.borrow(), [true, false]);
 
         app.set_pause_when_minimized(false);
-        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
-        assert!(timer.running());
-        app.window().set_minimized(false);
-        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(50));
-        assert!(!timer.running());
-        assert_eq!(*decisions.borrow(), [true]);
+        owner.window().set_minimized(true);
+        flush_changes();
+        app.set_pause_when_minimized(true);
+        flush_changes();
+        assert_eq!(*decisions.borrow(), [true, false]);
+        owner.window().set_minimized(false);
+        flush_changes();
+        assert_eq!(*decisions.borrow(), [true, false]);
         Ok(())
     }
 

@@ -9,7 +9,6 @@ use std::{cell::RefCell, path::Path, rc::Rc};
 
 pub(super) struct SessionProjection {
     pub(super) latest_playback: crate::PlaybackStore,
-    pub(super) pause_resume_timer: Rc<slint::Timer>,
     pub(super) system_media: crate::platform::SystemMediaSession,
     pub(super) appearance_timer: Rc<slint::Timer>,
 }
@@ -25,7 +24,7 @@ pub(super) fn install_session(
     install_platform(app, prefs);
     let latest_playback = crate::PlaybackStore::default();
     crate::about_window::connect(app, latest_playback.clone());
-    let pause_resume_timer = super::lifecycle::install_pause_on_minimize(
+    super::lifecycle::install_pause_on_minimize(
         app,
         native.map(|presentation| presentation.host()),
         latest_playback.clone(),
@@ -41,7 +40,6 @@ pub(super) fn install_session(
     let appearance_timer = install_layout(app, prefs, prefs_path);
     SessionProjection {
         latest_playback,
-        pause_resume_timer,
         system_media,
         appearance_timer,
     }

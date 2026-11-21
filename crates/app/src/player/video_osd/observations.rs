@@ -71,10 +71,6 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Option<Message> {
     let previous = previous?;
     if previous.generation != state.generation
@@ -86,6 +82,18 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
     {
         return None;
     }
+    let immediate = immediate_feedback(previous, state);
+    if immediate.is_some() || state.error.is_some() {
+        return immediate;
+    }
+
+    picture_feedback(previous, state)
+        .or_else(|| loop_feedback(previous, state))
+        .or_else(|| timing_feedback(previous, state))
+        .or_else(|| track_feedback(previous, state))
+}
+
+fn immediate_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
     // Aspect feedback reports the exact submitted text even for a no-op or a
     // native parse failure. A numeric ratio cannot preserve that distinction.
     if previous.aspect_requests != state.aspect_requests {
@@ -116,9 +124,10 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
             progress: Some((state.volume / 100.0).clamp(0.0, 1.0) as f32),
         });
     }
-    if state.error.is_some() {
-        return None;
-    }
+    None
+}
+
+fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
     if let Some(enabled) = state.deinterlace
         && previous.deinterlace.unwrap_or(false) != enabled
     {
@@ -199,6 +208,10 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
             progress: None,
         });
     }
+    None
+}
+
+fn loop_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
     if let (Some(old), Some(current)) = (loop_mode(previous), loop_mode(state))
         && old != current
     {
@@ -230,6 +243,10 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
             progress: None,
         });
     }
+    None
+}
+
+fn timing_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
     if previous.audio_delay.is_finite()
         && state.audio_delay.is_finite()
         && previous.audio_delay != state.audio_delay
@@ -295,6 +312,10 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
             progress: None,
         });
     }
+    None
+}
+
+fn track_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
     for (kind, secondary, label) in [
         (riina_core::TrackKind::Audio, false, "Audio"),
         (riina_core::TrackKind::Video, false, "Video"),

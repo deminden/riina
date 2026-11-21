@@ -167,7 +167,6 @@ pub(crate) struct UiSession {
     _observer_state: observer_state::ObserverRegistration,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
-    _pause_resume_timer: Rc<slint::Timer>,
     _features: features::PlaybackFeatures,
     prefs_path: PathBuf,
     pub(crate) preference_model: PreferenceModel,
@@ -377,7 +376,6 @@ fn configure_with_engine(
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),
         _observer_state: observer_state,
         _appearance_timer: session.projection.appearance_timer,
-        _pause_resume_timer: session.projection.pause_resume_timer,
         _features: guards,
         prefs_path: session.prefs_path,
         preference_model,

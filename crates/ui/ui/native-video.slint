@@ -13,6 +13,9 @@ export struct MenuShortcutRow { shortcut: keys }
 
 // The native video window owns OS-level menus while the shared chrome provides controls.
 export component NativeVideoHost inherits Window {
+
+    callback window-minimized-changed(bool);
+    changed minimized => { root.window-minimized-changed(root.minimized); }
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     callback open-preferences();
     callback manage-plugins();

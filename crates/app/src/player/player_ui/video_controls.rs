@@ -4,11 +4,12 @@ use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
+    install_aspect_and_crop(app, player);
+    install_rotation_and_picture(app, player);
+}
+
+fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
     let aspect_player = player.clone();
     let weak = app.as_weak();
     app.on_set_video_aspect(move |text| {
@@ -23,7 +24,6 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
             }
         }
     });
-    let rotation_player = player.clone();
     let weak = app.as_weak();
     app.on_set_menu_video_aspect(move |index| {
         let Some(app) = weak.upgrade() else { return };
@@ -117,6 +117,10 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
             app.set_status(error.into());
         }
     });
+}
+
+fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
+    let rotation_player = player.clone();
     let weak = app.as_weak();
     app.on_set_video_rotation(move |degrees| {
         if let Some(app) = weak.upgrade()
