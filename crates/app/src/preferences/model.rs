@@ -12,12 +12,19 @@ impl From<String> for SectionError {
     }
 }
 
+impl SectionError {
+    pub(crate) fn into_message(self) -> String {
+        self.0
+    }
+}
+
 pub(crate) trait PreferenceSection: Clone + PartialEq {
     fn get(all: &Preferences) -> Self;
     fn put(self, all: &mut Preferences);
     fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError>;
     fn write_window(&self, window: &PreferencesWindow);
-    fn write_player(&self, app: &PlayerWindow);
+    // Engine-only sections are consumed by engine configuration or commands.
+    fn write_player(&self, _app: &PlayerWindow) {}
 }
 
 pub(crate) struct PreferenceModel {
@@ -50,7 +57,7 @@ impl PreferenceModel {
         S::read_window(window).map_err(|error| {
             let previous = S::get(&self.current.borrow());
             previous.write_window(window);
-            error.0
+            error.into_message()
         })
     }
 

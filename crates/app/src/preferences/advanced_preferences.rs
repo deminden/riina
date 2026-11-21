@@ -1,8 +1,28 @@
 //! Advanced mpv options stay opt-in and are applied before the next engine starts.
+use super::model::{PreferenceSection, SectionError};
 use crate::{AdvancedMpvOptionRow, PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::advanced_preferences::{LogLevel, MpvOption, Settings};
 use slint::{ComponentHandle, Model, ModelRc, VecModel, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::Path, path::PathBuf, rc::Rc};
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        all.advanced.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.advanced = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+}
 
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
     window.set_advanced_enabled(settings.enabled);

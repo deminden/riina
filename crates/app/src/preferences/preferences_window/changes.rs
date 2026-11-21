@@ -3,7 +3,7 @@ use super::{live::*, refresh::refresh};
 use crate::{
     PlayerWindow, PreferencesWindow,
     osd_preferences::Settings as Osd,
-    preferences::model::{PreferenceModel, PreferenceSection},
+    preferences::model::{PreferenceModel, PreferenceSection, SectionError},
 };
 use riina_core::{
     Command, pip_preferences::Settings as PictureInPicture,
@@ -306,7 +306,8 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_advanced) = read_or_refresh(
-            crate::advanced_preferences::current_window(&window),
+            riina_core::advanced_preferences::Settings::read_window(&window)
+                .map_err(SectionError::into_message),
             &app,
             &window,
         ) else {
@@ -662,13 +663,13 @@ fn connect_with_credentials(
                 audio: selected_audio,
                 hdr_tone_mapping: selected_tone_mapping.clone(),
                 video_threads: selected_video_threads,
-                advanced: selected_advanced,
                 key_bindings: selected_key_bindings.clone(),
                 ..baseline.clone()
             };
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_advanced.put(&mut preferences);
             selected_auto_load.clone().put(&mut preferences);
             selected_subtitle_other.clone().put(&mut preferences);
             selected_position.put(&mut preferences);
