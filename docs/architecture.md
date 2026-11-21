@@ -1,0 +1,87 @@
+# Architecture
+
+Riina keeps playback policy in Rust and uses libmpv for decoding and the
+playback clock. Slint components display state and emit user intents. Native
+window and service adapters live under `crates/app/src/platform/` and share a
+facade in `crates/app/src/platform.rs`.
+
+## Workspace
+
+```mermaid
+flowchart LR
+    App[riina app] --> Core[riina-core]
+    App --> Engine[riina-mpv]
+    App --> UI[riina-ui]
+    Engine --> Core
+    Engine --> MPV[libmpv]
+    App -. tests .-> Support[riina-test-support]
+    Engine -. tests .-> Support
+```
+
+| Crate | Responsibility |
+|---|---|
+| `riina` | Application entry point, player sessions, preferences, plugins, auxiliary windows and platform adapters |
+| `riina-core` | Typed commands, native command plans, playback state, preference validation, catalogs and portable policy |
+| `riina-mpv` | Native ABI, command queue, engine worker, observations and video renderer |
+| `riina-ui` | Compiled Slint components shared by the application and widget tests |
+| `riina-test-support` | Test-only fixture paths, isolated temporary directories and snapshot waits |
+| `xtask` | Workspace checks, focused native runs and optional coverage reporting |
+
+The `riina` executable delegates to `riina_app`. The player composition entry
+point is `player/player_ui.rs`. Its feature modules install window lifecycle,
+transport, audio and subtitle controls, media actions, plugins and rendering.
+`PlayerContext` shares weak window access, the command sender and state needed
+by UI callbacks. It does not own the native player.
+
+## Playback and threading
+
+```mermaid
+flowchart LR
+    Action[Slint callback] --> Queue[Bounded command queue]
+    Queue --> Worker[mpv worker]
+    Worker --> Engine[libmpv]
+    Engine --> Event[Native event]
+    Event --> Worker
+    Worker --> Mailbox[Playback snapshot and completions]
+    Mailbox --> UI[Slint event loop]
+    UI --> Projection[Window properties and catalog models]
+```
+
+The UI thread owns windows, callbacks, timers and the preference model. The mpv
+worker serializes intents with native events. It validates each intent against
+the observed `Playback` state before submitting the plan. It copies native event
+payloads before advancing the event queue so Rust consumers can hold snapshots
+without retaining foreign event pointers.
+
+The latest playback snapshot is available to callbacks that need confirmed
+engine state. `playback_mailbox` coalesces pending updates to the UI thread.
+Screenshot and frame completions travel alongside the snapshot so coalescing
+cannot discard their side effects. `observations` projects playback state and
+catalogs into Slint. Plugin entry workers have a separate runtime and send player
+intents through the existing command path.
+
+`UiSession` releases its player ownership before the native presentation drops.
+Windows native playback joins its worker before the target window can disappear.
+On the shared GL route, the renderer retains player ownership until rendering
+teardown frees the GL surface. The worker unregisters its wakeup callback, destroys
+the native engine and only then releases the callback context.
+
+## Preferences
+
+`preference_load` reads and validates the startup settings. Recovery preserves a
+copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
+committed settings on the UI thread and delegates persistence to
+`preference_store::Writer`. Section bindings read and validate their controls and
+project the saved settings into the Settings window and player. Session saving
+captures window-owned state, recent files and history while sharing the same
+preference writer. See [Add a preference](recipes/add-a-preference.md).
+
+## Platform boundary
+
+The Windows native presentation owns the video target used by the D3D11 route.
+The shared GL renderer uses the current Slint context. Window focus, dialogs,
+clipboard access, desktop materials and OS media integration are platform
+services. Test playback can use null native output or a recording engine to
+exercise UI callbacks without a native window. Windows software-rendered pixel
+baselines cover the Slint surfaces. See [port development](port-development.md)
+and [verification](verification.md) for runtime coverage on each target.
