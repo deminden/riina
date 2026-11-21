@@ -3,12 +3,23 @@ param(
     [Parameter(Mandatory)][string]$Executable,
     [Parameter(Mandatory)][string]$Fixture,
     [Parameter(Mandatory)][string]$ReportPath,
-    [switch]$CaptureDesktop
+    [switch]$CaptureDesktop,
+    [switch]$PrivateDesktop
 )
 $ErrorActionPreference = 'Stop'
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
 $Fixture = (Resolve-Path -LiteralPath $Fixture).Path
 $ReportPath = [System.IO.Path]::GetFullPath($ReportPath)
+if ($PrivateDesktop) {
+    if ($CaptureDesktop) {
+        throw 'Desktop capture requires the active Windows desktop. Choose one smoke mode.'
+    }
+    if (Test-Path -LiteralPath $ReportPath) {
+        throw 'Refusing to use a stale smoke report. Select a new report path.'
+    }
+    & (Join-Path $PSScriptRoot 'smoke-windows-private-desktop.ps1') -Executable $Executable -Fixture $Fixture -ReportPath $ReportPath
+    return
+}
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('riina-package-smoke-' + [guid]::NewGuid())
 $profile = Join-Path $root 'profile'
 $media = Join-Path $root 'media'

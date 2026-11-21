@@ -465,9 +465,7 @@ shader linked in both Mesa OpenGL 4.5 and OpenGL ES 3.2 software contexts.
 Linux package, visual blur, real display and audio endpoint verification remain
 open.
 
-## Running checks
-
-### Windows private-desktop smoke 2026-11-21
+## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
 playback and lifecycle checks in the package smoke driver. The test staged the
@@ -477,6 +475,13 @@ reveal, minimize and restore, and settings persisted through normal shutdown.
 The test process exited, and the active Windows desktop stayed unchanged.
 This run used a temporary Win32 desktop. Physical display pixels, HDR output,
 and the release archive still need separate verification.
+
+The locked build at `7000a73` also passed all ten checks in 9.056 s using
+the reusable `-PrivateDesktop` driver. Minimize and restore exercised the native
+owner's property-change events. The executable and report paths contained
+spaces, the input desktop stayed unchanged, and the Riina process exited.
+
+## Running checks
 
 ### Portable and workspace checks
 
@@ -529,6 +534,12 @@ Use a new absolute report path. The runner creates a disposable profile and
 isolated media folder, launches the exact executable, enforces a deadline,
 validates its report and waits for normal exit. It checks persisted settings
 after shutdown and cleans up only its own process on failure.
+
+For local lifecycle checks, use `-PrivateDesktop` in place of
+`-CaptureDesktop`. The driver runs the native player on a separate Win32
+desktop while the active desktop stays unchanged. A Job Object bounds the
+driver and its child processes. The usual JSON report and driver log remain
+available for inspection.
 
 The application driver checks native menu availability, volume geometry,
 fullscreen/controller reveal, surface alignment and restoration. It invokes the
