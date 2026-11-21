@@ -19,8 +19,24 @@ pub(super) struct SmokeRun {
     _timer: slint::Timer,
 }
 
+#[derive(Clone, Copy)]
+enum Stage {
+    WaitForMedia,
+    WaitForVolume,
+    EnterFullscreen,
+    WaitForFullscreen,
+    RevealController,
+    WaitForController,
+    WaitForWindowed,
+    DispatchProfileReturn,
+    WaitForProfileFullscreen,
+    WaitForProfileWindowed,
+    WaitForMinimize,
+    WaitForRestore,
+}
+
 struct Runner {
-    stage: u8,
+    stage: Stage,
     started: Instant,
     next: Instant,
     initial: Option<Surfaces>,
@@ -35,7 +51,7 @@ impl Runner {
     fn new() -> Self {
         let started = Instant::now();
         Self {
-            stage: 0,
+            stage: Stage::WaitForMedia,
             started,
             next: started + Duration::from_secs(2),
             initial: None,
@@ -47,64 +63,19 @@ impl Runner {
         }
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "decomposition tracked in docs/review"
-    )]
     fn tick(&mut self, app: &PlayerWindow, host: &NativeVideoHost) -> Result<bool, String> {
         if self.started.elapsed() > Duration::from_secs(40) {
             return Err(format!(
                 "GUI smoke timed out at stage {}: {}",
-                self.stage,
+                self.stage as u8,
                 app.get_status()
             ));
         }
-        self.progressed |= self.stage > 0 && (app.get_position() - self.position).abs() > 0.1;
-        match self.stage {
-            0 => {
-                if !app.get_loaded() || app.get_paused() || app.get_position() <= 0.1 {
-                    return Ok(false);
-                }
-                if self.expect_recovery {
-                    if !app.window().is_visible() {
-                        return Ok(false);
-                    }
-                    if app.get_startup_status().is_empty() {
-                        return Err(
-                            "The settings recovery notice was unavailable during playback".into(),
-                        );
-                    }
-                    self.checks.push("recovery_notice_during_playback");
-                    return Ok(true);
-                }
-                self.initial = Some(surfaces(app, host)?);
-                check_audio_menu(host)?;
-                self.volume = app.global::<riina_ui::PlaybackAudioState>().get_volume();
-                self.position = app.get_position();
-                let path = crate::platform::preferences_path().map_err(|e| e.to_string())?;
-                crate::preference_store::update(
-                    &path,
-                    &riina_core::Preferences::default(),
-                    |prefs| {
-                        prefs.video_threads = 7;
-                        prefs.load_icc_profile = false;
-                        prefs.audio.audio_threads = 3;
-                        prefs.network.user_agent = "Riina GUI smoke".into();
-                        prefs.hdr_tone_mapping.algorithm =
-                            riina_core::hdr_preferences::Algorithm::Hable;
-                        Ok(())
-                    },
-                )?;
-                app.set_control_bar_position_horizontal(0.45);
-                app.invoke_layout_settings_changed();
-                app.set_trailing_sidebar_width(app.get_trailing_sidebar_width() + 8.0);
-                app.invoke_sidebar_resize_finished();
-                check_preferences()?;
-                self.checks.push("preference_writers_preserve_settings");
-                app.invoke_adjust_volume(-5.0);
-                self.checks.push("playing_native_video_and_audio_menu");
-            }
-            1 => {
+        self.progressed |= !matches!(self.stage, Stage::WaitForMedia)
+            && (app.get_position() - self.position).abs() > 0.1;
+        let next = match self.stage {
+            Stage::WaitForMedia => return self.initial_playback(app, host),
+            Stage::WaitForVolume => {
                 if (app.global::<riina_ui::PlaybackAudioState>().get_volume()
                     - (self.volume - 5.0).max(0.0))
                 .abs()
@@ -117,11 +88,15 @@ impl Runner {
                 }
                 app.invoke_adjust_volume(5.0);
                 self.checks.push("volume_preserves_surfaces");
+                Stage::EnterFullscreen
             }
-            2 => app.invoke_double_click_action(
-                riina_core::control_preferences::MouseAction::Fullscreen.index(),
-            ),
-            3 => {
+            Stage::EnterFullscreen => {
+                app.invoke_double_click_action(
+                    riina_core::control_preferences::MouseAction::Fullscreen.index(),
+                );
+                Stage::WaitForFullscreen
+            }
+            Stage::WaitForFullscreen => {
                 if !app.get_fullscreen() {
                     return Ok(false);
                 }
@@ -134,22 +109,25 @@ impl Runner {
                 }
                 app.set_controls_visible(false);
                 self.checks.push("double_click_fullscreen");
+                Stage::RevealController
             }
-            4 => {
+            Stage::RevealController => {
                 app.set_controls_visible(true);
                 app.invoke_activity();
                 app.window().request_redraw();
                 crate::diagnostics::warn!("riina-gui-smoke: fullscreen controller revealed");
+                Stage::WaitForController
             }
-            5 => {
+            Stage::WaitForController => {
                 if !app.get_controls_visible() || !app.get_controls_rendered() {
                     return Err("Controller did not reveal".into());
                 }
                 surfaces(app, host)?;
                 self.checks.push("controller_reveal_keeps_native_surface");
                 app.invoke_toggle_fullscreen();
+                Stage::WaitForWindowed
             }
-            6 => {
+            Stage::WaitForWindowed => {
                 if app.get_fullscreen() {
                     return Ok(false);
                 }
@@ -161,8 +139,9 @@ impl Runner {
                 }
                 check_preferences()?;
                 self.checks.push("fullscreen_exit_and_playback_progress");
+                Stage::DispatchProfileReturn
             }
-            7 => {
+            Stage::DispatchProfileReturn => {
                 if !app.invoke_dispatch_key_binding(
                     slint::platform::Key::Return.into(),
                     false,
@@ -172,8 +151,9 @@ impl Runner {
                 ) {
                     return Err("Encoded Return did not dispatch the active profile".into());
                 }
+                Stage::WaitForProfileFullscreen
             }
-            8 => {
+            Stage::WaitForProfileFullscreen => {
                 if !app.get_fullscreen() {
                     return Ok(false);
                 }
@@ -188,8 +168,9 @@ impl Runner {
                 ) {
                     return Err("Encoded Escape did not dispatch the active profile".into());
                 }
+                Stage::WaitForProfileWindowed
             }
-            9 => {
+            Stage::WaitForProfileWindowed => {
                 if app.get_fullscreen() {
                     return Ok(false);
                 }
@@ -201,16 +182,18 @@ impl Runner {
                 app.set_pause_when_minimized(true);
                 host.window()
                     .with_winit_window(|window| window.set_minimized(true));
+                Stage::WaitForMinimize
             }
-            10 => {
+            Stage::WaitForMinimize => {
                 if !host.window().is_minimized() || !app.get_paused() {
                     return Ok(false);
                 }
                 self.checks.push("minimize_pauses_native_owner");
                 host.window()
                     .with_winit_window(|window| window.set_minimized(false));
+                Stage::WaitForRestore
             }
-            11 => {
+            Stage::WaitForRestore => {
                 if host.window().is_minimized() || app.get_paused() {
                     return Ok(false);
                 }
@@ -218,11 +201,57 @@ impl Runner {
                 self.checks.push("restore_resumes_automatic_pause");
                 return Ok(true);
             }
-            _ => return Err("Unexpected GUI smoke stage".into()),
-        }
-        self.stage += 1;
-        self.next = Instant::now() + Duration::from_millis(600);
+        };
+        self.wait_for(next);
         Ok(false)
+    }
+
+    fn initial_playback(
+        &mut self,
+        app: &PlayerWindow,
+        host: &NativeVideoHost,
+    ) -> Result<bool, String> {
+        if !app.get_loaded() || app.get_paused() || app.get_position() <= 0.1 {
+            return Ok(false);
+        }
+        if self.expect_recovery {
+            if !app.window().is_visible() {
+                return Ok(false);
+            }
+            if app.get_startup_status().is_empty() {
+                return Err("The settings recovery notice was unavailable during playback".into());
+            }
+            self.checks.push("recovery_notice_during_playback");
+            return Ok(true);
+        }
+        self.initial = Some(surfaces(app, host)?);
+        check_audio_menu(host)?;
+        self.volume = app.global::<riina_ui::PlaybackAudioState>().get_volume();
+        self.position = app.get_position();
+        let path = crate::platform::preferences_path().map_err(|e| e.to_string())?;
+        crate::preference_store::update(&path, &riina_core::Preferences::default(), |prefs| {
+            prefs.video_threads = 7;
+            prefs.load_icc_profile = false;
+            prefs.audio.audio_threads = 3;
+            prefs.network.user_agent = "Riina GUI smoke".into();
+            prefs.hdr_tone_mapping.algorithm = riina_core::hdr_preferences::Algorithm::Hable;
+            Ok(())
+        })?;
+        app.set_control_bar_position_horizontal(0.45);
+        app.invoke_layout_settings_changed();
+        app.set_trailing_sidebar_width(app.get_trailing_sidebar_width() + 8.0);
+        app.invoke_sidebar_resize_finished();
+        check_preferences()?;
+        self.checks.push("preference_writers_preserve_settings");
+        app.invoke_adjust_volume(-5.0);
+        self.checks.push("playing_native_video_and_audio_menu");
+        self.wait_for(Stage::WaitForVolume);
+        Ok(false)
+    }
+
+    fn wait_for(&mut self, next: Stage) {
+        self.stage = next;
+        self.next = Instant::now() + Duration::from_millis(600);
     }
 }
 
