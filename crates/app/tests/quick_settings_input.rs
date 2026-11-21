@@ -34,7 +34,8 @@ fn player(pane: i32) -> PlayerWindow {
     app.set_disable_animations(true);
     app.set_loaded(true);
     app.set_sidebar(pane);
-    app.set_audio_delay_text("0".into());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_delay_text("0".into());
     app.set_subtitle_delay_text("0".into());
     app.set_speed_edit_value("1".into());
     app.window().set_size(LogicalSize::new(1000.0, 900.0));
@@ -143,6 +144,9 @@ fn playback_audio_observations_belong_to_each_player() {
     first_audio.set_volume(27.0);
     first_audio.set_muted(true);
     first_audio.set_has_active_audio_track(true);
+    first_audio.set_audio_delay(1.25);
+    first_audio.set_audio_delay_text("1.25".into());
+    first_audio.set_audio_equalizer_profile_index(4);
     second_audio.set_volume(61.0);
 
     assert_eq!(first_audio.get_volume(), 27.0);
@@ -151,6 +155,12 @@ fn playback_audio_observations_belong_to_each_player() {
     assert_eq!(second_audio.get_volume(), 61.0);
     assert!(!second_audio.get_muted());
     assert!(!second_audio.get_has_active_audio_track());
+    assert_eq!(first_audio.get_audio_delay(), 1.25);
+    assert_eq!(first_audio.get_audio_delay_text(), "1.25");
+    assert_eq!(first_audio.get_audio_equalizer_profile_index(), 4);
+    assert_eq!(second_audio.get_audio_delay(), 0.0);
+    assert_eq!(second_audio.get_audio_delay_text(), "0");
+    assert_eq!(second_audio.get_audio_equalizer_profile_index(), 0);
 }
 
 #[test]
@@ -227,7 +237,8 @@ fn draft_survives_observations_and_escape_restores_latest_without_submission() {
     let input = field(&app, "Audio delay in seconds");
     focus(&app, &input);
     input.set_accessible_value("-0.");
-    app.set_audio_delay_text("2".into());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_delay_text("2".into());
     flush();
     assert_eq!(input.accessible_value().unwrap(), "-0.");
     key(&app, Key::Escape);

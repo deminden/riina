@@ -272,7 +272,11 @@ unsafe extern "system" fn menu_proc(
             ("Speed:", format!("Speed: {}x", app.get_speed_edit_value())),
             (
                 "Audio Delay:",
-                format!("Audio Delay: {}s", app.get_audio_delay_text()),
+                format!(
+                    "Audio Delay: {}s",
+                    app.global::<riina_ui::PlaybackAudioState>()
+                        .get_audio_delay_text()
+                ),
             ),
             (
                 "Subtitle Delay:",

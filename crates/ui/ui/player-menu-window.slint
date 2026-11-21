@@ -1,8 +1,8 @@
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { MenuCatalogRow, MenuShortcutRow, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
 
-// Menus are attached by Slint to a Window. The player supplies live values
-// and actions without moving the Window's public playback interface.
+// Slint attaches its menus to the window. Menu items and player controls
+// share the same actions, which Rust registers on PlayerWindow.
 export component PlayerMenuWindow inherits Window {
     in property <bool> menu-bar-visible;
     in property <[MenuShortcutRow]> menu-value-menu-shortcuts;

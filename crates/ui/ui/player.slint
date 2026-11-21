@@ -52,10 +52,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> reflection-known: false;
     in property <bool> deinterlace-known: false;
     in property <bool> deinterlace-enabled: false;
-    callback toggle-deinterlace();
     in property <bool> screenshot-available: false;
-    callback take-screenshot();
-    callback open-screenshot-folder();
     changed screenshot-available => { root.video-menu-changed(); }
     changed deinterlace-known => { root.video-menu-changed(); }
     changed deinterlace-enabled => { root.video-menu-changed(); }
@@ -64,20 +61,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
     private property <bool> layout-scrollbar-visible: false;
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
-    callback toggle-video-reflection(bool);
     callback video-menu-changed();
     in property <[MenuShortcutRow]> menu-shortcuts: [];
     changed menu-shortcuts => { root.video-menu-changed(); }
     changed key-binding-current-profile => { root.video-menu-changed(); }
     callback window-title-changed(string);
     callback open-application-menu();
-    callback open-preferences();
     in-out property <int> preferences-target-pane: -1;
-    callback reload-plugins();
-    callback activate-plugin-menu-item(string);
     callback plugin-menu-will-open();
-    callback find-online-subtitles();
-    callback find-online-subtitles-with-provider(int);
     callback native-menu-will-open();
     changed reflection-known => { root.video-menu-changed(); }
     changed video-mirrored => { root.video-menu-changed(); }
@@ -90,7 +81,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-always-float-on-top <=> root.always-float-on-top;
     menu-value-audio-delay-text: root.audio-delay-text;
     menu-value-audio-device-menu-rows: root.audio-device-menu-rows;
-    menu-value-audio-tracks: root.audio-tracks;
+    menu-value-audio-tracks: PlaybackAudioState.audio-tracks;
     menu-value-chapters: root.chapters;
     menu-value-crop-editing: root.crop-editing;
     menu-value-current-file-manager-name: root.current-file-manager-name;
@@ -153,83 +144,84 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-video-window-height: root.video-window-height;
     menu-value-video-window-width: root.video-window-width;
     menu-value-volume-menu-title: root.volume-menu-title;
-    menu-action-activate-plugin-menu-item(value-1) => { root.activate-plugin-menu-item(value-1); }
-    menu-action-adjust-audio-delay(value-1) => { root.adjust-audio-delay(value-1); }
-    menu-action-adjust-chapter(value-1) => { root.adjust-chapter(value-1); }
-    menu-action-adjust-subtitle-delay(value-1) => { root.adjust-subtitle-delay(value-1); }
-    menu-action-adjust-volume(value-1) => { root.adjust-volume(value-1); }
-    menu-action-bring-all-to-front => { root.bring-all-to-front(); }
-    menu-action-browse-files(value-1) => { root.browse-files(value-1); }
-    menu-action-choose-subtitle-font => { root.choose-subtitle-font(); }
-    menu-action-clear-open-recent => { root.clear-open-recent(); }
-    menu-action-close-player => { root.close-player(); }
-    menu-action-cycle-ab-loop => { root.cycle-ab-loop(); }
-    menu-action-cycle-audio-track => { root.cycle-audio-track(); }
-    menu-action-cycle-subtitle-track => { root.cycle-subtitle-track(); }
-    menu-action-cycle-video-track => { root.cycle-video-track(); }
-    menu-action-delete-current-media => { root.delete-current-media(); }
-    menu-action-dump-debug-info => { root.dump-debug-info(); }
-    menu-action-find-online-subtitles => { root.find-online-subtitles(); }
-    menu-action-find-online-subtitles-with-provider(value-1) => { root.find-online-subtitles-with-provider(value-1); }
-    menu-action-frame-back-step => { root.frame-back-step(); }
-    menu-action-frame-step => { root.frame-step(); }
-    menu-action-hide-riina => { root.hide-riina(); }
-    menu-action-minimize-window => { root.minimize-window(); }
-    menu-action-multiply-subtitle-scale(value-1) => { root.multiply-subtitle-scale(value-1); }
-    menu-action-open-audio-filters => { root.open-audio-filters(); }
-    menu-action-open-file => { root.open-file(); }
-    menu-action-open-help-link(value-1) => { root.open-help-link(value-1); }
-    menu-action-open-in-new-window => { root.open-in-new-window(); }
-    menu-action-open-jump-time-dialog => { root.open-jump-time-dialog(); }
-    menu-action-open-preferences => { root.open-preferences(); }
-    menu-action-open-recent-path(value-1) => { root.open-recent-path(value-1); }
-    menu-action-open-screenshot-folder => { root.open-screenshot-folder(); }
-    menu-action-open-url-dialog => { root.open-url-dialog(); }
-    menu-action-open-video-filters => { root.open-video-filters(); }
-    menu-action-playlist-action(value-1, value-2) => { root.playlist-action(value-1, value-2); }
-    menu-action-playlist-next => { root.playlist-next(); }
-    menu-action-playlist-previous => { root.playlist-previous(); }
-    menu-action-quit-riina => { root.quit-riina(); }
-    menu-action-reload-plugins => { root.reload-plugins(); }
-    menu-action-reset-audio-delay => { root.reset-audio-delay(); }
-    menu-action-reset-speed => { root.reset-speed(); }
-    menu-action-reset-subtitle-delay => { root.reset-subtitle-delay(); }
-    menu-action-resize-window-command(value-1) => { root.resize-window-command(value-1); }
-    menu-action-reveal-current-media => { root.reveal-current-media(); }
-    menu-action-save-current-playlist => { root.save-current-playlist(); }
-    menu-action-save-downloaded-subtitle => { root.save-downloaded-subtitle(); }
-    menu-action-seek(value-1) => { root.seek(value-1); }
-    menu-action-seek-relative(value-1) => { root.seek-relative(value-1); }
-    menu-action-select-item(value-1, value-2) => { root.select-item(value-1, value-2); }
-    menu-action-set-audio-device(value-1) => { root.set-audio-device(value-1); }
-    menu-action-set-menu-video-aspect(value-1) => { root.set-menu-video-aspect(value-1); }
-    menu-action-set-menu-video-crop(value-1) => { root.set-menu-video-crop(value-1); }
-    menu-action-set-menu-video-rotation(value-1) => { root.set-menu-video-rotation(value-1); }
-    menu-action-set-subtitle-encoding(value-1) => { root.set-subtitle-encoding(value-1); }
-    menu-action-set-subtitle-scale-slider(value-1) => { root.set-subtitle-scale-slider(value-1); }
-    menu-action-show-about => { root.show-about(); }
-    menu-action-show-playback-history => { root.show-playback-history(); }
-    menu-action-speed(value-1) => { root.speed(value-1); }
-    menu-action-stop => { root.stop(); }
-    menu-action-take-screenshot => { root.take-screenshot(); }
-    menu-action-toggle-deinterlace => { root.toggle-deinterlace(); }
-    menu-action-toggle-delogo => { root.toggle-delogo(); }
-    menu-action-toggle-file-loop => { root.toggle-file-loop(); }
-    menu-action-toggle-fullscreen => { root.toggle-fullscreen(); }
-    menu-action-toggle-live-text => { root.toggle-live-text(); }
-    menu-action-toggle-music-mode => { root.toggle-music-mode(); }
-    menu-action-toggle-mute => { root.toggle-mute(); }
-    menu-action-toggle-pause => { root.toggle-pause(); }
-    menu-action-toggle-picture-in-picture => { root.toggle-picture-in-picture(); }
-    menu-action-toggle-playlist-pane(value-1) => { root.toggle-playlist-pane(value-1); }
-    menu-action-toggle-plugins-pane => { root.toggle-plugins-pane(); }
-    menu-action-toggle-saved-audio-filter(value-1) => { root.toggle-saved-audio-filter(value-1); }
-    menu-action-toggle-saved-video-filter(value-1) => { root.toggle-saved-video-filter(value-1); }
-    menu-action-toggle-secondary-subtitle-visibility => { root.toggle-secondary-subtitle-visibility(); }
-    menu-action-toggle-settings-pane(value-1) => { root.toggle-settings-pane(value-1); }
-    menu-action-toggle-subtitle-visibility => { root.toggle-subtitle-visibility(); }
-    menu-action-toggle-video-reflection(value-1) => { root.toggle-video-reflection(value-1); }
-    menu-action-zoom-window => { root.zoom-window(); }
+
+    callback activate-plugin-menu-item <=> root.menu-action-activate-plugin-menu-item;
+    callback adjust-audio-delay <=> root.menu-action-adjust-audio-delay;
+    callback adjust-chapter <=> root.menu-action-adjust-chapter;
+    callback adjust-subtitle-delay <=> root.menu-action-adjust-subtitle-delay;
+    callback adjust-volume <=> root.menu-action-adjust-volume;
+    callback bring-all-to-front <=> root.menu-action-bring-all-to-front;
+    callback browse-files <=> root.menu-action-browse-files;
+    callback choose-subtitle-font <=> root.menu-action-choose-subtitle-font;
+    callback clear-open-recent <=> root.menu-action-clear-open-recent;
+    callback close-player <=> root.menu-action-close-player;
+    callback cycle-ab-loop <=> root.menu-action-cycle-ab-loop;
+    callback cycle-audio-track <=> root.menu-action-cycle-audio-track;
+    callback cycle-subtitle-track <=> root.menu-action-cycle-subtitle-track;
+    callback cycle-video-track <=> root.menu-action-cycle-video-track;
+    callback delete-current-media <=> root.menu-action-delete-current-media;
+    callback dump-debug-info <=> root.menu-action-dump-debug-info;
+    callback find-online-subtitles <=> root.menu-action-find-online-subtitles;
+    callback find-online-subtitles-with-provider <=> root.menu-action-find-online-subtitles-with-provider;
+    callback frame-back-step <=> root.menu-action-frame-back-step;
+    callback frame-step <=> root.menu-action-frame-step;
+    callback hide-riina <=> root.menu-action-hide-riina;
+    callback minimize-window <=> root.menu-action-minimize-window;
+    callback multiply-subtitle-scale <=> root.menu-action-multiply-subtitle-scale;
+    callback open-audio-filters <=> root.menu-action-open-audio-filters;
+    callback open-file <=> root.menu-action-open-file;
+    callback open-help-link <=> root.menu-action-open-help-link;
+    callback open-in-new-window <=> root.menu-action-open-in-new-window;
+    callback open-jump-time-dialog <=> root.menu-action-open-jump-time-dialog;
+    callback open-preferences <=> root.menu-action-open-preferences;
+    callback open-recent-path <=> root.menu-action-open-recent-path;
+    callback open-screenshot-folder <=> root.menu-action-open-screenshot-folder;
+    callback open-url-dialog <=> root.menu-action-open-url-dialog;
+    callback open-video-filters <=> root.menu-action-open-video-filters;
+    callback playlist-action <=> root.menu-action-playlist-action;
+    callback playlist-next <=> root.menu-action-playlist-next;
+    callback playlist-previous <=> root.menu-action-playlist-previous;
+    callback quit-riina <=> root.menu-action-quit-riina;
+    callback reload-plugins <=> root.menu-action-reload-plugins;
+    callback reset-audio-delay <=> root.menu-action-reset-audio-delay;
+    callback reset-speed <=> root.menu-action-reset-speed;
+    callback reset-subtitle-delay <=> root.menu-action-reset-subtitle-delay;
+    callback resize-window-command <=> root.menu-action-resize-window-command;
+    callback reveal-current-media <=> root.menu-action-reveal-current-media;
+    callback save-current-playlist <=> root.menu-action-save-current-playlist;
+    callback save-downloaded-subtitle <=> root.menu-action-save-downloaded-subtitle;
+    callback seek <=> root.menu-action-seek;
+    callback seek-relative <=> root.menu-action-seek-relative;
+    callback select-item <=> root.menu-action-select-item;
+    callback set-audio-device <=> root.menu-action-set-audio-device;
+    callback set-menu-video-aspect <=> root.menu-action-set-menu-video-aspect;
+    callback set-menu-video-crop <=> root.menu-action-set-menu-video-crop;
+    callback set-menu-video-rotation <=> root.menu-action-set-menu-video-rotation;
+    callback set-subtitle-encoding <=> root.menu-action-set-subtitle-encoding;
+    callback set-subtitle-scale-slider <=> root.menu-action-set-subtitle-scale-slider;
+    callback show-about <=> root.menu-action-show-about;
+    callback show-playback-history <=> root.menu-action-show-playback-history;
+    callback speed <=> root.menu-action-speed;
+    callback stop <=> root.menu-action-stop;
+    callback take-screenshot <=> root.menu-action-take-screenshot;
+    callback toggle-deinterlace <=> root.menu-action-toggle-deinterlace;
+    callback toggle-delogo <=> root.menu-action-toggle-delogo;
+    callback toggle-file-loop <=> root.menu-action-toggle-file-loop;
+    callback toggle-fullscreen <=> root.menu-action-toggle-fullscreen;
+    callback toggle-live-text <=> root.menu-action-toggle-live-text;
+    callback toggle-music-mode <=> root.menu-action-toggle-music-mode;
+    callback toggle-mute <=> root.menu-action-toggle-mute;
+    callback toggle-pause <=> root.menu-action-toggle-pause;
+    callback toggle-picture-in-picture <=> root.menu-action-toggle-picture-in-picture;
+    callback toggle-playlist-pane <=> root.menu-action-toggle-playlist-pane;
+    callback toggle-plugins-pane <=> root.menu-action-toggle-plugins-pane;
+    callback toggle-saved-audio-filter <=> root.menu-action-toggle-saved-audio-filter;
+    callback toggle-saved-video-filter <=> root.menu-action-toggle-saved-video-filter;
+    callback toggle-secondary-subtitle-visibility <=> root.menu-action-toggle-secondary-subtitle-visibility;
+    callback toggle-settings-pane <=> root.menu-action-toggle-settings-pane;
+    callback toggle-subtitle-visibility <=> root.menu-action-toggle-subtitle-visibility;
+    callback toggle-video-reflection <=> root.menu-action-toggle-video-reflection;
+    callback zoom-window <=> root.menu-action-zoom-window;
 
     in property <string> window-title: "riina";
     title: root.window-title;
@@ -339,7 +331,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <duration> osd-fade-duration: animations-disabled || !osd-enabled ? 0ms : Theme.osd-fade-time;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
-    callback toggle-live-text();
     callback set-hdr-enabled(bool);
     in-out property <bool> music-mode: false;
     in-out property <bool> auto-switch-to-music-mode: true;
@@ -350,14 +341,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> music-mode-has-album-art: false;
     in-out property <bool> music-mode-has-visible-subtitles: false;
     private property <bool> music-mode-volume-open: false;
-    callback toggle-music-mode();
-    callback close-player();
     callback window-will-close();
-    callback quit-riina();
-    callback hide-riina();
-    callback minimize-window();
-    callback zoom-window();
-    callback bring-all-to-front();
     in-out property <bool> in-process-player-manager: false;
     callback open-player-requested([string], float);
     callback music-mode-changed();
@@ -400,12 +384,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <int> crop-preset-index: -1;
     callback begin-custom-crop();
     callback begin-delogo();
-    callback toggle-delogo();
-    callback toggle-saved-video-filter(string);
     callback activate-saved-filter-shortcut(string, bool, bool, bool, bool) -> bool;
-    callback open-video-filters();
-    callback toggle-saved-audio-filter(string);
-    callback open-audio-filters();
     callback finish-custom-crop(bool);
     callback crop-preset(int);
     callback begin-crop-drag(int,float,float);
@@ -488,9 +467,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback pause-when-open-changed(bool);
     callback resume-last-position-changed(bool);
     callback record-playback-history-changed(bool);
-    callback open-recent-path(string);
     callback remember-recent-path(string);
-    callback clear-open-recent();
     in-out property <bool> screenshot-copy-to-clipboard: false;
     in-out property <string> screenshot-format: "png";
     in-out property <string> screenshot-template: "%F-%n";
@@ -563,14 +540,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
     private property <float> volume-limit: volume-boost ? 200 : 100;
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
-    in property <[CatalogRow]> audio-tracks;
-    in property <int> audio-track-selected-index: 0;
     in property <int> video-track-selected-index: 0;
     in property <int> subtitle-track-selected-index: 0;
     in property <int> secondary-subtitle-track-selected-index: 0;
-    in property <[MenuCatalogRow]> audio-device-menu-rows: [];
+    private property <[MenuCatalogRow]> audio-device-menu-rows: PlaybackAudioState.audio-device-menu-rows;
     changed audio-device-menu-rows => { root.video-menu-changed(); }
-    callback set-audio-device(string);
     in property <[CatalogRow]> video-tracks;
     changed video-tracks => { root.video-menu-changed(); }
     in property <[string]> video-aspect-presets;
@@ -596,13 +570,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> hardware-decoding-known: false;
     in property <bool> hardware-decoding-enabled: false;
     in property <[int]> video-equalizer-values;
-    in property <[float]> audio-equalizer-values;
-    in property <[string]> audio-equalizer-profile-names;
-    in-out property <int> audio-equalizer-profile-index: 0;
-    in property <int> audio-equalizer-user-profile-start-index: 23;
-    in property <bool> audio-equalizer-can-delete-profile: false;
-    in property <bool> audio-equalizer-can-edit-profile: false;
-    in property <bool> audio-equalizer-can-save-profile: true;
     in property <float> speed-slider-position: 8;
     in property <string> speed-edit-value: "1";
     changed speed-edit-value => { root.video-menu-changed(); }
@@ -673,11 +640,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback window-level-toggle-requested(bool);
     callback resize-window-for-media();
     callback initial-media-loaded();
-    callback resize-window-command(int);
     callback fit-window-to-video();
-    callback toggle-settings-pane(int);
-    callback toggle-playlist-pane(int);
-    callback toggle-plugins-pane();
     callback select-plugin-sidebar-tab(string);
     callback select-settings-pane(int);
     callback select-playlist-pane(int);
@@ -697,9 +660,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> playlist-drag-range <=> PlaylistInteraction.playlist-drag-range;
     in-out property <int> playlist-focus-index <=> PlaylistInteraction.playlist-focus-index;
     callback select-playlist-row(int, bool, bool) -> [string];
-    in property <float> audio-delay: 0;
-    in property <string> audio-delay-text: "0";
-    in-out property <string> audio-delay-preview-text: "0";
+    private property <string> audio-delay-text: PlaybackAudioState.audio-delay-text;
     changed audio-delay-text => { root.video-menu-changed(); }
     in property <float> subtitle-delay: 0;
     in property <string> subtitle-delay-text: "0";
@@ -861,40 +822,16 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed settings-at-leading => { root.video-menu-changed(); }
     changed leading-sidebar-width => { root.crop-viewport-changed(); }
     changed trailing-sidebar-width => { root.crop-viewport-changed(); }
-    callback open-file();
-    callback open-in-new-window();
-    callback reveal-current-media();
-    callback delete-current-media();
-    callback save-current-playlist();
-    callback save-downloaded-subtitle();
-    callback show-about();
-    callback show-playback-history();
     callback open-url(string);
-    callback open-help-link(string);
-    callback dump-debug-info();
     callback open-recent(int);
-    callback toggle-pause();
     callback set-paused(bool);
     callback execute-mpv-input-action(string);
-    callback stop();
-    callback seek(float);
-    callback seek-relative(float);
-    callback open-jump-time-dialog();
-    callback open-url-dialog();
     callback jump-to-time(string);
     callback set-volume(float);
-    callback adjust-volume(float);
     callback set-volume-boost(bool);
-    callback toggle-mute();
-    callback speed(float);
-    callback frame-step();
-    callback frame-back-step();
     callback set-video-aspect(string);
-    callback set-menu-video-aspect(int);
     callback set-video-rotation(int);
-    callback set-menu-video-rotation(int);
     callback set-video-crop(int);
-    callback set-menu-video-crop(int);
     callback set-hardware-decoding(bool);
     callback set-video-equalizer(int, float);
     callback set-audio-equalizer(int, float);
@@ -906,28 +843,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback set-speed-slider(float);
     callback set-speed-text(string) -> bool;
     callback subtitle-seek(int);
-    callback adjust-chapter(int);
-    callback adjust-subtitle-delay(float);
-    callback reset-subtitle-delay();
     callback adjust-subtitle-scale(float);
-    callback multiply-subtitle-scale(float);
-    callback set-subtitle-scale-slider(float);
     callback set-subtitle-font-size(float);
-    callback choose-subtitle-font();
     callback subtitle-font-selected(string);
     callback dismiss-font-picker();
-    callback set-subtitle-encoding(string);
     callback set-subtitle-outline-size(float);
     callback set-subtitle-color(int, color);
     callback adjust-subtitle-position(float);
     callback set-subtitle-position(bool, float);
-    callback adjust-audio-delay(float);
-    callback reset-audio-delay();
-    callback playlist-next();
-    callback playlist-previous();
-    callback reset-speed();
-    callback toggle-fullscreen();
-    callback toggle-picture-in-picture();
     callback activity();
     callback single-click-action(int);
     callback double-click-action(int);
@@ -938,14 +861,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback refresh-fullscreen-info();
     callback show-seek-osd();
     callback show-video-osd();
-    callback cycle-ab-loop();
     callback set-ab-loop-point(int, float);
-    callback toggle-file-loop();
-    callback toggle-secondary-subtitle-visibility();
-    callback cycle-audio-track();
-    callback cycle-subtitle-track();
-    callback cycle-video-track();
-    callback select-item(CatalogSelection, string);
     pure function selection-for-pane(kind: int) -> CatalogSelection {
         return kind == 1 ? CatalogSelection.audio-track :
             kind == 2 ? CatalogSelection.primary-subtitle :
@@ -965,12 +881,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
         sample-opacity: root.video-material-sample-opacity,
     };
 
-    callback browse-files(int);
     callback set-delay(DelayLane, float);
     callback set-delay-text(DelayLane, string) -> bool;
     callback preview-audio-delay(float);
-    callback toggle-subtitle-visibility();
-    callback playlist-action(int, string);
     callback reorder-playlist([string], int);
     callback toggle-playlist-shuffle();
     callback sort-playlist(int);
@@ -1220,18 +1133,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         if pane-kind == 1 : AudioQuickSettingsPage {
                             card-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            audio-delay: root.audio-delay;
-                            audio-delay-preview-text: root.audio-delay-preview-text;
-                            audio-delay-text: root.audio-delay-text;
-                            audio-equalizer-can-delete-profile: root.audio-equalizer-can-delete-profile;
-                            audio-equalizer-can-edit-profile: root.audio-equalizer-can-edit-profile;
-                            audio-equalizer-can-save-profile: root.audio-equalizer-can-save-profile;
-                            audio-equalizer-profile-index: root.audio-equalizer-profile-index;
-                            audio-equalizer-profile-names: root.audio-equalizer-profile-names;
-                            audio-equalizer-user-profile-start-index: root.audio-equalizer-user-profile-start-index;
-                            audio-equalizer-values: root.audio-equalizer-values;
-                            audio-track-selected-index: root.audio-track-selected-index;
-                            audio-tracks: root.audio-tracks;
                             compact-ui: root.compact-ui;
                             dark-theme: root.dark-theme;
                             delete-audio-equalizer-profile => { root.delete-audio-equalizer-profile(); }

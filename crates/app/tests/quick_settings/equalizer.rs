@@ -1,15 +1,19 @@
 use super::*;
 
 fn profiles(app: &PlayerWindow) {
-    app.set_audio_equalizer_profile_names(slint::ModelRc::new(slint::VecModel::from(vec![
-        "Manual".into(),
-        "Flat".into(),
-        "Rock".into(),
-        "映画 🎧".into(),
-    ])));
-    app.set_audio_equalizer_user_profile_start_index(3);
-    app.set_audio_equalizer_can_save_profile(true);
-    app.set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(vec![0.0; 10])));
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_profile_names(slint::ModelRc::new(slint::VecModel::from(vec![
+            "Manual".into(),
+            "Flat".into(),
+            "Rock".into(),
+            "映画 🎧".into(),
+        ])));
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_user_profile_start_index(3);
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_can_save_profile(true);
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(vec![0.0; 10])));
     app.on_validate_audio_equalizer_profile_name(|name, _| {
         if name.is_empty() {
             "Enter a profile name".into()

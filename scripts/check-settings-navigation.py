@@ -166,7 +166,7 @@ def main():
     assert sidebar_scroll < audio_page < PLAYER_SOURCE.index("for row[index]", audio_page), (
         "Audio controls must be in the shared sidebar scrollable page"
     )
-    audio_tracks = QUICK_AUDIO_SOURCE.index("tracks: root.audio-tracks;")
+    audio_tracks = QUICK_AUDIO_SOURCE.index("tracks: PlaybackAudioState.audio-tracks;")
     equalizer_scroll = QUICK_AUDIO_SOURCE.index("equalizer-scroll := ScrollView")
     assert audio_tracks < equalizer_scroll, (
         "Audio tracks, load/delay controls and equalizer must share the Audio page"

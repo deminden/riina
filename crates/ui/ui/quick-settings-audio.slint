@@ -1,5 +1,5 @@
 import { ScrollView } from "std-widgets.slint";
-import { CatalogRow } from "catalog-row.slint";
+import { PlaybackAudioState } from "playback-audio-state.slint";
 import { Theme } from "theme.slint";
 import { PlayerSlider, VerticalEqualizerSlider } from "shared-controls.slint";
 import { Tool } from "player-tool.slint";
@@ -9,18 +9,6 @@ import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
 
 export component AudioQuickSettingsPage inherits VerticalLayout {
     in property <length> card-width;
-    in property <float> audio-delay;
-    in property <string> audio-delay-preview-text;
-    in property <string> audio-delay-text;
-    in property <bool> audio-equalizer-can-delete-profile;
-    in property <bool> audio-equalizer-can-edit-profile;
-    in property <bool> audio-equalizer-can-save-profile;
-    in property <int> audio-equalizer-profile-index;
-    in property <[string]> audio-equalizer-profile-names;
-    in property <int> audio-equalizer-user-profile-start-index;
-    in property <[float]> audio-equalizer-values;
-    in property <int> audio-track-selected-index;
-    in property <[CatalogRow]> audio-tracks;
     in property <bool> compact-ui;
     in property <bool> dark-theme;
     callback delete-audio-equalizer-profile();
@@ -51,7 +39,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
     cross-axis-alignment: center;
     QuickSettingsTrackList {
         width: root.card-width;
-        tracks: root.audio-tracks; observed-index: root.audio-track-selected-index;
+        tracks: PlaybackAudioState.audio-tracks; observed-index: PlaybackAudioState.audio-track-selected-index;
         track-kind: 1; hint: "Audio tracks"; enabled: root.loaded;
         dark-theme: root.dark-theme;
         accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
@@ -114,17 +102,17 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 font-size: 12px; font-weight: 700; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; background: transparent; }
             Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset audio delay";
-                visible: root.audio-delay != 0;
-                enabled: root.loaded && root.audio-delay != 0;
+                visible: PlaybackAudioState.audio-delay != 0;
+                enabled: root.loaded && PlaybackAudioState.audio-delay != 0;
                 activated => { root.reset-audio-delay(); } }
         }
         HorizontalLayout { height: 24px; spacing: 8px;
-            audio-delay-slider := PlayerSlider { height: 24px; dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.audio-delay;
+            audio-delay-slider := PlayerSlider { height: 24px; dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: PlaybackAudioState.audio-delay;
                 commit-on-release: true;
                 enabled: root.loaded; neutral-mark: true; tick-count: 21;
                 show-value-label: true;
                 value-label: (audio-delay-slider.previewing
-                    ? root.audio-delay-preview-text : root.audio-delay-text) + "s";
+                    ? PlaybackAudioState.audio-delay-preview-text : PlaybackAudioState.audio-delay-text) + "s";
                 hint: "Audio delay";
                 draft-changed(value) => { root.preview-audio-delay(value); }
                 changed(value) => { root.set-delay(round(value * 20) / 20); }
@@ -132,7 +120,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             QuickSettingsInput { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
                 observed-value: audio-delay-slider.previewing
-                    ? root.audio-delay-preview-text : root.audio-delay-text;
+                    ? PlaybackAudioState.audio-delay-preview-text : PlaybackAudioState.audio-delay-text;
                 enabled: root.loaded; hint: "Audio delay in seconds";
                 committed(text) => { return root.set-delay-text(text); }
                 editing-finished => { root.restore-player-focus(); } }
@@ -207,12 +195,12 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 width: parent.width - (root.compact-ui ? 20px : 24px);
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
-                profile-names: root.audio-equalizer-profile-names;
-                selected-index: root.audio-equalizer-profile-index;
-                user-profile-start-index: root.audio-equalizer-user-profile-start-index;
-                can-save: root.audio-equalizer-can-save-profile;
-                can-edit: root.audio-equalizer-can-edit-profile;
-                can-delete: root.audio-equalizer-can-delete-profile;
+                profile-names: PlaybackAudioState.audio-equalizer-profile-names;
+                selected-index: PlaybackAudioState.audio-equalizer-profile-index;
+                user-profile-start-index: PlaybackAudioState.audio-equalizer-user-profile-start-index;
+                can-save: PlaybackAudioState.audio-equalizer-can-save-profile;
+                can-edit: PlaybackAudioState.audio-equalizer-can-edit-profile;
+                can-delete: PlaybackAudioState.audio-equalizer-can-delete-profile;
                 selected(index) => { root.select-audio-equalizer-profile(index); }
                 validate-name(name, mode) => { root.validate-audio-equalizer-profile-name(name, mode) }
                 save-requested(name) => { root.save-audio-equalizer-profile(name) }
@@ -235,7 +223,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 width: 24px;
                 VerticalEqualizerSlider { horizontal-stretch: 1; vertical-stretch: 1;
                     dark-theme: root.dark-theme; minimum: -12; maximum: 12;
-                    step: 0.1; value: root.audio-equalizer-values[index];
+                    step: 0.1; value: PlaybackAudioState.audio-equalizer-values[index];
                     hint: label + " Hz equalizer gain";
                     changed(value) => { root.set-audio-equalizer(index, value); }
                 }

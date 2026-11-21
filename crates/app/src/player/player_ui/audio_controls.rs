@@ -23,7 +23,9 @@ pub(super) fn install(
         let Some(app) = weak.upgrade() else { return };
         let settings = {
             let mut settings = riina_core::sync::lock(&audio_eq_settings);
-            let values = app.get_audio_equalizer_values();
+            let values = app
+                .global::<riina_ui::PlaybackAudioState>()
+                .get_audio_equalizer_values();
             if values.row_count() == settings.gains_db.len() {
                 for (index, gain) in settings.gains_db.iter_mut().enumerate() {
                     if let Some(value) = values.row_data(index) {
@@ -146,45 +148,54 @@ pub(super) fn set_audio_equalizer_controls(
     settings: &riina_core::audio_equalizer::Settings,
 ) {
     let profile_ids = settings.profile_ids();
-    app.set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
-        settings.gains_db.map(|gain| gain as f32).to_vec(),
-    )));
-    app.set_audio_equalizer_profile_names(slint::ModelRc::new(slint::VecModel::from(
-        profile_ids
-            .iter()
-            .map(|id| match id {
-                riina_core::audio_equalizer::ProfileId::Manual => "Manual".to_owned(),
-                riina_core::audio_equalizer::ProfileId::Preset(name) => name
-                    .replace('_', " ")
-                    .split_whitespace()
-                    .map(|part| {
-                        let mut chars = part.chars();
-                        chars
-                            .next()
-                            .map(|first| first.to_uppercase().to_string() + chars.as_str())
-                            .unwrap_or_default()
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" "),
-                riina_core::audio_equalizer::ProfileId::User(name) => name.clone(),
-            })
-            .map(slint::SharedString::from)
-            .collect::<Vec<_>>(),
-    )));
-    app.set_audio_equalizer_profile_index(settings.selected_profile_index().unwrap_or(0) as i32);
-    app.set_audio_equalizer_user_profile_start_index(
-        profile_ids
-            .iter()
-            .position(|id| matches!(id, riina_core::audio_equalizer::ProfileId::User(_)))
-            .unwrap_or(profile_ids.len()) as i32,
-    );
-    app.set_audio_equalizer_can_delete_profile(settings.selected_profile_is_user());
-    app.set_audio_equalizer_can_edit_profile(settings.selected_profile_is_user());
-    app.set_audio_equalizer_can_save_profile(settings.is_manual_selected());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
+            settings.gains_db.map(|gain| gain as f32).to_vec(),
+        )));
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_profile_names(slint::ModelRc::new(slint::VecModel::from(
+            profile_ids
+                .iter()
+                .map(|id| match id {
+                    riina_core::audio_equalizer::ProfileId::Manual => "Manual".to_owned(),
+                    riina_core::audio_equalizer::ProfileId::Preset(name) => name
+                        .replace('_', " ")
+                        .split_whitespace()
+                        .map(|part| {
+                            let mut chars = part.chars();
+                            chars
+                                .next()
+                                .map(|first| first.to_uppercase().to_string() + chars.as_str())
+                                .unwrap_or_default()
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                    riina_core::audio_equalizer::ProfileId::User(name) => name.clone(),
+                })
+                .map(slint::SharedString::from)
+                .collect::<Vec<_>>(),
+        )));
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_profile_index(settings.selected_profile_index().unwrap_or(0) as i32);
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_user_profile_start_index(
+            profile_ids
+                .iter()
+                .position(|id| matches!(id, riina_core::audio_equalizer::ProfileId::User(_)))
+                .unwrap_or(profile_ids.len()) as i32,
+        );
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_can_delete_profile(settings.selected_profile_is_user());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_can_edit_profile(settings.selected_profile_is_user());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_can_save_profile(settings.is_manual_selected());
 }
 
 fn audio_equalizer_visible_profile_names(app: &PlayerWindow) -> Vec<String> {
-    let names = app.get_audio_equalizer_profile_names();
+    let names = app
+        .global::<riina_ui::PlaybackAudioState>()
+        .get_audio_equalizer_profile_names();
     (1..names.row_count())
         .filter_map(|index| names.row_data(index))
         .map(|name| name.to_string())

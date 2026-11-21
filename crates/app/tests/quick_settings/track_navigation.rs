@@ -42,8 +42,10 @@ fn set_tracks(app: &PlayerWindow, kind: i32, count: usize, selected: usize) {
     let model = tracks(count, selected);
     match kind {
         1 => {
-            app.set_audio_track_selected_index(selected as i32);
-            app.set_audio_tracks(model);
+            app.global::<riina_ui::PlaybackAudioState>()
+                .set_audio_track_selected_index(selected as i32);
+            app.global::<riina_ui::PlaybackAudioState>()
+                .set_audio_tracks(model);
         }
         6 => {
             app.set_video_track_selected_index(selected as i32);

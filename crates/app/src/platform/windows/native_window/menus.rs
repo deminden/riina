@@ -101,9 +101,13 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         |row| row.playing,
         |rows| host.set_playlist_menu_rows(rows),
     );
-    host.set_audio_device_menu_rows(app.get_audio_device_menu_rows());
+    host.set_audio_device_menu_rows(
+        app.global::<riina_ui::PlaybackAudioState>()
+            .get_audio_device_menu_rows(),
+    );
     sync_catalog_rows(
-        app.get_audio_tracks(),
+        app.global::<riina_ui::PlaybackAudioState>()
+            .get_audio_tracks(),
         &host.get_audio_track_menu_rows(),
         |row| row.selected,
         |rows| host.set_audio_track_menu_rows(rows),

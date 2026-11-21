@@ -1,7 +1,24 @@
+import { CatalogRow } from "catalog-row.slint";
+import { MenuCatalogRow } from "native-video.slint";
+
 // Engine observations are local to each PlayerWindow instance.
 export global PlaybackAudioState {
     in-out property <float> volume: 100;
     in-out property <bool> muted: false;
     in-out property <bool> has-active-audio-track: false;
     in-out property <string> volume-menu-title: "Volume: 100";
+
+    in-out property <[CatalogRow]> audio-tracks;
+    in-out property <int> audio-track-selected-index: 0;
+    in-out property <[MenuCatalogRow]> audio-device-menu-rows: [];
+    in-out property <[float]> audio-equalizer-values;
+    in-out property <[string]> audio-equalizer-profile-names;
+    in-out property <int> audio-equalizer-profile-index: 0;
+    in-out property <int> audio-equalizer-user-profile-start-index: 23;
+    in-out property <bool> audio-equalizer-can-delete-profile: false;
+    in-out property <bool> audio-equalizer-can-edit-profile: false;
+    in-out property <bool> audio-equalizer-can-save-profile: true;
+    in-out property <float> audio-delay: 0;
+    in-out property <string> audio-delay-text: "0";
+    in-out property <string> audio-delay-preview-text: "0";
 }

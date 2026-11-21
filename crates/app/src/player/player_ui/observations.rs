@@ -503,9 +503,10 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
         state.video_equalizer.map(|value| value.is_some()).to_vec(),
     )));
     if let Some(gains) = state.audio_equalizer {
-        app.set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
-            gains.map(|gain| gain as f32).to_vec(),
-        )));
+        app.global::<riina_ui::PlaybackAudioState>()
+            .set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
+                gains.map(|gain| gain as f32).to_vec(),
+            )));
     }
     app.set_hardware_decoding_known(state.hardware_decoding.is_some());
     app.set_hardware_decoding_enabled(
@@ -523,8 +524,10 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_delays_and_subtitle_style(app: &PlayerWindow, state: &Playback) {
-    app.set_audio_delay(state.audio_delay as f32);
-    app.set_audio_delay_text(crate::localized_number::format_delay(state.audio_delay).into());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_delay(state.audio_delay as f32);
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_delay_text(crate::localized_number::format_delay(state.audio_delay).into());
     app.set_subtitle_delay(state.subtitle_delay as f32);
     app.set_subtitle_delay_text(crate::localized_number::format_delay(state.subtitle_delay).into());
     app.set_subtitle_scale_known(state.subtitle_scale.is_some());

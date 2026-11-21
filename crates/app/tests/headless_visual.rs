@@ -167,7 +167,9 @@ fn player(
             .global::<riina_ui::PlaybackTimelineState>()
             .set_seekable(true);
         window.set_status("".into());
-        window.set_audio_tracks(catalog(&["Stereo", "Commentary"]));
+        window
+            .global::<riina_ui::PlaybackAudioState>()
+            .set_audio_tracks(catalog(&["Stereo", "Commentary"]));
         window.set_video_tracks(catalog(&["Video track"]));
         window.set_subtitle_tracks(catalog(&["English", "French"]));
         window.set_playlist(catalog(&["Headless test clip", "Next clip", "Final clip"]));

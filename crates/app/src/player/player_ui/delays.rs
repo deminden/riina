@@ -9,9 +9,10 @@ pub(super) fn install_sliders(app: &PlayerWindow, player: &CommandSender) {
     let preview_weak = app.as_weak();
     app.on_preview_audio_delay(move |value| {
         if let Some(app) = preview_weak.upgrade() {
-            app.set_audio_delay_preview_text(
-                crate::localized_number::format_delay(f64::from(value)).into(),
-            );
+            app.global::<riina_ui::PlaybackAudioState>()
+                .set_audio_delay_preview_text(
+                    crate::localized_number::format_delay(f64::from(value)).into(),
+                );
         }
     });
     let weak = app.as_weak();

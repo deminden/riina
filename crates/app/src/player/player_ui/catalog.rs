@@ -195,9 +195,10 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
                 .iter()
                 .any(|track| track.kind == TrackKind::Audio && track.is_primary_selected()),
         );
-    app.set_audio_device_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        audio_device_menu_rows(state),
-    )));
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_device_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+            audio_device_menu_rows(state),
+        )));
     let languages = crate::language_names::LanguageNames::current();
     for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
         let tracks: Vec<_> = state
@@ -233,8 +234,10 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
                 app.set_video_tracks(model);
             }
             TrackKind::Audio => {
-                app.set_audio_track_selected_index(selected_index);
-                app.set_audio_tracks(model);
+                app.global::<riina_ui::PlaybackAudioState>()
+                    .set_audio_track_selected_index(selected_index);
+                app.global::<riina_ui::PlaybackAudioState>()
+                    .set_audio_tracks(model);
             }
             TrackKind::Sub => {
                 app.set_subtitle_track_selected_index(selected_index);

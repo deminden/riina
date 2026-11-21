@@ -62,7 +62,8 @@ fn settings_pages_keep_independent_scroll_positions() {
     let app = player(6);
     app.window().set_size(LogicalSize::new(1000.0, 320.0));
     app.set_video_tracks(model());
-    app.set_audio_tracks(model());
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_tracks(model());
     app.set_subtitle_tracks(model());
     app.set_secondary_subtitle_tracks(model());
     i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
@@ -244,7 +245,8 @@ fn music_window_buttons_do_not_cover_transport_or_timeline() {
 #[test]
 fn first_pointer_press_opens_subtitle_color_and_changes_an_equalizer_band() {
     let app = player(1);
-    app.set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(vec![0.0; 10])));
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(vec![0.0; 10])));
     let changes = Rc::new(RefCell::new(Vec::new()));
     let recorded = changes.clone();
     app.on_set_audio_equalizer(move |index, value| recorded.borrow_mut().push((index, value)));
