@@ -129,7 +129,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_control_bar) = read_or_refresh(
-            crate::osc_preferences::current_preferences(&window),
+            model.read_section::<riina_core::osc_preferences::Settings>(&window),
             &app,
             &window,
         ) else {
@@ -641,7 +641,6 @@ fn connect_with_credentials(
                 record_recent_files: window.get_record_recent_files(),
                 track_all_files_in_recent_open_menu: window
                     .get_track_all_files_in_recent_open_menu(),
-                control_bar: selected_control_bar,
                 leading_sidebar_width: app.get_leading_sidebar_width() as u32,
                 trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                 settings_at_leading: app.get_settings_at_leading(),
@@ -681,6 +680,7 @@ fn connect_with_credentials(
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_control_bar.put(&mut preferences);
             selected_window_resize.put(&mut preferences);
             // Utilities can clear history while this window remains open;
             // preserve that live system action over its original snapshot.
@@ -755,7 +755,7 @@ fn connect_with_credentials(
                 app.set_appearance_mode(selected_theme.index());
                 app.set_dark_theme(selected_dark);
                 model.write_player::<Osd>(&app);
-                crate::osc_preferences::install_player(&app, selected_control_bar);
+                model.write_player::<riina_core::osc_preferences::Settings>(&app);
                 app.set_always_float_on_top(window.get_always_float_on_top());
                 app.set_always_show_on_top_icon(window.get_always_show_on_top_icon());
                 crate::control_preferences::install_player(&app, &selected_controls);

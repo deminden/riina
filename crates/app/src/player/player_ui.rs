@@ -765,7 +765,9 @@ fn configure_with_engine(
     crate::preferences::model::install_player_section::<crate::osd_preferences::Settings>(
         &prefs, app,
     );
-    crate::osc_preferences::install_player(app, prefs.control_bar);
+    crate::preferences::model::install_player_section::<riina_core::osc_preferences::Settings>(
+        &prefs, app,
+    );
     crate::screenshot_preferences::install(app, &prefs.screenshot);
     crate::preferences::model::install_player_section::<riina_core::thumbnail_preferences::Settings>(
         &prefs, app,
