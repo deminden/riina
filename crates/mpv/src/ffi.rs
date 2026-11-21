@@ -473,6 +473,9 @@ mod raw_frame_tests {
 }
 
 #[cfg(test)]
+mod generated_nodes;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
