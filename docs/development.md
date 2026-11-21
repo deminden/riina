@@ -133,10 +133,10 @@ and verification states separate in the requirement inventories.
 
 Clippy enforces the 150-line function and seven-argument limits, documented
 unsafe blocks, and explicit error handling in application code. Existing
-exceptions are marked on the relevant item with a reason. The two modules
-containing only generated Slint widget code expect the unwrap and panic lints
-from the generator. The Rust source line-length check permits an exception list
-that shrinks as those lines are reformatted or moved.
+exceptions are marked on the relevant item with a reason. The generated
+module in `riina-ui` expects the unwrap and panic lints from the generator.
+The Rust source line-length exception list shrinks as lines are reformatted
+or removed.
 
 Quick Settings input, category navigation and narrow-header geometry regressions
 in `crates/app/tests/quick_settings_input.rs` run with the workspace tests. They exercise the generated player controls through
@@ -144,6 +144,9 @@ Slint's headless test backend, including pointer/key input and focus changes.
 Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit
 that metadata. Native window/input and physical-display checks remain separate.
+The app also runs its real player callbacks with a bounded recording engine
+in an isolated Slint test process. Run that headless regression directly with
+`cargo test -p riina --lib --locked player_callbacks_and_playback_projection_work_headlessly`.
 The development Cargo profile retains source line information for workspace
 code and minimizes dependency debug information. A fresh dependency build can
 take longer because dependencies are optimized.

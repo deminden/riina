@@ -8,7 +8,7 @@ use crate::{
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Playback, RecentMedia};
-use riina_mpv::Player;
+use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
@@ -18,7 +18,7 @@ use std::{
 };
 
 pub(super) struct Context<'a> {
-    pub player: &'a Player,
+    pub commands: &'a CommandSender,
     pub open_host: Option<slint::Weak<NativeVideoHost>>,
     pub welcome: Option<&'a WelcomeWindow>,
     pub recent_media: &'a Rc<RefCell<Vec<RecentMedia>>>,
@@ -34,7 +34,7 @@ pub(super) struct Context<'a> {
 )]
 pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     let Context {
-        player,
+        commands,
         open_host,
         welcome,
         recent_media,
@@ -43,13 +43,13 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
         prefs_path,
         latest_playback,
     } = context;
-    let open_player = player.command_sender();
+    let open_player = commands.clone();
     let weak = app.as_weak();
     let welcome_window = welcome.map(|welcome| welcome.as_weak());
     let pending_welcome_open = Rc::new(RefCell::new(None));
     let ready_pending = pending_welcome_open.clone();
     let ready_app = app.as_weak();
-    let ready_player = player.command_sender();
+    let ready_player = commands.clone();
     app.on_renderer_ready(move || {
         if let Some(request) = ready_pending.borrow_mut().take()
             && let Some(app) = ready_app.upgrade()
@@ -162,7 +162,7 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     });
     let open_recent_documents = recent_open_documents.clone();
     let open_recent_preferences_path = prefs_path.clone();
-    let recent_player = player.command_sender();
+    let recent_player = commands.clone();
     let open_recent_app = app.as_weak();
     app.on_open_recent_path(move |path| {
         let Some(app) = open_recent_app.upgrade() else {
@@ -214,7 +214,7 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             }
         }
     });
-    let open_url = player.command_sender();
+    let open_url = commands.clone();
     let weak = app.as_weak();
     let open_url_host = open_host.clone();
     let url_welcome = welcome_window.clone();
@@ -291,7 +291,7 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
             Err(error) => app.set_status(format!("Could not save debug information: {error}").into()),
         }
     });
-    let recent_player = player.command_sender();
+    let recent_player = commands.clone();
     let recent_host = open_host.clone();
     let recent_media_for_open = recent_media.clone();
     let weak = app.as_weak();

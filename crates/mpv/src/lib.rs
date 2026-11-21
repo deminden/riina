@@ -4,6 +4,8 @@ mod auto_seek;
 mod demuxer_tests;
 mod ffi;
 mod properties;
+#[cfg(feature = "test-support")]
+mod recording;
 mod seek_feedback;
 pub mod thumbnail_generator;
 pub mod video;
@@ -12,6 +14,8 @@ mod windows_apartment;
 
 use ffi::{Api, EndFile, Property};
 use properties::{apply_property, observed_property_value};
+#[cfg(feature = "test-support")]
+pub use recording::RecordingEngine;
 use riina_core::{Command, Phase, Playback};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -107,8 +111,15 @@ pub struct Player {
 }
 
 #[derive(Clone)]
+enum CommandQueue {
+    Native(SyncSender<Message>),
+    #[cfg(feature = "test-support")]
+    Recording(SyncSender<Command>),
+}
+
+#[derive(Clone)]
 pub struct CommandSender {
-    sender: SyncSender<Message>,
+    sender: CommandQueue,
     stopped: Arc<AtomicBool>,
 }
 
@@ -120,12 +131,13 @@ impl CommandSender {
         if self.stopped.load(Ordering::Acquire) {
             return Err("The playback engine has stopped".into());
         }
-        self.sender
-            .try_send(Message::Intent(command))
-            .map_err(|error| match error {
-                mpsc::TrySendError::Full(_) => format!("Player command was not accepted: {error}"),
-                mpsc::TrySendError::Disconnected(_) => "The playback engine has stopped".into(),
-            })
+        match &self.sender {
+            CommandQueue::Native(sender) => sender
+                .try_send(Message::Intent(command))
+                .map_err(send_error),
+            #[cfg(feature = "test-support")]
+            CommandQueue::Recording(sender) => sender.try_send(command).map_err(send_error),
+        }
     }
 
     /// All accepted intents use the same FIFO; a full queue rejects explicitly.
@@ -136,6 +148,13 @@ impl CommandSender {
 
     pub fn set_paused(&self, paused: bool) -> Result<(), String> {
         self.send(Command::SetPaused(paused))
+    }
+}
+
+fn send_error<T>(error: mpsc::TrySendError<T>) -> String {
+    match error {
+        mpsc::TrySendError::Full(_) => format!("Player command was not accepted: {error}"),
+        mpsc::TrySendError::Disconnected(_) => "The playback engine has stopped".into(),
     }
 }
 
@@ -786,7 +805,7 @@ impl Player {
 
     pub fn command_sender(&self) -> CommandSender {
         CommandSender {
-            sender: self.owner.sender.clone(),
+            sender: CommandQueue::Native(self.owner.sender.clone()),
             stopped: self.owner.stopped.clone(),
         }
     }

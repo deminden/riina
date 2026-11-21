@@ -1,7 +1,10 @@
 mod audio_controls;
 mod catalog;
 mod discovery;
+mod engine_start;
 mod feedback;
+#[cfg(test)]
+mod glue_tests;
 pub(crate) mod hdr_output;
 mod lifecycle;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
@@ -24,6 +27,7 @@ use catalog::{
     install_playlist_metadata_refresh, install_playlist_selection, playlist_paste_index,
     selected_playlist_ids, selected_playlist_paths,
 };
+use engine_start::EngineStart;
 #[cfg(target_os = "windows")]
 use materials::{install_native_video_material_sampler, install_windows_material_policy_monitor};
 use observations::{UiUpdateResources, update_ui};
@@ -469,10 +473,6 @@ impl Drop for UiSession {
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
@@ -480,6 +480,30 @@ pub(crate) fn configure_player(
     welcome: Option<&WelcomeWindow>,
     startup_resume_position: Option<f64>,
     loaded: LoadedPreferences,
+) -> Result<UiSession, Box<dyn std::error::Error>> {
+    configure_with_engine(
+        app,
+        native,
+        media,
+        welcome,
+        startup_resume_position,
+        loaded,
+        EngineStart::Native,
+    )
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
+fn configure_with_engine(
+    app: &PlayerWindow,
+    native: Option<platform::NativePresentation>,
+    media: Vec<std::ffi::OsString>,
+    welcome: Option<&WelcomeWindow>,
+    startup_resume_position: Option<f64>,
+    loaded: LoadedPreferences,
+    engine_start: EngineStart,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     {
@@ -492,7 +516,7 @@ pub(crate) fn configure_player(
             }
         });
     }
-    let prefs_path = platform::preferences_path()?;
+    let prefs_path = engine_start.preferences_path()?;
     let plugin_menu_order = std::fs::read_to_string(prefs_path.with_file_name("plugin-order.json"))
         .ok()
         .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
@@ -508,12 +532,15 @@ pub(crate) fn configure_player(
         source_text,
         recovery,
     } = loaded;
-    if let Err(error) = crate::online_subtitles_credentials::restore_preferences(
-        &mut prefs,
-        source_text.as_deref(),
-        &prefs_path,
-        recovery.is_none(),
-    ) {
+    let use_system_services = engine_start.uses_system_services();
+    if use_system_services
+        && let Err(error) = crate::online_subtitles_credentials::restore_preferences(
+            &mut prefs,
+            source_text.as_deref(),
+            &prefs_path,
+            recovery.is_none(),
+        )
+    {
         app.set_status(format!("OpenSubtitles credential storage: {error}").into());
     }
     let audio_equalizer = Arc::new(std::sync::Mutex::new(prefs.audio_equalizer.clone()));
@@ -574,7 +601,7 @@ pub(crate) fn configure_player(
     #[cfg(target_os = "macos")]
     app.set_live_text_selectable(true);
     #[cfg(any(target_os = "windows", target_os = "macos"))]
-    {
+    if use_system_services {
         let weak = app.as_weak();
         let _ = platform::text_recognition::check_availability(move |available| {
             let _ = slint::invoke_from_event_loop(move || {
@@ -1010,13 +1037,10 @@ pub(crate) fn configure_player(
             }
         });
     };
-    let player = if let Some(presentation) = &native {
-        presentation.start_engine(engine_options, notify)
-    } else {
-        Player::start_with_options(&platform::playback_library(), false, engine_options, notify)
-    };
-    let player = match player {
-        Ok(player) => player,
+    let capture_transition_first = engine_start.captures_before_navigation(native.is_some());
+    let (player, command_sender) = match engine_start.start(native.as_ref(), engine_options, notify)
+    {
+        Ok(engine) => engine,
         Err(error) => {
             app.set_status(error.clone().into());
             return Err(std::io::Error::other(error).into());
@@ -1045,7 +1069,7 @@ pub(crate) fn configure_player(
     let (playback_history_window, playback_history_timer) = crate::playback_history_window::install(
         app,
         playback_history.clone(),
-        player.command_sender(),
+        command_sender.clone(),
         prefs_path.clone(),
         history_cleared.clone(),
         history_sync,
@@ -1056,7 +1080,7 @@ pub(crate) fn configure_player(
             latest_playback.clone(),
             saved_video_filters.clone(),
             saved_audio_filters.clone(),
-            player.command_sender(),
+            command_sender.clone(),
             prefs_path.clone(),
         );
     let playlist_metadata_timer = install_playlist_metadata_refresh(app, latest_playback.clone());
@@ -1065,17 +1089,17 @@ pub(crate) fn configure_player(
         latest_playback.clone(),
         music_mode_state.clone(),
     );
-    *lock(&plugin_command_sender) = Some(player.command_sender());
+    *lock(&plugin_command_sender) = Some(command_sender.clone());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
     let (online_subtitles_window, online_subtitles_timer) = crate::open_subtitles::connect_player(
         app,
-        player.command_sender(),
+        command_sender.clone(),
         latest_playback.clone(),
         subtitle_discovery_ready.clone(),
     );
     let subtitle_priority_timer = discovery::install(
         app,
-        &player.command_sender(),
+        &command_sender,
         latest_playback.clone(),
         subtitle_discovery_ready,
     );
@@ -1085,7 +1109,7 @@ pub(crate) fn configure_player(
             .ok_or_else(|| std::io::Error::other("PiP setup must run on the macOS main thread"))
             .and_then(|mtm| {
                 platform::MacPictureInPicture::new(
-                    player.command_sender(),
+                    command_sender.clone(),
                     latest_playback.clone(),
                     mtm,
                 )
@@ -1146,7 +1170,7 @@ pub(crate) fn configure_player(
         player_window_focus,
         #[cfg(target_os = "macos")]
         mac_scroll_event_monitor,
-    } = input::install(app, &player.command_sender(), latest_playback.clone());
+    } = input::install(app, &command_sender, latest_playback.clone());
     let thumbnail_preview_timer = Rc::new(slint::Timer::default());
     let thumbnail_controller =
         Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
@@ -1183,10 +1207,10 @@ pub(crate) fn configure_player(
         },
     );
     let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
-    let transition_frame_timer = if cfg!(target_os = "windows") && native.is_some() {
+    let transition_frame_timer = if capture_transition_first {
         let timer = Rc::new(slint::Timer::default());
         let playback = latest_playback.clone();
-        let sender = player.command_sender();
+        let sender = command_sender.clone();
         let captured_generation = Rc::new(Cell::new(None::<u64>));
         let outgoing_capture_attempt = Rc::new(Cell::new(None::<(u64, Instant)>));
         let incoming_capture_attempt = Rc::new(Cell::new(None::<(u64, Instant)>));
@@ -1369,7 +1393,7 @@ pub(crate) fn configure_player(
     let native_material_timer = native.is_some().then(|| {
         install_native_video_material_sampler(
             app,
-            player.command_sender(),
+            command_sender.clone(),
             latest_playback.clone(),
             native
                 .as_ref()
@@ -1382,12 +1406,12 @@ pub(crate) fn configure_player(
     let windows_materials_policy_timer = install_windows_material_policy_monitor(app);
     #[cfg(target_os = "macos")]
     {
-        *system_media_sender.borrow_mut() = Some(player.command_sender());
+        *system_media_sender.borrow_mut() = Some(command_sender.clone());
     }
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     let live_text_timer = Some(live_text::install(
         app,
-        player.command_sender(),
+        command_sender.clone(),
         latest_playback.clone(),
     ));
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
@@ -1453,7 +1477,7 @@ pub(crate) fn configure_player(
     let clear_history_recent_media = plugin_recent_media.clone();
     crate::preferences_window::connect(
         app,
-        player.command_sender(),
+        command_sender.clone(),
         prefs_path.clone(),
         prefs.clone(),
         latest_playback.clone(),
@@ -1493,9 +1517,9 @@ pub(crate) fn configure_player(
             }
         },
     );
-    let opening_player = player.command_sender();
+    let opening_player = command_sender.clone();
     let opening_app = app.as_weak();
-    let resume_player = player.command_sender();
+    let resume_player = command_sender.clone();
     let resume_app = app.as_weak();
     let resume_welcome = welcome.map(WelcomeWindow::as_weak);
     let recent_media_for_resume = recent_media.clone();
@@ -1521,8 +1545,8 @@ pub(crate) fn configure_player(
         }
     });
     crate::window_controls::install(app, native.as_ref().map(platform::NativePresentation::host));
-    crop_editor.install(app, player.command_sender());
-    let reflection_player = player.command_sender();
+    crop_editor.install(app, command_sender.clone());
+    let reflection_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_toggle_video_reflection(move |horizontal| {
         if let Some(app) = weak.upgrade() {
@@ -1544,13 +1568,8 @@ pub(crate) fn configure_player(
             }
         }
     });
-    feedback::install(
-        app,
-        &player.command_sender(),
-        screenshot_scratch,
-        feedback_video_osd,
-    );
-    let deinterlace_player = player.command_sender();
+    feedback::install(app, &command_sender, screenshot_scratch, feedback_video_osd);
+    let deinterlace_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_toggle_deinterlace(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -1569,7 +1588,7 @@ pub(crate) fn configure_player(
     });
     macro_rules! connect {
         ($method:ident, $command:expr) => {{
-            let player = player.command_sender();
+            let player = command_sender.clone();
             let weak = app.as_weak();
             app.$method(move || {
                 let command = $command;
@@ -1601,7 +1620,7 @@ pub(crate) fn configure_player(
     }
     // Let mpv toggle its current state: UI pause snapshots can lag an in-flight
     // transition, while the playback worker serializes this action with engine events.
-    let pause_player = player.command_sender();
+    let pause_player = command_sender.clone();
     let pause_app = app.as_weak();
     app.on_toggle_pause(move || {
         let Some(app) = pause_app.upgrade() else {
@@ -1612,7 +1631,7 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let set_pause_player = player.command_sender();
+    let set_pause_player = command_sender.clone();
     let set_pause_app = app.as_weak();
     app.on_set_paused(move |paused| {
         let Some(app) = set_pause_app.upgrade() else {
@@ -1623,7 +1642,7 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let input_action_player = player.command_sender();
+    let input_action_player = command_sender.clone();
     let input_action_app = app.as_weak();
     app.on_execute_mpv_input_action(move |action| {
         let Some(app) = input_action_app.upgrade() else {
@@ -1635,12 +1654,12 @@ pub(crate) fn configure_player(
         }
     });
     connect!(on_toggle_mute, Command::ToggleMute);
-    let hdr_player = player.command_sender();
+    let hdr_player = command_sender.clone();
     hdr_output::install(app, move |command| hdr_player.send(command));
     connect!(on_stop, Command::Stop);
     connect!(on_frame_step, Command::FrameStep);
     connect!(on_frame_back_step, Command::FrameBackStep);
-    let chapter_player = player.command_sender();
+    let chapter_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_adjust_chapter(move |direction| {
         if let Some(app) = weak.upgrade() {
@@ -1652,7 +1671,7 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let subtitle_player = player.command_sender();
+    let subtitle_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_subtitle_seek(move |direction| {
         if let Some(app) = weak.upgrade() {
@@ -1664,8 +1683,7 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let capture_transition_first = cfg!(target_os = "windows") && native.is_some();
-    let playlist_navigation_sender = player.command_sender();
+    let playlist_navigation_sender = command_sender.clone();
     let sender = playlist_navigation_sender.clone();
     let pending = pending_navigation.clone();
     let weak = app.as_weak();
@@ -1695,7 +1713,7 @@ pub(crate) fn configure_player(
         );
     });
     connect!(on_reset_speed, Command::Speed(1.0));
-    let speed_slider_player = player.command_sender();
+    let speed_slider_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_set_speed_slider(move |position| {
         if let Some(app) = weak.upgrade() {
@@ -1708,7 +1726,7 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let speed_text_player = player.command_sender();
+    let speed_text_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_set_speed_text(move |text| {
         let result = riina_core::speed_controls::from_text(text.as_str())
@@ -1723,13 +1741,13 @@ pub(crate) fn configure_player(
         }
         true
     });
-    video_controls::install(app, &player.command_sender());
+    video_controls::install(app, &command_sender);
     connect!(on_reset_subtitle_delay, Command::SubtitleDelay(0.0));
-    audio_controls::install(app, &player.command_sender(), audio_equalizer.clone());
-    subtitle_controls::install(app, &player.command_sender());
+    audio_controls::install(app, &command_sender, audio_equalizer.clone());
+    subtitle_controls::install(app, &command_sender);
     connect!(on_reset_audio_delay, Command::AudioDelay(0.0));
     connect!(on_cycle_ab_loop, Command::CycleAbLoop);
-    let ab_loop_player = player.command_sender();
+    let ab_loop_player = command_sender.clone();
     let ab_loop_app = app.as_weak();
     app.on_set_ab_loop_point(move |point, value| {
         let Some(app) = ab_loop_app.upgrade() else {
@@ -1759,7 +1777,7 @@ pub(crate) fn configure_player(
     connect!(on_cycle_audio_track, Command::CycleTrack(TrackKind::Audio));
     connect!(on_cycle_subtitle_track, Command::CycleTrack(TrackKind::Sub));
     connect!(on_cycle_video_track, Command::CycleTrack(TrackKind::Video));
-    let audio_device_player = player.command_sender();
+    let audio_device_player = command_sender.clone();
     let audio_device_state = latest_playback.clone();
     let audio_device_app = app.as_weak();
     app.on_set_audio_device(move |device| {
@@ -1784,7 +1802,7 @@ pub(crate) fn configure_player(
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility
     );
-    let subtitle_encoding_player = player.command_sender();
+    let subtitle_encoding_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_set_subtitle_encoding(move |encoding| {
         let Some(app) = weak.upgrade() else { return };
@@ -1802,7 +1820,7 @@ pub(crate) fn configure_player(
             Err(error) => app.set_status(error.into()),
         }
     });
-    let selection_player = player.command_sender();
+    let selection_player = command_sender.clone();
     let selection_state = latest_playback.clone();
     let weak = app.as_weak();
     app.on_select_item(move |category, token| {
@@ -1863,7 +1881,7 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let delay_player = player.command_sender();
+    let delay_player = command_sender.clone();
     let preview_weak = app.as_weak();
     app.on_preview_audio_delay(move |value| {
         if let Some(app) = preview_weak.upgrade() {
@@ -1889,7 +1907,7 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let playlist_player = player.command_sender();
+    let playlist_player = command_sender.clone();
     let playlist_pending_navigation = pending_navigation.clone();
     let playlist_capture_transition_first = capture_transition_first;
     let weak = app.as_weak();
@@ -2092,7 +2110,7 @@ pub(crate) fn configure_player(
         ))
     });
 
-    let reorder_player = player.command_sender();
+    let reorder_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_reorder_playlist(move |tokens, insertion_slot| {
         let Some(app) = weak.upgrade() else { return };
@@ -2125,7 +2143,7 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let shuffle_player = player.command_sender();
+    let shuffle_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_toggle_playlist_shuffle(move || {
         if let Some(app) = weak.upgrade() {
@@ -2135,7 +2153,7 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let sort_player = player.command_sender();
+    let sort_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_sort_playlist(move |sort| {
         let sort = match sort {
@@ -2156,7 +2174,7 @@ pub(crate) fn configure_player(
             }
         }
     });
-    let browse_player = player.command_sender();
+    let browse_player = command_sender.clone();
     let weak = app.as_weak();
     let browse_host = native.as_ref().map(platform::NativePresentation::host);
     app.on_browse_files(move |category| {
@@ -2177,7 +2195,7 @@ pub(crate) fn configure_player(
         }
     });
     for absolute in [true, false] {
-        let player = player.command_sender();
+        let player = command_sender.clone();
         let weak = app.as_weak();
         let seek = move |seconds: f32| {
             if let Some(app) = weak.upgrade() {
@@ -2212,7 +2230,7 @@ pub(crate) fn configure_player(
             app.set_url_dialog_visible(true);
         }
     });
-    let jump_player = player.command_sender();
+    let jump_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_jump_to_time(move |input| {
         let Some(app) = weak.upgrade() else { return };
@@ -2232,7 +2250,7 @@ pub(crate) fn configure_player(
             Err(error) => app.set_jump_time_error(error.into()),
         }
     });
-    let boost_player = player.command_sender();
+    let boost_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_set_volume_boost(move |enabled| {
         if let Some(app) = weak.upgrade() {
@@ -2247,7 +2265,7 @@ pub(crate) fn configure_player(
             app.invoke_activity();
         }
     });
-    let volume_player = player.command_sender();
+    let volume_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_set_volume(move |volume| {
         let Some(app) = weak.upgrade() else { return };
@@ -2259,7 +2277,7 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let speed_player = player.command_sender();
+    let speed_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_speed(move |factor| {
         if let Some(app) = weak.upgrade() {
@@ -2271,7 +2289,7 @@ pub(crate) fn configure_player(
             app.set_status(error.into());
         }
     });
-    let adjustment_player = player.command_sender();
+    let adjustment_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_adjust_volume(move |delta| {
         let Some(app) = weak.upgrade() else { return };
@@ -2290,7 +2308,7 @@ pub(crate) fn configure_player(
     media_actions::install(
         app,
         media_actions::Context {
-            player: &player,
+            commands: &command_sender,
             open_host: native.as_ref().map(platform::NativePresentation::host),
             welcome,
             recent_media: &recent_media,
@@ -2373,59 +2391,65 @@ pub(crate) fn configure_player(
         .iter()
         .any(|gain| *gain != 0.0)
     {
-        player
+        command_sender
             .send(Command::AudioEqualizer(prefs.audio_equalizer.gains_db))
             .map_err(std::io::Error::other)?;
     }
-    player
+    command_sender
         .send(Command::SetVolumeBoost(prefs.volume_boost))
         .map_err(std::io::Error::other)?;
-    player
+    command_sender
         .send(Command::SetPauseWhenOpen(prefs.pause_when_open))
         .map_err(std::io::Error::other)?;
-    player
+    command_sender
         .send(Command::HardwareDecoding(prefs.hardware_decoder))
         .map_err(std::io::Error::other)?;
-    player
+    command_sender
         .send(Command::SubtitleAssOverride {
             lane: riina_core::subtitle_controls::SubtitleLane::Primary,
             level: prefs.subtitle_ass_override,
         })
         .map_err(std::io::Error::other)?;
-    player
+    command_sender
         .send(Command::SubtitleAssOverride {
             lane: riina_core::subtitle_controls::SubtitleLane::Secondary,
             level: prefs.secondary_subtitle_ass_override,
         })
         .map_err(std::io::Error::other)?;
-    player
+    command_sender
         .send(Command::SubtitleFont(prefs.subtitle_font.clone()))
         .map_err(std::io::Error::other)?;
-    player
+    command_sender
         .send(Command::SubtitleFontSize(prefs.subtitle_font_size))
         .map_err(std::io::Error::other)?;
     for command in crate::subtitle_preferences::commands(prefs.subtitle_text_style) {
-        player.send(command).map_err(std::io::Error::other)?;
+        command_sender
+            .send(command)
+            .map_err(std::io::Error::other)?;
     }
     for command in prefs.subtitle_position.commands() {
-        player.send(command).map_err(std::io::Error::other)?;
+        command_sender
+            .send(command)
+            .map_err(std::io::Error::other)?;
     }
     for command in prefs.subtitle_other.commands() {
-        player.send(command).map_err(std::io::Error::other)?;
+        command_sender
+            .send(command)
+            .map_err(std::io::Error::other)?;
     }
     crate::fullscreen_info::connect(app);
     if native.is_some() {
         app.set_engine_ready(true);
-        player
+        command_sender
             .send(Command::Volume(prefs.volume))
             .map_err(std::io::Error::other)?;
         if !media.is_empty() {
-            media_open::startup_at(app, media, startup_resume_position, player.command_sender());
+            media_open::startup_at(app, media, startup_resume_position, command_sender.clone());
         }
-    } else {
+    } else if let Some(player) = &player {
         rendering::install(
             app,
-            &player,
+            player,
             media,
             startup_resume_position,
             prefs.volume,
@@ -2434,7 +2458,7 @@ pub(crate) fn configure_player(
         )?;
     }
     Ok(UiSession {
-        player: Some(player),
+        player,
         #[cfg(target_os = "windows")]
         _plugin_overlay_presenter: plugin_overlay_presenter,
         #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]

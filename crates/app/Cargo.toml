@@ -85,3 +85,4 @@ percent-encoding = "=2.3.2"
 
 [dev-dependencies]
 i-slint-backend-testing = "=1.18.1"
+riina-mpv = { path = "../mpv", features = ["test-support"] }

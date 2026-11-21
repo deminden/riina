@@ -1,4 +1,4 @@
-use super::{Command, CommandSender, Message, Owner, WakeupContext};
+use super::{Command, CommandQueue, CommandSender, Message, Owner, WakeupContext};
 use std::rc::Rc;
 use std::sync::{atomic::Ordering, mpsc};
 
@@ -16,7 +16,7 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
             for seed in [1_u64, 17, 0x5eed] {
                 let (sender, receiver) = mpsc::sync_channel(capacity);
                 let commands = CommandSender {
-                    sender: sender.clone(),
+                    sender: CommandQueue::Native(sender.clone()),
                     stopped: Default::default(),
                 };
                 let wakeup = WakeupContext {
@@ -125,7 +125,7 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
 fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
     let (sender, receiver) = mpsc::sync_channel(3);
     let command_sender = CommandSender {
-        sender,
+        sender: CommandQueue::Native(sender),
         stopped: Default::default(),
     };
     command_sender.set_paused(true).unwrap();
@@ -204,7 +204,7 @@ fn full_intent_queue_does_not_leave_wakeup_permanently_armed() {
 fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
     let (sender, receiver) = mpsc::sync_channel(1);
     let commands = CommandSender {
-        sender,
+        sender: CommandQueue::Native(sender),
         stopped: Default::default(),
     };
     assert!(
@@ -228,7 +228,7 @@ fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
 fn only_the_final_owner_delivers_shutdown_even_when_command_senders_survive() {
     let (sender, receiver) = mpsc::sync_channel(1);
     let commands = CommandSender {
-        sender: sender.clone(),
+        sender: CommandQueue::Native(sender.clone()),
         stopped: Default::default(),
     };
     let owner = Rc::new(Owner {
