@@ -29,6 +29,7 @@ fn main() -> ExitCode {
 fn check(root: &Path) -> Result<(), String> {
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     python(root, &["scripts/check-line-length.py"])?;
+    python(root, &["scripts/check-settings-navigation.py"])?;
     cargo(
         root,
         &[
@@ -67,6 +68,13 @@ fn check(root: &Path) -> Result<(), String> {
 fn fast_check(root: &Path) -> Result<(), String> {
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     let files = changed_files(root)?;
+    if files.iter().any(|path| {
+        path.starts_with("crates/ui/ui")
+            || path == Path::new("crates/app/src/settings_search.rs")
+            || path == Path::new("scripts/check-settings-navigation.py")
+    }) {
+        python(root, &["scripts/check-settings-navigation.py"])?;
+    }
     let workspace_wide = files.iter().any(|path| shared_build_input(path));
     let selected = if workspace_wide {
         BTreeSet::new()

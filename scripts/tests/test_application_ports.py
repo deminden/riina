@@ -59,6 +59,13 @@ class ApplicationPortsTests(unittest.TestCase):
         scope = named_step(job, "Verification scope")
         self.assertIn("GUI, HDR, hardware decoding and audible output require separate evidence", scope["run"])
 
+    def test_windows_checks_settings_routes_before_rust_compilation(self):
+        job = workflow("windows.yml")["jobs"]["windows"]
+        integrity = named_step(job, "Reference integrity and traceability")
+        self.assertIn("python scripts/check-settings-navigation.py", integrity["run"].splitlines())
+        lint = named_step(job, "Lint")
+        self.assertLess(job["steps"].index(integrity), job["steps"].index(lint))
+
 
 if __name__ == "__main__":
     unittest.main()

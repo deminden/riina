@@ -115,7 +115,8 @@ persists one batch before changing the in-memory rows and revision.
 
 Use `cargo xtask check --fast` during development. It checks workspace
 formatting, lints crates with staged, unstaged or untracked changes, and runs the
-portable core tests. Shared build inputs select workspace-wide linting. Use
+portable core tests. Edits to Slint or Settings search also check navigation
+before compilation. Shared build inputs select workspace-wide linting. Use
 `cargo xtask check` for the full local gate, including the Python, parity,
 fixture and asset checks. Run `cargo xtask native` separately for the native
 engine suite with null audio output. Tests in
