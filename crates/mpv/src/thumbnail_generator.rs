@@ -230,13 +230,14 @@ fn extract(
             })?;
             previous_seek = state.completed_seeks;
         }
-        let captures = state.completed_frame_captures;
+        let captures = state.captured_frame.revision;
         commands.send(Command::CaptureFrame)?;
         state = wait_for(&state_receiver, cancel, |state| {
-            state.completed_frame_captures > captures
+            state.captured_frame.revision > captures
         })?;
         let frame = state
             .captured_frame
+            .frame
             .as_ref()
             .ok_or("libmpv completed a frame capture without returning pixels")?;
         let frame = Arc::new(resize_frame(frame, maximum_width)?);

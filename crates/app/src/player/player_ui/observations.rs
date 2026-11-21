@@ -76,14 +76,15 @@ pub(super) fn update_ui(
         // a missing capture can never become a black rectangle over playback.
         let show_transition =
             show_transition && crate::transition_frame::cover_frame(&state).is_some();
-        let source_generation = state.transition_frame_generation.unwrap_or(u64::MAX);
+        let source_generation = state.transition_frame.generation.unwrap_or(u64::MAX);
         let incoming_generation = state
-            .incoming_transition_frame_generation
+            .incoming_transition_frame
+            .generation
             .unwrap_or(u64::MAX);
         let key = source_generation.rotate_left(13)
-            ^ state.transition_frame_revision.rotate_left(29)
+            ^ state.transition_frame.revision.rotate_left(29)
             ^ incoming_generation.rotate_left(37)
-            ^ state.incoming_transition_frame_revision.rotate_left(7)
+            ^ state.incoming_transition_frame.revision.rotate_left(7)
             ^ u64::from(show_transition);
         if resources.transition_overlay.swap(key, Ordering::AcqRel) != key {
             let image = if show_transition {

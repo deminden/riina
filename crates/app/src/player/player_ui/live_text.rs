@@ -45,7 +45,7 @@ impl RecognitionKey {
     fn is_current(self, state: &Playback) -> bool {
         state.phase == Phase::Paused
             && self.frame == FrameKey::from_playback(state)
-            && self.capture == state.completed_frame_captures
+            && self.capture == state.captured_frame.revision
     }
 }
 
@@ -79,10 +79,10 @@ impl CaptureState {
                 self.pending = Some(pending);
                 return CaptureAction::Wait;
             }
-            if pending.frame == frame && pending.before_capture != state.completed_frame_captures {
+            if pending.frame == frame && pending.before_capture != state.captured_frame.revision {
                 self.ready = Some(RecognitionKey {
                     frame,
-                    capture: state.completed_frame_captures,
+                    capture: state.captured_frame.revision,
                 });
             }
         }
@@ -92,7 +92,7 @@ impl CaptureState {
         self.ready = None;
         self.pending = Some(CaptureRequest {
             frame,
-            before_capture: state.completed_frame_captures,
+            before_capture: state.captured_frame.revision,
             before_finished: state.finished_frame_capture_requests,
         });
         CaptureAction::Capture
@@ -163,7 +163,7 @@ pub(super) fn install(
                 return;
             }
             // Copy pixels only for a new recognition job, never on idle polling.
-            let Some(frame) = state.captured_frame.as_deref().cloned() else {
+            let Some(frame) = state.captured_frame.frame.as_deref().cloned() else {
                 return;
             };
             recognized_capture = Some(key);
@@ -232,7 +232,10 @@ mod tests {
             phase: Phase::Paused,
             paused: true,
             position: Some(1.0),
-            completed_frame_captures: 2,
+            captured_frame: riina_core::FrameSlot {
+                revision: 2,
+                ..Default::default()
+            },
             finished_frame_capture_requests: 2,
             ..Playback::default()
         }
@@ -244,7 +247,7 @@ mod tests {
         let mut state = paused();
         assert_eq!(capture.observe(&state), CaptureAction::Capture);
         assert_eq!(capture.observe(&state), CaptureAction::Wait);
-        state.completed_frame_captures += 1;
+        state.captured_frame.revision += 1;
         state.finished_frame_capture_requests += 1;
         let CaptureAction::Recognize(key) = capture.observe(&state) else {
             panic!("Fresh capture not recognized")
@@ -258,7 +261,7 @@ mod tests {
         let state = paused();
         let key = RecognitionKey {
             frame: FrameKey::from_playback(&state),
-            capture: state.completed_frame_captures,
+            capture: state.captured_frame.revision,
         };
         assert!(!key.is_current(&Playback {
             position: Some(2.0),
@@ -289,11 +292,11 @@ mod tests {
             ..paused()
         };
         assert_eq!(capture.observe(&sought), CaptureAction::Wait);
-        sought.completed_frame_captures += 1;
+        sought.captured_frame.revision += 1;
         sought.finished_frame_capture_requests += 1;
         assert_eq!(capture.observe(&sought), CaptureAction::Capture);
         assert_eq!(capture.observe(&sought), CaptureAction::Wait);
-        sought.completed_frame_captures += 1;
+        sought.captured_frame.revision += 1;
         sought.finished_frame_capture_requests += 1;
         let CaptureAction::Recognize(key) = capture.observe(&sought) else {
             panic!("Replacement capture not recognized")

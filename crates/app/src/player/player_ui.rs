@@ -1157,9 +1157,10 @@ fn configure_with_engine(
                     pending
                         .as_ref()
                         .is_some_and(|(_, requested_at)| {
-                            state.transition_frame_generation == Some(state.generation)
+                            state.transition_frame.generation == Some(state.generation)
                                 && state
-                                    .transition_frame_captured_at
+                                    .transition_frame
+                                    .captured_at
                                     .is_some_and(|captured_at| captured_at >= *requested_at)
                                 || requested_at.elapsed() >= MANUAL_TRANSITION_CAPTURE_TIMEOUT
                         })
@@ -1173,7 +1174,7 @@ fn configure_with_engine(
                         }
                     }
                 }
-                if state.transition_frame_generation == Some(state.generation) {
+                if state.transition_frame.generation == Some(state.generation) {
                     // Only a successful asynchronous reply confirms that mpv
                     // retained a frame. Queue acceptance alone is not enough:
                     // the D3D11 output can reject a capture while reconfiguring.
@@ -1201,7 +1202,8 @@ fn configure_with_engine(
                     }
                 }
                 if state
-                    .transition_frame_generation
+                    .transition_frame
+                    .generation
                     .is_some_and(|generation| generation < state.generation)
                     && crate::transition_frame::incoming_has_video(&state)
                     && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
@@ -1247,11 +1249,11 @@ fn configure_with_engine(
                                 }
                             }
                         });
-                    let capture_is_usable = state.incoming_transition_frame_generation
+                    let capture_is_usable = state.incoming_transition_frame.generation
                         == Some(state.generation)
                         && crate::transition_frame::incoming_frame_is_usable(&state);
                     if capture_is_usable {
-                        let revision = state.incoming_transition_frame_revision;
+                        let revision = state.incoming_transition_frame.revision;
                         let stable_capture = match timer_incoming_stability.get() {
                             Some((generation, last_revision, count, since))
                                 if generation == state.generation && last_revision == revision =>

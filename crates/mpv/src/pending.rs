@@ -41,7 +41,8 @@ impl PendingCommand {
             || (self.kind == ReplyKind::TransitionCapture
                 && state.generation.saturating_sub(self.generation) <= 1
                 && state
-                    .transition_frame_generation
+                    .transition_frame
+                    .generation
                     .is_none_or(|generation| generation <= self.generation))
     }
 }
@@ -83,9 +84,9 @@ mod tests {
         assert!(!reply.belongs_to(&state));
         reply.kind = ReplyKind::TransitionCapture;
         assert!(reply.belongs_to(&state));
-        state.transition_frame_generation = Some(8);
+        state.transition_frame.generation = Some(8);
         assert!(!reply.belongs_to(&state));
-        state.transition_frame_generation = None;
+        state.transition_frame.generation = None;
         state.generation = 9;
         assert!(!reply.belongs_to(&state));
     }

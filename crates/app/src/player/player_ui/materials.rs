@@ -321,21 +321,21 @@ pub(super) fn install_native_video_material_sampler(
             let now = Instant::now();
             let frame_key = MaterialFrameKey {
                 generation: state.generation,
-                revision: state.material_frame_revision,
+                revision: state.material_frame.revision,
                 source: MaterialSampleSource::Mpv,
             };
-            if state.material_frame_generation == Some(state.generation)
-                && state.material_frame_captured_at.is_some_and(|captured_at| {
+            if state.material_frame.generation == Some(state.generation)
+                && state.material_frame.captured_at.is_some_and(|captured_at| {
                     now.saturating_duration_since(captured_at) <= NATIVE_MATERIAL_SAMPLE_TIMEOUT
                 })
                 && timer_displayed.get() != Some(frame_key)
                 && timer_submitted.get() != Some(frame_key)
-                && let Some(frame) = state.material_frame.as_ref()
+                && let Some(frame) = state.material_frame.frame.as_ref()
             {
                 let request = MaterialTransformRequest {
                     key: frame_key,
                     frame: frame.clone(),
-                    captured_at: state.material_frame_captured_at,
+                    captured_at: state.material_frame.captured_at,
                 };
                 if transform_sender.try_send(request).is_ok() {
                     timer_submitted.set(Some(frame_key));
@@ -363,9 +363,9 @@ pub(super) fn install_native_video_material_sampler(
             }
 
             let paused_sample_current = state.paused
-                && state.material_frame_generation == Some(state.generation)
-                && state.material_frame_position == state.position
-                && state.material_frame_captured_at.is_some_and(|captured_at| {
+                && state.material_frame.generation == Some(state.generation)
+                && state.material_frame.position == state.position
+                && state.material_frame.captured_at.is_some_and(|captured_at| {
                     now.saturating_duration_since(captured_at) <= NATIVE_MATERIAL_SAMPLE_TIMEOUT
                 });
             if paused_sample_current {
@@ -379,14 +379,14 @@ pub(super) fn install_native_video_material_sampler(
                         let elapsed = now.saturating_duration_since(requested_at);
                         generation != state.generation
                             || (elapsed >= NATIVE_MATERIAL_SAMPLE_INTERVAL
-                                && (state.material_frame_revision > revision
+                                && (state.material_frame.revision > revision
                                     || elapsed >= NATIVE_MATERIAL_SAMPLE_TIMEOUT))
                     });
             if request_due {
                 let result = sender.send(Command::CaptureMaterialFrame);
                 // Also throttle a rejected enqueue so a busy command queue cannot
                 // turn this visual-only sampler into a 10 Hz log/command loop.
-                timer_request.set(Some((state.generation, state.material_frame_revision, now)));
+                timer_request.set(Some((state.generation, state.material_frame.revision, now)));
                 if let Err(error) = result {
                     crate::diagnostics::warn!("Could not request a Windows video material sample: {error}");
                 }

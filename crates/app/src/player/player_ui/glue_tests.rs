@@ -130,8 +130,11 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     capture.expect(Command::CaptureTransitionFrame);
     capture.publish(Playback {
         generation: 1,
-        transition_frame_generation: Some(1),
-        transition_frame_captured_at: Some(Instant::now()),
+        transition_frame: riina_core::FrameSlot {
+            generation: Some(1),
+            captured_at: Some(Instant::now()),
+            ..Default::default()
+        },
         ..Playback::default()
     })?;
     capture.expect(Command::VideoViewport(None));

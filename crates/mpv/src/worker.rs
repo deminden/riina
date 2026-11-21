@@ -554,33 +554,25 @@ impl WorkerState {
 
     fn store_capture(&mut self, kind: ReplyKind, frame: CapturedFrame, generation: u64) {
         let state = &mut self.playback;
-        let frame = Arc::new(frame);
         match kind {
-            ReplyKind::IncomingTransitionCapture => {
-                state.incoming_transition_frame = Some(frame);
-                state.incoming_transition_frame_revision =
-                    state.incoming_transition_frame_revision.wrapping_add(1);
-                state.incoming_transition_frame_generation = Some(state.generation);
-                state.incoming_transition_frame_position = state.position;
-                state.incoming_transition_frame_captured_at = Some(Instant::now());
-            }
-            ReplyKind::MaterialCapture => {
-                state.material_frame = Some(frame);
-                state.material_frame_generation = Some(state.generation);
-                state.material_frame_position = state.position;
-                state.material_frame_captured_at = Some(Instant::now());
-                state.material_frame_revision = state.material_frame_revision.wrapping_add(1);
-            }
+            ReplyKind::IncomingTransitionCapture => state.incoming_transition_frame.store(
+                frame,
+                Some(state.generation),
+                state.position,
+                Some(Instant::now()),
+            ),
+            ReplyKind::MaterialCapture => state.material_frame.store(
+                frame,
+                Some(state.generation),
+                state.position,
+                Some(Instant::now()),
+            ),
             ReplyKind::TransitionCapture => {
-                state.transition_frame = Some(frame);
-                state.transition_frame_generation = Some(generation);
-                state.transition_frame_revision = state.transition_frame_revision.wrapping_add(1);
-                state.transition_frame_captured_at = Some(Instant::now());
+                state
+                    .transition_frame
+                    .store(frame, Some(generation), None, Some(Instant::now()))
             }
-            ReplyKind::FrameCapture => {
-                state.captured_frame = Some(frame);
-                state.completed_frame_captures = state.completed_frame_captures.wrapping_add(1);
-            }
+            ReplyKind::FrameCapture => state.captured_frame.store(frame, None, None, None),
             ReplyKind::Plain | ReplyKind::Screenshot { .. } => {}
         }
     }

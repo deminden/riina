@@ -76,33 +76,18 @@ pub struct Playback {
     pub completed_screenshots: u64,
     pub screenshot_file: Option<String>,
     /// Latest paused-frame snapshot for asynchronous OCR and selection overlays.
-    pub captured_frame: Option<Arc<CapturedFrame>>,
-    pub completed_frame_captures: u64,
+    pub captured_frame: FrameSlot,
     /// Capture requests settled in this media session, including rejected or
     /// failed requests. Consumers must not wait for successful pixels after failure.
     pub finished_frame_capture_requests: u64,
     /// Last pre-transition image retained while the next video initializes.
-    pub transition_frame: Option<Arc<CapturedFrame>>,
-    pub transition_frame_generation: Option<u64>,
-    pub transition_frame_revision: u64,
-    pub transition_frame_captured_at: Option<Instant>,
+    pub transition_frame: FrameSlot,
     /// Monotonic start time for the incoming side of a native video handoff.
     pub incoming_transition_started_at: Option<Instant>,
     /// First decoded frame from the incoming video, used to bridge native-surface startup.
-    pub incoming_transition_frame: Option<Arc<CapturedFrame>>,
-    pub incoming_transition_frame_generation: Option<u64>,
-    /// Changes for every capture reply, including blank frames that must be retried.
-    pub incoming_transition_frame_revision: u64,
-    pub incoming_transition_frame_position: Option<f64>,
-    /// Monotonic capture time used to keep the native-output handoff cover up
-    /// for a real settling interval regardless of playback speed.
-    pub incoming_transition_frame_captured_at: Option<Instant>,
+    pub incoming_transition_frame: FrameSlot,
     /// Latest optional video sample used only as the D3D11 material backdrop.
-    pub material_frame: Option<Arc<CapturedFrame>>,
-    pub material_frame_generation: Option<u64>,
-    pub material_frame_position: Option<f64>,
-    pub material_frame_captured_at: Option<Instant>,
-    pub material_frame_revision: u64,
+    pub material_frame: FrameSlot,
     /// Properties requested by active player-scoped plugin event listeners.
     pub observed_mpv_properties: BTreeMap<String, serde_json::Value>,
     /// Recent native mpv event names, retained so coalesced UI snapshots do not
@@ -149,6 +134,43 @@ pub struct Playback {
     pub loop_playlist: Option<String>,
     pub ab_loop_a: Option<f64>,
     pub ab_loop_b: Option<f64>,
+}
+
+/// Captured pixels and the source metadata needed by their consumer.
+#[derive(Debug, Clone, Default)]
+pub struct FrameSlot {
+    pub frame: Option<Arc<CapturedFrame>>,
+    pub generation: Option<u64>,
+    /// Counts successful native replies, including black frames that require a retry.
+    pub revision: u64,
+    pub position: Option<f64>,
+    pub captured_at: Option<Instant>,
+}
+
+impl FrameSlot {
+    pub fn store(
+        &mut self,
+        frame: CapturedFrame,
+        generation: Option<u64>,
+        position: Option<f64>,
+        captured_at: Option<Instant>,
+    ) {
+        *self = Self {
+            frame: Some(Arc::new(frame)),
+            generation,
+            revision: self.revision.wrapping_add(1),
+            position,
+            captured_at,
+        };
+    }
+
+    fn clear(&mut self) {
+        // Generations can change while the consumer is tracking this completion counter.
+        *self = Self {
+            revision: self.revision,
+            ..Self::default()
+        };
+    }
 }
 
 pub const MAX_RETAINED_MPV_EVENTS: usize = 256;
@@ -305,20 +327,12 @@ impl Playback {
         self.deinterlace_active = None;
         self.video_frame_info = None;
         self.screenshot_file = None;
-        self.captured_frame = None;
-        if self.transition_frame_generation != Some(outgoing_generation) {
-            self.transition_frame = None;
-            self.transition_frame_generation = None;
-            self.transition_frame_captured_at = None;
+        self.captured_frame.clear();
+        if self.transition_frame.generation != Some(outgoing_generation) {
+            self.transition_frame.clear();
         }
-        self.incoming_transition_frame = None;
-        self.incoming_transition_frame_generation = None;
-        self.incoming_transition_frame_position = None;
-        self.incoming_transition_frame_captured_at = None;
-        self.material_frame = None;
-        self.material_frame_generation = None;
-        self.material_frame_position = None;
-        self.material_frame_captured_at = None;
+        self.incoming_transition_frame.clear();
+        self.material_frame.clear();
     }
 
     pub fn reconcile(&mut self) {

@@ -72,7 +72,7 @@ pub fn incoming_capture_ready(playback: &Playback) -> bool {
 }
 
 pub fn incoming_frame_is_usable(playback: &Playback) -> bool {
-    let Some(frame) = playback.incoming_transition_frame.as_deref() else {
+    let Some(frame) = playback.incoming_transition_frame.frame.as_deref() else {
         return false;
     };
     let row_stride = frame.width as usize * 4;
@@ -111,7 +111,7 @@ pub fn incoming_frame_is_usable(playback: &Playback) -> bool {
 /// settles. Incoming raw captures only gate release; they can contain a partial
 /// frame while the decoder and D3D presentation surface are out of step.
 pub fn cover_frame(playback: &Playback) -> Option<&CapturedFrame> {
-    playback.transition_frame.as_deref()
+    playback.transition_frame.frame.as_deref()
 }
 
 pub fn incoming_capture_window_active(playback: &Playback, now: Instant) -> bool {
@@ -137,10 +137,10 @@ pub fn should_display_until_incoming_stable(
     // image. Never enable that surface unless the outgoing image exists: an
     // incoming-frame timeout alone must not leave a black rectangle over live
     // playback (or strand it at the overlay's previous screen position).
-    if playback.transition_frame.is_none() {
+    if playback.transition_frame.frame.is_none() {
         return false;
     }
-    let Some(outgoing_generation) = playback.transition_frame_generation else {
+    let Some(outgoing_generation) = playback.transition_frame.generation else {
         return false;
     };
     playback.generation > outgoing_generation
@@ -149,7 +149,7 @@ pub fn should_display_until_incoming_stable(
             Phase::Playing | Phase::Paused | Phase::Seeking
         )
         && incoming_has_video(playback)
-        && playback.incoming_transition_frame_generation == Some(playback.generation)
+        && playback.incoming_transition_frame.generation == Some(playback.generation)
         && incoming_frame_is_usable(playback)
         && stable_generation != Some(playback.generation)
         && incoming_capture_fallback_active(playback, now)
@@ -172,10 +172,10 @@ fn incoming_capture_fallback_active(playback: &Playback, now: Instant) -> bool {
 }
 
 fn should_display_at(playback: &Playback, playlist_auto_play_next: bool, now: Instant) -> bool {
-    let Some(outgoing_generation) = playback.transition_frame_generation else {
+    let Some(outgoing_generation) = playback.transition_frame.generation else {
         return false;
     };
-    if playback.transition_frame.is_none() {
+    if playback.transition_frame.frame.is_none() {
         return false;
     }
 
@@ -219,7 +219,7 @@ fn should_display_at(playback: &Playback, playlist_auto_play_next: bool, now: In
         ) {
             if !incoming_has_video {
                 !playback.track_list_observed && incoming_capture_fallback_active(playback, now)
-            } else if playback.incoming_transition_frame_generation == Some(playback.generation)
+            } else if playback.incoming_transition_frame.generation == Some(playback.generation)
                 && incoming_frame_is_usable(playback)
             {
                 // The native surface has produced a complete frame. Showing
@@ -292,8 +292,11 @@ mod tests {
             position: Some(4.9),
             duration: Some(5.0),
             video: Some(video()),
-            transition_frame: Some(frame()),
-            transition_frame_generation: Some(4),
+            transition_frame: riina_core::FrameSlot {
+                frame: Some(frame()),
+                generation: Some(4),
+                ..Default::default()
+            },
             ..Playback::default()
         }
     }
@@ -376,11 +379,11 @@ mod tests {
         state.position = Some(0.5);
         let now = std::time::Instant::now();
         state.incoming_transition_started_at = Some(now);
-        state.incoming_transition_frame = Some(Arc::new(
+        state.incoming_transition_frame.frame = Some(Arc::new(
             CapturedFrame::new(64, 36, 64 * 4, &vec![0; 64 * 36 * 4]).unwrap(),
         ));
-        state.incoming_transition_frame_generation = Some(5);
-        state.incoming_transition_frame_captured_at = Some(std::time::Instant::now());
+        state.incoming_transition_frame.generation = Some(5);
+        state.incoming_transition_frame.captured_at = Some(std::time::Instant::now());
 
         assert!(!super::incoming_frame_is_usable(&state));
         assert!(should_display_at(&state, true, now));
@@ -401,11 +404,11 @@ mod tests {
         for pixel in pixels.as_chunks_mut::<4>().0 {
             pixel.copy_from_slice(&[40, 80, 120, 255]);
         }
-        state.incoming_transition_frame = Some(Arc::new(
+        state.incoming_transition_frame.frame = Some(Arc::new(
             CapturedFrame::new(64, 36, 64 * 4, &pixels).unwrap(),
         ));
-        state.incoming_transition_frame_generation = Some(5);
-        state.incoming_transition_frame_captured_at = Some(std::time::Instant::now());
+        state.incoming_transition_frame.generation = Some(5);
+        state.incoming_transition_frame.captured_at = Some(std::time::Instant::now());
 
         assert!(super::incoming_frame_is_usable(&state));
         assert!(!should_display(&state, true));
@@ -415,10 +418,10 @@ mod tests {
     fn partial_incoming_capture_never_replaces_the_outgoing_cover() {
         let mut state = outgoing();
         state.generation = 5;
-        state.incoming_transition_frame = Some(Arc::new(
+        state.incoming_transition_frame.frame = Some(Arc::new(
             CapturedFrame::new(64, 36, 64 * 4, &vec![0; 64 * 36 * 4]).unwrap(),
         ));
-        state.incoming_transition_frame_generation = Some(5);
+        state.incoming_transition_frame.generation = Some(5);
         assert!(super::cover_frame(&state).is_some_and(|frame| frame.width == 2));
     }
 
@@ -428,8 +431,8 @@ mod tests {
         state.generation = 5;
         state.phase = Phase::Playing;
         state.position = Some(0.5);
-        state.incoming_transition_frame = Some(frame());
-        state.incoming_transition_frame_generation = Some(5);
+        state.incoming_transition_frame.frame = Some(frame());
+        state.incoming_transition_frame.generation = Some(5);
         state.incoming_transition_started_at = Some(std::time::Instant::now());
 
         assert!(should_display_until_incoming_stable(&state, true, None));
@@ -443,8 +446,8 @@ mod tests {
         state.generation = 5;
         state.phase = Phase::Playing;
         state.position = Some(0.5);
-        state.incoming_transition_frame = Some(frame());
-        state.incoming_transition_frame_generation = Some(5);
+        state.incoming_transition_frame.frame = Some(frame());
+        state.incoming_transition_frame.generation = Some(5);
         state.incoming_transition_started_at = Some(now - Duration::from_secs(4));
 
         assert!(!should_display_until_incoming_stable(&state, true, None));
@@ -462,7 +465,7 @@ mod tests {
                 pixels[index..index + 4].copy_from_slice(&[255, 255, 255, 255]);
             }
         }
-        state.incoming_transition_frame = Some(Arc::new(
+        state.incoming_transition_frame.frame = Some(Arc::new(
             CapturedFrame::new(width as u32, height as u32, width * 4, &pixels).unwrap(),
         ));
 
@@ -475,9 +478,9 @@ mod tests {
         state.generation = 5;
         state.phase = Phase::Playing;
         state.position = Some(0.4);
-        state.incoming_transition_frame = Some(frame());
-        state.incoming_transition_frame_generation = Some(5);
-        state.incoming_transition_frame_position = Some(0.31);
+        state.incoming_transition_frame.frame = Some(frame());
+        state.incoming_transition_frame.generation = Some(5);
+        state.incoming_transition_frame.position = Some(0.31);
         assert!(!should_display(&state, true));
     }
 
@@ -490,10 +493,10 @@ mod tests {
         state.speed = 8.0;
         state.duration = Some(10.0);
         state.position = Some(5.0);
-        state.incoming_transition_frame = Some(frame());
-        state.incoming_transition_frame_generation = Some(5);
-        state.incoming_transition_frame_position = Some(0.3);
-        state.incoming_transition_frame_captured_at = Some(now - Duration::from_millis(90));
+        state.incoming_transition_frame.frame = Some(frame());
+        state.incoming_transition_frame.generation = Some(5);
+        state.incoming_transition_frame.position = Some(0.3);
+        state.incoming_transition_frame.captured_at = Some(now - Duration::from_millis(90));
 
         assert!(!should_display_at(&state, true, now));
     }

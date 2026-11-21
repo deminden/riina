@@ -54,7 +54,7 @@ pub use command::{AbLoopPoint, Command, CommandPlan};
 pub use loop_mode::{DefaultRepeatMode, LoopMode};
 pub use media_catalog::{Chapter, PlaylistEntry, Track, TrackKind};
 pub use playback::{
-    MAX_RETAINED_MPV_EVENTS, MpvEventRecord, Phase, Playback, SubtitleStyleAvailability,
+    FrameSlot, MAX_RETAINED_MPV_EVENTS, MpvEventRecord, Phase, Playback, SubtitleStyleAvailability,
     VideoFrameInfo, VideoParameters, time_label,
 };
 pub use preferences::{ActionAfterLaunch, Preferences, RecentMedia, Rejection, ThemeMaterial};

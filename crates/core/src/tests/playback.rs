@@ -90,18 +90,36 @@ fn loading_clears_previous_media_clock() {
 fn playlist_handoff_retains_only_the_current_file_snapshot() {
     let frame = Arc::new(CapturedFrame::new(1, 1, 4, &[1, 2, 3, 4]).unwrap());
     let mut state = Playback {
-        transition_frame: Some(frame.clone()),
-        transition_frame_generation: Some(0),
+        transition_frame: crate::FrameSlot {
+            frame: Some(frame.clone()),
+            generation: Some(0),
+            revision: 4,
+            ..Default::default()
+        },
+        material_frame: crate::FrameSlot {
+            frame: Some(frame.clone()),
+            generation: Some(0),
+            revision: 7,
+            position: Some(8.0),
+            captured_at: Some(std::time::Instant::now()),
+        },
         ..Default::default()
     };
     state.begin_load();
-    assert_eq!(state.transition_frame_generation, Some(0));
-    assert_eq!(state.transition_frame, Some(frame));
+    assert_eq!(state.transition_frame.generation, Some(0));
+    assert_eq!(state.transition_frame.frame, Some(frame));
+    assert_eq!(state.transition_frame.revision, 4);
+    assert_eq!(state.material_frame.revision, 7);
+    assert!(state.material_frame.frame.is_none());
+    assert!(state.material_frame.generation.is_none());
+    assert!(state.material_frame.position.is_none());
+    assert!(state.material_frame.captured_at.is_none());
 
-    state.transition_frame_generation = Some(0);
+    state.transition_frame.generation = Some(0);
     state.begin_load();
-    assert!(state.transition_frame_generation.is_none());
-    assert!(state.transition_frame.is_none());
+    assert!(state.transition_frame.generation.is_none());
+    assert!(state.transition_frame.frame.is_none());
+    assert_eq!(state.transition_frame.revision, 4);
 }
 
 #[test]
