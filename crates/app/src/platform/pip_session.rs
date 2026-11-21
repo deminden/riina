@@ -34,6 +34,10 @@ impl PictureInPictureSession {
     ) {
     }
 
+    pub(crate) fn render_extras(&self) -> crate::platform::SharedVideoExtras {
+        crate::platform::SharedVideoExtras::default()
+    }
+
     pub(crate) fn notification_flag(&self) -> Option<Arc<AtomicBool>> {
         None
     }
@@ -65,8 +69,8 @@ mod macos {
             Some(self.dirty.clone())
         }
 
-        pub(crate) fn render_manager(&self) -> Rc<RefCell<Option<MacPictureInPicture>>> {
-            self.manager.clone()
+        pub(crate) fn render_extras(&self) -> crate::platform::SharedVideoExtras {
+            crate::platform::SharedVideoExtras::with_picture_in_picture(self.manager.clone())
         }
 
         pub(crate) fn bind(

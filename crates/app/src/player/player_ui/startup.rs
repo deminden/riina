@@ -254,7 +254,7 @@ pub(super) fn activate_output(
     command_sender: &CommandSender,
     prefs: &Preferences,
     media: InitialMedia,
-    #[cfg(target_os = "macos")] picture_in_picture: &crate::platform::PictureInPictureSession,
+    picture_in_picture: &crate::platform::PictureInPictureSession,
 ) -> Result<(), Box<dyn std::error::Error>> {
     apply_player_preferences(command_sender, prefs)?;
     crate::fullscreen_info::connect(app);
@@ -278,8 +278,7 @@ pub(super) fn activate_output(
             media.files,
             media.resume_position,
             prefs.volume,
-            #[cfg(target_os = "macos")]
-            picture_in_picture.render_manager(),
+            picture_in_picture.render_extras(),
         )?;
     }
     Ok(())

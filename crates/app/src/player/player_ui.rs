@@ -356,7 +356,6 @@ fn configure_with_engine(
         &command_sender,
         prefs,
         media,
-        #[cfg(target_os = "macos")]
         &session.picture_in_picture,
     )?;
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(

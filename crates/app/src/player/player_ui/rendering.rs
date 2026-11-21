@@ -1,17 +1,10 @@
 //! The rendering notifier owns GL resources until the backend tears down its context.
-#[cfg(target_os = "macos")]
-mod display_color;
-
-#[cfg(target_os = "macos")]
-use crate::platform;
-use crate::platform::video_materials::set_video_material_sample;
+use crate::platform::{SharedVideoExtras, video_materials::set_video_material_sample};
 use crate::video_blur::VideoBlurSurface;
 use crate::{PlayerWindow, media_open};
 use riina_core::Command;
 use riina_mpv::{Player, video::VideoSurface};
 use slint::{ComponentHandle, GraphicsAPI, RenderingState, Weak};
-#[cfg(target_os = "macos")]
-use std::cell::RefCell;
 use std::{
     cell::Cell,
     ffi::OsString,
@@ -29,9 +22,7 @@ pub(super) fn install(
     media: Vec<OsString>,
     startup_resume_position: Option<f64>,
     volume: f64,
-    #[cfg(target_os = "macos")] picture_in_picture: Rc<
-        RefCell<Option<platform::MacPictureInPicture>>,
-    >,
+    extras: SharedVideoExtras,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut session = RenderSession {
         app: app.as_weak(),
@@ -45,10 +36,7 @@ pub(super) fn install(
         blur_surface: None,
         generation: Rc::new(Cell::new(0)),
         repaint_pending: Arc::new(AtomicBool::new(false)),
-        #[cfg(target_os = "macos")]
-        display_color: display_color::DisplayColor::default(),
-        #[cfg(target_os = "macos")]
-        picture_in_picture,
+        extras,
     };
     app.window()
         .set_rendering_notifier(move |state, api| match state {
@@ -75,10 +63,7 @@ struct RenderSession {
     blur_surface: Option<VideoBlurSurface>,
     generation: Rc<Cell<u64>>,
     repaint_pending: Arc<AtomicBool>,
-    #[cfg(target_os = "macos")]
-    display_color: display_color::DisplayColor,
-    #[cfg(target_os = "macos")]
-    picture_in_picture: Rc<RefCell<Option<platform::MacPictureInPicture>>>,
+    extras: SharedVideoExtras,
 }
 
 impl RenderSession {
@@ -116,12 +101,8 @@ impl RenderSession {
                         crate::diagnostics::warn!("Could not initialize video blur: {error}")
                     }
                 }
-                #[cfg(target_os = "macos")]
-                if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut()
-                    && let Err(error) = {
-                        // SAFETY: this rendering setup callback holds the active CGL context.
-                        unsafe { manager.configure_rendering(get_proc_address) }
-                    }
+                // SAFETY: rendering setup holds the GL context for all player surfaces.
+                if let Err(error) = unsafe { self.extras.configure_rendering(get_proc_address) }
                     && let Some(app) = self.app.upgrade()
                 {
                     app.set_status(format!("PiP renderer initialization failed: {error}").into());
@@ -143,8 +124,7 @@ impl RenderSession {
         let (Some(video), Some(app)) = (self.surface.as_mut(), self.app.upgrade()) else {
             return;
         };
-        #[cfg(target_os = "macos")]
-        self.display_color.update(&app, video, &self.player);
+        self.extras.update_display_color(&app, video, &self.player);
         let scale = app.window().scale_factor();
         let width = (app.get_render_width() * scale).clamp(1.0, 8192.0) as u32;
         let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
@@ -164,13 +144,8 @@ impl RenderSession {
             .build()
         };
         app.set_video_frame(image);
-        #[cfg(target_os = "macos")]
-        if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut()
-            && let Err(error) = {
-                // SAFETY: the window renderer holds the current CGL context.
-                unsafe { manager.render_frame(video) }
-            }
-        {
+        // SAFETY: all presentation work uses this window's current GL context.
+        if let Err(error) = unsafe { self.extras.render_pip(video) } {
             app.set_status(format!("PiP frame rendering failed: {error}").into());
         }
         self.start_playback(&app);
@@ -186,17 +161,11 @@ impl RenderSession {
     }
 
     fn teardown(&mut self) {
-        #[cfg(target_os = "macos")]
-        if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut() {
-            // SAFETY: RenderingTeardown runs before Slint releases its GL context.
-            unsafe { manager.teardown_rendering() };
-        }
+        // SAFETY: RenderingTeardown precedes release of this player's GL context.
+        unsafe { self.extras.teardown_rendering() };
         drop(self.blur_surface.take());
         drop(self.surface.take());
-        #[cfg(target_os = "macos")]
-        {
-            self.display_color = display_color::DisplayColor::default();
-        }
+        self.extras.reset_display_color();
         // Wait for Slint to release its mutable window borrow. A subsequent
         // setup owns a new frame and invalidates this cleanup request.
         let retired_generation = self.generation.get();
