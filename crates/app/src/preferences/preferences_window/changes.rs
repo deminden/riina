@@ -272,14 +272,14 @@ fn connect_with_credentials(
         ) else {
             return;
         };
-        let selected_tone_mapping = match crate::tone_mapping_preferences::current_window(&window) {
-            Ok(settings) => settings,
-            Err(error) => {
-                crate::tone_mapping_preferences::install_window(&window, &saved.hdr_tone_mapping);
-                app.set_status(error.into());
-                return;
-            }
-        };
+        let selected_tone_mapping =
+            match model.read_section::<riina_core::hdr_preferences::Settings>(&window) {
+                Ok(settings) => settings,
+                Err(error) => {
+                    app.set_status(error.into());
+                    return;
+                }
+            };
         let previous_tone_mapping = saved.hdr_tone_mapping.clone();
         let tone_mapping_changed = selected_tone_mapping != previous_tone_mapping;
         let selected_video_threads = match window.get_video_threads_text().trim().parse::<u32>() {
@@ -661,7 +661,6 @@ fn connect_with_credentials(
                 subtitle_font_size,
                 subtitle_text_style: desired_text_style,
                 audio: selected_audio,
-                hdr_tone_mapping: selected_tone_mapping.clone(),
                 video_threads: selected_video_threads,
                 key_bindings: selected_key_bindings.clone(),
                 ..baseline.clone()
@@ -669,6 +668,7 @@ fn connect_with_credentials(
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_tone_mapping.clone().put(&mut preferences);
             selected_network.put(&mut preferences);
             selected_advanced.put(&mut preferences);
             selected_auto_load.clone().put(&mut preferences);

@@ -1,4 +1,6 @@
+use super::model::{PreferenceSection, SectionError};
 use crate::PreferencesWindow;
+use riina_core::Preferences;
 use riina_core::hdr_preferences::{Algorithm, Settings};
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
     window.set_tone_mapping_algorithm_options(slint::ModelRc::new(slint::VecModel::from(
@@ -10,6 +12,24 @@ pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
     window.set_tone_mapping_algorithm_index(settings.algorithm.index());
     window.set_tone_mapping_param_enabled(settings.param_override_enabled);
     window.set_tone_mapping_param_text(settings.param.to_string().into());
+}
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        all.hdr_tone_mapping.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.hdr_tone_mapping = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
 }
 
 pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, String> {
