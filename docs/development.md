@@ -165,7 +165,9 @@ On Windows, `cargo test -p riina --test headless_visual --locked` compares
 decoded RGBA pixels with the PNGs under `tests/visual/headless/windows/`.
 The software renderer uses a fixed clock and dimensions. The corpus covers
 playing, paused and stopped states, both player themes, all sidebar panes,
-compact and docked controls, Music Mode and all 11 light Settings pages.
+compact and docked controls, Music Mode, all 11 light Settings pages, and
+Settings search, key mapping, profile creation/deletion, plugin installation
+and default application overlays.
 The test runs on Windows to keep system-font rasterization consistent.
 Set `RIINA_UPDATE_HEADLESS_BASELINES=1` only when intentionally regenerating
 the corpus, then rerun without it and inspect the affected frames. These

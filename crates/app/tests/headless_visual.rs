@@ -2,7 +2,7 @@
 #![cfg(target_os = "windows")]
 
 use i_slint_renderer_software::{MinimalSoftwareWindow, RepaintBufferType};
-use riina_ui::{CatalogRow, PlayerWindow, PreferencesWindow};
+use riina_ui::{CatalogRow, PlayerWindow, PreferencesSearchResult, PreferencesWindow};
 use slint::{
     ComponentHandle, Image, PhysicalSize, PlatformError, Rgb8Pixel, SharedPixelBuffer, Window,
     platform::{Platform, WindowAdapter},
@@ -183,6 +183,7 @@ fn player_and_settings_match_their_pixels() -> Result<(), Box<dyn Error>> {
     let baselines = Baselines::windows()?;
     player_frames(&baselines)?;
     settings_frames(&baselines)?;
+    settings_overlay_frames(&baselines)?;
     Ok(())
 }
 
@@ -245,6 +246,62 @@ fn settings_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
             window.window(),
             PhysicalSize::new(750, 670),
         )?;
+        window.hide()?;
+    }
+    Ok(())
+}
+
+fn settings_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+    type OverlaySetup = fn(&PreferencesWindow);
+    let cases: [(&str, i32, OverlaySetup); 6] = [
+        ("settings-search-popup", 0, |window| {
+            window.set_search_query("volume".into());
+            window.set_search_results(slint::ModelRc::new(slint::VecModel::from(vec![
+                PreferencesSearchResult {
+                    page_index: 3,
+                    page_name: "Audio".into(),
+                    title: "Volume".into(),
+                    is_header: true,
+                    ..Default::default()
+                },
+                PreferencesSearchResult {
+                    page_index: 3,
+                    page_name: "Audio".into(),
+                    section_name: "Volume".into(),
+                    title: "Initial volume".into(),
+                    ..Default::default()
+                },
+            ])));
+            window.set_selected_search_index(1);
+        }),
+        ("settings-key-mapping-dialog", 7, |window| {
+            window.set_key_binding_editor_key("Ctrl+P".into());
+            window.set_key_binding_editor_action("cycle pause".into());
+            window.set_key_binding_editor_open(true);
+        }),
+        ("settings-key-profile-create-dialog", 7, |window| {
+            window.set_key_binding_profile_editor_name("Viewing".into());
+            window.set_key_binding_profile_editor_open(true);
+        }),
+        ("settings-key-profile-delete-dialog", 7, |window| {
+            window.set_key_binding_profile_delete_confirm_open(true);
+        }),
+        ("settings-plugin-install-dialog", 9, |window| {
+            window.set_plugin_github_repository("example/plugin".into());
+            window.set_plugin_github_sheet_open(true);
+        }),
+        ("settings-default-app-dialog", 10, |window| {
+            window.set_utilities_default_audio(false);
+            window.set_utilities_default_app_sheet_open(true);
+        }),
+    ];
+    for (name, page, setup) in cases {
+        let window = PreferencesWindow::new()?;
+        window.set_disable_animations(true);
+        window.set_selected_pane(page);
+        setup(&window);
+        window.show()?;
+        baselines.verify(name, window.window(), PhysicalSize::new(750, 670))?;
         window.hide()?;
     }
     Ok(())
