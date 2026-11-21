@@ -2,6 +2,15 @@
 use crate::{PlaybackStore, PlayerWindow, platform::NativePresentation};
 use riina_mpv::CommandSender;
 
+#[cfg(any(target_os = "windows", test))]
+pub(super) mod native_blur;
+
+// At the measured 915-point player width, sigma 10 on this 320px sample scales
+// to about 29 points on the displayed material.
+pub(crate) const WINDOWS_NATIVE_MATERIAL_BLUR_SIGMA: f32 = 10.0;
+pub(crate) const WINDOWS_NATIVE_MATERIAL_SAMPLE_WIDTH: f32 = 320.0;
+pub(crate) const WINDOWS_NATIVE_MATERIAL_SAMPLE_HEIGHT: f32 = 180.0;
+
 pub(crate) struct Monitor {
     #[cfg(target_os = "windows")]
     _sample: Option<std::rc::Rc<slint::Timer>>,
