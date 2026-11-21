@@ -3,6 +3,8 @@ use riina_core::Playback;
 use riina_mpv::{CommandSender, Player};
 use std::path::PathBuf;
 
+pub(super) type EngineOptions = Vec<(String, String)>;
+
 pub(super) enum EngineStart {
     Native,
     #[cfg(test)]
@@ -11,6 +13,7 @@ pub(super) enum EngineStart {
         commands: CommandSender,
         profile: PathBuf,
         capture_before_navigation: bool,
+        startup_options: std::rc::Rc<std::cell::RefCell<EngineOptions>>,
     },
 }
 
@@ -46,7 +49,7 @@ impl EngineStart {
     pub(super) fn start(
         self,
         native: Option<&platform::NativePresentation>,
-        options: Vec<(String, String)>,
+        options: EngineOptions,
         notify: impl Fn(Playback) + Send + 'static,
     ) -> Result<(Option<Player>, CommandSender), String> {
         match self {
@@ -66,8 +69,12 @@ impl EngineStart {
             }
             #[cfg(test)]
             Self::Recording {
-                engine, commands, ..
+                engine,
+                commands,
+                startup_options,
+                ..
             } => {
+                startup_options.replace(options);
                 engine.set_observer(notify)?;
                 Ok((None, commands))
             }

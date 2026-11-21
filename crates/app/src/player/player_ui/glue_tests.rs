@@ -1,6 +1,6 @@
 //! Characterise the real player callbacks without opening a native window or libmpv.
 
-use super::*;
+use super::{engine_start::EngineOptions, *};
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
 use std::{io, sync::mpsc::TryRecvError};
@@ -10,6 +10,8 @@ pub(crate) struct Harness {
     pub(crate) session: UiSession,
     pub(crate) engine: Rc<RecordingEngine>,
     pub(crate) sender: CommandSender,
+    startup_options: Rc<RefCell<EngineOptions>>,
+    startup_commands: Vec<Command>,
 }
 
 impl Harness {
@@ -22,6 +24,7 @@ impl Harness {
         app.set_native_video(capture_before_navigation);
         let (commands, engine) = CommandSender::recording(64);
         let engine = Rc::new(engine);
+        let startup_options = Rc::new(RefCell::new(Vec::new()));
         let session = configure_with_engine(
             &app,
             None,
@@ -34,15 +37,19 @@ impl Harness {
                 commands: commands.clone(),
                 profile: path,
                 capture_before_navigation,
+                startup_options: startup_options.clone(),
             },
         )?;
         // These tests exercise subsequent application intents independently of startup.
-        assert!(engine.commands.try_iter().count() > 0);
+        let startup_commands: Vec<_> = engine.commands.try_iter().collect();
+        assert!(!startup_commands.is_empty());
         Ok(Self {
             app,
             session,
             engine,
             sender: commands,
+            startup_options,
+            startup_commands,
         })
     }
 
@@ -110,8 +117,10 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     let profile = PathBuf::from(
         std::env::var_os("RIINA_TEST_GLUE_PROFILE").ok_or("Expected an isolated test profile")?,
     );
+    exercise_startup(&profile)?;
     let harness = Harness::start(profile.join("shared/preferences.json"), false)?;
     exercise_transport_and_tracks(&harness);
+    exercise_transport_settings(&harness);
     exercise_dialogs_and_relative_controls(&harness);
     exercise_observation_and_volume(&harness)?;
     drop(harness);
@@ -131,6 +140,95 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     capture.app.invoke_close_player();
     capture.expect(Command::Stop);
     Ok(())
+}
+
+fn exercise_startup(profile: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let path = profile.join("configured/preferences.json");
+    let prefs = Preferences {
+        resume_last_position: false,
+        pause_when_open: true,
+        video_threads: 4,
+        volume_boost: true,
+        hdr_enabled: false,
+        advanced: riina_core::advanced_preferences::Settings {
+            enabled: true,
+            use_mpv_osd: true,
+            user_options: vec![riina_core::advanced_preferences::MpvOption {
+                name: "vd-lavc-threads".into(),
+                value: "2".into(),
+            }],
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    crate::preference_store::Writer::new(path.clone(), Preferences::default()).save(&prefs)?;
+    let harness = Harness::start(path.clone(), false)?;
+    let options = harness.startup_options.borrow();
+    assert_eq!(
+        &options[..3],
+        &[
+            (
+                "watch-later-directory".into(),
+                path.with_file_name("watch-later")
+                    .to_string_lossy()
+                    .into_owned()
+            ),
+            ("save-position-on-quit".into(), "no".into()),
+            ("resume-playback".into(), "no".into()),
+        ]
+    );
+    let decoder_options: Vec<_> = options
+        .iter()
+        .filter(|(option, _)| option == "vd-lavc-threads")
+        .map(|(_, value)| value.as_str())
+        .collect();
+    assert_eq!(decoder_options, ["4", "2"]);
+    assert_eq!(
+        &options[options.len() - 2..],
+        &[
+            ("osd-level".into(), "1".into()),
+            ("vd-lavc-threads".into(), "2".into())
+        ]
+    );
+    let controls = &harness.startup_commands;
+    assert_eq!(
+        &controls[..3],
+        &[
+            Command::SetVolumeBoost(true),
+            Command::SetPauseWhenOpen(true),
+            Command::HardwareDecoding(prefs.hardware_decoder),
+        ]
+    );
+    Ok(())
+}
+
+fn exercise_transport_settings(harness: &Harness) {
+    let app = &harness.app;
+    app.invoke_set_paused(false);
+    harness.expect(Command::SetPaused(false));
+    app.invoke_frame_step();
+    harness.expect(Command::FrameStep);
+    app.invoke_frame_back_step();
+    harness.expect(Command::FrameBackStep);
+    app.invoke_adjust_chapter(-1);
+    harness.expect(Command::AdjustChapter(-1));
+    app.invoke_subtitle_seek(1);
+    harness.expect(Command::SubtitleSeek(1));
+    app.invoke_reset_speed();
+    harness.expect(Command::Speed(1.0));
+    app.invoke_set_speed_slider(16.0);
+    harness.expect(Command::Speed(4.0));
+    assert!(app.invoke_set_speed_text("1.2345675".into()));
+    harness.expect(Command::Speed(1.234567));
+    assert!(!app.invoke_set_speed_text("invalid".into()));
+    assert_eq!(app.get_status(), "Enter a numeric playback speed");
+    harness.expect_idle();
+    app.invoke_cycle_ab_loop();
+    harness.expect(Command::CycleAbLoop);
+    app.invoke_toggle_file_loop();
+    harness.expect(Command::ToggleFileLoop);
+    app.invoke_execute_mpv_input_action("cycle pause".into());
+    harness.expect(Command::MpvInputAction("cycle pause".into()));
 }
 
 fn exercise_transport_and_tracks(harness: &Harness) {
