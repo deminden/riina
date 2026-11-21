@@ -575,8 +575,8 @@ fn connect_context_actions(
                                 }
                                 Ok(removed)
                             });
-                        let _ = slint::invoke_from_event_loop(move || {
-                            let (Some(app), Some(window)) = (weak_app.upgrade(), weak_window.upgrade()) else {
+                        let _ = crate::background::to_ui(weak_app, move |app| {
+                            let Some(window) = weak_window.upgrade() else {
                                 return;
                             };
                             match history_result {

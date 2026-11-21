@@ -47,15 +47,13 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     let failure = weak.clone();
     let started = crate::background::spawn_named("new-player-media-discovery", move || {
         let result = file_selection::prepare(paths, true);
-        let _ = slint::invoke_from_event_loop(move || {
-            if let Some(app) = weak.upgrade()
-                && let Err(error) = result.and_then(|paths| {
-                    if paths.is_empty() {
-                        return Err("No playable files were found".into());
-                    }
-                    open_paths_in_new_player(&app, &paths)
-                })
-            {
+        let _ = crate::background::to_ui(weak, move |app| {
+            if let Err(error) = result.and_then(|paths| {
+                if paths.is_empty() {
+                    return Err("No playable files were found".into());
+                }
+                open_paths_in_new_player(&app, &paths)
+            }) {
                 app.set_status(error.into());
             }
         });
@@ -435,60 +433,59 @@ fn selection_at(
                 }
             }
         });
-        let _ = slint::invoke_from_event_loop(move || {
-            if let Some(app) = weak.upgrade()
-                    // A newer accepted selection or Stop owns the player now.
-                    && app.get_media_request_generation() == generation
-                    && let Err(error) = result.and_then(|prepared| match prepared {
-                        PreparedSelection::Subtitles(paths) => {
-                            let count = paths.len();
-                            for path in paths {
-                                sender.send(Command::AddSubtitle(path))?;
-                            }
-                            app.set_status(if count == 1 {
-                                "Added dropped subtitle file".into()
-                            } else {
-                                format!("Added {count} dropped subtitle files").into()
-                            });
+        let _ = crate::background::to_ui(weak, move |app| {
+            // A newer accepted selection or Stop owns the player now.
+            if app.get_media_request_generation() == generation
+                && let Err(error) = result.and_then(|prepared| match prepared {
+                    PreparedSelection::Subtitles(paths) => {
+                        let count = paths.len();
+                        for path in paths {
+                            sender.send(Command::AddSubtitle(path))?;
+                        }
+                        app.set_status(if count == 1 {
+                            "Added dropped subtitle file".into()
+                        } else {
+                            format!("Added {count} dropped subtitle files").into()
+                        });
+                        Ok(())
+                    }
+                    PreparedSelection::Command(Command::OpenFiles(paths)) if !append => {
+                        if open_in_separate_players(&app, &paths, resume_position)? {
                             Ok(())
-                        }
-                        PreparedSelection::Command(Command::OpenFiles(paths)) if !append => {
-                            if open_in_separate_players(&app, &paths, resume_position)? {
-                                Ok(())
-                            } else {
-                                sender.send(Command::OpenFiles(paths))?;
-                                apply_manual_open_repeat(&app, &sender)
-                            }
-                        }
-                        PreparedSelection::CommandWithSubtitles(paths, subtitles) => {
-                            // A dropped subtitle belongs to the dropped media batch. Keep
-                            // both in the current player rather than opening media in a
-                            // separate window and attaching subtitles to the wrong player.
-                            sender.send(Command::OpenFilesWithSubtitles { paths, subtitles })?;
+                        } else {
+                            sender.send(Command::OpenFiles(paths))?;
                             apply_manual_open_repeat(&app, &sender)
                         }
-                        PreparedSelection::Command(command) => {
-                            let added = match &command {
-                                Command::AppendFiles(paths) => Some(paths.len()),
-                                _ => None,
-                            };
-                            sender.send(command)?;
-                            if added.is_none() && !append {
-                                apply_manual_open_repeat(&app, &sender)?;
-                            }
-                            if let Some(count) = added {
-                                crate::player_ui::show_osd_message(
-                                    &app,
-                                    crate::video_osd::action_message(
-                                        crate::video_osd::ActionFeedback::PlaylistAdded(count),
-                                    )
-                                    .text,
-                                    false,
-                                );
-                            }
-                            Ok(())
+                    }
+                    PreparedSelection::CommandWithSubtitles(paths, subtitles) => {
+                        // A dropped subtitle belongs to the dropped media batch. Keep
+                        // both in the current player rather than opening media in a
+                        // separate window and attaching subtitles to the wrong player.
+                        sender.send(Command::OpenFilesWithSubtitles { paths, subtitles })?;
+                        apply_manual_open_repeat(&app, &sender)
+                    }
+                    PreparedSelection::Command(command) => {
+                        let added = match &command {
+                            Command::AppendFiles(paths) => Some(paths.len()),
+                            _ => None,
+                        };
+                        sender.send(command)?;
+                        if added.is_none() && !append {
+                            apply_manual_open_repeat(&app, &sender)?;
                         }
-                    })
+                        if let Some(count) = added {
+                            crate::player_ui::show_osd_message(
+                                &app,
+                                crate::video_osd::action_message(
+                                    crate::video_osd::ActionFeedback::PlaylistAdded(count),
+                                )
+                                .text,
+                                false,
+                            );
+                        }
+                        Ok(())
+                    }
+                })
             {
                 app.set_status(error.into());
             }

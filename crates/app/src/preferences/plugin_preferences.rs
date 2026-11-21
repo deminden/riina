@@ -260,10 +260,8 @@ pub(crate) fn connect(
                     return;
                 }
                 *riina_core::sync::lock(&available_updates_result) = versions;
-                let _ = slint::invoke_from_event_loop(move || {
-                    if generations_result.load(Ordering::Relaxed) == generation
-                        && let Some(window) = weak_result.upgrade()
-                    {
+                let _ = crate::background::to_ui(weak_result, move |window| {
+                    if generations_result.load(Ordering::Relaxed) == generation {
                         window.set_plugin_update_status(status.into());
                     }
                 });
