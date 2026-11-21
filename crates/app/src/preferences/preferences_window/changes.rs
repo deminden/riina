@@ -51,10 +51,6 @@ impl CredentialStore {
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn connect_with_credentials(
     app: &PlayerWindow,
     window: &PreferencesWindow,
@@ -109,48 +105,34 @@ fn connect_with_credentials(
             refresh(&window, &app);
             return;
         };
-        let applied_decoder = match AppliedDecoderSettings::apply(
+        let Some(applied_decoder) = read_or_refresh(
+            AppliedDecoderSettings::apply(
+                &app,
+                &decoder_player,
+                DecoderState {
+                    boost: display.previous_volume_boost,
+                    volume: previous_volume,
+                    decoder_index: previous_decoder,
+                },
+                window.get_volume_boost(),
+                decoder_index,
+                decoder,
+            ),
             &app,
-            &decoder_player,
-            DecoderState {
-                boost: display.previous_volume_boost,
-                volume: previous_volume,
-                decoder_index: previous_decoder,
-            },
-            window.get_volume_boost(),
-            decoder_index,
-            decoder,
-        ) {
-            Ok(applied) => applied,
-            Err(error) => {
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
+            &window,
+        ) else {
+            return;
         };
-        let applied_subtitles = match subtitles.apply(&app, &window, &decoder_player) {
-            Ok(applied) => applied,
-            Err(error) => {
-                applied_decoder.restore(&app, &decoder_player);
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
+        let Some(applied_subtitles) = read_or_refresh(
+            subtitles
+                .apply(&app, &window, &decoder_player)
+                .inspect_err(|_| applied_decoder.restore(&app, &decoder_player)),
+            &app,
+            &window,
+        ) else {
+            return;
         };
-        let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
-        // AVIF can be configured externally but has no item in the pinned
-        // General pane. Editing another control must preserve that choice.
-        if let Ok(index) = usize::try_from(window.get_format_index())
-            && let Some(format) = formats.get(index)
-        {
-            app.set_screenshot_format((*format).into());
-        }
-        app.set_screenshot_include_subtitles(window.get_include_subtitles());
-        app.set_screenshot_show_preview(window.get_show_preview());
-        app.set_screenshot_save_to_file(window.get_save_to_file());
-        app.set_screenshot_copy_to_clipboard(window.get_copy_to_clipboard());
-        app.set_screenshot_custom_directory(window.get_custom_directory());
-        app.set_screenshot_directory(window.get_directory());
+        crate::screenshot_preferences::project_window_edit(&app, &window);
         general.selected.project_open_policy(&app);
         display.project_before_save(&app, &window);
         let restart_notice = playback.restart_notice();
@@ -163,53 +145,15 @@ fn connect_with_credentials(
                 crate::screenshot_preferences::current(&app)
             })
             .and_then(|screenshot| {
-                let mut preferences = riina_core::Preferences {
+                let mut preferences = capture_preferences(
+                    &app,
+                    &window,
+                    &baseline,
                     screenshot,
-                    volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
-                        200.0
-                    } else {
-                        100.0
-                    }),
-                    volume_boost: app.get_volume_boost(),
-                    show_chapter_pos: window.get_show_chapter_pos(),
-                    allow_multiple_windows: window.get_allow_multiple_windows(),
-                    group_simultaneous_opens_in_playlist: window
-                        .get_group_simultaneous_opens_in_playlist(),
-                    allow_duplicate_players: window.get_allow_duplicate_players(),
-                    live_text_enabled: window.get_live_text_enabled(),
-                    load_icc_profile: window.get_load_icc_profile(),
-                    hdr_enabled: window.get_default_hdr_mode_enabled(),
-                    disable_animations: window.get_disable_animations(),
-                    always_float_on_top: window.get_always_float_on_top(),
-                    always_show_on_top_icon: window.get_always_show_on_top_icon(),
-                    record_recent_files: window.get_record_recent_files(),
-                    track_all_files_in_recent_open_menu: window
-                        .get_track_all_files_in_recent_open_menu(),
-                    leading_sidebar_width: app.get_leading_sidebar_width() as u32,
-                    trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
-                    settings_at_leading: app.get_settings_at_leading(),
-                    playlist_at_leading: app.get_playlist_at_leading(),
-                    plugins_at_leading: app.get_plugins_at_leading(),
-                    edge_to_edge_video: app.get_edge_to_edge_video(),
-                    docked_controls: app.get_docked_controls(),
-                    unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
-                    compact_ui: app.get_compact_ui(),
-                    osc_position: app.get_osc_position() as u8,
-                    control_bar_position_horizontal: f64::from(
-                        app.get_control_bar_position_horizontal(),
-                    ),
-                    control_bar_position_vertical: f64::from(
-                        app.get_control_bar_position_vertical(),
-                    ),
-                    hardware_decoder: decoder,
-                    subtitle_ass_override: applied_subtitles.primary,
-                    secondary_subtitle_ass_override: applied_subtitles.secondary,
-                    online_subtitles: selected_online_subtitles.clone(),
-                    subtitle_font: applied_subtitles.font.clone(),
-                    subtitle_font_size: applied_subtitles.font_size,
-                    subtitle_text_style: applied_subtitles.style,
-                    ..baseline.clone()
-                };
+                    decoder,
+                    &selected_online_subtitles,
+                    &applied_subtitles,
+                );
                 general.put(&mut preferences)?;
                 display.put(&mut preferences);
                 playback.put(&mut preferences);
@@ -256,6 +200,54 @@ fn connect_with_credentials(
             }
         }
     });
+}
+
+fn capture_preferences(
+    app: &PlayerWindow,
+    window: &PreferencesWindow,
+    baseline: &riina_core::Preferences,
+    screenshot: riina_core::screenshot::Settings,
+    decoder: riina_core::video_controls::HardwareDecoder,
+    providers: &riina_core::online_subtitles::Preferences,
+    applied_subtitles: &subtitles::Applied,
+) -> riina_core::Preferences {
+    riina_core::Preferences {
+        screenshot,
+        volume: f64::from(app.get_volume()).min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
+        volume_boost: app.get_volume_boost(),
+        show_chapter_pos: window.get_show_chapter_pos(),
+        allow_multiple_windows: window.get_allow_multiple_windows(),
+        group_simultaneous_opens_in_playlist: window.get_group_simultaneous_opens_in_playlist(),
+        allow_duplicate_players: window.get_allow_duplicate_players(),
+        live_text_enabled: window.get_live_text_enabled(),
+        load_icc_profile: window.get_load_icc_profile(),
+        hdr_enabled: window.get_default_hdr_mode_enabled(),
+        disable_animations: window.get_disable_animations(),
+        always_float_on_top: window.get_always_float_on_top(),
+        always_show_on_top_icon: window.get_always_show_on_top_icon(),
+        record_recent_files: window.get_record_recent_files(),
+        track_all_files_in_recent_open_menu: window.get_track_all_files_in_recent_open_menu(),
+        leading_sidebar_width: app.get_leading_sidebar_width() as u32,
+        trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
+        settings_at_leading: app.get_settings_at_leading(),
+        playlist_at_leading: app.get_playlist_at_leading(),
+        plugins_at_leading: app.get_plugins_at_leading(),
+        edge_to_edge_video: app.get_edge_to_edge_video(),
+        docked_controls: app.get_docked_controls(),
+        unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
+        compact_ui: app.get_compact_ui(),
+        osc_position: app.get_osc_position() as u8,
+        control_bar_position_horizontal: f64::from(app.get_control_bar_position_horizontal()),
+        control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
+        hardware_decoder: decoder,
+        subtitle_ass_override: applied_subtitles.primary,
+        secondary_subtitle_ass_override: applied_subtitles.secondary,
+        online_subtitles: providers.clone(),
+        subtitle_font: applied_subtitles.font.clone(),
+        subtitle_font_size: applied_subtitles.font_size,
+        subtitle_text_style: applied_subtitles.style,
+        ..baseline.clone()
+    }
 }
 
 fn save_preferences(
