@@ -530,3 +530,21 @@ fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
     assert_eq!(saved.audio.audio_threads, 5);
     assert_eq!(saved.volume, 65.0);
 }
+
+#[test]
+fn session_save_captures_controls_edited_directly_in_the_player() {
+    let transaction = Transaction::new();
+    let app = &transaction.player.app;
+    app.set_music_mode_show_album_art(false);
+    app.set_music_mode_show_playlist(true);
+    app.set_control_bar_position_horizontal(0.25);
+    app.set_trailing_sidebar_width(320.0);
+    app.set_subtitle_font_size_preference(38.0);
+    transaction.player.session.save(app).unwrap();
+    let saved = transaction.profile.read();
+    assert!(!saved.music_mode_show_album_art);
+    assert!(saved.music_mode_show_playlist);
+    assert_eq!(saved.control_bar_position_horizontal, 0.25);
+    assert_eq!(saved.trailing_sidebar_width, 320);
+    assert_eq!(saved.subtitle_font_size, 38.0);
+}
