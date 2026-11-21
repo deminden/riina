@@ -435,6 +435,14 @@ the playback clock advanced. The relaunch and fresh-profile sessions each change
 and joined their workers on exit. The first session logged that mpv had shown a
 frame, although the full virtual display capture still showed black video.
 
+A temporary readback probe based on `fe9115f` sampled the framebuffer directly
+after successful mpv render calls. All three sampled pixels stayed opaque black
+through frame 128 on the first launch. The relaunch and fresh-profile sessions
+returned the fixture's blue background and moving square in the same samples.
+The black output was already present before Slint sampled the video texture.
+The probe also recorded occasional mpv render timing warnings in both the
+failing and working sessions. All three sessions quit and joined their workers.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. The GLES context also
 reported that the optional video-blur shader requires desktop GLSL. Linux
