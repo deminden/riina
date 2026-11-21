@@ -213,14 +213,24 @@ struct WorkerState {
     resume_on_load: bool,
     seek_pending: bool,
     event_names: HashMap<c_int, Option<Arc<str>>>,
+    revision: u64,
+    published_revision: Option<u64>,
     seek_feedback: SeekFeedback,
     auto_seek: AutoSeek,
 }
 
 impl WorkerState {
+    fn mark_changed(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+    }
+
     fn publish(&mut self, notify: &impl Fn(Arc<Playback>)) {
+        if self.published_revision == Some(self.revision) {
+            return;
+        }
         self.playback.reconcile();
         notify(Arc::new(self.playback.clone()));
+        self.published_revision = Some(self.revision);
     }
 
     fn observe_dynamic(
@@ -239,6 +249,7 @@ impl WorkerState {
             self.playback.error = Some(error);
         }
         if self.playback.error.is_some() {
+            self.mark_changed();
             self.publish(notify);
         }
     }
@@ -277,17 +288,22 @@ impl WorkerState {
                     self.finish_frame_request();
                 }
                 self.playback.error = Some(error);
+                self.mark_changed();
                 return;
             }
         };
-        if let Command::SetPauseWhenOpen(pause) = &command {
+        if let Command::SetPauseWhenOpen(pause) = &command
+            && self.playback.pause_when_open != *pause
+        {
             // Changing the policy must leave the current playback state alone.
             self.playback.pause_when_open = *pause;
+            self.mark_changed();
         }
         if let Command::VideoAspect(aspect) = &command {
             // The requested aspect remains visible across failure and source replacement.
             self.playback.video_aspect.clone_from(aspect);
             self.playback.aspect_requests = self.playback.aspect_requests.wrapping_add(1);
+            self.mark_changed();
         }
         if matches!(command, Command::TogglePause | Command::SetPaused(_)) {
             self.seek_feedback.playback_transition();
@@ -302,6 +318,7 @@ impl WorkerState {
             } else {
                 self.playback.error = Some(error);
                 self.resume_on_load = false;
+                self.mark_changed();
             }
             if matches!(command, Command::CaptureFrame) {
                 self.finish_frame_request();
@@ -343,8 +360,10 @@ impl WorkerState {
             }
             if matches!(command, Command::TogglePlaylistShuffle) {
                 self.playback.playlist_shuffled = !self.playback.playlist_shuffled;
-            } else if command.resets_playlist_shuffle() {
+                self.mark_changed();
+            } else if command.resets_playlist_shuffle() && self.playback.playlist_shuffled {
                 self.playback.playlist_shuffled = false;
+                self.mark_changed();
             }
             if seek_feedback::navigation(&args, &self.playback) {
                 self.seek_feedback.submitted(self.next_id);
@@ -377,6 +396,8 @@ impl WorkerState {
 
     fn drain_events(&mut self, handle: &mut Handle) {
         while let Some(event) = handle.wait() {
+            // Native events update playback, retained plugin history, or both.
+            self.mark_changed();
             let name = self.event_names.entry(event.id()).or_insert_with(|| {
                 // Own the cached names since snapshots can outlive the loaded library.
                 event
@@ -533,6 +554,7 @@ impl WorkerState {
     fn finish_frame_request(&mut self) {
         let finished = &mut self.playback.finished_frame_capture_requests;
         *finished = finished.wrapping_add(1);
+        self.mark_changed();
     }
 
     fn on_capture_reply(&mut self, event: &EventRef<'_>, kind: ReplyKind, generation: u64) {
@@ -604,4 +626,26 @@ fn command_label(args: &[CString]) -> String {
         || command.to_owned(),
         |target| format!("{command} {target}"),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_empty_drain_keeps_the_current_publication() {
+        let mut worker = WorkerState::default();
+        let deliveries = std::cell::RefCell::new(Vec::new());
+        let notify = |state| deliveries.borrow_mut().push(state);
+        worker.publish(&notify);
+        worker.publish(&notify);
+        worker.playback.position = Some(0.1);
+        worker.mark_changed();
+        worker.publish(&notify);
+        worker.publish(&notify);
+        let states = deliveries.into_inner();
+        assert_eq!(states.len(), 2);
+        assert_eq!(states[0].position, None);
+        assert_eq!(states[1].position, Some(0.1));
+    }
 }

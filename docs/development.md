@@ -172,6 +172,15 @@ The development Cargo profile retains source line information for workspace
 code and minimizes dependency debug information. A fresh dependency build can
 take longer because dependencies are optimized.
 
+Run `cargo test -p riina-mpv --test snapshot_benchmark --locked -- --ignored --nocapture`
+to measure snapshot publication and UI retention without launching a player.
+The benchmark publishes 10,000 clock updates against 30 tracks, 500 playlist
+entries and 256 retained events. On the Windows development profile, replacing
+deep copies with shared snapshots and catalogs reduced allocations from
+27,000,000 to 20,000 and elapsed time from 1,785.792 ms to 4.769 ms. This measures
+the handoff with unchanged collections. Decoder, plugin and rendering work is
+measured separately.
+
 Track-list regressions live in `crates/app/tests/quick_settings/track_navigation.rs`
 and run through that same generated-player test target. They exercise Audio,
 Video and both subtitle lists with delayed observations, model replacement,
