@@ -762,14 +762,9 @@ fn configure_with_engine(
             .map(slint::SharedString::from)
             .to_vec(),
     )));
-    app.set_osd_enabled(prefs.enable_osd);
-    app.set_disable_osd_file_start(prefs.disable_osd_file_start);
-    app.set_disable_osd_pause_resume(prefs.disable_osd_pause_resume);
-    app.set_disable_osd_speed(prefs.disable_osd_speed);
-    app.set_disable_osd_seek(prefs.disable_osd_seek);
-    app.set_osd_timeout_secs(prefs.osd_timeout_secs as f32);
-    app.set_osd_text_size(prefs.osd_text_size as f32);
-    app.set_display_time_and_battery_in_fullscreen(prefs.display_time_and_battery_in_fullscreen);
+    crate::preferences::model::install_player_section::<crate::osd_preferences::Settings>(
+        &prefs, app,
+    );
     crate::osc_preferences::install_player(app, prefs.control_bar);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
     crate::preferences::model::install_player_section::<riina_core::thumbnail_preferences::Settings>(

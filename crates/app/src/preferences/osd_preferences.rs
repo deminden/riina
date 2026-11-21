@@ -1,5 +1,7 @@
 //! Keep OSD fields parsed as one draft before any visible or saved state changes.
+use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Settings {
@@ -11,6 +13,44 @@ pub(crate) struct Settings {
     pub timeout_secs: f64,
     pub text_size: f64,
     pub display_time_and_battery_in_fullscreen: bool,
+}
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        Self {
+            enabled: all.enable_osd,
+            disable_file_start: all.disable_osd_file_start,
+            disable_pause_resume: all.disable_osd_pause_resume,
+            disable_speed: all.disable_osd_speed,
+            disable_seek: all.disable_osd_seek,
+            timeout_secs: all.osd_timeout_secs,
+            text_size: all.osd_text_size,
+            display_time_and_battery_in_fullscreen: all.display_time_and_battery_in_fullscreen,
+        }
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.enable_osd = self.enabled;
+        all.disable_osd_file_start = self.disable_file_start;
+        all.disable_osd_pause_resume = self.disable_pause_resume;
+        all.disable_osd_speed = self.disable_speed;
+        all.disable_osd_seek = self.disable_seek;
+        all.osd_timeout_secs = self.timeout_secs;
+        all.osd_text_size = self.text_size;
+        all.display_time_and_battery_in_fullscreen = self.display_time_and_battery_in_fullscreen;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_preferences(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        self.install_preferences(window);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        self.install_player(app);
+    }
 }
 
 pub(crate) fn current_player(window: &PlayerWindow) -> Settings {

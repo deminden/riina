@@ -2,6 +2,7 @@
 use super::{live::*, refresh::refresh};
 use crate::{
     PlayerWindow, PreferencesWindow,
+    osd_preferences::Settings as Osd,
     preferences::model::{PreferenceModel, PreferenceSection},
 };
 use riina_core::{
@@ -123,13 +124,9 @@ fn connect_with_credentials(
         let previous_open_policy = *saved_open_policy.borrow();
         let previous_launch_action = app.get_launch_action_index();
         let previous_osd = crate::osd_preferences::current_player(&app);
-        let selected_osd = match crate::osd_preferences::current_preferences(&window) {
-            Ok(settings) => settings,
-            Err(error) => {
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
+        let Some(selected_osd) = read_or_refresh(model.read_section::<Osd>(&window), &app, &window)
+        else {
+            return;
         };
         let Some(selected_control_bar) = read_or_refresh(
             crate::osc_preferences::current_preferences(&window),
@@ -644,16 +641,7 @@ fn connect_with_credentials(
                 record_recent_files: window.get_record_recent_files(),
                 track_all_files_in_recent_open_menu: window
                     .get_track_all_files_in_recent_open_menu(),
-                enable_osd: selected_osd.enabled,
-                disable_osd_file_start: selected_osd.disable_file_start,
-                disable_osd_pause_resume: selected_osd.disable_pause_resume,
-                disable_osd_speed: selected_osd.disable_speed,
-                disable_osd_seek: selected_osd.disable_seek,
-                osd_timeout_secs: selected_osd.timeout_secs,
-                osd_text_size: selected_osd.text_size,
                 control_bar: selected_control_bar,
-                display_time_and_battery_in_fullscreen: selected_osd
-                    .display_time_and_battery_in_fullscreen,
                 leading_sidebar_width: app.get_leading_sidebar_width() as u32,
                 trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
                 settings_at_leading: app.get_settings_at_leading(),
@@ -693,6 +681,7 @@ fn connect_with_credentials(
             };
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
+            selected_osd.put(&mut preferences);
             // Utilities can clear history while this window remains open;
             // preserve that live system action over its original snapshot.
             crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
@@ -765,7 +754,7 @@ fn connect_with_credentials(
                 *saved_video_threads.borrow_mut() = selected_video_threads;
                 app.set_appearance_mode(selected_theme.index());
                 app.set_dark_theme(selected_dark);
-                selected_osd.install_player(&app);
+                model.write_player::<Osd>(&app);
                 crate::osc_preferences::install_player(&app, selected_control_bar);
                 app.set_always_float_on_top(window.get_always_float_on_top());
                 app.set_always_show_on_top_icon(window.get_always_show_on_top_icon());
