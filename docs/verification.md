@@ -467,6 +467,17 @@ open.
 
 ## Running checks
 
+### Windows private-desktop smoke 2026-11-21
+
+The locked Windows x64 development build at `da50ecd` passed the ten native
+playback and lifecycle checks in the package smoke driver. The test staged the
+executable beside the pinned development DLL and used an isolated profile with
+null audio. It exercised native menus, playback progress, fullscreen, controller
+reveal, minimize and restore, and settings persisted through normal shutdown.
+The test process exited, and the active Windows desktop stayed unchanged.
+This run used a temporary Win32 desktop. Physical display pixels, HDR output,
+and the release archive still need separate verification.
+
 ### Portable and workspace checks
 
 ```powershell
