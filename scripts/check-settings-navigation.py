@@ -20,6 +20,7 @@ PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read_text(encoding="utf-8")
 PLAYER_OSD_SOURCE = (ROOT / "crates/ui/ui/player-osd.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
+QUICK_AUDIO_SOURCE = (ROOT / "crates/ui/ui/quick-settings-audio.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
 EXPECTED = [
     "General", "Interface", "Video", "Audio", "Subtitles", "Network", "Control",
@@ -153,10 +154,14 @@ def main():
         "Selected tab text must collapse with its width at narrow sidebar sizes"
     )
     sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : QuickSettingsScrollPage")
-    audio_tracks = PLAYER_SOURCE.index("tracks: root.audio-tracks;", sidebar_scroll)
-    equalizer_scroll = PLAYER_SOURCE.index("equalizer-scroll := ScrollView")
-    assert sidebar_scroll < audio_tracks < equalizer_scroll, (
-        "Audio tracks, load/delay controls and equalizer must share the scrollable page"
+    audio_page = PLAYER_SOURCE.index("if pane-kind == 1 : AudioQuickSettingsPage", sidebar_scroll)
+    assert sidebar_scroll < audio_page < PLAYER_SOURCE.index("for row[index]", audio_page), (
+        "Audio controls must be in the shared sidebar scrollable page"
+    )
+    audio_tracks = QUICK_AUDIO_SOURCE.index("tracks: root.audio-tracks;")
+    equalizer_scroll = QUICK_AUDIO_SOURCE.index("equalizer-scroll := ScrollView")
+    assert audio_tracks < equalizer_scroll, (
+        "Audio tracks, load/delay controls and equalizer must share the Audio page"
     )
     assert "content-height: max(self.visible-height, sidebar-page.preferred-height);" in PLAYER_SOURCE, (
         "The shared sidebar scroll extent must include all settings, even in short windows"
@@ -165,12 +170,12 @@ def main():
     assert sidebar_tint < input_guard < sidebar_content and "scroll-event(event) => { return accept; }" in PLAYER_SOURCE[input_guard:sidebar_content], (
         "Unused sidebar input must not fall through to video actions"
     )
-    assert "content-width: max(self.visible-width, 300px);" in PLAYER_SOURCE, (
+    assert "content-width: max(self.visible-width, 300px);" in QUICK_AUDIO_SOURCE, (
         "A narrow equalizer must scroll instead of compressing or clipping its ten bands"
     )
     assert re.search(
         r"equalizer-scroll := ScrollView\s*\{\s*width: parent\.width - \(root\.compact-ui \? 20px : 24px\);",
-        PLAYER_SOURCE,
+        QUICK_AUDIO_SOURCE,
     ), "The equalizer viewport must retain its card's inner margins"
 
     interface_sections = re.findall(

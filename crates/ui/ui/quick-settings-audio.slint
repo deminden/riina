@@ -1,0 +1,270 @@
+import { ScrollView } from "std-widgets.slint";
+import { CatalogRow } from "catalog-row.slint";
+import { Theme } from "theme.slint";
+import { PlayerSlider, VerticalEqualizerSlider } from "shared-controls.slint";
+import { Tool } from "player-tool.slint";
+import { QuickSettingsInput } from "quick-settings-input.slint";
+import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
+import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
+
+export component AudioQuickSettingsPage inherits VerticalLayout {
+    in property <length> card-width;
+    in property <float> audio-delay;
+    in property <string> audio-delay-preview-text;
+    in property <string> audio-delay-text;
+    in property <bool> audio-equalizer-can-delete-profile;
+    in property <bool> audio-equalizer-can-edit-profile;
+    in property <bool> audio-equalizer-can-save-profile;
+    in property <int> audio-equalizer-profile-index;
+    in property <[string]> audio-equalizer-profile-names;
+    in property <int> audio-equalizer-user-profile-start-index;
+    in property <[float]> audio-equalizer-values;
+    in property <int> audio-track-selected-index;
+    in property <[CatalogRow]> audio-tracks;
+    in property <bool> compact-ui;
+    in property <bool> dark-theme;
+    callback delete-audio-equalizer-profile();
+    in property <color> interactive-accent-color;
+    callback load-external-audio();
+    in property <bool> loaded;
+    in property <bool> platform-windows;
+    callback preview-audio-delay(float);
+    callback rename-audio-equalizer-profile(string) -> bool;
+    callback reset-audio-delay();
+    callback restore-player-focus();
+    callback save-audio-equalizer-profile(string) -> bool;
+    callback select-audio-equalizer-profile(int);
+    callback set-audio-equalizer(int, float);
+    callback set-delay(float);
+    callback set-delay-text(string) -> bool;
+    callback set-volume-boost(bool);
+    in property <color> sidebar-card-material-fill;
+    in property <color> sidebar-control-material-fill;
+    callback track-selected(int, string);
+    callback validate-audio-equalizer-profile-name(string, int) -> string;
+    in property <bool> volume-boost;
+    in property <color> windows-accent-color;
+    in property <bool> windows-sidebar-material-active;
+
+    alignment: start;
+    spacing: 1px;
+    cross-axis-alignment: center;
+    QuickSettingsTrackList {
+        width: root.card-width;
+        tracks: root.audio-tracks; observed-index: root.audio-track-selected-index;
+        track-kind: 1; hint: "Audio tracks"; enabled: root.loaded;
+        dark-theme: root.dark-theme;
+        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+        focus-accent-color: root.interactive-accent-color;
+        card-fill: root.sidebar-card-material-fill;
+        card-edge: root.dark-theme ? #ffffff18 : #00000014;
+        selected(kind, token) => { root.track-selected(kind, token); }
+    }
+    // The parent adds 8/6 pt on both sides; this spacer completes
+    // IINA's 18/16 pt Audio stack gap in spacious/compact mode.
+    Rectangle {
+        height: root.compact-ui ? 14px : 16px;
+        background: transparent;
+    }
+    Rectangle {
+        width: root.card-width;
+        height: 48px; border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+            padding-top: 11px; padding-bottom: 11px;
+        Rectangle { height: 24px; horizontal-stretch: 1; border-radius: 4px;
+            background: root.sidebar-control-material-fill;
+            accessible-role: button; accessible-label: "Load external audio";
+            accessible-enabled: root.loaded;
+            accessible-action-default => { if root.loaded { root.load-external-audio(); } }
+            Text { text: "Load External Audio Track…";
+                color: root.loaded
+                    ? (root.dark-theme ? #eeeeee : #29292d)
+                    : (root.dark-theme ? #777777 : #8a8a90);
+                font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+            if load-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
+            TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.load-external-audio(); } }
+            load-focus := FocusScope {
+                enabled: root.loaded;
+                key-pressed(event) => {
+                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                    if event.text == Key.Return || event.text == " " { root.load-external-audio(); return accept; }
+                    return reject;
+                }
+            }
+        }
+        }
+    }
+    Rectangle {
+        height: root.compact-ui ? 14px : 16px;
+        background: transparent;
+    }
+    Rectangle {
+        width: root.card-width;
+        height: 92px; border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout { padding: 8px; spacing: 4px;
+        HorizontalLayout { height: 24px; spacing: 8px;
+            Image { source: @image-url("../../../assets/icons/delay.svg");
+                image-fit: contain; width: 16px; height: 16px;
+                colorize: root.dark-theme ? #dddddd : #29292d; }
+            Text { text: "Delay"; color: root.dark-theme ? #dddddd : #29292d;
+                font-size: 12px; font-weight: 700; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset audio delay";
+                visible: root.audio-delay != 0;
+                enabled: root.loaded && root.audio-delay != 0;
+                activated => { root.reset-audio-delay(); } }
+        }
+        HorizontalLayout { height: 24px; spacing: 8px;
+            audio-delay-slider := PlayerSlider { height: 24px; dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.audio-delay;
+                commit-on-release: true;
+                enabled: root.loaded; neutral-mark: true; tick-count: 21;
+                show-value-label: true;
+                value-label: (audio-delay-slider.previewing
+                    ? root.audio-delay-preview-text : root.audio-delay-text) + "s";
+                hint: "Audio delay";
+                draft-changed(value) => { root.preview-audio-delay(value); }
+                changed(value) => { root.set-delay(round(value * 20) / 20); }
+                committed(value) => { root.set-delay(round(value * 20) / 20); } }
+            QuickSettingsInput { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
+                windows-acrylic-surface: root.windows-sidebar-material-active;
+                observed-value: audio-delay-slider.previewing
+                    ? root.audio-delay-preview-text : root.audio-delay-text;
+                enabled: root.loaded; hint: "Audio delay in seconds";
+                committed(text) => { return root.set-delay-text(text); }
+                editing-finished => { root.restore-player-focus(); } }
+        }
+        HorizontalLayout { height: 12px; spacing: 8px;
+            HorizontalLayout { horizontal-stretch: 1;
+                Text { width: 32px; text: "-5s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Text { width: 32px; text: "0s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; horizontal-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Text { width: 32px; text: "+5s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; horizontal-alignment: right; }
+            }
+            Rectangle { width: 72px; background: transparent; }
+        }
+        }
+    }
+    Rectangle {
+        height: root.compact-ui ? 14px : 16px;
+        background: transparent;
+    }
+    // Keep the default IINA Audio pane hierarchy unchanged. The
+    // optional extension is only surfaced here once the user opts in.
+    if root.volume-boost : Rectangle {
+        width: root.card-width;
+        height: 28px; background: transparent;
+        accessible-role: checkbox;
+        accessible-label: "Allow volume boost (up to 200%)";
+        accessible-checkable: true;
+        accessible-checked: root.volume-boost;
+        accessible-action-default => { root.set-volume-boost(!root.volume-boost); }
+        Rectangle { x: 2px; y: 6px; width: 16px; height: 16px;
+            border-radius: 3px; border-width: 1px; border-color: #888892;
+            background: root.volume-boost
+                ? (root.interactive-accent-color)
+                : #ffffff10;
+            if root.volume-boost : Text { text: "✓"; color: #17202e;
+                horizontal-alignment: center; vertical-alignment: center; font-size: 12px; }
+        }
+        Text { x: 26px; width: parent.width - 26px;
+            text: "Allow volume boost (up to 200%)";
+            color: root.dark-theme ? #dddddd : #29292d;
+            font-size: 12px; vertical-alignment: center; }
+        if boost-focus.has-focus : Rectangle { border-width: 1px;
+            border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
+        TouchArea { clicked => { boost-focus.focus(); root.set-volume-boost(!root.volume-boost); } }
+        boost-focus := FocusScope {
+            key-pressed(event) => {
+                if event.text == " " || event.text == Key.Return {
+                    root.set-volume-boost(!root.volume-boost); return accept;
+                }
+                return reject;
+            }
+        }
+    }
+    Rectangle {
+        width: root.card-width;
+        height: 246px + (equalizer-scroll.content-width > equalizer-scroll.visible-width ? 16px : 0px); border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout {
+            padding: root.compact-ui ? 10px : 12px;
+            spacing: root.compact-ui ? 8px : 12px;
+        // IINA stacks the heading and a padded, full-width preset picker.
+        HorizontalLayout { height: 18px; spacing: 8px;
+            Image { source: @image-url("../../../assets/icons/equalizer.svg");
+                image-fit: contain; width: 16px; height: 16px;
+                colorize: root.dark-theme ? #dddddd : #29292d; }
+            Text { text: "Equalizer"; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
+                font-weight: 700; vertical-alignment: center; }
+        }
+        AudioEqualizerProfilePicker {
+                width: parent.width - (root.compact-ui ? 20px : 24px);
+                dark-theme: root.dark-theme;
+                windows-acrylic-surface: root.windows-sidebar-material-active;
+                profile-names: root.audio-equalizer-profile-names;
+                selected-index: root.audio-equalizer-profile-index;
+                user-profile-start-index: root.audio-equalizer-user-profile-start-index;
+                can-save: root.audio-equalizer-can-save-profile;
+                can-edit: root.audio-equalizer-can-edit-profile;
+                can-delete: root.audio-equalizer-can-delete-profile;
+                selected(index) => { root.select-audio-equalizer-profile(index); }
+                validate-name(name, mode) => { root.validate-audio-equalizer-profile-name(name, mode) }
+                save-requested(name) => { root.save-audio-equalizer-profile(name) }
+                rename-requested(name) => { root.rename-audio-equalizer-profile(name) }
+                delete-requested => { root.delete-audio-equalizer-profile(); }
+        }
+        equalizer-scroll := ScrollView {
+            width: parent.width - (root.compact-ui ? 20px : 24px);
+            height: (root.compact-ui ? 142px : 146px)
+                + (self.content-width > self.visible-width ? 16px : 0px);
+            content-width: max(self.visible-width, 300px);
+            content-height: root.compact-ui ? 142px : 146px;
+            vertical-scrollbar-policy: always-off;
+            horizontal-scrollbar-policy: as-needed;
+            VerticalLayout {
+                width: equalizer-scroll.content-width; height: root.compact-ui ? 142px : 146px;
+                spacing: root.compact-ui ? 8px : 12px;
+        HorizontalLayout { height: 120px; spacing: 1px;
+            for label[index] in ["32", "64", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"] : VerticalLayout {
+                width: 24px;
+                VerticalEqualizerSlider { horizontal-stretch: 1; vertical-stretch: 1;
+                    dark-theme: root.dark-theme; minimum: -12; maximum: 12;
+                    step: 0.1; value: root.audio-equalizer-values[index];
+                    hint: label + " Hz equalizer gain";
+                    changed(value) => { root.set-audio-equalizer(index, value); }
+                }
+            }
+            Rectangle { width: 48px; height: 120px; background: transparent;
+                Text { x: 0px; y: -3px; width: parent.width; text: "+12 dB"; height: 14px;
+                    color: root.dark-theme ? #aaaaaa : #66666b;
+                    font-size: 10px; vertical-alignment: center;
+                    horizontal-alignment: right; }
+                Text { x: 0px; y: 45px; width: parent.width; text: "0 dB"; height: 14px;
+                    color: root.dark-theme ? #aaaaaa : #66666b;
+                    font-size: 10px; vertical-alignment: center;
+                    horizontal-alignment: right; }
+                Text { x: 0px; y: 93px; width: parent.width; text: "-12 dB"; height: 14px;
+                    color: root.dark-theme ? #aaaaaa : #66666b;
+                    font-size: 10px; vertical-alignment: center;
+                    horizontal-alignment: right; }
+            }
+        }
+        HorizontalLayout { height: 14px; spacing: 1px;
+            for label in ["32", "64", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"] : Text {
+                width: 24px; text: label;
+                color: root.dark-theme ? #aaaaaa : #66666b;
+                font-size: 10px; horizontal-alignment: center;
+            }
+            Rectangle { width: 48px; background: transparent; }
+        }
+            }
+        }
+        }
+    }
+}
