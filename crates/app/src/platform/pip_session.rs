@@ -13,7 +13,7 @@ impl PictureInPictureSession {
         {
             use slint::ComponentHandle;
             let weak = app.as_weak();
-            app.global::<PlayerMenuActions>()
+            app.global::<riina_ui::PlayerMenuActions>()
                 .on_toggle_picture_in_picture(move || {
                     if let Some(app) = weak.upgrade() {
                         app.set_status(
@@ -95,7 +95,7 @@ mod macos {
             };
             let weak_app = app.as_weak();
             let toggle_manager = self.manager.clone();
-            app.global::<PlayerMenuActions>()
+            app.global::<riina_ui::PlayerMenuActions>()
                 .on_toggle_picture_in_picture(move || {
                     let result = toggle_manager
                         .borrow_mut()
