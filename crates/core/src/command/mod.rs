@@ -219,3 +219,53 @@ pub struct CommandPlan {
     pub commands: Vec<Vec<String>>,
     pub resume_on_load: bool,
 }
+
+impl Command {
+    /// Clear queued work that belongs to the previously requested media.
+    pub fn replaces_media(&self) -> bool {
+        matches!(
+            self,
+            Self::Load(_)
+                | Self::LoadAtPosition { .. }
+                | Self::OpenFiles(_)
+                | Self::OpenFilesWithSubtitles { .. }
+                | Self::Stop
+        )
+    }
+
+    /// Reset navigation feedback when an intent may create its own decoder seek.
+    pub fn restarts_decoder(&self) -> bool {
+        self.replaces_media()
+            || matches!(
+                self,
+                Self::HardwareDecoding(_)
+                    | Self::VideoAspect(_)
+                    | Self::VideoRotation(_)
+                    | Self::Deinterlace(_)
+                    | Self::ToggleDeinterlace
+                    | Self::VideoCrop(_)
+                    | Self::VideoCropRectangle(_)
+                    | Self::VideoReflection { .. }
+                    | Self::ToggleVideoReflection(_)
+                    | Self::EnterCrop(_)
+                    | Self::ExitCrop { .. }
+            )
+    }
+
+    /// Clear the shuffle indicator when the user changes playlist contents or order.
+    pub fn resets_playlist_shuffle(&self) -> bool {
+        matches!(
+            self,
+            Self::SortPlaylist(_)
+                | Self::MovePlaylistEntry { .. }
+                | Self::MovePlaylistId { .. }
+                | Self::RemovePlaylistEntry(_)
+                | Self::RemovePlaylistId(_)
+                | Self::RemovePlaylistIds(_)
+                | Self::ClearPlaylist
+                | Self::AppendFiles(_)
+                | Self::OpenFiles(_)
+                | Self::OpenFilesWithSubtitles { .. }
+        )
+    }
+}

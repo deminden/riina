@@ -265,3 +265,57 @@ fn every_command_variant_keeps_its_native_plan() {
         assert_eq!(row.to_string(), expected_row, "{name}");
     }
 }
+
+#[test]
+fn worker_routes_every_command_to_the_expected_lifecycle() {
+    let replacing = [
+        "Load",
+        "LoadAtPosition",
+        "OpenFiles",
+        "OpenFilesWithSubtitles",
+        "Stop",
+    ];
+    let decoder_changes = [
+        "HardwareDecoding",
+        "VideoAspect",
+        "VideoRotation",
+        "Deinterlace",
+        "ToggleDeinterlace",
+        "VideoCrop",
+        "VideoCropRectangle",
+        "VideoReflection",
+        "ToggleVideoReflection",
+        "EnterCrop",
+        "ExitCrop",
+    ];
+    let shuffle_reset = [
+        "SortPlaylist",
+        "MovePlaylistEntry",
+        "MovePlaylistId",
+        "RemovePlaylistEntry",
+        "RemovePlaylistId",
+        "RemovePlaylistIds",
+        "ClearPlaylist",
+        "AppendFiles",
+        "OpenFiles",
+        "OpenFilesWithSubtitles",
+    ];
+    for command in all_commands_for_snapshot() {
+        let name = command_name(&command);
+        assert_eq!(
+            command.replaces_media(),
+            replacing.contains(&name),
+            "{name}"
+        );
+        assert_eq!(
+            command.restarts_decoder(),
+            replacing.contains(&name) || decoder_changes.contains(&name),
+            "{name}"
+        );
+        assert_eq!(
+            command.resets_playlist_shuffle(),
+            shuffle_reset.contains(&name),
+            "{name}"
+        );
+    }
+}

@@ -466,7 +466,7 @@ impl Player {
                             }
                             return;
                         }
-                        if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) {
+                        if command.replaces_media() {
                             pending_drop_subtitles.clear();
                         }
                         match command.plan(&state) {
@@ -489,7 +489,7 @@ impl Player {
                                     }
                                     _ => None,
                                 };
-                                if matches!(command, Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) { resume_on_load = false; }
+                                if command.replaces_media() { resume_on_load = false; }
                                 resume_on_load |= plan.resume_on_load;
                                 let is_auto_seek = matches!(
                                     &command,
@@ -513,7 +513,7 @@ impl Player {
                                     // Decoder option changes can produce their own SEEK /
                                     // RESTART pair. They replace pending navigation feedback,
                                     // while the raw native completion counter remains intact.
-                                    if matches!(command, Command::HardwareDecoding(_) | Command::VideoAspect(_) | Command::VideoRotation(_) | Command::Deinterlace(_) | Command::ToggleDeinterlace | Command::VideoCrop(_) | Command::VideoCropRectangle(_) | Command::VideoReflection { .. } | Command::ToggleVideoReflection(_) | Command::EnterCrop(_) | Command::ExitCrop { .. } | Command::Load(_) | Command::LoadAtPosition { .. } | Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. } | Command::Stop) {
+                                    if command.restarts_decoder() {
                                         seek_feedback.clear();
                                         auto_seek.interrupt_measurement();
                                     }
@@ -532,19 +532,7 @@ impl Player {
                                     }
                                     if matches!(command, Command::TogglePlaylistShuffle) {
                                         state.playlist_shuffled = !state.playlist_shuffled;
-                                    } else if matches!(
-                                        command,
-                                        Command::SortPlaylist(_)
-                                            | Command::MovePlaylistEntry { .. }
-                                            | Command::MovePlaylistId { .. }
-                                            | Command::RemovePlaylistEntry(_)
-                                            | Command::RemovePlaylistId(_)
-                                            | Command::RemovePlaylistIds(_)
-                                            | Command::ClearPlaylist
-                                            | Command::AppendFiles(_)
-                                            | Command::OpenFiles(_)
-                                            | Command::OpenFilesWithSubtitles { .. }
-                                    ) {
+                                    } else if command.resets_playlist_shuffle() {
                                         state.playlist_shuffled = false;
                                     }
                                     if seek_feedback::navigation(&args, &state) { seek_feedback.submitted(next_id); }
