@@ -39,6 +39,10 @@ impl PreferenceModel {
         Ok(())
     }
 
+    pub(crate) fn snapshot(&self) -> Preferences {
+        self.current.borrow().clone()
+    }
+
     pub(crate) fn read_section<S: PreferenceSection>(
         &self,
         window: &PreferencesWindow,

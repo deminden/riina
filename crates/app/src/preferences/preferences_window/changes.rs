@@ -11,7 +11,6 @@ use riina_core::{
 };
 use slint::ComponentHandle;
 use std::{
-    cell::RefCell,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -65,17 +64,11 @@ fn connect_with_credentials(
     let parent = app.as_weak();
     let weak = window.as_weak();
     let model = PreferenceModel::new(path.clone(), baseline.clone());
-    let saved_open_policy = RefCell::new((
-        baseline.allow_multiple_windows,
-        baseline.group_simultaneous_opens_in_playlist,
-        baseline.allow_duplicate_players,
-    ));
-    let saved_tone_mapping = RefCell::new(baseline.hdr_tone_mapping.clone());
-    let saved_video_threads = RefCell::new(baseline.video_threads);
     window.on_settings_changed(move || {
         let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
             return;
         };
+        let saved = model.snapshot();
         let previous = match crate::screenshot_preferences::current(&app) {
             Ok(settings) => settings,
             Err(error) => {
@@ -121,7 +114,6 @@ fn connect_with_credentials(
         let previous_fullscreen = app.get_fullscreen_when_open();
         let previous_resume = app.get_resume_last_position();
         let previous_record_playback_history = app.get_record_playback_history();
-        let previous_open_policy = *saved_open_policy.borrow();
         let previous_launch_action = app.get_launch_action_index();
         let previous_osd = crate::osd_preferences::current_player(&app);
         let Some(selected_osd) = read_or_refresh(model.read_section::<Osd>(&window), &app, &window)
@@ -282,23 +274,22 @@ fn connect_with_credentials(
         let selected_tone_mapping = match crate::tone_mapping_preferences::current_window(&window) {
             Ok(settings) => settings,
             Err(error) => {
-                let saved = saved_tone_mapping.borrow().clone();
-                crate::tone_mapping_preferences::install_window(&window, &saved);
+                crate::tone_mapping_preferences::install_window(&window, &saved.hdr_tone_mapping);
                 app.set_status(error.into());
                 return;
             }
         };
-        let previous_tone_mapping = saved_tone_mapping.borrow().clone();
+        let previous_tone_mapping = saved.hdr_tone_mapping.clone();
         let tone_mapping_changed = selected_tone_mapping != previous_tone_mapping;
         let selected_video_threads = match window.get_video_threads_text().trim().parse::<u32>() {
             Ok(threads) if threads <= i32::MAX as u32 => threads,
             _ => {
-                window.set_video_threads_text(saved_video_threads.borrow().to_string().into());
+                window.set_video_threads_text(saved.video_threads.to_string().into());
                 app.set_status("Video decoder threads must be between 0 and 2,147,483,647".into());
                 return;
             }
         };
-        let previous_video_threads = *saved_video_threads.borrow();
+        let previous_video_threads = saved.video_threads;
         let video_threads_changed = selected_video_threads != previous_video_threads;
         let Some(selected_controls) = read_or_refresh(
             model.read_section::<riina_core::control_preferences::Settings>(&window),
@@ -694,11 +685,6 @@ fn connect_with_credentials(
         });
         match result {
             Ok(()) => {
-                *saved_open_policy.borrow_mut() = (
-                    window.get_allow_multiple_windows(),
-                    window.get_group_simultaneous_opens_in_playlist(),
-                    window.get_allow_duplicate_players(),
-                );
                 app.set_show_chapter_pos(window.get_show_chapter_pos());
                 app.set_play_when_entering_fullscreen(selected_play_when_entering_fullscreen);
                 app.set_pause_when_leaving_fullscreen(selected_pause_when_leaving_fullscreen);
@@ -755,8 +741,6 @@ fn connect_with_credentials(
                 app.set_load_icc_profile(window.get_load_icc_profile());
                 app.set_default_hdr_mode_enabled(window.get_default_hdr_mode_enabled());
                 app.set_disable_animations(window.get_disable_animations());
-                *saved_tone_mapping.borrow_mut() = selected_tone_mapping.clone();
-                *saved_video_threads.borrow_mut() = selected_video_threads;
                 app.set_appearance_mode(selected_theme.index());
                 app.set_dark_theme(selected_dark);
                 model.write_player::<Osd>(&app);
@@ -786,9 +770,11 @@ fn connect_with_credentials(
                 }
             }
             Err(error) => {
-                window.set_allow_multiple_windows(previous_open_policy.0);
-                window.set_group_simultaneous_opens_in_playlist(previous_open_policy.1);
-                window.set_allow_duplicate_players(previous_open_policy.2);
+                window.set_allow_multiple_windows(saved.allow_multiple_windows);
+                window.set_group_simultaneous_opens_in_playlist(
+                    saved.group_simultaneous_opens_in_playlist,
+                );
+                window.set_allow_duplicate_players(saved.allow_duplicate_players);
                 if keep_open_applied {
                     let _ = decoder_player.send(Command::SetPlaybackEndPolicy {
                         keep_open_on_file_end: previous_keep_open,
