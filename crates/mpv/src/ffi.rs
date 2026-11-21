@@ -436,6 +436,63 @@ mod raw_frame_tests {
 mod tests {
     use super::*;
 
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    fn used_c_structs_match_the_pinned_headers_on_64_bit_targets() {
+        use std::mem::{offset_of, size_of};
+
+        assert_eq!(size_of::<Event>(), 24);
+        assert_eq!(
+            [
+                offset_of!(Event, id),
+                offset_of!(Event, error),
+                offset_of!(Event, userdata),
+                offset_of!(Event, data)
+            ],
+            [0, 4, 8, 16]
+        );
+        assert_eq!(size_of::<Property>(), 24);
+        assert_eq!(
+            [
+                offset_of!(Property, name),
+                offset_of!(Property, format),
+                offset_of!(Property, data)
+            ],
+            [0, 8, 16]
+        );
+        assert_eq!(size_of::<EndFile>(), 32);
+        assert_eq!(
+            [
+                offset_of!(EndFile, reason),
+                offset_of!(EndFile, error),
+                offset_of!(EndFile, playlist_entry_id),
+                offset_of!(EndFile, playlist_insert_id),
+                offset_of!(EndFile, playlist_insert_num_entries),
+            ],
+            [0, 4, 8, 16, 24]
+        );
+        assert_eq!(size_of::<NodeByteArray>(), 16);
+        assert_eq!(
+            [
+                offset_of!(NodeByteArray, data),
+                offset_of!(NodeByteArray, size)
+            ],
+            [0, 8]
+        );
+        assert_eq!(size_of::<Param>(), 16);
+        assert_eq!([offset_of!(Param, kind), offset_of!(Param, data)], [0, 8]);
+        assert_eq!(size_of::<Fbo>(), 16);
+        assert_eq!(
+            [
+                offset_of!(Fbo, fbo),
+                offset_of!(Fbo, width),
+                offset_of!(Fbo, height),
+                offset_of!(Fbo, format)
+            ],
+            [0, 4, 8, 12]
+        );
+    }
+
     #[test]
     fn undefined_native_target_numbers_remain_unknown() {
         for double in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
