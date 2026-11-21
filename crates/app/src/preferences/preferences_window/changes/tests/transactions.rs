@@ -41,7 +41,7 @@ impl Transaction {
             player.sender.clone(),
             profile.file.clone(),
             player.session.preference_model.clone(),
-            Arc::new(Mutex::new(riina_core::Playback::default())),
+            crate::PlaybackStore::default(),
             credentials,
         );
         Self {

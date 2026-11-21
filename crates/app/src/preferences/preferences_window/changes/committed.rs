@@ -6,11 +6,10 @@ use crate::{
     preferences::model::PreferenceModel,
 };
 use riina_core::{
-    Playback, online_subtitles::Preferences as SubtitleProviders,
+    online_subtitles::Preferences as SubtitleProviders,
     pip_preferences::Settings as PictureInPicture,
     thumbnail_preferences::Settings as ThumbnailPreview,
 };
-use std::sync::{Arc, Mutex};
 
 pub(super) struct PreviousValues<'a> {
     pub(super) pause_when_open: bool,
@@ -24,7 +23,7 @@ pub(super) fn project(
     window: &PreferencesWindow,
     model: &PreferenceModel,
     credentials: &CredentialStore,
-    playback: &Arc<Mutex<Playback>>,
+    playback: &crate::PlaybackStore,
     previous: PreviousValues<'_>,
     restart_notice: Option<&str>,
 ) {

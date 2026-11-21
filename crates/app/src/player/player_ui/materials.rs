@@ -3,7 +3,7 @@ use crate::PlayerWindow;
 #[cfg(target_os = "windows")]
 use crate::platform;
 #[cfg(target_os = "windows")]
-use riina_core::{Command, Phase, Playback};
+use riina_core::{Command, Phase};
 #[cfg(target_os = "windows")]
 use slint::ComponentHandle;
 #[cfg(target_os = "windows")]
@@ -168,7 +168,7 @@ pub(super) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<
 pub(super) fn install_native_video_material_sampler(
     app: &PlayerWindow,
     sender: riina_mpv::CommandSender,
-    latest: Arc<std::sync::Mutex<Playback>>,
+    latest: crate::PlaybackStore,
     capture: Option<platform::NativeVideoMaterialCapture>,
 ) -> Rc<slint::Timer> {
     let timer = Rc::new(slint::Timer::default());

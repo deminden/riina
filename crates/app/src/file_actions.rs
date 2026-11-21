@@ -3,7 +3,6 @@ use riina_core::{Command, Playback, sync::lock};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use slint::winit_030::WinitWindowAccessor;
-use std::sync::{Arc, Mutex};
 
 pub(crate) fn downloaded_subtitle_path(playback: &Playback) -> Option<std::path::PathBuf> {
     let cache_root = dirs::cache_dir()?.join("riina").join("online-subtitles");
@@ -17,7 +16,7 @@ pub(crate) fn downloaded_subtitle_path(playback: &Playback) -> Option<std::path:
 pub(crate) fn save_downloaded_subtitle(
     app: &PlayerWindow,
     host: Option<slint::Weak<crate::NativeVideoHost>>,
-    latest_playback: &Arc<Mutex<Playback>>,
+    latest_playback: &crate::PlaybackStore,
 ) {
     let path = downloaded_subtitle_path(&lock(latest_playback));
     let Some(path) = path else {
@@ -94,7 +93,7 @@ pub(crate) fn save_downloaded_subtitle(
 /// playlist identity only if that entry still exists in the observed session.
 pub(crate) fn delete_current_media(
     app: &PlayerWindow,
-    latest_playback: &Arc<Mutex<Playback>>,
+    latest_playback: &crate::PlaybackStore,
     player: CommandSender,
 ) {
     // A destructive file action requires a current, intact playback snapshot.

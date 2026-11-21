@@ -19,7 +19,7 @@ pub(crate) fn connect(
     decoder_player: riina_mpv::CommandSender,
     path: PathBuf,
     model: PreferenceModel,
-    latest_playback: std::sync::Arc<std::sync::Mutex<riina_core::Playback>>,
+    latest_playback: crate::PlaybackStore,
     plugin_host: Option<crate::plugin_host::PluginHostHandle>,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {

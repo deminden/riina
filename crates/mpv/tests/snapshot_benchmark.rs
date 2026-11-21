@@ -5,7 +5,10 @@ use std::{
     alloc::{GlobalAlloc, Layout, System},
     hint::black_box,
     io::Write,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Instant,
 };
 
@@ -80,8 +83,8 @@ fn publish_time_position_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     for i in 0..UPDATES {
         state.position = Some(f64::from(i) / 100.0);
-        let snapshot = black_box(state.clone());
-        // The observer retains a second copy as the latest UI state.
+        let snapshot = black_box(Arc::new(state.clone()));
+        // The observer and the UI mailbox share the same snapshot.
         let retained = black_box(snapshot.clone());
         black_box((snapshot, retained));
     }

@@ -1,18 +1,13 @@
 //! Folder expansion, subtitle discovery and selection run outside input callbacks.
 use crate::{PlayerWindow, subtitle_discovery::Readiness};
-use riina_core::{Command, Phase, Playback, TrackKind};
+use riina_core::{Command, Phase, TrackKind};
 use slint::ComponentHandle;
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 pub(super) fn install(
     app: &PlayerWindow,
     player: &riina_mpv::CommandSender,
-    latest_playback: Arc<Mutex<Playback>>,
+    latest_playback: crate::PlaybackStore,
     subtitle_discovery_ready: Arc<Readiness>,
 ) -> Rc<slint::Timer> {
     let subtitle_priority_timer = Rc::new(slint::Timer::default());

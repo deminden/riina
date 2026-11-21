@@ -89,7 +89,7 @@ impl NativePresentation {
     pub(crate) fn start_engine(
         &self,
         options: Vec<(String, String)>,
-        notify: impl Fn(Playback) + Send + 'static,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Player, String> {
         Player::start_native_window(
             &super::services::playback_library(),

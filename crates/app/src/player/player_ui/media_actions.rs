@@ -7,14 +7,13 @@ use crate::{
     MenuCatalogRow, NativeVideoHost, PlayerWindow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
-use riina_core::{Playback, RecentMedia};
+use riina_core::RecentMedia;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
-    sync::{Arc, Mutex},
 };
 
 pub(super) struct Context<'a> {
@@ -25,7 +24,7 @@ pub(super) struct Context<'a> {
     pub recent_open_documents: &'a Rc<RefCell<Vec<RecentMedia>>>,
     pub recent_open_cleared: &'a Rc<Cell<bool>>,
     pub prefs_path: &'a PathBuf,
-    pub latest_playback: &'a Arc<Mutex<Playback>>,
+    pub latest_playback: &'a crate::PlaybackStore,
 }
 
 #[expect(

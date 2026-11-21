@@ -1,7 +1,7 @@
 use crate::platform;
 use riina_core::Playback;
 use riina_mpv::{CommandSender, Player};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 pub(super) type EngineOptions = Vec<(String, String)>;
 
@@ -50,7 +50,7 @@ impl EngineStart {
         self,
         native: Option<&platform::NativePresentation>,
         options: EngineOptions,
-        notify: impl Fn(Playback) + Send + 'static,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<(Option<Player>, CommandSender), String> {
         match self {
             Self::Native => {

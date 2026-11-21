@@ -1,14 +1,9 @@
 use crate::{AboutWindow, PlayerWindow};
 use riina_core::{Phase, Playback};
 use slint::ComponentHandle;
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
-pub(crate) fn connect(app: &PlayerWindow, playback: Arc<Mutex<Playback>>) {
+pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
     let about_slot = Rc::new(RefCell::new(None::<AboutWindow>));
     let version_slot = about_slot.clone();
     let version_playback = playback.clone();

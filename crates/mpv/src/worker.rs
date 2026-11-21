@@ -34,7 +34,7 @@ pub(super) struct Start<N> {
     pub(super) ready: SyncSender<Result<usize, String>>,
 }
 
-impl<N: Fn(Playback)> Start<N> {
+impl<N: Fn(Arc<Playback>)> Start<N> {
     pub(super) fn run(self) {
         let Self {
             api,
@@ -111,7 +111,9 @@ impl<N: Fn(Playback)> Start<N> {
                     Some("The playback engine stopped unexpectedly; reopen the file".into());
                 // The shared OpenGL surface can still use the core until its owner releases it.
                 handle.stop_after_panic();
-                let _ = catch_unwind(AssertUnwindSafe(|| notify(state.playback.clone())));
+                let _ = catch_unwind(AssertUnwindSafe(|| {
+                    notify(Arc::new(state.playback.clone()))
+                }));
                 for queued in &receiver {
                     if accept_shutdown(&queued) {
                         break;
@@ -215,12 +217,17 @@ struct WorkerState {
 }
 
 impl WorkerState {
-    fn publish(&mut self, notify: &impl Fn(Playback)) {
+    fn publish(&mut self, notify: &impl Fn(Arc<Playback>)) {
         self.playback.reconcile();
-        notify(self.playback.clone());
+        notify(Arc::new(self.playback.clone()));
     }
 
-    fn observe_dynamic(&mut self, handle: &Handle, command: &Command, notify: &impl Fn(Playback)) {
+    fn observe_dynamic(
+        &mut self,
+        handle: &Handle,
+        command: &Command,
+        notify: &impl Fn(Arc<Playback>),
+    ) {
         let Command::ObserveMpvProperty(property) = command else {
             return;
         };

@@ -6,13 +6,12 @@ use crate::{
     preferences::model::PreferenceModel,
     video_osd::{ActionFeedback, action_message},
 };
-use riina_core::{Command, Playback};
+use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
-    sync::{Arc, Mutex},
 };
 
 #[derive(Clone)]
@@ -21,7 +20,7 @@ pub(super) struct PlayerContext(Rc<Handles>);
 struct Handles {
     app: slint::Weak<PlayerWindow>,
     commands: CommandSender,
-    playback: Arc<Mutex<Playback>>,
+    playback: crate::PlaybackStore,
     preferences: PreferenceModel,
     plugin_host: Option<PluginHostHandle>,
     preferences_path: PathBuf,
@@ -31,7 +30,7 @@ impl PlayerContext {
     pub(super) fn new(
         app: &PlayerWindow,
         commands: CommandSender,
-        playback: Arc<Mutex<Playback>>,
+        playback: crate::PlaybackStore,
         preferences: PreferenceModel,
         plugin_host: Option<PluginHostHandle>,
         preferences_path: PathBuf,
@@ -54,7 +53,7 @@ impl PlayerContext {
         &self.0.commands
     }
 
-    pub(super) fn playback(&self) -> &Arc<Mutex<Playback>> {
+    pub(super) fn playback(&self) -> &crate::PlaybackStore {
         &self.0.playback
     }
 

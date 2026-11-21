@@ -562,7 +562,7 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
     install_player(
         &app,
         &riina_core::key_bindings::Settings::default(),
-        std::sync::Arc::new(std::sync::Mutex::new(riina_core::Playback::default())),
+        crate::PlaybackStore::default(),
     );
     for (key, expected) in [
         (slint::platform::Key::LeftArrow, -5.0),

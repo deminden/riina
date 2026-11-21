@@ -168,7 +168,7 @@ impl Player {
     pub fn start(
         path: &Path,
         headless: bool,
-        notify: impl Fn(Playback) + Send + 'static,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, String> {
         Self::start_with_options(path, headless, Vec::new(), notify)
     }
@@ -177,7 +177,7 @@ impl Player {
         path: &Path,
         headless: bool,
         options: Vec<(String, String)>,
-        notify: impl Fn(Playback) + Send + 'static,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, String> {
         Self::start_options(path, headless, options, notify)
     }
@@ -189,7 +189,7 @@ impl Player {
         path: &Path,
         window: u32,
         mut options: Vec<(String, String)>,
-        notify: impl Fn(Playback) + Send + 'static,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, String> {
         if window == 0 {
             return Err("Native output requires a live HWND".into());
@@ -214,7 +214,7 @@ impl Player {
         path: &Path,
         headless: bool,
         options: Vec<(String, String)>,
-        notify: impl Fn(Playback) + Send + 'static,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, String> {
         let api = Api::load(path)?;
         let (sender, receiver) = mpsc::sync_channel(64);

@@ -6,7 +6,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-fn wait(receiver: &mpsc::Receiver<Playback>, predicate: impl Fn(&Playback) -> bool) -> Playback {
+fn wait(
+    receiver: &mpsc::Receiver<Arc<Playback>>,
+    predicate: impl Fn(&Playback) -> bool,
+) -> Playback {
     let until = Instant::now() + Duration::from_secs(10);
     loop {
         let state = receiver
@@ -14,7 +17,7 @@ fn wait(receiver: &mpsc::Receiver<Playback>, predicate: impl Fn(&Playback) -> bo
             .unwrap();
         assert_eq!(state.error, None);
         if predicate(&state) {
-            return state;
+            return Arc::unwrap_or_clone(state);
         }
     }
 }

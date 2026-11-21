@@ -13,10 +13,7 @@ use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceModel
 #[cfg(test)]
 use riina_core::Command;
 use slint::ComponentHandle;
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::path::PathBuf;
 
 pub(super) fn connect(
     app: &PlayerWindow,
@@ -24,7 +21,7 @@ pub(super) fn connect(
     decoder_player: riina_mpv::CommandSender,
     path: PathBuf,
     model: PreferenceModel,
-    key_binding_playback: Arc<Mutex<riina_core::Playback>>,
+    key_binding_playback: crate::PlaybackStore,
 ) {
     connect_with_credentials(
         app,
@@ -57,7 +54,7 @@ fn connect_with_credentials(
     decoder_player: riina_mpv::CommandSender,
     path: PathBuf,
     model: PreferenceModel,
-    key_binding_playback: Arc<Mutex<riina_core::Playback>>,
+    key_binding_playback: crate::PlaybackStore,
     credentials: CredentialStore,
 ) {
     let parent = app.as_weak();

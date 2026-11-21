@@ -2,7 +2,7 @@ use crate::{
     PlayerWindow, SavedFilterMenuRow, VideoFilterParameterRow, VideoFilterWindowRow,
     VideoFiltersWindow,
 };
-use riina_core::{Playback, video_filters};
+use riina_core::video_filters;
 use slint::{ComponentHandle, ModelRc, VecModel, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
@@ -23,7 +23,7 @@ struct PresetDraft {
 
 pub(crate) fn install(
     app: &PlayerWindow,
-    latest: Arc<Mutex<Playback>>,
+    latest: crate::PlaybackStore,
     video_settings: Settings,
     audio_settings: Settings,
     player: riina_mpv::CommandSender,
@@ -82,7 +82,7 @@ pub(crate) fn install(
 
 fn install_for_kind(
     app: &PlayerWindow,
-    latest: Arc<Mutex<Playback>>,
+    latest: crate::PlaybackStore,
     settings: Settings,
     player: riina_mpv::CommandSender,
     preferences_path: PathBuf,
@@ -215,7 +215,7 @@ fn install_for_kind(
 fn connect_window(
     app: &PlayerWindow,
     window: &VideoFiltersWindow,
-    latest: Arc<Mutex<Playback>>,
+    latest: crate::PlaybackStore,
     settings: Settings,
     player: riina_mpv::CommandSender,
     preferences_path: PathBuf,
@@ -631,7 +631,7 @@ fn update_preset_form(window: &VideoFiltersWindow, draft: &PresetDraft, is_audio
 fn refresh(
     app: &PlayerWindow,
     window: &VideoFiltersWindow,
-    latest: &Arc<Mutex<Playback>>,
+    latest: &crate::PlaybackStore,
     settings: &Settings,
     is_audio: bool,
 ) {
@@ -669,7 +669,7 @@ fn refresh(
 
 fn refresh_player_menu_rows(
     app: &PlayerWindow,
-    latest: &Arc<Mutex<Playback>>,
+    latest: &crate::PlaybackStore,
     settings: &Settings,
     is_audio: bool,
 ) {

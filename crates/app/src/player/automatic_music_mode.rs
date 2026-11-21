@@ -14,7 +14,7 @@ use std::{
 
 pub fn install(
     app: &PlayerWindow,
-    playback: Arc<Mutex<Playback>>,
+    playback: crate::PlaybackStore,
     mode: Arc<Mutex<State>>,
 ) -> Rc<slint::Timer> {
     let timer = Rc::new(slint::Timer::default());

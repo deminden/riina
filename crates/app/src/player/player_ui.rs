@@ -411,7 +411,7 @@ pub(crate) struct UiSession {
     playback_history: Arc<std::sync::Mutex<crate::playback_history::PlaybackHistoryState>>,
     record_playback_history: Arc<AtomicBool>,
     history_cleared: Arc<AtomicBool>,
-    latest_playback: Arc<std::sync::Mutex<Playback>>,
+    latest_playback: crate::PlaybackStore,
 }
 
 enum PendingWelcomeOpen {
@@ -659,7 +659,7 @@ fn configure_with_engine(
     crate::appearance_preferences::install_system_typography(app);
     app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
     app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
-    let latest_playback = Arc::new(std::sync::Mutex::new(Playback::default()));
+    let latest_playback = crate::PlaybackStore::default();
     crate::about_window::connect(app, latest_playback.clone());
     let pause_resume_timer = lifecycle::install_pause_on_minimize(
         app,
@@ -856,7 +856,7 @@ fn configure_with_engine(
     let last_notified_plugin_file_context = notified_plugin_file_context.clone();
     #[cfg(target_os = "macos")]
     let notify_picture_in_picture_state_dirty = picture_in_picture_state_dirty.clone();
-    let notify = move |state: Playback| {
+    let notify = move |state: Arc<Playback>| {
         // This closure remains owned by the engine until native destruction.
         let _retain_until_native_teardown = &worker_scratch;
         *lock(&observed_playback) = state.clone();

@@ -57,6 +57,8 @@ use windows::{
     video_filter_window,
 };
 
+type PlaybackStore = std::sync::Arc<std::sync::Mutex<std::sync::Arc<riina_core::Playback>>>;
+
 struct StartupArguments {
     media: Vec<std::ffi::OsString>,
     resume_position: Option<f64>,

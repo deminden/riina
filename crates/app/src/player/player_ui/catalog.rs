@@ -2,7 +2,7 @@
 use crate::{CatalogRow, MenuCatalogRow, PlayerWindow};
 use riina_core::{Phase, Playback, TrackKind, time_label};
 use slint::{ComponentHandle, Model};
-use std::{cell::Cell, path::PathBuf, rc::Rc, sync::Arc, time::Duration};
+use std::{cell::Cell, path::PathBuf, rc::Rc, time::Duration};
 
 pub(super) fn install_playlist_selection(app: &PlayerWindow, selected: &[String]) {
     let current = app.get_playlist();
@@ -333,7 +333,7 @@ pub(super) fn update_catalog(app: &PlayerWindow, state: &Playback) {
 
 pub(super) fn install_playlist_metadata_refresh(
     app: &PlayerWindow,
-    playback: Arc<std::sync::Mutex<Playback>>,
+    playback: crate::PlaybackStore,
 ) -> Rc<slint::Timer> {
     let timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();

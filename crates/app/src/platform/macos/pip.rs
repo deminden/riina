@@ -17,17 +17,13 @@ use objc2_core_media::{
 use objc2_foundation::{NSObject, NSObjectProtocol};
 use riina_core::{Command, Playback, VideoParameters};
 use riina_mpv::CommandSender;
-use std::{
-    ffi::CStr,
-    ptr::NonNull,
-    sync::{Arc, Mutex},
-};
+use std::{ffi::CStr, ptr::NonNull};
 
 use super::pip_frame::PipFrameSource;
 
 struct PlaybackDelegateIvars {
     commands: CommandSender,
-    playback: Arc<Mutex<Playback>>,
+    playback: crate::PlaybackStore,
 }
 
 define_class!(
@@ -121,7 +117,7 @@ impl PlaybackDelegate {
     fn new(
         mtm: MainThreadMarker,
         commands: CommandSender,
-        playback: Arc<Mutex<Playback>>,
+        playback: crate::PlaybackStore,
     ) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(PlaybackDelegateIvars { commands, playback });
         // SAFETY: NSObject initializes the allocated, ivar-initialized object on the main thread.
@@ -137,7 +133,7 @@ pub(crate) struct MacPictureInPicture {
     renderer: Retained<AVSampleBufferVideoRenderer>,
     controller: Retained<AVPictureInPictureController>,
     _delegate: Retained<PlaybackDelegate>,
-    playback: Arc<Mutex<Playback>>,
+    playback: crate::PlaybackStore,
     clock: objc2_core_foundation::CFRetained<CMClock>,
     timebase: objc2_core_foundation::CFRetained<CMTimebase>,
     frame_source: Option<PipFrameSource>,
@@ -153,7 +149,7 @@ impl MacPictureInPicture {
     )]
     pub(crate) fn new(
         commands: CommandSender,
-        playback: Arc<Mutex<Playback>>,
+        playback: crate::PlaybackStore,
         mtm: MainThreadMarker,
     ) -> Result<Self, String> {
         // SAFETY: the main-thread marker establishes the caller's AVKit thread.

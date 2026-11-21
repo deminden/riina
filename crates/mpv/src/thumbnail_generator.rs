@@ -257,18 +257,18 @@ fn extract(
 }
 
 fn wait_for(
-    receiver: &Receiver<Playback>,
+    receiver: &Receiver<Arc<Playback>>,
     cancel: &AtomicBool,
     predicate: impl Fn(&Playback) -> bool,
-) -> Result<Playback, String> {
+) -> Result<Arc<Playback>, String> {
     loop {
         if cancel.load(Ordering::Acquire) {
             return Err("Thumbnail extraction was cancelled".into());
         }
         match receiver.recv_timeout(Duration::from_millis(100)) {
             Ok(state) => {
-                if let Some(error) = state.error {
-                    return Err(error);
+                if let Some(error) = &state.error {
+                    return Err(error.clone());
                 }
                 if predicate(&state) {
                     return Ok(state);

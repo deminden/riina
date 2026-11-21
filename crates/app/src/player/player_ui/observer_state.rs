@@ -5,7 +5,10 @@ use std::{
     cell::RefCell,
     collections::BTreeMap,
     rc::{Rc, Weak},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 thread_local! {
@@ -14,7 +17,7 @@ thread_local! {
 }
 
 pub(super) struct UiObserverState {
-    pub(super) displayed: Option<Playback>,
+    pub(super) displayed: Option<Arc<Playback>>,
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
     pub(super) screenshot: ScreenshotOsd,
@@ -80,7 +83,7 @@ mod tests {
         let first = ObserverRegistration::new(state());
         let second = ObserverRegistration::new(state());
         let first_id = first.id();
-        first_id.lookup().unwrap().borrow_mut().displayed = Some(Playback::default());
+        first_id.lookup().unwrap().borrow_mut().displayed = Some(Arc::default());
         assert!(second.id().lookup().unwrap().borrow().displayed.is_none());
         drop(first);
         assert!(first_id.lookup().is_none());

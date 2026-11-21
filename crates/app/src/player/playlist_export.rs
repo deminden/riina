@@ -1,12 +1,11 @@
 //! Save the observed playlist as an M3U8 file from the File menu.
 
 use crate::{NativeVideoHost, PlayerWindow};
-use std::sync::{Arc, Mutex};
 
 pub(crate) fn save_current_playlist(
     app: &PlayerWindow,
     host: Option<slint::Weak<NativeVideoHost>>,
-    playback: &Arc<Mutex<riina_core::Playback>>,
+    playback: &crate::PlaybackStore,
 ) {
     let files = match playback.lock() {
         Ok(playback) => playback

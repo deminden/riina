@@ -11,7 +11,7 @@ use std::{
     },
 };
 
-type Notify = Box<dyn Fn(Playback) + Send>;
+type Notify = Box<dyn Fn(Arc<Playback>) + Send>;
 
 pub struct RecordingEngine {
     pub commands: Receiver<Command>,
@@ -36,7 +36,10 @@ impl CommandSender {
 }
 
 impl RecordingEngine {
-    pub fn set_observer(&self, notify: impl Fn(Playback) + Send + 'static) -> Result<(), String> {
+    pub fn set_observer(
+        &self,
+        notify: impl Fn(Arc<Playback>) + Send + 'static,
+    ) -> Result<(), String> {
         self.notify
             .set(Box::new(notify))
             .map_err(|_| "A recording engine already has a playback observer".into())
@@ -44,7 +47,7 @@ impl RecordingEngine {
 
     pub fn publish(&self, state: Playback) {
         if let Some(notify) = self.notify.get() {
-            notify(state);
+            notify(Arc::new(state));
         }
     }
 }

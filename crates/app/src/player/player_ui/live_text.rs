@@ -113,7 +113,7 @@ impl CaptureState {
 pub(super) fn install(
     app: &PlayerWindow,
     sender: riina_mpv::CommandSender,
-    latest: Arc<std::sync::Mutex<Playback>>,
+    latest: crate::PlaybackStore,
 ) -> Rc<slint::Timer> {
     let mut capture_state = CaptureState::default();
     let mut displayed_frame = None;

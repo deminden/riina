@@ -39,7 +39,7 @@ pub(super) struct UiUpdateResources<'a> {
 )]
 pub(super) fn update_ui(
     app: &PlayerWindow,
-    state: Playback,
+    state: Arc<Playback>,
     resources: UiUpdateResources<'_>,
     observer: &mut UiObserverState,
 ) -> bool {
@@ -311,7 +311,7 @@ pub(super) fn update_ui(
     app.set_seek_position_label(seek_osd::clock(state.position).into());
     app.set_seek_duration_label(seek_osd::clock(state.duration).into());
     app.set_playlist_shuffled(state.playlist_shuffled);
-    if should_fallback_removed_audio_device(displayed.as_ref(), &state)
+    if should_fallback_removed_audio_device(displayed.as_deref(), &state)
         && let Some(audio_device_player) = resources.audio_device_player
         && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
     {
@@ -582,13 +582,13 @@ pub(super) fn update_ui(
     } else if hdr_source_changed {
         app.invoke_refresh_hdr_output();
     }
-    app.set_media_title(state.title.into());
-    app.set_music_artist(state.artist.unwrap_or_default().into());
-    app.set_music_album(state.album.unwrap_or_default().into());
+    app.set_media_title(state.title.as_str().into());
+    app.set_music_artist(state.artist.as_deref().unwrap_or_default().into());
+    app.set_music_album(state.album.as_deref().unwrap_or_default().into());
     app.set_position_label(time_label(state.position).into());
     app.set_duration_label(time_label(state.duration).into());
     // Playback state belongs to controls and transient OSD, not permanent text
     // over the video. Keep failures visible while ordinary clock ticks stay quiet.
-    app.set_status(state.error.unwrap_or_default().into());
+    app.set_status(state.error.as_deref().unwrap_or_default().into());
     resize_for_media
 }

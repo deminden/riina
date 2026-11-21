@@ -5,12 +5,11 @@ use super::{
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
 use slint::{ComponentHandle, ModelRc, VecModel};
-use std::sync::Arc;
 
 pub(crate) fn install_player(
     app: &PlayerWindow,
     settings: &Settings,
-    latest_playback: Arc<std::sync::Mutex<riina_core::Playback>>,
+    latest_playback: crate::PlaybackStore,
 ) {
     settings.write_player(app);
     let mappings = match mappings_for(&settings.current_profile) {
@@ -178,7 +177,7 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
 pub(crate) fn dispatch_system_media_key(
     app: &PlayerWindow,
     key: &str,
-    latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
+    latest_playback: &crate::PlaybackStore,
 ) -> bool {
     if !app.get_key_binding_use_system_media_controls() {
         return false;
@@ -231,11 +230,7 @@ pub(crate) fn system_skip_intervals_for_profile(profile: &str) -> (Option<f64>, 
     (interval_for("FORWARD"), interval_for("REWIND"))
 }
 
-fn dispatch_mapping(
-    app: &PlayerWindow,
-    mapping: &Mapping,
-    latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
-) {
+fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &crate::PlaybackStore) {
     let Some(action) = runtime_action(mapping) else {
         app.set_status(format!("Input action is not supported yet: {}", mapping.action).into());
         return;
@@ -299,10 +294,7 @@ pub(crate) enum CurrentMediaLocation {
     Local(std::path::PathBuf),
 }
 
-pub(crate) fn reveal_current_media(
-    app: &PlayerWindow,
-    latest_playback: &Arc<std::sync::Mutex<riina_core::Playback>>,
-) {
+pub(crate) fn reveal_current_media(app: &PlayerWindow, latest_playback: &crate::PlaybackStore) {
     let location = current_media_location(&riina_core::sync::lock(latest_playback));
     let path = match location {
         CurrentMediaLocation::NoMedia => {

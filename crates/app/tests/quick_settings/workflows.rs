@@ -151,11 +151,11 @@ fn paused_catalog_transitions_mature_without_another_engine_notification() {
         serde_json::from_value(serde_json::json!({"id":1,"type":"audio"})).unwrap();
     let video: riina_core::Track =
         serde_json::from_value(serde_json::json!({"id":2,"type":"video"})).unwrap();
-    let playback = Arc::new(Mutex::new(riina_core::Playback {
+    let playback = Arc::new(Mutex::new(Arc::new(riina_core::Playback {
         phase: riina_core::Phase::Paused,
         tracks: vec![audio],
         ..Default::default()
-    }));
+    })));
     let mode = Arc::new(Mutex::new(riina_core::music_mode::State::new(true)));
     let past = Instant::now() - Duration::from_secs(1);
     mode.lock()
@@ -167,7 +167,9 @@ fn paused_catalog_transitions_mature_without_another_engine_notification() {
         app.get_music_mode(),
         "A quiet paused catalog still needs its debounce completion"
     );
-    playback.lock().unwrap().tracks.push(video);
+    Arc::make_mut(&mut playback.lock().unwrap())
+        .tracks
+        .push(video);
     mode.lock()
         .unwrap()
         .observe_at(riina_core::music_mode::AudioStatus::Video, false, past);

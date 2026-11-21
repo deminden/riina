@@ -4,11 +4,7 @@ use crate::PlayerWindow;
 use crate::platform;
 use riina_core::{Phase, Playback};
 use slint::ComponentHandle;
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{rc::Rc, time::Duration};
 #[cfg(target_os = "macos")]
 use {
     super::input::some_player_window_is_focused,
@@ -57,7 +53,7 @@ impl AutomaticPause {
 pub(super) fn install_pause_on_minimize(
     app: &PlayerWindow,
     native_host: Option<slint::Weak<crate::NativeVideoHost>>,
-    playback: Arc<Mutex<Playback>>,
+    playback: crate::PlaybackStore,
 ) -> Rc<slint::Timer> {
     let timer = Rc::new(slint::Timer::default());
     let weak_app = app.as_weak();
@@ -100,7 +96,7 @@ pub(super) fn install_pause_on_minimize(
 fn dispatch_system_media_action(
     app: &PlayerWindow,
     action: platform::RemoteMediaAction,
-    latest_playback: &Arc<Mutex<Playback>>,
+    latest_playback: &crate::PlaybackStore,
     player: &riina_mpv::CommandSender,
     paused_by_inactive: &mut AutomaticPause,
     application_active: &mut bool,
@@ -234,7 +230,7 @@ pub(super) struct SystemMedia {
 #[cfg(target_os = "macos")]
 pub(super) fn install_system_media(
     app: &PlayerWindow,
-    latest_playback: Arc<Mutex<Playback>>,
+    latest_playback: crate::PlaybackStore,
 ) -> SystemMedia {
     let system_media_sender = Rc::new(RefCell::new(None::<riina_mpv::CommandSender>));
     let (system_media_controls, system_media_controls_timer) = {

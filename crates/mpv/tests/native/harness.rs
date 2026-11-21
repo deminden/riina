@@ -102,7 +102,9 @@ pub(super) fn start_test_player_with_options(
             options.push(("ao".into(), output));
         }
     }
-    Player::start_with_options(path, headless, options, notify)
+    Player::start_with_options(path, headless, options, move |state| {
+        notify(std::sync::Arc::unwrap_or_clone(state))
+    })
 }
 
 pub(super) fn selected_track(state: &Playback, kind: TrackKind) -> Option<i64> {

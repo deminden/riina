@@ -1,6 +1,6 @@
 //! Native input, focus registration and gesture state belong to one player window.
 use crate::{PlayerWindow, media_open, platform};
-use riina_core::{Command, Phase, Playback};
+use riina_core::{Command, Phase};
 use slint::{
     ComponentHandle,
     winit_030::{EventResult, WinitWindowAccessor, winit},
@@ -8,10 +8,7 @@ use slint::{
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 
@@ -257,7 +254,7 @@ pub(super) fn some_player_window_is_focused() -> bool {
 fn install_file_drop(
     app: &PlayerWindow,
     player: riina_mpv::CommandSender,
-    playback: Arc<std::sync::Mutex<Playback>>,
+    playback: crate::PlaybackStore,
     trackpad_pause_generation: Rc<Cell<Option<u64>>>,
     _scroll_input: Rc<Cell<ScrollInputState>>,
 ) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
@@ -402,7 +399,7 @@ fn install_file_drop(
 fn scroll_action_handler(
     app: slint::Weak<PlayerWindow>,
     player: riina_mpv::CommandSender,
-    playback: Arc<std::sync::Mutex<Playback>>,
+    playback: crate::PlaybackStore,
     scroll_input: Rc<Cell<ScrollInputState>>,
     trackpad_pause_generation: Rc<Cell<Option<u64>>>,
     override_action: Option<riina_core::control_preferences::ScrollAction>,
@@ -518,7 +515,7 @@ pub(super) struct InstalledInput {
 pub(super) fn install(
     app: &PlayerWindow,
     player: &riina_mpv::CommandSender,
-    latest_playback: Arc<std::sync::Mutex<Playback>>,
+    latest_playback: crate::PlaybackStore,
 ) -> InstalledInput {
     let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
     #[cfg(target_os = "macos")]
