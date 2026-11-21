@@ -1,5 +1,6 @@
 mod audio_controls;
 mod catalog;
+mod dialogs;
 mod discovery;
 mod engine_start;
 mod feedback;
@@ -12,6 +13,7 @@ mod live_text;
 mod media_actions;
 mod playback_mailbox;
 mod rendering;
+mod transport;
 mod window_actions;
 use feedback::clear_screenshot_preview;
 mod input;
@@ -37,9 +39,7 @@ use plugin_menus::reorder_plugin_menu_rows;
 
 use crate::{
     MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
-    preference_load::LoadedPreferences,
-    preferences::model::PreferenceModel,
-    ui_dialogs::{self, Purpose},
+    preference_load::LoadedPreferences, preferences::model::PreferenceModel,
 };
 use riina_core::{Command, Phase, Playback, Preferences, TrackKind, sync::lock, time_label};
 use riina_mpv::Player;
@@ -2156,133 +2156,16 @@ fn configure_with_engine(
             }
         }
     });
-    let browse_player = command_sender.clone();
-    let weak = app.as_weak();
-    let browse_host = native.as_ref().map(platform::NativePresentation::host);
-    app.on_browse_files(move |category| {
-        let purpose = match category {
-            1 => Purpose::Audio,
-            2 => Purpose::Subtitle,
-            4 => Purpose::Playlist,
-            _ => return,
-        };
-        if let Some(app) = weak.upgrade() {
-            ui_dialogs::open(
-                &app,
-                browse_host.clone(),
-                purpose,
-                browse_player.clone(),
-                None,
-            );
-        }
-    });
-    for absolute in [true, false] {
-        let player = command_sender.clone();
-        let weak = app.as_weak();
-        let seek = move |seconds: f32| {
-            if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
-            }
-            if let Err(error) = player.send(Command::Seek {
-                seconds: seconds as f64,
-                absolute,
-            }) && let Some(app) = weak.upgrade()
-            {
-                app.set_status(error.into());
-            }
-        };
-        if absolute {
-            app.on_seek(seek);
-        } else {
-            app.on_seek_relative(seek);
-        }
-    }
-    let weak = app.as_weak();
-    app.on_open_jump_time_dialog(move || {
-        if let Some(app) = weak.upgrade() {
-            app.set_jump_time_draft(app.get_position_label());
-            app.set_jump_time_error("".into());
-            app.set_jump_time_dialog_visible(true);
-        }
-    });
-    let weak = app.as_weak();
-    app.on_open_url_dialog(move || {
-        if let Some(app) = weak.upgrade() {
-            app.set_url_dialog_draft("".into());
-            app.set_url_dialog_visible(true);
-        }
-    });
-    let jump_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_jump_to_time(move |input| {
-        let Some(app) = weak.upgrade() else { return };
-        let Some(seconds) = riina_core::time_input::parse_video_time(input.as_str()) else {
-            app.set_jump_time_error("Enter a valid time such as 20:35 or 1:02:03.500.".into());
-            return;
-        };
-        app.invoke_activity();
-        match jump_player.send(Command::Seek {
-            seconds,
-            absolute: true,
-        }) {
-            Ok(()) => {
-                app.set_jump_time_error("".into());
-                app.set_jump_time_dialog_visible(false);
-            }
-            Err(error) => app.set_jump_time_error(error.into()),
-        }
-    });
-    let boost_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_set_volume_boost(move |enabled| {
-        if let Some(app) = weak.upgrade() {
-            let volume = app.get_volume().min(if enabled { 200.0 } else { 100.0 });
-            match boost_player.send(Command::SetVolumeBoost(enabled)) {
-                Ok(()) => {
-                    app.set_volume_boost(enabled);
-                    app.set_volume(volume);
-                }
-                Err(error) => app.set_status(error.into()),
-            }
-            app.invoke_activity();
-        }
-    });
-    let volume_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_set_volume(move |volume| {
-        let Some(app) = weak.upgrade() else { return };
-        app.invoke_activity();
-        let limit = if app.get_volume_boost() { 200.0 } else { 100.0 };
-        if let Err(error) = volume_player.send(Command::Volume((volume as f64).min(limit)))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
-    let speed_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_speed(move |factor| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        if let Err(error) = speed_player.send(Command::MultiplySpeed(factor as f64))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
-    let adjustment_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_adjust_volume(move |delta| {
-        let Some(app) = weak.upgrade() else { return };
-        app.invoke_activity();
-        if let Err(error) = adjustment_player.send(Command::AdjustVolume {
-            delta: delta as f64,
-            boost: app.get_volume_boost(),
-        }) {
-            app.set_status(error.into());
-        }
-    });
+    dialogs::install_browse(
+        app,
+        &command_sender,
+        native.as_ref().map(platform::NativePresentation::host),
+    );
+    transport::install_seek(app, &command_sender);
+    dialogs::install_time_and_url(app, &command_sender);
+    audio_controls::install_volume(app, &command_sender);
+    transport::install_relative_speed(app, &command_sender);
+    audio_controls::install_volume_adjustment(app, &command_sender);
     window_actions::install_fullscreen(
         app,
         native.as_ref().map(platform::NativePresentation::host),

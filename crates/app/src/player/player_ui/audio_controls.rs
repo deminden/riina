@@ -195,6 +195,51 @@ fn audio_equalizer_name_is_display_duplicate(name: &str, visible_names: &[String
     visible_names.iter().any(|visible| visible == name)
 }
 
+pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender) {
+    let boost_player = command_sender.clone();
+    let weak = app.as_weak();
+    app.on_set_volume_boost(move |enabled| {
+        if let Some(app) = weak.upgrade() {
+            let volume = app.get_volume().min(if enabled { 200.0 } else { 100.0 });
+            match boost_player.send(Command::SetVolumeBoost(enabled)) {
+                Ok(()) => {
+                    app.set_volume_boost(enabled);
+                    app.set_volume(volume);
+                }
+                Err(error) => app.set_status(error.into()),
+            }
+            app.invoke_activity();
+        }
+    });
+    let volume_player = command_sender.clone();
+    let weak = app.as_weak();
+    app.on_set_volume(move |volume| {
+        let Some(app) = weak.upgrade() else { return };
+        app.invoke_activity();
+        let limit = if app.get_volume_boost() { 200.0 } else { 100.0 };
+        if let Err(error) = volume_player.send(Command::Volume((volume as f64).min(limit)))
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(error.into());
+        }
+    });
+}
+
+pub(super) fn install_volume_adjustment(app: &PlayerWindow, command_sender: &CommandSender) {
+    let adjustment_player = command_sender.clone();
+    let weak = app.as_weak();
+    app.on_adjust_volume(move |delta| {
+        let Some(app) = weak.upgrade() else { return };
+        app.invoke_activity();
+        if let Err(error) = adjustment_player.send(Command::AdjustVolume {
+            delta: delta as f64,
+            boost: app.get_volume_boost(),
+        }) {
+            app.set_status(error.into());
+        }
+    });
+}
+
 #[cfg(test)]
 mod audio_equalizer_name_tests {
     use super::audio_equalizer_name_is_display_duplicate;
