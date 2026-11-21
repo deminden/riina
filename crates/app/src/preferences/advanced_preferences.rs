@@ -22,6 +22,10 @@ impl PreferenceSection for Settings {
     fn write_window(&self, window: &PreferencesWindow) {
         install_window(window, self);
     }
+
+    fn needs_restart(&self, previous: &Self) -> bool {
+        self != previous
+    }
 }
 
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {

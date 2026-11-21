@@ -59,7 +59,7 @@ impl Draft {
             window,
         )?;
         let audio = read_or_refresh(
-            crate::audio_preferences::current_window(window),
+            audio_preferences::Settings::read_window(window).map_err(SectionError::into_message),
             app,
             window,
         )?;
@@ -97,8 +97,8 @@ impl Draft {
             app,
             window,
         )?;
-        let advanced_changed = advanced != baseline.advanced;
-        let audio_changed = audio != baseline.audio;
+        let advanced_changed = advanced.needs_restart(&baseline.advanced);
+        let audio_changed = audio.needs_restart(&baseline.audio);
         let previous_online_videos = read_or_refresh(
             crate::network_ytdl_preferences::current_player(app),
             app,
@@ -172,7 +172,7 @@ impl Draft {
     }
 
     pub(super) fn put(&self, preferences: &mut Preferences) {
-        preferences.audio = self.audio.clone();
+        self.audio.clone().put(preferences);
         preferences.video_threads = self.video_threads;
         preferences.key_bindings = self.key_bindings.clone();
         self.tone_mapping.clone().put(preferences);

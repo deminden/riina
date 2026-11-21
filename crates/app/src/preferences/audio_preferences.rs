@@ -1,9 +1,42 @@
 //! Translate editable Audio controls into validated, portable mpv preferences.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::PreferencesWindow;
 use riina_core::audio_preferences::{
     Driver, Gapless, OutputDevice, ReplayGain, Settings, SpdifCodec,
 };
 use slint::Model;
+
+impl PreferenceSection for Settings {
+    fn get(all: &riina_core::Preferences) -> Self {
+        all.audio.clone()
+    }
+
+    fn put(self, all: &mut riina_core::Preferences) {
+        all.audio = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_driver(window, self);
+        // Device choices come from the active engine. Restore the selection
+        // without replacing that observed list with stored descriptions.
+        let index = window
+            .get_audio_device_names()
+            .iter()
+            .position(|device| device.as_str() == self.device)
+            .unwrap_or(0);
+        window.set_audio_device_index(index as i32);
+        install_output_options(window, self);
+    }
+
+    fn needs_restart(&self, previous: &Self) -> bool {
+        self != previous
+    }
+}
 
 fn number<T: std::str::FromStr>(text: &str, label: &str) -> Result<T, String> {
     text.trim()
@@ -115,9 +148,13 @@ pub(crate) fn install_window(
     preferences: &Settings,
     available_devices: &[OutputDevice],
 ) {
+    install_driver(window, preferences);
+    install_devices(window, preferences, available_devices);
+    install_output_options(window, preferences);
+}
+
+fn install_driver(window: &PreferencesWindow, preferences: &Settings) {
     let drivers = Driver::choices_for_current_platform();
-    let replay_gain = [ReplayGain::Off, ReplayGain::Track, ReplayGain::Album];
-    let gapless = [Gapless::Disabled, Gapless::Weak, Gapless::Strong];
     window.set_audio_threads_text(preferences.audio_threads.to_string().into());
     window.set_audio_driver_index(
         drivers
@@ -131,7 +168,11 @@ pub(crate) fn install_window(
             .map(|driver| driver.label().into())
             .collect::<Vec<slint::SharedString>>(),
     )));
-    install_devices(window, preferences, available_devices);
+}
+
+fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
+    let replay_gain = [ReplayGain::Off, ReplayGain::Track, ReplayGain::Album];
+    let gapless = [Gapless::Disabled, Gapless::Weak, Gapless::Strong];
     window.set_audio_spdif_ac3(preferences.spdif.contains(&SpdifCodec::Ac3));
     window.set_audio_spdif_dts(preferences.spdif.contains(&SpdifCodec::Dts));
     window.set_audio_spdif_dts_hd(preferences.spdif.contains(&SpdifCodec::DtsHd));

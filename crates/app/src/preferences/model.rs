@@ -28,6 +28,9 @@ pub(crate) trait PreferenceSection: Clone + PartialEq {
     fn write_window(&self, window: &PreferencesWindow);
     // Engine-only sections are consumed by engine configuration or commands.
     fn write_player(&self, _app: &PlayerWindow) {}
+    fn needs_restart(&self, _previous: &Self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone)]
