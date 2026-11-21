@@ -1,3 +1,4 @@
+import { UtilitiesPreferencesPage } from "preferences-utilities.slint";
 import { PreferenceNavItem, PreferenceSubNavItem } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchField, PreferenceSearchResultCell } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
@@ -5,7 +6,7 @@ import { KeyBindingRow, KeyBindingActionRow, KeyBindingIconButton, KeyBindingPro
 export { KeyBindingRow } from "preferences-key-bindings.slint";
 import { PluginPreferencesRow, PluginPageIconButton, PluginPreferencesRowView, PluginPageActionButton } from "preferences-plugins.slint";
 export { PluginPreferencesRow } from "preferences-plugins.slint";
-import { MotionSettings, AdvancedMpvOptionRow, FolderChooser, PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, ToolbarPreferenceRow, PreferenceNumericInput, LanguageTokenEditor, PreferenceChoiceRow, PreferenceRadioRow, PreferenceToggle, GeneralDisclosureRow, GeneralSettingToggle, PreferenceOptionCard, PreferenceSensitivityRow, PreferenceDisclosure, PreferenceDetailRow, UtilitiesActionRow } from "preferences-controls.slint";
+import { MotionSettings, AdvancedMpvOptionRow, FolderChooser, PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, ToolbarPreferenceRow, PreferenceNumericInput, LanguageTokenEditor, PreferenceChoiceRow, PreferenceRadioRow, PreferenceToggle, GeneralDisclosureRow, GeneralSettingToggle, PreferenceOptionCard, PreferenceSensitivityRow, PreferenceDisclosure, PreferenceDetailRow } from "preferences-controls.slint";
 export { AdvancedMpvOptionRow } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
 import { CheckBox, ComboBox, ScrollView, Palette } from "std-widgets.slint";
@@ -2225,65 +2226,16 @@ export component PreferencesWindow inherits Window {
             }
         }
     }
-    if root.selected-pane == 10 : ScrollView {
+    if root.selected-pane == 10 : UtilitiesPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: 700px; content-width: self.visible-width;
-        horizontal-scrollbar-policy: always-off;
-        Rectangle { width: parent.width; height: 700px;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-            Text { x: 28px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: #222222; }
-            Text { x: 20px; y: 52px; text: "Default Application"; font-size: 12px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                UtilitiesActionRow { width: parent.width; height: parent.height;
-                    icon: @image-url("../../../assets/icons/interface.svg"); title: "Set Riina as the Default Application";
-                    activated => { root.utilities-open-default-apps(); }
-                }
-            }
-            Text { x: 20px; y: 144px; text: "Restore Alerts"; font-size: 12px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 168px; width: parent.width - 40px; height: 76px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                UtilitiesActionRow { width: parent.width; height: parent.height;
-                    icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Restore Suppressed Alerts";
-                    description: "Restore alerts hidden with ‘Do not show this message again’.";
-                    activated => { root.utilities-restore-alerts(); }
-                }
-            }
-            Text { x: 20px; y: 268px; text: "Clear Cache"; font-size: 12px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 290px; width: parent.width - 40px; height: 202px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                UtilitiesActionRow { y: 0px; width: parent.width; height: 87px;
-                    icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Clear Saved Playback Progress";
-                    description: "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.";
-                    trash: true; activated => { root.utilities-clear-progress(); }
-                }
-                UtilitiesActionRow { y: 87px; width: parent.width; height: 74px;
-                    icon: @image-url("../../../assets/icons/playlist.svg"); title: "Clear Playback History";
-                    description: "Delete all playback histories and entries in \"Open Recent\".";
-                    trash: true;
-                    activated => { root.utilities-clear-history(); }
-                }
-                UtilitiesActionRow { y: 161px; width: parent.width; height: 41px;
-                    icon: @image-url("../../../assets/icons/photo.svg"); title: "Clear Thumbnail Cache";
-                    metric: root.utilities-thumbnail-size; trash: true;
-                    activated => { root.utilities-clear-thumbnail-cache(); }
-                }
-            }
-            Text { x: 20px; y: 514px; text: "Browser Extensions"; font-size: 12px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 536px; width: parent.width - 40px; height: 116px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 16px; y: 12px; width: parent.width - 32px; height: 20px;
-                    text: "Get Browser Extensions for Riina"; font-size: 12px; color: #29292d; }
-                Text { x: 16px; y: 34px; width: parent.width - 32px; height: 34px;
-                    text: "Send a link or the current webpage to the player."; font-size: 10px; color: #74747a; wrap: word-wrap; }
-                Text { x: 16px; y: 76px; width: parent.width - 32px; height: 24px;
-                    text: "Browser integration is not available yet."; font-size: 10px; color: #8a8a90; vertical-alignment: center; }
-            }
-            if !root.utilities-status.is-empty : Text {
-                x: 20px; y: 660px; width: parent.width - 40px; height: 20px;
-                text: root.utilities-status; font-size: 10px; color: #69696f; wrap: word-wrap;
-            }
-        }
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        utilities-thumbnail-size: root.utilities-thumbnail-size;
+        utilities-status: root.utilities-status;
+        utilities-open-default-apps => { root.utilities-open-default-apps(); }
+        utilities-restore-alerts => { root.utilities-restore-alerts(); }
+        utilities-clear-progress => { root.utilities-clear-progress(); }
+        utilities-clear-history => { root.utilities-clear-history(); }
+        utilities-clear-thumbnail-cache => { root.utilities-clear-thumbnail-cache(); }
     }
 
     if !root.search-query.is-empty : Rectangle {

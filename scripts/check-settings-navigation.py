@@ -6,6 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "crates/ui/ui/preferences.slint").read_text(encoding="utf-8")
 CONTROLS_SOURCE = (ROOT / "crates/ui/ui/preferences-controls.slint").read_text(encoding="utf-8")
+UTILITIES_SOURCE = (ROOT / "crates/ui/ui/preferences-utilities.slint").read_text(encoding="utf-8")
+THEME_SOURCE = (ROOT / "crates/ui/ui/theme.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
@@ -380,13 +382,15 @@ def main():
         and re.search(r"changed fullscreen => \{[^}]*root\.refresh-fullscreen-info\(\);", PLAYER_SOURCE)
         and re.search(r"changed crop-editing => \{[^}]*root\.refresh-fullscreen-info\(\);", PLAYER_SOURCE)
     ), "Fullscreen clock/battery feedback must follow the saved preference and visible controls"
-    utilities = re.search(
-        r"if root\.selected-pane == 10\s*:\s*ScrollView\s*\{(.*?)(?=\n\s*\}\s*\n\s*if !root\.search-query|\Z)",
+
+    utilities_route = re.search(
+        r"if root\.selected-pane == 10\s*:\s*UtilitiesPreferencesPage\s*\{(.*?)(?=\n    \})",
         SOURCE,
         re.DOTALL,
     )
-    assert utilities and all(
-        label in utilities.group(1)
+    assert utilities_route, "Utilities must remain the final settings page"
+    assert all(
+        label in UTILITIES_SOURCE
         for label in (
             "Default Application",
             "Restore Alerts",
@@ -397,22 +401,25 @@ def main():
             "Browser Extensions",
         )
     ), "Utilities must retain the source section and action hierarchy"
-    assert (
-        "utilities-clear-progress" in utilities.group(1)
-        and "utilities-clear-history" in utilities.group(1)
-        and "utilities-restore-alerts" in utilities.group(1)
-        and "utilities-open-default-apps" in utilities.group(1)
-    ), "Available Utilities actions must reach their application callbacks"
+
+    for action in (
+        "utilities-clear-progress", "utilities-clear-history", "utilities-restore-alerts",
+        "utilities-open-default-apps", "utilities-clear-thumbnail-cache",
+    ):
+        assert f"root.{action}();" in UTILITIES_SOURCE, f"Utilities row must activate {action}"
+        assert f"{action} => {{ root.{action}(); }}" in utilities_route.group(1), (
+            f"Utilities page must forward {action} to its window"
+        )
     history_row = re.search(
         r'UtilitiesActionRow\s*\{\s*y:\s*87px;(.*?)(?=\n\s*UtilitiesActionRow|\Z)',
-        utilities.group(1),
+        UTILITIES_SOURCE,
         re.DOTALL,
     )
     assert history_row and "action-enabled: false" not in history_row.group(1), (
         "Clear Playback History must be actionable when its store is available"
     )
     assert all(
-        token in utilities.group(1)
+        token in UTILITIES_SOURCE
         for token in (
             "content-height: 700px",
             "y: 81px; width: parent.width - 40px; height: 42px",
@@ -423,8 +430,13 @@ def main():
         )
     ), "Utilities content should retain the measured reference card and cache-row geometry"
     assert (
-        "Rectangle { width: parent.width; height: 700px;" in utilities.group(1)
-        and "background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;" in utilities.group(1)
+        "Rectangle { width: parent.width; height: 700px;" in UTILITIES_SOURCE
+        and "background: Theme.settings-content-surface(root.mica-backdrop-enabled);" in UTILITIES_SOURCE
+        and re.search(
+            r"function settings-content-surface\(material: bool\) -> color \{\s*"
+            r"return material \? #ffffff80 : #ffffff;",
+            THEME_SOURCE,
+        )
     ), "Utilities should retain the measured content surface with the selected Windows material"
     assert (
         "x: parent.width - 50px; y: 0; width: 40px; height: parent.height" in CONTROLS_SOURCE

@@ -1,0 +1,72 @@
+import { Theme } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { UtilitiesActionRow } from "preferences-controls.slint";
+
+export component UtilitiesPreferencesPage inherits ScrollView {
+    in property <bool> mica-backdrop-enabled;
+    in property <string> utilities-thumbnail-size;
+    in property <string> utilities-status;
+    callback utilities-open-default-apps();
+    callback utilities-restore-alerts();
+    callback utilities-clear-progress();
+    callback utilities-clear-history();
+    callback utilities-clear-thumbnail-cache();
+
+    content-height: 700px; content-width: self.visible-width;
+    horizontal-scrollbar-policy: always-off;
+    Rectangle { width: parent.width; height: 700px;
+        background: Theme.settings-content-surface(root.mica-backdrop-enabled);
+        Text { x: 28px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+        Text { x: 20px; y: 52px; text: "Default Application"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 42px;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+            UtilitiesActionRow { width: parent.width; height: parent.height;
+                icon: @image-url("../../../assets/icons/interface.svg"); title: "Set Riina as the Default Application";
+                activated => { root.utilities-open-default-apps(); }
+            }
+        }
+        Text { x: 20px; y: 144px; text: "Restore Alerts"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: 168px; width: parent.width - 40px; height: 76px;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+            UtilitiesActionRow { width: parent.width; height: parent.height;
+                icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Restore Suppressed Alerts";
+                description: "Restore alerts hidden with ‘Do not show this message again’.";
+                activated => { root.utilities-restore-alerts(); }
+            }
+        }
+        Text { x: 20px; y: 268px; text: "Clear Cache"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: 290px; width: parent.width - 40px; height: 202px;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+            UtilitiesActionRow { y: 0px; width: parent.width; height: 87px;
+                icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Clear Saved Playback Progress";
+                description: "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.";
+                trash: true; activated => { root.utilities-clear-progress(); }
+            }
+            UtilitiesActionRow { y: 87px; width: parent.width; height: 74px;
+                icon: @image-url("../../../assets/icons/playlist.svg"); title: "Clear Playback History";
+                description: "Delete all playback histories and entries in \"Open Recent\".";
+                trash: true;
+                activated => { root.utilities-clear-history(); }
+            }
+            UtilitiesActionRow { y: 161px; width: parent.width; height: 41px;
+                icon: @image-url("../../../assets/icons/photo.svg"); title: "Clear Thumbnail Cache";
+                metric: root.utilities-thumbnail-size; trash: true;
+                activated => { root.utilities-clear-thumbnail-cache(); }
+            }
+        }
+        Text { x: 20px; y: 514px; text: "Browser Extensions"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: 536px; width: parent.width - 40px; height: 116px;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+            Text { x: 16px; y: 12px; width: parent.width - 32px; height: 20px;
+                text: "Get Browser Extensions for Riina"; font-size: 12px; color: Theme.settings-card-title; }
+            Text { x: 16px; y: 34px; width: parent.width - 32px; height: 34px;
+                text: "Send a link or the current webpage to the player."; font-size: 10px; color: Theme.settings-card-description; wrap: word-wrap; }
+            Text { x: 16px; y: 76px; width: parent.width - 32px; height: 24px;
+                text: "Browser integration is not available yet."; font-size: 10px; color: Theme.settings-disabled-description; vertical-alignment: center; }
+        }
+        if !root.utilities-status.is-empty : Text {
+            x: 20px; y: 660px; width: parent.width - 40px; height: 20px;
+            text: root.utilities-status; font-size: 10px; color: Theme.settings-status-text; wrap: word-wrap;
+        }
+    }
+}

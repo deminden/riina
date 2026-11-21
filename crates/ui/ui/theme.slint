@@ -2,6 +2,22 @@
 export global Theme {
     out property <color> settings-field-border: #b8b8bc;
 
+    out property <color> settings-card-border: #dedee1;
+    out property <color> settings-page-heading: #222222;
+    out property <color> settings-section-heading: #77777d;
+    out property <color> settings-card-title: #29292d;
+    out property <color> settings-card-description: #74747a;
+    out property <color> settings-disabled-description: #8a8a90;
+    out property <color> settings-status-text: #69696f;
+
+    public pure function settings-content-surface(material: bool) -> color {
+        return material ? #ffffff80 : #ffffff;
+    }
+
+    public pure function settings-card-surface(material: bool) -> color {
+        return material ? #ffffff80 : #f8f8f8;
+    }
+
     public pure function sidebar-card-border(dark: bool) -> color {
         return dark ? #ffffff18 : #00000014;
     }
