@@ -5,6 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[lib]
+# The app's integration tests exercise these generated widgets. A standalone
+# harness would compile the same UI again to run zero unit tests.
+test = false
+
 [lints]
 workspace = true
 
