@@ -135,6 +135,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     );
     let harness = Harness::start(profile.join("shared/preferences.json"), false)?;
     exercise_transport_and_tracks(&harness);
+    exercise_dialogs_and_relative_controls(&harness);
     exercise_observation_and_volume(&harness)?;
     drop(harness);
 
@@ -188,6 +189,44 @@ fn exercise_transport_and_tracks(harness: &Harness) {
     harness.expect(Command::PlaylistNext);
     app.invoke_set_ab_loop_point(0, 1.25);
     harness.expect_idle();
+}
+
+fn exercise_dialogs_and_relative_controls(harness: &Harness) {
+    let app = &harness.app;
+    app.set_position_label("2:05".into());
+    app.invoke_open_jump_time_dialog();
+    assert!(app.get_jump_time_dialog_visible());
+    assert_eq!(app.get_jump_time_draft(), "2:05");
+    app.invoke_jump_to_time("invalid".into());
+    assert!(app.get_jump_time_dialog_visible());
+    assert_eq!(
+        app.get_jump_time_error(),
+        "Enter a valid time such as 20:35 or 1:02:03.500."
+    );
+    harness.expect_idle();
+    app.invoke_jump_to_time("2:05.500".into());
+    harness.expect(Command::Seek {
+        seconds: 125.5,
+        absolute: true,
+    });
+    assert!(!app.get_jump_time_dialog_visible());
+    assert_eq!(app.get_jump_time_error(), "");
+
+    app.set_url_dialog_draft("previous".into());
+    app.invoke_open_url_dialog();
+    assert!(app.get_url_dialog_visible());
+    assert_eq!(app.get_url_dialog_draft(), "");
+    app.set_url_dialog_visible(false);
+    app.invoke_browse_files(-1);
+    harness.expect_idle();
+
+    app.invoke_speed(1.5);
+    harness.expect(Command::MultiplySpeed(1.5));
+    app.invoke_adjust_volume(-3.0);
+    harness.expect(Command::AdjustVolume {
+        delta: -3.0,
+        boost: false,
+    });
 }
 
 fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std::error::Error>> {
