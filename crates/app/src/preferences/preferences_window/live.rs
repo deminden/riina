@@ -172,27 +172,74 @@ pub(super) fn restore_ass_override(
     app.set_secondary_subtitle_ass_override_index(previous.1);
 }
 
-pub(super) fn restore_live_volume_and_decoder(
-    app: &PlayerWindow,
-    player: &riina_mpv::CommandSender,
-    volume_boost_applied: bool,
-    previous_volume_boost: bool,
-    previous_volume: f32,
-    decoder_applied: bool,
-    previous_decoder: i32,
-) {
-    if volume_boost_applied {
-        let _ = player.send(Command::SetVolumeBoost(previous_volume_boost));
-        if previous_volume != app.get_volume() {
-            let _ = player.send(Command::Volume(previous_volume as f64));
+pub(super) struct DecoderState {
+    pub(super) boost: bool,
+    pub(super) volume: f32,
+    pub(super) decoder_index: i32,
+}
+
+pub(super) struct AppliedDecoderSettings {
+    previous: DecoderState,
+    boost_changed: bool,
+    decoder_changed: bool,
+}
+
+impl AppliedDecoderSettings {
+    pub(super) fn apply(
+        app: &PlayerWindow,
+        sender: &riina_mpv::CommandSender,
+        previous: DecoderState,
+        boost: bool,
+        decoder_index: i32,
+        decoder: riina_core::video_controls::HardwareDecoder,
+    ) -> Result<Self, String> {
+        let mut applied = Self {
+            previous,
+            boost_changed: false,
+            decoder_changed: false,
+        };
+        if boost != applied.previous.boost {
+            sender.send(Command::SetVolumeBoost(boost))?;
+            if !boost {
+                let capped_volume = applied.previous.volume.min(100.0);
+                if capped_volume != applied.previous.volume
+                    && let Err(error) = sender.send(Command::Volume(f64::from(capped_volume)))
+                {
+                    let _ = sender.send(Command::SetVolumeBoost(applied.previous.boost));
+                    return Err(error);
+                }
+                app.set_volume(capped_volume);
+            }
+            app.set_volume_boost(boost);
+            applied.boost_changed = true;
         }
-        app.set_volume_boost(previous_volume_boost);
-        app.set_volume(previous_volume);
+        if decoder_index != applied.previous.decoder_index {
+            if let Err(error) = sender.send(Command::HardwareDecoding(decoder)) {
+                applied.restore(app, sender);
+                return Err(error);
+            }
+            app.set_hardware_decoder_index(decoder_index);
+            applied.decoder_changed = true;
+        }
+        Ok(applied)
     }
-    if decoder_applied {
-        if let Some(previous_mode) = crate::codec_preferences::hardware_decoder(previous_decoder) {
-            let _ = player.send(Command::HardwareDecoding(previous_mode));
+
+    pub(super) fn restore(&self, app: &PlayerWindow, sender: &riina_mpv::CommandSender) {
+        if self.boost_changed {
+            let _ = sender.send(Command::SetVolumeBoost(self.previous.boost));
+            if self.previous.volume != app.get_volume() {
+                let _ = sender.send(Command::Volume(f64::from(self.previous.volume)));
+            }
+            app.set_volume_boost(self.previous.boost);
+            app.set_volume(self.previous.volume);
         }
-        app.set_hardware_decoder_index(previous_decoder);
+        if self.decoder_changed {
+            if let Some(previous_mode) =
+                crate::codec_preferences::hardware_decoder(self.previous.decoder_index)
+            {
+                let _ = sender.send(Command::HardwareDecoding(previous_mode));
+            }
+            app.set_hardware_decoder_index(self.previous.decoder_index);
+        }
     }
 }

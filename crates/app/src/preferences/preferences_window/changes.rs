@@ -2,7 +2,10 @@
 mod committed;
 mod subtitles;
 
-use super::{live::restore_live_volume_and_decoder, refresh::refresh};
+use super::{
+    live::{AppliedDecoderSettings, DecoderState},
+    refresh::refresh,
+};
 use crate::{
     PlayerWindow, PreferencesWindow,
     osd_preferences::Settings as Osd,
@@ -287,59 +290,29 @@ fn connect_with_credentials(
             refresh(&window, &app);
             return;
         };
-        let mut decoder_applied = false;
-        let volume_boost = window.get_volume_boost();
-        let mut volume_boost_applied = false;
-        if volume_boost != previous_volume_boost {
-            if let Err(error) = decoder_player.send(Command::SetVolumeBoost(volume_boost)) {
+        let applied_decoder = match AppliedDecoderSettings::apply(
+            &app,
+            &decoder_player,
+            DecoderState {
+                boost: previous_volume_boost,
+                volume: previous_volume,
+                decoder_index: previous_decoder,
+            },
+            window.get_volume_boost(),
+            decoder_index,
+            decoder,
+        ) {
+            Ok(applied) => applied,
+            Err(error) => {
                 app.set_status(error.into());
                 refresh(&window, &app);
                 return;
             }
-            if !volume_boost {
-                let capped_volume = previous_volume.min(100.0);
-                if capped_volume != previous_volume
-                    && let Err(error) = decoder_player.send(Command::Volume(capped_volume as f64))
-                {
-                    let _ = decoder_player.send(Command::SetVolumeBoost(previous_volume_boost));
-                    app.set_status(error.into());
-                    refresh(&window, &app);
-                    return;
-                }
-                app.set_volume(capped_volume);
-            }
-            app.set_volume_boost(volume_boost);
-            volume_boost_applied = true;
-        }
-        if decoder_index != previous_decoder {
-            if let Err(error) = decoder_player.send(Command::HardwareDecoding(decoder)) {
-                if volume_boost_applied {
-                    let _ = decoder_player.send(Command::SetVolumeBoost(previous_volume_boost));
-                    if previous_volume != app.get_volume() {
-                        let _ = decoder_player.send(Command::Volume(previous_volume as f64));
-                    }
-                    app.set_volume_boost(previous_volume_boost);
-                    app.set_volume(previous_volume);
-                }
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
-            app.set_hardware_decoder_index(decoder_index);
-            decoder_applied = true;
-        }
+        };
         let applied_subtitles = match subtitles.apply(&app, &window, &decoder_player) {
             Ok(applied) => applied,
             Err(error) => {
-                restore_live_volume_and_decoder(
-                    &app,
-                    &decoder_player,
-                    volume_boost_applied,
-                    previous_volume_boost,
-                    previous_volume,
-                    decoder_applied,
-                    previous_decoder,
-                );
+                applied_decoder.restore(&app, &decoder_player);
                 app.set_status(error.into());
                 refresh(&window, &app);
                 return;
@@ -597,15 +570,7 @@ fn connect_with_credentials(
                     subtitles.previous_position,
                 );
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
-                restore_live_volume_and_decoder(
-                    &app,
-                    &decoder_player,
-                    volume_boost_applied,
-                    previous_volume_boost,
-                    previous_volume,
-                    decoder_applied,
-                    previous_decoder,
-                );
+                applied_decoder.restore(&app, &decoder_player);
                 app.set_pause_when_open(previous_pause);
                 app.set_play_when_entering_fullscreen(previous_play_when_entering_fullscreen);
                 app.set_pause_when_leaving_fullscreen(previous_pause_when_leaving_fullscreen);
