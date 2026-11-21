@@ -1,3 +1,4 @@
+import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
 import { CatalogSidebarRow, PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
@@ -5,13 +6,13 @@ import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
 import { SidebarTab, SidebarSectionTitle, SidebarPositionToggle, SidebarSideChoice, SubtitleVisibilityRow, SidebarAction, SubtitleLaneSegment } from "player-sidebar-controls.slint";
 import { LayoutChoice } from "player-layout-choice.slint";
-import { ToolbarAction, JumpDialogButton, PlaylistSortButton, TopmostPin, ObservedSizePicker } from "player-chrome-controls.slint";
+import { JumpDialogButton, PlaylistSortButton, TopmostPin, ObservedSizePicker } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
 import { Tool } from "player-tool.slint";
-import { MusicModeControls, MusicModeWindowActions } from "music-mode-controls.slint";
+import { MusicModeWindowActions } from "music-mode-controls.slint";
 import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { QuickSettingsInput } from "quick-settings-input.slint";
@@ -2537,341 +2538,124 @@ export component PlayerWindow inherits Window {
                 }
             }
         }
-        if controls-rendered && loaded && !crop-editing : osc-bar := Rectangle {
-            clip: true;
-            // IINA's OSCToolbarButton uses 24-point frames and a zero-spacing
-            // NSStackView; retain those bounds while allowing compact rows to clip vertically.
-            private property <length> toolbar-button-width: 24px;
-            private property <length> toolbar-gap: 0px;
-            private property <length> toolbar-width: root.toolbar-visible-order.length * toolbar-button-width +
-                max(0, root.toolbar-visible-order.length - 1) * toolbar-gap;
-            private property <length> side-width: max(116px, toolbar-width);
-            private property <bool> side-controls-fit: self.width >= transport-width +
-                side-width * 2 + 2 * root.osc-row-inline-inset + 4 * root.osc-row-gap;
-            // In constrained windows, hide the volume slider first and retain
-            // the four configured right-side actions using smaller hit targets.
-            private property <bool> compact-toolbar-fit: root.small-video-controller &&
-                self.width >= 2 * root.osc-row-inline-inset + toolbar-width + 30px +
-                    (root.transport-neighbor-actions-fit ? 60px : 0px) +
-                    (root.transport-neighbor-actions-fit ? 20px : 12px);
-            private property <bool> toolbar-actions-fit: side-controls-fit || compact-toolbar-fit;
-            private property <length> transport-width: root.transport-neighbor-actions-fit
-                ? (root.osc-position == 0 ? 120px : 104px) : 24px;
-            // Equal side reservations keep Play centered even without audio or
-            // with a customized toolbar. Below this fit limit, retain the
-            // Windows narrow-window packed row so every action stays reachable.
-            private property <length> balanced-side-width: side-controls-fit ? side-width :
-                compact-toolbar-fit && self.width >= 2 * root.osc-row-inline-inset +
-                    2 * toolbar-width + transport-width + 4 * root.osc-row-gap ? toolbar-width : 0px;
-            // Edge-to-edge keeps video behind sidebars, but the controls must
-            // stay in the unobscured video area so their actions remain visible.
-            private property <length> osc-video-leading-inset:
-                !root.music-mode ? (root.edge-to-edge-video ? sidebar-leading-extent : root.video-inset-leading) : 0px;
-            private property <length> osc-video-width:
-                !root.music-mode ? (root.edge-to-edge-video
-                    ? max(1px, root.width - sidebar-leading-extent - sidebar-trailing-extent)
-                    : root.video-width) : parent.width;
-            width: root.music-mode ? parent.width :
-                root.osc-position == 0 ? min(osc-video-width, max(200px, min(460px, osc-video-width - 2px))) :
-                osc-video-width;
-            animate width { duration: root.animations-disabled ? 0ms : 240ms; }
-            height: root.osc-height;
-            x: root.music-mode ? 0px :
-                osc-video-leading-inset + (root.osc-position == 0 ? clamp(
-                    osc-video-width * (osc-video-width < 462px ? 0.5 : root.control-bar-position-horizontal) - self.width / 2,
-                    0px, max(0px, osc-video-width - self.width)) : 0px);
-            animate x { duration: root.animations-disabled ? 0ms : 240ms; }
-            // Keep the transport row outside the playlist's hit-test surface
-            // in the compact music layout so Play/Pause remains directly usable.
-            // IINA stores this fraction as a bottom inset and clamps its top
-            // edge to 25 points; convert that bottom-origin rule to Slint's
-            // top-origin coordinates before positioning the full visible bar.
-            y: root.music-mode ? parent.height -
-                    (root.music-mode-show-playlist ? 300px : 0px) - self.height :
-                root.osc-position == 1 ? min(max(0px, parent.height - self.height), root.compact-ui ? 30px : 34px) :
-                root.osc-position == 2 ? max(0px, parent.height - self.height) :
-                    max(0px, parent.height -
-                        min(max(0px, parent.height - 67px - 25px),
-                            max(0px, parent.height * root.control-bar-position-vertical)) - self.height);
-            opacity: root.music-mode || root.controls-visible ? 1 : 0;
-            animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
-            border-radius: root.music-mode ? 0px : root.osc-position == 0 ? 12px : 4px;
-            background: root.active-liquid-glass-osc
-                ? (root.dark-theme
-                    ? (root.platform-windows ? #15151528 : root.native-video ? #15151599 : #202025e8)
-                    : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
-                : (root.dark-theme ? #202025 : #f2f2f2);
-            if root.active-liquid-glass-osc : Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.video-material-sample-opacity;
-                image-fit: contain;
-            }
-            border-width: 1px; border-color: #ffffff25;
-            // This is a tinted SDR approximation, not a claim of matching AppKit video blur.
-            // The 24-point transport row, padded 24-point timeline, source
-            // insets, and 8-point gap reproduce IINA's visible floating panel.
-            TouchArea {
-                width: parent.width; height: parent.height;
-                private property <float> drag-start-x: 0;
-                private property <float> drag-start-y: 0;
-                private property <float> drag-origin-x: 0;
-                private property <float> drag-origin-y: 0;
-                moved => {
-                    if self.pressed && root.osc-position == 0 && !root.music-mode {
-                        let available-x = max(0px, osc-video-width - osc-bar.width);
-                        let available-y = max(0, root.height / 1px - osc-bar.height / 1px);
-                        // AppKit constrains the left edge to 10 points, but lets
-                        // the right edge reach the video boundary. Its bottom-
-                        // origin y range converts to a 25-point top inset here.
-                        let minimum-x = min(10, available-x / 1px);
-                        let minimum-y = min(25, available-y);
-                        let requested-x = drag-origin-x + self.mouse-x / 1px - drag-start-x;
-                        let requested-y = drag-origin-y + self.mouse-y / 1px - drag-start-y;
-                        let bounded-x = clamp(requested-x, minimum-x, available-x / 1px);
-                        let bounded-y = clamp(requested-y, minimum-y, available-y);
-                        let center-x = (osc-video-width / 1px - osc-bar.width / 1px) / 2;
-                        let snapped-x = abs(bounded-x - center-x) <= 5 ? center-x : bounded-x;
-                        root.control-bar-position-horizontal = (snapped-x + osc-bar.width / 2 / 1px) / max(1, osc-video-width / 1px);
-                        root.control-bar-position-vertical = (root.height / 1px - bounded-y - osc-bar.height / 1px) / max(1, root.height / 1px);
-                        root.control-bar-dragging = true;
-                    }
-                }
-                pointer-event(event) => {
-                    if event.button == PointerEventButton.left && event.kind == PointerEventKind.down
-                        && root.osc-position == 0 && !root.music-mode {
-                        drag-start-x = self.mouse-x / 1px;
-                        drag-start-y = self.mouse-y / 1px;
-                        drag-origin-x = (osc-bar.x - osc-video-leading-inset) / 1px;
-                        drag-origin-y = osc-bar.y / 1px;
-                    } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up
-                        && root.control-bar-dragging {
-                        root.control-bar-dragging = false;
-                        root.layout-settings-changed();
-                    }
-                }
-                changed has-hover => {
-                    root.control-bar-hovered = self.has-hover;
-                    if root.music-mode && !self.has-hover { root.music-mode-volume-open = false; }
-                }
-                VerticalLayout { width: parent.width; height: parent.height;
-                padding-top: root.music-mode ? 8px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 5px : root.compact-ui ? 10px : 14px;
-                padding-bottom: root.music-mode ? 8px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 4px : root.compact-ui ? 5px : 8px;
-                // IINA's floating OSC keeps an 8 pt gap between the top row
-                // and timeline in both spacious and compact layouts.
-                spacing: root.music-mode ? 6px : root.height < 24px ? 0px : root.height < 42px ? 1px : root.small-video-controller ? 3px : 8px;
-                Rectangle {
-                    horizontal-stretch: 1;
-                    height: root.music-mode ? 32px : root.osc-row-height;
-                    background: transparent;
-                    if root.music-mode : MusicModeControls {
-                        y: 4px; width: parent.width;
-                        paused: root.paused; muted: root.muted; dark-theme: root.dark-theme;
-                        accent-color: root.interactive-accent-color;
-                        playlist-visible: root.music-mode-show-playlist;
-                        artwork-visible: root.music-mode-show-album-art;
-                        opacity: root.controls-visible ? 1 : 0;
-                        animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
-                        pause-requested => { root.toggle-pause(); }
-                        previous-requested => { root.playlist-previous(); }
-                        next-requested => { root.playlist-next(); }
-                        volume-requested => {
-                            if !root.music-mode-volume-open { root.music-mode-volume-open = true; }
-                            else { root.toggle-mute(); }
-                        }
-                        playlist-requested => { root.music-mode-show-playlist = !root.music-mode-show-playlist; }
-                        artwork-requested => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
-                    }
-                    if !root.music-mode : HorizontalLayout {
-                    x: 0px; y: 0px;
-                    width: parent.width; height: root.osc-row-height;
-                    opacity: root.controls-visible ? 1 : 0;
-                    animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
-                    padding-left: root.osc-row-inline-inset;
-                    padding-right: root.osc-row-inline-inset;
-                    spacing: root.osc-row-gap;
-                    if !root.music-mode && osc-bar.balanced-side-width > 0px : Rectangle {
-                        width: osc-bar.balanced-side-width; height: root.osc-row-height;
-                        if osc-bar.side-controls-fit && root.has-active-audio-track : HorizontalLayout {
-                            width: 116px; height: root.osc-row-height; spacing: 4px;
-                            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; height: root.osc-row-height;
-                                icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
-                                hint: "Mute"; activated => { root.toggle-mute(); } }
-                            PlayerSlider { dark-theme: root.dark-theme; width: 82px; height: root.osc-row-height;
-                                minimum: 0; maximum: root.volume-limit; value: root.volume; hint: "Volume";
-                                scroll-override-enabled: !root.control-disable-volume-slider-scrolling;
-                                scroll-disabled: root.control-disable-volume-slider-scrolling;
-                                scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
-                                changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
-                                changed(value) => { root.set-volume(value); }
-                            }
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; background: transparent; }
-                    HorizontalLayout {
-                        spacing: root.music-mode ? 2px : root.osc-position == 0 ? 24px : 16px;
-                        if root.transport-neighbor-actions-fit : Tool { accent-color: root.interactive-accent-color;
-                            dark-theme: root.dark-theme; width: 24px; height: root.osc-row-height; icon-size: 24px;
-                            icon: root.music-mode
-                                ? @image-url("../../../assets/icons/skip-previous.svg")
-                                : @image-url("../../../assets/icons/speed-down.svg");
-                            hint: root.music-mode ? "Previous media" : "Half playback speed";
-                            activated => {
-                                if root.music-mode { root.playlist-previous(); }
-                                else { root.speed(0.5); }
-                            }
-                        }
-                        Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
-                            width: 24px; height: root.osc-row-height; icon-size: 24px;
-                            // The triangular ink's centroid sits 2.83 pt left of
-                            // its SVG center. Balance its optical weight without
-                            // moving the hit target or the symmetric pause bars.
-                            icon-optical-offset-x: root.paused ? 2.5px : 0px;
-                            icon: paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg"); hint: paused ? "Play" : "Pause";
-                            activated => { root.toggle-pause(); } }
-                        if root.transport-neighbor-actions-fit : Tool { accent-color: root.interactive-accent-color;
-                            dark-theme: root.dark-theme; width: 24px; height: root.osc-row-height; icon-size: 24px;
-                            icon: root.music-mode
-                                ? @image-url("../../../assets/icons/skip-next.svg")
-                                : @image-url("../../../assets/icons/speed-up.svg");
-                            hint: root.music-mode ? "Next media" : "Double playback speed";
-                            activated => {
-                                if root.music-mode { root.playlist-next(); }
-                                else { root.speed(2); }
-                            }
-                        }
-                    }
-                    if !root.music-mode : Rectangle { horizontal-stretch: 1; background: transparent; }
-                    if !root.music-mode && osc-bar.toolbar-actions-fit : Rectangle {
-                        width: max(osc-bar.balanced-side-width, osc-bar.toolbar-width); height: root.osc-row-height;
-                        HorizontalLayout {
-                        x: parent.width - self.width;
-                        width: osc-bar.toolbar-width; height: root.osc-row-height;
-                        spacing: osc-bar.toolbar-gap;
-                        for action-kind in root.toolbar-visible-order : ToolbarAction {
-                        kind: action-kind;
-                        action-width: osc-bar.toolbar-button-width;
-                        action-height: min(osc-bar.toolbar-button-width, root.osc-row-height);
-                        height: root.osc-row-height;
-                        dark-theme: root.dark-theme;
-                        enabled: (action-kind != 5 || (root.loaded && root.subtitle-tracks.length > 1)) &&
-                            (action-kind != 6 || root.screenshot-available) &&
-                            (action-kind != 8 || root.live-text-available);
-                        selected: action-kind == 0 ? (root.sidebar == 1 || root.sidebar == 2 || root.sidebar == 5 || root.sidebar == 6 ||
-                                root.leading-sidebar == 1 || root.leading-sidebar == 2 || root.leading-sidebar == 5 || root.leading-sidebar == 6) :
-                            action-kind == 1 ? (root.sidebar == 3 || root.sidebar == 4 || root.leading-sidebar == 3 || root.leading-sidebar == 4) :
-                            action-kind == 2 ? root.picture-in-picture-active :
-                            action-kind == 3 ? root.fullscreen :
-                            action-kind == 4 ? root.music-mode : action-kind == 8 ? root.live-text-enabled : false;
-                        hint: action-kind == 0 ? "Quick Settings" :
-                            action-kind == 1 ? "Playlist and chapters" :
-                            action-kind == 2 ? "Toggle Picture-in-Picture" :
-                            action-kind == 3 ? (root.fullscreen ? "Exit Full Screen" : "Enter Full Screen") :
-                            action-kind == 4 ? (root.music-mode ? "Exit Music Mode" : "Enter Music Mode") :
-                            action-kind == 5 ? "Switch Subtitle Track" :
-                            action-kind == 6 ? "Take Screenshot" :
-                            action-kind == 7 ? "Show plugins panel" : "Live Text";
-                        activated(kind) => {
-                            if kind == 0 { root.toggle-settings-pane(root.remembered-settings-pane); }
-                            else if kind == 1 { root.toggle-playlist-pane(root.remembered-playlist-pane); }
-                            else if kind == 2 { root.toggle-picture-in-picture(); }
-                            else if kind == 3 { root.toggle-fullscreen(); }
-                            else if kind == 4 { root.toggle-music-mode(); }
-                            else if kind == 5 { root.cycle-subtitle-track(); }
-                            else if kind == 6 { root.take-screenshot(); }
-                            else if kind == 7 { root.toggle-plugins-pane(); }
-                            else if kind == 8 { root.toggle-live-text(); }
-                        }
-                    }
-                    }
-                    }
-                }
-                    if root.music-mode : HorizontalLayout {
-                    x: 0px; y: 0px; width: parent.width; height: 27px;
-                    opacity: root.controls-visible ? 0 : 1;
-                    animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
-                    padding-left: 16px; padding-right: 16px;
-                    VerticalLayout {
-                        spacing: 0px;
-                        Text { text: root.media-title; color: root.dark-theme ? #ffffff : #202024;
-                            font-size: 13px; font-weight: 600; horizontal-alignment: center;
-                            overflow: elide; }
-                        Text {
-                            text: root.music-artist + (root.music-artist != "" && root.music-album != "" ? " · " : "") + root.music-album;
-                            visible: root.music-artist != "" || root.music-album != "";
-                            color: root.dark-theme ? #d0d0d4 : #505056; font-size: 11px;
-                            horizontal-alignment: center; overflow: elide;
-                        }
-                    }
-                }
-                    if root.music-mode && !root.controls-visible : TouchArea {
-                        width: parent.width; height: parent.height;
-                        moved => { root.controls-visible = true; root.activity(); }
-                        clicked => { root.activity(); }
-                    }
-                }
-                if root.osc-timeline-height > 0px : HorizontalLayout {
-                    height: root.osc-timeline-height; vertical-stretch: 0;
-                    padding-left: root.osc-timeline-inline-inset;
-                    padding-right: root.osc-timeline-inline-inset;
-                    // IINA gives each centered time label a 46-point minimum
-                    // and keeps a 2-point gap to the native playback slider.
-                    spacing: root.osc-timeline-gap;
-                    Text { visible: root.width >= 150px; min-width: root.music-mode ? root.music-mode-time-label-min-width : root.small-video-controller ? 34px : 46px;
-                        horizontal-alignment: root.music-mode ? right : center;
-                        text: position-label; color: root.dark-theme ? #d4d4d4 : #29292d;
-                        font-size: root.small-video-controller ? 10px : 11px; vertical-alignment: center; }
-                    PlayerSlider { dark-theme: root.dark-theme; height: root.small-video-controller ? 14px : 13px;
-                        knob-width: 3px; knob-height: root.small-video-controller ? 12px : 15px; knob-radius: 1px;
-                        scroll-override-enabled: seekable && !root.control-disable-play-slider-scrolling;
-                        scroll-disabled: root.control-disable-play-slider-scrolling;
-                        scroll-request(delta-x, delta-y) => { root.seek-scroll-action-request(delta-x, delta-y); }
-                        loop-a-visible: root.ab-loop-a-known; loop-a-value: root.ab-loop-a;
-                        loop-b-visible: root.ab-loop-b-known; loop-b-value: root.ab-loop-b;
-                        show-chapter-positions: root.show-chapter-pos; chapter-times: root.chapter-times;
-                        preview-enabled: root.seekable && root.thumbnail-preview-enabled;
-                        preview-image: root.timeline-thumbnail-image;
-                        preview-label: root.timeline-preview-label; preview-width: root.thumbnail-preview-width;
-                        preview-aspect-ratio: root.video-display-aspect-ratio > 0 ? root.video-display-aspect-ratio : 16 / 9;
-                        preview-above: root.osc-position != 1;
-                        minimum: 0; maximum: max(1, duration); value: position; enabled: seekable; hint: "Playback position";
-                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
-                        changed(value) => { root.seek(value); }
-                        loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
-                        loop-b-moved(value) => { root.set-ab-loop-point(1, value); }
-                        preview-requested(value) => { root.timeline-hovered(value); }
-                        preview-dismissed => { root.timeline-hovered(-1); } }
-                    Text { visible: root.width >= 150px; min-width: root.music-mode ? root.music-mode-time-label-min-width : root.small-video-controller ? 34px : 46px;
-                        horizontal-alignment: root.music-mode ? left : center;
-                        text: duration-label; color: root.dark-theme ? #d4d4d4 : #29292d;
-                        font-size: root.small-video-controller ? 10px : 11px; vertical-alignment: center; }
-                }
-                }
-            }
-            if root.music-mode && root.music-mode-volume-open : Rectangle {
-                x: parent.width - 156px; y: 2px; width: 148px; height: 36px;
-                border-radius: 18px;
-                background: root.active-liquid-glass-osc
-                    ? (root.dark-theme ? #25252beF : #f5f5f7f0)
-                    : (root.dark-theme ? #303036 : #eeeeF2);
-                border-width: 1px; border-color: #ffffff30;
-                HorizontalLayout {
-                    x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px; spacing: 6px;
-                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 24px; height: 24px;
-                        icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
-                        hint: "Mute"; activated => { root.toggle-mute(); } }
-                    PlayerSlider { dark-theme: root.dark-theme; horizontal-stretch: 1; height: 17px;
-                        minimum: 0; maximum: root.volume-limit; value: root.volume; hint: "Volume";
-                        scroll-override-enabled: !root.control-disable-volume-slider-scrolling;
-                        scroll-disabled: root.control-disable-volume-slider-scrolling;
-                        scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
-                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
-                        changed(value) => { root.set-volume(value); } }
-                }
-            }
+        if controls-rendered && loaded && !crop-editing : osc-bar := PlayerController {
+            geometry: {
+                window-width: root.width,
+                window-height: root.height,
+                available-width: parent.width,
+                available-height: parent.height,
+                video-width: root.video-width,
+                video-inset-leading: root.video-inset-leading,
+                video-inset-top: root.video-inset-top,
+                sidebar-leading-extent: root.sidebar-leading-extent,
+                sidebar-trailing-extent: root.sidebar-trailing-extent,
+                edge-to-edge-video: root.edge-to-edge-video,
+                osc-position: root.osc-position,
+                osc-height: root.osc-height,
+            };
+            layout: {
+                osc-row-gap: root.osc-row-gap,
+                osc-row-height: root.osc-row-height,
+                osc-row-inline-inset: root.osc-row-inline-inset,
+                osc-timeline-gap: root.osc-timeline-gap,
+                osc-timeline-height: root.osc-timeline-height,
+                osc-timeline-inline-inset: root.osc-timeline-inline-inset,
+                transport-neighbor-actions-fit: root.transport-neighbor-actions-fit,
+                small-video-controller: root.small-video-controller,
+                music-mode-time-label-min-width: root.music-mode-time-label-min-width,
+            };
+            appearance: {
+                animations-disabled: root.animations-disabled,
+                active-liquid-glass-osc: root.active-liquid-glass-osc,
+                dark-theme: root.dark-theme,
+                platform-windows: root.platform-windows,
+                native-video: root.native-video,
+                interactive-accent-color: root.interactive-accent-color,
+                compact-ui: root.compact-ui,
+            };
+            material: {
+                video-blurred-frame: root.video-blurred-frame,
+                render-width: root.render-width,
+                render-height: root.render-height,
+                video-material-sample-opacity: root.video-material-sample-opacity,
+            };
+            audio: {
+                has-active-audio-track: root.has-active-audio-track,
+                muted: root.muted,
+                volume: root.volume,
+                volume-limit: root.volume-limit,
+                control-disable-volume-slider-scrolling: root.control-disable-volume-slider-scrolling,
+            };
+            timeline: {
+                seekable: root.seekable,
+                position: root.position,
+                duration: root.duration,
+                position-label: root.position-label,
+                duration-label: root.duration-label,
+                ab-loop-a: root.ab-loop-a,
+                ab-loop-b: root.ab-loop-b,
+                ab-loop-a-known: root.ab-loop-a-known,
+                ab-loop-b-known: root.ab-loop-b-known,
+                chapter-times: root.chapter-times,
+                show-chapter-pos: root.show-chapter-pos,
+                thumbnail-preview-enabled: root.thumbnail-preview-enabled,
+                thumbnail-preview-width: root.thumbnail-preview-width,
+                timeline-preview-label: root.timeline-preview-label,
+                timeline-thumbnail-image: root.timeline-thumbnail-image,
+                video-display-aspect-ratio: root.video-display-aspect-ratio,
+                control-disable-play-slider-scrolling: root.control-disable-play-slider-scrolling,
+            };
+            toolbar: {
+                toolbar-visible-order: root.toolbar-visible-order,
+                loaded: root.loaded,
+                subtitle-tracks: root.subtitle-tracks,
+                screenshot-available: root.screenshot-available,
+                live-text-available: root.live-text-available,
+                live-text-enabled: root.live-text-enabled,
+                picture-in-picture-active: root.picture-in-picture-active,
+                fullscreen: root.fullscreen,
+                sidebar: root.sidebar,
+                leading-sidebar: root.leading-sidebar,
+                remembered-settings-pane: root.remembered-settings-pane,
+                remembered-playlist-pane: root.remembered-playlist-pane,
+            };
+            music: {
+                music-mode: root.music-mode,
+                media-title: root.media-title,
+                music-album: root.music-album,
+                music-artist: root.music-artist,
+            };
+            control-bar-dragging <=> root.control-bar-dragging;
+            control-bar-hovered <=> root.control-bar-hovered;
+            control-bar-position-horizontal <=> root.control-bar-position-horizontal;
+            control-bar-position-vertical <=> root.control-bar-position-vertical;
+            controls-visible <=> root.controls-visible;
+            music-mode-show-album-art <=> root.music-mode-show-album-art;
+            music-mode-show-playlist <=> root.music-mode-show-playlist;
+            music-mode-volume-open <=> root.music-mode-volume-open;
+            paused: root.paused;
+            activity => { root.activity(); }
+            cycle-subtitle-track => { root.cycle-subtitle-track(); }
+            layout-settings-changed => { root.layout-settings-changed(); }
+            playlist-next => { root.playlist-next(); }
+            playlist-previous => { root.playlist-previous(); }
+            seek(value) => { root.seek(value); }
+            seek-scroll-action-request(delta-x, delta-y) => { return root.seek-scroll-action-request(delta-x, delta-y); }
+            set-ab-loop-point(point, value) => { root.set-ab-loop-point(point, value); }
+            set-volume(value) => { root.set-volume(value); }
+            speed(value) => { root.speed(value); }
+            take-screenshot => { root.take-screenshot(); }
+            timeline-hovered(value) => { root.timeline-hovered(value); }
+            toggle-fullscreen => { root.toggle-fullscreen(); }
+            toggle-live-text => { root.toggle-live-text(); }
+            toggle-music-mode => { root.toggle-music-mode(); }
+            toggle-mute => { root.toggle-mute(); }
+            toggle-pause => { root.toggle-pause(); }
+            toggle-picture-in-picture => { root.toggle-picture-in-picture(); }
+            toggle-playlist-pane(pane) => { root.toggle-playlist-pane(pane); }
+            toggle-plugins-pane => { root.toggle-plugins-pane(); }
+            toggle-settings-pane(pane) => { root.toggle-settings-pane(pane); }
+            volume-scroll-action-request(delta-x, delta-y) => { return root.volume-scroll-action-request(delta-x, delta-y); }
         }
         if root.music-mode && root.loaded : MusicModeWindowActions {
             x: 8px; y: 6px;

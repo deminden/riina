@@ -1,0 +1,476 @@
+import { CatalogRow } from "catalog-row.slint";
+import { MusicModeControls } from "music-mode-controls.slint";
+import { ToolbarAction } from "player-chrome-controls.slint";
+import { Tool } from "player-tool.slint";
+import { PlayerSlider } from "shared-controls.slint";
+
+struct ControllerGeometry {
+    window-width: length,
+    window-height: length,
+    available-width: length,
+    available-height: length,
+    video-width: length,
+    video-inset-leading: length,
+    video-inset-top: length,
+    sidebar-leading-extent: length,
+    sidebar-trailing-extent: length,
+    edge-to-edge-video: bool,
+    osc-position: int,
+    osc-height: length,
+}
+
+struct ControllerLayout {
+    osc-row-gap: length,
+    osc-row-height: length,
+    osc-row-inline-inset: length,
+    osc-timeline-gap: length,
+    osc-timeline-height: length,
+    osc-timeline-inline-inset: length,
+    transport-neighbor-actions-fit: bool,
+    small-video-controller: bool,
+    music-mode-time-label-min-width: length,
+}
+
+struct ControllerAppearance {
+    animations-disabled: bool,
+    active-liquid-glass-osc: bool,
+    dark-theme: bool,
+    platform-windows: bool,
+    native-video: bool,
+    interactive-accent-color: color,
+    compact-ui: bool,
+}
+
+struct ControllerMaterial {
+    video-blurred-frame: image,
+    render-width: length,
+    render-height: length,
+    video-material-sample-opacity: float,
+}
+
+struct ControllerAudio {
+    has-active-audio-track: bool,
+    muted: bool,
+    volume: float,
+    volume-limit: float,
+    control-disable-volume-slider-scrolling: bool,
+}
+
+struct ControllerTimeline {
+    seekable: bool,
+    position: float,
+    duration: float,
+    position-label: string,
+    duration-label: string,
+    ab-loop-a: float,
+    ab-loop-b: float,
+    ab-loop-a-known: bool,
+    ab-loop-b-known: bool,
+    chapter-times: [float],
+    show-chapter-pos: bool,
+    thumbnail-preview-enabled: bool,
+    thumbnail-preview-width: float,
+    timeline-preview-label: string,
+    timeline-thumbnail-image: image,
+    video-display-aspect-ratio: float,
+    control-disable-play-slider-scrolling: bool,
+}
+
+struct ControllerToolbar {
+    toolbar-visible-order: [int],
+    loaded: bool,
+    subtitle-tracks: [CatalogRow],
+    screenshot-available: bool,
+    live-text-available: bool,
+    live-text-enabled: bool,
+    picture-in-picture-active: bool,
+    fullscreen: bool,
+    sidebar: int,
+    leading-sidebar: int,
+    remembered-settings-pane: int,
+    remembered-playlist-pane: int,
+}
+
+struct ControllerMusic {
+    music-mode: bool,
+    media-title: string,
+    music-album: string,
+    music-artist: string,
+}
+
+export component PlayerController inherits Rectangle {
+    in property <ControllerGeometry> geometry;
+    in property <ControllerLayout> layout;
+    in property <ControllerAppearance> appearance;
+    in property <ControllerMaterial> material;
+    in property <ControllerAudio> audio;
+    in property <ControllerTimeline> timeline;
+    in property <ControllerToolbar> toolbar;
+    in property <ControllerMusic> music;
+    in-out property <bool> control-bar-dragging;
+    in-out property <bool> control-bar-hovered;
+    in-out property <float> control-bar-position-horizontal;
+    in-out property <float> control-bar-position-vertical;
+    in-out property <bool> controls-visible;
+    in-out property <bool> music-mode-show-album-art;
+    in-out property <bool> music-mode-show-playlist;
+    in-out property <bool> music-mode-volume-open;
+    in property <bool> paused;
+    callback activity();
+    callback cycle-subtitle-track();
+    callback layout-settings-changed();
+    callback playlist-next();
+    callback playlist-previous();
+    callback seek(float);
+    callback seek-scroll-action-request(float, float) -> bool;
+    callback set-ab-loop-point(int, float);
+    callback set-volume(float);
+    callback speed(float);
+    callback take-screenshot();
+    callback timeline-hovered(float);
+    callback toggle-fullscreen();
+    callback toggle-live-text();
+    callback toggle-music-mode();
+    callback toggle-mute();
+    callback toggle-pause();
+    callback toggle-picture-in-picture();
+    callback toggle-playlist-pane(int);
+    callback toggle-plugins-pane();
+    callback toggle-settings-pane(int);
+    callback volume-scroll-action-request(float, float) -> bool;
+
+    clip: true;
+    // IINA's OSCToolbarButton uses 24-point frames and a zero-spacing
+    // NSStackView; retain those bounds while allowing compact rows to clip vertically.
+    private property <length> toolbar-button-width: 24px;
+    private property <length> toolbar-gap: 0px;
+    private property <length> toolbar-width: root.toolbar.toolbar-visible-order.length * toolbar-button-width +
+        max(0, root.toolbar.toolbar-visible-order.length - 1) * toolbar-gap;
+    private property <length> side-width: max(116px, toolbar-width);
+    private property <bool> side-controls-fit: self.width >= transport-width +
+        side-width * 2 + 2 * root.layout.osc-row-inline-inset + 4 * root.layout.osc-row-gap;
+    // In constrained windows, hide the volume slider first and retain
+    // the four configured right-side actions using smaller hit targets.
+    private property <bool> compact-toolbar-fit: root.layout.small-video-controller &&
+        self.width >= 2 * root.layout.osc-row-inline-inset + toolbar-width + 30px +
+            (root.layout.transport-neighbor-actions-fit ? 60px : 0px) +
+            (root.layout.transport-neighbor-actions-fit ? 20px : 12px);
+    private property <bool> toolbar-actions-fit: side-controls-fit || compact-toolbar-fit;
+    private property <length> transport-width: root.layout.transport-neighbor-actions-fit
+        ? (root.geometry.osc-position == 0 ? 120px : 104px) : 24px;
+    // Equal side reservations keep Play centered even without audio or
+    // with a customized toolbar. Below this fit limit, retain the
+    // Windows narrow-window packed row so every action stays reachable.
+    private property <length> balanced-side-width: side-controls-fit ? side-width :
+        compact-toolbar-fit && self.width >= 2 * root.layout.osc-row-inline-inset +
+            2 * toolbar-width + transport-width + 4 * root.layout.osc-row-gap ? toolbar-width : 0px;
+    // Edge-to-edge keeps video behind sidebars, but the controls must
+    // stay in the unobscured video area so their actions remain visible.
+    private property <length> osc-video-leading-inset:
+        !root.music.music-mode ? (root.geometry.edge-to-edge-video ? root.geometry.sidebar-leading-extent : root.geometry.video-inset-leading) : 0px;
+    private property <length> osc-video-width:
+        !root.music.music-mode ? (root.geometry.edge-to-edge-video
+            ? max(1px, root.geometry.window-width - root.geometry.sidebar-leading-extent - root.geometry.sidebar-trailing-extent)
+            : root.geometry.video-width) : root.geometry.available-width;
+    width: root.music.music-mode ? root.geometry.available-width :
+        root.geometry.osc-position == 0 ? min(osc-video-width, max(200px, min(460px, osc-video-width - 2px))) :
+        osc-video-width;
+    animate width { duration: root.appearance.animations-disabled ? 0ms : 240ms; }
+    height: root.geometry.osc-height;
+    x: root.music.music-mode ? 0px :
+        osc-video-leading-inset + (root.geometry.osc-position == 0 ? clamp(
+            osc-video-width * (osc-video-width < 462px ? 0.5 : root.control-bar-position-horizontal) - self.width / 2,
+            0px, max(0px, osc-video-width - self.width)) : 0px);
+    animate x { duration: root.appearance.animations-disabled ? 0ms : 240ms; }
+    // Keep the transport row outside the playlist's hit-test surface
+    // in the compact music layout so Play/Pause remains directly usable.
+    // IINA stores this fraction as a bottom inset and clamps its top
+    // edge to 25 points; convert that bottom-origin rule to Slint's
+    // top-origin coordinates before positioning the full visible bar.
+    y: root.music.music-mode ? root.geometry.available-height -
+            (root.music-mode-show-playlist ? 300px : 0px) - self.height :
+        root.geometry.osc-position == 1 ? min(max(0px, root.geometry.available-height - self.height), root.appearance.compact-ui ? 30px : 34px) :
+        root.geometry.osc-position == 2 ? max(0px, root.geometry.available-height - self.height) :
+            max(0px, root.geometry.available-height -
+                min(max(0px, root.geometry.available-height - 67px - 25px),
+                    max(0px, root.geometry.available-height * root.control-bar-position-vertical)) - self.height);
+    opacity: root.music.music-mode || root.controls-visible ? 1 : 0;
+    animate opacity { duration: root.appearance.animations-disabled ? 0ms : 250ms; }
+    border-radius: root.music.music-mode ? 0px : root.geometry.osc-position == 0 ? 12px : 4px;
+    background: root.appearance.active-liquid-glass-osc
+        ? (root.appearance.dark-theme
+            ? (root.appearance.platform-windows ? #15151528 : root.appearance.native-video ? #15151599 : #202025e8)
+            : (root.appearance.platform-windows ? #f2f2f2c8 : root.appearance.native-video ? #f2f2f2c8 : #f2f2f2ed))
+        : (root.appearance.dark-theme ? #202025 : #f2f2f2);
+    if root.appearance.active-liquid-glass-osc : Image {
+        source: root.material.video-blurred-frame;
+        x: root.geometry.video-inset-leading - parent.x;
+        y: root.geometry.video-inset-top - parent.y;
+        width: root.material.render-width;
+        height: root.material.render-height;
+        opacity: root.material.video-material-sample-opacity;
+        image-fit: contain;
+    }
+    border-width: 1px; border-color: #ffffff25;
+    // This is a tinted SDR approximation, not a claim of matching AppKit video blur.
+    // The 24-point transport row, padded 24-point timeline, source
+    // insets, and 8-point gap reproduce IINA's visible floating panel.
+    TouchArea {
+        width: parent.width; height: parent.height;
+        private property <float> drag-start-x: 0;
+        private property <float> drag-start-y: 0;
+        private property <float> drag-origin-x: 0;
+        private property <float> drag-origin-y: 0;
+        moved => {
+            if self.pressed && root.geometry.osc-position == 0 && !root.music.music-mode {
+                let available-x = max(0px, osc-video-width - root.width);
+                let available-y = max(0, root.geometry.window-height / 1px - root.height / 1px);
+                // AppKit constrains the left edge to 10 points, but lets
+                // the right edge reach the video boundary. Its bottom-
+                // origin y range converts to a 25-point top inset here.
+                let minimum-x = min(10, available-x / 1px);
+                let minimum-y = min(25, available-y);
+                let requested-x = drag-origin-x + self.mouse-x / 1px - drag-start-x;
+                let requested-y = drag-origin-y + self.mouse-y / 1px - drag-start-y;
+                let bounded-x = clamp(requested-x, minimum-x, available-x / 1px);
+                let bounded-y = clamp(requested-y, minimum-y, available-y);
+                let center-x = (osc-video-width / 1px - root.width / 1px) / 2;
+                let snapped-x = abs(bounded-x - center-x) <= 5 ? center-x : bounded-x;
+                root.control-bar-position-horizontal = (snapped-x + root.width / 2 / 1px) / max(1, osc-video-width / 1px);
+                root.control-bar-position-vertical = (root.geometry.window-height / 1px - bounded-y - root.height / 1px) / max(1, root.geometry.window-height / 1px);
+                root.control-bar-dragging = true;
+            }
+        }
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down
+                && root.geometry.osc-position == 0 && !root.music.music-mode {
+                drag-start-x = self.mouse-x / 1px;
+                drag-start-y = self.mouse-y / 1px;
+                drag-origin-x = (root.x - osc-video-leading-inset) / 1px;
+                drag-origin-y = root.y / 1px;
+            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up
+                && root.control-bar-dragging {
+                root.control-bar-dragging = false;
+                root.layout-settings-changed();
+            }
+        }
+        changed has-hover => {
+            root.control-bar-hovered = self.has-hover;
+            if root.music.music-mode && !self.has-hover { root.music-mode-volume-open = false; }
+        }
+        VerticalLayout { width: parent.width; height: parent.height;
+        padding-top: root.music.music-mode ? 8px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 5px : root.appearance.compact-ui ? 10px : 14px;
+        padding-bottom: root.music.music-mode ? 8px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 4px : root.appearance.compact-ui ? 5px : 8px;
+        // IINA's floating OSC keeps an 8 pt gap between the top row
+        // and timeline in both spacious and compact layouts.
+        spacing: root.music.music-mode ? 6px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 3px : 8px;
+        Rectangle {
+            horizontal-stretch: 1;
+            height: root.music.music-mode ? 32px : root.layout.osc-row-height;
+            background: transparent;
+            if root.music.music-mode : MusicModeControls {
+                y: 4px; width: parent.width;
+                paused: root.paused; muted: root.audio.muted; dark-theme: root.appearance.dark-theme;
+                accent-color: root.appearance.interactive-accent-color;
+                playlist-visible: root.music-mode-show-playlist;
+                artwork-visible: root.music-mode-show-album-art;
+                opacity: root.controls-visible ? 1 : 0;
+                animate opacity { duration: root.appearance.animations-disabled ? 0ms : 200ms; }
+                pause-requested => { root.toggle-pause(); }
+                previous-requested => { root.playlist-previous(); }
+                next-requested => { root.playlist-next(); }
+                volume-requested => {
+                    if !root.music-mode-volume-open { root.music-mode-volume-open = true; }
+                    else { root.toggle-mute(); }
+                }
+                playlist-requested => { root.music-mode-show-playlist = !root.music-mode-show-playlist; }
+                artwork-requested => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
+            }
+            if !root.music.music-mode : HorizontalLayout {
+            x: 0px; y: 0px;
+            width: parent.width; height: root.layout.osc-row-height;
+            opacity: root.controls-visible ? 1 : 0;
+            animate opacity { duration: root.appearance.animations-disabled ? 0ms : 200ms; }
+            padding-left: root.layout.osc-row-inline-inset;
+            padding-right: root.layout.osc-row-inline-inset;
+            spacing: root.layout.osc-row-gap;
+            if !root.music.music-mode && root.balanced-side-width > 0px : Rectangle {
+                width: root.balanced-side-width; height: root.layout.osc-row-height;
+                if root.side-controls-fit && root.audio.has-active-audio-track : HorizontalLayout {
+                    width: 116px; height: root.layout.osc-row-height; spacing: 4px;
+                    Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme; height: root.layout.osc-row-height;
+                        icon: root.audio.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
+                        hint: "Mute"; activated => { root.toggle-mute(); } }
+                    PlayerSlider { dark-theme: root.appearance.dark-theme; width: 82px; height: root.layout.osc-row-height;
+                        minimum: 0; maximum: root.audio.volume-limit; value: root.audio.volume; hint: "Volume";
+                        scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
+                        scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
+                        scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
+                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
+                        changed(value) => { root.set-volume(value); }
+                    }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            HorizontalLayout {
+                spacing: root.music.music-mode ? 2px : root.geometry.osc-position == 0 ? 24px : 16px;
+                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: root.appearance.interactive-accent-color;
+                    dark-theme: root.appearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
+                    icon: root.music.music-mode
+                        ? @image-url("../../../assets/icons/skip-previous.svg")
+                        : @image-url("../../../assets/icons/speed-down.svg");
+                    hint: root.music.music-mode ? "Previous media" : "Half playback speed";
+                    activated => {
+                        if root.music.music-mode { root.playlist-previous(); }
+                        else { root.speed(0.5); }
+                    }
+                }
+                Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme;
+                    width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
+                    // The triangular ink's centroid sits 2.83 pt left of
+                    // its SVG center. Balance its optical weight without
+                    // moving the hit target or the symmetric pause bars.
+                    icon-optical-offset-x: root.paused ? 2.5px : 0px;
+                    icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg"); hint: root.paused ? "Play" : "Pause";
+                    activated => { root.toggle-pause(); } }
+                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: root.appearance.interactive-accent-color;
+                    dark-theme: root.appearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
+                    icon: root.music.music-mode
+                        ? @image-url("../../../assets/icons/skip-next.svg")
+                        : @image-url("../../../assets/icons/speed-up.svg");
+                    hint: root.music.music-mode ? "Next media" : "Double playback speed";
+                    activated => {
+                        if root.music.music-mode { root.playlist-next(); }
+                        else { root.speed(2); }
+                    }
+                }
+            }
+            if !root.music.music-mode : Rectangle { horizontal-stretch: 1; background: transparent; }
+            if !root.music.music-mode && root.toolbar-actions-fit : Rectangle {
+                width: max(root.balanced-side-width, root.toolbar-width); height: root.layout.osc-row-height;
+                HorizontalLayout {
+                x: parent.width - self.width;
+                width: root.toolbar-width; height: root.layout.osc-row-height;
+                spacing: root.toolbar-gap;
+                for action-kind in root.toolbar.toolbar-visible-order : ToolbarAction {
+                kind: action-kind;
+                action-width: root.toolbar-button-width;
+                action-height: min(root.toolbar-button-width, root.layout.osc-row-height);
+                height: root.layout.osc-row-height;
+                dark-theme: root.appearance.dark-theme;
+                enabled: (action-kind != 5 || (root.toolbar.loaded && root.toolbar.subtitle-tracks.length > 1)) &&
+                    (action-kind != 6 || root.toolbar.screenshot-available) &&
+                    (action-kind != 8 || root.toolbar.live-text-available);
+                selected: action-kind == 0 ? (root.toolbar.sidebar == 1 || root.toolbar.sidebar == 2 || root.toolbar.sidebar == 5 || root.toolbar.sidebar == 6 ||
+                        root.toolbar.leading-sidebar == 1 || root.toolbar.leading-sidebar == 2 || root.toolbar.leading-sidebar == 5 || root.toolbar.leading-sidebar == 6) :
+                    action-kind == 1 ? (root.toolbar.sidebar == 3 || root.toolbar.sidebar == 4 || root.toolbar.leading-sidebar == 3 || root.toolbar.leading-sidebar == 4) :
+                    action-kind == 2 ? root.toolbar.picture-in-picture-active :
+                    action-kind == 3 ? root.toolbar.fullscreen :
+                    action-kind == 4 ? root.music.music-mode : action-kind == 8 ? root.toolbar.live-text-enabled : false;
+                hint: action-kind == 0 ? "Quick Settings" :
+                    action-kind == 1 ? "Playlist and chapters" :
+                    action-kind == 2 ? "Toggle Picture-in-Picture" :
+                    action-kind == 3 ? (root.toolbar.fullscreen ? "Exit Full Screen" : "Enter Full Screen") :
+                    action-kind == 4 ? (root.music.music-mode ? "Exit Music Mode" : "Enter Music Mode") :
+                    action-kind == 5 ? "Switch Subtitle Track" :
+                    action-kind == 6 ? "Take Screenshot" :
+                    action-kind == 7 ? "Show plugins panel" : "Live Text";
+                activated(kind) => {
+                    if kind == 0 { root.toggle-settings-pane(root.toolbar.remembered-settings-pane); }
+                    else if kind == 1 { root.toggle-playlist-pane(root.toolbar.remembered-playlist-pane); }
+                    else if kind == 2 { root.toggle-picture-in-picture(); }
+                    else if kind == 3 { root.toggle-fullscreen(); }
+                    else if kind == 4 { root.toggle-music-mode(); }
+                    else if kind == 5 { root.cycle-subtitle-track(); }
+                    else if kind == 6 { root.take-screenshot(); }
+                    else if kind == 7 { root.toggle-plugins-pane(); }
+                    else if kind == 8 { root.toggle-live-text(); }
+                }
+            }
+            }
+            }
+        }
+            if root.music.music-mode : HorizontalLayout {
+            x: 0px; y: 0px; width: parent.width; height: 27px;
+            opacity: root.controls-visible ? 0 : 1;
+            animate opacity { duration: root.appearance.animations-disabled ? 0ms : 200ms; }
+            padding-left: 16px; padding-right: 16px;
+            VerticalLayout {
+                spacing: 0px;
+                Text { text: root.music.media-title; color: root.appearance.dark-theme ? #ffffff : #202024;
+                    font-size: 13px; font-weight: 600; horizontal-alignment: center;
+                    overflow: elide; }
+                Text {
+                    text: root.music.music-artist + (root.music.music-artist != "" && root.music.music-album != "" ? " · " : "") + root.music.music-album;
+                    visible: root.music.music-artist != "" || root.music.music-album != "";
+                    color: root.appearance.dark-theme ? #d0d0d4 : #505056; font-size: 11px;
+                    horizontal-alignment: center; overflow: elide;
+                }
+            }
+        }
+            if root.music.music-mode && !root.controls-visible : TouchArea {
+                width: parent.width; height: parent.height;
+                moved => { root.controls-visible = true; root.activity(); }
+                clicked => { root.activity(); }
+            }
+        }
+        if root.layout.osc-timeline-height > 0px : HorizontalLayout {
+            height: root.layout.osc-timeline-height; vertical-stretch: 0;
+            padding-left: root.layout.osc-timeline-inline-inset;
+            padding-right: root.layout.osc-timeline-inline-inset;
+            // IINA gives each centered time label a 46-point minimum
+            // and keeps a 2-point gap to the native playback slider.
+            spacing: root.layout.osc-timeline-gap;
+            Text { visible: root.geometry.window-width >= 150px; min-width: root.music.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
+                horizontal-alignment: root.music.music-mode ? right : center;
+                text: root.timeline.position-label; color: root.appearance.dark-theme ? #d4d4d4 : #29292d;
+                font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
+            PlayerSlider { dark-theme: root.appearance.dark-theme; height: root.layout.small-video-controller ? 14px : 13px;
+                knob-width: 3px; knob-height: root.layout.small-video-controller ? 12px : 15px; knob-radius: 1px;
+                scroll-override-enabled: root.timeline.seekable && !root.timeline.control-disable-play-slider-scrolling;
+                scroll-disabled: root.timeline.control-disable-play-slider-scrolling;
+                scroll-request(delta-x, delta-y) => { root.seek-scroll-action-request(delta-x, delta-y); }
+                loop-a-visible: root.timeline.ab-loop-a-known; loop-a-value: root.timeline.ab-loop-a;
+                loop-b-visible: root.timeline.ab-loop-b-known; loop-b-value: root.timeline.ab-loop-b;
+                show-chapter-positions: root.timeline.show-chapter-pos; chapter-times: root.timeline.chapter-times;
+                preview-enabled: root.timeline.seekable && root.timeline.thumbnail-preview-enabled;
+                preview-image: root.timeline.timeline-thumbnail-image;
+                preview-label: root.timeline.timeline-preview-label; preview-width: root.timeline.thumbnail-preview-width;
+                preview-aspect-ratio: root.timeline.video-display-aspect-ratio > 0 ? root.timeline.video-display-aspect-ratio : 16 / 9;
+                preview-above: root.geometry.osc-position != 1;
+                minimum: 0; maximum: max(1, root.timeline.duration); value: root.timeline.position; enabled: root.timeline.seekable; hint: "Playback position";
+                changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
+                changed(value) => { root.seek(value); }
+                loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
+                loop-b-moved(value) => { root.set-ab-loop-point(1, value); }
+                preview-requested(value) => { root.timeline-hovered(value); }
+                preview-dismissed => { root.timeline-hovered(-1); } }
+            Text { visible: root.geometry.window-width >= 150px; min-width: root.music.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
+                horizontal-alignment: root.music.music-mode ? left : center;
+                text: root.timeline.duration-label; color: root.appearance.dark-theme ? #d4d4d4 : #29292d;
+                font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
+        }
+        }
+    }
+    if root.music.music-mode && root.music-mode-volume-open : Rectangle {
+        x: parent.width - 156px; y: 2px; width: 148px; height: 36px;
+        border-radius: 18px;
+        background: root.appearance.active-liquid-glass-osc
+            ? (root.appearance.dark-theme ? #25252beF : #f5f5f7f0)
+            : (root.appearance.dark-theme ? #303036 : #eeeeF2);
+        border-width: 1px; border-color: #ffffff30;
+        HorizontalLayout {
+            x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px; spacing: 6px;
+            Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme; width: 24px; height: 24px;
+                icon: root.audio.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
+                hint: "Mute"; activated => { root.toggle-mute(); } }
+            PlayerSlider { dark-theme: root.appearance.dark-theme; horizontal-stretch: 1; height: 17px;
+                minimum: 0; maximum: root.audio.volume-limit; value: root.audio.volume; hint: "Volume";
+                scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
+                scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
+                scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
+                changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
+                changed(value) => { root.set-volume(value); } }
+        }
+    }
+}
