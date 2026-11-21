@@ -1,7 +1,32 @@
 //! Keep the Auto Load controls aligned with the persisted shared preference.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::subtitle_controls::{AutoLoadMode, AutoLoadPreferences, SUBTITLE_AUTO_LOAD_MODES};
 use slint::{ModelRc, SharedString, VecModel};
+
+impl PreferenceSection for AutoLoadPreferences {
+    fn get(all: &Preferences) -> Self {
+        all.subtitle_auto_load.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.subtitle_auto_load = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 pub(crate) fn mode_options() -> ModelRc<SharedString> {
     ModelRc::new(VecModel::from(
