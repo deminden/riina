@@ -2,10 +2,6 @@
 
 use riina_core::subtitle_controls::AssOverrideLevel;
 
-pub(crate) fn level(index: i32) -> Option<AssOverrideLevel> {
-    AssOverrideLevel::from_slider_index(index)
-}
-
 pub(crate) const fn index(level: AssOverrideLevel) -> i32 {
     level.slider_index()
 }
