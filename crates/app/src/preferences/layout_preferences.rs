@@ -26,18 +26,19 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
     let baseline_for_window_level = baseline.clone();
     app.on_layout_settings_changed(move || {
         let Some(app) = weak.upgrade() else { return };
+        let appearance = app.global::<riina_ui::PlayerAppearance>();
         let selected = (
-            app.get_compact_ui(),
+            appearance.get_compact_ui(),
             app.get_osc_position().clamp(0, 2),
             app.get_settings_at_leading(),
             app.get_playlist_at_leading(),
             app.get_edge_to_edge_video(),
             app.get_docked_controls(),
             app.get_unlock_window_aspect_ratio(),
-            app.get_appearance_mode(),
-            app.get_liquid_glass_osd(),
-            app.get_liquid_glass_osc(),
-            app.get_liquid_glass_sidebar(),
+            appearance.get_appearance_mode(),
+            appearance.get_liquid_glass_osd(),
+            appearance.get_liquid_glass_osc(),
+            appearance.get_liquid_glass_sidebar(),
             app.get_control_bar_position_horizontal(),
             app.get_control_bar_position_vertical(),
             app.get_plugins_at_leading(),
@@ -66,7 +67,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             Ok(())
         });
         if let Err(error) = result {
-            app.set_compact_ui(previous.0);
+            appearance.set_compact_ui(previous.0);
             app.set_osc_position(previous.1);
             app.set_settings_at_leading(previous.2);
             app.set_playlist_at_leading(previous.3);
@@ -74,10 +75,10 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             app.set_edge_to_edge_video(previous.4);
             app.set_docked_controls(previous.5);
             app.set_unlock_window_aspect_ratio(previous.6);
-            app.set_appearance_mode(previous.7);
-            app.set_liquid_glass_osd(previous.8);
-            app.set_liquid_glass_osc(previous.9);
-            app.set_liquid_glass_sidebar(previous.10);
+            appearance.set_appearance_mode(previous.7);
+            appearance.set_liquid_glass_osd(previous.8);
+            appearance.set_liquid_glass_osc(previous.9);
+            appearance.set_liquid_glass_sidebar(previous.10);
             app.set_control_bar_position_horizontal(previous.11);
             app.set_control_bar_position_vertical(previous.12);
             app.set_status(error.into());

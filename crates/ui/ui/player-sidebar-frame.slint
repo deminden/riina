@@ -1,25 +1,18 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerRenderedVideo } from "player-rendered-video.slint";
 import { Theme } from "theme.slint";
 export component PlayerSidebarFrame inherits Rectangle {
-    in property <bool> active-liquid-glass-sidebar;
-    in property <bool> dark-theme;
     in property <bool> native-video;
-    in property <bool> platform-macos;
-    in property <bool> platform-windows;
     in property <length> render-height;
     in property <length> render-width;
-    in property <float> sidebar-material-sample-opacity;
-    in property <image> video-blurred-frame;
     in property <length> video-inset-leading;
     in property <length> video-inset-top;
-    in property <bool> video-material-sample-ready;
-    in property <bool> windows-sidebar-material-active;
     callback activity();
 
     in property <bool> leading;
     in property <length> viewport-width;
     in property <bool> sidebar-open;
     in property <bool> reduce-motion-fade;
-    in property <bool> animations-disabled;
 
     // Keep every category and the close control reachable when the
     // upstream 80% sidebar limit leaves too little room for tab text.
@@ -27,46 +20,46 @@ export component PlayerSidebarFrame inherits Rectangle {
 
     private property <bool> close-transition-pending: false;
     changed sidebar-open => {
-        root.close-transition-pending = !sidebar-open && !root.animations-disabled;
+        root.close-transition-pending = !sidebar-open && !PlayerAppearance.animations-disabled;
     }
     changed reduce-motion-fade => {
-        if root.animations-disabled { root.close-transition-pending = false; }
+        if PlayerAppearance.animations-disabled { root.close-transition-pending = false; }
     }
     Timer {
         interval: 260ms; running: parent.close-transition-pending;
         triggered => { parent.close-transition-pending = false; }
     }
-    visible: sidebar-open || (close-transition-pending && !root.animations-disabled);
+    visible: sidebar-open || (close-transition-pending && !PlayerAppearance.animations-disabled);
     x: root.leading
         ? ((sidebar-open || reduce-motion-fade) ? 0px : -self.width)
         : ((sidebar-open || reduce-motion-fade) ? root.viewport-width - self.width : root.viewport-width);
-    animate x { duration: root.animations-disabled || reduce-motion-fade ? 0ms : 240ms; }
+    animate x { duration: PlayerAppearance.animations-disabled || reduce-motion-fade ? 0ms : 240ms; }
     opacity: !reduce-motion-fade || sidebar-open ? 1 : 0;
     animate opacity { duration: reduce-motion-fade ? 240ms : 0ms; }
 
     clip: true;
-    border-radius: root.windows-sidebar-material-active ? 12px : 0px;
-    border-width: root.windows-sidebar-material-active ? 1px : 0px;
-    border-color: Theme.sidebar-material-border(root.dark-theme);
+    border-radius: PlayerAppearance.windows-sidebar-material-active ? 12px : 0px;
+    border-width: PlayerAppearance.windows-sidebar-material-active ? 1px : 0px;
+    border-color: Theme.sidebar-material-border(PlayerAppearance.dark-theme);
     // The transparent Windows host would otherwise reveal the desktop
     // during the video-sample startup gap or after a stale frame expires.
     background: Theme.sidebar-frame-surface(
-        root.dark-theme, root.active-liquid-glass-sidebar, root.platform-macos,
-        root.platform-windows, root.native-video, root.video-material-sample-ready);
-    if root.active-liquid-glass-sidebar &&
-        (!root.platform-windows || root.video-material-sample-ready) : sidebar-video-sample := Image {
-        source: root.video-blurred-frame;
+        PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-sidebar, PlayerAppearance.platform-macos,
+        PlayerAppearance.platform-windows, root.native-video, PlayerRenderedVideo.video-material-sample-ready);
+    if PlayerAppearance.active-liquid-glass-sidebar &&
+        (!PlayerAppearance.platform-windows || PlayerRenderedVideo.video-material-sample-ready) : sidebar-video-sample := Image {
+        source: PlayerRenderedVideo.video-blurred-frame;
         x: root.video-inset-leading - parent.x;
         y: root.video-inset-top - parent.y;
         width: root.render-width;
         height: root.render-height;
-        opacity: root.sidebar-material-sample-opacity;
+        opacity: PlayerAppearance.sidebar-material-sample-opacity(root.native-video);
         image-fit: contain;
     }
     // A light material needs its tint above the sampled video. Drawing
     // the sample over that tint made labels depend on the movie's color.
-    if root.windows-sidebar-material-active && !root.dark-theme &&
-        root.video-material-sample-ready : sidebar-light-tint := Rectangle {
+    if PlayerAppearance.windows-sidebar-material-active && !PlayerAppearance.dark-theme &&
+        PlayerRenderedVideo.video-material-sample-ready : sidebar-light-tint := Rectangle {
         width: parent.width; height: parent.height;
         background: Theme.sidebar-light-tint;
     }

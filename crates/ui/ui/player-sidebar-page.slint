@@ -1,3 +1,4 @@
+import { PlayerAppearance } from "player-appearance.slint";
 import { AudioQuickSettingsPage } from "quick-settings-audio.slint";
 import { SubtitleQuickSettingsPage } from "quick-settings-subtitles.slint";
 import { VideoQuickSettingsPage } from "quick-settings-video.slint";
@@ -13,22 +14,12 @@ export component PlayerSidebarPage inherits VerticalLayout {
     in property <int> pane-kind;
     in property <bool> quick-settings-pane;
     in property <length> sidebar-width;
-    in property <bool> compact-ui;
-    in property <bool> dark-theme;
-    in property <color> interactive-accent-color;
     in property <bool> loaded;
-    in property <bool> platform-windows;
-    in property <color> sidebar-card-material-fill;
-    in property <color> sidebar-control-material-fill;
-    in property <color> windows-accent-color;
-    in property <color> windows-accent-foreground;
-    in property <bool> windows-sidebar-material-active;
     in property <string> plugin-sidebar-selected-identifier;
     in property <[string]> plugin-sidebar-labels;
     in property <bool> playlist-metadata-visible;
     in property <[CatalogRow]> chapters;
     in property <[CatalogRow]> playlist;
-    in property <bool> animations-disabled;
     in property <string> speed-edit-value;
     in property <float> speed-slider-position;
     in property <float> speed-value;
@@ -46,14 +37,14 @@ export component PlayerSidebarPage inherits VerticalLayout {
     alignment: start; spacing: 1px;
     cross-axis-alignment: quick-settings-pane ? center : start;
     if pane-kind == 1 : AudioQuickSettingsPage {
-        card-width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
-        compact-ui: root.compact-ui;
-        dark-theme: root.dark-theme;
+        card-width: root.sidebar-width - (PlayerAppearance.compact-ui ? 28px : 32px);
+        compact-ui: PlayerAppearance.compact-ui;
+        dark-theme: PlayerAppearance.dark-theme;
         delete-audio-equalizer-profile => { PlayerSidebarActions.delete-audio-equalizer-profile(); }
-        interactive-accent-color: root.interactive-accent-color;
+        interactive-accent-color: PlayerAppearance.interactive-accent-color;
         load-external-audio => { PlayerMenuActions.browse-files(1); }
         loaded: root.loaded;
-        platform-windows: root.platform-windows;
+        platform-windows: PlayerAppearance.platform-windows;
         preview-audio-delay(value-1) => { PlayerSidebarActions.preview-audio-delay(value-1); }
         rename-audio-equalizer-profile(value-1) => { return PlayerSidebarActions.rename-audio-equalizer-profile(value-1); }
         reset-audio-delay => { PlayerMenuActions.reset-audio-delay(); }
@@ -64,22 +55,22 @@ export component PlayerSidebarPage inherits VerticalLayout {
         set-delay(value-1) => { PlayerSidebarActions.set-delay(DelayLane.audio, value-1); }
         set-delay-text(value-1) => { return PlayerSidebarActions.set-delay-text(DelayLane.audio, value-1); }
         set-volume-boost(value-1) => { PlayerSidebarActions.set-volume-boost(value-1); }
-        sidebar-card-material-fill: root.sidebar-card-material-fill;
-        sidebar-control-material-fill: root.sidebar-control-material-fill;
+        sidebar-card-material-fill: PlayerAppearance.sidebar-card-material-fill;
+        sidebar-control-material-fill: PlayerAppearance.sidebar-control-material-fill;
         track-selected(value-1, value-2) => { PlayerMenuActions.select-item(root.selection-for-pane(value-1), value-2); }
         validate-audio-equalizer-profile-name(value-1, value-2) => { return PlayerSidebarActions.validate-audio-equalizer-profile-name(value-1, value-2); }
         volume-boost: PlayerPreferences.volume-boost;
-        windows-accent-color: root.windows-accent-color;
-        windows-sidebar-material-active: root.windows-sidebar-material-active;
+        windows-accent-color: PlayerAppearance.windows-accent-color;
+        windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
     }
     if pane-kind == 7 && root.plugin-sidebar-selected-identifier == "" : VerticalLayout {
         spacing: 6px;
         Text { text: "Plugins can provide content in this panel.";
-            color: Theme.sidebar-heading-text(root.dark-theme);
+            color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
             font-size: 12px; wrap: word-wrap; }
         if root.plugin-sidebar-labels.length == 0 : Text {
             text: "Enabled plugins with sidebar tabs appear here.";
-            color: Theme.sidebar-secondary-text(root.dark-theme);
+            color: Theme.sidebar-secondary-text(PlayerAppearance.dark-theme);
             font-size: 11px; wrap: word-wrap; }
     }
     for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): CatalogSidebarRow {
@@ -88,8 +79,8 @@ export component PlayerSidebarPage inherits VerticalLayout {
         index: index;
         pane-kind: root.pane-kind;
         playlist: root.playlist;
-        dark-theme: root.dark-theme;
-        interactive-accent-color: root.interactive-accent-color;
+        dark-theme: PlayerAppearance.dark-theme;
+        interactive-accent-color: PlayerAppearance.interactive-accent-color;
         playlist-metadata-visible: root.playlist-metadata-visible;
         select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
         select-playlist-row(index, extend, range) => { PlayerSidebarActions.select-playlist-row(index, extend, range) }
@@ -98,12 +89,12 @@ export component PlayerSidebarPage inherits VerticalLayout {
     }
     if pane-kind == 6 : VideoQuickSettingsPage {
         sidebar-width: root.sidebar-width;
-        animations-disabled: root.animations-disabled;
-        compact-ui: root.compact-ui;
-        dark-theme: root.dark-theme;
-        interactive-accent-color: root.interactive-accent-color;
+        animations-disabled: PlayerAppearance.animations-disabled;
+        compact-ui: PlayerAppearance.compact-ui;
+        dark-theme: PlayerAppearance.dark-theme;
+        interactive-accent-color: PlayerAppearance.interactive-accent-color;
         loaded: root.loaded;
-        platform-windows: root.platform-windows;
+        platform-windows: PlayerAppearance.platform-windows;
         reset-speed => { PlayerMenuActions.reset-speed(); }
         restore-player-focus => { root.restore-player-focus(); }
         set-hardware-decoding(value) => { PlayerSidebarActions.set-hardware-decoding(value); }
@@ -114,25 +105,25 @@ export component PlayerSidebarPage inherits VerticalLayout {
         set-video-crop(value) => { PlayerSidebarActions.set-video-crop(value); }
         set-video-equalizer(band, value) => { PlayerSidebarActions.set-video-equalizer(band, value); }
         set-video-rotation(value) => { PlayerSidebarActions.set-video-rotation(value); }
-        sidebar-card-material-fill: root.sidebar-card-material-fill;
+        sidebar-card-material-fill: PlayerAppearance.sidebar-card-material-fill;
         speed-edit-value: root.speed-edit-value;
         speed-slider-position: root.speed-slider-position;
         speed-value: root.speed-value;
         track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
-        windows-accent-color: root.windows-accent-color;
-        windows-accent-foreground: root.windows-accent-foreground;
-        windows-sidebar-material-active: root.windows-sidebar-material-active;
+        windows-accent-color: PlayerAppearance.windows-accent-color;
+        windows-accent-foreground: PlayerAppearance.windows-accent-foreground;
+        windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
     }
     if pane-kind == 2 : SubtitleQuickSettingsPage {
         sidebar-width: root.sidebar-width;
         choose-subtitle-font => { PlayerMenuActions.choose-subtitle-font(); }
-        compact-ui: root.compact-ui;
-        dark-theme: root.dark-theme;
+        compact-ui: PlayerAppearance.compact-ui;
+        dark-theme: PlayerAppearance.dark-theme;
         find-online-subtitles => { PlayerMenuActions.find-online-subtitles(); }
-        interactive-accent-color: root.interactive-accent-color;
+        interactive-accent-color: PlayerAppearance.interactive-accent-color;
         load-subtitle => { PlayerMenuActions.browse-files(2); }
         loaded: root.loaded;
-        platform-windows: root.platform-windows;
+        platform-windows: PlayerAppearance.platform-windows;
         reset-subtitle-delay => { PlayerMenuActions.reset-subtitle-delay(); }
         restore-player-focus => { root.restore-player-focus(); }
         set-delay(lane, seconds) => { PlayerSidebarActions.set-delay(lane, seconds); }
@@ -142,13 +133,13 @@ export component PlayerSidebarPage inherits VerticalLayout {
         set-subtitle-outline-size(value) => { PlayerSidebarActions.set-subtitle-outline-size(value); }
         set-subtitle-position(secondary, position) => { PlayerSidebarActions.set-subtitle-position(secondary, position); }
         set-subtitle-scale-slider(value) => { PlayerMenuActions.set-subtitle-scale-slider(value); }
-        sidebar-card-material-fill: root.sidebar-card-material-fill;
-        sidebar-control-material-fill: root.sidebar-control-material-fill;
+        sidebar-card-material-fill: PlayerAppearance.sidebar-card-material-fill;
+        sidebar-control-material-fill: PlayerAppearance.sidebar-control-material-fill;
         toggle-secondary-subtitle-visibility => { PlayerMenuActions.toggle-secondary-subtitle-visibility(); }
         toggle-subtitle-visibility => { PlayerMenuActions.toggle-subtitle-visibility(); }
         track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
-        windows-accent-color: root.windows-accent-color;
-        windows-accent-foreground: root.windows-accent-foreground;
-        windows-sidebar-material-active: root.windows-sidebar-material-active;
+        windows-accent-color: PlayerAppearance.windows-accent-color;
+        windows-accent-foreground: PlayerAppearance.windows-accent-foreground;
+        windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
     }
 }

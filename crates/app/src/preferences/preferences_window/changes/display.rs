@@ -55,7 +55,7 @@ impl Draft {
             read_or_refresh(model.read_section::<ThumbnailPreview>(window), app, window)?;
         let previous_layout = Layout {
             position: app.get_osc_position(),
-            compact: app.get_compact_ui(),
+            compact: app.global::<riina_ui::PlayerAppearance>().get_compact_ui(),
             docked: app.get_docked_controls(),
         };
         let previous_chapter_positions = app
@@ -85,7 +85,7 @@ impl Draft {
             app,
             window,
         )?;
-        let dark = theme.dark_for(app.get_dark_theme());
+        let dark = theme.dark_for(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
         Some(Self {
             previous_osd,
             osd,
@@ -112,7 +112,8 @@ impl Draft {
         player_preferences.set_disable_osd_seek(window.get_disable_osd_seek());
         app.set_osc_position(window.get_osc_position().clamp(0, 2));
         player_preferences.set_show_chapter_pos(window.get_show_chapter_pos());
-        app.set_compact_ui(window.get_compact_ui());
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_compact_ui(window.get_compact_ui());
         if !app.get_edge_to_edge_video() {
             app.set_docked_controls(window.get_docked_controls());
         }
@@ -134,7 +135,8 @@ impl Draft {
         app.set_osc_position(self.previous_layout.position);
         app.global::<riina_ui::PlayerPreferences>()
             .set_show_chapter_pos(self.previous_chapter_positions);
-        app.set_compact_ui(self.previous_layout.compact);
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_compact_ui(self.previous_layout.compact);
         app.set_docked_controls(self.previous_layout.docked);
         self.previous_material.write_player(app);
         self.previous_resize.write_player(app);

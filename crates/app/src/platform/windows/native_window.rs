@@ -175,7 +175,8 @@ impl NativeApp {
                 // Construct only after its owner HWND exists, as in the verified probe.
                 let app = PlayerWindow::new()?;
                 app.set_native_video(true);
-                app.set_system_materials_enabled(super::materials::native_materials_enabled());
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_system_materials_enabled(super::materials::native_materials_enabled());
                 surfaces::watch_alignment(
                     &host,
                     &app,

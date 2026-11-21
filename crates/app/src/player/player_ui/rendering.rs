@@ -143,7 +143,8 @@ impl RenderSession {
             )
             .build()
         };
-        app.set_video_frame(image);
+        app.global::<riina_ui::PlayerRenderedVideo>()
+            .set_video_frame(image);
         // SAFETY: all presentation work uses this window's current GL context.
         if let Err(error) = unsafe { self.extras.render_pip(video) } {
             app.set_status(format!("PiP frame rendering failed: {error}").into());
@@ -176,7 +177,8 @@ impl RenderSession {
                 && let Some(app) = weak.upgrade()
                 && !app.get_native_video()
             {
-                app.set_video_frame(slint::Image::default());
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_video_frame(slint::Image::default());
                 set_video_material_sample(&app, slint::Image::default(), false);
                 app.set_engine_ready(false);
             }
@@ -220,13 +222,14 @@ fn project_blur(
     width: u32,
     height: u32,
 ) {
-    let sidebar_blur = app.get_liquid_glass_sidebar()
+    let appearance = app.global::<riina_ui::PlayerAppearance>();
+    let sidebar_blur = appearance.get_liquid_glass_sidebar()
         && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
-    let controller_blur = app.get_liquid_glass_osc()
+    let controller_blur = appearance.get_liquid_glass_osc()
         && app.get_loaded()
         && (app.get_controls_visible() || app.get_music_mode());
     let osd = app.global::<riina_ui::PlayerOsdState>();
-    let osd_blur = app.get_liquid_glass_osd()
+    let osd_blur = appearance.get_liquid_glass_osd()
         && app.get_loaded()
         && (osd.get_video_osd_visible()
             || osd.get_seek_osd_visible()
@@ -237,7 +240,7 @@ fn project_blur(
                     .global::<riina_ui::PlayerPreferences>()
                     .get_display_time_and_battery_in_fullscreen()));
     let blur_enabled =
-        app.get_system_materials_enabled() && (sidebar_blur || controller_blur || osd_blur);
+        appearance.get_system_materials_enabled() && (sidebar_blur || controller_blur || osd_blur);
     if blur_enabled {
         if let Some(blur) = blur_surface {
             // SAFETY: both textures belong to this window's current GL context.

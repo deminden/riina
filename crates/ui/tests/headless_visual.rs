@@ -126,17 +126,23 @@ fn player(
     layout: Layout,
 ) -> Result<PlayerWindow, PlatformError> {
     let window = PlayerWindow::new()?;
-    window.set_platform_windows(true);
+    window
+        .global::<riina_ui::PlayerAppearance>()
+        .set_platform_windows(true);
     window.set_native_video(false);
     window
         .global::<riina_ui::PlayerPreferences>()
         .set_disable_animations(true);
-    window.set_dark_theme(dark);
+    window
+        .global::<riina_ui::PlayerAppearance>()
+        .set_dark_theme(dark);
     window.set_engine_ready(true);
     window.set_controls_visible(true);
     window.set_loaded(!matches!(state, PlaybackState::Stopped));
     window.set_paused(!matches!(state, PlaybackState::Playing));
-    window.set_compact_ui(matches!(layout, Layout::Compact));
+    window
+        .global::<riina_ui::PlayerAppearance>()
+        .set_compact_ui(matches!(layout, Layout::Compact));
     window.set_docked_controls(matches!(layout, Layout::Docked));
     if matches!(layout, Layout::Docked) {
         window.set_edge_to_edge_video(false);
@@ -180,7 +186,9 @@ fn player(
             .set_subtitle_tracks(catalog(&["English", "French"]));
         window.set_playlist(catalog(&["Headless test clip", "Next clip", "Final clip"]));
         window.set_chapters(catalog(&["Opening", "Middle", "Credits"]));
-        window.set_video_frame(test_picture());
+        window
+            .global::<riina_ui::PlayerRenderedVideo>()
+            .set_video_frame(test_picture());
     }
     window.show()?;
     Ok(window)
@@ -312,20 +320,24 @@ fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
         ("player-live-text", |window| {
             window.set_live_text_enabled(true);
             window.set_live_text_selectable(true);
-            window.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(vec![
-                LiveTextRegion {
-                    text: "Selectable text".into(),
-                    x: 0.24,
-                    y: 0.32,
-                    width: 0.30,
-                    height: 0.08,
-                },
-            ])));
+            window
+                .global::<riina_ui::PlayerRenderedVideo>()
+                .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(vec![
+                    LiveTextRegion {
+                        text: "Selectable text".into(),
+                        x: 0.24,
+                        y: 0.32,
+                        width: 0.30,
+                        height: 0.08,
+                    },
+                ])));
         }),
     ];
     for (name, setup) in cases {
         let window = player(PlaybackState::Paused, true, (0, 0), Layout::Standard)?;
-        window.set_video_blurred_frame(test_picture());
+        window
+            .global::<riina_ui::PlayerRenderedVideo>()
+            .set_video_blurred_frame(test_picture());
         setup(&window);
         baselines.verify(name, window.window(), PhysicalSize::new(1000, 640))?;
         window.hide()?;

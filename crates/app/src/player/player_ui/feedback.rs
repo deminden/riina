@@ -132,7 +132,9 @@ fn install_controls_fade(app: &PlayerWindow) {
         } else if app
             .global::<riina_ui::PlayerPreferences>()
             .get_disable_animations()
-            || app.get_system_reduce_motion()
+            || app
+                .global::<riina_ui::PlayerAppearance>()
+                .get_system_reduce_motion()
         {
             app.set_controls_rendered(false);
         } else {

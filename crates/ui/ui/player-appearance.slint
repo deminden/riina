@@ -1,0 +1,59 @@
+import { PlayerPreferences } from "player-preferences.slint";
+import { Theme } from "theme.slint";
+
+// Appearance and material choices are owned by the player window.
+export global PlayerAppearance {
+    in-out property <bool> system-materials-enabled: true;
+    out property <bool> active-liquid-glass-osc:
+        liquid-glass-osc && (!platform-windows || system-materials-enabled);
+    out property <bool> active-liquid-glass-sidebar:
+        liquid-glass-sidebar && (!platform-windows || system-materials-enabled);
+    out property <bool> active-liquid-glass-osd:
+        liquid-glass-osd && (!platform-windows || system-materials-enabled);
+    // Both Windows renderer paths use the calibrated video-backed Acrylic
+    // strength; the weaker shared-renderer layer made Windows surfaces opaque.
+    public pure function video-material-sample-opacity(native-video: bool) -> float {
+        return platform-windows || native-video ? 0.58 : 0.32;
+    }
+    // Match the measured IINA Quick Settings sidebar after accounting for the
+    // native Windows tint's own alpha.
+    // Keep high-contrast motion from reading as a sharp second image through
+    // Windows' video-backed Acrylic approximation; the independent tint still
+    // sets the calibrated flat-frame luminance.
+    public pure function sidebar-material-sample-opacity(native-video: bool) -> float {
+        return platform-windows ? 0.8
+            : native-video ? 0.53 : 0.32;
+    }
+    // WinUI's LayerOnAcrylicFillColorDefault is 3.5% white in dark mode and
+    // 25% in light mode. Use it only for cards over an active Windows video blur.
+    out property <color> sidebar-card-material-fill:
+        Theme.sidebar-card-layer(dark-theme, windows-sidebar-material-active);
+    out property <bool> windows-sidebar-material-active:
+        platform-windows && active-liquid-glass-sidebar;
+    out property <color> sidebar-control-material-fill:
+        Theme.sidebar-control-layer(dark-theme, windows-sidebar-material-active);
+    // IINA keeps selected category tabs neutral; appearance and preset choices
+    // retain their blue/accent selection treatment on each platform.
+    out property <color> quick-settings-tab-selected-fill:
+        Theme.sidebar-category-selection(dark-theme);
+    out property <color> quick-settings-tab-selected-foreground:
+        Theme.sidebar-category-text(dark-theme);
+    in-out property <bool> system-reduce-motion: false;
+    in-out property <bool> platform-macos: false;
+    in-out property <bool> platform-windows: false;
+    in-out property <color> windows-accent-color: Theme.windows-default-accent;
+    in-out property <color> windows-accent-foreground: Theme.windows-default-accent-text;
+    out property <color> interactive-accent-color:
+        platform-windows ? windows-accent-color : Theme.player-focus-accent;
+    out property <bool> animations-disabled: PlayerPreferences.disable-animations ||
+        (system-reduce-motion && !platform-macos);
+    out property <bool> macos-sidebar-reduce-motion-fade:
+        platform-macos && system-reduce-motion && !PlayerPreferences.disable-animations;
+    in-out property <bool> compact-ui: false;
+    in-out property <bool> dark-theme: true;
+    in-out property <int> appearance-mode: 0;
+    in-out property <bool> liquid-glass-osd: true;
+    in-out property <bool> liquid-glass-osc: true;
+    in-out property <bool> liquid-glass-sidebar: true;
+    in-out property <string> surface-material-title: "Translucent Surfaces";
+}

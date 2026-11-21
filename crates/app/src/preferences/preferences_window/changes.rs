@@ -264,7 +264,7 @@ fn capture_preferences(
         edge_to_edge_video: app.get_edge_to_edge_video(),
         docked_controls: app.get_docked_controls(),
         unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
-        compact_ui: app.get_compact_ui(),
+        compact_ui: app.global::<riina_ui::PlayerAppearance>().get_compact_ui(),
         osc_position: app.get_osc_position() as u8,
         control_bar_position_horizontal: f64::from(app.get_control_bar_position_horizontal()),
         control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),

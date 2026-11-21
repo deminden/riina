@@ -137,12 +137,17 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
 }
 
 pub(super) fn dismiss_unaligned_transition_cover(app: &PlayerWindow) {
-    if app.get_native_transition_frame() {
+    if app
+        .global::<riina_ui::PlayerRenderedVideo>()
+        .get_native_transition_frame()
+    {
         // A retained frame is opaque by design. If the controls HWND cannot be
         // verified over its video host, discard it before it can remain painted
         // at the overlay's previous desktop coordinates.
-        app.set_native_transition_frame(false);
-        app.set_video_frame(slint::Image::default());
+        app.global::<riina_ui::PlayerRenderedVideo>()
+            .set_native_transition_frame(false);
+        app.global::<riina_ui::PlayerRenderedVideo>()
+            .set_video_frame(slint::Image::default());
         app.window().request_redraw();
     }
 }
@@ -303,7 +308,13 @@ pub(super) fn watch_alignment(
                 (alignment_host.upgrade(), alignment_chrome.upgrade())
             {
                 host.window().with_winit_window(|window| {
-                    sync_native_theme(window, chrome.get_dark_theme(), &alignment_native_theme);
+                    sync_native_theme(
+                        window,
+                        chrome
+                            .global::<riina_ui::PlayerAppearance>()
+                            .get_dark_theme(),
+                        &alignment_native_theme,
+                    );
                 });
                 // mpv can resize or hide its child HWND during a
                 // playlist handoff without resizing the host. Repair

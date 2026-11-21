@@ -52,17 +52,23 @@ fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.global::<riina_ui::PlayerPreferences>()
         .set_disable_animations(prefs.disable_animations);
-    app.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
-    app.set_platform_macos(cfg!(target_os = "macos"));
-    app.set_platform_windows(cfg!(target_os = "windows"));
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_platform_macos(cfg!(target_os = "macos"));
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_platform_windows(cfg!(target_os = "windows"));
     #[cfg(target_os = "windows")]
     {
-        app.set_system_materials_enabled(crate::platform::native_materials_enabled());
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_system_materials_enabled(crate::platform::native_materials_enabled());
         if let Some(accent) = crate::platform::windows_accent_color() {
-            app.set_windows_accent_color(accent);
+            app.global::<riina_ui::PlayerAppearance>()
+                .set_windows_accent_color(accent);
         }
         if let Some(foreground) = crate::platform::windows_accent_foreground() {
-            app.set_windows_accent_foreground(foreground);
+            app.global::<riina_ui::PlayerAppearance>()
+                .set_windows_accent_foreground(foreground);
         }
     }
     crate::appearance_preferences::install_system_typography(app);
@@ -136,13 +142,17 @@ fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) ->
     app.set_edge_to_edge_video(prefs.edge_to_edge_video);
     app.set_docked_controls(prefs.docked_controls);
     app.set_unlock_window_aspect_ratio(prefs.unlock_window_aspect_ratio);
-    app.set_compact_ui(prefs.compact_ui);
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_compact_ui(prefs.compact_ui);
     app.set_always_float_on_top(prefs.always_float_on_top);
     app.set_always_show_on_top_icon(prefs.always_show_on_top_icon);
     let appearance = prefs.effective_theme_material();
-    app.set_appearance_mode(appearance.index());
-    app.set_surface_material_title(crate::platform::surface_material_title().into());
-    app.set_dark_theme(appearance.dark_for(prefs.dark));
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_appearance_mode(appearance.index());
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_surface_material_title(crate::platform::surface_material_title().into());
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_dark_theme(appearance.dark_for(prefs.dark));
     let appearance_timer = crate::appearance_preferences::connect(app);
     app.set_osc_position(i32::from(prefs.osc_position));
     app.set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);

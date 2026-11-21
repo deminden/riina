@@ -1,3 +1,4 @@
+import { PlayerAppearance } from "player-appearance.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
@@ -33,16 +34,6 @@ struct ControllerLayout {
     transport-neighbor-actions-fit: bool,
     small-video-controller: bool,
     music-mode-time-label-min-width: length,
-}
-
-struct ControllerAppearance {
-    animations-disabled: bool,
-    active-liquid-glass-osc: bool,
-    dark-theme: bool,
-    platform-windows: bool,
-    native-video: bool,
-    interactive-accent-color: color,
-    compact-ui: bool,
 }
 
 struct ControllerMaterial {
@@ -96,7 +87,7 @@ struct ControllerMusic {
 export component PlayerController inherits Rectangle {
     in property <ControllerGeometry> geometry;
     in property <ControllerLayout> layout;
-    in property <ControllerAppearance> appearance;
+    in property <bool> native-video;
     in property <ControllerMaterial> material;
     in property <ControllerAudio> audio;
     in property <ControllerTimeline> timeline;
@@ -155,13 +146,13 @@ export component PlayerController inherits Rectangle {
     width: root.music.music-mode ? root.geometry.available-width :
         root.geometry.osc-position == 0 ? min(osc-video-width, max(200px, min(460px, osc-video-width - 2px))) :
         osc-video-width;
-    animate width { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-reposition-duration; }
+    animate width { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-reposition-duration; }
     height: root.geometry.osc-height;
     x: root.music.music-mode ? 0px :
         osc-video-leading-inset + (root.geometry.osc-position == 0 ? clamp(
             osc-video-width * (osc-video-width < 462px ? 0.5 : root.control-bar-position-horizontal) - self.width / 2,
             0px, max(0px, osc-video-width - self.width)) : 0px);
-    animate x { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-reposition-duration; }
+    animate x { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-reposition-duration; }
     // Keep the transport row outside the playlist's hit-test surface
     // in the compact music layout so Play/Pause remains directly usable.
     // IINA stores this fraction as a bottom inset and clamps its top
@@ -169,18 +160,18 @@ export component PlayerController inherits Rectangle {
     // top-origin coordinates before positioning the full visible bar.
     y: root.music.music-mode ? root.geometry.available-height -
             (root.music-mode-show-playlist ? 300px : 0px) - self.height :
-        root.geometry.osc-position == 1 ? min(max(0px, root.geometry.available-height - self.height), root.appearance.compact-ui ? 30px : 34px) :
+        root.geometry.osc-position == 1 ? min(max(0px, root.geometry.available-height - self.height), PlayerAppearance.compact-ui ? 30px : 34px) :
         root.geometry.osc-position == 2 ? max(0px, root.geometry.available-height - self.height) :
             max(0px, root.geometry.available-height -
                 min(max(0px, root.geometry.available-height - 67px - 25px),
                     max(0px, root.geometry.available-height * root.control-bar-position-vertical)) - self.height);
     opacity: root.music.music-mode || root.controls-visible ? 1 : 0;
-    animate opacity { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-visibility-duration; }
+    animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-visibility-duration; }
     border-radius: root.music.music-mode ? 0px : root.geometry.osc-position == 0 ? 12px : 4px;
     background: Theme.controller-surface(
-        root.appearance.dark-theme, root.appearance.active-liquid-glass-osc,
-        root.appearance.platform-windows, root.appearance.native-video);
-    if root.appearance.active-liquid-glass-osc : Image {
+        PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-osc,
+        PlayerAppearance.platform-windows, root.native-video);
+    if PlayerAppearance.active-liquid-glass-osc : Image {
         source: root.material.video-blurred-frame;
         x: root.geometry.video-inset-leading - parent.x;
         y: root.geometry.video-inset-top - parent.y;
@@ -237,8 +228,8 @@ export component PlayerController inherits Rectangle {
             if root.music.music-mode && !self.has-hover { root.music-mode-volume-open = false; }
         }
         VerticalLayout { width: parent.width; height: parent.height;
-        padding-top: root.music.music-mode ? 8px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 5px : root.appearance.compact-ui ? 10px : 14px;
-        padding-bottom: root.music.music-mode ? 8px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 4px : root.appearance.compact-ui ? 5px : 8px;
+        padding-top: root.music.music-mode ? 8px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 5px : PlayerAppearance.compact-ui ? 10px : 14px;
+        padding-bottom: root.music.music-mode ? 8px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 4px : PlayerAppearance.compact-ui ? 5px : 8px;
         // IINA's floating OSC keeps an 8 pt gap between the top row
         // and timeline in both spacious and compact layouts.
         spacing: root.music.music-mode ? 6px : root.geometry.window-height < 24px ? 0px : root.geometry.window-height < 42px ? 1px : root.layout.small-video-controller ? 3px : 8px;
@@ -248,12 +239,12 @@ export component PlayerController inherits Rectangle {
             background: transparent;
             if root.music.music-mode : MusicModeControls {
                 y: 4px; width: parent.width;
-                paused: root.paused; muted: PlaybackAudioState.muted; dark-theme: root.appearance.dark-theme;
-                accent-color: root.appearance.interactive-accent-color;
+                paused: root.paused; muted: PlaybackAudioState.muted; dark-theme: PlayerAppearance.dark-theme;
+                accent-color: PlayerAppearance.interactive-accent-color;
                 playlist-visible: root.music-mode-show-playlist;
                 artwork-visible: root.music-mode-show-album-art;
                 opacity: root.controls-visible ? 1 : 0;
-                animate opacity { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
+                animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
                 pause-requested => { PlayerMenuActions.toggle-pause(); }
                 previous-requested => { PlayerMenuActions.playlist-previous(); }
                 next-requested => { PlayerMenuActions.playlist-next(); }
@@ -268,7 +259,7 @@ export component PlayerController inherits Rectangle {
             x: 0px; y: 0px;
             width: parent.width; height: root.layout.osc-row-height;
             opacity: root.controls-visible ? 1 : 0;
-            animate opacity { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
+            animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
             padding-left: root.layout.osc-row-inline-inset;
             padding-right: root.layout.osc-row-inline-inset;
             spacing: root.layout.osc-row-gap;
@@ -276,10 +267,10 @@ export component PlayerController inherits Rectangle {
                 width: root.balanced-side-width; height: root.layout.osc-row-height;
                 if root.side-controls-fit && PlaybackAudioState.has-active-audio-track : HorizontalLayout {
                     width: 116px; height: root.layout.osc-row-height; spacing: 4px;
-                    Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme; height: root.layout.osc-row-height;
+                    Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; height: root.layout.osc-row-height;
                         icon: PlaybackAudioState.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
                         hint: "Mute"; activated => { PlayerMenuActions.toggle-mute(); } }
-                    PlayerSlider { dark-theme: root.appearance.dark-theme; width: 82px; height: root.layout.osc-row-height;
+                    PlayerSlider { dark-theme: PlayerAppearance.dark-theme; width: 82px; height: root.layout.osc-row-height;
                         minimum: 0; maximum: root.audio.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
                         scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
                         scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
@@ -292,8 +283,8 @@ export component PlayerController inherits Rectangle {
             Rectangle { horizontal-stretch: 1; background: transparent; }
             HorizontalLayout {
                 spacing: root.music.music-mode ? 2px : root.geometry.osc-position == 0 ? 24px : 16px;
-                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: root.appearance.interactive-accent-color;
-                    dark-theme: root.appearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
+                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: PlayerAppearance.interactive-accent-color;
+                    dark-theme: PlayerAppearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
                     icon: root.music.music-mode
                         ? @image-url("../../../assets/icons/skip-previous.svg")
                         : @image-url("../../../assets/icons/speed-down.svg");
@@ -303,7 +294,7 @@ export component PlayerController inherits Rectangle {
                         else { PlayerMenuActions.speed(0.5); }
                     }
                 }
-                Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme;
+                Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme;
                     width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
                     // The triangular ink's centroid sits 2.83 pt left of
                     // its SVG center. Balance its optical weight without
@@ -311,8 +302,8 @@ export component PlayerController inherits Rectangle {
                     icon-optical-offset-x: root.paused ? 2.5px : 0px;
                     icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg"); hint: root.paused ? "Play" : "Pause";
                     activated => { PlayerMenuActions.toggle-pause(); } }
-                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: root.appearance.interactive-accent-color;
-                    dark-theme: root.appearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
+                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: PlayerAppearance.interactive-accent-color;
+                    dark-theme: PlayerAppearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
                     icon: root.music.music-mode
                         ? @image-url("../../../assets/icons/skip-next.svg")
                         : @image-url("../../../assets/icons/speed-up.svg");
@@ -335,7 +326,7 @@ export component PlayerController inherits Rectangle {
                 action-width: root.toolbar-button-width;
                 action-height: min(root.toolbar-button-width, root.layout.osc-row-height);
                 height: root.layout.osc-row-height;
-                dark-theme: root.appearance.dark-theme;
+                dark-theme: PlayerAppearance.dark-theme;
                 enabled: (action-kind != 5 || (root.toolbar.loaded && PlaybackSubtitleState.subtitle-tracks.length > 1)) &&
                     (action-kind != 6 || root.toolbar.screenshot-available) &&
                     (action-kind != 8 || root.toolbar.live-text-available);
@@ -371,17 +362,17 @@ export component PlayerController inherits Rectangle {
             if root.music.music-mode : HorizontalLayout {
             x: 0px; y: 0px; width: parent.width; height: 27px;
             opacity: root.controls-visible ? 0 : 1;
-            animate opacity { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
+            animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
             padding-left: 16px; padding-right: 16px;
             VerticalLayout {
                 spacing: 0px;
-                Text { text: root.music.media-title; color: Theme.music-mode-title-text(root.appearance.dark-theme);
+                Text { text: root.music.media-title; color: Theme.music-mode-title-text(PlayerAppearance.dark-theme);
                     font-size: 13px; font-weight: 600; horizontal-alignment: center;
                     overflow: elide; }
                 Text {
                     text: root.music.music-artist + (root.music.music-artist != "" && root.music.music-album != "" ? " · " : "") + root.music.music-album;
                     visible: root.music.music-artist != "" || root.music.music-album != "";
-                    color: Theme.music-mode-metadata-text(root.appearance.dark-theme); font-size: 11px;
+                    color: Theme.music-mode-metadata-text(PlayerAppearance.dark-theme); font-size: 11px;
                     horizontal-alignment: center; overflow: elide;
                 }
             }
@@ -401,9 +392,9 @@ export component PlayerController inherits Rectangle {
             spacing: root.layout.osc-timeline-gap;
             Text { visible: root.geometry.window-width >= 150px; min-width: root.music.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: root.music.music-mode ? right : center;
-                text: PlaybackTimelineState.position-label; color: Theme.controller-time-text(root.appearance.dark-theme);
+                text: PlaybackTimelineState.position-label; color: Theme.controller-time-text(PlayerAppearance.dark-theme);
                 font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
-            PlayerSlider { dark-theme: root.appearance.dark-theme; height: root.layout.small-video-controller ? 14px : 13px;
+            PlayerSlider { dark-theme: PlayerAppearance.dark-theme; height: root.layout.small-video-controller ? 14px : 13px;
                 knob-width: 3px; knob-height: root.layout.small-video-controller ? 12px : 15px; knob-radius: 1px;
                 scroll-override-enabled: PlaybackTimelineState.seekable && !root.timeline.control-disable-play-slider-scrolling;
                 scroll-disabled: root.timeline.control-disable-play-slider-scrolling;
@@ -425,7 +416,7 @@ export component PlayerController inherits Rectangle {
                 preview-dismissed => { root.timeline-hovered(-1); } }
             Text { visible: root.geometry.window-width >= 150px; min-width: root.music.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: root.music.music-mode ? left : center;
-                text: PlaybackTimelineState.duration-label; color: Theme.controller-time-text(root.appearance.dark-theme);
+                text: PlaybackTimelineState.duration-label; color: Theme.controller-time-text(PlayerAppearance.dark-theme);
                 font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
         }
         }
@@ -433,14 +424,14 @@ export component PlayerController inherits Rectangle {
     if root.music.music-mode && root.music-mode-volume-open : Rectangle {
         x: parent.width - 156px; y: 2px; width: 148px; height: 36px;
         border-radius: 18px;
-        background: Theme.music-mode-volume-surface(root.appearance.dark-theme, root.appearance.active-liquid-glass-osc);
+        background: Theme.music-mode-volume-surface(PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-osc);
         border-width: 1px; border-color: Theme.music-mode-volume-border;
         HorizontalLayout {
             x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px; spacing: 6px;
-            Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme; width: 24px; height: 24px;
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; width: 24px; height: 24px;
                 icon: PlaybackAudioState.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
                 hint: "Mute"; activated => { PlayerMenuActions.toggle-mute(); } }
-            PlayerSlider { dark-theme: root.appearance.dark-theme; horizontal-stretch: 1; height: 17px;
+            PlayerSlider { dark-theme: PlayerAppearance.dark-theme; horizontal-stretch: 1; height: 17px;
                 minimum: 0; maximum: root.audio.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
                 scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
                 scroll-disabled: root.audio.control-disable-volume-slider-scrolling;

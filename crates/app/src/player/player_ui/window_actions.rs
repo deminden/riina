@@ -17,7 +17,8 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
                 // Remove the borrowed texture before hide suspends its context.
                 // Teardown runs inside the backend's window borrow and cannot
                 // safely dirty a property that schedules another redraw.
-                app.set_video_frame(slint::Image::default());
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_video_frame(slint::Image::default());
                 app.set_engine_ready(false);
                 app.global::<PlayerMenuActions>().invoke_close_player();
             }

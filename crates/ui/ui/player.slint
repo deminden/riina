@@ -1,3 +1,6 @@
+import { PlayerFeedbackLayer } from "player-feedback-layer.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+export { PlayerAppearance } from "player-appearance.slint";
 import { PlayerGeometry } from "player-geometry.slint";
 export { PlayerSidebarActions } from "player-sidebar-actions.slint";
 import { PlayerSidebarPage } from "player-sidebar-page.slint";
@@ -10,7 +13,6 @@ import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 export { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackVideoState } from "playback-video-state.slint";
 export { PlaybackVideoState } from "playback-video-state.slint";
-import { PlayerOsdState } from "player-osd-state.slint";
 export { PlayerOsdState } from "player-osd-state.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
 export { PlaybackTimelineState } from "playback-timeline-state.slint";
@@ -27,9 +29,9 @@ import { LayoutSidebarPage } from "player-layout-sidebar.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
 import { PlaylistInteraction } from "playlist-sidebar-row.slint";
-import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
-import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
-export { LiveTextRegion } from "player-video-surface.slint";
+import { VideoSurface } from "player-video-surface.slint";
+import { PlayerRenderedVideo } from "player-rendered-video.slint";
+export { LiveTextRegion, PlayerRenderedVideo } from "player-rendered-video.slint";
 import { PlaylistSortButton, TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
@@ -42,7 +44,6 @@ export { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { Palette } from "std-widgets.slint";
 import { NativeTypography } from "shared-controls.slint";
 import { CropEditor } from "crop-editor.slint";
-import { ScreenshotPreview } from "screenshot-preview.slint";
 import { MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-video.slint";
 export { NativeVideoHost, MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-video.slint";
 export { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
@@ -87,7 +88,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback crop-window-controls-changed();
     changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); root.refresh-fullscreen-info(); }
 
-    menu-bar-visible: !native-video && !(root.platform-windows && root.music-mode);
+    menu-bar-visible: !native-video && !(PlayerAppearance.platform-windows && root.music-mode);
     menu-value-menu-shortcuts: root.menu-shortcuts;
     menu-value-always-float-on-top <=> root.always-float-on-top;
     menu-value-chapters: root.chapters;
@@ -144,38 +145,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     // transparent renderer before Slint discovers the conditional native menu.
     // Shared-window entry points opt into their opaque menu surface before show().
     in property <bool> native-video: true;
-    in-out property <bool> system-materials-enabled: true;
-    private property <bool> active-liquid-glass-osc:
-        liquid-glass-osc && (!platform-windows || system-materials-enabled);
-    private property <bool> active-liquid-glass-sidebar:
-        liquid-glass-sidebar && (!platform-windows || system-materials-enabled);
-    private property <bool> active-liquid-glass-osd:
-        liquid-glass-osd && (!platform-windows || system-materials-enabled);
-    // Both Windows renderer paths use the calibrated video-backed Acrylic
-    // strength; the weaker shared-renderer layer made Windows surfaces opaque.
-    private property <float> video-material-sample-opacity: platform-windows || native-video ? 0.58 : 0.32;
-    // Match the measured IINA Quick Settings sidebar after accounting for the
-    // native Windows tint's own alpha.
-    // Keep high-contrast motion from reading as a sharp second image through
-    // Windows' video-backed Acrylic approximation; the independent tint still
-    // sets the calibrated flat-frame luminance.
-    private property <float> sidebar-material-sample-opacity: platform-windows ? 0.8
-        : native-video ? 0.53 : 0.32;
-    // WinUI's LayerOnAcrylicFillColorDefault is 3.5% white in dark mode and
-    // 25% in light mode. Use it only for cards over an active Windows video blur.
-    private property <color> sidebar-card-material-fill:
-        Theme.sidebar-card-layer(dark-theme, windows-sidebar-material-active);
-    private property <bool> windows-sidebar-material-active:
-        platform-windows && active-liquid-glass-sidebar;
-    private property <color> sidebar-control-material-fill:
-        Theme.sidebar-control-layer(dark-theme, windows-sidebar-material-active);
-    // IINA keeps selected category tabs neutral; appearance and preset choices
-    // retain their blue/accent selection treatment on each platform.
-    private property <color> quick-settings-tab-selected-fill:
-        Theme.sidebar-category-selection(dark-theme);
-    private property <color> quick-settings-tab-selected-foreground:
-        Theme.sidebar-category-text(dark-theme);
-    in property <bool> native-transition-frame: false;
     in property <bool> show-player-title-row: false;
     in-out property <bool> dialog-open: false;
     in-out property <bool> jump-time-dialog-visible: false;
@@ -195,9 +164,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     no-frame: native-video;
     // Native output sits behind this window even while loading or between files.
     background: native-video ? transparent : Theme.player-empty-surface;
-    in property <image> video-frame;
-    in property <image> video-blurred-frame;
-    in property <bool> video-material-sample-ready: false;
     in property <bool> loaded: false;
     in-out property <bool> reveal-current-media-available: false;
     in-out property <bool> delete-current-media-available: false;
@@ -218,19 +184,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> live-text-available: false;
     changed live-text-available => { root.video-menu-changed(); root.toolbar-settings-changed(); }
     in property <bool> live-text-selectable: false;
-    in property <bool> system-reduce-motion: false;
-    in property <bool> platform-macos: false;
-    in property <bool> platform-windows: false;
-    in-out property <color> windows-accent-color: Theme.windows-default-accent;
-    in-out property <color> windows-accent-foreground: Theme.windows-default-accent-text;
-    private property <color> interactive-accent-color:
-        root.platform-windows ? root.windows-accent-color : Theme.player-focus-accent;
-    private property <bool> animations-disabled: PlayerPreferences.disable-animations ||
-        (root.system-reduce-motion && !root.platform-macos);
-    private property <bool> macos-sidebar-reduce-motion-fade:
-        root.platform-macos && root.system-reduce-motion && !PlayerPreferences.disable-animations;
-    in property <duration> osd-fade-duration: animations-disabled || !PlayerPreferences.osd-enabled ? 0ms : Theme.osd-fade-time;
-    in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
     in-out property <bool> music-mode: false;
     in-out property <bool> auto-switch-to-music-mode: true;
@@ -383,13 +336,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> plugins-at-leading: true;
     in-out property <float> leading-sidebar-width: 360;
     in-out property <float> trailing-sidebar-width: 360;
-    in-out property <bool> compact-ui: false;
-    in-out property <bool> dark-theme: true;
-    in-out property <int> appearance-mode: 0;
-    in-out property <bool> liquid-glass-osd: true;
-    in-out property <bool> liquid-glass-osc: true;
-    in-out property <bool> liquid-glass-sidebar: true;
-    in property <string> surface-material-title: "Translucent Surfaces";
     in-out property <bool> always-float-on-top: false;
     in-out property <bool> always-show-on-top-icon: false;
     in-out property <float> video-window-width: 0;
@@ -483,13 +429,13 @@ export component PlayerWindow inherits PlayerMenuWindow {
         width: root.width;
         height: root.menu-content-height;
         music-mode: root.music-mode;
-        compact-ui: root.compact-ui;
+        compact-ui: PlayerAppearance.compact-ui;
         leading-sidebar: root.leading-sidebar;
         sidebar: root.sidebar;
         leading-sidebar-width: root.leading-sidebar-width;
         trailing-sidebar-width: root.trailing-sidebar-width;
-        platform-macos: root.platform-macos;
-        macos-sidebar-reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
+        platform-macos: PlayerAppearance.platform-macos;
+        macos-sidebar-reduce-motion-fade: PlayerAppearance.macos-sidebar-reduce-motion-fade;
         osc-position: root.osc-position;
         edge-to-edge-video: root.edge-to-edge-video;
         show-player-title-row: root.show-player-title-row;
@@ -543,16 +489,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback show-seek-osd();
     callback show-video-osd();
     callback set-ab-loop-point(int, float);
-    private property <OsdMaterial> osd-material: {
-        active: root.active-liquid-glass-osd,
-        native-tint: root.platform-windows || root.native-video,
-        frame: root.video-blurred-frame,
-        video-x: viewport.video-inset-leading,
-        video-y: viewport.video-inset-top,
-        video-width: root.render-width,
-        video-height: root.render-height,
-        sample-opacity: root.video-material-sample-opacity,
-    };
 
     callback toggle-playlist-shuffle();
     callback sort-playlist(int);
@@ -601,11 +537,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             music-mode-is-audio: root.music-mode-is-audio;
             music-mode-has-album-art: root.music-mode-has-album-art;
             music-mode-has-visible-subtitles: root.music-mode-has-visible-subtitles;
-            native-transition-frame: root.native-transition-frame;
-            video-frame: root.video-frame;
             live-text-enabled: root.live-text-enabled;
             paused: root.paused;
-            live-text-regions: root.live-text-regions;
             live-text-selectable: root.live-text-selectable;
             edge-to-edge-video: root.edge-to-edge-video;
             copy-live-text(text) => { root.copy-live-text(text); }
@@ -640,22 +573,16 @@ export component PlayerWindow inherits PlayerMenuWindow {
             clip: true;
             x: viewport.macos-sidebar-leading-inset;
             width: max(0px, parent.width - viewport.macos-sidebar-leading-inset - viewport.macos-sidebar-trailing-inset);
-            animate x { duration: root.animations-disabled ? 0ms : 240ms; }
-            animate width { duration: root.animations-disabled ? 0ms : 240ms; }
-            y: 0; height: root.compact-ui ? 30px : 34px;
+            animate x { duration: PlayerAppearance.animations-disabled ? 0ms : 240ms; }
+            animate width { duration: PlayerAppearance.animations-disabled ? 0ms : 240ms; }
+            y: 0; height: PlayerAppearance.compact-ui ? 30px : 34px;
             opacity: root.controls-visible ? 1 : 0;
-            animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
-            active-liquid-glass-osc: root.active-liquid-glass-osc;
-            dark-theme: root.dark-theme;
-            platform-windows: root.platform-windows;
+            animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : 250ms; }
             native-video: root.native-video;
-            video-blurred-frame: root.video-blurred-frame;
             video-inset-leading: viewport.video-inset-leading;
             video-inset-top: viewport.video-inset-top;
             render-width: root.render-width;
             render-height: root.render-height;
-            video-material-sample-opacity: root.video-material-sample-opacity;
-            interactive-accent-color: root.interactive-accent-color;
             engine-ready: root.engine-ready;
             media-title: root.media-title;
             always-float-on-top: root.always-float-on-top;
@@ -674,7 +601,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             (root.always-float-on-top || root.always-show-on-top-icon) : TopmostPin {
             x: parent.width - 36px;
             y: 2px;
-            dark-theme: root.dark-theme;
+            dark-theme: PlayerAppearance.dark-theme;
             pinned: root.always-float-on-top;
             changed(value) => {
                 root.always-float-on-top = value;
@@ -689,54 +616,36 @@ export component PlayerWindow inherits PlayerMenuWindow {
             leading: side == 0;
             viewport-width: parent.width;
             sidebar-open: pane-kind != 0 && !root.crop-editing;
-            reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
-            animations-disabled: root.animations-disabled;
+            reduce-motion-fade: PlayerAppearance.macos-sidebar-reduce-motion-fade;
             y: viewport.title-row-height + (root.osc-position == 1 ? viewport.osc-height : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
-            height: parent.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
+            height: parent.height - (root.show-player-title-row ? (PlayerAppearance.compact-ui ? 60px : 68px) : 0px) -
                 (root.osc-position == 1 ? viewport.osc-height : root.osc-position == 2 ? viewport.osc-height / 2 : 0px);
-            active-liquid-glass-sidebar: root.active-liquid-glass-sidebar;
-            dark-theme: root.dark-theme;
             native-video: root.native-video;
-            platform-macos: root.platform-macos;
-            platform-windows: root.platform-windows;
             render-height: root.render-height;
             render-width: root.render-width;
-            sidebar-material-sample-opacity: root.sidebar-material-sample-opacity;
-            video-blurred-frame: root.video-blurred-frame;
             video-inset-leading: viewport.video-inset-leading;
             video-inset-top: viewport.video-inset-top;
-            video-material-sample-ready: root.video-material-sample-ready;
-            windows-sidebar-material-active: root.windows-sidebar-material-active;
             activity => { root.activity(); }
             scroll-memory := SidebarScrollMemory {}
             sidebar-content := VerticalLayout {
                 // IINA's tab row uses 10-point side margins; card widths are
                 // explicit, so this does not change their measured insets.
-                padding-left: quick-settings-pane ? 10px : (root.compact-ui ? 9px : 12px);
-                padding-right: quick-settings-pane ? 10px : (root.compact-ui ? 9px : 12px);
-                padding-top: root.compact-ui ? 9px : 12px;
-                padding-bottom: root.compact-ui ? 9px : 12px;
+                padding-left: quick-settings-pane ? 10px : (PlayerAppearance.compact-ui ? 9px : 12px);
+                padding-right: quick-settings-pane ? 10px : (PlayerAppearance.compact-ui ? 9px : 12px);
+                padding-top: PlayerAppearance.compact-ui ? 9px : 12px;
+                padding-bottom: PlayerAppearance.compact-ui ? 9px : 12px;
                 width: parent.width;
-                spacing: root.compact-ui ? 6px : 8px;
+                spacing: PlayerAppearance.compact-ui ? 6px : 8px;
                 cross-axis-alignment: pane-kind == 1 ? center : start;
                 PlayerSidebarTabs {
-                    width: parent.width - 2px * (quick-settings-pane ? 10 : root.compact-ui ? 9 : 12);
+                    width: parent.width - 2px * (quick-settings-pane ? 10 : PlayerAppearance.compact-ui ? 9 : 12);
                     leading: side == 0;
                     pane-kind: sidebar-frame.pane-kind;
                     expanded-tab-labels: sidebar-frame.expanded-tab-labels;
-                    compact-ui: root.compact-ui;
-                    dark-theme: root.dark-theme;
-                    interactive-accent-color: root.interactive-accent-color;
-                    platform-windows: root.platform-windows;
                     plugin-sidebar-identifiers: root.plugin-sidebar-identifiers;
                     plugin-sidebar-labels: root.plugin-sidebar-labels;
                     plugin-sidebar-selected-index: root.plugin-sidebar-selected-index;
-                    quick-settings-tab-selected-fill: root.quick-settings-tab-selected-fill;
-                    quick-settings-tab-selected-foreground: root.quick-settings-tab-selected-foreground;
-                    windows-accent-color: root.windows-accent-color;
-                    windows-accent-foreground: root.windows-accent-foreground;
-                    windows-sidebar-material-active: root.windows-sidebar-material-active;
                     close-pane => {
                         // Retire focus before hiding a pane so later shortcuts reach the player.
                         keys.focus();
@@ -748,31 +657,31 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 }
                 if pane-kind == 5 : layout-scroll := LayoutSidebarPage {
                     width: parent.width - 20px;
-                    appearance-mode <=> root.appearance-mode;
-                    compact-ui <=> root.compact-ui;
-                    dark-theme: root.dark-theme;
+                    appearance-mode <=> PlayerAppearance.appearance-mode;
+                    compact-ui <=> PlayerAppearance.compact-ui;
+                    dark-theme: PlayerAppearance.dark-theme;
                     docked-controls <=> root.docked-controls;
                     edge-to-edge-video <=> root.edge-to-edge-video;
                     fit-window-to-video => { root.fit-window-to-video(); }
                     fullscreen: root.fullscreen;
-                    interactive-accent-color: root.interactive-accent-color;
+                    interactive-accent-color: PlayerAppearance.interactive-accent-color;
                     layout-scrollbar-visible <=> root.layout-scrollbar-visible;
                     layout-settings-changed => { root.layout-settings-changed(); }
-                    liquid-glass-osc <=> root.liquid-glass-osc;
-                    liquid-glass-osd <=> root.liquid-glass-osd;
-                    liquid-glass-sidebar <=> root.liquid-glass-sidebar;
+                    liquid-glass-osc <=> PlayerAppearance.liquid-glass-osc;
+                    liquid-glass-osd <=> PlayerAppearance.liquid-glass-osd;
+                    liquid-glass-sidebar <=> PlayerAppearance.liquid-glass-sidebar;
                     loaded: root.loaded;
                     osc-position <=> root.osc-position;
-                    platform-windows: root.platform-windows;
+                    platform-windows: PlayerAppearance.platform-windows;
                     playlist-at-leading <=> root.playlist-at-leading;
                     plugins-at-leading <=> root.plugins-at-leading;
                     settings-at-leading <=> root.settings-at-leading;
-                    sidebar-card-material-fill: root.sidebar-card-material-fill;
-                    surface-material-title: root.surface-material-title;
+                    sidebar-card-material-fill: PlayerAppearance.sidebar-card-material-fill;
+                    surface-material-title: PlayerAppearance.surface-material-title;
                     unlock-window-aspect-ratio <=> root.unlock-window-aspect-ratio;
-                    windows-accent-color: root.windows-accent-color;
-                    windows-accent-foreground: root.windows-accent-foreground;
-                    windows-sidebar-material-active: root.windows-sidebar-material-active;
+                    windows-accent-color: PlayerAppearance.windows-accent-color;
+                    windows-accent-foreground: PlayerAppearance.windows-accent-foreground;
+                    windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
                 }
                 if pane-kind != 5 : QuickSettingsScrollPage {
                     page-kind: pane-kind;
@@ -789,7 +698,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         else if kind == 3 { scroll-memory.chapters-y = offset; }
                     }
                     width: parent.width - (quick-settings-pane
-                        ? 20px : (root.compact-ui ? 18px : 24px));
+                        ? 20px : (PlayerAppearance.compact-ui ? 18px : 24px));
                     horizontal-stretch: 1;
                     vertical-stretch: 1;
                     content-width: self.visible-width;
@@ -802,22 +711,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         pane-kind: pane-kind;
                         quick-settings-pane: quick-settings-pane;
                         sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
-                        compact-ui: root.compact-ui;
-                        dark-theme: root.dark-theme;
-                        interactive-accent-color: root.interactive-accent-color;
                         loaded: root.loaded;
-                        platform-windows: root.platform-windows;
-                        sidebar-card-material-fill: root.sidebar-card-material-fill;
-                        sidebar-control-material-fill: root.sidebar-control-material-fill;
-                        windows-accent-color: root.windows-accent-color;
-                        windows-accent-foreground: root.windows-accent-foreground;
-                        windows-sidebar-material-active: root.windows-sidebar-material-active;
                         plugin-sidebar-selected-identifier: root.plugin-sidebar-selected-identifier;
                         plugin-sidebar-labels: root.plugin-sidebar-labels;
                         playlist-metadata-visible: root.playlist-metadata-visible;
                         chapters: root.chapters;
                         playlist: root.playlist;
-                        animations-disabled: root.animations-disabled;
                         speed-edit-value: root.speed-edit-value;
                         speed-slider-position: root.speed-slider-position;
                         speed-value: root.speed-value;
@@ -825,24 +724,24 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     }
                 }
                 if pane-kind == 4 : HorizontalLayout { spacing: 8px;
-                    width: parent.width - (root.compact-ui ? 18px : 24px);
-                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                    width: parent.width - (PlayerAppearance.compact-ui ? 18px : 24px);
+                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
                         label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label;
                         activated => { PlayerMenuActions.playlist-action(5, ""); } }
-                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
                         icon: @image-url("../../../assets/icons/shuffle.svg");
                         hint: root.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
                         selected: root.playlist-shuffled; activated => { root.toggle-playlist-shuffle(); } }
-                    PlaylistSortButton { dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                    PlaylistSortButton { dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
                         sort-requested(index) => { root.sort-playlist(index); } }
                     Rectangle { horizontal-stretch: 1; }
-                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
                         icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
                         activated => { PlayerMenuActions.browse-files(4); } }
-                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
                         label: "−"; hint: "Remove selected playlist entries"; enabled: root.selected-playlist-token != "";
                         activated => { PlayerMenuActions.playlist-action(1, root.selected-playlist-token); } }
-                    Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
+                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
                         icon: @image-url("../../../assets/icons/trash.svg"); hint: "Clear playlist except current file";
                         activated => { PlayerMenuActions.playlist-action(4, ""); } }
                 }
@@ -852,8 +751,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             visible: !root.crop-editing && (side == 0 ? root.leading-sidebar != 0 : root.sidebar != 0);
             private property <length> panel-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
             x: side == 0 ? panel-width : root.width - panel-width - 4px;
-            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? viewport.osc-height : 0px); width: 4px;
-            height: root.menu-content-height - (root.compact-ui ? 60px : 68px) -
+            y: (PlayerAppearance.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? viewport.osc-height : 0px); width: 4px;
+            height: root.menu-content-height - (PlayerAppearance.compact-ui ? 60px : 68px) -
                 (root.osc-position == 1 ? viewport.osc-height : root.osc-position == 2 ? viewport.osc-height / 2 : 0px);
             mouse-cursor: ew-resize;
             moved => {
@@ -899,20 +798,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 small-video-controller: viewport.small-video-controller,
                 music-mode-time-label-min-width: viewport.music-mode-time-label-min-width,
             };
-            appearance: {
-                animations-disabled: root.animations-disabled,
-                active-liquid-glass-osc: root.active-liquid-glass-osc,
-                dark-theme: root.dark-theme,
-                platform-windows: root.platform-windows,
-                native-video: root.native-video,
-                interactive-accent-color: root.interactive-accent-color,
-                compact-ui: root.compact-ui,
-            };
+            native-video: root.native-video;
             material: {
-                video-blurred-frame: root.video-blurred-frame,
+                video-blurred-frame: PlayerRenderedVideo.video-blurred-frame,
                 render-width: root.render-width,
                 render-height: root.render-height,
-                video-material-sample-opacity: root.video-material-sample-opacity,
+                video-material-sample-opacity: PlayerAppearance.video-material-sample-opacity(root.native-video),
             };
             audio: {
                 volume-limit: root.volume-limit,
@@ -971,80 +862,53 @@ export component PlayerWindow inherits PlayerMenuWindow {
         if root.music-mode && root.loaded : MusicModeWindowActions {
             x: 8px; y: 6px;
             artwork-visible: root.music-mode-show-album-art;
-            dark-theme: root.dark-theme;
-            translucent: root.active-liquid-glass-osc;
-            accent-color: root.interactive-accent-color;
+            dark-theme: PlayerAppearance.dark-theme;
+            translucent: PlayerAppearance.active-liquid-glass-osc;
+            accent-color: PlayerAppearance.interactive-accent-color;
             opacity: root.controls-visible ? 1 : 0;
-            animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
+            animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : 200ms; }
             close-requested => { PlayerMenuActions.close-player(); }
             back-requested => { PlayerMenuActions.toggle-music-mode(); }
         }
-        if loaded && !crop-editing : SeekOsd {
-            material: root.osd-material;
-            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
-            osd-enabled: PlayerPreferences.osd-enabled;
-            osd-text-size: PlayerPreferences.osd-text-size;
-            osd-fade-duration: root.osd-fade-duration;
-        }
-        if !PlayerOsdState.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
-            x: (parent.width - self.width) / 2;
-            y: max(8px,
-                parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
-            width: min(420px, parent.width - 32px);
-            material: root.osd-material;
+        PlayerFeedbackLayer {
+            width: parent.width; height: parent.height;
+            loaded: root.loaded;
+            crop-editing: root.crop-editing;
             native-video: root.native-video;
-        }
-        if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
-            text: startup-status == "" ? status : startup-status;
-            color: Theme.player-status-text(root.dark-theme); font-size: 11px; overflow: elide; }
-        if music-mode && music-mode-show-playlist : MusicModePlaylist {
-            x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
-            dark-theme: root.dark-theme;
-            playlist-metadata-visible: root.playlist-metadata-visible;
-            playlist: root.playlist;
-            selected-playlist-token: root.selected-playlist-token;
-            platform-windows: root.platform-windows;
-            windows-accent-color: root.windows-accent-color;
-            select-row(token) => {
-                root.selected-playlist-token = token;
-                root.selected-playlist-tokens = [token];
-            }
-            play-row(token) => {
-                root.selected-playlist-token = "";
-                root.selected-playlist-tokens = [];
-                PlayerMenuActions.select-item(CatalogSelection.playlist, token);
-            }
-        }
-        if fullscreen && loaded && controls-visible && PlayerPreferences.display-time-and-battery-in-fullscreen && !crop-editing : FullscreenInfoOsd {
-            private property <length> card-width: min(340px, parent.width - 16px -
-                (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
-            x: parent.width - self.card-width -
-                (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
-            y: (root.compact-ui ? 38px : 42px) +
-                (root.osc-position == 1 ? viewport.osc-height : 0px);
-            width: self.card-width;
-            material: root.osd-material;
+            controls-visible: root.controls-visible;
+            fullscreen: root.fullscreen;
+            music-mode: root.music-mode;
+            music-mode-show-playlist: root.music-mode-show-playlist;
+            status: root.status;
+            startup-status: root.startup-status;
+            sidebar: root.sidebar;
+            trailing-sidebar-width: root.trailing-sidebar-width;
+            osc-position: root.osc-position;
+            osc-height: viewport.osc-height;
             media-title: root.media-title;
-        }
-        if loaded : PlaybackOsd {
-            material: root.osd-material;
-            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
-            osd-enabled: PlayerPreferences.osd-enabled;
-            osd-text-size: PlayerPreferences.osd-text-size;
-            osd-fade-duration: root.osd-fade-duration;
-        }
-        if loaded && !crop-editing : ScreenshotPreview {
-            x: Theme.playback-osd-left; y: Theme.playback-osd-top;
-            active: PlayerOsdState.screenshot-preview-visible && PlayerPreferences.osd-enabled;
-            opacity: PlayerOsdState.screenshot-preview-visible && PlayerPreferences.osd-enabled ? 1 : 0;
-            animate opacity { duration: root.osd-fade-duration; }
-            capture: PlayerOsdState.screenshot-preview-image;
-            has-file: PlayerOsdState.screenshot-preview-path != "";
-            image-width: PlayerOsdState.screenshot-preview-width * 1px;
-            image-height: PlayerOsdState.screenshot-preview-height * 1px;
-            delete-capture => { root.screenshot-preview-action(0); }
-            edit-capture => { root.screenshot-preview-action(1); }
-            reveal-capture => { root.screenshot-preview-action(2); }
+            video-inset-leading: viewport.video-inset-leading;
+            video-inset-top: viewport.video-inset-top;
+            render-width: root.render-width;
+            render-height: root.render-height;
+            screenshot-preview-action(action) => { root.screenshot-preview-action(action); }
+            if music-mode && music-mode-show-playlist : MusicModePlaylist {
+                x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
+                dark-theme: PlayerAppearance.dark-theme;
+                playlist-metadata-visible: root.playlist-metadata-visible;
+                playlist: root.playlist;
+                selected-playlist-token: root.selected-playlist-token;
+                platform-windows: PlayerAppearance.platform-windows;
+                windows-accent-color: PlayerAppearance.windows-accent-color;
+                select-row(token) => {
+                    root.selected-playlist-token = token;
+                    root.selected-playlist-tokens = [token];
+                }
+                play-row(token) => {
+                    root.selected-playlist-token = "";
+                    root.selected-playlist-tokens = [];
+                    PlayerMenuActions.select-item(CatalogSelection.playlist, token);
+                }
+            }
         }
         crop-editor := CropEditor {
             width:parent.width; height:parent.height;
@@ -1061,7 +925,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         entry-dialogs := PlayerEntryDialogs {
             width: parent.width; height: parent.height;
-            dark-theme: root.dark-theme;
+            dark-theme: PlayerAppearance.dark-theme;
             jump-time-dialog-visible <=> root.jump-time-dialog-visible;
             jump-time-draft <=> root.jump-time-draft;
             jump-time-error <=> root.jump-time-error;
@@ -1086,6 +950,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     }
     changed fullscreen => { root.refresh-fullscreen-info(); root.video-menu-changed(); }
     changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
-    changed dark-theme => { Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light; }
-    init => { keys.focus(); Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light; }
+    private property <bool> dark-theme: PlayerAppearance.dark-theme;
+    changed dark-theme => { Palette.color-scheme = PlayerAppearance.dark-theme ? ColorScheme.dark : ColorScheme.light; }
+    init => { keys.focus(); Palette.color-scheme = PlayerAppearance.dark-theme ? ColorScheme.dark : ColorScheme.light; }
 }

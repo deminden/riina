@@ -1,6 +1,7 @@
 //! Own native video-material refresh for the player's presentation lifetime.
 use crate::{PlaybackStore, PlayerWindow, platform::NativePresentation};
 use riina_mpv::CommandSender;
+use slint::ComponentHandle;
 
 #[cfg(any(target_os = "windows", test))]
 pub(super) mod native_blur;
@@ -56,6 +57,8 @@ impl Monitor {
 }
 
 pub(crate) fn set_video_material_sample(app: &PlayerWindow, image: slint::Image, ready: bool) {
-    app.set_video_blurred_frame(image);
-    app.set_video_material_sample_ready(ready);
+    app.global::<riina_ui::PlayerRenderedVideo>()
+        .set_video_blurred_frame(image);
+    app.global::<riina_ui::PlayerRenderedVideo>()
+        .set_video_material_sample_ready(ready);
 }

@@ -23,6 +23,7 @@ SIDEBAR_FRAME_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-frame.slint").read_t
 SIDEBAR_TABS_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-tabs.slint").read_text(encoding="utf-8")
 SIDEBAR_PAGE_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-page.slint").read_text(encoding="utf-8")
 PLAYER_OSD_SOURCE = (ROOT / "crates/ui/ui/player-osd.slint").read_text(encoding="utf-8")
+PLAYER_FEEDBACK_SOURCE = (ROOT / "crates/ui/ui/player-feedback-layer.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 QUICK_AUDIO_SOURCE = (ROOT / "crates/ui/ui/quick-settings-audio.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
@@ -149,7 +150,7 @@ def main():
     ), (
         "The light Windows sidebar tint must cover its video sample and stay behind controls"
     )
-    assert "root.windows-sidebar-material-active && !root.dark-theme &&" in SIDEBAR_FRAME_SOURCE, (
+    assert "PlayerAppearance.windows-sidebar-material-active && !PlayerAppearance.dark-theme &&" in SIDEBAR_FRAME_SOURCE, (
         "The light tint must not change dark reference calibration or opaque policy fallback"
     )
     assert (
@@ -396,7 +397,7 @@ def main():
     assert (
         re.search(
             r"if fullscreen\s*&&\s*loaded\s*&&\s*controls-visible\s*&&\s*PlayerPreferences\.display-time-and-battery-in-fullscreen\s*&&\s*!crop-editing\s*:\s*FullscreenInfoOsd",
-            PLAYER_SOURCE,
+            PLAYER_FEEDBACK_SOURCE,
         )
         and all(
             f"text: PlayerOsdState.{field};" in PLAYER_OSD_SOURCE

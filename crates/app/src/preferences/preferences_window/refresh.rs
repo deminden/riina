@@ -102,13 +102,16 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::subtitle_auto_load_preferences::install_window(window, &auto_load);
     }
     window.set_volume_boost(player_preferences.get_volume_boost());
-    window.set_appearance_index(app.get_appearance_mode());
+    window.set_appearance_index(
+        app.global::<riina_ui::PlayerAppearance>()
+            .get_appearance_mode(),
+    );
     window.set_always_float_on_top(app.get_always_float_on_top());
     window.set_always_show_on_top_icon(app.get_always_show_on_top_icon());
     if let Ok(settings) = crate::window_resize_preferences::from_player(app) {
         crate::window_resize_preferences::install_preferences(window, settings);
     }
-    window.set_compact_ui(app.get_compact_ui());
+    window.set_compact_ui(app.global::<riina_ui::PlayerAppearance>().get_compact_ui());
     window.set_docked_controls(app.get_docked_controls());
     window.set_edge_to_edge_video(app.get_edge_to_edge_video());
     let index = ["png", "jpg", "jpeg", "webp", "jxl"]

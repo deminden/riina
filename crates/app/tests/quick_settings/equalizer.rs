@@ -35,7 +35,8 @@ fn picker_chevron_is_centered_inside_its_hit_frame_in_both_themes() {
     for width in [1000.0, 285.0] {
         app.window().set_size(LogicalSize::new(width, 900.0));
         for dark in [false, true] {
-            app.set_dark_theme(dark);
+            app.global::<riina_ui::PlayerAppearance>()
+                .set_dark_theme(dark);
             flush();
             let picker = field(&app, "Equalizer profile: Manual");
             let arrow = descendant(&picker, "AudioEqualizerProfilePicker::chevron");

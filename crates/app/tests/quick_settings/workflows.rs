@@ -111,7 +111,8 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
     for width in [1000.0, 285.0] {
         app.window().set_size(LogicalSize::new(width, 700.0));
         for dark in [false, true] {
-            app.set_dark_theme(dark);
+            app.global::<riina_ui::PlayerAppearance>()
+                .set_dark_theme(dark);
             flush();
             for index in 0..3 {
                 let row = button(&app, &format!("Clip {index}"));

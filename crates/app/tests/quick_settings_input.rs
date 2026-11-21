@@ -461,7 +461,8 @@ fn narrow_category_buttons_remain_inside_both_sidebar_headers() {
         app.set_sidebar(if leading { 0 } else { 1 });
         app.set_leading_sidebar(if leading { 1 } else { 0 });
         for compact in [false, true] {
-            app.set_compact_ui(compact);
+            app.global::<riina_ui::PlayerAppearance>()
+                .set_compact_ui(compact);
             for width in [285.0, 320.0, 440.0, 960.0] {
                 app.window().set_size(LogicalSize::new(width, 600.0));
                 flush();
@@ -636,7 +637,8 @@ fn menu_return_keeps_the_active_editor_draft_and_submission_scope() {
 fn theme_segments_fit_their_rail_and_keep_selection_after_palette_changes() {
     let app = player(5);
     for compact in [false, true] {
-        app.set_compact_ui(compact);
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_compact_ui(compact);
         for width in [320.0, 960.0] {
             app.window().set_size(LogicalSize::new(width, 900.0));
             for (mode, label) in [(0, "Dark"), (1, "Light"), (2, "Auto"), (0, "Dark")] {
@@ -649,8 +651,13 @@ fn theme_segments_fit_their_rail_and_keep_selection_after_palette_changes() {
                 } else {
                     focus(&app, &segment);
                 }
-                assert_eq!(app.get_appearance_mode(), mode);
-                app.set_dark_theme(mode != 1);
+                assert_eq!(
+                    app.global::<riina_ui::PlayerAppearance>()
+                        .get_appearance_mode(),
+                    mode
+                );
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_dark_theme(mode != 1);
                 flush();
                 let top = button(&app, "Dark").absolute_position().y;
                 for (index, name) in ["Dark", "Light", "Auto"].iter().enumerate() {
@@ -726,7 +733,8 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
             app.global::<riina_ui::PlaybackAudioState>()
                 .set_has_active_audio_track(has_audio);
             for compact in [false, true] {
-                app.set_compact_ui(compact);
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_compact_ui(compact);
                 for (leading, trailing) in [(0, 0), (5, 0), (0, 5)] {
                     app.set_leading_sidebar(leading);
                     app.set_sidebar(trailing);
@@ -778,7 +786,8 @@ fn music_mode_transport_has_its_own_center_and_disjoint_utility_buttons() {
     app.set_music_mode_show_album_art(true);
     app.window().set_size(LogicalSize::new(300.0, 390.0));
     for dark in [false, true] {
-        app.set_dark_theme(dark);
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_dark_theme(dark);
         for paused in [true, false] {
             app.set_paused(paused);
             flush();
@@ -885,12 +894,15 @@ fn descendant(element: &ElementHandle, id: &str) -> ElementHandle {
 fn controller_layout_tiles_keep_centered_reference_frames_and_even_gaps() {
     let app = player(5);
     for compact in [false, true] {
-        app.set_compact_ui(compact);
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_compact_ui(compact);
         for width in [285.0_f32, 320.0, 960.0] {
             app.window().set_size(LogicalSize::new(width, 900.0));
             for mode in [0, 1, 2] {
-                app.set_appearance_mode(mode);
-                app.set_dark_theme(mode != 1);
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_appearance_mode(mode);
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_dark_theme(mode != 1);
                 flush();
                 let mut previous_right: Option<f32> = None;
                 let first = button(&app, "Floating").absolute_position();
@@ -935,7 +947,8 @@ fn layout_rows_align_symbols_switches_and_section_rules_with_their_captions() {
         element.absolute_position().y + element.size().height / 2.0
     }
     for compact in [false, true] {
-        app.set_compact_ui(compact);
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_compact_ui(compact);
         flush();
         for component in [
             "SidebarPositionToggle",

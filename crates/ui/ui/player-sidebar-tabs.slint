@@ -1,3 +1,4 @@
+import { PlayerAppearance } from "player-appearance.slint";
 import { Theme } from "theme.slint";
 import { ComboBox } from "std-widgets.slint";
 import { SidebarTab } from "player-sidebar-controls.slint";
@@ -8,29 +9,20 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
     in property <bool> leading;
     in property <int> pane-kind;
     in property <bool> expanded-tab-labels;
-    in property <bool> compact-ui;
-    in property <bool> dark-theme;
-    in property <color> interactive-accent-color;
-    in property <bool> platform-windows;
     in property <[string]> plugin-sidebar-identifiers;
     in property <[string]> plugin-sidebar-labels;
     in property <int> plugin-sidebar-selected-index;
-    in property <color> quick-settings-tab-selected-fill;
-    in property <color> quick-settings-tab-selected-foreground;
-    in property <color> windows-accent-color;
-    in property <color> windows-accent-foreground;
-    in property <bool> windows-sidebar-material-active;
     callback close-pane();
     callback select-settings-pane(int);
     callback select-playlist-pane(int);
     callback select-plugin-sidebar-tab(string);
 
     alignment: space-between;
-    if !root.leading : Tool { accent-color: root.interactive-accent-color;
-        dark-theme: root.dark-theme;
+    if !root.leading : Tool { accent-color: PlayerAppearance.interactive-accent-color;
+        dark-theme: PlayerAppearance.dark-theme;
         circular: true;
-        circular-size: root.compact-ui ? 28px : 36px;
-        windows-acrylic-surface: root.windows-sidebar-material-active;
+        circular-size: PlayerAppearance.compact-ui ? 28px : 36px;
+        windows-acrylic-surface: PlayerAppearance.windows-sidebar-material-active;
         icon: @image-url("../../../assets/icons/chevron-forward.svg");
         hint: "Close sidebar";
         activated => { root.close-pane(); }
@@ -39,21 +31,21 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
     if root.pane-kind == 1 || root.pane-kind == 2 || root.pane-kind == 5 || root.pane-kind == 6 : QuickSettingsTabs {
         selected-pane: root.pane-kind;
         show-label: root.expanded-tab-labels;
-        dark-theme: root.dark-theme;
-        accent-color: root.quick-settings-tab-selected-fill;
-        accent-foreground: root.quick-settings-tab-selected-foreground;
-        focus-accent-color: root.interactive-accent-color;
+        dark-theme: PlayerAppearance.dark-theme;
+        accent-color: PlayerAppearance.quick-settings-tab-selected-fill;
+        accent-foreground: PlayerAppearance.quick-settings-tab-selected-foreground;
+        focus-accent-color: PlayerAppearance.interactive-accent-color;
         chosen(pane) => { root.select-settings-pane(pane); }
     }
     if root.pane-kind == 3 || root.pane-kind == 4 : HorizontalLayout {
         spacing: 4px;
-        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Playlist"; selected: root.pane-kind == 4;
+        SidebarTab { min-width: 76px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: PlayerAppearance.interactive-accent-color; label: "Playlist"; selected: root.pane-kind == 4;
             activated => { root.select-playlist-pane(4); } }
-        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Chapters"; selected: root.pane-kind == 3;
+        SidebarTab { min-width: 76px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: PlayerAppearance.interactive-accent-color; label: "Chapters"; selected: root.pane-kind == 3;
             activated => { root.select-playlist-pane(3); } }
     }
     if root.pane-kind == 7 : HorizontalLayout {
-        Text { text: "Plugins"; color: Theme.sidebar-heading-text(root.dark-theme);
+        Text { text: "Plugins"; color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
             font-size: 12px; font-weight: 700; vertical-alignment: center; }
         if root.plugin-sidebar-labels.length > 0 : ComboBox {
             horizontal-stretch: 1;
@@ -67,11 +59,11 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
             }
         }
     }
-    if root.leading : Tool { accent-color: root.interactive-accent-color;
-        dark-theme: root.dark-theme;
+    if root.leading : Tool { accent-color: PlayerAppearance.interactive-accent-color;
+        dark-theme: PlayerAppearance.dark-theme;
         circular: true;
-        circular-size: root.compact-ui ? 28px : 36px;
-        windows-acrylic-surface: root.windows-sidebar-material-active;
+        circular-size: PlayerAppearance.compact-ui ? 28px : 36px;
+        windows-acrylic-surface: PlayerAppearance.windows-sidebar-material-active;
         icon: @image-url("../../../assets/icons/chevron-backward.svg");
         hint: "Close sidebar";
         activated => { root.close-pane(); }

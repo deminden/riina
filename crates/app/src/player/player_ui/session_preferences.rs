@@ -160,10 +160,13 @@ fn capture_session_state(
         live_text_enabled: app.get_live_text_enabled(),
         always_float_on_top: app.get_always_float_on_top(),
         theme_material: Some(
-            riina_core::ThemeMaterial::from_index(app.get_appearance_mode())
-                .ok_or_else(|| std::io::Error::other("Invalid appearance selection"))?,
+            riina_core::ThemeMaterial::from_index(
+                app.global::<riina_ui::PlayerAppearance>()
+                    .get_appearance_mode(),
+            )
+            .ok_or_else(|| std::io::Error::other("Invalid appearance selection"))?,
         ),
-        dark: app.get_dark_theme(),
+        dark: app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
         leading_sidebar_width: app.get_leading_sidebar_width() as u32,
         trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
         settings_at_leading: app.get_settings_at_leading(),
@@ -172,7 +175,7 @@ fn capture_session_state(
         edge_to_edge_video: app.get_edge_to_edge_video(),
         docked_controls: app.get_docked_controls(),
         unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
-        compact_ui: app.get_compact_ui(),
+        compact_ui: app.global::<riina_ui::PlayerAppearance>().get_compact_ui(),
         osc_position: app.get_osc_position() as u8,
         control_bar_position_horizontal: f64::from(app.get_control_bar_position_horizontal()),
         control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),

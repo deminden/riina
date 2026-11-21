@@ -88,7 +88,10 @@ fn preview_width_scale(family: &font_catalog::FontFamily, face: &font_catalog::F
 }
 
 fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
-    apply_theme(picker, app.get_dark_theme());
+    apply_theme(
+        picker,
+        app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
+    );
     let font = app
         .global::<riina_ui::PlaybackSubtitleState>()
         .get_subtitle_font();
@@ -117,7 +120,10 @@ fn apply_theme(picker: &FontPicker, dark_theme: bool) {
 }
 
 fn follow_player_theme(picker: &FontPicker, app: &PlayerWindow, timer: &Rc<slint::Timer>) {
-    apply_theme(picker, app.get_dark_theme());
+    apply_theme(
+        picker,
+        app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
+    );
     let weak_picker = picker.as_weak();
     let weak_app = app.as_weak();
     let weak_timer = Rc::downgrade(timer);
@@ -140,7 +146,7 @@ fn follow_player_theme(picker: &FontPicker, app: &PlayerWindow, timer: &Rc<slint
                 }
                 return;
             };
-            let dark_theme = app.get_dark_theme();
+            let dark_theme = app.global::<riina_ui::PlayerAppearance>().get_dark_theme();
             if picker.get_dark_theme() != dark_theme {
                 apply_theme(&picker, dark_theme);
             }

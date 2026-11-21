@@ -1,19 +1,15 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerRenderedVideo } from "player-rendered-video.slint";
 import { Theme } from "theme.slint";
 import { TopmostPin } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
 
 export component PlayerTitleBar inherits Rectangle {
-    in property <bool> active-liquid-glass-osc;
-    in property <bool> dark-theme;
-    in property <bool> platform-windows;
     in property <bool> native-video;
-    in property <image> video-blurred-frame;
     in property <length> video-inset-leading;
     in property <length> video-inset-top;
     in property <length> render-width;
     in property <length> render-height;
-    in property <float> video-material-sample-opacity;
-    in property <color> interactive-accent-color;
     in property <bool> engine-ready;
     in property <string> media-title;
     in property <bool> always-float-on-top;
@@ -26,14 +22,14 @@ export component PlayerTitleBar inherits Rectangle {
     callback toggle-fullscreen();
 
     background: Theme.title-bar-surface(
-        root.dark-theme, root.active-liquid-glass-osc, root.platform-windows, root.native-video);
-    if root.active-liquid-glass-osc : Image {
-        source: root.video-blurred-frame;
+        PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-osc, PlayerAppearance.platform-windows, root.native-video);
+    if PlayerAppearance.active-liquid-glass-osc : Image {
+        source: PlayerRenderedVideo.video-blurred-frame;
         x: root.video-inset-leading - parent.x;
         y: root.video-inset-top - parent.y;
         width: root.render-width;
         height: root.render-height;
-        opacity: root.video-material-sample-opacity;
+        opacity: PlayerAppearance.video-material-sample-opacity(root.native-video);
         image-fit: contain;
     }
     TouchArea {
@@ -41,22 +37,22 @@ export component PlayerTitleBar inherits Rectangle {
         changed has-hover => { root.hover-changed(self.has-hover); }
         HorizontalLayout { width: parent.width; height: parent.height;
             padding-left: 12px; padding-right: 12px;
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: root.engine-ready; activated => { root.open-file(); } }
-            Text { text: root.media-title; color: Theme.title-bar-text(root.dark-theme); font-size: 12px;
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: root.engine-ready; activated => { root.open-file(); } }
+            Text { text: root.media-title; color: Theme.title-bar-text(PlayerAppearance.dark-theme); font-size: 12px;
                 horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
             if root.always-float-on-top || root.always-show-on-top-icon : TopmostPin {
-                dark-theme: root.dark-theme;
+                dark-theme: PlayerAppearance.dark-theme;
                 pinned: root.always-float-on-top;
                 changed(value) => {
                     root.window-level-toggle-requested(value);
                 }
             }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
+            Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
         }
     }
 }

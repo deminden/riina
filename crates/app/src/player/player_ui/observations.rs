@@ -164,13 +164,17 @@ fn update_transition_cover(
                 // Slint can schedule a render between property updates; enabling
                 // the cover first would briefly show its black backing instead of
                 // the retained frame during a native-output handoff.
-                app.set_video_frame(image);
-                app.set_native_transition_frame(true);
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_video_frame(image);
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_native_transition_frame(true);
             } else {
                 // Keep the last opaque frame until the cover is disabled. Clearing
                 // it first can expose the cover's black backing for one render.
-                app.set_native_transition_frame(false);
-                app.set_video_frame(slint::Image::default());
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_native_transition_frame(false);
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_video_frame(slint::Image::default());
             }
         }
     }

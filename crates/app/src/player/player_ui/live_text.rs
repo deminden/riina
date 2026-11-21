@@ -23,7 +23,8 @@ use capture::{CaptureAction, CaptureState, FrameKey};
 
 pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services: bool) {
     app.set_live_text_enabled(enabled);
-    app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
+    app.global::<riina_ui::PlayerRenderedVideo>()
+        .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
     app.set_live_text_available(false);
     if text_recognition::NATIVE_SELECTION {
         app.set_live_text_selectable(true);
@@ -109,14 +110,16 @@ pub(super) fn install(
                 capture_state.invalidate();
                 displayed_frame = None;
                 recognized_capture = None;
-                app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
                 return;
             }
 
             let frame_key = FrameKey::from_playback(&state);
             if displayed_frame != Some(frame_key) {
                 displayed_frame = Some(frame_key);
-                app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
+                app.global::<riina_ui::PlayerRenderedVideo>()
+                    .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
             }
             let key = match capture_state.observe(&state) {
                 CaptureAction::Capture => {
@@ -165,8 +168,9 @@ pub(super) fn install(
                         return;
                     }
                     match result {
-                        Ok(regions) => {
-                            app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(
+                        Ok(regions) => app
+                            .global::<riina_ui::PlayerRenderedVideo>()
+                            .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(
                                 regions
                                     .into_iter()
                                     .map(|region| LiveTextRegion {
@@ -177,8 +181,7 @@ pub(super) fn install(
                                         height: region.height / height,
                                     })
                                     .collect::<Vec<_>>(),
-                            )))
-                        }
+                            ))),
                         Err(error) => {
                             app.set_status(format!("Text recognition failed: {error}").into())
                         }

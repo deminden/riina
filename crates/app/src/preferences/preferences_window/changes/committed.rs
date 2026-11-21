@@ -62,8 +62,10 @@ pub(super) fn project(
     player_preferences.set_load_icc_profile(saved.load_icc_profile);
     player_preferences.set_default_hdr_mode_enabled(saved.hdr_enabled);
     player_preferences.set_disable_animations(saved.disable_animations);
-    app.set_appearance_mode(saved.effective_theme_material().index());
-    app.set_dark_theme(saved.dark);
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_appearance_mode(saved.effective_theme_material().index());
+    app.global::<riina_ui::PlayerAppearance>()
+        .set_dark_theme(saved.dark);
     model.write_player::<Osd>(app);
     model.write_player::<riina_core::osc_preferences::Settings>(app);
     app.set_always_float_on_top(saved.always_float_on_top);

@@ -1,0 +1,10 @@
+export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
+
+// Frames and derived samples stay with their presentation window.
+export global PlayerRenderedVideo {
+    in-out property <bool> native-transition-frame: false;
+    in-out property <image> video-frame;
+    in-out property <image> video-blurred-frame;
+    in-out property <bool> video-material-sample-ready: false;
+    in-out property <[LiveTextRegion]> live-text-regions: [];
+}

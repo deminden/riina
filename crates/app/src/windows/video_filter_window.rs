@@ -440,7 +440,7 @@ fn refresh(
     settings: &Settings,
     is_audio: bool,
 ) {
-    window.set_dark_theme(app.get_dark_theme());
+    window.set_dark_theme(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
     let playback = latest
         .lock()
         .map(|playback| playback.clone())

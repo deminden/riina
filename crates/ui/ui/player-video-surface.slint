@@ -1,4 +1,4 @@
-export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
+import { PlayerRenderedVideo } from "player-rendered-video.slint";
 
 export component VideoSurface inherits Rectangle {
     in property <bool> crop-editing;
@@ -18,11 +18,8 @@ export component VideoSurface inherits Rectangle {
     in property <bool> music-mode-is-audio;
     in property <bool> music-mode-has-album-art;
     in property <bool> music-mode-has-visible-subtitles;
-    in property <bool> native-transition-frame;
-    in property <image> video-frame;
     in property <bool> live-text-enabled;
     in property <bool> paused;
-    in property <[LiveTextRegion]> live-text-regions;
     in property <bool> live-text-selectable;
     in property <bool> edge-to-edge-video;
     callback copy-live-text(string);
@@ -39,17 +36,17 @@ export component VideoSurface inherits Rectangle {
         x: video-inset-leading; y: video-inset-top;
         width: video-width; height: video-height; background: #111111;
     }
-    if root.native-transition-frame : Rectangle {
+    if PlayerRenderedVideo.native-transition-frame : Rectangle {
         x: 0px; y: 0px; width: root.width; height: root.height;
         background: #000000;
     }
     Image {
         visible: !root.music-mode || root.music-mode-show-album-art;
-        source: video-frame;
-        x: root.native-transition-frame ? 0px : video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
-        y: root.native-transition-frame ? 0px : video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
-        width: root.native-transition-frame ? root.width : root.render-width;
-        height: root.native-transition-frame ? root.height : root.render-height;
+        source: PlayerRenderedVideo.video-frame;
+        x: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
+        y: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
+        width: PlayerRenderedVideo.native-transition-frame ? root.width : root.render-width;
+        height: PlayerRenderedVideo.native-transition-frame ? root.height : root.render-height;
         image-fit: contain;
     }
     if root.music-mode && root.music-mode-show-album-art
@@ -60,7 +57,7 @@ export component VideoSurface inherits Rectangle {
         source: @image-url("../../../assets/icons/music-mode-placeholder.svg");
         image-fit: contain;
     }
-    for region in (root.live-text-enabled && root.paused ? root.live-text-regions : []) : Rectangle {
+    for region in (root.live-text-enabled && root.paused ? PlayerRenderedVideo.live-text-regions : []) : Rectangle {
         x: video-inset-leading + region.x * root.render-width;
         y: video-inset-top + region.y * root.render-height;
         width: max(1px, region.width * root.render-width);

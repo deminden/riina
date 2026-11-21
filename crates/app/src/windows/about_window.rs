@@ -27,7 +27,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
             window
         };
         window.set_version_label(format!("Version {}", env!("CARGO_PKG_VERSION")).into());
-        window.set_dark_theme(app.get_dark_theme());
+        window.set_dark_theme(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
         let versions_ready = playback
             .lock()
             .map(|state| refresh_engine_versions(&window, &state))
@@ -53,7 +53,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
                     }
                     return;
                 };
-                let dark_theme = app.get_dark_theme();
+                let dark_theme = app.global::<riina_ui::PlayerAppearance>().get_dark_theme();
                 if window.get_dark_theme() != dark_theme {
                     window.set_dark_theme(dark_theme);
                 }

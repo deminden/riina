@@ -14,7 +14,11 @@ fn unverified_alignment_discards_an_opaque_transition_cover() {
     i_slint_backend_testing::init_no_event_loop();
     let host = NativeVideoHost::new().unwrap();
     let app = PlayerWindow::new().unwrap();
-    app.set_native_transition_frame(true);
+    app.global::<riina_ui::PlayerRenderedVideo>()
+        .set_native_transition_frame(true);
     let _ = align(host.window(), &app);
-    assert!(!app.get_native_transition_frame());
+    assert!(
+        !app.global::<riina_ui::PlayerRenderedVideo>()
+            .get_native_transition_frame()
+    );
 }

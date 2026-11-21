@@ -1,0 +1,93 @@
+import { PlayerOsdState } from "player-osd-state.slint";
+import { ScreenshotPreview } from "screenshot-preview.slint";
+import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
+import { PlayerRenderedVideo } from "player-rendered-video.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+import { Theme } from "theme.slint";
+
+// Keep the MiniPlayer playlist between the seek feedback and persistent overlays.
+export component PlayerFeedbackLayer inherits Rectangle {
+    in property <bool> loaded;
+    in property <bool> crop-editing;
+    in property <bool> native-video;
+    in property <bool> controls-visible;
+    in property <bool> fullscreen;
+    in property <bool> music-mode;
+    in property <bool> music-mode-show-playlist;
+    in property <string> status;
+    in property <string> startup-status;
+    in property <int> sidebar;
+    in property <float> trailing-sidebar-width;
+    in property <int> osc-position;
+    in property <length> osc-height;
+    in property <string> media-title;
+    in property <length> video-inset-leading;
+    in property <length> video-inset-top;
+    in property <length> render-width;
+    in property <length> render-height;
+    callback screenshot-preview-action(int);
+
+    private property <duration> osd-fade-duration: PlayerAppearance.animations-disabled || !PlayerPreferences.osd-enabled ? 0ms : Theme.osd-fade-time;
+    private property <OsdMaterial> osd-material: {
+        active: PlayerAppearance.active-liquid-glass-osd,
+        native-tint: PlayerAppearance.platform-windows || root.native-video,
+        frame: PlayerRenderedVideo.video-blurred-frame,
+        video-x: root.video-inset-leading,
+        video-y: root.video-inset-top,
+        video-width: root.render-width,
+        video-height: root.render-height,
+        sample-opacity: PlayerAppearance.video-material-sample-opacity(root.native-video),
+    };
+
+    if loaded && !crop-editing : SeekOsd {
+        material: root.osd-material;
+        progress-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.playback-progress-accent;
+        osd-enabled: PlayerPreferences.osd-enabled;
+        osd-text-size: PlayerPreferences.osd-text-size;
+        osd-fade-duration: root.osd-fade-duration;
+    }
+    if !PlayerOsdState.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
+        x: (parent.width - self.width) / 2;
+        y: max(8px,
+            parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
+        width: min(420px, parent.width - 32px);
+        material: root.osd-material;
+        native-video: root.native-video;
+    }
+    if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
+        text: startup-status == "" ? status : startup-status;
+        color: Theme.player-status-text(PlayerAppearance.dark-theme); font-size: 11px; overflow: elide; }
+    @children
+    if fullscreen && loaded && controls-visible && PlayerPreferences.display-time-and-battery-in-fullscreen && !crop-editing : FullscreenInfoOsd {
+        private property <length> card-width: min(340px, parent.width - 16px -
+            (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
+        x: parent.width - self.card-width -
+            (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
+        y: (PlayerAppearance.compact-ui ? 38px : 42px) +
+            (root.osc-position == 1 ? root.osc-height : 0px);
+        width: self.card-width;
+        material: root.osd-material;
+        media-title: root.media-title;
+    }
+    if loaded : PlaybackOsd {
+        material: root.osd-material;
+        progress-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.playback-progress-accent;
+        osd-enabled: PlayerPreferences.osd-enabled;
+        osd-text-size: PlayerPreferences.osd-text-size;
+        osd-fade-duration: root.osd-fade-duration;
+    }
+    if loaded && !crop-editing : ScreenshotPreview {
+        x: Theme.playback-osd-left; y: Theme.playback-osd-top;
+        active: PlayerOsdState.screenshot-preview-visible && PlayerPreferences.osd-enabled;
+        opacity: PlayerOsdState.screenshot-preview-visible && PlayerPreferences.osd-enabled ? 1 : 0;
+        animate opacity { duration: root.osd-fade-duration; }
+        capture: PlayerOsdState.screenshot-preview-image;
+        has-file: PlayerOsdState.screenshot-preview-path != "";
+        image-width: PlayerOsdState.screenshot-preview-width * 1px;
+        image-height: PlayerOsdState.screenshot-preview-height * 1px;
+        delete-capture => { root.screenshot-preview-action(0); }
+        edit-capture => { root.screenshot-preview-action(1); }
+        reveal-capture => { root.screenshot-preview-action(2); }
+    }
+}

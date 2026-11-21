@@ -241,7 +241,8 @@ fn language_badges_fit_the_name_and_narrow_card_in_both_themes() {
             },
         ])));
     for dark in [false, true] {
-        app.set_dark_theme(dark);
+        app.global::<riina_ui::PlayerAppearance>()
+            .set_dark_theme(dark);
         for width in [285.0, 440.0, 960.0] {
             app.window().set_size(LogicalSize::new(width, 900.0));
             flush();

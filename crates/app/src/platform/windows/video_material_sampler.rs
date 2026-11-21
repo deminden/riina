@@ -125,17 +125,30 @@ pub(crate) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<
             let Some(app) = weak.upgrade() else { return };
             let enabled = crate::platform::native_materials_enabled();
             if let Some(accent) = crate::platform::windows_accent_color()
-                && app.get_windows_accent_color() != accent
+                && app
+                    .global::<riina_ui::PlayerAppearance>()
+                    .get_windows_accent_color()
+                    != accent
             {
-                app.set_windows_accent_color(accent);
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_windows_accent_color(accent);
             }
             if let Some(foreground) = crate::platform::windows_accent_foreground()
-                && app.get_windows_accent_foreground() != foreground
+                && app
+                    .global::<riina_ui::PlayerAppearance>()
+                    .get_windows_accent_foreground()
+                    != foreground
             {
-                app.set_windows_accent_foreground(foreground);
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_windows_accent_foreground(foreground);
             }
-            if app.get_system_materials_enabled() != enabled {
-                app.set_system_materials_enabled(enabled);
+            if app
+                .global::<riina_ui::PlayerAppearance>()
+                .get_system_materials_enabled()
+                != enabled
+            {
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_system_materials_enabled(enabled);
                 if !enabled {
                     set_video_material_sample(&app, slint::Image::default(), false);
                 }
@@ -418,21 +431,22 @@ impl MaterialSampler {
 }
 
 fn material_visible(app: &PlayerWindow) -> bool {
+    let appearance = app.global::<riina_ui::PlayerAppearance>();
     let video = app.global::<riina_ui::PlaybackVideoState>();
     let osd = app.global::<riina_ui::PlayerOsdState>();
-    app.get_system_materials_enabled()
+    appearance.get_system_materials_enabled()
         && app.get_native_video()
-        && !app.get_native_transition_frame()
+        && !app.global::<riina_ui::PlayerRenderedVideo>().get_native_transition_frame()
         && !app.get_crop_editing()
         // The Slint overlay is SDR. Keep the native HDR composition
         // on its existing tint instead of mixing an 8-bit screenshot.
         && !(video.get_hdr_source_detected() && video.get_hdr_enabled())
-        && ((app.get_liquid_glass_osc()
+        && ((appearance.get_liquid_glass_osc()
             && app.get_loaded()
             && (app.get_controls_visible() || app.get_music_mode()))
-            || (app.get_liquid_glass_sidebar()
+            || (appearance.get_liquid_glass_sidebar()
                 && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0))
-            || (app.get_liquid_glass_osd()
+            || (appearance.get_liquid_glass_osd()
                 && app.get_loaded()
                 && (osd.get_video_osd_visible()
                     || osd.get_seek_osd_visible()

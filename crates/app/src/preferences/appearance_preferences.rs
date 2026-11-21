@@ -32,17 +32,25 @@ pub(crate) fn connect(app: &PlayerWindow) -> Rc<slint::Timer> {
         move || {
             let Some(app) = weak.upgrade() else { return };
             let reduce_motion = crate::platform::system_reduce_motion_enabled();
-            if app.get_system_reduce_motion() != reduce_motion {
-                app.set_system_reduce_motion(reduce_motion);
+            if app
+                .global::<riina_ui::PlayerAppearance>()
+                .get_system_reduce_motion()
+                != reduce_motion
+            {
+                app.global::<riina_ui::PlayerAppearance>()
+                    .set_system_reduce_motion(reduce_motion);
             }
-            let Some(mode) = ThemeMaterial::from_index(app.get_appearance_mode()) else {
+            let Some(mode) = ThemeMaterial::from_index(
+                app.global::<riina_ui::PlayerAppearance>()
+                    .get_appearance_mode(),
+            ) else {
                 return;
             };
             let apply_mode = observed_mode.get() != Some(mode);
             if apply_mode {
                 observed_mode.set(Some(mode));
             }
-            let previous_dark = app.get_dark_theme();
+            let previous_dark = app.global::<riina_ui::PlayerAppearance>().get_dark_theme();
             app.window().with_winit_window(|window| {
                 if apply_mode || mode == ThemeMaterial::System {
                     let override_theme = match mode {
@@ -58,7 +66,8 @@ pub(crate) fn connect(app: &PlayerWindow) -> Rc<slint::Timer> {
                     .unwrap_or(previous_dark);
                 let effective_dark = mode.dark_for(system_is_dark);
                 if previous_dark != effective_dark {
-                    app.set_dark_theme(effective_dark);
+                    app.global::<riina_ui::PlayerAppearance>()
+                        .set_dark_theme(effective_dark);
                 }
             });
         },

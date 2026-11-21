@@ -3,6 +3,7 @@ use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::Preferences;
 use riina_core::liquid_glass::SurfaceSettings;
+use slint::ComponentHandle;
 
 impl PreferenceSection for SurfaceSettings {
     fn get(all: &Preferences) -> Self {
@@ -27,10 +28,11 @@ impl PreferenceSection for SurfaceSettings {
 }
 
 pub(crate) fn current_player(window: &PlayerWindow) -> SurfaceSettings {
+    let appearance = window.global::<riina_ui::PlayerAppearance>();
     SurfaceSettings {
-        osd: window.get_liquid_glass_osd(),
-        osc: window.get_liquid_glass_osc(),
-        sidebar: window.get_liquid_glass_sidebar(),
+        osd: appearance.get_liquid_glass_osd(),
+        osc: appearance.get_liquid_glass_osc(),
+        sidebar: appearance.get_liquid_glass_sidebar(),
     }
 }
 
@@ -43,9 +45,10 @@ pub(crate) fn current_preferences(window: &PreferencesWindow) -> SurfaceSettings
 }
 
 pub(crate) fn install_player(window: &PlayerWindow, settings: SurfaceSettings) {
-    window.set_liquid_glass_osd(settings.osd);
-    window.set_liquid_glass_osc(settings.osc);
-    window.set_liquid_glass_sidebar(settings.sidebar);
+    let appearance = window.global::<riina_ui::PlayerAppearance>();
+    appearance.set_liquid_glass_osd(settings.osd);
+    appearance.set_liquid_glass_osc(settings.osc);
+    appearance.set_liquid_glass_sidebar(settings.sidebar);
 }
 
 pub(crate) fn install_preferences(window: &PreferencesWindow, settings: SurfaceSettings) {
