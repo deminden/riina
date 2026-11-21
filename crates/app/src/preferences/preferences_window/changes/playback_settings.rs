@@ -1,34 +1,42 @@
 //! Decode the playback settings form in the order its errors are shown.
 
-use super::read_or_refresh;
+use super::{general, read_or_refresh};
 use crate::{
     PlayerWindow, PreferencesWindow,
     preferences::model::{PreferenceModel, PreferenceSection, SectionError},
 };
 use riina_core::{
-    Preferences, advanced_preferences, audio_preferences, control_preferences, hdr_preferences,
-    key_bindings,
+    Command, Preferences, advanced_preferences, audio_preferences, control_preferences,
+    hdr_preferences, key_bindings,
     network_preferences::{Cache, Connection, OnlineVideos},
 };
+use riina_mpv::CommandSender;
 
 pub(super) struct Draft {
-    pub(super) previous_cache: Cache,
-    pub(super) cache: Cache,
-    pub(super) network: Connection,
-    pub(super) audio: audio_preferences::Settings,
-    pub(super) tone_mapping: hdr_preferences::Settings,
+    previous_cache: Cache,
+    cache: Cache,
+    network: Connection,
+    audio: audio_preferences::Settings,
+    tone_mapping: hdr_preferences::Settings,
     pub(super) previous_tone_mapping: hdr_preferences::Settings,
-    pub(super) tone_mapping_changed: bool,
-    pub(super) video_threads: u32,
-    pub(super) previous_video_threads: u32,
-    pub(super) video_threads_changed: bool,
-    pub(super) controls: control_preferences::Settings,
-    pub(super) key_bindings: key_bindings::Settings,
-    pub(super) advanced: advanced_preferences::Settings,
+    tone_mapping_changed: bool,
+    video_threads: u32,
+    previous_video_threads: u32,
+    video_threads_changed: bool,
+    controls: control_preferences::Settings,
+    key_bindings: key_bindings::Settings,
+    advanced: advanced_preferences::Settings,
     advanced_changed: bool,
     audio_changed: bool,
-    pub(super) previous_online_videos: OnlineVideos,
-    pub(super) online_videos: OnlineVideos,
+    previous_online_videos: OnlineVideos,
+    online_videos: OnlineVideos,
+}
+
+#[derive(Default)]
+pub(super) struct Applied {
+    end_policy: bool,
+    tone_mapping: bool,
+    video_threads: bool,
 }
 
 impl Draft {
@@ -127,5 +135,81 @@ impl Draft {
         } else {
             None
         }
+    }
+
+    pub(super) fn apply(
+        &self,
+        app: &PlayerWindow,
+        sender: &CommandSender,
+        general: &general::Draft,
+        applied: &mut Applied,
+    ) -> Result<(), String> {
+        crate::network_cache_preferences::apply(sender, app, &self.previous_cache, &self.cache)?;
+        crate::network_ytdl_preferences::apply(
+            sender,
+            app,
+            &self.previous_online_videos,
+            &self.online_videos,
+        )?;
+        if general.selected.keep_open_on_file_end != general.previous.keep_open_on_file_end
+            || general.selected.playlist_auto_play_next != general.previous.playlist_auto_play_next
+        {
+            sender.send(Command::SetPlaybackEndPolicy {
+                keep_open_on_file_end: general.selected.keep_open_on_file_end,
+                playlist_auto_play_next: general.selected.playlist_auto_play_next,
+            })?;
+            applied.end_policy = true;
+        }
+        if self.tone_mapping_changed {
+            sender.send(Command::SetToneMapping(self.tone_mapping.clone()))?;
+            applied.tone_mapping = true;
+        }
+        if self.video_threads_changed {
+            sender.send(Command::VideoThreads(self.video_threads))?;
+            applied.video_threads = true;
+        }
+        Ok(())
+    }
+
+    pub(super) fn put(&self, preferences: &mut Preferences) {
+        preferences.audio = self.audio.clone();
+        preferences.video_threads = self.video_threads;
+        preferences.key_bindings = self.key_bindings.clone();
+        self.tone_mapping.clone().put(preferences);
+        self.network.clone().put(preferences);
+        self.advanced.clone().put(preferences);
+        self.online_videos.clone().put(preferences);
+        self.cache.clone().put(preferences);
+        self.controls.clone().put(preferences);
+    }
+
+    pub(super) fn restore(
+        &self,
+        app: &PlayerWindow,
+        window: &PreferencesWindow,
+        sender: &CommandSender,
+        general: &general::Draft,
+        applied: &Applied,
+    ) {
+        if applied.end_policy {
+            let _ = sender.send(Command::SetPlaybackEndPolicy {
+                keep_open_on_file_end: general.previous.keep_open_on_file_end,
+                playlist_auto_play_next: general.previous.playlist_auto_play_next,
+            });
+        }
+        if applied.video_threads {
+            let _ = sender.send(Command::VideoThreads(self.previous_video_threads));
+            window.set_video_threads_text(self.previous_video_threads.to_string().into());
+        }
+        if applied.tone_mapping {
+            let _ = sender.send(Command::SetToneMapping(self.previous_tone_mapping.clone()));
+        }
+        crate::network_ytdl_preferences::restore(
+            sender,
+            app,
+            &self.previous_online_videos,
+            &self.online_videos,
+        );
+        crate::network_cache_preferences::restore(sender, app, &self.previous_cache, &self.cache);
     }
 }

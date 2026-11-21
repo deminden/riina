@@ -9,10 +9,8 @@ use super::{
     live::{AppliedDecoderSettings, DecoderState},
     refresh::refresh,
 };
-use crate::{
-    PlayerWindow, PreferencesWindow,
-    preferences::model::{PreferenceModel, PreferenceSection},
-};
+use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceModel};
+#[cfg(test)]
 use riina_core::Command;
 use slint::ComponentHandle;
 use std::{
@@ -156,127 +154,71 @@ fn connect_with_credentials(
         general.selected.project_open_policy(&app);
         display.project_before_save(&app, &window);
         let restart_notice = playback.restart_notice();
-        let mut tone_mapping_applied = false;
-        let mut video_threads_applied = false;
-        let mut keep_open_applied = false;
-        let result = crate::subtitle_position_preferences::apply(
-            &decoder_player,
-            subtitles.previous_position,
-            subtitles.position,
-        )
-        .and_then(|()| {
-            crate::subtitle_other_preferences::apply(
-                &decoder_player,
-                &subtitles.previous_other,
-                &subtitles.other,
-            )
-        })
-        .and_then(|()| decoder_player.send(Command::SubtitleAutoLoad(subtitles.auto_load.clone())))
-        .and_then(|()| {
-            crate::network_cache_preferences::apply(
-                &decoder_player,
-                &app,
-                &playback.previous_cache,
-                &playback.cache,
-            )
-        })
-        .and_then(|()| {
-            crate::network_ytdl_preferences::apply(
-                &decoder_player,
-                &app,
-                &playback.previous_online_videos,
-                &playback.online_videos,
-            )
-        })
-        .and_then(|()| {
-            if general.selected.keep_open_on_file_end != general.previous.keep_open_on_file_end
-                || general.selected.playlist_auto_play_next
-                    != general.previous.playlist_auto_play_next
-            {
-                decoder_player.send(Command::SetPlaybackEndPolicy {
-                    keep_open_on_file_end: general.selected.keep_open_on_file_end,
-                    playlist_auto_play_next: general.selected.playlist_auto_play_next,
-                })?;
-                keep_open_applied = true;
-            }
-            if playback.tone_mapping_changed {
-                decoder_player.send(Command::SetToneMapping(playback.tone_mapping.clone()))?;
-                tone_mapping_applied = true;
-            }
-            if playback.video_threads_changed {
-                decoder_player.send(Command::VideoThreads(playback.video_threads))?;
-                video_threads_applied = true;
-            }
-            subtitles.position.write_player(&app);
-            subtitles.other.write_player(&app);
-            subtitles.auto_load.write_player(&app);
-            crate::screenshot_preferences::current(&app)
-        })
-        .and_then(|screenshot| {
-            let mut preferences = riina_core::Preferences {
-                screenshot,
-                volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
-                    200.0
-                } else {
-                    100.0
-                }),
-                volume_boost: app.get_volume_boost(),
-                show_chapter_pos: window.get_show_chapter_pos(),
-                allow_multiple_windows: window.get_allow_multiple_windows(),
-                group_simultaneous_opens_in_playlist: window
-                    .get_group_simultaneous_opens_in_playlist(),
-                allow_duplicate_players: window.get_allow_duplicate_players(),
-                live_text_enabled: window.get_live_text_enabled(),
-                load_icc_profile: window.get_load_icc_profile(),
-                hdr_enabled: window.get_default_hdr_mode_enabled(),
-                disable_animations: window.get_disable_animations(),
-                always_float_on_top: window.get_always_float_on_top(),
-                always_show_on_top_icon: window.get_always_show_on_top_icon(),
-                record_recent_files: window.get_record_recent_files(),
-                track_all_files_in_recent_open_menu: window
-                    .get_track_all_files_in_recent_open_menu(),
-                leading_sidebar_width: app.get_leading_sidebar_width() as u32,
-                trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
-                settings_at_leading: app.get_settings_at_leading(),
-                playlist_at_leading: app.get_playlist_at_leading(),
-                plugins_at_leading: app.get_plugins_at_leading(),
-                edge_to_edge_video: app.get_edge_to_edge_video(),
-                docked_controls: app.get_docked_controls(),
-                unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
-                compact_ui: app.get_compact_ui(),
-                osc_position: app.get_osc_position() as u8,
-                control_bar_position_horizontal: f64::from(
-                    app.get_control_bar_position_horizontal(),
-                ),
-                control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
-                hardware_decoder: decoder,
-                subtitle_ass_override: applied_subtitles.primary,
-                secondary_subtitle_ass_override: applied_subtitles.secondary,
-                online_subtitles: selected_online_subtitles.clone(),
-                subtitle_font: applied_subtitles.font.clone(),
-                subtitle_font_size: applied_subtitles.font_size,
-                subtitle_text_style: applied_subtitles.style,
-                audio: playback.audio,
-                video_threads: playback.video_threads,
-                key_bindings: playback.key_bindings,
-                ..baseline.clone()
-            };
-            general.put(&mut preferences)?;
-            display.put(&mut preferences);
-            playback.tone_mapping.clone().put(&mut preferences);
-            playback.network.put(&mut preferences);
-            playback.advanced.put(&mut preferences);
-            subtitles.auto_load.clone().put(&mut preferences);
-            subtitles.other.clone().put(&mut preferences);
-            subtitles.position.put(&mut preferences);
-            playback.online_videos.clone().put(&mut preferences);
-            playback.cache.clone().put(&mut preferences);
-            playback.controls.put(&mut preferences);
-            // Utilities can clear history while this window remains open;
-            // preserve that live system action over its original snapshot.
-            crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
-            save_preferences(&window, &app, &model, preferences)
-        });
+        let mut playback_changes = playback_settings::Applied::default();
+        let result = subtitles
+            .apply_tracks(&decoder_player)
+            .and_then(|()| playback.apply(&app, &decoder_player, &general, &mut playback_changes))
+            .and_then(|()| {
+                subtitles.project_tracks(&app);
+                crate::screenshot_preferences::current(&app)
+            })
+            .and_then(|screenshot| {
+                let mut preferences = riina_core::Preferences {
+                    screenshot,
+                    volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
+                        200.0
+                    } else {
+                        100.0
+                    }),
+                    volume_boost: app.get_volume_boost(),
+                    show_chapter_pos: window.get_show_chapter_pos(),
+                    allow_multiple_windows: window.get_allow_multiple_windows(),
+                    group_simultaneous_opens_in_playlist: window
+                        .get_group_simultaneous_opens_in_playlist(),
+                    allow_duplicate_players: window.get_allow_duplicate_players(),
+                    live_text_enabled: window.get_live_text_enabled(),
+                    load_icc_profile: window.get_load_icc_profile(),
+                    hdr_enabled: window.get_default_hdr_mode_enabled(),
+                    disable_animations: window.get_disable_animations(),
+                    always_float_on_top: window.get_always_float_on_top(),
+                    always_show_on_top_icon: window.get_always_show_on_top_icon(),
+                    record_recent_files: window.get_record_recent_files(),
+                    track_all_files_in_recent_open_menu: window
+                        .get_track_all_files_in_recent_open_menu(),
+                    leading_sidebar_width: app.get_leading_sidebar_width() as u32,
+                    trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
+                    settings_at_leading: app.get_settings_at_leading(),
+                    playlist_at_leading: app.get_playlist_at_leading(),
+                    plugins_at_leading: app.get_plugins_at_leading(),
+                    edge_to_edge_video: app.get_edge_to_edge_video(),
+                    docked_controls: app.get_docked_controls(),
+                    unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
+                    compact_ui: app.get_compact_ui(),
+                    osc_position: app.get_osc_position() as u8,
+                    control_bar_position_horizontal: f64::from(
+                        app.get_control_bar_position_horizontal(),
+                    ),
+                    control_bar_position_vertical: f64::from(
+                        app.get_control_bar_position_vertical(),
+                    ),
+                    hardware_decoder: decoder,
+                    subtitle_ass_override: applied_subtitles.primary,
+                    secondary_subtitle_ass_override: applied_subtitles.secondary,
+                    online_subtitles: selected_online_subtitles.clone(),
+                    subtitle_font: applied_subtitles.font.clone(),
+                    subtitle_font_size: applied_subtitles.font_size,
+                    subtitle_text_style: applied_subtitles.style,
+                    ..baseline.clone()
+                };
+                general.put(&mut preferences)?;
+                display.put(&mut preferences);
+                playback.put(&mut preferences);
+                subtitles.put_tracks(&mut preferences);
+                // Utilities can clear history while this window remains open;
+                // preserve that live system action over its original snapshot.
+                crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
+                save_preferences(&window, &app, &model, preferences)
+            });
         match result {
             Ok(()) => committed::project(
                 &app,
@@ -298,57 +240,8 @@ fn connect_with_credentials(
                     saved.group_simultaneous_opens_in_playlist,
                 );
                 window.set_allow_duplicate_players(saved.allow_duplicate_players);
-                if keep_open_applied {
-                    let _ = decoder_player.send(Command::SetPlaybackEndPolicy {
-                        keep_open_on_file_end: general.previous.keep_open_on_file_end,
-                        playlist_auto_play_next: general.previous.playlist_auto_play_next,
-                    });
-                }
-                if video_threads_applied {
-                    let _ =
-                        decoder_player.send(Command::VideoThreads(playback.previous_video_threads));
-                    window
-                        .set_video_threads_text(playback.previous_video_threads.to_string().into());
-                }
-                if tone_mapping_applied {
-                    let _ = decoder_player.send(Command::SetToneMapping(
-                        playback.previous_tone_mapping.clone(),
-                    ));
-                }
-                crate::network_ytdl_preferences::restore(
-                    &decoder_player,
-                    &app,
-                    &playback.previous_online_videos,
-                    &playback.online_videos,
-                );
-                crate::network_cache_preferences::restore(
-                    &decoder_player,
-                    &app,
-                    &playback.previous_cache,
-                    &playback.cache,
-                );
-                let _ = decoder_player.send(Command::SubtitleAutoLoad(
-                    subtitles.previous_auto_load.clone(),
-                ));
-                let _ = crate::subtitle_other_preferences::apply(
-                    &decoder_player,
-                    &subtitles.other,
-                    &subtitles.previous_other,
-                );
-                crate::subtitle_other_preferences::install_player(&app, &subtitles.previous_other);
-                crate::subtitle_auto_load_preferences::install_player(
-                    &app,
-                    &subtitles.previous_auto_load,
-                );
-                let _ = crate::subtitle_position_preferences::apply(
-                    &decoder_player,
-                    subtitles.position,
-                    subtitles.previous_position,
-                );
-                crate::subtitle_position_preferences::install_player(
-                    &app,
-                    subtitles.previous_position,
-                );
+                playback.restore(&app, &window, &decoder_player, &general, &playback_changes);
+                subtitles.restore_tracks(&app, &decoder_player);
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
                 applied_decoder.restore(&app, &decoder_player);
                 general.previous.restore(&app);
