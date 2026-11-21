@@ -393,7 +393,8 @@ mod audio_device_menu_tests {
                     name: "dsound/{speaker-id}".into(),
                     description: "Incompatible DirectSound device".into(),
                 },
-            ],
+            ]
+            .into(),
             ..Playback::default()
         };
         let rows = audio_device_menu_rows(&state);
@@ -411,7 +412,8 @@ mod audio_device_menu_tests {
             audio_devices: vec![OutputDevice {
                 name: "wasapi/{speaker-id}".into(),
                 description: "  ".into(),
-            }],
+            }]
+            .into(),
             ..Playback::default()
         };
         let rows = audio_device_menu_rows(&state);
@@ -427,7 +429,8 @@ mod audio_device_menu_tests {
             audio_devices: vec![OutputDevice {
                 name: "wasapi/{speaker-id}".into(),
                 description: "Speakers".into(),
-            }],
+            }]
+            .into(),
             ..Playback::default()
         };
         let removed = Playback {
@@ -436,7 +439,8 @@ mod audio_device_menu_tests {
             audio_devices: vec![OutputDevice {
                 name: "wasapi/{headphones-id}".into(),
                 description: "Headphones".into(),
-            }],
+            }]
+            .into(),
             ..Playback::default()
         };
         assert!(should_fallback_removed_audio_device(
@@ -457,7 +461,7 @@ mod audio_device_menu_tests {
             &stopped
         ));
         let no_devices = Playback {
-            audio_devices: Vec::new(),
+            audio_devices: Default::default(),
             ..removed
         };
         assert!(!should_fallback_removed_audio_device(

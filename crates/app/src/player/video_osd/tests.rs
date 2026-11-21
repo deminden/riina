@@ -471,14 +471,14 @@ fn track_feedback_uses_selected_track_identity_and_empty_choice() {
     }
 
     let mut old = loaded();
-    old.tracks = vec![audio_track(1, "Main")];
+    old.tracks = vec![audio_track(1, "Main")].into();
     let mut state = old.clone();
-    state.tracks = vec![audio_track(2, "Director Commentary")];
+    state.tracks = vec![audio_track(2, "Director Commentary")].into();
     let selected = changed(Some(&old), &state).unwrap();
     assert_eq!(selected.kind, Kind::Track);
     assert_eq!(selected.text, "Audio: #2 Director Commentary");
 
-    state.tracks.clear();
+    state.tracks = Default::default();
     let disabled = changed(Some(&old), &state).unwrap();
     assert_eq!(disabled.kind, Kind::Track);
     assert_eq!(disabled.text, "Audio: #0 <None>");

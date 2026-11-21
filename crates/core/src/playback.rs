@@ -4,7 +4,11 @@ use crate::{
     music_mode, subtitle_color, video_controls,
 };
 use serde::Deserialize;
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::Arc,
+    time::Instant,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Phase {
@@ -51,7 +55,7 @@ pub struct Playback {
     /// Currently selected libmpv output device ID, independently observed so
     /// menus reflect runtime changes and backend fallback behavior.
     pub audio_device: Option<String>,
-    pub audio_devices: Vec<audio_preferences::OutputDevice>,
+    pub audio_devices: Arc<Vec<audio_preferences::OutputDevice>>,
     pub hardware_decoder: Option<String>,
     // Configured policy is separate from hwdec-current: unsupported codecs can
     // use software while the user's hardware-decoding switch remains enabled.
@@ -89,10 +93,10 @@ pub struct Playback {
     /// Latest optional video sample used only as the D3D11 material backdrop.
     pub material_frame: FrameSlot,
     /// Properties requested by active player-scoped plugin event listeners.
-    pub observed_mpv_properties: BTreeMap<String, serde_json::Value>,
+    pub observed_mpv_properties: Arc<BTreeMap<String, serde_json::Value>>,
     /// Recent native mpv event names, retained so coalesced UI snapshots do not
     /// drop event callbacks before the plugin worker can receive them.
-    pub mpv_events: Vec<MpvEventRecord>,
+    pub mpv_events: Arc<VecDeque<MpvEventRecord>>,
     /// Monotonic sequence for native mpv event records in `mpv_events`.
     pub mpv_event_sequence: u64,
     pub video_equalizer: [Option<i64>; 5],
@@ -102,11 +106,11 @@ pub struct Playback {
     pub artist: Option<String>,
     pub album: Option<String>,
     pub error: Option<String>,
-    pub tracks: Vec<Track>,
+    pub tracks: Arc<Vec<Track>>,
     /// Whether mpv reported the incoming file's track list, including an empty list.
     pub track_list_observed: bool,
-    pub chapters: Vec<Chapter>,
-    pub playlist: Vec<PlaylistEntry>,
+    pub chapters: Arc<Vec<Chapter>>,
+    pub playlist: Arc<Vec<PlaylistEntry>>,
     /// libmpv does not expose whether its native shuffle order is active.
     pub playlist_shuffled: bool,
     pub audio_delay: f64,
@@ -178,19 +182,20 @@ pub const MAX_RETAINED_MPV_EVENTS: usize = 256;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MpvEventRecord {
     pub sequence: u64,
-    pub name: String,
+    pub name: Arc<str>,
 }
 
 impl Playback {
-    pub fn record_mpv_event(&mut self, name: String) {
+    pub fn record_mpv_event(&mut self, name: Arc<str>) {
         self.mpv_event_sequence = self.mpv_event_sequence.wrapping_add(1).max(1);
-        self.mpv_events.push(MpvEventRecord {
+        let events = Arc::make_mut(&mut self.mpv_events);
+        if events.len() >= MAX_RETAINED_MPV_EVENTS {
+            events.pop_front();
+        }
+        events.push_back(MpvEventRecord {
             sequence: self.mpv_event_sequence,
             name,
         });
-        if self.mpv_events.len() > MAX_RETAINED_MPV_EVENTS {
-            self.mpv_events.remove(0);
-        }
     }
 }
 
@@ -202,12 +207,15 @@ mod mpv_event_record_tests {
     fn native_mpv_event_history_is_bounded_and_sequenced() {
         let mut playback = Playback::default();
         for index in 0..=MAX_RETAINED_MPV_EVENTS {
-            playback.record_mpv_event(format!("event-{index}"));
+            playback.record_mpv_event(format!("event-{index}").into());
         }
         assert_eq!(playback.mpv_events.len(), MAX_RETAINED_MPV_EVENTS);
-        assert_eq!(playback.mpv_events.first().unwrap().sequence, 2);
-        assert_eq!(playback.mpv_events.last().unwrap().sequence, 257);
-        assert_eq!(playback.mpv_events.last().unwrap().name, "event-256");
+        assert_eq!(playback.mpv_events.front().unwrap().sequence, 2);
+        assert_eq!(playback.mpv_events.back().unwrap().sequence, 257);
+        assert_eq!(
+            playback.mpv_events.back().unwrap().name.as_ref(),
+            "event-256"
+        );
     }
 }
 
@@ -314,9 +322,9 @@ impl Playback {
         self.ab_loop_b = None;
         self.error = None;
         // Track IDs belong to one file; never offer a stale selector during replacement.
-        self.tracks.clear();
+        self.tracks = Arc::default();
         self.track_list_observed = false;
-        self.chapters.clear();
+        self.chapters = Arc::default();
         self.subtitle_text = None;
         self.secondary_subtitle_text = None;
         self.video = None;

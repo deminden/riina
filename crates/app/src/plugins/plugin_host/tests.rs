@@ -84,10 +84,13 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
         .update_player_file_context(
             PluginPlayerFileContext::default()
                 .with_core_version(serde_json::json!({"mpv": "mpv 0.41.0-git"}))
-                .with_mpv_events(vec![riina_core::MpvEventRecord {
-                    sequence: 1,
-                    name: "start-file".into(),
-                }]),
+                .with_mpv_events(
+                    std::collections::VecDeque::from([riina_core::MpvEventRecord {
+                        sequence: 1,
+                        name: "start-file".into(),
+                    }])
+                    .into(),
+                ),
         )
         .unwrap();
     handle.notify_plugin_overlay_loaded().unwrap();

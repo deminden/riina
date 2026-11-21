@@ -13,7 +13,7 @@ use crate::{
 use riina_core::{CapturedFrame, Command, CommandPlan, Phase, Playback};
 use std::{
     collections::{BTreeMap, HashMap},
-    ffi::CString,
+    ffi::{CString, c_int},
     panic::{AssertUnwindSafe, catch_unwind},
     sync::{
         Arc,
@@ -212,6 +212,7 @@ struct WorkerState {
     pending_drop_subtitles: Vec<String>,
     resume_on_load: bool,
     seek_pending: bool,
+    event_names: HashMap<c_int, Option<Arc<str>>>,
     seek_feedback: SeekFeedback,
     auto_seek: AutoSeek,
 }
@@ -376,9 +377,14 @@ impl WorkerState {
 
     fn drain_events(&mut self, handle: &mut Handle) {
         while let Some(event) = handle.wait() {
-            if let Some(name) = event.name() {
-                self.playback
-                    .record_mpv_event(name.to_string_lossy().into_owned());
+            let name = self.event_names.entry(event.id()).or_insert_with(|| {
+                // Own the cached names since snapshots can outlive the loaded library.
+                event
+                    .name()
+                    .map(|name| Arc::from(name.to_string_lossy().as_ref()))
+            });
+            if let Some(name) = name {
+                self.playback.record_mpv_event(name.clone());
             }
             if event.id() == event_id::FILE_LOADED {
                 self.on_file_loaded(handle);

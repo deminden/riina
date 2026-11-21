@@ -69,7 +69,7 @@ fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
     assert_eq!(selected_track(&both, TrackKind::Sub), Some(primary));
     assert!(both.paused);
     assert_eq!(both.error, None);
-    for track in &loaded.tracks {
+    for track in loaded.tracks.iter() {
         // mpv numbers each track kind independently; ID alone is not identity.
         let observed = both
             .tracks

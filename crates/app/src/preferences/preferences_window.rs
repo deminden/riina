@@ -27,7 +27,7 @@ pub(crate) fn connect(
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
     let reduce_motion_refresh = Rc::new(RefCell::new(None::<Rc<slint::Timer>>));
     let audio_device_refresh = Rc::new(slint::Timer::default());
-    let observed_audio_devices = Rc::new(RefCell::new(Vec::new()));
+    let observed_audio_devices = Rc::new(RefCell::new(std::sync::Arc::default()));
     let preferences_window = current.clone();
     app.on_subtitle_font_selected(move |font| {
         if let Some(window) = preferences_window

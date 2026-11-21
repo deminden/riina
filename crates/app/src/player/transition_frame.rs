@@ -325,7 +325,8 @@ mod tests {
                 current: false,
                 playing: false,
             },
-        ];
+        ]
+        .into();
 
         assert!(should_display(&state, true));
         assert!(!should_display(&state, false));
@@ -639,10 +640,11 @@ mod tests {
                 current: false,
                 playing: false,
             },
-        ];
+        ]
+        .into();
         assert!(should_display(&state, true));
         assert!(!should_display(&state, false));
-        state.playlist.pop();
+        Arc::make_mut(&mut state.playlist).pop();
         assert!(!should_display(&state, true));
     }
 

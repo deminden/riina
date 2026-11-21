@@ -8,6 +8,7 @@ use riina_core::{CapturedFrame, Playback};
 use std::{
     ffi::{CStr, CString, c_int, c_void},
     ptr::{self, NonNull},
+    sync::Arc,
 };
 
 pub(super) struct Handle {
@@ -163,7 +164,7 @@ impl EventRef<'_> {
             // SAFETY: the event owns this property and all node data during the copy.
             match unsafe { observed_property_value(property) } {
                 Ok(value) => {
-                    state.observed_mpv_properties.insert(name, value);
+                    Arc::make_mut(&mut state.observed_mpv_properties).insert(name, value);
                 }
                 Err(error) => diagnostic!("Could not copy observed mpv plugin property: {error}"),
             }

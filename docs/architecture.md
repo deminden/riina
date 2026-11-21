@@ -48,13 +48,15 @@ flowchart LR
 ```
 
 The UI thread owns windows, callbacks, timers and the preference model. The mpv
-worker serializes intents with native events. It validates each intent against
-the observed `Playback` state before submitting the plan. It copies native event
-payloads before advancing the event queue so Rust consumers can hold snapshots
-without retaining foreign event pointers.
+worker in `crates/mpv/src/worker.rs` serializes intents with native events. It
+validates each intent against the observed `Playback` state before submitting the
+plan. Its `Handle` ties each borrowed native event to the wait that returned it.
+The worker copies payloads before advancing the event queue.
 
-The latest playback snapshot is available to callbacks that need confirmed
-engine state. `playback_mailbox` coalesces pending updates to the UI thread.
+Callbacks and `playback_mailbox` share `Arc<Playback>` snapshots. Tracks, chapters,
+playlists, audio devices and retained plugin events are shared across snapshots
+until the worker replaces or updates them. `playback_mailbox` coalesces pending
+updates to the UI thread.
 Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
 catalogs into Slint. Plugin entry workers have a separate runtime and send player

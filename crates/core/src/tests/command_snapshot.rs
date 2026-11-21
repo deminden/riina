@@ -226,19 +226,23 @@ fn snapshot_state() -> Playback {
         ]),
         audio_filters: Some(vec![sample_filter("acompressor", None)]),
         audio_equalizer: Some([1.0; 10]),
-        tracks: serde_json::from_str(
+        tracks: serde_json::from_str::<Vec<_>>(
             r#"[{"id":1,"type":"video"},{"id":2,"type":"audio"},{"id":3,"type":"sub"}]"#,
         )
-        .unwrap(),
-        chapters: serde_json::from_str(r#"[{"time":0.0},{"time":45.0}]"#).unwrap(),
-        playlist: serde_json::from_str(
+        .unwrap()
+        .into(),
+        chapters: serde_json::from_str::<Vec<_>>(r#"[{"time":0.0},{"time":45.0}]"#)
+            .unwrap()
+            .into(),
+        playlist: serde_json::from_str::<Vec<_>>(
             r#"[
                 {"id":10,"filename":"b.mkv","current":true,"playing":true},
                 {"id":20,"filename":"a.mkv"},
                 {"id":30,"filename":"c.mkv"}
             ]"#,
         )
-        .unwrap(),
+        .unwrap()
+        .into(),
         ab_loop_a: Some(9.0),
         ..Playback::default()
     }

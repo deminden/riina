@@ -903,7 +903,8 @@ mod tests {
                 title: None,
                 current: true,
                 playing: true,
-            }],
+            }]
+            .into(),
             ..riina_core::Playback::default()
         };
         let mut preferences = preferences(AutoLoadMode::Intelligent, "subs");
@@ -930,7 +931,8 @@ mod tests {
             controller.observe(&state, &preferences),
             Some((5, PathBuf::from("movie.mkv")))
         );
-        state.playlist[0].filename = "https://example.invalid/movie.mkv".into();
+        std::sync::Arc::make_mut(&mut state.playlist)[0].filename =
+            "https://example.invalid/movie.mkv".into();
         state.generation = 6;
         assert_eq!(controller.observe(&state, &preferences), None);
     }

@@ -321,7 +321,8 @@ fn subtitle_encoding_change_updates_option_then_reloads_each_subtitle_track() {
             },
             track(9, TrackKind::Audio),
             track(11, TrackKind::Sub),
-        ],
+        ]
+        .into(),
         ..Playback::default()
     };
 
@@ -397,7 +398,7 @@ fn subtitle_reload_recognizes_mpv_normalized_windows_paths() {
         }))
         .unwrap();
         let state = Playback {
-            tracks: vec![track],
+            tracks: vec![track].into(),
             ..Default::default()
         };
         assert_eq!(
@@ -433,7 +434,7 @@ fn discovered_subtitles_use_auto_selection_and_skip_existing_files() {
     }))
     .unwrap();
     let state = Playback {
-        tracks: vec![track],
+        tracks: vec![track].into(),
         ..Playback::default()
     };
     assert!(command.plan(&state).unwrap().commands.is_empty());
@@ -709,7 +710,8 @@ fn chapter_selection_resumes_and_playlist_ids_resolve_after_reorder() {
         chapters: vec![Chapter {
             time: 2.0,
             title: None,
-        }],
+        }]
+        .into(),
         playlist: vec![
             PlaylistEntry {
                 id: 41,
@@ -725,7 +727,8 @@ fn chapter_selection_resumes_and_playlist_ids_resolve_after_reorder() {
                 current: false,
                 playing: false,
             },
-        ],
+        ]
+        .into(),
         ..Default::default()
     };
     let chapter = Command::SelectChapter(0).plan(&state).unwrap();
@@ -761,7 +764,8 @@ fn removing_selected_playlist_ids_uses_original_order_and_rejects_stale_or_dupli
                 current: id == 30,
                 playing: id == 30,
             })
-            .collect(),
+            .collect::<Vec<_>>()
+            .into(),
         ..Default::default()
     };
 
@@ -805,7 +809,8 @@ fn playlist_sort_plans_keep_native_entry_identity_and_current_item() {
                 current: false,
                 playing: false,
             },
-        ],
+        ]
+        .into(),
         ..Default::default()
     };
     assert_eq!(

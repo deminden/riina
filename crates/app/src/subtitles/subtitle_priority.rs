@@ -136,7 +136,8 @@ mod tests {
             tracks: vec![
                 track(7, "Movie.en.srt", false),
                 track(8, "Movie.fr.srt", false),
-            ],
+            ]
+            .into(),
             ..Playback::default()
         };
         assert_eq!(
@@ -153,7 +154,8 @@ mod tests {
             tracks: vec![
                 track(7, "Movie.en.srt", false),
                 track(8, "Movie.en.forced.srt", false),
-            ],
+            ]
+            .into(),
             ..Playback::default()
         };
         assert_eq!(
@@ -162,7 +164,7 @@ mod tests {
         );
 
         let selected = Playback {
-            tracks: vec![track(7, "Movie.en.srt", true)],
+            tracks: vec![track(7, "Movie.en.srt", true)].into(),
             ..state
         };
         assert_eq!(
@@ -180,7 +182,8 @@ mod tests {
                 track(7, "C:/Subtitles/forced/Movie.en.srt", false),
                 track(8, "C:/Subtitles/Movie.en.FORCED.srt", false),
                 track(9, "C:/Subtitles/Movie.en.forced.srt", false),
-            ],
+            ]
+            .into(),
             ..Playback::default()
         };
         assert_eq!(

@@ -88,10 +88,13 @@ fn player_context_reports_file_loaded_and_changed_mpv_properties() {
             ]),
             Vec::new(),
         )
-        .with_observed_mpv_properties(BTreeMap::from([(
-            "cache-buffering-state".into(),
-            serde_json::json!({"total-bytes": 256}),
-        )]));
+        .with_observed_mpv_properties(
+            BTreeMap::from([(
+                "cache-buffering-state".into(),
+                serde_json::json!({"total-bytes": 256}),
+            )])
+            .into(),
+        );
     let next = PluginPlayerFileContext::default()
         .with_media_generation(5)
         .with_media_ready(true)
@@ -104,10 +107,13 @@ fn player_context_reports_file_loaded_and_changed_mpv_properties() {
             ]),
             Vec::new(),
         )
-        .with_observed_mpv_properties(BTreeMap::from([(
-            "cache-buffering-state".into(),
-            serde_json::json!({"total-bytes": 512}),
-        )]));
+        .with_observed_mpv_properties(
+            BTreeMap::from([(
+                "cache-buffering-state".into(),
+                serde_json::json!({"total-bytes": 512}),
+            )])
+            .into(),
+        );
 
     assert_eq!(
         previous.player_events_to(&next),

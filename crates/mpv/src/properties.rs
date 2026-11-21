@@ -252,41 +252,47 @@ pub(super) static OBSERVED: &[ObservedProperty] = &[
         c"track-list",
         Node,
         |state, value| {
-            state.tracks = serde_json::from_value(value).map_err(|e| e.to_string())?;
+            state.tracks = serde_json::from_value::<Vec<_>>(value)
+                .map_err(|e| e.to_string())?
+                .into();
             state.track_list_observed = true;
         },
         |state| {
-            state.tracks.clear();
+            state.tracks = Default::default();
         }
     ),
     property!(
         c"chapter-list",
         Node,
         |state, value| {
-            state.chapters = serde_json::from_value(value).map_err(|e| e.to_string())?;
+            state.chapters = serde_json::from_value::<Vec<_>>(value)
+                .map_err(|e| e.to_string())?
+                .into();
         },
         |state| {
-            state.chapters.clear();
+            state.chapters = Default::default();
         }
     ),
     property!(
         c"playlist",
         Node,
         |state, value| {
-            state.playlist = serde_json::from_value(value).map_err(|e| e.to_string())?;
+            state.playlist = serde_json::from_value::<Vec<_>>(value)
+                .map_err(|e| e.to_string())?
+                .into();
         },
         |state| {
-            state.playlist.clear();
+            state.playlist = Default::default();
         }
     ),
     property!(
         c"audio-device-list",
         Node,
         |state, value| {
-            state.audio_devices = decode_audio_devices(value)?;
+            state.audio_devices = decode_audio_devices(value)?.into();
         },
         |state| {
-            state.audio_devices.clear();
+            state.audio_devices = Default::default();
         }
     ),
     property!(

@@ -26,7 +26,8 @@ fn playback_observation_releases_history_before_waiting_for_recent_media() {
                 title: None,
                 current: true,
                 playing: true,
-            }],
+            }]
+            .into(),
             ..Playback::default()
         };
         observe_playback(&playback, &worker_recent, &worker_history, true, 1)
@@ -133,17 +134,18 @@ fn playback_snapshots_supply_core_status_and_chapters() {
             width: None,
             height: None,
             frame_rate: None,
-        }],
+        }]
+        .into(),
         ..Playback::default()
     };
-    playback.playlist.push(PlaylistEntry {
+    std::sync::Arc::make_mut(&mut playback.playlist).push(PlaylistEntry {
         id: 1,
         filename: "https://media.example/sample.mp4".into(),
         title: None,
         current: true,
         playing: true,
     });
-    playback.chapters.push(Chapter {
+    std::sync::Arc::make_mut(&mut playback.chapters).push(Chapter {
         time: 0.0,
         title: Some("Opening".into()),
     });

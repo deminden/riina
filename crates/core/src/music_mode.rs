@@ -130,7 +130,8 @@ mod tests {
             tracks: vec![
                 track(TrackKind::Audio, false),
                 track(TrackKind::Video, true),
-            ],
+            ]
+            .into(),
             ..Playback::default()
         };
         assert_eq!(audio_with_art.audio_status(), AudioStatus::Audio);
@@ -139,7 +140,8 @@ mod tests {
             tracks: vec![
                 track(TrackKind::Audio, false),
                 track(TrackKind::Video, false),
-            ],
+            ]
+            .into(),
             ..Playback::default()
         };
         assert_eq!(real_video.audio_status(), AudioStatus::Video);
@@ -246,14 +248,15 @@ mod tests {
     #[test]
     fn network_items_do_not_qualify_for_automatic_music_mode() {
         let state = Playback {
-            tracks: vec![track(TrackKind::Audio, false)],
+            tracks: vec![track(TrackKind::Audio, false)].into(),
             playlist: vec![PlaylistEntry {
                 id: 1,
                 filename: "https://example.test/audio.mp3".into(),
                 title: None,
                 current: true,
                 playing: true,
-            }],
+            }]
+            .into(),
             ..Playback::default()
         };
         assert_eq!(state.audio_status(), AudioStatus::Video);

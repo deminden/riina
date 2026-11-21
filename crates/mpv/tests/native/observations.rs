@@ -79,13 +79,13 @@ fn generic_mpv_events_are_retained_for_plugin_listeners() {
         state
             .mpv_events
             .iter()
-            .any(|event| event.name == "file-loaded")
+            .any(|event| event.name.as_ref() == "file-loaded")
     });
     assert!(
         playback
             .mpv_events
             .iter()
-            .any(|event| event.name == "start-file")
+            .any(|event| event.name.as_ref() == "start-file")
     );
     assert!(playback.mpv_event_sequence >= 2);
 }

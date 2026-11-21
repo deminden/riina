@@ -1,5 +1,9 @@
 //! Owned player snapshot and event diffs exposed to plugin APIs.
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    path::PathBuf,
+    sync::Arc,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PluginPlayerFileContext {
@@ -8,8 +12,8 @@ pub(crate) struct PluginPlayerFileContext {
     pub(super) current_directory: Option<PathBuf>,
     pub(super) external_tracks: BTreeMap<String, PathBuf>,
     pub(super) core_properties: BTreeMap<String, serde_json::Value>,
-    observed_mpv_properties: BTreeMap<String, serde_json::Value>,
-    mpv_events: Vec<riina_core::MpvEventRecord>,
+    observed_mpv_properties: Arc<BTreeMap<String, serde_json::Value>>,
+    mpv_events: Arc<VecDeque<riina_core::MpvEventRecord>>,
     pub(super) chapters: Vec<serde_json::Value>,
     pub(super) core_version: serde_json::Value,
     pub(super) core_window_properties: BTreeMap<String, serde_json::Value>,
@@ -34,8 +38,8 @@ impl PluginPlayerFileContext {
             current_directory,
             external_tracks,
             core_properties: BTreeMap::new(),
-            observed_mpv_properties: BTreeMap::new(),
-            mpv_events: Vec::new(),
+            observed_mpv_properties: Arc::default(),
+            mpv_events: Arc::default(),
             chapters: Vec::new(),
             core_version: serde_json::Value::Null,
             core_window_properties: BTreeMap::from([
@@ -116,12 +120,12 @@ impl PluginPlayerFileContext {
                 events.push((format!("mpv.{mpv_property}.changed"), value.clone()));
             }
         }
-        for (property, value) in &next.observed_mpv_properties {
+        for (property, value) in next.observed_mpv_properties.iter() {
             if self.observed_mpv_properties.get(property) != Some(value) {
                 events.push((format!("mpv.{property}.changed"), value.clone()));
             }
         }
-        let last_event_sequence = self.mpv_events.last().map_or(0, |event| event.sequence);
+        let last_event_sequence = self.mpv_events.back().map_or(0, |event| event.sequence);
         for event in next
             .mpv_events
             .iter()
@@ -213,13 +217,16 @@ impl PluginPlayerFileContext {
 
     pub(crate) fn with_observed_mpv_properties(
         mut self,
-        properties: BTreeMap<String, serde_json::Value>,
+        properties: Arc<BTreeMap<String, serde_json::Value>>,
     ) -> Self {
         self.observed_mpv_properties = properties;
         self
     }
 
-    pub(crate) fn with_mpv_events(mut self, events: Vec<riina_core::MpvEventRecord>) -> Self {
+    pub(crate) fn with_mpv_events(
+        mut self,
+        events: Arc<VecDeque<riina_core::MpvEventRecord>>,
+    ) -> Self {
         self.mpv_events = events;
         self
     }
@@ -277,16 +284,19 @@ mod mpv_event_bridge_tests {
     #[test]
     fn player_context_delivers_each_native_mpv_event_once_across_coalesced_updates() {
         let initial = PluginPlayerFileContext::default();
-        let playback = PluginPlayerFileContext::default().with_mpv_events(vec![
-            riina_core::MpvEventRecord {
-                sequence: 1,
-                name: "start-file".into(),
-            },
-            riina_core::MpvEventRecord {
-                sequence: 2,
-                name: "file-loaded".into(),
-            },
-        ]);
+        let playback = PluginPlayerFileContext::default().with_mpv_events(
+            VecDeque::from([
+                riina_core::MpvEventRecord {
+                    sequence: 1,
+                    name: "start-file".into(),
+                },
+                riina_core::MpvEventRecord {
+                    sequence: 2,
+                    name: "file-loaded".into(),
+                },
+            ])
+            .into(),
+        );
 
         assert_eq!(
             initial.player_events_to(&playback),

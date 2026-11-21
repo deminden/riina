@@ -54,7 +54,7 @@ fn state() -> Result<Playback, serde_json::Error> {
             }))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let playlist = (0..500)
+    let playlist: Vec<_> = (0..500)
         .map(|id| PlaylistEntry {
             id,
             filename: format!("fixtures/fixture-{id:03}.mkv"),
@@ -64,8 +64,8 @@ fn state() -> Result<Playback, serde_json::Error> {
         })
         .collect();
     let mut state = Playback {
-        tracks,
-        playlist,
+        tracks: tracks.into(),
+        playlist: playlist.into(),
         ..Default::default()
     };
     for _ in 0..MAX_RETAINED_MPV_EVENTS {

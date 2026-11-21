@@ -26,7 +26,8 @@ fn state(path: &str) -> Playback {
             title: None,
             current: true,
             playing: true,
-        }],
+        }]
+        .into(),
         ..Playback::default()
     }
 }
@@ -43,7 +44,7 @@ fn discovery_orders_each_media_group_and_excludes_hidden_nested_and_existing_fil
     folder.file("notes.txt");
     std::fs::create_dir(folder.0.path().join("nested.mp4")).unwrap();
     let mut state = state(&current);
-    state.playlist.push(PlaylistEntry {
+    std::sync::Arc::make_mut(&mut state.playlist).push(PlaylistEntry {
         id: 32,
         filename: folder
             .0
@@ -81,7 +82,7 @@ fn discovery_is_once_per_media_and_generation_and_can_be_reenabled() {
     assert!(adder.observe(&state, true).is_some());
     assert!(adder.observe(&state, false).is_none());
     assert!(adder.observe(&state, true).is_some());
-    state.playlist[0].filename = folder.file("next.mp4");
+    std::sync::Arc::make_mut(&mut state.playlist)[0].filename = folder.file("next.mp4");
     assert!(adder.observe(&state, true).is_some());
 }
 
@@ -95,7 +96,8 @@ fn worker_results_cannot_attach_to_a_new_media_or_generation() {
     assert!(!request_is_current(&request, &state));
     assert!(prepare(&request, &state).is_none());
     state.generation -= 1;
-    state.playlist[0].filename = folder.0.path().join("next.mp4").to_str().unwrap().into();
+    std::sync::Arc::make_mut(&mut state.playlist)[0].filename =
+        folder.0.path().join("next.mp4").to_str().unwrap().into();
     assert!(prepare(&request, &state).is_none());
 }
 

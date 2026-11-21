@@ -205,7 +205,7 @@ mod tests {
             phase: Phase::Paused,
             mpv_version: Some("mpv test".into()),
             title: "A".repeat(MAX_FIELD_CHARS + 32),
-            playlist,
+            playlist: playlist.into(),
             ..Playback::default()
         };
 

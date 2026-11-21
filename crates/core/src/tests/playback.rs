@@ -59,7 +59,7 @@ fn subtitle_style_eligibility_combines_both_selected_lanes() {
         ),
     ] {
         let state = Playback {
-            tracks: serde_json::from_str(tracks).unwrap(),
+            tracks: serde_json::from_str::<Vec<_>>(tracks).unwrap().into(),
             ..Playback::default()
         };
         assert_eq!(

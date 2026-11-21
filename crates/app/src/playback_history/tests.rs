@@ -94,7 +94,7 @@ fn playback_history_records_a_loaded_media_once_per_generation() {
         duration: Some(80.0),
         ..Playback::default()
     };
-    playback.playlist.push(PlaylistEntry {
+    std::sync::Arc::make_mut(&mut playback.playlist).push(PlaylistEntry {
         id: 1,
         filename: media.into(),
         title: None,
@@ -137,7 +137,7 @@ fn playback_history_is_saved_when_a_media_generation_is_first_observed() {
         duration: Some(90.0),
         ..Playback::default()
     };
-    playback.playlist.push(PlaylistEntry {
+    std::sync::Arc::make_mut(&mut playback.playlist).push(PlaylistEntry {
         id: 1,
         filename: "C:/media/movie.mkv".into(),
         title: None,
@@ -166,7 +166,8 @@ fn playback_history_fills_late_duration_without_resetting_visit_or_progress() {
             title: None,
             current: true,
             playing: true,
-        }],
+        }]
+        .into(),
         ..Playback::default()
     };
     history.observe(1, &playback, true);
@@ -231,7 +232,7 @@ fn restored_playback_history_reads_progress_from_mpv_watch_later() {
         ignore_path_in_watch_later_config: Some(false),
         ..Playback::default()
     };
-    playback.playlist.push(PlaylistEntry {
+    std::sync::Arc::make_mut(&mut playback.playlist).push(PlaylistEntry {
         id: 1,
         filename: media.into(),
         title: None,
