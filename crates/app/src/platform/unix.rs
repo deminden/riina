@@ -1,5 +1,9 @@
 //! macOS/Linux use the shared GL surface; native HDR presentation is still pending.
 #[cfg(target_os = "linux")]
+mod session;
+#[cfg(target_os = "linux")]
+pub(crate) use session::SessionExtras;
+#[cfg(target_os = "linux")]
 pub(crate) mod accessibility;
 mod dialogs;
 pub(crate) mod services;

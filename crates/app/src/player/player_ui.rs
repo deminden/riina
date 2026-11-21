@@ -360,22 +360,7 @@ pub(crate) struct UiSession {
     // Native callbacks retain senders only. Field order keeps the target alive
     // until this sole native player owner has joined its decoder worker.
     player: Option<SessionResource<Player>>,
-    #[cfg(target_os = "windows")]
-    _plugin_overlay_presenter: Rc<RefCell<platform::PluginOverlayPresenter>>,
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    _plugin_sidebar_presenter: Rc<RefCell<platform::PluginSidebarPresenter>>,
-    #[cfg(target_os = "macos")]
-    _system_media_controls: Rc<RefCell<platform::SystemMediaControls>>,
-    #[cfg(target_os = "macos")]
-    _system_media_controls_timer: Rc<slint::Timer>,
-    #[cfg(target_os = "macos")]
-    _picture_in_picture: Rc<RefCell<Option<platform::MacPictureInPicture>>>,
-    #[cfg(target_os = "macos")]
-    _picture_in_picture_timer: Rc<slint::Timer>,
-    #[cfg(target_os = "macos")]
-    _mac_scroll_event_monitor: Option<platform::MacScrollEventMonitor>,
-    #[cfg(target_os = "macos")]
-    _mac_plugin_menu_observer: Option<platform::MacPluginMenuObserver>,
+    platform_extras: platform::SessionExtras,
     _plugin_host: Option<crate::plugin_host::PluginHost>,
     _plugin_host_timer: Option<Rc<slint::Timer>>,
     _plugin_osd_timer: Option<Rc<slint::Timer>>,
@@ -390,8 +375,7 @@ pub(crate) struct UiSession {
     _thumbnail_preview_timer: Rc<slint::Timer>,
     _transition_frame_timer: Option<Rc<slint::Timer>>,
     _native_material_timer: Option<Rc<slint::Timer>>,
-    #[cfg(target_os = "windows")]
-    _windows_materials_policy_timer: Rc<slint::Timer>,
+    _windows_materials_policy_timer: Option<Rc<slint::Timer>>,
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
     _online_subtitles_timer: Rc<slint::Timer>,
@@ -460,10 +444,7 @@ impl UiSession {
 
 impl Drop for UiSession {
     fn drop(&mut self) {
-        #[cfg(target_os = "macos")]
-        self._system_media_controls
-            .borrow_mut()
-            .synchronize(false, "", None, None);
+        self.platform_extras.prepare_to_close();
         // Release session ownership before its presentation on every platform.
         // Native playback joins here; GL callbacks retain their player until the
         // renderer has released its surface during RenderingTeardown.
@@ -1057,7 +1038,9 @@ fn configure_with_engine(
     #[cfg(not(target_os = "windows"))]
     let native_material_timer = None;
     #[cfg(target_os = "windows")]
-    let windows_materials_policy_timer = install_windows_material_policy_monitor(app);
+    let windows_materials_policy_timer = Some(install_windows_material_policy_monitor(app));
+    #[cfg(not(target_os = "windows"))]
+    let windows_materials_policy_timer = None;
     #[cfg(target_os = "macos")]
     {
         *system_media_sender.borrow_mut() = Some(command_sender.clone());
@@ -1450,22 +1433,23 @@ fn configure_with_engine(
     }
     Ok(UiSession {
         player: player.map(SessionResource::Live),
-        #[cfg(target_os = "windows")]
-        _plugin_overlay_presenter: plugin_overlay_presenter,
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        _plugin_sidebar_presenter: plugin_sidebar_presenter,
-        #[cfg(target_os = "macos")]
-        _system_media_controls: system_media_controls,
-        #[cfg(target_os = "macos")]
-        _system_media_controls_timer: system_media_controls_timer,
-        #[cfg(target_os = "macos")]
-        _picture_in_picture: picture_in_picture,
-        #[cfg(target_os = "macos")]
-        _picture_in_picture_timer: picture_in_picture_timer,
-        #[cfg(target_os = "macos")]
-        _mac_scroll_event_monitor: mac_scroll_event_monitor,
-        #[cfg(target_os = "macos")]
-        _mac_plugin_menu_observer: mac_plugin_menu_observer,
+        platform_extras: platform::SessionExtras {
+            #[cfg(target_os = "windows")]
+            _plugin_overlay_presenter: plugin_overlay_presenter,
+            _plugin_sidebar_presenter: plugin_sidebar_presenter,
+            #[cfg(target_os = "macos")]
+            _system_media_controls: system_media_controls,
+            #[cfg(target_os = "macos")]
+            _system_media_controls_timer: system_media_controls_timer,
+            #[cfg(target_os = "macos")]
+            _picture_in_picture: picture_in_picture,
+            #[cfg(target_os = "macos")]
+            _picture_in_picture_timer: picture_in_picture_timer,
+            #[cfg(target_os = "macos")]
+            _mac_scroll_event_monitor: mac_scroll_event_monitor,
+            #[cfg(target_os = "macos")]
+            _mac_plugin_menu_observer: mac_plugin_menu_observer,
+        },
         _presentation: native.map(SessionResource::Live),
         _hdr_display_timer: hdr_display_timer,
         _live_text_timer: live_text_timer,
@@ -1476,7 +1460,6 @@ fn configure_with_engine(
         _thumbnail_preview_timer: thumbnail_preview_timer,
         _transition_frame_timer: transition_frame_timer,
         _native_material_timer: native_material_timer,
-        #[cfg(target_os = "windows")]
         _windows_materials_policy_timer: windows_materials_policy_timer,
         _subtitle_priority_timer: subtitle_priority_timer,
         _online_subtitles_window: online_subtitles_window,

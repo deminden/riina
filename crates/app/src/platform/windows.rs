@@ -1,3 +1,5 @@
+mod session;
+pub(crate) use session::SessionExtras;
 pub(crate) mod accessibility;
 pub(crate) mod bring_to_front;
 pub(crate) mod file_dialog;

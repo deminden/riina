@@ -1,3 +1,5 @@
+mod session;
+pub(crate) use session::SessionExtras;
 mod appearance;
 mod application_menu;
 mod color_panel;

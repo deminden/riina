@@ -1095,6 +1095,12 @@ pub(crate) fn windows_accent_foreground() -> Option<slint::Color> {
         255, foreground, foreground, foreground,
     ))
 }
+#[cfg(target_os = "macos")]
+pub(crate) use macos::SessionExtras;
+#[cfg(target_os = "linux")]
+pub(crate) use unix::SessionExtras;
+#[cfg(target_os = "windows")]
+pub(crate) use windows::SessionExtras;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::text_recognition;
 #[cfg(target_os = "windows")]
