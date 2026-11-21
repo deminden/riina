@@ -16,6 +16,8 @@ pub(crate) use pip_session::PictureInPictureSession;
 mod plugin_resources;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
+mod system_media_session;
+pub(crate) use system_media_session::SystemMediaSession;
 pub(crate) mod video_materials;
 pub(crate) mod window_sizing;
 

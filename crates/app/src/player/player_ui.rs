@@ -10,7 +10,7 @@ mod feedback;
 pub(crate) mod glue_tests;
 pub(crate) mod hdr_output;
 mod history_session;
-mod lifecycle;
+pub(crate) mod lifecycle;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod live_text;
 mod media_actions;
@@ -25,7 +25,7 @@ mod transport;
 mod window_actions;
 use feedback::clear_screenshot_preview;
 mod initial_projection;
-mod input;
+pub(crate) mod input;
 mod subtitle_controls;
 mod video_controls;
 use audio_controls::set_audio_equalizer_controls;
@@ -571,12 +571,7 @@ fn configure_with_engine(
         &prefs.key_bindings,
         latest_playback.clone(),
     );
-    #[cfg(target_os = "macos")]
-    let lifecycle::SystemMedia {
-        sender: system_media_sender,
-        controls: system_media_controls,
-        timer: system_media_controls_timer,
-    } = lifecycle::install_system_media(app, latest_playback.clone());
+    let system_media = platform::SystemMediaSession::new(app, latest_playback.clone());
     initial_projection::install_media(app, &prefs, welcome, &recent_open_documents);
     let appearance_timer = initial_projection::install_layout(app, &prefs, &prefs_path);
     let app_weak = app.as_weak();
@@ -702,10 +697,7 @@ fn configure_with_engine(
         &command_sender,
         &latest_playback,
     );
-    #[cfg(target_os = "macos")]
-    {
-        *system_media_sender.borrow_mut() = Some(command_sender.clone());
-    }
+    system_media.bind(&command_sender);
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     let live_text_timer = Some(live_text::install(
         app,
@@ -911,10 +903,7 @@ fn configure_with_engine(
             #[cfg(target_os = "windows")]
             _plugin_overlay_presenter: plugin_overlay_presenter,
             _plugin_sidebar_presenter: plugin_sidebar_presenter,
-            #[cfg(target_os = "macos")]
-            _system_media_controls: system_media_controls,
-            #[cfg(target_os = "macos")]
-            _system_media_controls_timer: system_media_controls_timer,
+            _system_media: system_media,
             _picture_in_picture: picture_in_picture,
             #[cfg(target_os = "macos")]
             _mac_scroll_event_monitor: mac_scroll_event_monitor,

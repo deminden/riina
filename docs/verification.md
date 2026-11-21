@@ -573,3 +573,10 @@ application linking and AVKit playback still need native verification.
 The Settings color-panel binding also passed strict Clippy for
 `aarch64-apple-darwin` against the real AppKit color panel and stub Slint
 controls. Native interaction with the panel remains unverified.
+
+### macOS Now Playing session 2026-11-21
+
+Strict Clippy passed for `aarch64-apple-darwin` on the session's playback and
+focus policy alongside the real MediaPlayer adapter. The probe supplied stub
+Slint controls and focus access. Native media-key interaction and playback
+resume across application focus changes still need macOS verification.

@@ -247,7 +247,7 @@ fn set_player_window_focus(focused: &Cell<bool>, now_focused: bool) {
 }
 
 #[cfg(target_os = "macos")]
-pub(super) fn some_player_window_is_focused() -> bool {
+pub(crate) fn some_player_window_is_focused() -> bool {
     FOCUSED_PLAYER_WINDOW_COUNT.with(|count| count.get() > 0)
 }
 
