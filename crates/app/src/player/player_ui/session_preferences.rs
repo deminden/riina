@@ -110,7 +110,7 @@ impl UiSession {
                 .map_err(std::io::Error::other)?,
             network_online_videos: crate::network_ytdl_preferences::current_player(app)
                 .map_err(std::io::Error::other)?,
-            ..self.prefs.clone()
+            ..self.preference_model.snapshot()
         };
         prefs.audio_equalizer = self
             .audio_equalizer
@@ -232,8 +232,8 @@ impl UiSession {
                 });
             }
         }
-        self.preference_writer
-            .save_session(&prefs)
+        self.preference_model
+            .save_session(prefs)
             .map_err(std::io::Error::other)?;
         Ok(())
     }

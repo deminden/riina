@@ -38,6 +38,7 @@ use plugin_menus::reorder_plugin_menu_rows;
 use crate::{
     MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     preference_load::LoadedPreferences,
+    preferences::model::PreferenceModel,
     ui_dialogs::{self, Purpose},
 };
 use riina_core::{Command, Phase, Playback, Preferences, TrackKind, sync::lock, time_label};
@@ -428,8 +429,7 @@ pub(crate) struct UiSession {
     _file_drop_timer: Rc<slint::Timer>,
     _player_window_focus: input::PlayerWindowFocusRegistration,
     prefs_path: PathBuf,
-    prefs: Preferences,
-    preference_writer: crate::preference_store::Writer,
+    pub(crate) preference_model: PreferenceModel,
     audio_equalizer: Arc<std::sync::Mutex<riina_core::audio_equalizer::Settings>>,
     saved_video_filters: Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     saved_audio_filters: Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
@@ -1492,11 +1492,12 @@ fn configure_with_engine(
     let clear_history_plugin_host = plugin_host_handle.clone();
     let clear_history_latest_playback = latest_playback.clone();
     let clear_history_recent_media = plugin_recent_media.clone();
+    let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     crate::preferences_window::connect(
         app,
         command_sender.clone(),
         prefs_path.clone(),
-        prefs.clone(),
+        preference_model.clone(),
         latest_playback.clone(),
         plugin_host_handle,
         {
@@ -2520,9 +2521,8 @@ fn configure_with_engine(
         _plugin_host: plugin_host,
         _plugin_host_timer: plugin_host_timer,
         _plugin_osd_timer: plugin_osd_timer,
-        preference_writer: crate::preference_store::Writer::new(prefs_path.clone(), prefs.clone()),
         prefs_path,
-        prefs,
+        preference_model,
         audio_equalizer,
         saved_video_filters,
         saved_audio_filters,

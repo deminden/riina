@@ -2,7 +2,7 @@
 
 use crate::{PlayerWindow, PreferencesWindow, preference_store::Writer};
 use riina_core::Preferences;
-use std::{cell::RefCell, path::PathBuf};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub(crate) struct SectionError(String);
 
@@ -27,27 +27,36 @@ pub(crate) trait PreferenceSection: Clone + PartialEq {
     fn write_player(&self, _app: &PlayerWindow) {}
 }
 
-pub(crate) struct PreferenceModel {
+#[derive(Clone)]
+pub(crate) struct PreferenceModel(Rc<PreferenceState>);
+
+struct PreferenceState {
     current: RefCell<Preferences>,
     writer: Writer,
 }
 
 impl PreferenceModel {
     pub(crate) fn new(path: PathBuf, initial: Preferences) -> Self {
-        Self {
+        Self(Rc::new(PreferenceState {
             writer: Writer::new(path, initial.clone()),
             current: RefCell::new(initial),
-        }
+        }))
     }
 
     pub(crate) fn save(&self, candidate: Preferences) -> Result<(), String> {
-        self.writer.save(&candidate)?;
-        self.current.replace(candidate);
+        self.0.writer.save(&candidate)?;
+        self.0.current.replace(candidate);
+        Ok(())
+    }
+
+    pub(crate) fn save_session(&self, candidate: Preferences) -> Result<(), String> {
+        self.0.writer.save_session(&candidate)?;
+        self.0.current.replace(candidate);
         Ok(())
     }
 
     pub(crate) fn snapshot(&self) -> Preferences {
-        self.current.borrow().clone()
+        self.0.current.borrow().clone()
     }
 
     pub(crate) fn read_section<S: PreferenceSection>(
@@ -55,14 +64,14 @@ impl PreferenceModel {
         window: &PreferencesWindow,
     ) -> Result<S, String> {
         S::read_window(window).map_err(|error| {
-            let previous = S::get(&self.current.borrow());
+            let previous = S::get(&self.0.current.borrow());
             previous.write_window(window);
             error.into_message()
         })
     }
 
     pub(crate) fn write_player<S: PreferenceSection>(&self, app: &PlayerWindow) {
-        let section = S::get(&self.current.borrow());
+        let section = S::get(&self.0.current.borrow());
         section.write_player(app);
     }
 }

@@ -20,7 +20,7 @@ pub(super) fn connect(
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
     path: PathBuf,
-    baseline: riina_core::Preferences,
+    model: PreferenceModel,
     key_binding_playback: Arc<Mutex<riina_core::Playback>>,
 ) {
     connect_with_credentials(
@@ -28,7 +28,7 @@ pub(super) fn connect(
         window,
         decoder_player,
         path,
-        baseline,
+        model,
         key_binding_playback,
         CredentialStore::system(),
     );
@@ -57,13 +57,13 @@ fn connect_with_credentials(
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
     path: PathBuf,
-    baseline: riina_core::Preferences,
+    model: PreferenceModel,
     key_binding_playback: Arc<Mutex<riina_core::Playback>>,
     credentials: CredentialStore,
 ) {
     let parent = app.as_weak();
     let weak = window.as_weak();
-    let model = PreferenceModel::new(path.clone(), baseline.clone());
+    let baseline = model.snapshot();
     window.on_settings_changed(move || {
         let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
             return;

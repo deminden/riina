@@ -4,6 +4,7 @@ mod key_bindings;
 mod live;
 mod refresh;
 
+use super::model::PreferenceModel;
 use crate::PlayerWindow;
 use refresh::refresh;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
@@ -17,11 +18,12 @@ pub(crate) fn connect(
     app: &PlayerWindow,
     decoder_player: riina_mpv::CommandSender,
     path: PathBuf,
-    baseline: riina_core::Preferences,
+    model: PreferenceModel,
     latest_playback: std::sync::Arc<std::sync::Mutex<riina_core::Playback>>,
     plugin_host: Option<crate::plugin_host::PluginHostHandle>,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
+    let baseline = model.snapshot();
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
     let reduce_motion_refresh = Rc::new(RefCell::new(None::<Rc<slint::Timer>>));
     let audio_device_refresh = Rc::new(slint::Timer::default());
@@ -186,7 +188,7 @@ pub(crate) fn connect(
                 &window,
                 decoder_player.clone(),
                 path.clone(),
-                baseline.clone(),
+                model.clone(),
                 latest_playback.clone(),
             );
             let parent = app.as_weak();

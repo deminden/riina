@@ -40,7 +40,7 @@ impl Transaction {
             &window,
             player.sender.clone(),
             profile.0.clone(),
-            initial,
+            player.session.preference_model.clone(),
             Arc::new(Mutex::new(riina_core::Playback::default())),
             credentials,
         );
