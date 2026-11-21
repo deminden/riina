@@ -145,6 +145,31 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
 }
 
 #[test]
+fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
+    let app = player(4);
+    app.set_playlist(model());
+    app.on_select_playlist_row(|index, _, _| {
+        slint::ModelRc::new(slint::VecModel::from(vec![(index + 1).to_string().into()]))
+    });
+    let opened = Rc::new(RefCell::new(Vec::new()));
+    let observed = opened.clone();
+    app.on_select_item(move |kind, token| observed.borrow_mut().push((kind, token.to_string())));
+    flush();
+
+    focus(&app, &button(&app, "Clip 0"));
+    assert_eq!(app.get_playlist_focus_index(), 0);
+    key(&app, Key::DownArrow);
+    assert_eq!(app.get_playlist_focus_index(), 1);
+    assert_eq!(app.get_selected_playlist_token(), "2");
+    key(&app, Key::Return);
+    assert_eq!(
+        opened.borrow().as_slice(),
+        &[(CatalogSelection::Playlist, String::from("2"))]
+    );
+    assert!(app.get_selected_playlist_token().is_empty());
+}
+
+#[test]
 fn paused_catalog_transitions_mature_without_another_engine_notification() {
     let app = player(0);
     let audio: riina_core::Track =
