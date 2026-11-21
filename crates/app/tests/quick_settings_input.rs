@@ -816,10 +816,10 @@ fn layout_rows_align_symbols_switches_and_section_rules_with_their_captions() {
                 }
             }
         }
-        let icon = ElementHandle::find_by_element_id(&app, "PlayerWindow::theme-symbol")
+        let icon = ElementHandle::find_by_element_id(&app, "LayoutSidebarPage::theme-symbol")
             .next()
             .unwrap();
-        let label = ElementHandle::find_by_element_id(&app, "PlayerWindow::theme-caption")
+        let label = ElementHandle::find_by_element_id(&app, "LayoutSidebarPage::theme-caption")
             .next()
             .unwrap();
         assert!((center_y(&icon) - center_y(&label)).abs() < 0.5);

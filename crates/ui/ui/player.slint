@@ -1,11 +1,11 @@
+import { LayoutSidebarPage } from "player-layout-sidebar.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
 import { CatalogSidebarRow, PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
 import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
-import { SidebarTab, SidebarSectionTitle, SidebarPositionToggle, SidebarSideChoice, SubtitleVisibilityRow, SidebarAction, SubtitleLaneSegment } from "player-sidebar-controls.slint";
-import { LayoutChoice } from "player-layout-choice.slint";
+import { SidebarTab, SidebarSectionTitle, SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
 import { JumpDialogButton, PlaylistSortButton, TopmostPin, ObservedSizePicker } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
@@ -1565,210 +1565,33 @@ export component PlayerWindow inherits Window {
                             if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
                         } }
                 }
-                if pane-kind == 5 : layout-scroll := ScrollView {
+                if pane-kind == 5 : layout-scroll := LayoutSidebarPage {
                     width: parent.width - 20px;
-                    horizontal-stretch: 1;
-                    vertical-stretch: 1;
-                    content-height: max(self.visible-height, layout-content.preferred-height);
-                    // Preserve the reference card geometry below the normal sidebar
-                    // width; keyboard focus and scrollbars reveal the overflow.
-                    content-width: max(self.visible-width, 300px);
-                    horizontal-scrollbar-policy: as-needed;
-                    vertical-scrollbar-policy: root.layout-scrollbar-visible ? as-needed : always-off;
-                    scrolled => {
-                        root.layout-scrollbar-visible = true;
-                        if scrollbar-hide-timer.running {
-                            scrollbar-hide-timer.restart();
-                        } else {
-                            scrollbar-hide-timer.start();
-                        }
-                    }
-                    scrollbar-hide-timer := Timer {
-                        interval: 850ms;
-                        running: false;
-                        triggered => {
-                            root.layout-scrollbar-visible = false;
-                            self.stop();
-                        }
-                    }
-                    layout-content := VerticalLayout {
-                    // The ScrollView child parent is its visible Flickable, not
-                    // the scroll extent. Bind the page to the explicit extent.
-                    width: layout-scroll.content-width;
-                    // Flickable infers its minimum from its children. The page
-                    // extent must not feed that minimum back into itself.
-                    min-width: 0px;
-                    // Match IINA's source-defined spacious/compact sidebar rhythm.
-                    spacing: root.compact-ui ? 16px : 18px;
-                    cross-axis-alignment: center;
-                    Rectangle {
-                        // REF-21 measures these Layout cards at 328 pt in the default 360 pt sidebar.
-                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
-                        height: root.compact-ui ? 138px : 152px; border-radius: 8px;
-                        border-width: 1px;
-                        border-color: Theme.sidebar-card-border(root.dark-theme);
-                        background: root.sidebar-card-material-fill;
-                        VerticalLayout {
-                            // Mirror IINA's 12/10-point card inset and distinct
-                            // heading, group, and mini-switch row spacing.
-                            padding: root.compact-ui ? 10px : 12px;
-                            spacing: root.compact-ui ? 8px : 12px;
-                            HorizontalLayout {
-                                height: 24px; spacing: 8px; cross-axis-alignment: center;
-                                theme-symbol := Image { source: @image-url("../../../assets/icons/appearance-half.svg");
-                                    image-fit: contain; width: 20px; height: 20px;
-                                    colorize: root.dark-theme ? #d0d0d6 : #55555d; }
-                                theme-caption := Text { text: "Theme"; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
-                                Rectangle {
-                                    width: 156px; height: 24px; border-radius: 7px;
-                                    background: root.dark-theme ? #ffffff14 : #0000000d;
-                                    HorizontalLayout {
-                                        padding: 2px; spacing: 2px;
-                                        SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Dark"; selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
-                                            activated => { root.appearance-mode = 0; root.layout-settings-changed(); } }
-                                        SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Light"; selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
-                                            activated => { root.appearance-mode = 1; root.layout-settings-changed(); } }
-                                        SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Auto"; selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
-                                            activated => { root.appearance-mode = 2; root.layout-settings-changed(); } }
-                                    }
-                                }
-                            }
-                            HorizontalLayout {
-                                height: 20px; spacing: 8px; cross-axis-alignment: center;
-                                Image { source: @image-url("../../../assets/icons/glass-cards.svg");
-                                    image-fit: contain; width: 16px; height: 16px;
-                                    colorize: root.dark-theme ? #d0d0d6 : #55555d; }
-                                Text { text: root.surface-material-title; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
-                            }
-                            VerticalLayout {
-                                padding-left: 24px;
-                                spacing: root.compact-ui ? 5px : 6px;
-                                SidebarPositionToggle { label: "On Screen Display";
-                                    icon: @image-url("../../../assets/icons/overlay-screen.svg");
-                                    leading: root.liquid-glass-osd; dark-theme: root.dark-theme;
-                                    mini: true;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                    changed(value) => { root.liquid-glass-osd = value; root.layout-settings-changed(); } }
-                                SidebarPositionToggle { label: "On Screen Controller";
-                                    icon: @image-url("../../../assets/icons/osc-panel.svg");
-                                    leading: root.liquid-glass-osc; dark-theme: root.dark-theme;
-                                    mini: true;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                    changed(value) => { root.liquid-glass-osc = value; root.layout-settings-changed(); } }
-                                SidebarPositionToggle { label: "Sidebar";
-                                    icon: @image-url("../../../assets/icons/sidebar-panel.svg");
-                                    leading: root.liquid-glass-sidebar; dark-theme: root.dark-theme;
-                                    mini: true;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                    changed(value) => { root.liquid-glass-sidebar = value; root.layout-settings-changed(); } }
-                            }
-                        }
-                    }
-                    Rectangle {
-                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
-                        height: 44px; border-radius: 8px;
-                        border-width: 1px;
-                        border-color: Theme.sidebar-card-border(root.dark-theme);
-                        background: root.sidebar-card-material-fill;
-                        VerticalLayout { padding: 5px; alignment: center;
-                            SidebarPositionToggle { label: "Compact Interface";
-                                icon: @image-url("../../../assets/icons/compact-grid.svg");
-                                icon-size: 20px;
-                                leading: root.compact-ui; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                changed(value) => { root.compact-ui = value; root.layout-settings-changed(); } }
-                        }
-                    }
-                    Rectangle {
-                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
-                        height: (root.edge-to-edge-video ? 76px : 44px) +
-                            (root.unlock-window-aspect-ratio ? 32px : 0px);
-                        border-radius: 8px; border-width: 1px;
-                        border-color: Theme.sidebar-card-border(root.dark-theme);
-                        background: root.sidebar-card-material-fill;
-                        VerticalLayout { padding: 9px; spacing: 1px; alignment: center;
-                            SidebarPositionToggle { label: "Edge-to-Edge Video";
-                                icon: @image-url("../../../assets/icons/edge-video.svg");
-                                icon-size: 20px;
-                                leading: root.edge-to-edge-video; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                height: 23px;
-                                changed(value) => { root.edge-to-edge-video = value; root.layout-settings-changed(); } }
-                            if root.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
-                                icon: @image-url("../../../assets/icons/aspect-lock.svg");
-                                icon-size: 20px;
-                                leading: !root.unlock-window-aspect-ratio; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                height: 23px;
-                                changed(value) => { root.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
-                            if !root.edge-to-edge-video : SidebarPositionToggle { label: "Dock Control Bar and Titlebar";
-                                icon: @image-url("../../../assets/icons/control.svg");
-                                icon-size: 20px;
-                                leading: root.docked-controls; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
-                                height: 23px;
-                                changed(value) => { root.docked-controls = value; root.layout-settings-changed(); } }
-                            // IINA exposes this action only while aspect-ratio lock is released.
-                            if root.unlock-window-aspect-ratio : SidebarAction { accent-color: root.interactive-accent-color;
-                                label: "Fit Window to Video";
-                                icon: @image-url("../../../assets/icons/fit-window-to-video.svg");
-                                dark-theme: root.dark-theme;
-                                windows-acrylic-surface: root.windows-sidebar-material-active;
-                                enabled: root.loaded && !root.fullscreen;
-                                activated => { root.fit-window-to-video(); }
-                            }
-                        }
-                    }
-                    SidebarSectionTitle { width: layout-content.width; label: "On Screen Controller"; dark-theme: root.dark-theme; }
-                    VerticalLayout {
-                        width: parent.width; cross-axis-alignment: center;
-                        HorizontalLayout {
-                            // IINA's default NSStackView gap is 8 points. Its captured
-                            // 66-point equal tiles plus two gaps give this 214-point row.
-                            width: min(214px, layout-content.width);
-                            spacing: 8px;
-                            LayoutChoice { label: "Floating"; position: 0; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 0;
-                                activated => { root.osc-position = 0; root.layout-settings-changed(); } }
-                            LayoutChoice { label: "Top"; position: 1; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 1;
-                                activated => { root.osc-position = 1; root.layout-settings-changed(); } }
-                            LayoutChoice { label: "Bottom"; position: 2; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 2;
-                                activated => { root.osc-position = 2; root.layout-settings-changed(); } }
-                        }
-                        Rectangle { height: 8px; background: transparent; }
-                    }
-                    SidebarSectionTitle { width: layout-content.width; label: "Sidebar Position"; dark-theme: root.dark-theme; }
-                    VerticalLayout { width: parent.width;
-                    Rectangle {
-                        width: layout-content.width - (root.compact-ui ? 8px : 12px);
-                        height: root.compact-ui ? 106px : 118px; border-radius: 8px;
-                        border-width: 1px;
-                        border-color: Theme.sidebar-card-border(root.dark-theme);
-                        background: root.sidebar-card-material-fill;
-                        VerticalLayout {
-                            padding: root.compact-ui ? 10px : 12px;
-                            spacing: root.compact-ui ? 6px : 10px;
-                            SidebarSideChoice { label: "Settings"; icon: @image-url("../../../assets/icons/settings.svg");
-                                leading: root.settings-at-leading; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #168bff;
-                                accent-foreground: root.windows-accent-foreground;
-                                changed(value) => { root.settings-at-leading = value; root.layout-settings-changed(); } }
-                            SidebarSideChoice { label: "Playlist and Chapters"; icon: @image-url("../../../assets/icons/playlist.svg");
-                                leading: root.playlist-at-leading; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #168bff;
-                                accent-foreground: root.windows-accent-foreground;
-                                changed(value) => { root.playlist-at-leading = value; root.layout-settings-changed(); } }
-                            SidebarSideChoice { label: "Plugins"; icon: @image-url("../../../assets/icons/plugins.svg");
-                                leading: root.plugins-at-leading; dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #168bff;
-                                accent-foreground: root.windows-accent-foreground;
-                                changed(value) => { root.plugins-at-leading = value; root.layout-settings-changed(); } }
-                        }
-                    }
-                    Rectangle { height: 8px; background: transparent; }
-                    }
-                    }
+                    appearance-mode <=> root.appearance-mode;
+                    compact-ui <=> root.compact-ui;
+                    dark-theme: root.dark-theme;
+                    docked-controls <=> root.docked-controls;
+                    edge-to-edge-video <=> root.edge-to-edge-video;
+                    fit-window-to-video => { root.fit-window-to-video(); }
+                    fullscreen: root.fullscreen;
+                    interactive-accent-color: root.interactive-accent-color;
+                    layout-scrollbar-visible <=> root.layout-scrollbar-visible;
+                    layout-settings-changed => { root.layout-settings-changed(); }
+                    liquid-glass-osc <=> root.liquid-glass-osc;
+                    liquid-glass-osd <=> root.liquid-glass-osd;
+                    liquid-glass-sidebar <=> root.liquid-glass-sidebar;
+                    loaded: root.loaded;
+                    osc-position <=> root.osc-position;
+                    platform-windows: root.platform-windows;
+                    playlist-at-leading <=> root.playlist-at-leading;
+                    plugins-at-leading <=> root.plugins-at-leading;
+                    settings-at-leading <=> root.settings-at-leading;
+                    sidebar-card-material-fill: root.sidebar-card-material-fill;
+                    surface-material-title: root.surface-material-title;
+                    unlock-window-aspect-ratio <=> root.unlock-window-aspect-ratio;
+                    windows-accent-color: root.windows-accent-color;
+                    windows-accent-foreground: root.windows-accent-foreground;
+                    windows-sidebar-material-active: root.windows-sidebar-material-active;
                 }
                 if pane-kind != 5 : QuickSettingsScrollPage {
                     page-kind: pane-kind;
