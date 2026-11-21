@@ -449,6 +449,15 @@ remained black during playback in the first two sessions. The fresh-profile
 session changed 429 of 7,099 sampled pixels during playback. All three opened
 their own fixture, loaded the installed libmpv and joined their workers on exit.
 
+Resetting the GL texture unit and blend state around the mpv call still left
+one of three test sessions black. Disabling thumbnail generation also left
+one of three sessions black. An explicit zero timing offset rendered all six
+sessions across two paused-start runs. A build with that default rendered all
+three paused-start sessions, but with ordinary unpaused startup it showed a
+black fresh-profile session and a black first capture in the initial session.
+The timing changes were evaluated in isolated builds. The default timing in
+the application is unchanged.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. That run also exposed
 a desktop GLSL version directive in the optional blur shader. The updated
