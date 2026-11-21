@@ -116,13 +116,33 @@ export global Theme {
         return dark ? #dddddd : #29292d;
     }
 
-    public pure function sidebar-empty-caption(dark: bool) -> color {
+    public pure function sidebar-delay-target-surface(dark: bool) -> color {
+        return dark ? #ffffff0c : #0000000d;
+    }
+
+    public pure function sidebar-delay-icon(dark: bool) -> color {
+        return dark ? #d0d0d6 : #55555d;
+    }
+
+    public pure function sidebar-detail-text(dark: bool) -> color {
+        return dark ? #bbbbbb : #66666b;
+    }
+
+    public pure function sidebar-secondary-text(dark: bool) -> color {
         return dark ? #aaaaaa : #66666b;
     }
 
     out property <color> sidebar-light-tint: #f2f2f2c8;
     out property <color> sidebar-catalog-accent: #0a84ff;
     out property <color> sidebar-catalog-accent-text: #ffffff;
+
+    out property <color> sidebar-boost-checkbox-border: #888892;
+    out property <color> sidebar-boost-checkbox-fill: #ffffff10;
+    out property <color> sidebar-boost-checkbox-mark: #17202e;
+
+    public pure function sidebar-action-text(dark: bool, enabled: bool) -> color {
+        return enabled ? (dark ? #eeeeee : #29292d) : (dark ? #777777 : #8a8a90);
+    }
 
     public pure function title-bar-text(dark: bool) -> color {
         return dark ? #dddddd : #29292d;

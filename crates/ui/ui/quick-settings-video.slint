@@ -40,10 +40,10 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         tracks: PlaybackVideoState.video-tracks; observed-index: PlaybackVideoState.video-track-selected-index;
         track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
         dark-theme: root.dark-theme;
-        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+        accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
         focus-accent-color: root.interactive-accent-color;
         card-fill: root.sidebar-card-material-fill;
-        card-edge: root.dark-theme ? #ffffff18 : #00000014;
+        card-edge: Theme.sidebar-card-border(root.dark-theme);
         selected(kind, token) => { root.track-selected(kind, token); }
     }
     VideoControls {
@@ -52,11 +52,11 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         animations-disabled: root.animations-disabled;
         dark-theme: root.dark-theme;
         windows-acrylic-surface: root.windows-sidebar-material-active;
-        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+        accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
         focus-accent-color: root.interactive-accent-color;
         accent-foreground: root.windows-accent-foreground;
         card-fill: root.sidebar-card-material-fill;
-        card-edge: root.dark-theme ? #ffffff18 : #00000014;
+        card-edge: Theme.sidebar-card-border(root.dark-theme);
         aspect-presets: PlaybackVideoState.video-aspect-presets;
         aspect-index: PlaybackVideoState.video-aspect-index;
         rotation-index: PlaybackVideoState.video-rotation-index;
@@ -85,9 +85,9 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
             HorizontalLayout { height: 16px; spacing: 8px;
                 Image { width: 16px; height: 16px;
                     source: @image-url("../../../assets/icons/playback-speed.svg");
-                    image-fit: contain; colorize: root.dark-theme ? #dddddd : #29292d; }
+                    image-fit: contain; colorize: Theme.sidebar-heading-text(root.dark-theme); }
                 Text { text: "Speed"; font-size: 12px; font-weight: 700;
-                    color: root.dark-theme ? #dddddd : #29292d;
+                    color: Theme.sidebar-heading-text(root.dark-theme);
                     vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 if root.speed-value != 1 : Tool {
@@ -128,21 +128,21 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     background: transparent;
                     Text { text: "0.25x"; x: 0px; width: 35px; height: 14px;
                         font-size: 10px; vertical-alignment: center;
-                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                        color: Theme.sidebar-detail-text(root.dark-theme); }
                     Text { text: "1x"; width: 30px; height: 14px;
                         x: (parent.width - 10px) / 3 - self.width / 2 + 5px;
                         font-size: 10px; horizontal-alignment: center;
                         vertical-alignment: center;
-                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                        color: Theme.sidebar-detail-text(root.dark-theme); }
                     Text { text: "4x"; width: 30px; height: 14px;
                         x: (parent.width - 10px) * 2 / 3 - self.width / 2 + 5px;
                         font-size: 10px; horizontal-alignment: center;
                         vertical-alignment: center;
-                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                        color: Theme.sidebar-detail-text(root.dark-theme); }
                     Text { text: "16x"; width: 35px; height: 14px;
                         x: parent.width - self.width; font-size: 10px;
                         horizontal-alignment: right; vertical-alignment: center;
-                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                        color: Theme.sidebar-detail-text(root.dark-theme); }
                 }
                 Rectangle { width: 50px; background: transparent; }
             }
@@ -163,7 +163,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
             HardwareDecodingControls {
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
-                accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
                 focus-accent-color: root.interactive-accent-color;
                 hardware-enabled: PlaybackVideoState.hardware-decoding-enabled;
                 hardware-known: PlaybackVideoState.hardware-decoding-known;
@@ -172,7 +172,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
             if PlaybackVideoState.hdr-source-detected && PlaybackVideoState.hdr-display-active : HdrControls {
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
-                accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
                 focus-accent-color: root.interactive-accent-color;
                 hdr-enabled: PlaybackVideoState.hdr-enabled;
                 hdr-available: true;
@@ -199,7 +199,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                 // the label origin: a 56 pt label column plus
                 // the source's 8 pt row gap.
                 Text { text: label; width: 56px; font-size: 11px;
-                    color: root.dark-theme ? #dddddd : #29292d;
+                    color: Theme.sidebar-heading-text(root.dark-theme);
                     vertical-alignment: center; }
                 PlayerSlider { dark-theme: root.dark-theme; height: 14px; minimum: -100; maximum: 100; step: 1;
                     neutral-mark: true;

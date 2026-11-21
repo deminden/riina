@@ -79,7 +79,7 @@ export component PlayerSidebarPage inherits VerticalLayout {
             font-size: 12px; wrap: word-wrap; }
         if root.plugin-sidebar-labels.length == 0 : Text {
             text: "Enabled plugins with sidebar tabs appear here.";
-            color: Theme.sidebar-empty-caption(root.dark-theme);
+            color: Theme.sidebar-secondary-text(root.dark-theme);
             font-size: 11px; wrap: word-wrap; }
     }
     for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): CatalogSidebarRow {

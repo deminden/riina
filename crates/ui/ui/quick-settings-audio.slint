@@ -42,10 +42,10 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         tracks: PlaybackAudioState.audio-tracks; observed-index: PlaybackAudioState.audio-track-selected-index;
         track-kind: 1; hint: "Audio tracks"; enabled: root.loaded;
         dark-theme: root.dark-theme;
-        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+        accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
         focus-accent-color: root.interactive-accent-color;
         card-fill: root.sidebar-card-material-fill;
-        card-edge: root.dark-theme ? #ffffff18 : #00000014;
+        card-edge: Theme.sidebar-card-border(root.dark-theme);
         selected(kind, token) => { root.track-selected(kind, token); }
     }
     // The parent adds 8/6 pt on both sides; this spacer completes
@@ -67,9 +67,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             accessible-enabled: root.loaded;
             accessible-action-default => { if root.loaded { root.load-external-audio(); } }
             Text { text: "Load External Audio Track…";
-                color: root.loaded
-                    ? (root.dark-theme ? #eeeeee : #29292d)
-                    : (root.dark-theme ? #777777 : #8a8a90);
+                color: Theme.sidebar-action-text(root.dark-theme, root.loaded);
                 font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
             if load-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
             TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.load-external-audio(); } }
@@ -97,8 +95,8 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         HorizontalLayout { height: 24px; spacing: 8px;
             Image { source: @image-url("../../../assets/icons/delay.svg");
                 image-fit: contain; width: 16px; height: 16px;
-                colorize: root.dark-theme ? #dddddd : #29292d; }
-            Text { text: "Delay"; color: root.dark-theme ? #dddddd : #29292d;
+                colorize: Theme.sidebar-heading-text(root.dark-theme); }
+            Text { text: "Delay"; color: Theme.sidebar-heading-text(root.dark-theme);
                 font-size: 12px; font-weight: 700; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; background: transparent; }
             Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset audio delay";
@@ -127,11 +125,11 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         }
         HorizontalLayout { height: 12px; spacing: 8px;
             HorizontalLayout { horizontal-stretch: 1;
-                Text { width: 32px; text: "-5s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; }
+                Text { width: 32px; text: "-5s"; color: Theme.sidebar-secondary-text(root.dark-theme); font-size: 10px; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                Text { width: 32px; text: "0s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; horizontal-alignment: center; }
+                Text { width: 32px; text: "0s"; color: Theme.sidebar-secondary-text(root.dark-theme); font-size: 10px; horizontal-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                Text { width: 32px; text: "+5s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; horizontal-alignment: right; }
+                Text { width: 32px; text: "+5s"; color: Theme.sidebar-secondary-text(root.dark-theme); font-size: 10px; horizontal-alignment: right; }
             }
             Rectangle { width: 72px; background: transparent; }
         }
@@ -152,16 +150,16 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         accessible-checked: root.volume-boost;
         accessible-action-default => { root.set-volume-boost(!root.volume-boost); }
         Rectangle { x: 2px; y: 6px; width: 16px; height: 16px;
-            border-radius: 3px; border-width: 1px; border-color: #888892;
+            border-radius: 3px; border-width: 1px; border-color: Theme.sidebar-boost-checkbox-border;
             background: root.volume-boost
                 ? (root.interactive-accent-color)
-                : #ffffff10;
-            if root.volume-boost : Text { text: "✓"; color: #17202e;
+                : Theme.sidebar-boost-checkbox-fill;
+            if root.volume-boost : Text { text: "✓"; color: Theme.sidebar-boost-checkbox-mark;
                 horizontal-alignment: center; vertical-alignment: center; font-size: 12px; }
         }
         Text { x: 26px; width: parent.width - 26px;
             text: "Allow volume boost (up to 200%)";
-            color: root.dark-theme ? #dddddd : #29292d;
+            color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 12px; vertical-alignment: center; }
         if boost-focus.has-focus : Rectangle { border-width: 1px;
             border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
@@ -187,8 +185,8 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         HorizontalLayout { height: 18px; spacing: 8px;
             Image { source: @image-url("../../../assets/icons/equalizer.svg");
                 image-fit: contain; width: 16px; height: 16px;
-                colorize: root.dark-theme ? #dddddd : #29292d; }
-            Text { text: "Equalizer"; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
+                colorize: Theme.sidebar-heading-text(root.dark-theme); }
+            Text { text: "Equalizer"; color: Theme.sidebar-heading-text(root.dark-theme); font-size: 12px;
                 font-weight: 700; vertical-alignment: center; }
         }
         AudioEqualizerProfilePicker {
@@ -230,15 +228,15 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             }
             Rectangle { width: 48px; height: 120px; background: transparent;
                 Text { x: 0px; y: -3px; width: parent.width; text: "+12 dB"; height: 14px;
-                    color: root.dark-theme ? #aaaaaa : #66666b;
+                    color: Theme.sidebar-secondary-text(root.dark-theme);
                     font-size: 10px; vertical-alignment: center;
                     horizontal-alignment: right; }
                 Text { x: 0px; y: 45px; width: parent.width; text: "0 dB"; height: 14px;
-                    color: root.dark-theme ? #aaaaaa : #66666b;
+                    color: Theme.sidebar-secondary-text(root.dark-theme);
                     font-size: 10px; vertical-alignment: center;
                     horizontal-alignment: right; }
                 Text { x: 0px; y: 93px; width: parent.width; text: "-12 dB"; height: 14px;
-                    color: root.dark-theme ? #aaaaaa : #66666b;
+                    color: Theme.sidebar-secondary-text(root.dark-theme);
                     font-size: 10px; vertical-alignment: center;
                     horizontal-alignment: right; }
             }
@@ -246,7 +244,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         HorizontalLayout { height: 14px; spacing: 1px;
             for label in ["32", "64", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"] : Text {
                 width: 24px; text: label;
-                color: root.dark-theme ? #aaaaaa : #66666b;
+                color: Theme.sidebar-secondary-text(root.dark-theme);
                 font-size: 10px; horizontal-alignment: center;
             }
             Rectangle { width: 48px; background: transparent; }
