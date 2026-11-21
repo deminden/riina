@@ -406,6 +406,18 @@ in the same private display. The video sample changed by 373 pixels during
 playback and stayed identical during both paused comparisons. Both sessions
 again rendered their own fixtures and exited after joining the native worker.
 
+An archive with the PiP platform-session changes from `628186d` passed strict
+Clippy, 799 workspace tests and a locked x64 application build. The private
+display confirmed the installed libmpv path and worker shutdown. Two runs
+with the default logging settings showed a black video region in the second
+player even after resuming. The earlier platform-boundary executable also
+reproduced black video with logging disabled. With native debug logging enabled,
+the PiP candidate rendered in all three sessions, including a relaunch with
+the same profile and a launch with a fresh profile. The 7,099-pixel sample
+changed by 187, 424 and 407 pixels during playback, respectively, and both
+paused comparisons in the first session stayed identical. The cause of the
+intermittent rendering failure remains open.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. The GLES context also
 reported that the optional video-blur shader requires desktop GLSL. Linux
