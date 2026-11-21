@@ -1,8 +1,60 @@
 //! Playlist, chapter, track and audio-device models follow native observations.
-use crate::{CatalogRow, MenuCatalogRow, PlayerWindow};
-use riina_core::{Phase, Playback, TrackKind, time_label};
+use super::{PlayerContext, bind};
+use crate::{
+    CatalogRow, CatalogSelection, MenuCatalogRow, PlayerWindow, video_osd::ActionFeedback,
+};
+use riina_core::{Command, Phase, Playback, TrackKind, sync::lock, time_label};
 use slint::{ComponentHandle, Model};
 use std::{cell::Cell, path::PathBuf, rc::Rc, time::Duration};
+
+pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerContext) {
+    bind!(context, app, on_select_item, |ctx, category, token| {
+        let command = selection_command(category, token.as_str());
+        let chapter_title = if let Ok(Command::SelectChapter(index)) = &command {
+            lock(ctx.playback())
+                .chapters
+                .get(*index)
+                .and_then(|chapter| chapter.title.clone())
+        } else {
+            None
+        };
+        let Some(app) = ctx.app() else { return };
+        app.invoke_activity();
+        match (command, chapter_title) {
+            (Ok(command), Some(title)) => {
+                ctx.send_with_osd(command, ActionFeedback::Chapter(title), false)
+            }
+            (Ok(command), None) => ctx.send(command),
+            (Err(error), _) => ctx.report(error),
+        }
+    });
+}
+
+fn selection_command(category: CatalogSelection, token: &str) -> Result<Command, String> {
+    use CatalogSelection::{
+        AudioTrack, Chapter, Playlist, PrimarySubtitle, SecondarySubtitle, Unknown, VideoTrack,
+    };
+    let track = |kind| parse_track_id(token).map(|id| Command::SelectTrack { kind, id });
+    match category {
+        AudioTrack => track(TrackKind::Audio),
+        PrimarySubtitle => track(TrackKind::Sub),
+        VideoTrack => track(TrackKind::Video),
+        SecondarySubtitle => parse_track_id(token).map(Command::SelectSecondarySubtitle),
+        Chapter => token.parse::<usize>().map(Command::SelectChapter),
+        Playlist => token.parse::<i64>().map(Command::SelectPlaylistId),
+        Unknown => return Err("Unknown selection category".into()),
+    }
+    .map_err(|error| error.to_string())
+}
+
+fn parse_track_id(token: &str) -> Result<Option<i64>, std::num::ParseIntError> {
+    // Track IDs can exceed the exact numeric range of Slint's float properties.
+    if token == "no" {
+        Ok(None)
+    } else {
+        token.parse().map(Some)
+    }
+}
 
 pub(super) fn install_playlist_selection(app: &PlayerWindow, selected: &[String]) {
     let current = app.get_playlist();

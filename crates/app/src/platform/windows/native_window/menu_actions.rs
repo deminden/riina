@@ -1,5 +1,5 @@
 //! Menu callbacks retain only weak UI handles; UiSession remains the engine owner.
-use crate::{NativeVideoHost, PlayerWindow};
+use crate::{CatalogSelection, NativeVideoHost, PlayerWindow};
 use slint::ComponentHandle;
 
 macro_rules! forward {
@@ -109,7 +109,7 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
         app.invoke_playlist_action(12, token);
     });
     forward!(host, app, on_select_menu_chapter_item, |token| {
-        app.invoke_select_item(3, token);
+        app.invoke_select_item(CatalogSelection::Chapter, token);
     });
     forward!(host, app, on_show_video_panel, || {
         app.invoke_toggle_settings_pane(6);
@@ -121,7 +121,7 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
         app.invoke_cycle_audio_track();
     });
     forward!(host, app, on_select_menu_audio_track, |token| {
-        app.invoke_select_item(1, token);
+        app.invoke_select_item(CatalogSelection::AudioTrack, token);
     });
     forward!(host, app, on_load_external_audio, || {
         app.invoke_browse_files(1);
@@ -154,10 +154,10 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
         app.invoke_toggle_settings_pane(2);
     });
     forward!(host, app, on_select_subtitle_track, |token| {
-        app.invoke_select_item(2, token);
+        app.invoke_select_item(CatalogSelection::PrimarySubtitle, token);
     });
     forward!(host, app, on_select_secondary_subtitle, |token| {
-        app.invoke_select_item(5, token);
+        app.invoke_select_item(CatalogSelection::SecondarySubtitle, token);
     });
     forward!(host, app, on_toggle_secondary_subtitle_visibility, || {
         app.invoke_toggle_secondary_subtitle_visibility();
@@ -193,7 +193,7 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
         app.invoke_cycle_video_track();
     });
     forward!(host, app, on_select_video_track, |token| {
-        app.invoke_select_item(6, token);
+        app.invoke_select_item(CatalogSelection::VideoTrack, token);
     });
     forward!(host, app, on_fit_window_to_video, || {
         app.invoke_fit_window_to_video();

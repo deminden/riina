@@ -1,2 +1,6 @@
 // Shared media catalog data; the owning player supplies tokens and observations.
 export struct CatalogRow { token: string, label: string, detail: string, path: string, language: string, selected: bool, playing: bool, network: bool }
+
+export enum CatalogSelection {
+    unknown, audio-track, primary-subtitle, chapter, playlist, secondary-subtitle, video-track
+}

@@ -72,6 +72,12 @@ fn row_label(kind: i32, index: usize) -> String {
 }
 
 fn navigation(kind: i32) {
+    let selection = match kind {
+        1 => CatalogSelection::AudioTrack,
+        2 => CatalogSelection::PrimarySubtitle,
+        5 => CatalogSelection::SecondarySubtitle,
+        _ => CatalogSelection::VideoTrack,
+    };
     let app = player(if kind == 5 { 2 } else { kind });
     set_tracks(&app, kind, 8, 2);
     let selected = Rc::new(RefCell::new(Vec::new()));
@@ -92,7 +98,11 @@ fn navigation(kind: i32) {
     }
     assert_eq!(
         &*selected.borrow(),
-        &[(kind, "3".into()), (kind, "4".into()), (kind, "5".into())]
+        &[
+            (selection, "3".into()),
+            (selection, "4".into()),
+            (selection, "5".into())
+        ]
     );
     let top = track_row(&app, &row_label(kind, 5)).absolute_position().y;
     let list = field(
@@ -132,13 +142,13 @@ fn navigation(kind: i32) {
     assert_eq!(
         &*selected.borrow(),
         &[
-            (kind, "4".into()),
-            (kind, "7".into()),
-            (kind, "7".into()),
-            (kind, "no".into()),
-            (kind, "no".into()),
-            (kind, "no".into()),
-            (kind, "no".into())
+            (selection, "4".into()),
+            (selection, "7".into()),
+            (selection, "7".into()),
+            (selection, "no".into()),
+            (selection, "no".into()),
+            (selection, "no".into()),
+            (selection, "no".into())
         ]
     );
     assert_eq!(playback.get(), 0);

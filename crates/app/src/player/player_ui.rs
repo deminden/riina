@@ -1453,67 +1453,7 @@ fn configure_with_engine(
             Err(error) => app.set_status(error.into()),
         }
     });
-    let selection_player = command_sender.clone();
-    let selection_state = latest_playback.clone();
-    let weak = app.as_weak();
-    app.on_select_item(move |category, token| {
-        // IDs stay strings in the UI: Slint's float numbers cannot preserve every i64.
-        let command = match category {
-            5 => token
-                .as_str()
-                .parse::<i64>()
-                .map(Some)
-                .or_else(|error| if token == "no" { Ok(None) } else { Err(error) })
-                .map(Command::SelectSecondarySubtitle)
-                .map_err(|error| error.to_string()),
-            1 | 2 | 6 => token
-                .as_str()
-                .parse::<i64>()
-                .map(Some)
-                .or_else(|error| if token == "no" { Ok(None) } else { Err(error) })
-                .map(|id| Command::SelectTrack {
-                    kind: match category {
-                        1 => TrackKind::Audio,
-                        6 => TrackKind::Video,
-                        _ => TrackKind::Sub,
-                    },
-                    id,
-                })
-                .map_err(|error| error.to_string()),
-            3 => token
-                .parse::<usize>()
-                .map(Command::SelectChapter)
-                .map_err(|error| error.to_string()),
-            4 => token
-                .parse::<i64>()
-                .map(Command::SelectPlaylistId)
-                .map_err(|error| error.to_string()),
-            _ => Err("Unknown selection category".into()),
-        };
-        let chapter_title = if category == 3 {
-            token
-                .parse::<usize>()
-                .ok()
-                .and_then(|index| lock(&selection_state).chapters.get(index).cloned())
-                .and_then(|chapter| chapter.title)
-        } else {
-            None
-        };
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            match command.and_then(|command| selection_player.send(command)) {
-                Err(error) => app.set_status(error.into()),
-                Ok(()) => {
-                    if let Some(title) = chapter_title {
-                        let message = crate::video_osd::action_message(
-                            crate::video_osd::ActionFeedback::Chapter(title),
-                        );
-                        show_osd_message(&app, message.text, false);
-                    }
-                }
-            }
-        }
-    });
+    catalog::install_catalog_selection(app, &context);
     let delay_player = command_sender.clone();
     let preview_weak = app.as_weak();
     app.on_preview_audio_delay(move |value| {

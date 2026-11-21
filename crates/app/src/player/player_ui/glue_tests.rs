@@ -1,6 +1,7 @@
 //! Characterise the real player callbacks without opening a native window or libmpv.
 
 use super::{engine_start::EngineOptions, *};
+use crate::CatalogSelection;
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
 use std::{io, sync::mpsc::TryRecvError};
@@ -277,9 +278,9 @@ fn exercise_transport_and_tracks(harness: &Harness) {
         absolute: false,
     });
     for (category, kind) in [
-        (1, TrackKind::Audio),
-        (2, TrackKind::Sub),
-        (6, TrackKind::Video),
+        (CatalogSelection::AudioTrack, TrackKind::Audio),
+        (CatalogSelection::PrimarySubtitle, TrackKind::Sub),
+        (CatalogSelection::VideoTrack, TrackKind::Video),
     ] {
         app.invoke_select_item(category, "9007199254740993".into());
         harness.expect(Command::SelectTrack {
@@ -287,7 +288,7 @@ fn exercise_transport_and_tracks(harness: &Harness) {
             id: Some(9007199254740993),
         });
     }
-    app.invoke_select_item(5, "no".into());
+    app.invoke_select_item(CatalogSelection::SecondarySubtitle, "no".into());
     harness.expect(Command::SelectSecondarySubtitle(None));
     app.invoke_playlist_next();
     harness.expect(Command::PlaylistNext);

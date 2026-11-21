@@ -8,8 +8,8 @@ import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { QuickSettingsInput } from "quick-settings-input.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
-import { CatalogRow } from "catalog-row.slint";
-export { CatalogRow } from "catalog-row.slint";
+import { CatalogRow, CatalogSelection } from "catalog-row.slint";
+export { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { ScrollView, ComboBox, Button, Palette } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, VerticalEqualizerSlider, SubtitleColorWell } from "shared-controls.slint";
 import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
@@ -682,7 +682,7 @@ export component PlayerWindow inherits Window {
                 for row in root.chapters : MenuItem {
                     title: row.label;
                     checkable: true; checked: row.selected;
-                    activated => { root.select-item(3, row.token); }
+                    activated => { root.select-item(CatalogSelection.chapter, row.token); }
                 }
             }
             MenuSeparator {}
@@ -705,7 +705,7 @@ export component PlayerWindow inherits Window {
                 for row in root.video-tracks : MenuItem {
                     title: row.label;
                     checkable: true; checked: row.selected;
-                    activated => { root.select-item(6, row.token); }
+                    activated => { root.select-item(CatalogSelection.video-track, row.token); }
                 }
             }
             MenuSeparator {}
@@ -821,7 +821,7 @@ export component PlayerWindow inherits Window {
             Menu { title: "Audio Track"; enabled: root.loaded && !root.crop-editing;
                 for row in root.audio-tracks : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
-                    activated => { root.select-item(1, row.token); }
+                    activated => { root.select-item(CatalogSelection.audio-track, row.token); }
                 }
             }
             MenuItem { title: "Load External Audio…"; enabled: root.loaded && !root.crop-editing;
@@ -884,7 +884,7 @@ export component PlayerWindow inherits Window {
             Menu { title: "Subtitle"; enabled: root.loaded && !root.crop-editing;
                 for row in root.subtitle-tracks : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
-                    activated => { root.select-item(2, row.token); }
+                    activated => { root.select-item(CatalogSelection.primary-subtitle, row.token); }
                 }
             }
             MenuItem { title: root.subtitle-visible ? "Hide Subtitles" : "Show Subtitles";
@@ -895,7 +895,7 @@ export component PlayerWindow inherits Window {
             Menu { title: "Secondary Subtitle"; enabled: root.loaded && !root.crop-editing;
                 for row in root.secondary-subtitle-tracks : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
-                    activated => { root.select-item(5, row.token); }
+                    activated => { root.select-item(CatalogSelection.secondary-subtitle, row.token); }
                 }
             }
             MenuItem { title: root.secondary-subtitle-visible ? "Hide Secondary Subtitles" : "Show Secondary Subtitles";
@@ -1720,7 +1720,15 @@ export component PlayerWindow inherits Window {
     callback cycle-audio-track();
     callback cycle-subtitle-track();
     callback cycle-video-track();
-    callback select-item(int, string);
+    callback select-item(CatalogSelection, string);
+    pure function selection-for-pane(kind: int) -> CatalogSelection {
+        return kind == 1 ? CatalogSelection.audio-track :
+            kind == 2 ? CatalogSelection.primary-subtitle :
+            kind == 3 ? CatalogSelection.chapter :
+            kind == 4 ? CatalogSelection.playlist :
+            kind == 5 ? CatalogSelection.secondary-subtitle :
+            kind == 6 ? CatalogSelection.video-track : CatalogSelection.unknown;
+    }
     callback browse-files(int);
     callback set-delay(int, float);
     callback set-delay-text(int, string) -> bool;
@@ -2284,7 +2292,7 @@ export component PlayerWindow inherits Window {
                             focus-accent-color: root.interactive-accent-color;
                             card-fill: root.sidebar-card-material-fill;
                             card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                            selected(kind, token) => { root.select-item(kind, token); }
+                            selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
                         }
                         // The parent adds 8/6 pt on both sides; this spacer completes
                         // IINA's 18/16 pt Audio stack gap in spacious/compact mode.
@@ -2528,7 +2536,7 @@ export component PlayerWindow inherits Window {
                             if pane-kind == 4 && root.playlist-drag-active && root.playlist-drop-index == root.playlist.length && index == root.playlist.length - 1 : Rectangle {
                                 x: 0; y: parent.height - 2px; width: parent.width; height: 2px; background: root.interactive-accent-color;
                             }
-                            accessible-action-default => { root.select-item(pane-kind, row.token); }
+                            accessible-action-default => { root.select-item(root.selection-for-pane(pane-kind), row.token); }
                             if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 3px; background: transparent; }
                             if (pane-kind == 4 ? row.playing : row.selected) : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: root.interactive-accent-color; border-radius: 2px; }
                             if pane-kind == 4 && row.detail != "" : VerticalLayout {
@@ -2553,9 +2561,9 @@ export component PlayerWindow inherits Window {
                                 Text { text: row.language; color: root.dark-theme ? #dddddd : #29292d;
                                     font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
                             TouchArea {
-                                clicked => { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-item(pane-kind, row.token); }
+                                clicked => { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-item(root.selection-for-pane(pane-kind), row.token); }
                                     if pane-kind == 4 { root.selected-playlist-token = row.token; } }
-                                double-clicked => { if pane-kind >= 3 { root.select-item(pane-kind, row.token); root.selected-playlist-token = ""; root.selected-playlist-tokens = []; } }
+                                double-clicked => { if pane-kind >= 3 { root.select-item(root.selection-for-pane(pane-kind), row.token); root.selected-playlist-token = ""; root.selected-playlist-tokens = []; } }
                                 pointer-event(event) => {
                                     if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                                         root.playlist-drag-token = row.token;
@@ -2630,7 +2638,7 @@ export component PlayerWindow inherits Window {
                                     // Preserve global playback shortcuts while a catalog row has focus.
                                     if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
                                     if event.text == Key.Return {
-                                        root.select-item(pane-kind, row.token);
+                                        root.select-item(root.selection-for-pane(pane-kind), row.token);
                                         root.selected-playlist-token = "";
                                         return accept;
                                     }
@@ -2665,7 +2673,7 @@ export component PlayerWindow inherits Window {
                                 focus-accent-color: root.interactive-accent-color;
                                 card-fill: root.sidebar-card-material-fill;
                                 card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                                selected(kind, token) => { root.select-item(kind, token); }
+                                selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
                             }
                         if pane-kind == 6 : VideoControls {
                             width: parent.width;
@@ -2856,7 +2864,7 @@ export component PlayerWindow inherits Window {
                                     accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                                     card-fill: root.sidebar-card-material-fill;
                                     card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                                    selected(kind, token) => { root.select-item(kind, token); } }
+                                    selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); } }
                             }
                             VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
                                 SubtitleVisibilityRow { label: "Secondary"; number: "2";
@@ -2874,7 +2882,7 @@ export component PlayerWindow inherits Window {
                                     accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
                                     card-fill: root.sidebar-card-material-fill;
                                     card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                                    selected(kind, token) => { root.select-item(kind, token); } }
+                                    selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); } }
                             }
                         if pane-kind == 2 : Rectangle {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
@@ -3586,7 +3594,7 @@ export component PlayerWindow inherits Window {
                             double-clicked => {
                                 root.selected-playlist-token = "";
                                 root.selected-playlist-tokens = [];
-                                root.select-item(4, row.token);
+                                root.select-item(CatalogSelection.playlist, row.token);
                             }
                         }
                     }
