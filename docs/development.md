@@ -228,7 +228,7 @@ when the timer's work is needed.
 | Log Viewer | 500 ms | Read and append new log records | Starts after show, stops on close or when a tick finds the window hidden |
 | Font Picker | 250 ms | Refresh appearance and available font results | While Font Picker is visible |
 | About window | 250 ms | Follow the owner's theme and read pending libmpv and FFmpeg versions | Starts after show, stops on close or when a tick finds the window hidden. Version reads stop when both labels are available |
-| Online subtitles | 500 ms | Check the automatic subtitle search trigger | While automatic lookup is enabled for eligible media |
+| Online subtitles | 500 ms | Check the automatic subtitle search trigger | While automatic lookup is enabled. Each tick checks media eligibility |
 | Player appearance | 500 ms | Refresh system palette and reduced-motion policy | While a player follows system settings |
 | Settings motion | 500 ms | Refresh the reduced-motion flag | Starts after show, stops on close or when a tick finds Settings hidden |
 | Settings audio devices | 750 ms | Read the observed audio device list | Starts after show, stops on close or when a tick finds Settings hidden |

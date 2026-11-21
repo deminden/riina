@@ -408,18 +408,16 @@ fn install_automatic_search(
     subtitle_discovery_ready: Arc<Readiness>,
     trigger_search: Rc<Cell<bool>>,
 ) -> Rc<Timer> {
-    let auto_seen = Rc::new(Cell::new(None::<u64>));
-    let auto_pending = Rc::new(RefCell::new(None::<(u64, std::time::Instant)>));
-    let auto_app = app.as_weak();
-    let auto_playback = playback;
-    let pending_search = auto_pending.clone();
-    let searched_generation = auto_seen.clone();
-    let auto_timer = Rc::new(slint::Timer::default());
+    let pending_search = Rc::new(RefCell::new(None::<(u64, std::time::Instant)>));
+    let weak_app = app.as_weak();
+    let pending_for_tick = pending_search.clone();
+    let searched_generation = Cell::new(None::<u64>);
+    let auto_timer = Rc::new(Timer::default());
     auto_timer.start(
         slint::TimerMode::Repeated,
         Duration::from_millis(500),
         move || {
-            let Some(app) = auto_app.upgrade() else {
+            let Some(app) = weak_app.upgrade() else {
                 return;
             };
             let Ok(settings) = crate::online_subtitles_preferences::current_player(&app) else {
@@ -434,10 +432,10 @@ fn install_automatic_search(
                 Provider::Shooter => true,
             };
             if !settings.auto_search || !credentials_available {
-                *pending_search.borrow_mut() = None;
+                *pending_for_tick.borrow_mut() = None;
                 return;
             }
-            let state = riina_core::sync::lock(&auto_playback).clone();
+            let state = riina_core::sync::lock(&playback).clone();
             let duration = state.duration.unwrap_or_default();
             if !matches!(
                 state.phase,
@@ -450,7 +448,7 @@ fn install_automatic_search(
                     .is_none_or(|entry| entry.filename.contains("://"))
                 || searched_generation.get() == Some(state.generation)
             {
-                *pending_search.borrow_mut() = None;
+                *pending_for_tick.borrow_mut() = None;
                 return;
             }
             if state
@@ -458,18 +456,18 @@ fn install_automatic_search(
                 .iter()
                 .any(|track| track.kind == riina_core::TrackKind::Sub)
             {
-                *pending_search.borrow_mut() = None;
+                *pending_for_tick.borrow_mut() = None;
                 searched_generation.set(Some(state.generation));
                 return;
             }
             if auto_load.mode != riina_core::subtitle_controls::AutoLoadMode::Disabled
                 && !subtitle_discovery_ready.is_ready(state.generation)
             {
-                *pending_search.borrow_mut() = None;
+                *pending_for_tick.borrow_mut() = None;
                 return;
             }
             let now = std::time::Instant::now();
-            let mut pending = pending_search.borrow_mut();
+            let mut pending = pending_for_tick.borrow_mut();
             match *pending {
                 Some((generation, since))
                     if generation == state.generation
@@ -489,6 +487,23 @@ fn install_automatic_search(
             app.invoke_find_online_subtitles();
         },
     );
+    if !app.get_open_subtitles_auto_search() {
+        auto_timer.stop();
+    }
+    let weak_timer = Rc::downgrade(&auto_timer);
+    app.on_open_subtitles_auto_search_changed(move |enabled| {
+        let Some(timer) = weak_timer.upgrade() else {
+            return;
+        };
+        if enabled {
+            if !timer.running() {
+                timer.restart();
+            }
+        } else {
+            timer.stop();
+            pending_search.borrow_mut().take();
+        }
+    });
     auto_timer
 }
 
@@ -523,5 +538,39 @@ fn ui_row(row: &ResultRow, selected: bool) -> crate::OnlineSubtitleRow {
             .into(),
         uploaded_at: row.uploaded_at.clone().unwrap_or_default().into(),
         selected,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn automatic_search_timer_tracks_the_live_setting() -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let playback = Arc::new(Mutex::new(Arc::new(riina_core::Playback::default())));
+        let readiness = Arc::new(Readiness::default());
+        let requested = Rc::new(Cell::new(false));
+        let timer = install_automatic_search(&app, playback, readiness, requested.clone());
+        assert!(!timer.running());
+
+        app.set_open_subtitles_auto_search(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(timer.running());
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(500));
+        assert!(!requested.get());
+
+        app.set_open_subtitles_auto_search(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!timer.running());
+
+        app.set_open_subtitles_auto_search(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(timer.running());
+        drop(timer);
+        app.set_open_subtitles_auto_search(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        Ok(())
     }
 }
