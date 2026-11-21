@@ -13,6 +13,7 @@ mod lifecycle;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod live_text;
 mod media_actions;
+mod music_mode;
 mod playback_mailbox;
 mod playlist_actions;
 mod rendering;
@@ -650,54 +651,7 @@ fn configure_with_engine(
         prefs.auto_switch_to_music_mode,
     )));
     if native.is_none() {
-        let original_size = Rc::new(Cell::new(None::<slint::PhysicalSize>));
-        let saved_size = original_size.clone();
-        let weak = app.as_weak();
-        app.on_music_mode_changed(move || {
-            if let Some(app) = weak.upgrade() {
-                let window = app.window();
-                if app.get_music_mode() {
-                    if saved_size.get().is_none() {
-                        saved_size.set(Some(window.size()));
-                    }
-                    let scale = f64::from(window.scale_factor());
-                    let height = crate::music_mode_layout::window_height(
-                        app.get_music_mode_show_album_art(),
-                        app.get_music_mode_show_playlist(),
-                        f64::from(app.get_music_mode_artwork_aspect_ratio()),
-                    );
-                    let target = slint::PhysicalSize::new(
-                        (crate::music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
-                        (height * scale).round() as u32,
-                    );
-                    crate::window_aspect::resize_centered(
-                        window,
-                        riina_core::window_aspect::PixelSize {
-                            width: window.size().width,
-                            height: window.size().height,
-                        },
-                        riina_core::window_aspect::PixelSize {
-                            width: target.width,
-                            height: target.height,
-                        },
-                        None,
-                    );
-                } else if let Some(size) = saved_size.take() {
-                    crate::window_aspect::resize_centered(
-                        window,
-                        riina_core::window_aspect::PixelSize {
-                            width: window.size().width,
-                            height: window.size().height,
-                        },
-                        riina_core::window_aspect::PixelSize {
-                            width: size.width,
-                            height: size.height,
-                        },
-                        None,
-                    );
-                }
-            }
-        });
+        music_mode::install_window_resize(app);
     }
     let queued = Arc::new(AtomicBool::new(false));
     let crop_editor = crate::crop_editor::Editor::default();
@@ -827,7 +781,6 @@ fn configure_with_engine(
     ));
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     let live_text_timer = None;
-    let manual_music_mode = music_mode_state.clone();
     let weak = app.as_weak();
     let toolbar_settings_window = weak.clone();
     app.on_toolbar_settings_changed(move || {
@@ -870,19 +823,7 @@ fn configure_with_engine(
             }
         }
     });
-    app.on_toggle_music_mode(move || {
-        if let Some(app) = weak.upgrade() {
-            let active = lock(&manual_music_mode).toggle_manually();
-            if active && app.get_fullscreen() {
-                app.invoke_toggle_fullscreen();
-            }
-            app.set_music_mode(active);
-        }
-    });
-    let automatic_music_mode = music_mode_state.clone();
-    app.on_auto_switch_music_mode_changed(move |enabled| {
-        lock(&automatic_music_mode).set_auto_switch(enabled);
-    });
+    music_mode::install_actions(app, &music_mode_state);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
         app,
