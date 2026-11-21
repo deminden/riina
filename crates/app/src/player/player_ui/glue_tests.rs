@@ -150,6 +150,8 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     capture.expect(Command::VideoViewport(None));
     i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(80));
     capture.expect(Command::PlaylistNext);
+    capture.app.invoke_close_player();
+    capture.expect(Command::Stop);
     Ok(())
 }
 
