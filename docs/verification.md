@@ -465,6 +465,14 @@ shader linked in both Mesa OpenGL 4.5 and OpenGL ES 3.2 software contexts.
 Linux package, visual blur, real display and audio endpoint verification remain
 open.
 
+In an isolated unpaused run of `da50ecd`, the first 1280×800 virtual desktop
+capture showed the player controls and a black video area at 0.375 s. An mpv
+video-only screenshot at that point contained the fixture's moving square.
+The desktop showed video at 1.375 s. Relaunch and fresh-profile captures also
+showed motion. The fixture filename and playing state were checked through
+mpv for each capture. All three players quit and joined their workers. This
+narrows the intermittent failure to presentation after decode.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
