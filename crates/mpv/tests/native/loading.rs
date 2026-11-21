@@ -56,16 +56,9 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         .join("tests/fixtures/catalog.mkv")
         .to_string_lossy()
         .into_owned();
-    let scratch = std::env::temp_dir().join(format!(
-        "riina-resume-native-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    let enabled_watch_later = scratch.join("enabled");
-    let disabled_watch_later = scratch.join("disabled");
+    let scratch = riina_test_support::TempDir::new("resume-native").unwrap();
+    let enabled_watch_later = scratch.path().join("enabled");
+    let disabled_watch_later = scratch.path().join("disabled");
     std::fs::create_dir_all(&enabled_watch_later).unwrap();
     std::fs::create_dir_all(&disabled_watch_later).unwrap();
 
@@ -150,7 +143,6 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         "disabled resume must start from the beginning: {from_start:?}"
     );
     drop(player);
-    std::fs::remove_dir_all(scratch).unwrap();
 }
 
 #[test]

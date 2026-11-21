@@ -1,33 +1,17 @@
 use super::*;
 
-struct TemporaryMedia(PathBuf);
-
-impl Drop for TemporaryMedia {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
-}
-
 #[expect(
     clippy::expect_used,
     clippy::unwrap_used,
     reason = "Incomplete PCM fixture creation must fail the test"
 )]
-fn create_long_seek_fixture() -> TemporaryMedia {
+fn create_long_seek_fixture(path: &std::path::Path) {
     // Keep the sample rate typical so headless audio backends do not add
     // seconds of timestamp latency while a seek is paused and observed.
     const SAMPLE_RATE: u32 = 48_000;
     const DURATION_SECONDS: u32 = 1_300;
     const DATA_BYTES: u32 = SAMPLE_RATE * DURATION_SECONDS;
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock must be after the Unix epoch")
-        .as_nanos();
-    let path = std::env::temp_dir().join(format!(
-        "riina-long-seek-{}-{unique}.wav",
-        std::process::id()
-    ));
-    let mut output = BufWriter::new(File::create(&path).expect("create long-seek fixture"));
+    let mut output = BufWriter::new(File::create(path).expect("create long-seek fixture"));
     output.write_all(b"RIFF").unwrap();
     output
         .write_all(&(36_u32 + DATA_BYTES).to_le_bytes())
@@ -51,7 +35,6 @@ fn create_long_seek_fixture() -> TemporaryMedia {
         remaining -= chunk_len;
     }
     output.flush().expect("finish long-seek fixture");
-    TemporaryMedia(path)
 }
 
 #[test]
@@ -95,10 +78,12 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
 #[ignore = "requires provisioned libmpv; verifies ten-minute relative seeks away from endpoints"]
 fn long_relative_seeks_preserve_pause_and_volume() {
     let root = fixture_root();
-    let silence = create_long_seek_fixture();
+    let directory = riina_test_support::TempDir::new("long-seek").unwrap();
+    let silence = directory.path().join("silence.wav");
+    create_long_seek_fixture(&silence);
     let harness = Harness::start(&root).unwrap();
     harness
-        .send(Command::Load(silence.0.to_string_lossy().into_owned()))
+        .send(Command::Load(silence.to_string_lossy().into_owned()))
         .unwrap();
     harness.wait(|state| {
         state.phase == Phase::Playing
