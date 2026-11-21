@@ -399,6 +399,13 @@ path. The same 7,099-pixel region changed by 236 pixels during playback and
 stayed identical in both paused comparisons. The second fixture rendered and
 both test processes quit and joined their native workers.
 
+An archive of `c74bc0b` with the shared framebuffer, dialog dispatch and
+platform session changes passed strict Clippy, 796 workspace tests and a
+locked application build. The resulting player loaded the installed libmpv
+in the same private display. The video sample changed by 373 pixels during
+playback and stayed identical during both paused comparisons. Both sessions
+again rendered their own fixtures and exited after joining the native worker.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. The GLES context also
 reported that the optional video-blur shader requires desktop GLSL. Linux
