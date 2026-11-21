@@ -1,3 +1,6 @@
+import { ScrollView } from "std-widgets.slint";
+import { PreferenceSearchField } from "preferences-search.slint";
+
 
 export component PreferenceNavItem inherits Rectangle {
     in property <string> label;
@@ -51,6 +54,174 @@ export component PreferenceSubNavItem inherits Rectangle {
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
             return reject;
+        }
+    }
+}
+
+// IINA v1.5.0 enables its newer settings window by default; preserve its
+// page order even while some individual Riina pages are still in progress.
+export component PreferencesNavigation inherits Rectangle {
+    in property <bool> mica-backdrop-enabled;
+    in-out property <string> search-query;
+    in property <int> search-result-count;
+    in-out property <int> selected-search-index;
+    in-out property <int> selected-pane;
+    in-out property <int> selected-general-section;
+    in-out property <int> selected-interface-section;
+    in property <int> selected-subtitle-section;
+    in property <int> selected-audio-section;
+    in property <int> selected-network-section;
+    in-out property <length> general-scroll-position;
+    in-out property <length> interface-scroll-position;
+    in property <length> general-history-target;
+    in property <length> general-playlist-target;
+    in property <length> general-screenshots-target;
+    in property <length> interface-window-target;
+    in property <length> interface-osc-target;
+    in property <length> interface-osd-target;
+    in property <length> interface-thumbnail-target;
+    in property <length> interface-pip-target;
+    in property <length> interface-accessibility-target;
+    callback search-query-changed(string);
+    callback search-selection-moved(int);
+    callback search-selection-activated();
+    callback reveal-audio-section(int);
+    callback reveal-subtitle-section(int);
+    callback reveal-network-section(int);
+
+    private property <length> navigation-extra-height:
+        root.selected-pane == 0 ? 96px :
+        root.selected-pane == 1 ? 168px :
+        root.selected-pane == 4 ? 144px :
+        (root.selected-pane == 3 || root.selected-pane == 5) ? 72px : 0px;
+    private property <length> navigation-content-height: 408px + navigation-extra-height;
+    pure function navigation-row-y(page: int) -> length {
+        return page * 36px + (root.selected-pane < page ? navigation-extra-height : 0px);
+    }
+
+    background: root.mica-backdrop-enabled ? #f6f6f680 : #f6f6f6;
+    PreferenceSearchField { x: 8px; y: 10px; query <=> root.search-query;
+        result-count: root.search-result-count;
+        selected-index: root.selected-search-index;
+        query-changed(query) => {
+            root.selected-search-index = -1;
+            root.search-query-changed(query);
+        }
+        move-selection(direction) => { root.search-selection-moved(direction); }
+        activate-selection => { root.search-selection-activated(); }
+    }
+    ScrollView { x: 0; y: 52px; width: parent.width; height: parent.height - 52px;
+        content-height: root.navigation-content-height;
+        content-width: self.visible-width;
+        horizontal-scrollbar-policy: always-off;
+        Rectangle { width: parent.width; height: root.navigation-content-height; background: transparent;
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(0); width: 180px; label: "General";
+                icon: @image-url("../../../assets/icons/settings.svg");
+                selected: root.selected-pane == 0; activated => { root.selected-pane = 0; root.general-scroll-position = 0px; } }
+            if root.selected-pane == 0 : Rectangle { x: 24px; y: 36px; width: 2px; height: 96px; background: #d3d3d7; }
+            if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 36px; width: 158px; label: "Behavior";
+                selected: root.selected-general-section == 0;
+                activated => { root.selected-general-section = 0; root.general-scroll-position = 0px; } }
+            if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 60px; width: 158px; label: "History";
+                selected: root.selected-general-section == 1;
+                activated => { root.selected-general-section = 1; root.general-scroll-position = root.general-history-target; } }
+            if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 84px; width: 158px; label: "Playlist";
+                selected: root.selected-general-section == 2;
+                activated => { root.selected-general-section = 2; root.general-scroll-position = root.general-playlist-target; } }
+            if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 108px; width: 158px; label: "Screenshots";
+                selected: root.selected-general-section == 3;
+                activated => { root.selected-general-section = 3; root.general-scroll-position = root.general-screenshots-target; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(1); width: 180px; label: "Interface";
+                icon: @image-url("../../../assets/icons/interface.svg");
+                selected: root.selected-pane == 1; activated => { root.selected-pane = 1; root.selected-interface-section = 0; root.interface-scroll-position = 0px; } }
+            if root.selected-pane == 1 : Rectangle { x: 24px; y: 76px; width: 2px; height: 144px; background: #d3d3d7; }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 72px; width: 158px; label: "Appearance";
+                selected: root.selected-interface-section == 0;
+                activated => { root.selected-interface-section = 0; root.interface-scroll-position = 0px; } }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 96px; width: 158px; label: "Window";
+                selected: root.selected-interface-section == 1;
+                activated => { root.selected-interface-section = 1; root.interface-scroll-position = root.interface-window-target; } }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 120px; width: 158px; label: "On Screen Controller";
+                selected: root.selected-interface-section == 2;
+                activated => { root.selected-interface-section = 2; root.interface-scroll-position = root.interface-osc-target; } }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 144px; width: 158px; label: "On Screen Display";
+                selected: root.selected-interface-section == 3;
+                activated => { root.selected-interface-section = 3; root.interface-scroll-position = root.interface-osd-target; } }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 168px; width: 158px; label: "Thumbnail Preview";
+                selected: root.selected-interface-section == 4;
+                activated => { root.selected-interface-section = 4; root.interface-scroll-position = root.interface-thumbnail-target; } }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 192px; width: 158px; label: "Picture-in-Picture";
+                selected: root.selected-interface-section == 5;
+                activated => { root.selected-interface-section = 5; root.interface-scroll-position = root.interface-pip-target; } }
+            if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Accessibility";
+                selected: root.selected-interface-section == 6;
+                activated => { root.selected-interface-section = 6; root.interface-scroll-position = root.interface-accessibility-target; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(2); width: 180px; label: "Video";
+                icon: @image-url("../../../assets/icons/video-page.svg");
+                selected: root.selected-pane == 2; activated => { root.selected-pane = 2; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(3); width: 180px; label: "Audio";
+                icon: @image-url("../../../assets/icons/audio-page.svg");
+                selected: root.selected-pane == 3; activated => { root.selected-pane = 3; root.reveal-audio-section(0); } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(4); width: 180px; label: "Subtitles";
+                icon: @image-url("../../../assets/icons/subtitles-page.svg");
+                selected: root.selected-pane == 4; activated => { root.selected-pane = 4; root.reveal-subtitle-section(0); } }
+            if root.selected-pane == 4 : Rectangle { x: 24px; y: root.navigation-row-y(4) + 36px; width: 2px; height: 144px; background: #d3d3d7; }
+            if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 36px; width: 158px; label: "Auto Load";
+                selected: root.selected-subtitle-section == 0;
+                activated => { root.reveal-subtitle-section(0); } }
+            if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 60px; width: 158px; label: "ASS Subtitles";
+                selected: root.selected-subtitle-section == 1;
+                activated => { root.reveal-subtitle-section(1); } }
+            if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 84px; width: 158px; label: "Text Subtitles";
+                selected: root.selected-subtitle-section == 2;
+                activated => { root.reveal-subtitle-section(2); } }
+            if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 108px; width: 158px; label: "Position";
+                selected: root.selected-subtitle-section == 3;
+                activated => { root.reveal-subtitle-section(3); } }
+            if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 132px; width: 158px; label: "Online Subtitles";
+                selected: root.selected-subtitle-section == 4;
+                activated => { root.reveal-subtitle-section(4); } }
+            if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 156px; width: 158px; label: "Other";
+                selected: root.selected-subtitle-section == 5;
+                activated => { root.reveal-subtitle-section(5); } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(5); width: 180px; label: "Network";
+                icon: @image-url("../../../assets/icons/network.svg");
+                selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.reveal-network-section(0); } }
+            if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: #d3d3d7; }
+            if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Cache";
+                selected: root.selected-network-section == 0;
+                activated => { root.selected-pane = 5; root.reveal-network-section(0); } }
+            if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 240px; width: 158px; label: "Network";
+                selected: root.selected-network-section == 1;
+                activated => { root.selected-pane = 5; root.reveal-network-section(1); } }
+            if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 264px; width: 158px; label: "Online Videos (yt-dlp)";
+                selected: root.selected-network-section == 2;
+                activated => { root.selected-pane = 5; root.reveal-network-section(2); } }
+            if root.selected-pane == 3 : Rectangle { x: 24px; y: 148px; width: 2px; height: 66px; background: #d3d3d7; }
+            if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 144px; width: 158px; label: "Hardware";
+                selected: root.selected-audio-section == 0;
+                activated => { root.selected-pane = 3; root.reveal-audio-section(0); } }
+            if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 168px; width: 158px; label: "Volume";
+                selected: root.selected-audio-section == 1;
+                activated => { root.selected-pane = 3; root.reveal-audio-section(1); } }
+            if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 192px; width: 158px; label: "Other";
+                selected: root.selected-audio-section == 2;
+                activated => { root.selected-pane = 3; root.reveal-audio-section(2); } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(6); width: 180px; label: "Control";
+                icon: @image-url("../../../assets/icons/control.svg");
+                selected: root.selected-pane == 6; activated => { root.selected-pane = 6; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(7); width: 180px; label: "Key Bindings";
+                icon: @image-url("../../../assets/icons/keybindings.svg");
+                selected: root.selected-pane == 7; activated => { root.selected-pane = 7; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(8); width: 180px; label: "Advanced";
+                icon: @image-url("../../../assets/icons/advanced.svg");
+                selected: root.selected-pane == 8; activated => { root.selected-pane = 8; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(9); width: 180px; label: "Plugins";
+                icon: @image-url("../../../assets/icons/plugins.svg");
+                selected: root.selected-pane == 9; activated => { root.selected-pane = 9; } }
+            PreferenceNavItem { x: 10px; y: root.navigation-row-y(10); width: 180px; label: "Utilities";
+                icon: @image-url("../../../assets/icons/utilities.svg");
+                selected: root.selected-pane == 10; activated => { root.selected-pane = 10; } }
         }
     }
 }

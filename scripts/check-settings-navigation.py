@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "crates/ui/ui/preferences.slint").read_text(encoding="utf-8")
+NAV_SOURCE = (ROOT / "crates/ui/ui/preferences-navigation.slint").read_text(encoding="utf-8")
 CONTROLS_SOURCE = (ROOT / "crates/ui/ui/preferences-controls.slint").read_text(encoding="utf-8")
 UTILITIES_SOURCE = (ROOT / "crates/ui/ui/preferences-utilities.slint").read_text(encoding="utf-8")
 THEME_SOURCE = (ROOT / "crates/ui/ui/theme.slint").read_text(encoding="utf-8")
@@ -40,7 +41,7 @@ def main():
         r'[^{}]*icon:\s*@image-url\("([^"]+)"\);'
         r'[^{}]*selected:\s*root\.selected-pane\s*==\s*(\d+);'
         r'[^{}]*activated\s*=>\s*\{\s*root\.selected-pane\s*=\s*(\d+);',
-        SOURCE,
+        NAV_SOURCE,
         re.DOTALL,
     )
     expected_routes = [(label, str(index), str(index)) for index, label in enumerate(EXPECTED)]
@@ -92,7 +93,7 @@ def main():
     assert all(position >= 0 for position in headings) and headings == sorted(headings), (
         "Subtitle sections must retain reference order, including Online before Other"
     )
-    assert all(f"root.reveal-subtitle-section({index})" in SOURCE for index in range(6)), (
+    assert all(f"root.reveal-subtitle-section({index})" in NAV_SOURCE for index in range(6)), (
         "Every subtitle subsection needs a working reveal route"
     )
     assert "window.invoke_reveal_subtitle_section" in SEARCH_SOURCE, (
@@ -120,7 +121,7 @@ def main():
     assert "if root.selected-network-section" not in network_body, (
         "Network navigation must reveal sections rather than hide adjacent settings"
     )
-    assert all(f"root.reveal-network-section({index})" in SOURCE for index in range(3)), (
+    assert all(f"root.reveal-network-section({index})" in NAV_SOURCE for index in range(3)), (
         "Every Network subsection needs a reveal route"
     )
     assert "window.invoke_reveal_network_section" in SEARCH_SOURCE, (
@@ -175,7 +176,7 @@ def main():
     interface_sections = re.findall(
         r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
         r'[^{}]*selected:\s*root\.selected-interface-section\s*==\s*(\d+);',
-        SOURCE,
+        NAV_SOURCE,
         re.DOTALL,
     )
     expected_sections = [
@@ -235,7 +236,7 @@ def main():
         r'PreferenceSubNavItem\s*\{[^{}]*label:\s*"([^"]+)";'
         r'[^{}]*selected:\s*root\.selected-interface-section\s*==\s*\d+;'
         r'[^{}]*activated\s*=>\s*\{[^{}]*root\.interface-scroll-position\s*=\s*(root\.[a-z-]+|0px);',
-        SOURCE,
+        NAV_SOURCE,
         re.DOTALL,
     )
     expected_routes = [
@@ -354,7 +355,7 @@ def main():
         "Audio navigation must scroll to sections rather than hide adjacent sections"
     )
     assert "window.invoke_reveal_audio_section" in SEARCH_SOURCE and all(
-        f"root.reveal-audio-section({index})" in SOURCE for index in range(3)
+        f"root.reveal-audio-section({index})" in NAV_SOURCE for index in range(3)
     ), "Audio search and navigation must use the same section reveal function"
     assert (
         "content-height: root.audio-content-height;" in audio_body
