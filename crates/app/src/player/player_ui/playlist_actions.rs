@@ -187,98 +187,101 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
     let playlist_selection_anchor = Rc::new(RefCell::new(None::<String>));
     let selection_anchor = playlist_selection_anchor.clone();
     let weak = app.as_weak();
-    app.on_select_playlist_row(move |index, extend, range| {
-        let Some(app) = weak.upgrade() else {
-            return slint::ModelRc::default();
-        };
-        let Ok(index) = usize::try_from(index) else {
-            return slint::ModelRc::default();
-        };
-        let rows = app.get_playlist();
-        let Some(clicked) = rows.row_data(index) else {
-            return app.get_selected_playlist_tokens();
-        };
-        let clicked_token = clicked.token.to_string();
-        let previous = app
-            .get_selected_playlist_tokens()
-            .iter()
-            .map(|token| token.to_string())
-            .collect::<Vec<_>>();
-        let selected = if range {
-            let anchor = selection_anchor
-                .borrow()
-                .as_deref()
-                .and_then(|anchor| {
-                    (0..rows.row_count()).find(|row| {
-                        rows.row_data(*row)
-                            .is_some_and(|entry| entry.token.as_str() == anchor)
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_select_playlist_row(move |index, extend, range| {
+            let Some(app) = weak.upgrade() else {
+                return slint::ModelRc::default();
+            };
+            let Ok(index) = usize::try_from(index) else {
+                return slint::ModelRc::default();
+            };
+            let rows = app.get_playlist();
+            let Some(clicked) = rows.row_data(index) else {
+                return app.get_selected_playlist_tokens();
+            };
+            let clicked_token = clicked.token.to_string();
+            let previous = app
+                .get_selected_playlist_tokens()
+                .iter()
+                .map(|token| token.to_string())
+                .collect::<Vec<_>>();
+            let selected = if range {
+                let anchor = selection_anchor
+                    .borrow()
+                    .as_deref()
+                    .and_then(|anchor| {
+                        (0..rows.row_count()).find(|row| {
+                            rows.row_data(*row)
+                                .is_some_and(|entry| entry.token.as_str() == anchor)
+                        })
                     })
-                })
-                .unwrap_or(index);
-            let mut selected = if extend { previous } else { Vec::new() };
-            for row in anchor.min(index)..=anchor.max(index) {
-                if let Some(entry) = rows.row_data(row)
-                    && !selected.iter().any(|token| token == entry.token.as_str())
-                {
-                    selected.push(entry.token.to_string());
+                    .unwrap_or(index);
+                let mut selected = if extend { previous } else { Vec::new() };
+                for row in anchor.min(index)..=anchor.max(index) {
+                    if let Some(entry) = rows.row_data(row)
+                        && !selected.iter().any(|token| token == entry.token.as_str())
+                    {
+                        selected.push(entry.token.to_string());
+                    }
                 }
-            }
-            selected
-        } else if extend {
-            let mut selected = previous;
-            if let Some(position) = selected.iter().position(|token| token == &clicked_token) {
-                selected.remove(position);
-                if selection_anchor.borrow().as_deref() == Some(clicked_token.as_str()) {
-                    *selection_anchor.borrow_mut() = None;
+                selected
+            } else if extend {
+                let mut selected = previous;
+                if let Some(position) = selected.iter().position(|token| token == &clicked_token) {
+                    selected.remove(position);
+                    if selection_anchor.borrow().as_deref() == Some(clicked_token.as_str()) {
+                        *selection_anchor.borrow_mut() = None;
+                    }
+                } else {
+                    selected.push(clicked_token.clone());
+                    *selection_anchor.borrow_mut() = Some(clicked_token.clone());
                 }
+                selected
             } else {
-                selected.push(clicked_token.clone());
                 *selection_anchor.borrow_mut() = Some(clicked_token.clone());
-            }
-            selected
-        } else {
-            *selection_anchor.borrow_mut() = Some(clicked_token.clone());
-            vec![clicked_token]
-        };
-        install_playlist_selection(&app, &selected);
-        slint::ModelRc::new(slint::VecModel::from(
-            selected.into_iter().map(Into::into).collect::<Vec<_>>(),
-        ))
-    });
+                vec![clicked_token]
+            };
+            install_playlist_selection(&app, &selected);
+            slint::ModelRc::new(slint::VecModel::from(
+                selected.into_iter().map(Into::into).collect::<Vec<_>>(),
+            ))
+        });
 
     let reorder_player = command_sender.clone();
     let weak = app.as_weak();
-    app.on_reorder_playlist(move |tokens, insertion_slot| {
-        let Some(app) = weak.upgrade() else { return };
-        app.invoke_activity();
-        let rows = app.get_playlist();
-        let entries = (0..rows.row_count())
-            .filter_map(|index| rows.row_data(index))
-            .map(|row| row.token.parse::<i64>().ok())
-            .collect::<Option<Vec<_>>>();
-        let selected = tokens
-            .iter()
-            .map(|token| token.parse::<i64>().ok())
-            .collect::<Option<Vec<_>>>();
-        let plan = entries
-            .as_deref()
-            .zip(selected.as_deref())
-            .and_then(|(entries, selected)| {
-                usize::try_from(insertion_slot).ok().and_then(|slot| {
-                    riina_core::playlist::reorder_selection(entries, selected, slot)
-                })
-            });
-        let Some(plan) = plan else {
-            app.set_status("The playlist drop position is no longer available".into());
-            return;
-        };
-        for (from, to) in plan {
-            if let Err(error) = reorder_player.send(Command::MovePlaylistEntry { from, to }) {
-                app.set_status(error.into());
-                break;
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_reorder_playlist(move |tokens, insertion_slot| {
+            let Some(app) = weak.upgrade() else { return };
+            app.invoke_activity();
+            let rows = app.get_playlist();
+            let entries = (0..rows.row_count())
+                .filter_map(|index| rows.row_data(index))
+                .map(|row| row.token.parse::<i64>().ok())
+                .collect::<Option<Vec<_>>>();
+            let selected = tokens
+                .iter()
+                .map(|token| token.parse::<i64>().ok())
+                .collect::<Option<Vec<_>>>();
+            let plan =
+                entries
+                    .as_deref()
+                    .zip(selected.as_deref())
+                    .and_then(|(entries, selected)| {
+                        usize::try_from(insertion_slot).ok().and_then(|slot| {
+                            riina_core::playlist::reorder_selection(entries, selected, slot)
+                        })
+                    });
+            let Some(plan) = plan else {
+                app.set_status("The playlist drop position is no longer available".into());
+                return;
+            };
+            for (from, to) in plan {
+                if let Err(error) = reorder_player.send(Command::MovePlaylistEntry { from, to }) {
+                    app.set_status(error.into());
+                    break;
+                }
             }
-        }
-    });
+        });
     let shuffle_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_toggle_playlist_shuffle(move || {

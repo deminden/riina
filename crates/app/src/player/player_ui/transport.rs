@@ -107,28 +107,38 @@ pub(super) fn install_speed(app: &PlayerWindow, context: &PlayerContext) {
         on_reset_speed,
         Command::Speed(1.0)
     );
-    bind!(context, app, on_set_speed_slider, |ctx, position| {
-        if let Some(app) = ctx.app() {
-            app.invoke_activity();
-            match riina_core::speed_controls::from_slider(position.into()) {
-                Ok(command) => ctx.send(command),
-                Err(error) => ctx.report(error.to_owned()),
+    bind!(
+        context,
+        app.global::<riina_ui::PlayerSidebarActions>(),
+        on_set_speed_slider,
+        |ctx, position| {
+            if let Some(app) = ctx.app() {
+                app.invoke_activity();
+                match riina_core::speed_controls::from_slider(position.into()) {
+                    Ok(command) => ctx.send(command),
+                    Err(error) => ctx.report(error.to_owned()),
+                }
             }
         }
-    });
-    bind!(context, app, on_set_speed_text, |ctx, text| {
-        let result = riina_core::speed_controls::from_text(text.as_str())
-            .map_err(str::to_owned)
-            .and_then(|command| ctx.commands().send(command));
-        if let Some(app) = ctx.app() {
-            app.invoke_activity();
-            if let Err(error) = result {
-                ctx.report(error);
-                return false;
+    );
+    bind!(
+        context,
+        app.global::<riina_ui::PlayerSidebarActions>(),
+        on_set_speed_text,
+        |ctx, text| {
+            let result = riina_core::speed_controls::from_text(text.as_str())
+                .map_err(str::to_owned)
+                .and_then(|command| ctx.commands().send(command));
+            if let Some(app) = ctx.app() {
+                app.invoke_activity();
+                if let Err(error) = result {
+                    ctx.report(error);
+                    return false;
+                }
             }
+            true
         }
-        true
-    });
+    );
 }
 
 pub(super) fn install_loops(app: &PlayerWindow, context: &PlayerContext) {

@@ -78,18 +78,19 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     super::delays::install_text(app, player);
     let secondary_position_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_subtitle_position(move |secondary, value| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = secondary_position_player.send(if secondary {
-                Command::SecondarySubtitlePosition(value as f64)
-            } else {
-                Command::SubtitlePosition(value as f64)
-            }) {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_subtitle_position(move |secondary, value| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                if let Err(error) = secondary_position_player.send(if secondary {
+                    Command::SecondarySubtitlePosition(value as f64)
+                } else {
+                    Command::SubtitlePosition(value as f64)
+                }) {
+                    app.set_status(error.into());
+                }
             }
-        }
-    });
+        });
     let weak = app.as_weak();
     menu.on_adjust_subtitle_delay(move |delta| {
         if let Some(app) = weak.upgrade() {
@@ -109,66 +110,70 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
     let outline_size_player = player.clone();
     let color_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_subtitle_color(move |target, value| {
-        if let Some(app) = weak.upgrade() {
-            let rgba = [value.red(), value.green(), value.blue(), value.alpha()]
-                .map(|channel| f64::from(channel) / 255.0);
-            let Ok(color) = riina_core::subtitle_color::SubtitleColor::from_rgba(rgba) else {
-                return;
-            };
-            let command = match target {
-                1 => Command::SubtitleTextColor(color),
-                2 => Command::SubtitleShadowColor(color),
-                3 => Command::SubtitleBorderColor(color),
-                _ => return,
-            };
-            app.invoke_activity();
-            if let Err(error) = color_player.send(command) {
-                app.set_status(error.into());
-            } else {
-                match target {
-                    1 => app
-                        .global::<riina_ui::PlayerPreferences>()
-                        .set_subtitle_text_preference_color(value),
-                    2 => {
-                        app.global::<riina_ui::PlayerPreferences>()
-                            .set_subtitle_shadow_preference_color(value);
-                        app.global::<riina_ui::PlayerPreferences>()
-                            .set_subtitle_background_preference_color(value);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_subtitle_color(move |target, value| {
+            if let Some(app) = weak.upgrade() {
+                let rgba = [value.red(), value.green(), value.blue(), value.alpha()]
+                    .map(|channel| f64::from(channel) / 255.0);
+                let Ok(color) = riina_core::subtitle_color::SubtitleColor::from_rgba(rgba) else {
+                    return;
+                };
+                let command = match target {
+                    1 => Command::SubtitleTextColor(color),
+                    2 => Command::SubtitleShadowColor(color),
+                    3 => Command::SubtitleBorderColor(color),
+                    _ => return,
+                };
+                app.invoke_activity();
+                if let Err(error) = color_player.send(command) {
+                    app.set_status(error.into());
+                } else {
+                    match target {
+                        1 => app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .set_subtitle_text_preference_color(value),
+                        2 => {
+                            app.global::<riina_ui::PlayerPreferences>()
+                                .set_subtitle_shadow_preference_color(value);
+                            app.global::<riina_ui::PlayerPreferences>()
+                                .set_subtitle_background_preference_color(value);
+                        }
+                        3 => app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .set_subtitle_outline_preference_color(value),
+                        _ => unreachable!("target was validated above"),
                     }
-                    3 => app
-                        .global::<riina_ui::PlayerPreferences>()
-                        .set_subtitle_outline_preference_color(value),
-                    _ => unreachable!("target was validated above"),
                 }
             }
-        }
-    });
+        });
     let weak = app.as_weak();
-    app.on_set_subtitle_outline_size(move |value| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
-            {
-                app.set_status(error.into());
-            } else {
-                app.global::<riina_ui::PlayerPreferences>()
-                    .set_subtitle_outline_size_preference(value);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_subtitle_outline_size(move |value| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                if let Err(error) =
+                    outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
+                {
+                    app.set_status(error.into());
+                } else {
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .set_subtitle_outline_size_preference(value);
+                }
             }
-        }
-    });
+        });
     let weak = app.as_weak();
-    app.on_set_subtitle_font_size(move |value| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
-                app.set_status(error.into());
-            } else {
-                app.global::<riina_ui::PlayerPreferences>()
-                    .set_subtitle_font_size_preference(value);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_subtitle_font_size(move |value| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
+                    app.set_status(error.into());
+                } else {
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .set_subtitle_font_size_preference(value);
+                }
             }
-        }
-    });
+        });
 }
 
 pub(super) fn install_encoding(app: &PlayerWindow, player: &CommandSender) {

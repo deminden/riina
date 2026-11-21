@@ -14,134 +14,140 @@ pub(super) fn install(
     let audio_eq_settings = audio_equalizer.clone();
     let audio_eq_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_audio_equalizer(move |index, value| {
-        let Some(index) = usize::try_from(index).ok().filter(|index| *index < 10) else {
-            return;
-        };
-        if !value.is_finite() || !(-12.0..=12.0).contains(&value) {
-            return;
-        }
-        let Some(app) = weak.upgrade() else { return };
-        let settings = {
-            let mut settings = riina_core::sync::lock(&audio_eq_settings);
-            let values = app
-                .global::<riina_ui::PlaybackAudioState>()
-                .get_audio_equalizer_values();
-            if values.row_count() == settings.gains_db.len() {
-                for (index, gain) in settings.gains_db.iter_mut().enumerate() {
-                    if let Some(value) = values.row_data(index) {
-                        *gain = f64::from(value);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_audio_equalizer(move |index, value| {
+            let Some(index) = usize::try_from(index).ok().filter(|index| *index < 10) else {
+                return;
+            };
+            if !value.is_finite() || !(-12.0..=12.0).contains(&value) {
+                return;
+            }
+            let Some(app) = weak.upgrade() else { return };
+            let settings = {
+                let mut settings = riina_core::sync::lock(&audio_eq_settings);
+                let values = app
+                    .global::<riina_ui::PlaybackAudioState>()
+                    .get_audio_equalizer_values();
+                if values.row_count() == settings.gains_db.len() {
+                    for (index, gain) in settings.gains_db.iter_mut().enumerate() {
+                        if let Some(value) = values.row_data(index) {
+                            *gain = f64::from(value);
+                        }
                     }
                 }
+                settings.gains_db[index] = f64::from(value);
+                settings.selected_profile = Some("custom".into());
+                settings.selected_profile_is_user = false;
+                settings.clone()
+            };
+            if let Err(error) = audio_eq_player.send(Command::AudioEqualizer(settings.gains_db)) {
+                app.set_status(error.into());
+                return;
             }
-            settings.gains_db[index] = f64::from(value);
-            settings.selected_profile = Some("custom".into());
-            settings.selected_profile_is_user = false;
-            settings.clone()
-        };
-        if let Err(error) = audio_eq_player.send(Command::AudioEqualizer(settings.gains_db)) {
-            app.set_status(error.into());
-            return;
-        }
-        set_audio_equalizer_controls(&app, &settings);
-        app.invoke_activity();
-    });
+            set_audio_equalizer_controls(&app, &settings);
+            app.invoke_activity();
+        });
     let audio_eq_settings_for_profile = audio_equalizer.clone();
     let audio_eq_player_for_profile = player.clone();
     let weak = app.as_weak();
-    app.on_select_audio_equalizer_profile(move |index| {
-        let Some(app) = weak.upgrade() else { return };
-        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_profile);
-        let Some(index) = usize::try_from(index).ok() else {
-            app.set_status("Unknown audio equalizer profile".into());
-            return;
-        };
-        if let Err(error) = settings.select_profile_at(index) {
-            app.set_status(error.into());
-            return;
-        }
-        let snapshot = settings.clone();
-        drop(settings);
-        if let Err(error) =
-            audio_eq_player_for_profile.send(Command::AudioEqualizer(snapshot.gains_db))
-        {
-            app.set_status(error.into());
-            return;
-        }
-        set_audio_equalizer_controls(&app, &snapshot);
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_select_audio_equalizer_profile(move |index| {
+            let Some(app) = weak.upgrade() else { return };
+            let mut settings = riina_core::sync::lock(&audio_eq_settings_for_profile);
+            let Some(index) = usize::try_from(index).ok() else {
+                app.set_status("Unknown audio equalizer profile".into());
+                return;
+            };
+            if let Err(error) = settings.select_profile_at(index) {
+                app.set_status(error.into());
+                return;
+            }
+            let snapshot = settings.clone();
+            drop(settings);
+            if let Err(error) =
+                audio_eq_player_for_profile.send(Command::AudioEqualizer(snapshot.gains_db))
+            {
+                app.set_status(error.into());
+                return;
+            }
+            set_audio_equalizer_controls(&app, &snapshot);
+        });
     let audio_eq_settings_for_validation = audio_equalizer.clone();
     let weak = app.as_weak();
-    app.on_validate_audio_equalizer_profile_name(move |name, mode| {
-        let Some(app) = weak.upgrade() else {
-            return "Audio equalizer settings are unavailable".into();
-        };
-        let visible_names = audio_equalizer_visible_profile_names(&app);
-        if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
-            return "An audio equalizer profile already has that name".into();
-        }
-        let settings = riina_core::sync::lock(&audio_eq_settings_for_validation);
-        let validation = match mode {
-            1 => settings.validate_new_profile_name(name.as_str()),
-            2 => {
-                let current = settings.selected_profile.as_deref().unwrap_or_default();
-                settings.validate_renamed_profile_name(current, name.as_str())
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_validate_audio_equalizer_profile_name(move |name, mode| {
+            let Some(app) = weak.upgrade() else {
+                return "Audio equalizer settings are unavailable".into();
+            };
+            let visible_names = audio_equalizer_visible_profile_names(&app);
+            if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
+                return "An audio equalizer profile already has that name".into();
             }
-            _ => return "".into(),
-        };
-        validation.err().unwrap_or("").into()
-    });
+            let settings = riina_core::sync::lock(&audio_eq_settings_for_validation);
+            let validation = match mode {
+                1 => settings.validate_new_profile_name(name.as_str()),
+                2 => {
+                    let current = settings.selected_profile.as_deref().unwrap_or_default();
+                    settings.validate_renamed_profile_name(current, name.as_str())
+                }
+                _ => return "".into(),
+            };
+            validation.err().unwrap_or("").into()
+        });
     let audio_eq_settings_for_save = audio_equalizer.clone();
     let weak = app.as_weak();
-    app.on_save_audio_equalizer_profile(move |name| {
-        let Some(app) = weak.upgrade() else {
-            return false;
-        };
-        let visible_names = audio_equalizer_visible_profile_names(&app);
-        if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
-            app.set_status("An audio equalizer profile already has that name".into());
-            return false;
-        }
-        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_save);
-        if let Err(error) = settings.save_profile(name.as_str()) {
-            app.set_status(error.into());
-            return false;
-        }
-        set_audio_equalizer_controls(&app, &settings);
-        true
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_save_audio_equalizer_profile(move |name| {
+            let Some(app) = weak.upgrade() else {
+                return false;
+            };
+            let visible_names = audio_equalizer_visible_profile_names(&app);
+            if audio_equalizer_name_is_display_duplicate(name.as_str(), &visible_names) {
+                app.set_status("An audio equalizer profile already has that name".into());
+                return false;
+            }
+            let mut settings = riina_core::sync::lock(&audio_eq_settings_for_save);
+            if let Err(error) = settings.save_profile(name.as_str()) {
+                app.set_status(error.into());
+                return false;
+            }
+            set_audio_equalizer_controls(&app, &settings);
+            true
+        });
     let audio_eq_settings_for_rename = audio_equalizer.clone();
     let weak = app.as_weak();
-    app.on_rename_audio_equalizer_profile(move |replacement| {
-        let Some(app) = weak.upgrade() else {
-            return false;
-        };
-        let visible_names = audio_equalizer_visible_profile_names(&app);
-        if audio_equalizer_name_is_display_duplicate(replacement.as_str(), &visible_names) {
-            app.set_status("An audio equalizer profile already has that name".into());
-            return false;
-        }
-        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_rename);
-        let current = settings.selected_profile.clone().unwrap_or_default();
-        if let Err(error) = settings.rename_profile(&current, replacement.as_str()) {
-            app.set_status(error.into());
-            return false;
-        }
-        set_audio_equalizer_controls(&app, &settings);
-        true
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_rename_audio_equalizer_profile(move |replacement| {
+            let Some(app) = weak.upgrade() else {
+                return false;
+            };
+            let visible_names = audio_equalizer_visible_profile_names(&app);
+            if audio_equalizer_name_is_display_duplicate(replacement.as_str(), &visible_names) {
+                app.set_status("An audio equalizer profile already has that name".into());
+                return false;
+            }
+            let mut settings = riina_core::sync::lock(&audio_eq_settings_for_rename);
+            let current = settings.selected_profile.clone().unwrap_or_default();
+            if let Err(error) = settings.rename_profile(&current, replacement.as_str()) {
+                app.set_status(error.into());
+                return false;
+            }
+            set_audio_equalizer_controls(&app, &settings);
+            true
+        });
     let audio_eq_settings_for_delete = audio_equalizer.clone();
     let weak = app.as_weak();
-    app.on_delete_audio_equalizer_profile(move || {
-        let Some(app) = weak.upgrade() else { return };
-        let mut settings = riina_core::sync::lock(&audio_eq_settings_for_delete);
-        let selected = settings.selected_profile.clone().unwrap_or_default();
-        if let Err(error) = settings.remove_profile(&selected) {
-            app.set_status(error.into());
-            return;
-        }
-        set_audio_equalizer_controls(&app, &settings);
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_delete_audio_equalizer_profile(move || {
+            let Some(app) = weak.upgrade() else { return };
+            let mut settings = riina_core::sync::lock(&audio_eq_settings_for_delete);
+            let selected = settings.selected_profile.clone().unwrap_or_default();
+            if let Err(error) = settings.remove_profile(&selected) {
+                app.set_status(error.into());
+                return;
+            }
+            set_audio_equalizer_controls(&app, &settings);
+        });
 }
 
 pub(super) fn set_audio_equalizer_controls(
@@ -210,24 +216,25 @@ fn audio_equalizer_name_is_display_duplicate(name: &str, visible_names: &[String
 pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender) {
     let boost_player = command_sender.clone();
     let weak = app.as_weak();
-    app.on_set_volume_boost(move |enabled| {
-        if let Some(app) = weak.upgrade() {
-            let volume = app
-                .global::<riina_ui::PlaybackAudioState>()
-                .get_volume()
-                .min(if enabled { 200.0 } else { 100.0 });
-            match boost_player.send(Command::SetVolumeBoost(enabled)) {
-                Ok(()) => {
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .set_volume_boost(enabled);
-                    app.global::<riina_ui::PlaybackAudioState>()
-                        .set_volume(volume);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_volume_boost(move |enabled| {
+            if let Some(app) = weak.upgrade() {
+                let volume = app
+                    .global::<riina_ui::PlaybackAudioState>()
+                    .get_volume()
+                    .min(if enabled { 200.0 } else { 100.0 });
+                match boost_player.send(Command::SetVolumeBoost(enabled)) {
+                    Ok(()) => {
+                        app.global::<riina_ui::PlayerPreferences>()
+                            .set_volume_boost(enabled);
+                        app.global::<riina_ui::PlaybackAudioState>()
+                            .set_volume(volume);
+                    }
+                    Err(error) => app.set_status(error.into()),
                 }
-                Err(error) => app.set_status(error.into()),
+                app.invoke_activity();
             }
-            app.invoke_activity();
-        }
-    });
+        });
     let volume_player = command_sender.clone();
     let weak = app.as_weak();
     app.on_set_volume(move |volume| {

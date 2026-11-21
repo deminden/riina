@@ -1,0 +1,87 @@
+export component PlayerGeometry inherits Rectangle {
+    in property <bool> music-mode;
+    in property <bool> compact-ui;
+    in property <int> leading-sidebar;
+    in property <int> sidebar;
+    in property <float> leading-sidebar-width;
+    in property <float> trailing-sidebar-width;
+    in property <bool> platform-macos;
+    in property <bool> macos-sidebar-reduce-motion-fade;
+    in property <int> osc-position;
+    in property <bool> edge-to-edge-video;
+    in property <bool> show-player-title-row;
+    in property <bool> docked-controls;
+    in property <bool> music-mode-show-playlist;
+    in property <bool> crop-editing;
+    in property <bool> native-video;
+    in property <float> crop-picture-width;
+    in property <float> crop-picture-height;
+
+    // One logical-point viewport drives both GL texture size and native mpv margins.
+    out property <bool> small-video-controller: !root.music-mode &&
+        (root.width < 402px || root.height < 210px);
+    // IINA's 67-point OSC constant is used by its position clamp. The visible
+    // floating stack is taller because the native seek slider adds 6 points
+    // above and below its 12-point small-control frame.
+    out property <length> osc-height: root.music-mode ? 90px : min(root.height,
+        root.small-video-controller ? 50px : root.compact-ui ? 71px : 78px);
+    out property <length> osc-row-height: !root.music-mode && root.height < 24px
+        ? min(root.height, 10px) : root.small-video-controller ? 14px : 24px;
+    out property <length> osc-timeline-height: root.music-mode ? 20px : root.height < 48px ? 0px :
+        root.small-video-controller ? 16px : 24px;
+    out property <length> osc-row-inline-inset: root.music-mode ? 8px :
+        root.width < 64px ? 0px : root.small-video-controller ? 8px : 12px;
+    out property <length> osc-timeline-inline-inset: root.music-mode ? 6px : root.width < 64px ? 0px :
+        root.small-video-controller ? 6px : 8px;
+    out property <length> osc-row-gap: root.music-mode ? 2px : root.width < 64px ? 0px : 4px;
+    out property <length> osc-timeline-gap: root.music-mode ? 6px : root.width < 64px ? 0px : 2px;
+    // IINA's MiniPlayer gives both time labels at least 32 points and keeps
+    // six points between each label and the seek bar.
+    out property <length> music-mode-time-label-min-width: 32px;
+    out property <length> sidebar-leading-extent: root.leading-sidebar == 0 ? 0px :
+        min(root.leading-sidebar-width * 1px, root.width * 0.8);
+    out property <length> sidebar-trailing-extent: root.sidebar == 0 ? 0px :
+        min(root.trailing-sidebar-width * 1px, root.width * 0.8);
+    // IINA shifts the title bar and bottom OSC constraints with a sliding
+    // sidebar. Reduce Motion keeps those surfaces in place while the sidebar fades.
+    out property <length> macos-sidebar-leading-inset:
+        root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-leading-extent : 0px;
+    out property <length> macos-sidebar-trailing-inset:
+        root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-trailing-extent : 0px;
+    // Keep enough room for both 24px neighbor buttons, IINA's transport
+    // spacing, and the centered bar's inner padding before exposing them.
+    out property <bool> transport-neighbor-actions-fit: root.music-mode ||
+        (root.video-width >= 330px &&
+            (root.osc-position == 0 ? max(0px, root.video-width - 24px) : root.video-width) >=
+                (root.osc-position == 0 ? 168px : 152px));
+    out property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
+    out property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
+    out property <length> title-row-height: root.show-player-title-row ? (root.compact-ui ? 30px : 34px) : 0px;
+    out property <length> video-inset-top: root.edge-to-edge-video || !root.docked-controls ? 0px : title-row-height;
+    out property <length> video-inset-bottom: root.music-mode
+        ? root.osc-height + (root.music-mode-show-playlist ? 300px : 0px)
+        : root.edge-to-edge-video || !root.docked-controls ? 0px : root.osc-height;
+    out property <length> window-width: root.width;
+    out property <length> window-height: root.height;
+    out property <length> video-origin-x: video-inset-leading;
+    out property <length> video-origin-y: video-inset-top;
+    out property <length> video-width: max(1px, root.width - video-inset-leading - video-inset-trailing);
+    out property <length> video-height: max(1px, root.height - video-inset-top - video-inset-bottom);
+    out property <length> plugin-sidebar-view-x: {
+        let inset = root.compact-ui ? 9px : 12px;
+        if root.leading-sidebar == 7 { inset }
+        else { root.width - min(root.trailing-sidebar-width * 1px, root.width * 0.8) + inset }
+    }
+    out property <length> plugin-sidebar-view-y: root.title-row-height +
+        (root.osc-position == 1 ? root.osc-height : 0px) +
+        (root.compact-ui ? 9px : 12px) + 28px + (root.compact-ui ? 6px : 8px);
+    out property <length> plugin-sidebar-view-width: max(0px,
+        min((root.leading-sidebar == 7 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
+            root.width * 0.8) - 2 * (root.compact-ui ? 9px : 12px));
+    out property <length> plugin-sidebar-view-height: max(0px,
+        root.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
+        (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px) -
+        2 * (root.compact-ui ? 9px : 12px) - 28px - (root.compact-ui ? 6px : 8px));
+    out property <length> render-width: crop-editing && !native-video ? crop-picture-width * 1px : video-width;
+    out property <length> render-height: crop-editing && !native-video ? crop-picture-height * 1px : video-height;
+}

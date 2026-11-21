@@ -1,0 +1,29 @@
+import { DelayLane } from "delay-lane.slint";
+
+// Every sidebar routes its control actions to the owning player session.
+export global PlayerSidebarActions {
+    callback set-hdr-enabled(bool);
+    callback select-playlist-row(int, bool, bool) -> [string];
+    callback set-volume-boost(bool);
+    callback set-video-aspect(string);
+    callback set-video-rotation(int);
+    callback set-video-crop(int);
+    callback set-hardware-decoding(bool);
+    callback set-video-equalizer(int, float);
+    callback set-audio-equalizer(int, float);
+    callback select-audio-equalizer-profile(int);
+    callback validate-audio-equalizer-profile-name(string, int) -> string;
+    callback save-audio-equalizer-profile(string) -> bool;
+    callback rename-audio-equalizer-profile(string) -> bool;
+    callback delete-audio-equalizer-profile();
+    callback set-speed-slider(float);
+    callback set-speed-text(string) -> bool;
+    callback set-subtitle-font-size(float);
+    callback set-subtitle-outline-size(float);
+    callback set-subtitle-color(int, color);
+    callback set-subtitle-position(bool, float);
+    callback set-delay(DelayLane, float);
+    callback set-delay-text(DelayLane, string) -> bool;
+    callback preview-audio-delay(float);
+    callback reorder-playlist([string], int);
+}

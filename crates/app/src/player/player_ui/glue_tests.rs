@@ -257,11 +257,18 @@ fn exercise_transport_settings(harness: &Harness) {
     harness.expect(Command::SubtitleSeek(1));
     app.global::<PlayerMenuActions>().invoke_reset_speed();
     harness.expect(Command::Speed(1.0));
-    app.invoke_set_speed_slider(16.0);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .invoke_set_speed_slider(16.0);
     harness.expect(Command::Speed(4.0));
-    assert!(app.invoke_set_speed_text("1.2345675".into()));
+    assert!(
+        app.global::<riina_ui::PlayerSidebarActions>()
+            .invoke_set_speed_text("1.2345675".into())
+    );
     harness.expect(Command::Speed(1.234567));
-    assert!(!app.invoke_set_speed_text("invalid".into()));
+    assert!(
+        !app.global::<riina_ui::PlayerSidebarActions>()
+            .invoke_set_speed_text("invalid".into())
+    );
     assert_eq!(app.get_status(), "Enter a numeric playback speed");
     harness.expect_idle();
     app.global::<PlayerMenuActions>().invoke_cycle_ab_loop();
@@ -390,7 +397,8 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     });
     app.invoke_set_volume(140.0);
     harness.expect(Command::Volume(100.0));
-    app.invoke_set_volume_boost(true);
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .invoke_set_volume_boost(true);
     harness.expect(Command::SetVolumeBoost(true));
     app.invoke_set_volume(140.0);
     harness.expect(Command::Volume(140.0));

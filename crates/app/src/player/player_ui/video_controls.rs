@@ -13,18 +13,19 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
 fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
     let aspect_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_video_aspect(move |text| {
-        if text.is_empty() {
-            return;
-        }
-        let aspect = riina_core::video_controls::AspectRatio::from_text(text.as_str());
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = aspect_player.send(Command::VideoAspect(aspect)) {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_video_aspect(move |text| {
+            if text.is_empty() {
+                return;
             }
-        }
-    });
+            let aspect = riina_core::video_controls::AspectRatio::from_text(text.as_str());
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                if let Err(error) = aspect_player.send(Command::VideoAspect(aspect)) {
+                    app.set_status(error.into());
+                }
+            }
+        });
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_set_menu_video_aspect(move |index| {
@@ -43,36 +44,38 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
                 .ok()
                 .and_then(|index| riina_core::video_controls::ASPECT_MENU_PRESETS.get(index))
             {
-                app.invoke_set_video_aspect((*label).into());
+                app.global::<riina_ui::PlayerSidebarActions>()
+                    .invoke_set_video_aspect((*label).into());
             }
         });
     let crop_player = player.clone();
     let crop_ui = app.as_weak();
-    app.on_set_video_crop(move |index| {
-        if index == 6 {
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_video_crop(move |index| {
+            if index == 6 {
+                if let Some(app) = crop_ui.upgrade() {
+                    app.invoke_begin_custom_crop();
+                }
+                return;
+            }
+            let preset = if index == 0 {
+                None
+            } else if let Some(preset) = usize::try_from(index - 1)
+                .ok()
+                .and_then(|index| riina_core::crop::Preset::ALL.get(index))
+                .copied()
+            {
+                Some(preset)
+            } else {
+                return;
+            };
             if let Some(app) = crop_ui.upgrade() {
-                app.invoke_begin_custom_crop();
+                app.invoke_activity();
+                if let Err(error) = crop_player.send(Command::VideoCrop(preset)) {
+                    app.set_status(error.into());
+                }
             }
-            return;
-        }
-        let preset = if index == 0 {
-            None
-        } else if let Some(preset) = usize::try_from(index - 1)
-            .ok()
-            .and_then(|index| riina_core::crop::Preset::ALL.get(index))
-            .copied()
-        {
-            Some(preset)
-        } else {
-            return;
-        };
-        if let Some(app) = crop_ui.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = crop_player.send(Command::VideoCrop(preset)) {
-                app.set_status(error.into());
-            }
-        }
-    });
+        });
     let delogo_player = player.clone();
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>().on_toggle_delogo(move || {
@@ -129,17 +132,18 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
 fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
     let rotation_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_video_rotation(move |degrees| {
-        if let Some(app) = weak.upgrade()
-            && let Some(rotation) =
-                riina_core::video_controls::Rotation::from_degrees(degrees.into())
-        {
-            app.invoke_activity();
-            if let Err(error) = rotation_player.send(Command::VideoRotation(rotation)) {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_video_rotation(move |degrees| {
+            if let Some(app) = weak.upgrade()
+                && let Some(rotation) =
+                    riina_core::video_controls::Rotation::from_degrees(degrees.into())
+            {
+                app.invoke_activity();
+                if let Err(error) = rotation_player.send(Command::VideoRotation(rotation)) {
+                    app.set_status(error.into());
+                }
             }
-        }
-    });
+        });
     let menu_rotation_player = player.clone();
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
@@ -166,47 +170,49 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
         });
     let hardware_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_hardware_decoding(move |enabled| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            let mode = if enabled {
-                crate::codec_preferences::hardware_decoder(
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .get_hardware_decoder_index(),
-                )
-                .unwrap_or(riina_core::video_controls::HardwareDecoder::Auto)
-            } else {
-                riina_core::video_controls::HardwareDecoder::Disabled
-            };
-            if let Err(error) = hardware_player.send(Command::HardwareDecoding(mode)) {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_hardware_decoding(move |enabled| {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                let mode = if enabled {
+                    crate::codec_preferences::hardware_decoder(
+                        app.global::<riina_ui::PlayerPreferences>()
+                            .get_hardware_decoder_index(),
+                    )
+                    .unwrap_or(riina_core::video_controls::HardwareDecoder::Auto)
+                } else {
+                    riina_core::video_controls::HardwareDecoder::Disabled
+                };
+                if let Err(error) = hardware_player.send(Command::HardwareDecoding(mode)) {
+                    app.set_status(error.into());
+                }
             }
-        }
-    });
+        });
     let equalizer_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_video_equalizer(move |index, value| {
-        let option = usize::try_from(index).ok().and_then(|index| {
-            riina_core::video_controls::Equalizer::ALL
-                .get(index)
-                .copied()
-        });
-        if let Some(option) = option
-            && value.is_finite()
-            && (-100.0..=100.0).contains(&value)
-            && let Some(app) = weak.upgrade()
-        {
-            app.invoke_activity();
-            // NSSlider's integer action uses whole units. The backend validates
-            // the range again so every caller obeys the same portable contract.
-            if let Err(error) = equalizer_player.send(Command::VideoEqualizer {
-                option,
-                value: value as i64,
-            }) {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_video_equalizer(move |index, value| {
+            let option = usize::try_from(index).ok().and_then(|index| {
+                riina_core::video_controls::Equalizer::ALL
+                    .get(index)
+                    .copied()
+            });
+            if let Some(option) = option
+                && value.is_finite()
+                && (-100.0..=100.0).contains(&value)
+                && let Some(app) = weak.upgrade()
+            {
+                app.invoke_activity();
+                // NSSlider's integer action uses whole units. The backend validates
+                // the range again so every caller obeys the same portable contract.
+                if let Err(error) = equalizer_player.send(Command::VideoEqualizer {
+                    option,
+                    value: value as i64,
+                }) {
+                    app.set_status(error.into());
+                }
             }
-        }
-    });
+        });
 }
 
 pub(super) fn refresh_video_menu(app: &PlayerWindow) {

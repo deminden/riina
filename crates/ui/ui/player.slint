@@ -1,3 +1,6 @@
+import { PlayerGeometry } from "player-geometry.slint";
+export { PlayerSidebarActions } from "player-sidebar-actions.slint";
+import { PlayerSidebarPage } from "player-sidebar-page.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 export { PlayerPreferences } from "player-preferences.slint";
 import { PlayerKeyScope } from "player-key-scope.slint";
@@ -17,16 +20,13 @@ import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
 import { PlayerSidebarFrame } from "player-sidebar-frame.slint";
 import { PlayerTitleBar } from "player-title-bar.slint";
 import { PlayerEntryDialogs } from "player-entry-dialogs.slint";
-import { VideoQuickSettingsPage } from "quick-settings-video.slint";
-import { SubtitleQuickSettingsPage } from "quick-settings-subtitles.slint";
 import { DelayLane } from "delay-lane.slint";
 export { DelayLane } from "delay-lane.slint";
-import { AudioQuickSettingsPage } from "quick-settings-audio.slint";
 import { PlayerMenuWindow } from "player-menu-window.slint";
 import { LayoutSidebarPage } from "player-layout-sidebar.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
-import { CatalogSidebarRow, PlaylistInteraction } from "playlist-sidebar-row.slint";
+import { PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
 import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
@@ -232,7 +232,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <duration> osd-fade-duration: animations-disabled || !PlayerPreferences.osd-enabled ? 0ms : Theme.osd-fade-time;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
-    callback set-hdr-enabled(bool);
     in-out property <bool> music-mode: false;
     in-out property <bool> auto-switch-to-music-mode: true;
     in-out property <bool> music-mode-show-playlist: false;
@@ -430,7 +429,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> playlist-drag-extend <=> PlaylistInteraction.playlist-drag-extend;
     in-out property <bool> playlist-drag-range <=> PlaylistInteraction.playlist-drag-range;
     in-out property <int> playlist-focus-index <=> PlaylistInteraction.playlist-focus-index;
-    callback select-playlist-row(int, bool, bool) -> [string];
     private property <string> audio-delay-text: PlaybackAudioState.audio-delay-text;
     changed audio-delay-text => { root.video-menu-changed(); }
     in property <string> loop-label: "Off";
@@ -463,77 +461,45 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed title-bar-hovered => { root.control-bar-hover-changed(); }
     changed control-bar-hovered => { root.control-bar-hover-changed(); }
     changed control-bar-dragging => { root.control-bar-hover-changed(); }
-    // One logical-point viewport drives both GL texture size and native mpv margins.
-    private property <bool> small-video-controller: !root.music-mode &&
-        (root.width < 402px || root.menu-content-height < 210px);
-    // IINA's 67-point OSC constant is used by its position clamp. The visible
-    // floating stack is taller because the native seek slider adds 6 points
-    // above and below its 12-point small-control frame.
-    private property <length> osc-height: root.music-mode ? 90px : min(root.menu-content-height,
-        root.small-video-controller ? 50px : root.compact-ui ? 71px : 78px);
-    private property <length> osc-row-height: !root.music-mode && root.menu-content-height < 24px
-        ? min(root.menu-content-height, 10px) : root.small-video-controller ? 14px : 24px;
-    private property <length> osc-timeline-height: root.music-mode ? 20px : root.menu-content-height < 48px ? 0px :
-        root.small-video-controller ? 16px : 24px;
-    private property <length> osc-row-inline-inset: root.music-mode ? 8px :
-        root.width < 64px ? 0px : root.small-video-controller ? 8px : 12px;
-    private property <length> osc-timeline-inline-inset: root.music-mode ? 6px : root.width < 64px ? 0px :
-        root.small-video-controller ? 6px : 8px;
-    private property <length> osc-row-gap: root.music-mode ? 2px : root.width < 64px ? 0px : 4px;
-    private property <length> osc-timeline-gap: root.music-mode ? 6px : root.width < 64px ? 0px : 2px;
-    // IINA's MiniPlayer gives both time labels at least 32 points and keeps
-    // six points between each label and the seek bar.
-    private property <length> music-mode-time-label-min-width: 32px;
-    private property <length> sidebar-leading-extent: root.leading-sidebar == 0 ? 0px :
-        min(root.leading-sidebar-width * 1px, root.width * 0.8);
-    private property <length> sidebar-trailing-extent: root.sidebar == 0 ? 0px :
-        min(root.trailing-sidebar-width * 1px, root.width * 0.8);
-    // IINA shifts the title bar and bottom OSC constraints with a sliding
-    // sidebar. Reduce Motion keeps those surfaces in place while the sidebar fades.
-    private property <length> macos-sidebar-leading-inset:
-        root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-leading-extent : 0px;
-    private property <length> macos-sidebar-trailing-inset:
-        root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-trailing-extent : 0px;
-    // Keep enough room for both 24px neighbor buttons, IINA's transport
-    // spacing, and the centered bar's inner padding before exposing them.
-    private property <bool> transport-neighbor-actions-fit: root.music-mode ||
-        (root.video-width >= 330px &&
-            (root.osc-position == 0 ? max(0px, root.video-width - 24px) : root.video-width) >=
-                (root.osc-position == 0 ? 168px : 152px));
-    private property <length> video-inset-leading: root.edge-to-edge-video || root.leading-sidebar == 0 ? 0px : min(root.leading-sidebar-width * 1px, root.width * 0.8);
-    private property <length> video-inset-trailing: root.edge-to-edge-video || root.sidebar == 0 ? 0px : min(root.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
-    private property <length> title-row-height: root.show-player-title-row ? (root.compact-ui ? 30px : 34px) : 0px;
-    private property <length> video-inset-top: root.edge-to-edge-video || !root.docked-controls ? 0px : title-row-height;
-    private property <length> video-inset-bottom: root.music-mode
-        ? root.osc-height + (root.music-mode-show-playlist ? 300px : 0px)
-        : root.edge-to-edge-video || !root.docked-controls ? 0px : root.osc-height;
-    out property <length> window-width: root.width;
-    out property <length> window-height: root.menu-content-height;
-    out property <length> video-origin-x: video-inset-leading;
-    out property <length> video-origin-y: video-inset-top;
-    out property <length> video-width: max(1px, root.width - video-inset-leading - video-inset-trailing);
-    out property <length> video-height: max(1px, root.menu-content-height - video-inset-top - video-inset-bottom);
-    out property <length> plugin-sidebar-view-x: {
-        let inset = root.compact-ui ? 9px : 12px;
-        if root.leading-sidebar == 7 { inset }
-        else { root.width - min(root.trailing-sidebar-width * 1px, root.width * 0.8) + inset }
-    }
-    out property <length> plugin-sidebar-view-y: root.title-row-height +
-        (root.osc-position == 1 ? root.osc-height : 0px) +
-        (root.compact-ui ? 9px : 12px) + 28px + (root.compact-ui ? 6px : 8px);
-    out property <length> plugin-sidebar-view-width: max(0px,
-        min((root.leading-sidebar == 7 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-            root.width * 0.8) - 2 * (root.compact-ui ? 9px : 12px));
-    out property <length> plugin-sidebar-view-height: max(0px,
-        root.menu-content-height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
-        (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px) -
-        2 * (root.compact-ui ? 9px : 12px) - 28px - (root.compact-ui ? 6px : 8px));
     in property <float> crop-picture-x;
     in property <float> crop-picture-y;
     in property <float> crop-picture-width;
     in property <float> crop-picture-height;
-    out property <length> render-width: crop-editing && !native-video ? crop-picture-width * 1px : video-width;
-    out property <length> render-height: crop-editing && !native-video ? crop-picture-height * 1px : video-height;
+    out property <length> window-width: viewport.window-width;
+    out property <length> window-height: viewport.window-height;
+    out property <length> video-origin-x: viewport.video-origin-x;
+    out property <length> video-origin-y: viewport.video-origin-y;
+    out property <length> video-width: viewport.video-width;
+    out property <length> video-height: viewport.video-height;
+    out property <length> plugin-sidebar-view-x: viewport.plugin-sidebar-view-x;
+    out property <length> plugin-sidebar-view-y: viewport.plugin-sidebar-view-y;
+    out property <length> plugin-sidebar-view-width: viewport.plugin-sidebar-view-width;
+    out property <length> plugin-sidebar-view-height: viewport.plugin-sidebar-view-height;
+    out property <length> render-width: viewport.render-width;
+    out property <length> render-height: viewport.render-height;
+
+    viewport := PlayerGeometry {
+        visible: false;
+        width: root.width;
+        height: root.menu-content-height;
+        music-mode: root.music-mode;
+        compact-ui: root.compact-ui;
+        leading-sidebar: root.leading-sidebar;
+        sidebar: root.sidebar;
+        leading-sidebar-width: root.leading-sidebar-width;
+        trailing-sidebar-width: root.trailing-sidebar-width;
+        platform-macos: root.platform-macos;
+        macos-sidebar-reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
+        osc-position: root.osc-position;
+        edge-to-edge-video: root.edge-to-edge-video;
+        show-player-title-row: root.show-player-title-row;
+        docked-controls: root.docked-controls;
+        music-mode-show-playlist: root.music-mode-show-playlist;
+        crop-editing: root.crop-editing;
+        native-video: root.native-video;
+        crop-picture-width: root.crop-picture-width;
+        crop-picture-height: root.crop-picture-height;
+    }
     changed video-width => { root.crop-viewport-changed(); }
     changed video-height => { root.crop-viewport-changed(); }
     changed edge-to-edge-video => { root.crop-viewport-changed(); root.window-aspect-changed(); }
@@ -561,29 +527,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback execute-mpv-input-action(string);
     callback jump-to-time(string);
     callback set-volume(float);
-    callback set-volume-boost(bool);
-    callback set-video-aspect(string);
-    callback set-video-rotation(int);
-    callback set-video-crop(int);
-    callback set-hardware-decoding(bool);
-    callback set-video-equalizer(int, float);
-    callback set-audio-equalizer(int, float);
-    callback select-audio-equalizer-profile(int);
-    callback validate-audio-equalizer-profile-name(string, int) -> string;
-    callback save-audio-equalizer-profile(string) -> bool;
-    callback rename-audio-equalizer-profile(string) -> bool;
-    callback delete-audio-equalizer-profile();
-    callback set-speed-slider(float);
-    callback set-speed-text(string) -> bool;
     callback subtitle-seek(int);
     callback adjust-subtitle-scale(float);
-    callback set-subtitle-font-size(float);
     callback subtitle-font-selected(string);
     callback dismiss-font-picker();
-    callback set-subtitle-outline-size(float);
-    callback set-subtitle-color(int, color);
     callback adjust-subtitle-position(float);
-    callback set-subtitle-position(bool, float);
     callback activity();
     callback single-click-action(int);
     callback double-click-action(int);
@@ -595,29 +543,17 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback show-seek-osd();
     callback show-video-osd();
     callback set-ab-loop-point(int, float);
-    pure function selection-for-pane(kind: int) -> CatalogSelection {
-        return kind == 1 ? CatalogSelection.audio-track :
-            kind == 2 ? CatalogSelection.primary-subtitle :
-            kind == 3 ? CatalogSelection.chapter :
-            kind == 4 ? CatalogSelection.playlist :
-            kind == 5 ? CatalogSelection.secondary-subtitle :
-            kind == 6 ? CatalogSelection.video-track : CatalogSelection.unknown;
-    }
     private property <OsdMaterial> osd-material: {
         active: root.active-liquid-glass-osd,
         native-tint: root.platform-windows || root.native-video,
         frame: root.video-blurred-frame,
-        video-x: root.video-inset-leading,
-        video-y: root.video-inset-top,
+        video-x: viewport.video-inset-leading,
+        video-y: viewport.video-inset-top,
         video-width: root.render-width,
         video-height: root.render-height,
         sample-opacity: root.video-material-sample-opacity,
     };
 
-    callback set-delay(DelayLane, float);
-    callback set-delay-text(DelayLane, string) -> bool;
-    callback preview-audio-delay(float);
-    callback reorder-playlist([string], int);
     callback toggle-playlist-shuffle();
     callback sort-playlist(int);
 
@@ -650,10 +586,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
             width: parent.width; height: parent.height;
             crop-editing: root.crop-editing;
             native-video: root.native-video;
-            video-inset-leading: root.video-inset-leading;
-            video-inset-top: root.video-inset-top;
-            video-inset-trailing: root.video-inset-trailing;
-            video-inset-bottom: root.video-inset-bottom;
+            video-inset-leading: viewport.video-inset-leading;
+            video-inset-top: viewport.video-inset-top;
+            video-inset-trailing: viewport.video-inset-trailing;
+            video-inset-bottom: viewport.video-inset-bottom;
             crop-picture-x: root.crop-picture-x;
             crop-picture-y: root.crop-picture-y;
             render-width: root.render-width;
@@ -702,8 +638,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
 
         if root.show-player-title-row && controls-rendered && loaded && !crop-editing && !music-mode : PlayerTitleBar {
             clip: true;
-            x: macos-sidebar-leading-inset;
-            width: max(0px, parent.width - macos-sidebar-leading-inset - macos-sidebar-trailing-inset);
+            x: viewport.macos-sidebar-leading-inset;
+            width: max(0px, parent.width - viewport.macos-sidebar-leading-inset - viewport.macos-sidebar-trailing-inset);
             animate x { duration: root.animations-disabled ? 0ms : 240ms; }
             animate width { duration: root.animations-disabled ? 0ms : 240ms; }
             y: 0; height: root.compact-ui ? 30px : 34px;
@@ -714,8 +650,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             platform-windows: root.platform-windows;
             native-video: root.native-video;
             video-blurred-frame: root.video-blurred-frame;
-            video-inset-leading: root.video-inset-leading;
-            video-inset-top: root.video-inset-top;
+            video-inset-leading: viewport.video-inset-leading;
+            video-inset-top: viewport.video-inset-top;
             render-width: root.render-width;
             render-height: root.render-height;
             video-material-sample-opacity: root.video-material-sample-opacity;
@@ -755,10 +691,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
             sidebar-open: pane-kind != 0 && !root.crop-editing;
             reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
             animations-disabled: root.animations-disabled;
-            y: root.title-row-height + (root.osc-position == 1 ? root.osc-height : 0px);
+            y: viewport.title-row-height + (root.osc-position == 1 ? viewport.osc-height : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
-                (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px);
+                (root.osc-position == 1 ? viewport.osc-height : root.osc-position == 2 ? viewport.osc-height / 2 : 0px);
             active-liquid-glass-sidebar: root.active-liquid-glass-sidebar;
             dark-theme: root.dark-theme;
             native-video: root.native-video;
@@ -768,8 +704,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             render-width: root.render-width;
             sidebar-material-sample-opacity: root.sidebar-material-sample-opacity;
             video-blurred-frame: root.video-blurred-frame;
-            video-inset-leading: root.video-inset-leading;
-            video-inset-top: root.video-inset-top;
+            video-inset-leading: viewport.video-inset-leading;
+            video-inset-top: viewport.video-inset-top;
             video-material-sample-ready: root.video-material-sample-ready;
             windows-sidebar-material-active: root.windows-sidebar-material-active;
             activity => { root.activity(); }
@@ -861,117 +797,31 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     // IINA's sidebar scroll indicators hide at rest. Keep the
                     // content scrollable without a persistent Windows gutter.
                     vertical-scrollbar-policy: always-off;
-                    sidebar-page := VerticalLayout {
+                    sidebar-page := PlayerSidebarPage {
                         width: parent.width;
-                        alignment: start; spacing: 1px;
-                        cross-axis-alignment: quick-settings-pane ? center : start;
-                        if pane-kind == 1 : AudioQuickSettingsPage {
-                            card-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-                                root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            compact-ui: root.compact-ui;
-                            dark-theme: root.dark-theme;
-                            delete-audio-equalizer-profile => { root.delete-audio-equalizer-profile(); }
-                            interactive-accent-color: root.interactive-accent-color;
-                            load-external-audio => { PlayerMenuActions.browse-files(1); }
-                            loaded: root.loaded;
-                            platform-windows: root.platform-windows;
-                            preview-audio-delay(value-1) => { root.preview-audio-delay(value-1); }
-                            rename-audio-equalizer-profile(value-1) => { return root.rename-audio-equalizer-profile(value-1); }
-                            reset-audio-delay => { PlayerMenuActions.reset-audio-delay(); }
-                            restore-player-focus => { keys.focus(); }
-                            save-audio-equalizer-profile(value-1) => { return root.save-audio-equalizer-profile(value-1); }
-                            select-audio-equalizer-profile(value-1) => { root.select-audio-equalizer-profile(value-1); }
-                            set-audio-equalizer(value-1, value-2) => { root.set-audio-equalizer(value-1, value-2); }
-                            set-delay(value-1) => { root.set-delay(DelayLane.audio, value-1); }
-                            set-delay-text(value-1) => { return root.set-delay-text(DelayLane.audio, value-1); }
-                            set-volume-boost(value-1) => { root.set-volume-boost(value-1); }
-                            sidebar-card-material-fill: root.sidebar-card-material-fill;
-                            sidebar-control-material-fill: root.sidebar-control-material-fill;
-                            track-selected(value-1, value-2) => { PlayerMenuActions.select-item(root.selection-for-pane(value-1), value-2); }
-                            validate-audio-equalizer-profile-name(value-1, value-2) => { return root.validate-audio-equalizer-profile-name(value-1, value-2); }
-                            volume-boost: PlayerPreferences.volume-boost;
-                            windows-accent-color: root.windows-accent-color;
-                            windows-sidebar-material-active: root.windows-sidebar-material-active;
-                        }
-                        if pane-kind == 7 && root.plugin-sidebar-selected-identifier == "" : VerticalLayout {
-                            spacing: 6px;
-                            Text { text: "Plugins can provide content in this panel.";
-                                color: Theme.sidebar-heading-text(root.dark-theme);
-                                font-size: 12px; wrap: word-wrap; }
-                            if root.plugin-sidebar-labels.length == 0 : Text {
-                                text: "Enabled plugins with sidebar tabs appear here.";
-                                color: Theme.sidebar-empty-caption(root.dark-theme);
-                                font-size: 11px; wrap: word-wrap; }
-                        }
-                        for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): CatalogSidebarRow {
-                            width: parent.width;
-                            entry: row;
-                            index: index;
-                            pane-kind: pane-kind;
-                            playlist: root.playlist;
-                            dark-theme: root.dark-theme;
-                            interactive-accent-color: root.interactive-accent-color;
-                            playlist-metadata-visible: root.playlist-metadata-visible;
-                            select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
-                            select-playlist-row(index, extend, range) => { root.select-playlist-row(index, extend, range) }
-                            reorder-playlist(tokens, index) => { root.reorder-playlist(tokens, index); }
-                            playlist-action(action, token) => { PlayerMenuActions.playlist-action(action, token); }
-                        }
-                        if pane-kind == 6 : VideoQuickSettingsPage {
-                            sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
-                            animations-disabled: root.animations-disabled;
-                            compact-ui: root.compact-ui;
-                            dark-theme: root.dark-theme;
-                            interactive-accent-color: root.interactive-accent-color;
-                            loaded: root.loaded;
-                            platform-windows: root.platform-windows;
-                            reset-speed => { PlayerMenuActions.reset-speed(); }
-                            restore-player-focus => { keys.focus(); }
-                            set-hardware-decoding(value) => { root.set-hardware-decoding(value); }
-                            set-hdr-enabled(value) => { root.set-hdr-enabled(value); }
-                            set-speed-slider(value) => { root.set-speed-slider(value); }
-                            set-speed-text(text) => { return root.set-speed-text(text); }
-                            set-video-aspect(text) => { root.set-video-aspect(text); }
-                            set-video-crop(value) => { root.set-video-crop(value); }
-                            set-video-equalizer(band, value) => { root.set-video-equalizer(band, value); }
-                            set-video-rotation(value) => { root.set-video-rotation(value); }
-                            sidebar-card-material-fill: root.sidebar-card-material-fill;
-                            speed-edit-value: root.speed-edit-value;
-                            speed-slider-position: root.speed-slider-position;
-                            speed-value: root.speed-value;
-                            track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
-                            windows-accent-color: root.windows-accent-color;
-                            windows-accent-foreground: root.windows-accent-foreground;
-                            windows-sidebar-material-active: root.windows-sidebar-material-active;
-                        }
-                        if pane-kind == 2 : SubtitleQuickSettingsPage {
-                            sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
-                            choose-subtitle-font => { PlayerMenuActions.choose-subtitle-font(); }
-                            compact-ui: root.compact-ui;
-                            dark-theme: root.dark-theme;
-                            find-online-subtitles => { PlayerMenuActions.find-online-subtitles(); }
-                            interactive-accent-color: root.interactive-accent-color;
-                            load-subtitle => { PlayerMenuActions.browse-files(2); }
-                            loaded: root.loaded;
-                            platform-windows: root.platform-windows;
-                            reset-subtitle-delay => { PlayerMenuActions.reset-subtitle-delay(); }
-                            restore-player-focus => { keys.focus(); }
-                            set-delay(lane, seconds) => { root.set-delay(lane, seconds); }
-                            set-delay-text(lane, text) => { return root.set-delay-text(lane, text); }
-                            set-subtitle-color(component, color) => { root.set-subtitle-color(component, color); }
-                            set-subtitle-font-size(value) => { root.set-subtitle-font-size(value); }
-                            set-subtitle-outline-size(value) => { root.set-subtitle-outline-size(value); }
-                            set-subtitle-position(secondary, position) => { root.set-subtitle-position(secondary, position); }
-                            set-subtitle-scale-slider(value) => { PlayerMenuActions.set-subtitle-scale-slider(value); }
-                            sidebar-card-material-fill: root.sidebar-card-material-fill;
-                            sidebar-control-material-fill: root.sidebar-control-material-fill;
-                            toggle-secondary-subtitle-visibility => { PlayerMenuActions.toggle-secondary-subtitle-visibility(); }
-                            toggle-subtitle-visibility => { PlayerMenuActions.toggle-subtitle-visibility(); }
-                            track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
-                            windows-accent-color: root.windows-accent-color;
-                            windows-accent-foreground: root.windows-accent-foreground;
-                            windows-sidebar-material-active: root.windows-sidebar-material-active;
-                        }
+                        pane-kind: pane-kind;
+                        quick-settings-pane: quick-settings-pane;
+                        sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
+                        compact-ui: root.compact-ui;
+                        dark-theme: root.dark-theme;
+                        interactive-accent-color: root.interactive-accent-color;
+                        loaded: root.loaded;
+                        platform-windows: root.platform-windows;
+                        sidebar-card-material-fill: root.sidebar-card-material-fill;
+                        sidebar-control-material-fill: root.sidebar-control-material-fill;
+                        windows-accent-color: root.windows-accent-color;
+                        windows-accent-foreground: root.windows-accent-foreground;
+                        windows-sidebar-material-active: root.windows-sidebar-material-active;
+                        plugin-sidebar-selected-identifier: root.plugin-sidebar-selected-identifier;
+                        plugin-sidebar-labels: root.plugin-sidebar-labels;
+                        playlist-metadata-visible: root.playlist-metadata-visible;
+                        chapters: root.chapters;
+                        playlist: root.playlist;
+                        animations-disabled: root.animations-disabled;
+                        speed-edit-value: root.speed-edit-value;
+                        speed-slider-position: root.speed-slider-position;
+                        speed-value: root.speed-value;
+                        restore-player-focus => { keys.focus(); }
                     }
                 }
                 if pane-kind == 4 : HorizontalLayout { spacing: 8px;
@@ -1002,9 +852,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
             visible: !root.crop-editing && (side == 0 ? root.leading-sidebar != 0 : root.sidebar != 0);
             private property <length> panel-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
             x: side == 0 ? panel-width : root.width - panel-width - 4px;
-            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? root.osc-height : 0px); width: 4px;
+            y: (root.compact-ui ? 30px : 34px) + (root.osc-position == 1 ? viewport.osc-height : 0px); width: 4px;
             height: root.menu-content-height - (root.compact-ui ? 60px : 68px) -
-                (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px);
+                (root.osc-position == 1 ? viewport.osc-height : root.osc-position == 2 ? viewport.osc-height / 2 : 0px);
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
@@ -1030,24 +880,24 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 available-width: parent.width,
                 available-height: parent.height,
                 video-width: root.video-width,
-                video-inset-leading: root.video-inset-leading,
-                video-inset-top: root.video-inset-top,
-                sidebar-leading-extent: root.sidebar-leading-extent,
-                sidebar-trailing-extent: root.sidebar-trailing-extent,
+                video-inset-leading: viewport.video-inset-leading,
+                video-inset-top: viewport.video-inset-top,
+                sidebar-leading-extent: viewport.sidebar-leading-extent,
+                sidebar-trailing-extent: viewport.sidebar-trailing-extent,
                 edge-to-edge-video: root.edge-to-edge-video,
                 osc-position: root.osc-position,
-                osc-height: root.osc-height,
+                osc-height: viewport.osc-height,
             };
             layout: {
-                osc-row-gap: root.osc-row-gap,
-                osc-row-height: root.osc-row-height,
-                osc-row-inline-inset: root.osc-row-inline-inset,
-                osc-timeline-gap: root.osc-timeline-gap,
-                osc-timeline-height: root.osc-timeline-height,
-                osc-timeline-inline-inset: root.osc-timeline-inline-inset,
-                transport-neighbor-actions-fit: root.transport-neighbor-actions-fit,
-                small-video-controller: root.small-video-controller,
-                music-mode-time-label-min-width: root.music-mode-time-label-min-width,
+                osc-row-gap: viewport.osc-row-gap,
+                osc-row-height: viewport.osc-row-height,
+                osc-row-inline-inset: viewport.osc-row-inline-inset,
+                osc-timeline-gap: viewport.osc-timeline-gap,
+                osc-timeline-height: viewport.osc-timeline-height,
+                osc-timeline-inline-inset: viewport.osc-timeline-inline-inset,
+                transport-neighbor-actions-fit: viewport.transport-neighbor-actions-fit,
+                small-video-controller: viewport.small-video-controller,
+                music-mode-time-label-min-width: viewport.music-mode-time-label-min-width,
             };
             appearance: {
                 animations-disabled: root.animations-disabled,
@@ -1171,7 +1021,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             x: parent.width - self.card-width -
                 (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
             y: (root.compact-ui ? 38px : 42px) +
-                (root.osc-position == 1 ? root.osc-height : 0px);
+                (root.osc-position == 1 ? viewport.osc-height : 0px);
             width: self.card-width;
             material: root.osd-material;
             media-title: root.media-title;

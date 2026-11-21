@@ -30,18 +30,19 @@ pub(super) fn install(app: &PlayerWindow, send: impl Fn(Command) -> Result<(), S
         }
     });
     let weak = app.as_weak();
-    app.on_set_hdr_enabled(move |enabled| {
-        let Some(app) = weak.upgrade() else { return };
-        let video = app.global::<riina_ui::PlaybackVideoState>();
-        if !video.get_hdr_source_detected() || (enabled && !video.get_hdr_display_active()) {
-            app.set_status("HDR needs an HDR source and an HDR-enabled display".into());
-            return;
-        }
-        if apply(&app, enabled, send.as_ref()) {
-            requested.set(enabled);
-            app.invoke_activity();
-        }
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_hdr_enabled(move |enabled| {
+            let Some(app) = weak.upgrade() else { return };
+            let video = app.global::<riina_ui::PlaybackVideoState>();
+            if !video.get_hdr_source_detected() || (enabled && !video.get_hdr_display_active()) {
+                app.set_status("HDR needs an HDR source and an HDR-enabled display".into());
+                return;
+            }
+            if apply(&app, enabled, send.as_ref()) {
+                requested.set(enabled);
+                app.invoke_activity();
+            }
+        });
 }
 
 fn apply(
@@ -223,7 +224,8 @@ mod tests {
         video.set_hdr_source_detected(true);
         install(&app, |_| Ok(()));
         update_display(&app, true);
-        app.invoke_set_hdr_enabled(false);
+        app.global::<riina_ui::PlayerSidebarActions>()
+            .invoke_set_hdr_enabled(false);
         update_display(&app, false);
         update_display(&app, true);
         assert!(!video.get_hdr_enabled());
@@ -244,7 +246,8 @@ mod tests {
         app.global::<riina_ui::PlayerPreferences>()
             .set_default_hdr_mode_enabled(true);
         install(&app, |_| Err("engine closed".into()));
-        app.invoke_set_hdr_enabled(true);
+        app.global::<riina_ui::PlayerSidebarActions>()
+            .invoke_set_hdr_enabled(true);
         assert!(!video.get_hdr_enabled());
         update_display(&app, true);
         assert!(!video.get_hdr_enabled());

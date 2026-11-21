@@ -15,15 +15,16 @@ fn profiles(app: &PlayerWindow) {
         .set_audio_equalizer_can_save_profile(true);
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(vec![0.0; 10])));
-    app.on_validate_audio_equalizer_profile_name(|name, _| {
-        if name.is_empty() {
-            "Enter a profile name".into()
-        } else if name == "Rock" {
-            "Already exists".into()
-        } else {
-            "".into()
-        }
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_validate_audio_equalizer_profile_name(|name, _| {
+            if name.is_empty() {
+                "Enter a profile name".into()
+            } else if name == "Rock" {
+                "Already exists".into()
+            } else {
+                "".into()
+            }
+        });
     flush();
 }
 
@@ -62,7 +63,8 @@ fn equalizer_fader_passes_modified_shortcuts_and_tab_reaches_the_profile_picker(
     profiles(&app);
     let gains = Rc::new(RefCell::new(Vec::new()));
     let recorded = gains.clone();
-    app.on_set_audio_equalizer(move |index, value| recorded.borrow_mut().push((index, value)));
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_audio_equalizer(move |index, value| recorded.borrow_mut().push((index, value)));
     let shortcuts = Rc::new(RefCell::new(Vec::new()));
     let recorded = shortcuts.clone();
     app.on_dispatch_key_binding(move |text, control, _, _, _| {
@@ -130,10 +132,11 @@ fn profile_prompt_focus_validates_submits_once_and_restores_picker_focus() {
     profiles(&app);
     let saved = Rc::new(RefCell::new(Vec::new()));
     let recorded = saved.clone();
-    app.on_save_audio_equalizer_profile(move |name| {
-        recorded.borrow_mut().push(name.to_string());
-        true
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_save_audio_equalizer_profile(move |name| {
+            recorded.borrow_mut().push(name.to_string());
+            true
+        });
     let editor = naming_dialog(&app);
     key(&app, Key::Return);
     assert!(saved.borrow().is_empty(), "Blank names cannot submit");

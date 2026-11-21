@@ -107,10 +107,11 @@ fn move_caret_to_end(app: &PlayerWindow) {
 fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(DelayLane, String)>>> {
     let submissions = Rc::new(RefCell::new(Vec::new()));
     let recorded = submissions.clone();
-    app.on_set_delay_text(move |lane, text| {
-        recorded.borrow_mut().push((lane, text.to_string()));
-        riina_core::timing_controls::parse_delay_seconds(&text).is_ok()
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_delay_text(move |lane, text| {
+            recorded.borrow_mut().push((lane, text.to_string()));
+            riina_core::timing_controls::parse_delay_seconds(&text).is_ok()
+        });
     submissions
 }
 
@@ -517,7 +518,8 @@ fn reverse_tab_leaves_the_editor_for_its_slider_and_commits_once() {
     let submissions = delay_submissions(&app);
     let slider_changes = Rc::new(RefCell::new(Vec::new()));
     let changes = slider_changes.clone();
-    app.on_set_delay(move |lane, value| changes.borrow_mut().push((lane, value)));
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_delay(move |lane, value| changes.borrow_mut().push((lane, value)));
     let input = field(&app, "Audio delay in seconds");
     focus(&app, &input);
     input.set_accessible_value("0.75");

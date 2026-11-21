@@ -123,7 +123,9 @@ mod macos {
             }
             Action::Position(_) => {}
             Action::Rate(rate) if rate.is_finite() && rate > 0.0 => {
-                let _ = app.invoke_set_speed_text(rate.to_string().into());
+                let _ = app
+                    .global::<riina_ui::PlayerSidebarActions>()
+                    .invoke_set_speed_text(rate.to_string().into());
             }
             Action::Rate(_) => {}
             Action::Repeat => {

@@ -153,9 +153,10 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
 fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     let app = player(4);
     app.set_playlist(model());
-    app.on_select_playlist_row(|index, _, _| {
-        slint::ModelRc::new(slint::VecModel::from(vec![(index + 1).to_string().into()]))
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_select_playlist_row(|index, _, _| {
+            slint::ModelRc::new(slint::VecModel::from(vec![(index + 1).to_string().into()]))
+        });
     let opened = Rc::new(RefCell::new(Vec::new()));
     let observed = opened.clone();
     app.global::<PlayerMenuActions>()
@@ -253,7 +254,8 @@ fn first_pointer_press_opens_subtitle_color_and_changes_an_equalizer_band() {
         .set_audio_equalizer_values(slint::ModelRc::new(slint::VecModel::from(vec![0.0; 10])));
     let changes = Rc::new(RefCell::new(Vec::new()));
     let recorded = changes.clone();
-    app.on_set_audio_equalizer(move |index, value| recorded.borrow_mut().push((index, value)));
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_set_audio_equalizer(move |index, value| recorded.borrow_mut().push((index, value)));
     focus(&app, &field(&app, "32 Hz equalizer gain"));
     assert!(!changes.borrow().is_empty());
     assert!(

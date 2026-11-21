@@ -21,6 +21,7 @@ PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read
 PLAYER_TITLE_SOURCE = (ROOT / "crates/ui/ui/player-title-bar.slint").read_text(encoding="utf-8")
 SIDEBAR_FRAME_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-frame.slint").read_text(encoding="utf-8")
 SIDEBAR_TABS_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-tabs.slint").read_text(encoding="utf-8")
+SIDEBAR_PAGE_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-page.slint").read_text(encoding="utf-8")
 PLAYER_OSD_SOURCE = (ROOT / "crates/ui/ui/player-osd.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 QUICK_AUDIO_SOURCE = (ROOT / "crates/ui/ui/quick-settings-audio.slint").read_text(encoding="utf-8")
@@ -161,11 +162,17 @@ def main():
     assert "if root.selected && root.show-label : Text" in QUICK_TABS_SOURCE, (
         "Selected tab text must collapse with its width at narrow sidebar sizes"
     )
-    sidebar_scroll = PLAYER_SOURCE.index("if pane-kind != 5 : QuickSettingsScrollPage")
-    audio_page = PLAYER_SOURCE.index("if pane-kind == 1 : AudioQuickSettingsPage", sidebar_scroll)
-    assert sidebar_scroll < audio_page < PLAYER_SOURCE.index("for row[index]", audio_page), (
-        "Audio controls must be in the shared sidebar scrollable page"
+    scroll_page = re.search(
+        r"if pane-kind != 5 : QuickSettingsScrollPage \{(.*?)(?=\n                }(?:\n|$))",
+        PLAYER_SOURCE,
+        re.DOTALL,
     )
+    audio_page = SIDEBAR_PAGE_SOURCE.index("if pane-kind == 1 : AudioQuickSettingsPage")
+    assert (
+        scroll_page
+        and "sidebar-page := PlayerSidebarPage {" in scroll_page[1]
+        and audio_page < SIDEBAR_PAGE_SOURCE.index("for row[index]", audio_page)
+    ), "Audio controls must be in the shared sidebar scrollable page"
     audio_tracks = QUICK_AUDIO_SOURCE.index("tracks: PlaybackAudioState.audio-tracks;")
     equalizer_scroll = QUICK_AUDIO_SOURCE.index("equalizer-scroll := ScrollView")
     assert audio_tracks < equalizer_scroll, (
