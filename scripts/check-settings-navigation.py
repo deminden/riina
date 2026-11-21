@@ -16,6 +16,7 @@ INTERFACE_SOURCE = (ROOT / "crates/ui/ui/preferences-interface.slint").read_text
 SUBTITLES_SOURCE = (ROOT / "crates/ui/ui/preferences-subtitles.slint").read_text(encoding="utf-8")
 NETWORK_SOURCE = (ROOT / "crates/ui/ui/preferences-network.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
+PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
 EXPECTED = [
@@ -319,8 +320,8 @@ def main():
     assert (
         "root.always-float-on-top || root.always-show-on-top-icon : TopmostPin" in PLAYER_SOURCE
         and "root.layout-settings-changed();" in PLAYER_SOURCE
-        and 'assets/icons/pin-fill.svg' in PLAYER_SOURCE
-        and 'assets/icons/pin.svg' in PLAYER_SOURCE
+        and 'assets/icons/pin-fill.svg' in PLAYER_CHROME_SOURCE
+        and 'assets/icons/pin.svg' in PLAYER_CHROME_SOURCE
     ), "The title-bar pin must reflect and toggle the persisted window level"
 
     # Keep each captured page symbol connected to an original, published asset.

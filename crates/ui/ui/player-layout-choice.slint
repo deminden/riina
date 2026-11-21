@@ -1,0 +1,59 @@
+export component LayoutChoice inherits FocusScope {
+    in property <string> label;
+    in property <int> position;
+    in property <bool> selected;
+    in property <bool> dark-theme: true;
+    in property <bool> platform-windows: false;
+    in property <color> accent-color: #168bff;
+    in property <length> card-width;
+    callback activated();
+    height: 74px;
+    width: card-width;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checked: selected;
+    accessible-action-default => { activated(); }
+    Rectangle {
+        // IINA keeps a one-point inactive outline and eight-point corners.
+        border-radius: 8px;
+        border-width: selected ? 2px : 1px;
+        border-color: selected || root.has-focus ? root.accent-color
+            : root.dark-theme ? #ffffff1f : #0000001a;
+        background: selected
+            ? (root.platform-windows ? (root.dark-theme ? #ffffff12 : #0000000a) : #168bff18)
+            : touch.has-hover
+            ? (root.dark-theme ? #ffffff10 : #0000000a)
+            : (root.dark-theme ? #ffffff08 : #00000006);
+        VerticalLayout {
+            alignment: center; cross-axis-alignment: center; spacing: 8px;
+            preview := Rectangle {
+                width: 40px; height: 28px; background: transparent;
+                Rectangle {
+                    x: 4px; y: 1.5px; width: 32px; height: 25px;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: root.dark-theme ? #ffffffb0 : #34343b99;
+                    background: transparent;
+                    Rectangle {
+                        x: position == 0 ? parent.width / 2 - 6px : 2px;
+                        y: position == 1 ? 2px : parent.height - 5px;
+                        width: position == 0 ? 12px : parent.width - 4px;
+                        height: 3px; border-radius: 1px;
+                        background: selected
+                            ? (root.platform-windows ? root.accent-color : #90b7ef) : #aaaab4;
+                    }
+                }
+            }
+            Text { text: root.label; color: root.platform-windows
+                ? (root.dark-theme ? #ffffff : #202024) : selected ? #ffffff
+                : (root.dark-theme ? #bbbbc2 : #505056);
+                font-size: 11px; horizontal-alignment: center; }
+        }
+        touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if event.text == Key.Return || event.text == " " { activated(); return accept; }
+        return reject;
+    }
+}

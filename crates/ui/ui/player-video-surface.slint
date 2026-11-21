@@ -1,0 +1,102 @@
+export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
+
+export component VideoSurface inherits Rectangle {
+    in property <bool> crop-editing;
+    in property <bool> native-video;
+    in property <length> video-inset-leading;
+    in property <length> video-inset-top;
+    in property <length> video-inset-trailing;
+    in property <length> video-inset-bottom;
+    in property <float> crop-picture-x;
+    in property <float> crop-picture-y;
+    in property <length> render-width;
+    in property <length> render-height;
+    in property <length> video-width;
+    in property <length> video-height;
+    in property <bool> music-mode;
+    in property <bool> music-mode-show-album-art;
+    in property <bool> music-mode-is-audio;
+    in property <bool> music-mode-has-album-art;
+    in property <bool> music-mode-has-visible-subtitles;
+    in property <bool> native-transition-frame;
+    in property <image> video-frame;
+    in property <bool> live-text-enabled;
+    in property <bool> paused;
+    in property <[LiveTextRegion]> live-text-regions;
+    in property <bool> live-text-selectable;
+    in property <bool> edge-to-edge-video;
+    callback copy-live-text(string);
+
+    if crop-editing && !native-video : Rectangle {
+        x: video-inset-leading + crop-picture-x * 1px; y: video-inset-top + crop-picture-y * 1px;
+        width: root.render-width; height: root.render-height;
+        background: #000000;
+        drop-shadow-blur: 10px;
+        drop-shadow-color: #00000080;
+        drop-shadow-offset-x: 0px; drop-shadow-offset-y: 0px;
+    }
+    if root.music-mode && !root.music-mode-show-album-art : Rectangle {
+        x: video-inset-leading; y: video-inset-top;
+        width: video-width; height: video-height; background: #111111;
+    }
+    if root.native-transition-frame : Rectangle {
+        x: 0px; y: 0px; width: root.width; height: root.height;
+        background: #000000;
+    }
+    Image {
+        visible: !root.music-mode || root.music-mode-show-album-art;
+        source: video-frame;
+        x: root.native-transition-frame ? 0px : video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
+        y: root.native-transition-frame ? 0px : video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
+        width: root.native-transition-frame ? root.width : root.render-width;
+        height: root.native-transition-frame ? root.height : root.render-height;
+        image-fit: contain;
+    }
+    if root.music-mode && root.music-mode-show-album-art
+        && root.music-mode-is-audio && !root.music-mode-has-album-art
+        && !root.music-mode-has-visible-subtitles : Image {
+        x: video-inset-leading; y: video-inset-top;
+        width: video-width; height: video-height;
+        source: @image-url("../../../assets/icons/music-mode-placeholder.svg");
+        image-fit: contain;
+    }
+    for region in (root.live-text-enabled && root.paused ? root.live-text-regions : []) : Rectangle {
+        x: video-inset-leading + region.x * root.render-width;
+        y: video-inset-top + region.y * root.render-height;
+        width: max(1px, region.width * root.render-width);
+        height: max(1px, region.height * root.render-height);
+        border-width: 1px; border-color: #82b6ff; background: #82b6ff22;
+        if root.live-text-selectable : TextInput {
+            x: 0px; y: 0px; width: parent.width; height: parent.height;
+            text: region.text; single-line: true; read-only: true;
+            horizontal-alignment: center;
+            vertical-alignment: center; color: #ffffff;
+            font-size: max(8px, parent.height * 0.72);
+            selection-background-color: #3478f6;
+            selection-foreground-color: #ffffff;
+            accessible-label: region.text;
+        }
+        if !root.live-text-selectable : TouchArea {
+            clicked => { root.copy-live-text(region.text); }
+        }
+        if !root.live-text-selectable : Rectangle { x: 0; y: -18px; width: max(parent.width, 120px); height: 18px;
+            background: #151519e8;
+            Text { x: 4px; width: parent.width - 8px; text: region.text;
+                color: #ffffff; font-size: 11px; overflow: elide; vertical-alignment: center; }
+        }
+    }
+    if !root.edge-to-edge-video && root.native-video : Rectangle {
+        x: 0px; y: 0px; width: root.video-inset-leading; height: root.height; background: #000000;
+    }
+    if !root.edge-to-edge-video && root.native-video && root.video-inset-trailing > 0px : Rectangle {
+        x: root.width - root.video-inset-trailing; y: 0px;
+        width: root.video-inset-trailing; height: root.height; background: #000000;
+    }
+    if !root.edge-to-edge-video && root.native-video && root.video-inset-top > 0px : Rectangle {
+        x: 0px; y: 0px; width: root.width; height: root.video-inset-top; background: #000000;
+    }
+    if !root.edge-to-edge-video && root.native-video && root.video-inset-bottom > 0px : Rectangle {
+        x: 0px; y: root.height - root.video-inset-bottom;
+        width: root.width; height: root.video-inset-bottom; background: #000000;
+    }
+}
