@@ -1,7 +1,8 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
 mod committed;
+mod subtitles;
 
-use super::{live::*, refresh::refresh};
+use super::{live::restore_live_volume_and_decoder, refresh::refresh};
 use crate::{
     PlayerWindow, PreferencesWindow,
     osd_preferences::Settings as Osd,
@@ -182,59 +183,7 @@ fn connect_with_credentials(
         let selected_dark = selected_theme.dark_for(app.get_dark_theme());
         let previous_volume = app.get_volume();
         let previous_decoder = app.get_hardware_decoder_index();
-        let previous_font = app.get_subtitle_font().to_string();
-        let previous_font_size = crate::subtitle_preferences::current_font_size(&app);
-        let Some(previous_text_style) = read_or_refresh(
-            crate::subtitle_preferences::current_style(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let previous_ass = (
-            app.get_subtitle_ass_override_index(),
-            app.get_secondary_subtitle_ass_override_index(),
-        );
-        let Some(previous_position) = read_or_refresh(
-            crate::subtitle_position_preferences::current_player(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_position) = read_or_refresh(
-            model.read_section::<riina_core::subtitle_controls::PositionPreferences>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(previous_subtitle_other) = read_or_refresh(
-            crate::subtitle_other_preferences::current_player(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_subtitle_other) = read_or_refresh(
-            model.read_section::<riina_core::subtitle_controls::OtherPreferences>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(previous_auto_load) = read_or_refresh(
-            crate::subtitle_auto_load_preferences::current_player(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_auto_load) = read_or_refresh(
-            model.read_section::<riina_core::subtitle_controls::AutoLoadPreferences>(&window),
-            &app,
-            &window,
-        ) else {
+        let Some(subtitles) = subtitles::Draft::read(&app, &window, &model) else {
             return;
         };
         let Some(selected_online_subtitles) = read_or_refresh(
@@ -379,15 +328,8 @@ fn connect_with_credentials(
             app.set_hardware_decoder_index(decoder_index);
             decoder_applied = true;
         }
-        let desired_ass = (
-            window.get_subtitle_ass_override_primary_index(),
-            window.get_subtitle_ass_override_secondary_index(),
-        );
-        let desired_font = window.get_subtitle_font().to_string();
-        let desired_font_size = match crate::subtitle_preferences::font_size(
-            window.get_subtitle_font_size_text().as_str(),
-        ) {
-            Ok(size) => size,
+        let applied_subtitles = match subtitles.apply(&app, &window, &decoder_player) {
+            Ok(applied) => applied,
             Err(error) => {
                 restore_live_volume_and_decoder(
                     &app,
@@ -403,114 +345,6 @@ fn connect_with_credentials(
                 return;
             }
         };
-        let (subtitle_font, subtitle_font_size) = match apply_subtitle_text_preferences(
-            &app,
-            &decoder_player,
-            &previous_font,
-            previous_font_size,
-            &desired_font,
-            desired_font_size,
-        ) {
-            Ok(values) => values,
-            Err(error) => {
-                restore_live_volume_and_decoder(
-                    &app,
-                    &decoder_player,
-                    volume_boost_applied,
-                    previous_volume_boost,
-                    previous_volume,
-                    decoder_applied,
-                    previous_decoder,
-                );
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
-        };
-        let desired_text_style = match crate::subtitle_preferences::current_window_style(&window) {
-            Ok(style) => style,
-            Err(error) => {
-                restore_subtitle_text_preferences(
-                    &app,
-                    &decoder_player,
-                    &previous_font,
-                    previous_font_size,
-                    &subtitle_font,
-                    subtitle_font_size,
-                );
-                restore_live_volume_and_decoder(
-                    &app,
-                    &decoder_player,
-                    volume_boost_applied,
-                    previous_volume_boost,
-                    previous_volume,
-                    decoder_applied,
-                    previous_decoder,
-                );
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
-        };
-        if let Err(error) = apply_text_style(
-            &app,
-            &decoder_player,
-            previous_text_style,
-            desired_text_style,
-        ) {
-            restore_subtitle_text_preferences(
-                &app,
-                &decoder_player,
-                &previous_font,
-                previous_font_size,
-                &subtitle_font,
-                subtitle_font_size,
-            );
-            restore_live_volume_and_decoder(
-                &app,
-                &decoder_player,
-                volume_boost_applied,
-                previous_volume_boost,
-                previous_volume,
-                decoder_applied,
-                previous_decoder,
-            );
-            app.set_status(error.into());
-            refresh(&window, &app);
-            return;
-        }
-        let (ass_primary, ass_secondary) =
-            match apply_ass_override(&app, &decoder_player, previous_ass, desired_ass) {
-                Ok(levels) => levels,
-                Err(error) => {
-                    restore_text_style(
-                        &app,
-                        &decoder_player,
-                        previous_text_style,
-                        desired_text_style,
-                    );
-                    restore_subtitle_text_preferences(
-                        &app,
-                        &decoder_player,
-                        &previous_font,
-                        previous_font_size,
-                        &subtitle_font,
-                        subtitle_font_size,
-                    );
-                    restore_live_volume_and_decoder(
-                        &app,
-                        &decoder_player,
-                        volume_boost_applied,
-                        previous_volume_boost,
-                        previous_volume,
-                        decoder_applied,
-                        previous_decoder,
-                    );
-                    app.set_status(error.into());
-                    refresh(&window, &app);
-                    return;
-                }
-            };
         let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
         // AVIF can be configured externally but has no item in the pinned
         // General pane. Editing another control must preserve that choice.
@@ -545,17 +379,17 @@ fn connect_with_credentials(
         let mut keep_open_applied = false;
         let result = crate::subtitle_position_preferences::apply(
             &decoder_player,
-            previous_position,
-            selected_position,
+            subtitles.previous_position,
+            subtitles.position,
         )
         .and_then(|()| {
             crate::subtitle_other_preferences::apply(
                 &decoder_player,
-                &previous_subtitle_other,
-                &selected_subtitle_other,
+                &subtitles.previous_other,
+                &subtitles.other,
             )
         })
-        .and_then(|()| decoder_player.send(Command::SubtitleAutoLoad(selected_auto_load.clone())))
+        .and_then(|()| decoder_player.send(Command::SubtitleAutoLoad(subtitles.auto_load.clone())))
         .and_then(|()| {
             crate::network_cache_preferences::apply(
                 &decoder_player,
@@ -590,9 +424,9 @@ fn connect_with_credentials(
                 decoder_player.send(Command::VideoThreads(selected_video_threads))?;
                 video_threads_applied = true;
             }
-            selected_position.write_player(&app);
-            selected_subtitle_other.write_player(&app);
-            selected_auto_load.write_player(&app);
+            subtitles.position.write_player(&app);
+            subtitles.other.write_player(&app);
+            subtitles.auto_load.write_player(&app);
             crate::screenshot_preferences::current(&app)
         })
         .and_then(|screenshot| {
@@ -656,12 +490,12 @@ fn connect_with_credentials(
                 ),
                 control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
                 hardware_decoder: decoder,
-                subtitle_ass_override: ass_primary,
-                secondary_subtitle_ass_override: ass_secondary,
+                subtitle_ass_override: applied_subtitles.primary,
+                secondary_subtitle_ass_override: applied_subtitles.secondary,
                 online_subtitles: selected_online_subtitles.clone(),
-                subtitle_font: subtitle_font.clone(),
-                subtitle_font_size,
-                subtitle_text_style: desired_text_style,
+                subtitle_font: applied_subtitles.font.clone(),
+                subtitle_font_size: applied_subtitles.font_size,
+                subtitle_text_style: applied_subtitles.style,
                 audio: selected_audio,
                 video_threads: selected_video_threads,
                 key_bindings: selected_key_bindings.clone(),
@@ -673,9 +507,9 @@ fn connect_with_credentials(
             selected_tone_mapping.clone().put(&mut preferences);
             selected_network.put(&mut preferences);
             selected_advanced.put(&mut preferences);
-            selected_auto_load.clone().put(&mut preferences);
-            selected_subtitle_other.clone().put(&mut preferences);
-            selected_position.put(&mut preferences);
+            subtitles.auto_load.clone().put(&mut preferences);
+            subtitles.other.clone().put(&mut preferences);
+            subtitles.position.put(&mut preferences);
             selected_network_ytdl.clone().put(&mut preferences);
             selected_network_cache.clone().put(&mut preferences);
             selected_liquid_glass.put(&mut preferences);
@@ -740,35 +574,29 @@ fn connect_with_credentials(
                     &previous_network_cache,
                     &selected_network_cache,
                 );
-                let _ = decoder_player.send(Command::SubtitleAutoLoad(previous_auto_load.clone()));
+                let _ = decoder_player.send(Command::SubtitleAutoLoad(
+                    subtitles.previous_auto_load.clone(),
+                ));
                 let _ = crate::subtitle_other_preferences::apply(
                     &decoder_player,
-                    &selected_subtitle_other,
-                    &previous_subtitle_other,
+                    &subtitles.other,
+                    &subtitles.previous_other,
                 );
-                crate::subtitle_other_preferences::install_player(&app, &previous_subtitle_other);
-                crate::subtitle_auto_load_preferences::install_player(&app, &previous_auto_load);
+                crate::subtitle_other_preferences::install_player(&app, &subtitles.previous_other);
+                crate::subtitle_auto_load_preferences::install_player(
+                    &app,
+                    &subtitles.previous_auto_load,
+                );
                 let _ = crate::subtitle_position_preferences::apply(
                     &decoder_player,
-                    selected_position,
-                    previous_position,
+                    subtitles.position,
+                    subtitles.previous_position,
                 );
-                crate::subtitle_position_preferences::install_player(&app, previous_position);
-                restore_text_style(
+                crate::subtitle_position_preferences::install_player(
                     &app,
-                    &decoder_player,
-                    previous_text_style,
-                    desired_text_style,
+                    subtitles.previous_position,
                 );
-                restore_subtitle_text_preferences(
-                    &app,
-                    &decoder_player,
-                    &previous_font,
-                    previous_font_size,
-                    &subtitle_font,
-                    subtitle_font_size,
-                );
-                restore_ass_override(&app, &decoder_player, previous_ass, desired_ass);
+                applied_subtitles.restore(&app, &decoder_player, &subtitles);
                 restore_live_volume_and_decoder(
                     &app,
                     &decoder_player,
