@@ -18,6 +18,7 @@ SUBTITLES_SOURCE = (ROOT / "crates/ui/ui/preferences-subtitles.slint").read_text
 NETWORK_SOURCE = (ROOT / "crates/ui/ui/preferences-network.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read_text(encoding="utf-8")
+PLAYER_TITLE_SOURCE = (ROOT / "crates/ui/ui/player-title-bar.slint").read_text(encoding="utf-8")
 PLAYER_OSD_SOURCE = (ROOT / "crates/ui/ui/player-osd.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 QUICK_AUDIO_SOURCE = (ROOT / "crates/ui/ui/quick-settings-audio.slint").read_text(encoding="utf-8")
@@ -325,7 +326,11 @@ def main():
         and "checked <=> root.always-show-on-top-icon" in INTERFACE_SOURCE
     ), "The captured title-bar pin visibility preference must be represented"
     assert (
-        "root.always-float-on-top || root.always-show-on-top-icon : TopmostPin" in PLAYER_SOURCE
+        "root.always-float-on-top || root.always-show-on-top-icon : TopmostPin" in PLAYER_TITLE_SOURCE
+        and "pinned: root.always-float-on-top;" in PLAYER_TITLE_SOURCE
+        and "root.window-level-toggle-requested(value);" in PLAYER_TITLE_SOURCE
+        and "always-float-on-top: root.always-float-on-top;" in PLAYER_SOURCE
+        and "always-show-on-top-icon: root.always-show-on-top-icon;" in PLAYER_SOURCE
         and "root.layout-settings-changed();" in PLAYER_SOURCE
         and 'assets/icons/pin-fill.svg' in PLAYER_CHROME_SOURCE
         and 'assets/icons/pin.svg' in PLAYER_CHROME_SOURCE

@@ -1,0 +1,66 @@
+import { TopmostPin } from "player-chrome-controls.slint";
+import { Tool } from "player-tool.slint";
+
+export component PlayerTitleBar inherits Rectangle {
+    in property <bool> active-liquid-glass-osc;
+    in property <bool> dark-theme;
+    in property <bool> platform-windows;
+    in property <bool> native-video;
+    in property <image> video-blurred-frame;
+    in property <length> video-inset-leading;
+    in property <length> video-inset-top;
+    in property <length> render-width;
+    in property <length> render-height;
+    in property <float> video-material-sample-opacity;
+    in property <color> interactive-accent-color;
+    in property <bool> engine-ready;
+    in property <string> media-title;
+    in property <bool> always-float-on-top;
+    in property <bool> always-show-on-top-icon;
+    callback hover-changed(bool);
+    callback open-file();
+    callback window-level-toggle-requested(bool);
+    callback toggle-settings-pane(int);
+    callback toggle-playlist-pane(int);
+    callback toggle-fullscreen();
+
+    background: root.active-liquid-glass-osc
+        ? (root.dark-theme
+            // Match REF-20's measured controller luminance over the
+            // flat pattern while keeping Windows' sampled-video blur.
+            ? (root.platform-windows ? #15151528 : root.native-video ? #15151599 : #151515b0)
+            : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
+        : (root.dark-theme ? #151519 : #f2f2f2);
+    if root.active-liquid-glass-osc : Image {
+        source: root.video-blurred-frame;
+        x: root.video-inset-leading - parent.x;
+        y: root.video-inset-top - parent.y;
+        width: root.render-width;
+        height: root.render-height;
+        opacity: root.video-material-sample-opacity;
+        image-fit: contain;
+    }
+    TouchArea {
+        width: parent.width; height: parent.height;
+        changed has-hover => { root.hover-changed(self.has-hover); }
+        HorizontalLayout { width: parent.width; height: parent.height;
+            padding-left: 12px; padding-right: 12px;
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: root.engine-ready; activated => { root.open-file(); } }
+            Text { text: root.media-title; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
+                horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+            if root.always-float-on-top || root.always-show-on-top-icon : TopmostPin {
+                dark-theme: root.dark-theme;
+                pinned: root.always-float-on-top;
+                changed(value) => {
+                    root.window-level-toggle-requested(value);
+                }
+            }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
+        }
+    }
+}

@@ -1,3 +1,4 @@
+import { PlayerTitleBar } from "player-title-bar.slint";
 import { PlayerEntryDialogs } from "player-entry-dialogs.slint";
 import { VideoQuickSettingsPage } from "quick-settings-video.slint";
 import { SubtitleQuickSettingsPage } from "quick-settings-subtitles.slint";
@@ -1042,7 +1043,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             }
         }
 
-        if root.show-player-title-row && controls-rendered && loaded && !crop-editing && !music-mode : Rectangle {
+        if root.show-player-title-row && controls-rendered && loaded && !crop-editing && !music-mode : PlayerTitleBar {
             clip: true;
             x: macos-sidebar-leading-inset;
             width: max(0px, parent.width - macos-sidebar-leading-inset - macos-sidebar-trailing-inset);
@@ -1051,46 +1052,30 @@ export component PlayerWindow inherits PlayerMenuWindow {
             y: 0; height: root.compact-ui ? 30px : 34px;
             opacity: root.controls-visible ? 1 : 0;
             animate opacity { duration: root.animations-disabled ? 0ms : 250ms; }
-            background: root.active-liquid-glass-osc
-                ? (root.dark-theme
-                    // Match REF-20's measured controller luminance over the
-                    // flat pattern while keeping Windows' sampled-video blur.
-                    ? (root.platform-windows ? #15151528 : root.native-video ? #15151599 : #151515b0)
-                    : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
-                : (root.dark-theme ? #151519 : #f2f2f2);
-            if root.active-liquid-glass-osc : Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.video-material-sample-opacity;
-                image-fit: contain;
+            active-liquid-glass-osc: root.active-liquid-glass-osc;
+            dark-theme: root.dark-theme;
+            platform-windows: root.platform-windows;
+            native-video: root.native-video;
+            video-blurred-frame: root.video-blurred-frame;
+            video-inset-leading: root.video-inset-leading;
+            video-inset-top: root.video-inset-top;
+            render-width: root.render-width;
+            render-height: root.render-height;
+            video-material-sample-opacity: root.video-material-sample-opacity;
+            interactive-accent-color: root.interactive-accent-color;
+            engine-ready: root.engine-ready;
+            media-title: root.media-title;
+            always-float-on-top: root.always-float-on-top;
+            always-show-on-top-icon: root.always-show-on-top-icon;
+            hover-changed(hovered) => { root.title-bar-hovered = hovered; }
+            open-file => { root.open-file(); }
+            window-level-toggle-requested(value) => {
+                root.always-float-on-top = value;
+                root.window-level-toggle-requested(value);
             }
-            TouchArea {
-                width: parent.width; height: parent.height;
-                changed has-hover => { root.title-bar-hovered = self.has-hover; }
-                HorizontalLayout { width: parent.width; height: parent.height;
-                padding-left: 12px; padding-right: 12px;
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: engine-ready; activated => { root.open-file(); } }
-                Text { text: media-title; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
-                    horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
-                if root.always-float-on-top || root.always-show-on-top-icon : TopmostPin {
-                    dark-theme: root.dark-theme;
-                    pinned: root.always-float-on-top;
-                    changed(value) => {
-                        root.always-float-on-top = value;
-                        root.window-level-toggle-requested(value);
-                    }
-                }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/video.svg"); hint: "Video settings"; activated => { root.toggle-settings-pane(6); } }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/audio.svg"); hint: "Audio tracks"; activated => { root.toggle-settings-pane(1); } }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "CC"; hint: "Subtitle tracks"; activated => { root.toggle-settings-pane(2); } }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/chapters.svg"); hint: "Chapters"; activated => { root.toggle-playlist-pane(3); } }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/playlist.svg"); hint: "Playlist"; activated => { root.toggle-playlist-pane(4); } }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/fullscreen.svg"); hint: "Fullscreen"; activated => { root.toggle-fullscreen(); } }
-                }
-            }
+            toggle-settings-pane(pane) => { root.toggle-settings-pane(pane); }
+            toggle-playlist-pane(pane) => { root.toggle-playlist-pane(pane); }
+            toggle-fullscreen => { root.toggle-fullscreen(); }
         }
         if (!controls-visible || !loaded) && !crop-editing && !fullscreen &&
             (root.always-float-on-top || root.always-show-on-top-icon) : TopmostPin {
