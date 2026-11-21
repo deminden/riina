@@ -23,12 +23,13 @@ impl UiSession {
         prefs.recent_media = self.recent_media.borrow().clone();
         prefs.recent_open_documents = self.recent_open_documents.borrow().clone();
         prefs.playback_history = self
-            .playback_history
+            .history
+            .state
             .lock()
             .map_err(|_| std::io::Error::other("playback history lock poisoned"))?
             .entries()
             .to_vec();
-        prefs.record_playback_history = self.record_playback_history.load(Ordering::Acquire);
+        prefs.record_playback_history = self.history.recording.load(Ordering::Acquire);
 
         self.merge_saved_recents(&mut prefs);
         self.remember_current_media(&mut prefs);
@@ -64,7 +65,7 @@ impl UiSession {
             }
             prefs.recent_open_documents.truncate(10);
         }
-        if !self.history_cleared.load(Ordering::Acquire) {
+        if !self.history.cleared.load(Ordering::Acquire) {
             for entry in saved.playback_history {
                 if !prefs
                     .playback_history

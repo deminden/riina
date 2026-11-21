@@ -20,6 +20,11 @@ type HistoryWindowSlot = Rc<RefCell<Option<PlaybackHistoryWindow>>>;
 type CollapsedGroups = Arc<Mutex<HashSet<String>>>;
 pub(crate) type HistorySync = Arc<dyn Fn(Vec<Entry>) -> Result<(), String> + Send + Sync>;
 
+pub(crate) struct Guard {
+    _window: HistoryWindowSlot,
+    _timer: Rc<slint::Timer>,
+}
+
 struct WindowConnection {
     history: HistoryState,
     player: riina_mpv::CommandSender,
@@ -36,7 +41,7 @@ pub(crate) fn install(
     preferences_path: PathBuf,
     history_cleared: Arc<std::sync::atomic::AtomicBool>,
     history_sync: HistorySync,
-) -> (HistoryWindowSlot, Rc<slint::Timer>) {
+) -> Guard {
     let slot = Rc::new(RefCell::new(None::<PlaybackHistoryWindow>));
     let last_revision = Rc::new(Cell::new(None::<u64>));
     let collapsed_groups = Arc::new(Mutex::new(HashSet::new()));
@@ -107,7 +112,10 @@ pub(crate) fn install(
         }
     });
 
-    (slot, timer)
+    Guard {
+        _window: slot,
+        _timer: timer,
+    }
 }
 
 #[expect(

@@ -8,6 +8,7 @@ mod feedback;
 #[cfg(test)]
 pub(crate) mod glue_tests;
 pub(crate) mod hdr_output;
+mod history_session;
 mod lifecycle;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod live_text;
@@ -379,8 +380,7 @@ pub(crate) struct UiSession {
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
     _online_subtitles_timer: Rc<slint::Timer>,
-    _playback_history_window: Rc<RefCell<Option<crate::PlaybackHistoryWindow>>>,
-    _playback_history_timer: Rc<slint::Timer>,
+    _playback_history_window: crate::playback_history_window::Guard,
     _video_filters_window: Rc<RefCell<Option<crate::VideoFiltersWindow>>>,
     _video_filters_timer: Rc<slint::Timer>,
     _audio_filters_window: Rc<RefCell<Option<crate::VideoFiltersWindow>>>,
@@ -397,9 +397,7 @@ pub(crate) struct UiSession {
     recent_media: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
     recent_open_documents: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
     recent_open_cleared: Rc<Cell<bool>>,
-    playback_history: Arc<std::sync::Mutex<crate::playback_history::PlaybackHistoryState>>,
-    record_playback_history: Arc<AtomicBool>,
-    history_cleared: Arc<AtomicBool>,
+    history: history_session::Tracking,
     latest_playback: crate::PlaybackStore,
 }
 
@@ -528,33 +526,11 @@ fn configure_with_engine(
     let saved_video_filters = Arc::new(std::sync::Mutex::new(prefs.video_filters.clone()));
     let saved_audio_filters = Arc::new(std::sync::Mutex::new(prefs.audio_filters.clone()));
     set_audio_equalizer_controls(app, &lock(&audio_equalizer));
-    let playback_history_path = crate::playback_history_store::path_for_preferences(&prefs_path);
-    let mut playback_history_write_path = Some(playback_history_path.clone());
-    let playback_history_entries = match crate::playback_history_store::load(
-        &playback_history_path,
-        &prefs.playback_history,
-    ) {
-        Ok(entries) => {
-            prefs.playback_history.clone_from(&entries);
-            if !playback_history_path.exists()
-                && let Err(error) =
-                    crate::playback_history_store::save(&playback_history_path, &entries)
-            {
-                app.set_status(format!("Could not migrate playback history: {error}").into());
-                playback_history_write_path = None;
-            }
-            entries
-        }
-        Err(error) => {
-            app.set_status(format!("Could not load playback history: {error}").into());
-            playback_history_write_path = None;
-            prefs.playback_history.clone()
-        }
-    };
+    let history = history_session::LoadedHistory::load(app, &prefs_path, &mut prefs);
     let plugin_host = match crate::plugin_host::PluginHost::start(
         &prefs_path,
         &prefs.recent_media,
-        &playback_history_entries,
+        history.entries(),
     ) {
         Ok(host) => Some(host),
         Err(error) => {
@@ -619,16 +595,7 @@ fn configure_with_engine(
     let recent_media = Rc::new(RefCell::new(prefs.recent_media.clone()));
     let recent_open_documents = Rc::new(RefCell::new(prefs.recent_open_documents.clone()));
     let recent_open_cleared = Rc::new(Cell::new(false));
-    let plugin_recent_media = Arc::new(std::sync::Mutex::new(prefs.recent_media.clone()));
-    let playback_history_session_id = crate::playback_history::next_history_session_id();
-    let playback_history = crate::playback_history::shared_playback_history_state(
-        playback_history_path,
-        playback_history_entries.clone(),
-        playback_history_write_path,
-        Some(prefs_path.with_file_name("watch-later")),
-    );
-    let record_playback_history = Arc::new(AtomicBool::new(prefs.record_playback_history));
-    let history_cleared = crate::playback_history::shared_history_merge_flag(&prefs_path);
+    let history = history.start_tracking(&prefs_path, &prefs);
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
     let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(&prefs_path, "io.iina.ytdl");
@@ -750,14 +717,7 @@ fn configure_with_engine(
         reported_playback: observed_playback,
         queued,
         latest,
-        history: observation_dispatch::HistoryObservation {
-            recent_media: plugin_recent_media.clone(),
-            history: playback_history.clone(),
-            record_history: record_playback_history.clone(),
-            session_id: playback_history_session_id,
-            plugin: plugin_host_handle.clone(),
-            last_plugin_context: Default::default(),
-        },
+        history: history.observe(plugin_host_handle.clone()),
         delivery: observation_dispatch::WindowDelivery {
             app: app_weak,
             observer_id,
@@ -784,33 +744,12 @@ fn configure_with_engine(
             return Err(std::io::Error::other(error).into());
         }
     };
-    let history_plugin = plugin_host_handle.clone();
-    let history_latest_playback = latest_playback.clone();
-    let history_recent_media = plugin_recent_media.clone();
-    let history_sync: crate::playback_history_window::HistorySync = Arc::new(move |history| {
-        let Some(plugin) = &history_plugin else {
-            return Ok(());
-        };
-        let playback = history_latest_playback
-            .lock()
-            .map_err(|_| "latest playback lock poisoned".to_owned())?
-            .clone();
-        let context = crate::plugin_snapshot::player_file_context(
-            &playback,
-            &mut history_recent_media
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
-            &history,
-        );
-        plugin.update_player_file_context(context)
-    });
-    let (playback_history_window, playback_history_timer) = crate::playback_history_window::install(
+    let playback_history_window = history.install_window(
         app,
-        playback_history.clone(),
-        command_sender.clone(),
-        prefs_path.clone(),
-        history_cleared.clone(),
-        history_sync,
+        &command_sender,
+        &prefs_path,
+        plugin_host_handle.clone(),
+        latest_playback.clone(),
     );
     let ((video_filters_window, video_filters_timer), (audio_filters_window, audio_filters_timer)) =
         crate::video_filter_window::install(
@@ -944,9 +883,6 @@ fn configure_with_engine(
     app.on_auto_switch_music_mode_changed(move |enabled| {
         lock(&automatic_music_mode).set_auto_switch(enabled);
     });
-    let clear_history_plugin_host = plugin_host_handle.clone();
-    let clear_history_latest_playback = latest_playback.clone();
-    let clear_history_recent_media = plugin_recent_media.clone();
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
         app,
@@ -963,40 +899,11 @@ fn configure_with_engine(
         context.preferences().clone(),
         context.playback().clone(),
         context.plugin_host().cloned(),
-        {
-            let path = prefs_path.clone();
-            let playback_history = playback_history.clone();
-            let history_cleared = history_cleared.clone();
-            let plugin_host = clear_history_plugin_host;
-            let latest_playback = clear_history_latest_playback;
-            let recent_media = clear_history_recent_media;
-            move || {
-                let mut history = playback_history
-                    .lock()
-                    .map_err(|_| "playback history lock poisoned".to_owned())?;
-                let removed = crate::utilities_preferences::clear_playback_history(&path)?;
-                history.clear();
-                history_cleared.store(true, Ordering::Release);
-                let entries = history.entries().to_vec();
-                drop(history);
-                if let Some(host) = &plugin_host {
-                    let playback = latest_playback
-                        .lock()
-                        .map_err(|_| "latest playback lock poisoned".to_owned())?
-                        .clone();
-                    let context = crate::plugin_snapshot::player_file_context(
-                        &playback,
-                        &mut recent_media
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner),
-                        &entries,
-                    );
-                    host.update_player_file_context(context)
-                        .map_err(|error| error.to_string())?;
-                }
-                Ok(removed)
-            }
-        },
+        history.clear_hook(
+            prefs_path.clone(),
+            context.plugin_host().cloned(),
+            latest_playback.clone(),
+        ),
     );
     let opening_player = command_sender.clone();
     let opening_app = app.as_weak();
@@ -1014,10 +921,7 @@ fn configure_with_engine(
             refresh_welcome_history(&welcome, &recent_media_for_resume.borrow(), enabled);
         }
     });
-    let record_history = record_playback_history.clone();
-    app.on_record_playback_history_changed(move |enabled| {
-        record_history.store(enabled, Ordering::Release);
-    });
+    history.install_recording_action(app);
     app.on_pause_when_open_changed(move |pause| {
         if let Err(error) = opening_player.send(Command::SetPauseWhenOpen(pause))
             && let Some(app) = opening_app.upgrade()
@@ -1297,7 +1201,6 @@ fn configure_with_engine(
         _online_subtitles_window: online_subtitles_window,
         _online_subtitles_timer: online_subtitles_timer,
         _playback_history_window: playback_history_window,
-        _playback_history_timer: playback_history_timer,
         _video_filters_window: video_filters_window,
         _video_filters_timer: video_filters_timer,
         _audio_filters_window: audio_filters_window,
@@ -1317,9 +1220,7 @@ fn configure_with_engine(
         recent_media,
         recent_open_documents,
         recent_open_cleared,
-        playback_history,
-        record_playback_history,
-        history_cleared,
+        history,
         latest_playback,
     })
 }
