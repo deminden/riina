@@ -1,5 +1,6 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
 mod committed;
+mod display;
 mod general;
 mod playback_settings;
 mod subtitles;
@@ -10,13 +11,9 @@ use super::{
 };
 use crate::{
     PlayerWindow, PreferencesWindow,
-    osd_preferences::Settings as Osd,
     preferences::model::{PreferenceModel, PreferenceSection},
 };
-use riina_core::{
-    Command, pip_preferences::Settings as PictureInPicture,
-    thumbnail_preferences::Settings as ThumbnailPreview,
-};
+use riina_core::Command;
 use slint::ComponentHandle;
 use std::{
     path::PathBuf,
@@ -87,69 +84,9 @@ fn connect_with_credentials(
         let Some(general) = general::Draft::read(&app, &window) else {
             return;
         };
-        let previous_osd = crate::osd_preferences::current_player(&app);
-        let Some(selected_osd) = read_or_refresh(model.read_section::<Osd>(&window), &app, &window)
-        else {
+        let Some(display) = display::Draft::read(&app, &window, &model) else {
             return;
         };
-        let Some(selected_control_bar) = read_or_refresh(
-            model.read_section::<riina_core::osc_preferences::Settings>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_picture_in_picture) = read_or_refresh(
-            model.read_section::<PictureInPicture>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_thumbnail_preview) = read_or_refresh(
-            model.read_section::<ThumbnailPreview>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let previous_layout = (
-            app.get_osc_position(),
-            app.get_compact_ui(),
-            app.get_docked_controls(),
-        );
-        let previous_chapter_positions = app.get_show_chapter_pos();
-        let Some(previous_window_resize) = read_or_refresh(
-            crate::window_resize_preferences::from_player(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let previous_volume_boost = app.get_volume_boost();
-        let previous_liquid_glass = crate::liquid_glass_preferences::current_player(&app);
-        let Some(selected_liquid_glass) = read_or_refresh(
-            model.read_section::<riina_core::liquid_glass::SurfaceSettings>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_theme) =
-            riina_core::ThemeMaterial::from_index(window.get_appearance_index())
-        else {
-            app.set_status("Choose a valid appearance".into());
-            refresh(&window, &app);
-            return;
-        };
-        let Some(selected_window_resize) = read_or_refresh(
-            model.read_section::<riina_core::window_resize::Settings>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let selected_dark = selected_theme.dark_for(app.get_dark_theme());
         let previous_volume = app.get_volume();
         let previous_decoder = app.get_hardware_decoder_index();
         let Some(subtitles) = subtitles::Draft::read(&app, &window, &model) else {
@@ -178,7 +115,7 @@ fn connect_with_credentials(
             &app,
             &decoder_player,
             DecoderState {
-                boost: previous_volume_boost,
+                boost: display.previous_volume_boost,
                 volume: previous_volume,
                 decoder_index: previous_decoder,
             },
@@ -217,16 +154,7 @@ fn connect_with_credentials(
         app.set_screenshot_custom_directory(window.get_custom_directory());
         app.set_screenshot_directory(window.get_directory());
         general.selected.project_open_policy(&app);
-        selected_window_resize.write_player(&app);
-        app.set_osd_enabled(window.get_osd_enabled());
-        app.set_disable_osd_speed(window.get_disable_osd_speed());
-        app.set_disable_osd_seek(window.get_disable_osd_seek());
-        app.set_osc_position(window.get_osc_position().clamp(0, 2));
-        app.set_show_chapter_pos(window.get_show_chapter_pos());
-        app.set_compact_ui(window.get_compact_ui());
-        if !app.get_edge_to_edge_video() {
-            app.set_docked_controls(window.get_docked_controls());
-        }
+        display.project_before_save(&app, &window);
         let restart_notice = playback.restart_notice();
         let mut tone_mapping_applied = false;
         let mut video_threads_applied = false;
@@ -302,10 +230,8 @@ fn connect_with_credentials(
                 load_icc_profile: window.get_load_icc_profile(),
                 hdr_enabled: window.get_default_hdr_mode_enabled(),
                 disable_animations: window.get_disable_animations(),
-                theme_material: Some(selected_theme),
                 always_float_on_top: window.get_always_float_on_top(),
                 always_show_on_top_icon: window.get_always_show_on_top_icon(),
-                dark: selected_dark,
                 record_recent_files: window.get_record_recent_files(),
                 track_all_files_in_recent_open_menu: window
                     .get_track_all_files_in_recent_open_menu(),
@@ -336,9 +262,7 @@ fn connect_with_credentials(
                 ..baseline.clone()
             };
             general.put(&mut preferences)?;
-            selected_thumbnail_preview.put(&mut preferences);
-            selected_picture_in_picture.put(&mut preferences);
-            selected_osd.put(&mut preferences);
+            display.put(&mut preferences);
             playback.tone_mapping.clone().put(&mut preferences);
             playback.network.put(&mut preferences);
             playback.advanced.put(&mut preferences);
@@ -347,10 +271,7 @@ fn connect_with_credentials(
             subtitles.position.put(&mut preferences);
             playback.online_videos.clone().put(&mut preferences);
             playback.cache.clone().put(&mut preferences);
-            selected_liquid_glass.put(&mut preferences);
             playback.controls.put(&mut preferences);
-            selected_control_bar.put(&mut preferences);
-            selected_window_resize.put(&mut preferences);
             // Utilities can clear history while this window remains open;
             // preserve that live system action over its original snapshot.
             crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
@@ -431,13 +352,7 @@ fn connect_with_credentials(
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
                 applied_decoder.restore(&app, &decoder_player);
                 general.previous.restore(&app);
-                previous_osd.install_player(&app);
-                app.set_osc_position(previous_layout.0);
-                app.set_show_chapter_pos(previous_chapter_positions);
-                app.set_compact_ui(previous_layout.1);
-                app.set_docked_controls(previous_layout.2);
-                crate::liquid_glass_preferences::install_player(&app, previous_liquid_glass);
-                crate::window_resize_preferences::install_player(&app, previous_window_resize);
+                display.restore(&app);
                 crate::tone_mapping_preferences::install_window(
                     &window,
                     &playback.previous_tone_mapping,
