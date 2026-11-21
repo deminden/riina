@@ -1,17 +1,24 @@
 //! Build initial engine options and issue the saved player commands in startup order.
 use super::{
-    audio_controls::set_audio_equalizer_controls, engine_start::EngineOptions,
-    history_session::LoadedHistory,
+    audio_controls::set_audio_equalizer_controls,
+    engine_start::{EngineOptions, EngineStart},
+    hdr_output,
+    history_session::{LoadedHistory, Tracking},
+    initial_projection, live_text, observation_dispatch, plugins,
 };
 use crate::{
-    PlayerWindow,
+    PlayerWindow, WelcomeWindow, platform,
+    plugin_host::{PluginHost, PluginHostHandle},
     preference_load::{LoadedPreferences, Recovery},
+    window_aspect::MediaGeometry,
 };
 use riina_core::{Command, Preferences, audio_equalizer, sync::lock, video_filters};
 use riina_mpv::{CommandSender, Player};
 use slint::ComponentHandle;
 use std::{
-    path::Path,
+    cell::{Cell, RefCell},
+    path::{Path, PathBuf},
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 
@@ -234,6 +241,7 @@ pub(super) fn install_toolbar_order(app: &PlayerWindow) {
     crate::osc_preferences::refresh_visible_order(app);
 }
 
+#[derive(Default)]
 pub(super) struct InitialMedia {
     pub(super) files: Vec<std::ffi::OsString>,
     pub(super) resume_position: Option<f64>,
@@ -275,4 +283,120 @@ pub(super) fn activate_output(
         )?;
     }
     Ok(())
+}
+
+pub(super) struct SessionRecents {
+    pub(super) media: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
+    pub(super) documents: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
+    pub(super) documents_cleared: Rc<Cell<bool>>,
+}
+
+impl SessionRecents {
+    fn new(prefs: &Preferences) -> Self {
+        Self {
+            media: Rc::new(RefCell::new(prefs.recent_media.clone())),
+            documents: Rc::new(RefCell::new(prefs.recent_open_documents.clone())),
+            documents_cleared: Rc::new(Cell::new(false)),
+        }
+    }
+}
+
+pub(super) struct PreparedStartup {
+    pub(super) observation: observation_dispatch::PreparedObservation,
+    pub(super) engine_options: EngineOptions,
+    pub(super) session: PreparedSession,
+}
+
+pub(super) struct PreparedSession {
+    pub(super) projection: initial_projection::SessionProjection,
+    pub(super) history: Tracking,
+    pub(super) recent: SessionRecents,
+    pub(super) hdr_display_timer: Option<Rc<slint::Timer>>,
+    pub(super) plugin_ui: plugins::InstalledPluginUi,
+    pub(super) plugin_host_handle: Option<PluginHostHandle>,
+    pub(super) plugin_host: Option<PluginHost>,
+    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
+    pub(super) recovery: Option<Recovery>,
+    pub(super) prefs: Preferences,
+    pub(super) prefs_path: PathBuf,
+    pub(super) picture_in_picture: platform::PictureInPictureSession,
+}
+
+pub(super) fn prepare(
+    app: &PlayerWindow,
+    native: Option<&platform::NativePresentation>,
+    welcome: Option<&WelcomeWindow>,
+    engine_start: &EngineStart,
+    loaded: LoadedPreferences,
+    media_geometry: MediaGeometry,
+) -> Result<PreparedStartup, Box<dyn std::error::Error>> {
+    let picture_in_picture = platform::PictureInPictureSession::new(app);
+    let prefs_path = engine_start.preferences_path()?;
+    let use_system_services = engine_start.uses_system_services();
+    let PreparedSettings {
+        prefs,
+        recovery,
+        audio_equalizer,
+        saved_video_filters,
+        saved_audio_filters,
+        history,
+    } = prepare_settings(app, &prefs_path, loaded, use_system_services);
+    let plugin_host = match PluginHost::start(&prefs_path, &prefs.recent_media, history.entries()) {
+        Ok(host) => Some(host),
+        Err(error) => {
+            app.set_status(error.into());
+            None
+        }
+    };
+    let plugin_host_handle = plugin_host.as_ref().map(PluginHost::handle);
+    let plugin_ui = plugins::install(app, native, plugin_host_handle.clone());
+    live_text::initialize(app, prefs.live_text_enabled, use_system_services);
+    let hdr_display_timer = hdr_output::install_display_observer(app, &prefs, native);
+    let recent = SessionRecents::new(&prefs);
+    let history = history.start_tracking(&prefs_path, &prefs);
+    let engine_options = options_for_session(app, &prefs, &prefs_path)?;
+    let projection = initial_projection::install_session(
+        app,
+        &prefs,
+        &prefs_path,
+        native,
+        welcome,
+        &recent.documents,
+    );
+    let observation = observation_dispatch::prepare_observation(
+        app,
+        observation_dispatch::Inputs {
+            prefs: &prefs,
+            media_geometry,
+            native_presentation: native.is_some(),
+            reported_playback: projection.latest_playback.clone(),
+            history: history.observe(plugin_host_handle.clone()),
+            saved_video_filters: saved_video_filters.clone(),
+            saved_audio_filters: saved_audio_filters.clone(),
+            audio_device_sender: plugin_ui.plugin_command_sender.clone(),
+            picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
+        },
+    );
+    Ok(PreparedStartup {
+        observation,
+        engine_options,
+        session: PreparedSession {
+            projection,
+            history,
+            recent,
+            hdr_display_timer,
+            plugin_ui,
+            plugin_host_handle,
+            plugin_host,
+            saved_audio_filters,
+            saved_video_filters,
+            audio_equalizer,
+            recovery,
+            prefs,
+            prefs_path,
+            picture_in_picture,
+        },
+    })
 }

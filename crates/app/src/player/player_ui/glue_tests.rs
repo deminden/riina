@@ -30,8 +30,7 @@ impl Harness {
         let session = configure_with_engine(
             &app,
             None,
-            Vec::new(),
-            None,
+            startup::InitialMedia::default(),
             None,
             loaded,
             SessionStartup {

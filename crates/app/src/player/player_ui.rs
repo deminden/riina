@@ -47,7 +47,7 @@ use crate::{
 use riina_core::{Command, Phase, Playback, Preferences};
 use riina_mpv::Player;
 use std::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     path::PathBuf,
     rc::Rc,
     sync::{Arc, atomic::Ordering},
@@ -159,9 +159,7 @@ pub(crate) struct UiSession {
     // until this sole native player owner has joined its decoder worker.
     player: Option<SessionResource<Player>>,
     platform_extras: platform::SessionExtras,
-    _plugin_host: Option<crate::plugin_host::PluginHost>,
-    _plugin_host_timer: Option<Rc<slint::Timer>>,
-    _plugin_osd_timer: Option<Rc<slint::Timer>>,
+    _plugins: plugins::RuntimeSession,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _hdr_display_timer: Option<Rc<slint::Timer>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
@@ -176,9 +174,7 @@ pub(crate) struct UiSession {
     audio_equalizer: Arc<std::sync::Mutex<riina_core::audio_equalizer::Settings>>,
     saved_video_filters: Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     saved_audio_filters: Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
-    recent_media: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
-    recent_open_documents: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
-    recent_open_cleared: Rc<Cell<bool>>,
+    recent: startup::SessionRecents,
     history: history_session::Tracking,
     latest_playback: crate::PlaybackStore,
 }
@@ -231,9 +227,11 @@ pub(crate) fn configure_player(
     configure_with_engine(
         app,
         native,
-        media,
+        startup::InitialMedia {
+            files: media,
+            resume_position: startup_resume_position,
+        },
         welcome,
-        startup_resume_position,
         loaded,
         SessionStartup {
             engine: EngineStart::Native,
@@ -242,78 +240,32 @@ pub(crate) fn configure_player(
     )
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn configure_with_engine(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
-    media: Vec<std::ffi::OsString>,
+    media: startup::InitialMedia,
     welcome: Option<&WelcomeWindow>,
-    startup_resume_position: Option<f64>,
     loaded: LoadedPreferences,
     SessionStartup {
         engine: engine_start,
         media_geometry,
     }: SessionStartup,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
-    let picture_in_picture = platform::PictureInPictureSession::new(app);
-    let prefs_path = engine_start.preferences_path()?;
-    let use_system_services = engine_start.uses_system_services();
-    let startup::PreparedSettings {
-        prefs,
-        recovery,
-        audio_equalizer,
-        saved_video_filters,
-        saved_audio_filters,
-        history,
-    } = startup::prepare_settings(app, &prefs_path, loaded, use_system_services);
-    let plugin_host = match crate::plugin_host::PluginHost::start(
-        &prefs_path,
-        &prefs.recent_media,
-        history.entries(),
-    ) {
-        Ok(host) => Some(host),
-        Err(error) => {
-            app.set_status(error.into());
-            None
-        }
-    };
-    let plugin_host_handle = plugin_host
-        .as_ref()
-        .map(crate::plugin_host::PluginHost::handle);
-    let plugins::InstalledPluginUi {
-        #[cfg(target_os = "windows")]
-        plugin_overlay_presenter,
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        plugin_sidebar_presenter,
-        #[cfg(target_os = "macos")]
-        mac_plugin_menu_observer,
-        plugin_host_timer,
-        plugin_osd_timer,
-        plugin_command_sender,
-    } = plugins::install(app, native.as_ref(), plugin_host_handle.clone());
-    live_text::initialize(app, prefs.live_text_enabled, use_system_services);
-    let hdr_display_timer = hdr_output::install_display_observer(app, &prefs, native.as_ref());
-    let recent_media = Rc::new(RefCell::new(prefs.recent_media.clone()));
-    let recent_open_documents = Rc::new(RefCell::new(prefs.recent_open_documents.clone()));
-    let recent_open_cleared = Rc::new(Cell::new(false));
-    let history = history.start_tracking(&prefs_path, &prefs);
-    let engine_options = startup::options_for_session(app, &prefs, &prefs_path)?;
-    let initial_projection::SessionProjection {
-        latest_playback,
-        pause_resume_timer,
-        system_media,
-        appearance_timer,
-    } = initial_projection::install_session(
+    let startup::PreparedStartup {
+        session,
+        engine_options,
+        observation,
+    } = startup::prepare(
         app,
-        &prefs,
-        &prefs_path,
         native.as_ref(),
         welcome,
-        &recent_open_documents,
-    );
+        &engine_start,
+        loaded,
+        media_geometry,
+    )?;
+    let prefs = &session.prefs;
+    let prefs_path = &session.prefs_path;
+    let latest_playback = &session.projection.latest_playback;
     let observation_dispatch::PreparedObservation {
         notification,
         music_mode_state,
@@ -322,30 +274,13 @@ fn configure_with_engine(
         feedback_video_osd,
         screenshot_scratch,
         transition_release_generation,
-    } = observation_dispatch::prepare_observation(
-        app,
-        observation_dispatch::Inputs {
-            prefs: &prefs,
-            media_geometry,
-            native_presentation: native.is_some(),
-            reported_playback: latest_playback.clone(),
-            history: history.observe(plugin_host_handle.clone()),
-            saved_video_filters: saved_video_filters.clone(),
-            saved_audio_filters: saved_audio_filters.clone(),
-            audio_device_sender: plugin_command_sender.clone(),
-            picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
-        },
-    );
+    } = observation;
     let notify = move |state| notification.publish(state);
     let capture_transition_first = engine_start.captures_before_navigation(native.is_some());
-    let (player, command_sender) = match engine_start.start(native.as_ref(), engine_options, notify)
-    {
-        Ok(engine) => engine,
-        Err(error) => {
-            app.set_status(error.clone().into());
-            return Err(std::io::Error::other(error).into());
-        }
-    };
+    let (player, command_sender) = engine_start
+        .start(native.as_ref(), engine_options, notify)
+        .inspect_err(|error| app.set_status(error.clone().into()))
+        .map_err(std::io::Error::other)?;
     let features::Installed {
         guards,
         live_text_timer,
@@ -357,22 +292,22 @@ fn configure_with_engine(
         features::Inputs {
             native: native.as_ref(),
             commands: &command_sender,
-            playback: &latest_playback,
-            prefs_path: &prefs_path,
-            history: &history,
-            plugin_host: plugin_host_handle.as_ref(),
-            plugin_commands: &plugin_command_sender,
-            saved_video_filters: &saved_video_filters,
-            saved_audio_filters: &saved_audio_filters,
+            playback: latest_playback,
+            prefs_path,
+            history: &session.history,
+            plugin_host: session.plugin_host_handle.as_ref(),
+            plugin_commands: &session.plugin_ui.plugin_command_sender,
+            saved_video_filters: &session.saved_video_filters,
+            saved_audio_filters: &session.saved_audio_filters,
             music_mode: &music_mode_state,
             transition_release_generation: &transition_release_generation,
-            picture_in_picture: &picture_in_picture,
-            system_media: &system_media,
+            picture_in_picture: &session.picture_in_picture,
+            system_media: &session.projection.system_media,
             capture_transition_first,
         },
     );
     startup::install_toolbar_order(app);
-    live_text::install_actions(app, &prefs_path);
+    live_text::install_actions(app, prefs_path);
     music_mode::install_actions(app, &music_mode_state);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
@@ -380,12 +315,12 @@ fn configure_with_engine(
         command_sender.clone(),
         latest_playback.clone(),
         preference_model.clone(),
-        plugin_host_handle,
+        session.plugin_host_handle.clone(),
         prefs_path.clone(),
     );
-    session_preferences::connect(app, &context, &history);
-    media_actions::install_resume_preference(app, &command_sender, welcome, &recent_media);
-    history.install_recording_action(app);
+    session_preferences::connect(app, &context, &session.history);
+    media_actions::install_resume_preference(app, &command_sender, welcome, &session.recent.media);
+    session.history.install_recording_action(app);
     media_actions::install_pause_on_open(app, &command_sender);
     control_actions::install(
         app,
@@ -395,7 +330,7 @@ fn configure_with_engine(
             crop_editor: &crop_editor,
             screenshot_scratch,
             feedback_video_osd,
-            audio_equalizer: &audio_equalizer,
+            audio_equalizer: &session.audio_equalizer,
             pending_navigation: &pending_navigation,
             capture_transition_first,
         },
@@ -406,11 +341,11 @@ fn configure_with_engine(
             commands: &command_sender,
             open_host: native.as_ref().map(platform::NativePresentation::host),
             welcome,
-            recent_media: &recent_media,
-            recent_open_documents: &recent_open_documents,
-            recent_open_cleared: &recent_open_cleared,
-            prefs_path: &prefs_path,
-            latest_playback: &latest_playback,
+            recent_media: &session.recent.media,
+            recent_open_documents: &session.recent.documents,
+            recent_open_cleared: &session.recent.documents_cleared,
+            prefs_path,
+            latest_playback,
         },
     );
     window_actions::install_lifecycle(app, welcome);
@@ -420,48 +355,38 @@ fn configure_with_engine(
         native.is_some(),
         player.as_ref(),
         &command_sender,
-        &prefs,
-        startup::InitialMedia {
-            files: media,
-            resume_position: startup_resume_position,
-        },
+        prefs,
+        media,
         #[cfg(target_os = "macos")]
-        &picture_in_picture,
+        &session.picture_in_picture,
     )?;
+    let (platform_extras, plugin_runtime) = session.plugin_ui.finish(
+        session.plugin_host,
+        session.projection.system_media,
+        session.picture_in_picture,
+        #[cfg(target_os = "macos")]
+        mac_scroll_event_monitor,
+    );
     Ok(UiSession {
         player: player.map(SessionResource::Live),
-        platform_extras: platform::SessionExtras {
-            #[cfg(target_os = "windows")]
-            _plugin_overlay_presenter: plugin_overlay_presenter,
-            _plugin_sidebar_presenter: plugin_sidebar_presenter,
-            _system_media: system_media,
-            _picture_in_picture: picture_in_picture,
-            #[cfg(target_os = "macos")]
-            _mac_scroll_event_monitor: mac_scroll_event_monitor,
-            #[cfg(target_os = "macos")]
-            _mac_plugin_menu_observer: mac_plugin_menu_observer,
-        },
+        platform_extras,
+        _plugins: plugin_runtime,
         _presentation: native.map(SessionResource::Live),
-        _hdr_display_timer: hdr_display_timer,
+        _hdr_display_timer: session.hdr_display_timer,
         _live_text_timer: live_text_timer,
-        _preference_recovery_notice: recovery.and_then(|recovery| recovery.announce(app)),
+        _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),
         _observer_state: observer_state,
-        _appearance_timer: appearance_timer,
-        _pause_resume_timer: pause_resume_timer,
+        _appearance_timer: session.projection.appearance_timer,
+        _pause_resume_timer: session.projection.pause_resume_timer,
         _features: guards,
-        _plugin_host: plugin_host,
-        _plugin_host_timer: plugin_host_timer,
-        _plugin_osd_timer: plugin_osd_timer,
-        prefs_path,
+        prefs_path: session.prefs_path,
         preference_model,
-        audio_equalizer,
-        saved_video_filters,
-        saved_audio_filters,
-        recent_media,
-        recent_open_documents,
-        recent_open_cleared,
-        history,
-        latest_playback,
+        audio_equalizer: session.audio_equalizer,
+        saved_video_filters: session.saved_video_filters,
+        saved_audio_filters: session.saved_audio_filters,
+        recent: session.recent,
+        history: session.history,
+        latest_playback: session.projection.latest_playback,
     })
 }
 

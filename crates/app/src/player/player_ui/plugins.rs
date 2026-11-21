@@ -24,6 +24,43 @@ pub(super) struct InstalledPluginUi {
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
 }
 
+pub(super) struct RuntimeSession {
+    _host: Option<crate::plugin_host::PluginHost>,
+    _host_timer: Option<Rc<slint::Timer>>,
+    _osd_timer: Option<Rc<slint::Timer>>,
+}
+
+impl InstalledPluginUi {
+    pub(super) fn finish(
+        self,
+        host: Option<crate::plugin_host::PluginHost>,
+        system_media: platform::SystemMediaSession,
+        picture_in_picture: platform::PictureInPictureSession,
+        #[cfg(target_os = "macos")] mac_scroll_event_monitor: Option<
+            platform::MacScrollEventMonitor,
+        >,
+    ) -> (platform::SessionExtras, RuntimeSession) {
+        (
+            platform::SessionExtras {
+                #[cfg(target_os = "windows")]
+                _plugin_overlay_presenter: self.plugin_overlay_presenter,
+                _plugin_sidebar_presenter: self.plugin_sidebar_presenter,
+                _system_media: system_media,
+                _picture_in_picture: picture_in_picture,
+                #[cfg(target_os = "macos")]
+                _mac_scroll_event_monitor: mac_scroll_event_monitor,
+                #[cfg(target_os = "macos")]
+                _mac_plugin_menu_observer: self.mac_plugin_menu_observer,
+            },
+            RuntimeSession {
+                _host: host,
+                _host_timer: self.plugin_host_timer,
+                _osd_timer: self.plugin_osd_timer,
+            },
+        )
+    }
+}
+
 pub(super) fn install(
     app: &PlayerWindow,
     native: Option<&platform::NativePresentation>,

@@ -1,5 +1,7 @@
 //! Paused-frame capture and asynchronous recognition are scoped to one frame identity.
-use crate::{PlayerWindow, platform};
+use crate::PlayerWindow;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use crate::platform;
 use riina_core::Preferences;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;

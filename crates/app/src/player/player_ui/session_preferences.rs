@@ -40,8 +40,8 @@ impl UiSession {
             .lock()
             .map_err(|_| std::io::Error::other("saved audio filter settings lock poisoned"))?
             .clone();
-        prefs.recent_media = self.recent_media.borrow().clone();
-        prefs.recent_open_documents = self.recent_open_documents.borrow().clone();
+        prefs.recent_media = self.recent.media.borrow().clone();
+        prefs.recent_open_documents = self.recent.documents.borrow().clone();
         prefs.playback_history = self
             .history
             .state
@@ -73,7 +73,7 @@ impl UiSession {
             }
         }
         prefs.recent_media.truncate(10);
-        if !self.recent_open_cleared.get() {
+        if !self.recent.documents_cleared.get() {
             for recent in saved.recent_open_documents {
                 if !prefs
                     .recent_open_documents
