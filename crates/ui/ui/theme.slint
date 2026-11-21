@@ -50,4 +50,35 @@ export global Theme {
     public pure function fullscreen-info-surface(material: bool, native-tint: bool) -> color {
         return material ? (native-tint ? #1b1b20c8 : #1b1b20d8) : #1b1b20;
     }
+
+    out property <color> controller-border: #ffffff25;
+    out property <color> music-mode-volume-border: #ffffff30;
+    out property <duration> controller-reposition-duration: 240ms;
+    out property <duration> controller-visibility-duration: 250ms;
+    out property <duration> controller-content-fade-duration: 200ms;
+    out property <length> controller-toolbar-button-size: 24px;
+
+    public pure function controller-surface(dark: bool, material: bool, windows: bool, native-video: bool) -> color {
+        return material
+            ? (dark
+                ? (windows ? #15151528 : native-video ? #15151599 : #202025e8)
+                : (windows || native-video ? #f2f2f2c8 : #f2f2f2ed))
+            : (dark ? #202025 : #f2f2f2);
+    }
+
+    public pure function controller-time-text(dark: bool) -> color {
+        return dark ? #d4d4d4 : #29292d;
+    }
+
+    public pure function music-mode-title-text(dark: bool) -> color {
+        return dark ? #ffffff : #202024;
+    }
+
+    public pure function music-mode-metadata-text(dark: bool) -> color {
+        return dark ? #d0d0d4 : #505056;
+    }
+
+    public pure function music-mode-volume-surface(dark: bool, material: bool) -> color {
+        return material ? (dark ? #25252beF : #f5f5f7f0) : (dark ? #303036 : #eeeeF2);
+    }
 }
