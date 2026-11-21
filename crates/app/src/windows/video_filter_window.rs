@@ -1,9 +1,8 @@
-use crate::{
-    PlayerWindow, SavedFilterMenuRow, VideoFilterParameterRow, VideoFilterWindowRow,
-    VideoFiltersWindow,
-};
+mod preset_editor;
+
+use crate::{PlayerWindow, SavedFilterMenuRow, VideoFilterWindowRow, VideoFiltersWindow};
 use riina_core::video_filters;
-use slint::{ComponentHandle, ModelRc, VecModel, winit_030::WinitWindowAccessor};
+use slint::{ComponentHandle, ModelRc, VecModel};
 use std::{
     cell::RefCell,
     path::PathBuf,
@@ -23,12 +22,6 @@ struct FilterWindow {
 pub(crate) struct Guard {
     _video: FilterWindow,
     _audio: FilterWindow,
-}
-
-#[derive(Default)]
-struct PresetDraft {
-    index: Option<usize>,
-    values: Vec<String>,
 }
 
 pub(crate) fn install(
@@ -209,10 +202,6 @@ fn install_for_kind(
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn connect_window(
     app: &PlayerWindow,
     window: &VideoFiltersWindow,
@@ -222,161 +211,26 @@ fn connect_window(
     preferences_path: PathBuf,
     is_audio: bool,
 ) {
-    let draft = Rc::new(RefCell::new(PresetDraft::default()));
-    let weak_window = window.as_weak();
-    let select_draft = draft.clone();
-    window.on_select_preset(move |index| {
-        let Some(window) = weak_window.upgrade() else {
-            return;
-        };
-        if index <= 0 {
-            *select_draft.borrow_mut() = PresetDraft::default();
-            window.set_preset_parameters(ModelRc::new(VecModel::from(Vec::<
-                VideoFilterParameterRow,
-            >::new())));
-            return;
-        }
-        let Some(preset) = usize::try_from(index - 1).ok() else {
-            return;
-        };
-        let values = if is_audio {
-            video_filters::default_audio_parameter_values(preset)
-        } else {
-            video_filters::default_parameter_values(preset)
-        };
-        let Some(values) = values else {
-            return;
-        };
-        *select_draft.borrow_mut() = PresetDraft {
-            index: Some(preset),
-            values,
-        };
-        update_preset_form(&window, &select_draft.borrow(), is_audio);
-    });
+    preset_editor::install(app, window, is_audio);
+    bind_current_filters(app, window, &latest, &player, is_audio);
+    bind_saved_filters(
+        app,
+        window,
+        &latest,
+        &settings,
+        &player,
+        &preferences_path,
+        is_audio,
+    );
+}
 
-    let text_draft = draft.clone();
-    let text_window = window.as_weak();
-    window.on_update_preset_text(move |parameter, value| {
-        if let Some(window) = text_window.upgrade()
-            && let Some(slot) = text_draft.borrow_mut().values.get_mut(parameter as usize)
-        {
-            *slot = value.to_string();
-            update_preset_form(&window, &text_draft.borrow(), is_audio);
-        }
-    });
-
-    let number_draft = draft.clone();
-    let number_window = window.as_weak();
-    window.on_update_preset_number(move |parameter, value| {
-        if let Some(window) = number_window.upgrade()
-            && let Some(slot) = number_draft.borrow_mut().values.get_mut(parameter as usize)
-        {
-            *slot = value.to_string();
-            update_preset_form(&window, &number_draft.borrow(), is_audio);
-        }
-    });
-
-    let choice_draft = draft.clone();
-    let choice_window = window.as_weak();
-    window.on_update_preset_choice(move |parameter, choice| {
-        if let (Some(window), Some(preset)) = (choice_window.upgrade(), choice_draft.borrow().index)
-            && let Some(spec) = preset_parameters(preset, is_audio)
-                .and_then(|parameters| parameters.get(parameter as usize))
-            && let Some(value) = spec.choices.get(choice as usize)
-            && let Some(slot) = choice_draft.borrow_mut().values.get_mut(parameter as usize)
-        {
-            *slot = (*value).to_owned();
-            update_preset_form(&window, &choice_draft.borrow(), is_audio);
-        }
-    });
-
-    let browse_draft = draft.clone();
-    let browse_window = window.as_weak();
-    let browse_app = app.as_weak();
-    window.on_browse_filter_file(move || {
-        let Some(app) = browse_app.upgrade() else {
-            return;
-        };
-        if is_audio || app.get_dialog_open() {
-            return;
-        }
-        app.set_dialog_open(true);
-        app.invoke_activity();
-        let weak_app = app.as_weak();
-        let weak_window = browse_window.clone();
-        let selection_window = browse_window.clone();
-        let selection_draft = browse_draft.clone();
-        let path_result = slint::spawn_local(async move {
-            let selected = async {
-                let Some(window) = weak_window.upgrade() else {
-                    return Ok(None);
-                };
-                let owner = window
-                    .window()
-                    .winit_window()
-                    .await
-                    .map_err(|error| error.to_string())?;
-                let file = rfd::AsyncFileDialog::new()
-                    .set_title("Choose a 3D LUT file")
-                    .set_parent(owner.as_ref())
-                    .pick_file()
-                    .await;
-                file.map(|file| {
-                    file.path()
-                        .to_str()
-                        .map(str::to_owned)
-                        .ok_or_else(|| "The selected path contains invalid Unicode".to_owned())
-                })
-                .transpose()
-            }
-            .await;
-            let Some(app) = weak_app.upgrade() else {
-                return;
-            };
-            app.set_dialog_open(false);
-            app.invoke_activity();
-            match selected {
-                Ok(Some(path)) => {
-                    let Some(window) = selection_window.upgrade() else {
-                        return;
-                    };
-                    let mut draft = selection_draft.borrow_mut();
-                    if let Some(index) = draft.index
-                        && let Some(parameter) =
-                            preset_parameters(index, false).and_then(|parameters| {
-                                parameters
-                                    .iter()
-                                    .position(|parameter| parameter.name == "file")
-                            })
-                        && let Some(value) = draft.values.get_mut(parameter)
-                    {
-                        *value = path;
-                        update_preset_form(&window, &draft, false);
-                    }
-                }
-                Ok(None) => {}
-                Err(error) => app.set_status(error.into()),
-            }
-        });
-        if let Err(error) = path_result {
-            app.set_dialog_open(false);
-            app.invoke_activity();
-            app.set_status(error.to_string().into());
-        }
-    });
-
-    let raw_draft = draft.clone();
-    let raw_window = window.as_weak();
-    window.on_raw_filter_edited(move || {
-        *raw_draft.borrow_mut() = PresetDraft::default();
-        if let Some(window) = raw_window.upgrade() {
-            window.set_preset_index(0);
-            window.set_preset_parameters(ModelRc::new(VecModel::from(Vec::<
-                VideoFilterParameterRow,
-            >::new())));
-        }
-    });
-
+fn bind_current_filters(
+    app: &PlayerWindow,
+    window: &VideoFiltersWindow,
+    latest: &crate::PlaybackStore,
+    player: &riina_mpv::CommandSender,
+    is_audio: bool,
+) {
     let weak_app = app.as_weak();
     let add_window = window.as_weak();
     let add_player = player.clone();
@@ -468,10 +322,20 @@ fn connect_window(
             Err(error) => app.set_status(error.into()),
         }
     });
+}
 
+fn bind_saved_filters(
+    app: &PlayerWindow,
+    window: &VideoFiltersWindow,
+    latest: &crate::PlaybackStore,
+    settings: &Settings,
+    player: &riina_mpv::CommandSender,
+    preferences_path: &std::path::Path,
+    is_audio: bool,
+) {
     let weak_app = app.as_weak();
     let save_settings = settings.clone();
-    let save_path = preferences_path.clone();
+    let save_path = preferences_path.to_path_buf();
     window.on_save_current_filter(move |filter, name| {
         let Some(app) = weak_app.upgrade() else {
             return;
@@ -506,7 +370,7 @@ fn connect_window(
 
     let weak_app = app.as_weak();
     let remove_settings = settings.clone();
-    let remove_path = preferences_path.clone();
+    let remove_path = preferences_path.to_path_buf();
     window.on_remove_saved_filter(move |index| {
         let Some(app) = weak_app.upgrade() else {
             return;
@@ -529,7 +393,7 @@ fn connect_window(
 
     let weak_app = app.as_weak();
     let update_settings = settings.clone();
-    let update_path = preferences_path.clone();
+    let update_path = preferences_path.to_path_buf();
     let update_latest = latest.clone();
     window.on_update_saved_filter(
         move |index, name, filter, shortcut_key, shortcut_modifiers| {
@@ -562,71 +426,6 @@ fn connect_window(
             }
         },
     );
-}
-
-fn preset_parameters(
-    index: usize,
-    is_audio: bool,
-) -> Option<&'static [video_filters::ParameterSpec]> {
-    if is_audio {
-        video_filters::audio_preset_parameters(index)
-    } else {
-        video_filters::preset_parameters(index)
-    }
-}
-
-fn update_preset_form(window: &VideoFiltersWindow, draft: &PresetDraft, is_audio: bool) {
-    let Some(index) = draft.index else {
-        window.set_preset_parameters(ModelRc::new(VecModel::from(
-            Vec::<VideoFilterParameterRow>::new(),
-        )));
-        return;
-    };
-    let Some(specs) = preset_parameters(index, is_audio) else {
-        return;
-    };
-    let rows = specs
-        .iter()
-        .zip(&draft.values)
-        .map(|(spec, value)| {
-            let kind = match spec.kind {
-                video_filters::ParameterKind::Text => 0,
-                video_filters::ParameterKind::Integer => 1,
-                video_filters::ParameterKind::Float => 2,
-                video_filters::ParameterKind::Choose => 3,
-            };
-            VideoFilterParameterRow {
-                label: spec.label.into(),
-                kind,
-                value: value.as_str().into(),
-                path_input: spec.name == "file",
-                number_value: value.parse::<f64>().unwrap_or(spec.minimum) as f32,
-                minimum: spec.minimum as f32,
-                maximum: spec.maximum as f32,
-                step: spec.step as f32,
-                choices: ModelRc::new(VecModel::from(
-                    spec.choices
-                        .iter()
-                        .map(|choice| (*choice).into())
-                        .collect::<Vec<_>>(),
-                )),
-                choice_index: spec
-                    .choices
-                    .iter()
-                    .position(|choice| *choice == value)
-                    .unwrap_or(0) as i32,
-            }
-        })
-        .collect::<Vec<_>>();
-    window.set_preset_parameters(ModelRc::new(VecModel::from(rows)));
-    let filter = if is_audio {
-        video_filters::build_audio_preset_filter(index, &draft.values)
-    } else {
-        video_filters::build_preset_filter(index, &draft.values)
-    };
-    if let Ok(filter) = filter {
-        window.set_filter_string(filter.into());
-    }
 }
 
 fn refresh(
