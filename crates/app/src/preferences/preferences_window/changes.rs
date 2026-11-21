@@ -1,5 +1,6 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
 mod committed;
+mod playback_settings;
 mod subtitles;
 
 use super::{
@@ -9,7 +10,7 @@ use super::{
 use crate::{
     PlayerWindow, PreferencesWindow,
     osd_preferences::Settings as Osd,
-    preferences::model::{PreferenceModel, PreferenceSection, SectionError},
+    preferences::model::{PreferenceModel, PreferenceSection},
 };
 use riina_core::{
     Command, pip_preferences::Settings as PictureInPicture,
@@ -197,91 +198,9 @@ fn connect_with_credentials(
             return;
         };
         let previous_assrt_token = app.get_assrt_token().to_string();
-        let Some(previous_network_cache) = read_or_refresh(
-            crate::network_cache_preferences::current_player(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_network_cache) = read_or_refresh(
-            model.read_section::<riina_core::network_preferences::Cache>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_network) = read_or_refresh(
-            riina_core::network_preferences::Connection::read_window(&window)
-                .map_err(SectionError::into_message),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_audio) = read_or_refresh(
-            crate::audio_preferences::current_window(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let selected_tone_mapping =
-            match model.read_section::<riina_core::hdr_preferences::Settings>(&window) {
-                Ok(settings) => settings,
-                Err(error) => {
-                    app.set_status(error.into());
-                    return;
-                }
-            };
-        let previous_tone_mapping = saved.hdr_tone_mapping.clone();
-        let tone_mapping_changed = selected_tone_mapping != previous_tone_mapping;
-        let selected_video_threads = match window.get_video_threads_text().trim().parse::<u32>() {
-            Ok(threads) if threads <= i32::MAX as u32 => threads,
-            _ => {
-                window.set_video_threads_text(saved.video_threads.to_string().into());
-                app.set_status("Video decoder threads must be between 0 and 2,147,483,647".into());
-                return;
-            }
-        };
-        let previous_video_threads = saved.video_threads;
-        let video_threads_changed = selected_video_threads != previous_video_threads;
-        let Some(selected_controls) = read_or_refresh(
-            model.read_section::<riina_core::control_preferences::Settings>(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_key_bindings) = read_or_refresh(
-            crate::key_binding_preferences::current_window(&window),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_advanced) = read_or_refresh(
-            riina_core::advanced_preferences::Settings::read_window(&window)
-                .map_err(SectionError::into_message),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let advanced_changed = selected_advanced != baseline.advanced;
-        let audio_changed = selected_audio != baseline.audio;
-        let Some(previous_network_ytdl) = read_or_refresh(
-            crate::network_ytdl_preferences::current_player(&app),
-            &app,
-            &window,
-        ) else {
-            return;
-        };
-        let Some(selected_network_ytdl) = read_or_refresh(
-            model.read_section::<riina_core::network_preferences::OnlineVideos>(&window),
-            &app,
-            &window,
-        ) else {
+        let Some(playback) =
+            playback_settings::Draft::read(&app, &window, &model, &saved, &baseline)
+        else {
             return;
         };
         let decoder_index = window.get_hardware_decoder_index();
@@ -347,6 +266,7 @@ fn connect_with_credentials(
         if !app.get_edge_to_edge_video() {
             app.set_docked_controls(window.get_docked_controls());
         }
+        let restart_notice = playback.restart_notice();
         let mut tone_mapping_applied = false;
         let mut video_threads_applied = false;
         let mut keep_open_applied = false;
@@ -367,16 +287,16 @@ fn connect_with_credentials(
             crate::network_cache_preferences::apply(
                 &decoder_player,
                 &app,
-                &previous_network_cache,
-                &selected_network_cache,
+                &playback.previous_cache,
+                &playback.cache,
             )
         })
         .and_then(|()| {
             crate::network_ytdl_preferences::apply(
                 &decoder_player,
                 &app,
-                &previous_network_ytdl,
-                &selected_network_ytdl,
+                &playback.previous_online_videos,
+                &playback.online_videos,
             )
         })
         .and_then(|()| {
@@ -389,12 +309,12 @@ fn connect_with_credentials(
                 })?;
                 keep_open_applied = true;
             }
-            if tone_mapping_changed {
-                decoder_player.send(Command::SetToneMapping(selected_tone_mapping.clone()))?;
+            if playback.tone_mapping_changed {
+                decoder_player.send(Command::SetToneMapping(playback.tone_mapping.clone()))?;
                 tone_mapping_applied = true;
             }
-            if video_threads_changed {
-                decoder_player.send(Command::VideoThreads(selected_video_threads))?;
+            if playback.video_threads_changed {
+                decoder_player.send(Command::VideoThreads(playback.video_threads))?;
                 video_threads_applied = true;
             }
             subtitles.position.write_player(&app);
@@ -469,24 +389,24 @@ fn connect_with_credentials(
                 subtitle_font: applied_subtitles.font.clone(),
                 subtitle_font_size: applied_subtitles.font_size,
                 subtitle_text_style: applied_subtitles.style,
-                audio: selected_audio,
-                video_threads: selected_video_threads,
-                key_bindings: selected_key_bindings.clone(),
+                audio: playback.audio,
+                video_threads: playback.video_threads,
+                key_bindings: playback.key_bindings,
                 ..baseline.clone()
             };
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
-            selected_tone_mapping.clone().put(&mut preferences);
-            selected_network.put(&mut preferences);
-            selected_advanced.put(&mut preferences);
+            playback.tone_mapping.clone().put(&mut preferences);
+            playback.network.put(&mut preferences);
+            playback.advanced.put(&mut preferences);
             subtitles.auto_load.clone().put(&mut preferences);
             subtitles.other.clone().put(&mut preferences);
             subtitles.position.put(&mut preferences);
-            selected_network_ytdl.clone().put(&mut preferences);
-            selected_network_cache.clone().put(&mut preferences);
+            playback.online_videos.clone().put(&mut preferences);
+            playback.cache.clone().put(&mut preferences);
             selected_liquid_glass.put(&mut preferences);
-            selected_controls.put(&mut preferences);
+            playback.controls.put(&mut preferences);
             selected_control_bar.put(&mut preferences);
             selected_window_resize.put(&mut preferences);
             // Utilities can clear history while this window remains open;
@@ -507,13 +427,7 @@ fn connect_with_credentials(
                     record_playback_history: previous_record_playback_history,
                     assrt_token: &previous_assrt_token,
                 },
-                if advanced_changed {
-                    Some("Advanced settings apply after restarting Riina")
-                } else if audio_changed {
-                    Some("Audio engine preferences apply after restarting Riina")
-                } else {
-                    None
-                },
+                restart_notice,
             ),
             Err(error) => {
                 window.set_allow_multiple_windows(saved.allow_multiple_windows);
@@ -528,24 +442,27 @@ fn connect_with_credentials(
                     });
                 }
                 if video_threads_applied {
-                    let _ = decoder_player.send(Command::VideoThreads(previous_video_threads));
-                    window.set_video_threads_text(previous_video_threads.to_string().into());
+                    let _ =
+                        decoder_player.send(Command::VideoThreads(playback.previous_video_threads));
+                    window
+                        .set_video_threads_text(playback.previous_video_threads.to_string().into());
                 }
                 if tone_mapping_applied {
-                    let _ =
-                        decoder_player.send(Command::SetToneMapping(previous_tone_mapping.clone()));
+                    let _ = decoder_player.send(Command::SetToneMapping(
+                        playback.previous_tone_mapping.clone(),
+                    ));
                 }
                 crate::network_ytdl_preferences::restore(
                     &decoder_player,
                     &app,
-                    &previous_network_ytdl,
-                    &selected_network_ytdl,
+                    &playback.previous_online_videos,
+                    &playback.online_videos,
                 );
                 crate::network_cache_preferences::restore(
                     &decoder_player,
                     &app,
-                    &previous_network_cache,
-                    &selected_network_cache,
+                    &playback.previous_cache,
+                    &playback.cache,
                 );
                 let _ = decoder_player.send(Command::SubtitleAutoLoad(
                     subtitles.previous_auto_load.clone(),
@@ -598,7 +515,10 @@ fn connect_with_credentials(
                 app.set_docked_controls(previous_layout.2);
                 crate::liquid_glass_preferences::install_player(&app, previous_liquid_glass);
                 crate::window_resize_preferences::install_player(&app, previous_window_resize);
-                crate::tone_mapping_preferences::install_window(&window, &previous_tone_mapping);
+                crate::tone_mapping_preferences::install_window(
+                    &window,
+                    &playback.previous_tone_mapping,
+                );
                 crate::screenshot_preferences::install(&app, &previous);
                 refresh(&window, &app);
                 app.set_status(error.into());
