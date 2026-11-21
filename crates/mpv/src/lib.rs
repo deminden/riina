@@ -12,7 +12,7 @@ pub mod video;
 #[cfg(windows)]
 mod windows_apartment;
 
-use ffi::{Api, EndFile, Property};
+use ffi::{Api, EndFile, Property, end_reason, event_id, format};
 use properties::{apply_property, observed_property_value};
 #[cfg(feature = "test-support")]
 pub use recording::RecordingEngine;
@@ -291,28 +291,72 @@ impl Player {
                         }
                     }
                     worker_api.check((worker_api.initialize)(handle))?;
-                    for (name, format) in [("time-pos", 5), ("duration", 5), ("pause", 3),
-                        ("paused-for-cache", 3), ("seeking", 3), ("seekable", 3),
-                        ("ignore-path-in-watch-later-config", 3), ("save-position-on-quit", 3),
-                        ("volume", 5), ("mute", 3), ("speed", 5), ("media-title", 1), ("mpv-version", 1), ("ffmpeg-version", 1), ("eof-reached", 3),
-                        ("current-ao", 1), ("audio-device", 1), ("hwdec-current", 1), ("hwdec", 1),
-                        ("vf", 6), ("af", 6), ("track-list", 6), ("chapter-list", 6), ("playlist", 6), ("audio-device-list", 6), ("video-params", 6), ("video-target-params", 6), ("metadata", 6),
-                        ("video-aspect-override", 5), ("video-rotate", 4),
-                        ("deinterlace", 1), ("deinterlace-active", 3),
-                        ("video-frame-info", 6),
-                        ("video-out-params", 6),
-                        ("brightness", 4), ("contrast", 4), ("saturation", 4), ("gamma", 4), ("hue", 4),
-                        ("audio-delay", 5), ("sub-delay", 5), ("sub-visibility", 3),
-                        ("sub-scale", 5), ("sub-pos", 5), ("sub-font-size", 5), ("sub-outline-size", 5),
-                        ("sub-blur", 5), ("sub-spacing", 5), ("sub-shadow-offset", 5),
-                        ("sub-color", 1), ("sub-outline-color", 1), ("sub-back-color", 1),
-                        ("sub-bold", 3), ("sub-italic", 3),
-                        ("sub-font", 1),
-                        ("secondary-sub-visibility", 3), ("secondary-sub-text", 1),
-                        ("secondary-sub-delay", 5),
-                        ("secondary-sub-pos", 5),
-                        ("sub-text", 1), ("loop-file", 1), ("loop-playlist", 1),
-                        ("ab-loop-a", 6), ("ab-loop-b", 6)] {
+                    for (name, format) in [
+                        ("time-pos", format::DOUBLE),
+                        ("duration", format::DOUBLE),
+                        ("pause", format::FLAG),
+                        ("paused-for-cache", format::FLAG),
+                        ("seeking", format::FLAG),
+                        ("seekable", format::FLAG),
+                        ("ignore-path-in-watch-later-config", format::FLAG),
+                        ("save-position-on-quit", format::FLAG),
+                        ("volume", format::DOUBLE),
+                        ("mute", format::FLAG),
+                        ("speed", format::DOUBLE),
+                        ("media-title", format::STRING),
+                        ("mpv-version", format::STRING),
+                        ("ffmpeg-version", format::STRING),
+                        ("eof-reached", format::FLAG),
+                        ("current-ao", format::STRING),
+                        ("audio-device", format::STRING),
+                        ("hwdec-current", format::STRING),
+                        ("hwdec", format::STRING),
+                        ("vf", format::NODE),
+                        ("af", format::NODE),
+                        ("track-list", format::NODE),
+                        ("chapter-list", format::NODE),
+                        ("playlist", format::NODE),
+                        ("audio-device-list", format::NODE),
+                        ("video-params", format::NODE),
+                        ("video-target-params", format::NODE),
+                        ("metadata", format::NODE),
+                        ("video-aspect-override", format::DOUBLE),
+                        ("video-rotate", format::INT64),
+                        ("deinterlace", format::STRING),
+                        ("deinterlace-active", format::FLAG),
+                        ("video-frame-info", format::NODE),
+                        ("video-out-params", format::NODE),
+                        ("brightness", format::INT64),
+                        ("contrast", format::INT64),
+                        ("saturation", format::INT64),
+                        ("gamma", format::INT64),
+                        ("hue", format::INT64),
+                        ("audio-delay", format::DOUBLE),
+                        ("sub-delay", format::DOUBLE),
+                        ("sub-visibility", format::FLAG),
+                        ("sub-scale", format::DOUBLE),
+                        ("sub-pos", format::DOUBLE),
+                        ("sub-font-size", format::DOUBLE),
+                        ("sub-outline-size", format::DOUBLE),
+                        ("sub-blur", format::DOUBLE),
+                        ("sub-spacing", format::DOUBLE),
+                        ("sub-shadow-offset", format::DOUBLE),
+                        ("sub-color", format::STRING),
+                        ("sub-outline-color", format::STRING),
+                        ("sub-back-color", format::STRING),
+                        ("sub-bold", format::FLAG),
+                        ("sub-italic", format::FLAG),
+                        ("sub-font", format::STRING),
+                        ("secondary-sub-visibility", format::FLAG),
+                        ("secondary-sub-text", format::STRING),
+                        ("secondary-sub-delay", format::DOUBLE),
+                        ("secondary-sub-pos", format::DOUBLE),
+                        ("sub-text", format::STRING),
+                        ("loop-file", format::STRING),
+                        ("loop-playlist", format::STRING),
+                        ("ab-loop-a", format::NODE),
+                        ("ab-loop-b", format::NODE),
+                    ] {
                         let name = CString::new(name).unwrap();
                         worker_api.check((worker_api.observe)(handle, 0, name.as_ptr(), format))?;
                     }
@@ -393,7 +437,7 @@ impl Player {
                                                     handle,
                                                     observer_id,
                                                     name.as_ptr(),
-                                                    6,
+                                                    format::NODE,
                                                 )
                                             }) {
                                                 Ok(()) => {
@@ -538,7 +582,7 @@ impl Player {
                     }
                     loop {
                         let event = &*(worker_api.wait)(handle, 0.0);
-                        if event.id == 0 { break; }
+                        if event.id == event_id::NONE { break; }
                         let event_name = (worker_api.event_name)(event.id);
                         if !event_name.is_null() {
                             state.record_mpv_event(
@@ -546,7 +590,7 @@ impl Player {
                             );
                         }
                         match event.id {
-                            5 => {
+                            event_id::COMMAND_REPLY => {
                                 seek_feedback.replied(event.userdata, event.error < 0);
                                 if event.error < 0 {
                                     auto_seek.failed(event.userdata);
@@ -675,26 +719,30 @@ impl Player {
                                     }
                                 }
                             }
-                            6 => {
+                            event_id::START_FILE => {
                                 seek_pending = false;
                                 seek_feedback.clear();
                                 auto_seek = auto_seek::AutoSeek::default();
                                 state.begin_load();
                             },
-                            7 if !event.data.is_null() => {
+                            event_id::END_FILE if !event.data.is_null() => {
                                 let end = &*event.data.cast::<EndFile>();
                                 seek_pending = false;
                                 seek_feedback.clear();
                                 auto_seek.interrupt_measurement();
-                                state.phase = match end.reason { 0 => Phase::Ended, 4 => Phase::Failed, _ => Phase::Stopped };
+                                state.phase = match end.reason {
+                                    end_reason::EOF => Phase::Ended,
+                                    end_reason::ERROR => Phase::Failed,
+                                    _ => Phase::Stopped,
+                                };
                                 if matches!(state.phase, Phase::Stopped | Phase::Failed) {
                                     state.ab_loop_a = None;
                                     state.ab_loop_b = None;
                                 }
                                 if end.error < 0 { state.error = worker_api.check(end.error).err(); }
-                                if end.reason == 4 { resume_on_load = false; }
+                                if end.reason == end_reason::ERROR { resume_on_load = false; }
                             }
-                            8 => {
+                            event_id::FILE_LOADED => {
                                 state.phase = Phase::Playing;
                                 for path in std::mem::take(&mut pending_drop_subtitles) {
                                     let args = vec!["sub-add".into(), path, "auto".into()];
@@ -716,12 +764,12 @@ impl Player {
                                     if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) { state.error = Some(error); }
                                 }
                             },
-                            20 => {
+                            event_id::SEEK => {
                                 seek_pending = true;
                                 seek_feedback.started();
                                 auto_seek.seek_started(Instant::now());
                             },
-                            21 if seek_pending => {
+                            event_id::PLAYBACK_RESTART if seek_pending => {
                                 // Restart also occurs on initial load. Only a preceding
                                 // native SEEK establishes a completed seek notification.
                                 seek_pending = false;
@@ -731,7 +779,7 @@ impl Player {
                                     state.completed_navigation_seeks = state.completed_navigation_seeks.wrapping_add(1);
                                 }
                             }
-                            22 if !event.data.is_null() => {
+                            event_id::PROPERTY_CHANGE if !event.data.is_null() => {
                                 let property = &*event.data.cast::<Property>();
                                 if let Some(name) = dynamic_property_observers
                                     .get(&event.userdata)
@@ -750,7 +798,11 @@ impl Player {
                                 }
                                 apply_property(&mut state, property);
                             }
-                            24 => { state.error = Some("The libmpv event queue overflowed; playback state may be incomplete".into()); }
+                            event_id::QUEUE_OVERFLOW => {
+                                state.error = Some(
+                                    "The libmpv event queue overflowed; playback state may be incomplete".into(),
+                                );
+                            }
                             _ => {}
                         }
                     }

@@ -1,5 +1,5 @@
 //! Copy native observations into owned playback state before the next event.
-use crate::ffi::{self, Property};
+use crate::ffi::{self, Property, format};
 use riina_core::{Phase, Playback};
 use std::ffi::CStr;
 #[cfg(test)]
@@ -24,7 +24,7 @@ pub(super) unsafe fn observed_property_value(
     if property.data.is_null() {
         return Ok(serde_json::Value::Null);
     }
-    if property.format != 6 {
+    if property.format != format::NODE {
         return Err(format!(
             "mpv returned format {} instead of a generic node",
             property.format
@@ -125,7 +125,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
         }
         return;
     }
-    if property.format == 6 {
+    if property.format == format::NODE {
         // SAFETY: non-null MPV_FORMAT_NODE data points to a node owned by this event.
         let node = unsafe { &*property.data.cast::<ffi::Node>() };
         // SAFETY: the worker copies the node tree before waiting for the next event.
@@ -203,7 +203,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
         if let Err(error) = result {
             state.error = Some(format!("Cannot decode mpv property: {error}"));
         }
-    } else if property.format == 4 {
+    } else if property.format == format::INT64 {
         // SAFETY: MPV_FORMAT_INT64 data points to a live, non-null i64 for this event.
         let value = unsafe { *property.data.cast::<i64>() };
         if name == b"video-rotate" {
@@ -217,7 +217,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             // neutral setting in controls that would overwrite an unknown state.
             state.video_equalizer[option.index()] = (-100..=100).contains(&value).then_some(value);
         }
-    } else if property.format == 5 {
+    } else if property.format == format::DOUBLE {
         // SAFETY: MPV_FORMAT_DOUBLE data points to a live, non-null double for this event.
         let value = unsafe { *property.data.cast::<f64>() };
         if !value.is_finite() {
@@ -259,7 +259,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             b"sub-pos" => state.subtitle_position = (0.0..=150.0).contains(&value).then_some(value),
             _ => {}
         }
-    } else if property.format == 3 {
+    } else if property.format == format::FLAG {
         // SAFETY: MPV_FORMAT_FLAG data points to mpv's live, non-null C int flag.
         let flag = unsafe { *property.data.cast::<i32>() } != 0;
         match name {
@@ -286,7 +286,7 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
             }
             _ => {}
         }
-    } else if property.format == 1 {
+    } else if property.format == format::STRING {
         // SAFETY: MPV_FORMAT_STRING property events carry a pointer to the C string pointer.
         let text = unsafe { *property.data.cast::<*const std::ffi::c_char>() };
         if !text.is_null() {
@@ -347,7 +347,7 @@ mod version_property_tests {
         let mut data = version.as_ptr();
         let property = Property {
             name: name.as_ptr(),
-            format: 1,
+            format: format::STRING,
             data: (&mut data as *mut *const std::ffi::c_char).cast(),
         };
         let mut playback = Playback::default();
@@ -360,7 +360,7 @@ mod version_property_tests {
 
         let unavailable = Property {
             name: name.as_ptr(),
-            format: 1,
+            format: format::STRING,
             data: std::ptr::null_mut(),
         };
         // SAFETY: the null event is valid and does not dereference data.
@@ -374,7 +374,7 @@ mod version_property_tests {
         let mut flag = 1_i32;
         let property = Property {
             name: name.as_ptr(),
-            format: 3,
+            format: format::FLAG,
             data: (&mut flag as *mut i32).cast(),
         };
         let mut playback = Playback::default();
@@ -384,7 +384,7 @@ mod version_property_tests {
 
         let unavailable = Property {
             name: name.as_ptr(),
-            format: 3,
+            format: format::FLAG,
             data: std::ptr::null_mut(),
         };
         // SAFETY: the null event is valid and does not dereference data.
@@ -398,7 +398,7 @@ mod version_property_tests {
         let mut flag = 1_i32;
         let property = Property {
             name: name.as_ptr(),
-            format: 3,
+            format: format::FLAG,
             data: (&mut flag as *mut i32).cast(),
         };
         let mut playback = Playback::default();
@@ -408,7 +408,7 @@ mod version_property_tests {
 
         let unavailable = Property {
             name: name.as_ptr(),
-            format: 3,
+            format: format::FLAG,
             data: std::ptr::null_mut(),
         };
         // SAFETY: the null event is valid and does not dereference data.
@@ -480,11 +480,11 @@ mod dynamic_property_tests {
         let name = CString::new("cache-buffering-state").unwrap();
         let mut node = ffi::Node {
             value: ffi::NodeValue { integer: 42 },
-            format: 4,
+            format: format::INT64,
         };
         let property = Property {
             name: name.as_ptr(),
-            format: 6,
+            format: format::NODE,
             data: (&mut node as *mut ffi::Node).cast(),
         };
         // SAFETY: the node and name remain valid while the helper copies them.
@@ -497,7 +497,7 @@ mod dynamic_property_tests {
         let name = CString::new("cache-buffering-state").unwrap();
         let property = Property {
             name: name.as_ptr(),
-            format: 6,
+            format: format::NODE,
             data: std::ptr::null_mut(),
         };
         // SAFETY: null property data is explicitly represented as JSON null.
@@ -528,7 +528,7 @@ mod clock_property_tests {
                 let mut data = value;
                 let property = Property {
                     name: name.as_ptr(),
-                    format: 5,
+                    format: format::DOUBLE,
                     data: (&mut data as *mut f64).cast(),
                 };
                 // SAFETY: the name and native double live through the observation copy.

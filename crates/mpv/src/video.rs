@@ -1,7 +1,7 @@
 //! GPU-only SDR feasibility surface. All methods must run with Slint's GL context current.
 use crate::{
     Player,
-    ffi::{Fbo, GlInit, Param},
+    ffi::{Fbo, GlInit, Param, render_param},
 };
 use glow::HasContext;
 use std::{
@@ -62,11 +62,11 @@ impl VideoSurface {
         };
         let mut params = [
             Param {
-                kind: 1,
+                kind: render_param::API_TYPE,
                 data: c"opengl".as_ptr().cast_mut().cast(),
             },
             Param {
-                kind: 2,
+                kind: render_param::OPENGL_INIT_PARAMS,
                 data: (&mut init as *mut GlInit).cast(),
             },
             Param::end(),
@@ -146,7 +146,7 @@ impl VideoSurface {
             size: profile.len(),
         };
         let parameter = Param {
-            kind: 6,
+            kind: render_param::ICC_PROFILE,
             data: (&mut bytes as *mut crate::ffi::ByteArray).cast(),
         };
         // SAFETY: libmpv copies the profile during this call on the current render
@@ -292,11 +292,11 @@ impl VideoSurface {
                 let mut flip: i32 = 0;
                 let mut params = [
                     Param {
-                        kind: 3,
+                        kind: render_param::OPENGL_FBO,
                         data: (&mut fbo as *mut Fbo).cast(),
                     },
                     Param {
-                        kind: 4,
+                        kind: render_param::FLIP_Y,
                         data: (&mut flip as *mut i32).cast(),
                     },
                     Param::end(),

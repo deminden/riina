@@ -8,6 +8,45 @@ use std::{
     sync::Arc,
 };
 
+// Keep C discriminants as integers so unknown values from newer runtimes stay readable.
+pub(crate) mod event_id {
+    pub const NONE: std::ffi::c_int = 0;
+    pub const COMMAND_REPLY: std::ffi::c_int = 5;
+    pub const START_FILE: std::ffi::c_int = 6;
+    pub const END_FILE: std::ffi::c_int = 7;
+    pub const FILE_LOADED: std::ffi::c_int = 8;
+    pub const SEEK: std::ffi::c_int = 20;
+    pub const PLAYBACK_RESTART: std::ffi::c_int = 21;
+    pub const PROPERTY_CHANGE: std::ffi::c_int = 22;
+    pub const QUEUE_OVERFLOW: std::ffi::c_int = 24;
+}
+
+pub(crate) mod format {
+    pub const NONE: std::ffi::c_int = 0;
+    pub const STRING: std::ffi::c_int = 1;
+    pub const FLAG: std::ffi::c_int = 3;
+    pub const INT64: std::ffi::c_int = 4;
+    pub const DOUBLE: std::ffi::c_int = 5;
+    pub const NODE: std::ffi::c_int = 6;
+    pub const NODE_ARRAY: std::ffi::c_int = 7;
+    pub const NODE_MAP: std::ffi::c_int = 8;
+    pub const BYTE_ARRAY: std::ffi::c_int = 9;
+}
+
+pub(crate) mod end_reason {
+    pub const EOF: std::ffi::c_int = 0;
+    pub const ERROR: std::ffi::c_int = 4;
+}
+
+pub(crate) mod render_param {
+    pub const INVALID: std::ffi::c_int = 0;
+    pub const API_TYPE: std::ffi::c_int = 1;
+    pub const OPENGL_INIT_PARAMS: std::ffi::c_int = 2;
+    pub const OPENGL_FBO: std::ffi::c_int = 3;
+    pub const FLIP_Y: std::ffi::c_int = 4;
+    pub const ICC_PROFILE: std::ffi::c_int = 6;
+}
+
 #[repr(C)]
 pub struct Event {
     pub id: c_int,
@@ -67,7 +106,7 @@ impl Node {
 
     /// Copies a screenshot-raw reply while its command event still owns the node.
     pub unsafe fn copy_rgba_frame(&self) -> Result<riina_core::CapturedFrame, String> {
-        let list = if self.format == 8 {
+        let list = if self.format == format::NODE_MAP {
             // SAFETY: MPV_FORMAT_NODE_MAP selects the list arm of this live reply.
             unsafe { self.value.list }
         } else {
@@ -100,19 +139,19 @@ impl Node {
             // SAFETY: every listed node is readable until the next wait_event call.
             let value = unsafe { &*list.values.add(index) };
             match key {
-                b"w" if value.format == 4 => {
+                b"w" if value.format == format::INT64 => {
                     // SAFETY: the width node is live and tagged MPV_FORMAT_INT64.
                     width = Some(unsafe { value.value.integer });
                 }
-                b"h" if value.format == 4 => {
+                b"h" if value.format == format::INT64 => {
                     // SAFETY: the height node is live and tagged MPV_FORMAT_INT64.
                     height = Some(unsafe { value.value.integer });
                 }
-                b"stride" if value.format == 4 => {
+                b"stride" if value.format == format::INT64 => {
                     // SAFETY: the stride node is live and tagged MPV_FORMAT_INT64.
                     stride = Some(unsafe { value.value.integer });
                 }
-                b"format" if value.format == 1 => {
+                b"format" if value.format == format::STRING => {
                     // SAFETY: MPV_FORMAT_STRING selects the string arm of the live node.
                     let text = unsafe { value.value.string };
                     if !text.is_null() {
@@ -120,7 +159,7 @@ impl Node {
                         format = Some(unsafe { CStr::from_ptr(text) }.to_bytes());
                     }
                 }
-                b"data" if value.format == 9 => {
+                b"data" if value.format == format::BYTE_ARRAY => {
                     // SAFETY: MPV_FORMAT_BYTE_ARRAY selects this pointer arm.
                     let array = unsafe { value.value.byte_array };
                     if !array.is_null() {
@@ -160,27 +199,28 @@ impl Node {
         // SAFETY: caller provides a live mpv node; each union access follows its tag.
         unsafe {
             Ok(match self.format {
-                0 => Value::Null,
-                1 if !self.value.string.is_null() => Value::String(
+                format::NONE => Value::Null,
+                format::STRING if !self.value.string.is_null() => Value::String(
                     CStr::from_ptr(self.value.string)
                         .to_string_lossy()
                         .into_owned(),
                 ),
-                3 => Value::Bool(self.value.flag != 0),
-                4 => Value::Number(self.value.integer.into()),
-                5 => serde_json::Number::from_f64(self.value.double)
+                format::FLAG => Value::Bool(self.value.flag != 0),
+                format::INT64 => Value::Number(self.value.integer.into()),
+                format::DOUBLE => serde_json::Number::from_f64(self.value.double)
                     .map(Value::Number)
                     // A native VO can publish 0/0 aspect/par in its color-only
                     // target parameters. Preserve that as unknown, not a clock
                     // value or a playback failure. Command validation stays strict.
                     .unwrap_or(Value::Null),
-                7 | 8 if !self.value.list.is_null() => {
+                format::NODE_ARRAY | format::NODE_MAP if !self.value.list.is_null() => {
                     let list = &*self.value.list;
                     if !(0..=100_000).contains(&list.count) {
                         return Err("Invalid mpv node count".into());
                     }
                     if list.count > 0
-                        && (list.values.is_null() || (self.format == 8 && list.keys.is_null()))
+                        && (list.values.is_null()
+                            || (self.format == format::NODE_MAP && list.keys.is_null()))
                     {
                         return Err("Missing mpv node storage".into());
                     }
@@ -188,7 +228,7 @@ impl Node {
                     let mut map = serde_json::Map::new();
                     for index in 0..list.count as usize {
                         let value = (&*list.values.add(index)).copy_json_at(depth + 1)?;
-                        if self.format == 7 {
+                        if self.format == format::NODE_ARRAY {
                             array.push(value);
                         } else {
                             let key = *list.keys.add(index);
@@ -198,7 +238,7 @@ impl Node {
                             map.insert(CStr::from_ptr(key).to_string_lossy().into_owned(), value);
                         }
                     }
-                    if self.format == 7 {
+                    if self.format == format::NODE_ARRAY {
                         Value::Array(array)
                     } else {
                         Value::Object(map)
@@ -228,7 +268,7 @@ pub struct Param {
 impl Param {
     pub fn end() -> Self {
         Self {
-            kind: 0,
+            kind: render_param::INVALID,
             data: std::ptr::null_mut(),
         }
     }
@@ -392,27 +432,27 @@ mod raw_frame_tests {
         let values = [
             Node {
                 value: NodeValue { integer: 2 },
-                format: 4,
+                format: format::INT64,
             },
             Node {
                 value: NodeValue { integer: 1 },
-                format: 4,
+                format: format::INT64,
             },
             Node {
                 value: NodeValue { integer: 8 },
-                format: 4,
+                format: format::INT64,
             },
             Node {
                 value: NodeValue {
                     string: format.as_ptr(),
                 },
-                format: 1,
+                format: format::STRING,
             },
             Node {
                 value: NodeValue {
                     byte_array: &byte_array,
                 },
-                format: 9,
+                format: format::BYTE_ARRAY,
             },
         ];
         let list = NodeList {
@@ -422,7 +462,7 @@ mod raw_frame_tests {
         };
         let result = Node {
             value: NodeValue { list: &list },
-            format: 8,
+            format: format::NODE_MAP,
         };
 
         // SAFETY: all map keys, values, and pixel storage outlive the copy.
@@ -498,7 +538,7 @@ mod tests {
         for double in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             let node = Node {
                 value: NodeValue { double },
-                format: 5,
+                format: format::DOUBLE,
             };
             // SAFETY: this local node contains an active double, just as a
             // color-only native target's undefined aspect-ratio property does.
@@ -524,7 +564,7 @@ mod tests {
         };
         let node = Node {
             value: NodeValue { list: &list },
-            format: 7,
+            format: format::NODE_ARRAY,
         };
         // SAFETY: list remains live; zero entries permit null values in client.h.
         assert_eq!(unsafe { node.copy_json() }.unwrap(), serde_json::json!([]));
