@@ -1,61 +1,73 @@
 """Keep cheap validation on both fresh and reused native artifact paths."""
-from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
+from workflow_reader import action_step, named_step, workflow
 
 
 class PackageWorkflowTests(unittest.TestCase):
+    def setUp(self):
+        self.release = workflow("release.yml")["jobs"]
+        self.package = self.release["windows-package"]
+
     def test_exact_candidate_runs_packaging_tests_before_artifact_download(self):
-        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        package = source.split("\n  windows-package:", 1)[1].split("\n  publish:", 1)[0]
-        tests = package.index("python -m unittest discover")
-        self.assertLess(tests, package.index("uses: actions/download-artifact@"))
-        self.assertNotIn("if:", package[package.rfind("- name:", 0, tests):tests])
+        tests = named_step(self.package, "Packaging regressions for the exact selected source")
+        steps = self.package["steps"]
+        downloads = [step for step in steps if step.get("uses", "").startswith("actions/download-artifact@")]
+        self.assertTrue(downloads)
+        for download in downloads:
+            self.assertLess(steps.index(tests), steps.index(download))
+        self.assertIn("python -m unittest discover", tests["run"])
+        self.assertNotIn("if", tests)
 
     def test_packaging_tests_run_on_pull_requests_without_native_compilation(self):
-        source = (ROOT / ".github/workflows/package-checks.yml").read_text(encoding="utf-8")
-        self.assertIn("  pull_request:", source)
-        self.assertIn("python -m unittest discover", source)
-        self.assertNotIn("needs:", source)
+        checks = workflow("package-checks.yml")
+        self.assertIn("pull_request", checks["on"])
+        package = checks["jobs"]["packaging"]
+        self.assertNotIn("needs", package)
+        tests = named_step(package, "Portable package, license and workflow regressions")
+        self.assertIn("python -m unittest discover", tests["run"])
 
     def test_release_checks_the_extracted_application_in_addition_to_engine(self):
-        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        self.assertIn("smoke-windows-package.ps1 -Executable (Resolve-Path package-smoke/riina.exe).Path", source)
-        self.assertIn("playback_pause_seek_stop_failure_and_shutdown", source)
+        gui = named_step(self.package, "Exercise the extracted application and native controls")
+        self.assertIn("smoke-windows-package.ps1 -Executable (Resolve-Path package-smoke/riina.exe).Path", gui["run"])
+        build = named_step(self.package, "Build and assemble portable package")
+        self.assertIn("playback_pause_seek_stop_failure_and_shutdown", build["run"])
+        self.assertIn("--ignored --exact", build["run"])
 
     def test_failed_gui_candidates_retain_output_without_enabling_publication(self):
-        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        package = source.split("\n  windows-package:", 1)[1].split("\n  package-verification:", 1)[0]
-        evidence = package.split("- name: Preserve application smoke evidence", 1)[1]
-        self.assertIn("if: always()", evidence)
+        evidence = named_step(self.package, "Preserve application smoke evidence")
+        self.assertEqual(evidence["if"], "always()")
         for name in ("riina-gui-smoke.json.stderr.log", "riina-gui-smoke.json.stdout.log"):
-            self.assertIn(name, evidence)
-        archive = evidence.split("name: windows-package", 1)[0]
-        self.assertIn("if: always() && steps.package-build.outcome == 'success'", archive)
-        verification = source.split("\n  package-verification:", 1)[1].split("\n  publish:", 1)[0]
-        self.assertIn("needs.windows-package.result == 'success'", verification)
-        publication = source.split("\n  publish:", 1)[1]
-        self.assertIn("needs.package-verification.result == 'success'", publication)
-        self.assertIn("inputs.publish_release", publication)
+            self.assertIn(name, evidence["with"]["path"])
+        archive = action_step(self.package, "actions/upload-artifact", name="windows-package")
+        self.assertEqual(archive["if"], "always() && steps.package-build.outcome == 'success'")
+        verification = self.release["package-verification"]
+        self.assertIn("windows-package", verification["needs"])
+        self.assertIn("needs.windows-package.result == 'success'", verification["if"])
+        publication = self.release["publish"]
+        self.assertIn("package-verification", publication["needs"])
+        self.assertIn("needs.package-verification.result == 'success'", publication["if"])
+        self.assertIn("inputs.publish_release", publication["if"])
 
     def test_successful_compiler_outputs_survive_later_gui_failure(self):
-        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        package = source.split("\n  windows-package:", 1)[1].split("\n  package-verification:", 1)[0]
-        self.assertIn("id: rust-cache", package)
-        self.assertIn("uses: actions/cache/restore@", package)
-        save = package.split("- name: Preserve successful compiler outputs", 1)[1]
-        self.assertIn("if: always() && steps.package-build.outcome == 'success'", save)
-        self.assertIn("uses: actions/cache/save@", save)
-        self.assertIn("key: ${{ steps.rust-cache.outputs.cache-primary-key }}", save)
+        restore = named_step(self.package, "Restore Rust dependency and compiler outputs")
+        self.assertEqual(restore["id"], "rust-cache")
+        self.assertTrue(restore["uses"].startswith("actions/cache/restore@"))
+        save = named_step(self.package, "Preserve successful compiler outputs even after a GUI failure")
+        self.assertIn("always() && steps.package-build.outcome == 'success'", save["if"])
+        self.assertTrue(save["uses"].startswith("actions/cache/save@"))
+        self.assertEqual(save["with"]["key"], "${{ steps.rust-cache.outputs.cache-primary-key }}")
 
     def test_installer_is_checked_before_package_publication(self):
-        source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        self.assertLess(source.index("smoke-windows-installer.ps1"), source.index("\n  package-verification:"))
-        audit = source.split("\n  package-verification:", 1)[1].split("\n  publish:", 1)[0]
-        self.assertIn("scripts/check-windows-installer.py", audit)
+        smoke = named_step(self.package, "Verify installed application, reinstall and uninstall")
+        self.assertIn("smoke-windows-installer.ps1", smoke["run"])
+        verification = self.release["package-verification"]
+        self.assertIn("windows-package", verification["needs"])
+        audit = named_step(verification, "Audit exact extracted binary and corresponding source")
+        self.assertIn("scripts/check-windows-installer.py", audit["run"])
+        publish = named_step(self.release["publish"], "Publish release with binary and source access information")
         for name in ("INSTALLER-VERIFICATION.json", "INSTALLER-SMOKE.json", "windows-x86_64-setup.exe"):
-            self.assertIn(name, source.split("\n  publish:", 1)[1])
+            self.assertIn(name, publish["run"])
 
 
 if __name__ == "__main__":

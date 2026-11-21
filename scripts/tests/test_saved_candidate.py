@@ -8,6 +8,8 @@ import shutil
 import tarfile
 import tempfile
 import unittest
+
+from workflow_reader import action_step, named_step, workflow
 from unittest.mock import patch
 
 
@@ -129,17 +131,29 @@ class CiGraphicsTests(unittest.TestCase):
 
 class ReverificationWorkflowTests(unittest.TestCase):
     def test_reverification_has_no_build_and_publishes_only_after_smoke(self):
-        root = Path(__file__).resolve().parents[2]
-        source = (root / ".github/workflows/verify-windows-package.yml").read_text()
-        self.assertNotIn("cargo build", source)
-        self.assertNotIn("build-windows.sh", source)
-        self.assertIn("steps.candidate.outputs.source_sha", source)
-        self.assertIn("steps.candidate.outputs.artifact_id", source)
-        self.assertIn("--source candidate-source", source)
-        self.assertLess(source.index("check-release-artifacts.py package"), source.index("prepare-windows-ci-graphics.py"))
-        self.assertLess(source.index("smoke-windows-package.ps1"), source.index("name: verified-release-assets"))
-        self.assertNotIn("if: always()", source.split("- name: Preserve verified original release assets", 1)[1])
-        self.assertNotIn("release create", source)
+        job = workflow("verify-windows-package.yml")["jobs"]["verify"]
+        steps = job["steps"]
+        for step in steps:
+            run = step.get("run", "")
+            self.assertNotIn("cargo build", run)
+            self.assertNotIn("build-windows.sh", run)
+            self.assertNotIn("release create", run)
+        checkout = action_step(job, "actions/checkout", path="candidate-source")
+        self.assertEqual(checkout["with"]["ref"], "${{ steps.candidate.outputs.source_sha }}")
+        download = action_step(job, "actions/download-artifact")
+        self.assertEqual(download["with"]["artifact-ids"], "${{ steps.candidate.outputs.artifact_id }}")
+        audit = named_step(job, "Verify original archive and exact corresponding source")
+        self.assertIn("check-release-artifacts.py package", audit["run"])
+        self.assertIn("--source candidate-source", audit["run"])
+        graphics = named_step(job, "Supply software OpenGL for the hosted test only")
+        self.assertIn("prepare-windows-ci-graphics.py", graphics["run"])
+        self.assertLess(steps.index(audit), steps.index(graphics))
+        smoke = named_step(job, "Exercise the unchanged application binary")
+        self.assertIn("smoke-windows-package.ps1", smoke["run"])
+        assets = named_step(job, "Preserve verified original release assets")
+        self.assertEqual(assets["with"]["name"], "verified-release-assets")
+        self.assertLess(steps.index(smoke), steps.index(assets))
+        self.assertNotIn("always()", assets.get("if", ""))
 
 
 if __name__ == "__main__":
