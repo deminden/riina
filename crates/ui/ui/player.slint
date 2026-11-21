@@ -1,3 +1,5 @@
+import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
+import { PlayerSidebarFrame } from "player-sidebar-frame.slint";
 import { PlayerTitleBar } from "player-title-bar.slint";
 import { PlayerEntryDialogs } from "player-entry-dialogs.slint";
 import { VideoQuickSettingsPage } from "quick-settings-video.slint";
@@ -13,7 +15,6 @@ import { CatalogSidebarRow, PlaylistInteraction } from "playlist-sidebar-row.sli
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
 import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
-import { SidebarTab, SidebarSectionTitle } from "player-sidebar-controls.slint";
 import { PlaylistSortButton, TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
@@ -21,11 +22,10 @@ import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
 import { Tool } from "player-tool.slint";
 import { MusicModeWindowActions } from "music-mode-controls.slint";
-import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 export { CatalogRow, CatalogSelection } from "catalog-row.slint";
-import { ScrollView, ComboBox, Button, Palette } from "std-widgets.slint";
-import { NativeTypography, PlayerSlider } from "shared-controls.slint";
+import { Palette } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
 import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 import { MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-video.slint";
@@ -1088,7 +1088,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 root.window-level-toggle-requested(value);
             }
         }
-        for side in [0, 1] : Rectangle {
+        for side in [0, 1] : sidebar-frame := PlayerSidebarFrame {
             // Each side owns its selected pane; catalog callbacks retain their original kind.
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
             private property <bool> quick-settings-pane:
@@ -1116,54 +1116,24 @@ export component PlayerWindow inherits PlayerMenuWindow {
             animate x { duration: root.animations-disabled || reduce-motion-fade ? 0ms : 240ms; }
             opacity: !reduce-motion-fade || sidebar-open ? 1 : 0;
             animate opacity { duration: reduce-motion-fade ? 240ms : 0ms; }
-            clip: true;
-            border-radius: root.windows-sidebar-material-active ? 12px : 0px;
-            border-width: root.windows-sidebar-material-active ? 1px : 0px;
-            border-color: root.dark-theme ? #ffffff20 : #00000020;
-            // The transparent Windows host would otherwise reveal the desktop
-            // during the video-sample startup gap or after a stale frame expires.
-            background: root.active-liquid-glass-sidebar
-                ? (root.platform-windows && !root.video-material-sample-ready
-                    ? (root.dark-theme ? #151519 : #f2f2f2)
-                    : root.dark-theme
-                    // REF-24 keeps about 53% of flat-video linear luminance.
-                    // The un-carded Windows sidebar measured 54.2% at 28%
-                    // tint and 49.1% at 32%; interpolate to 29% here.
-                    ? (root.platform-macos ? #1515156b : root.platform-windows ? #1515154A : root.native-video ? #15151599 : #151515b0)
-                    : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
-                : (root.dark-theme ? #151519 : #f2f2f2);
             y: root.title-row-height + (root.osc-position == 1 ? root.osc-height : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
                 (root.osc-position == 1 ? root.osc-height : root.osc-position == 2 ? root.osc-height / 2 : 0px);
-            if root.active-liquid-glass-sidebar &&
-                (!root.platform-windows || root.video-material-sample-ready) : sidebar-video-sample := Image {
-                source: root.video-blurred-frame;
-                x: video-inset-leading - parent.x;
-                y: video-inset-top - parent.y;
-                width: root.render-width;
-                height: root.render-height;
-                opacity: root.sidebar-material-sample-opacity;
-                image-fit: contain;
-            }
-            // A light material needs its tint above the sampled video. Drawing
-            // the sample over that tint made labels depend on the movie's color.
-            if root.windows-sidebar-material-active && !root.dark-theme &&
-                root.video-material-sample-ready : sidebar-light-tint := Rectangle {
-                width: parent.width; height: parent.height;
-                background: #f2f2f2c8;
-            }
-            // Track row height and None entry follow SidebarTrackSelector.swift.
-            // Saved widths are independent; opening clamps to 80% without overwriting intent.
-            // Playlist/chapters default leading; settings default trailing.
-            // REF-21 supplies Layout and tab-header insets; live Windows Acrylic
-            // pixels still need a matched capture before material tuning is closed.
-            // Unhandled input belongs to this panel, not the video behind it.
-            // In particular, a wheel at a scroll boundary must not change volume.
-            TouchArea {
-                clicked => { root.activity(); }
-                scroll-event(event) => { return accept; }
-            }
+            active-liquid-glass-sidebar: root.active-liquid-glass-sidebar;
+            dark-theme: root.dark-theme;
+            native-video: root.native-video;
+            platform-macos: root.platform-macos;
+            platform-windows: root.platform-windows;
+            render-height: root.render-height;
+            render-width: root.render-width;
+            sidebar-material-sample-opacity: root.sidebar-material-sample-opacity;
+            video-blurred-frame: root.video-blurred-frame;
+            video-inset-leading: root.video-inset-leading;
+            video-inset-top: root.video-inset-top;
+            video-material-sample-ready: root.video-material-sample-ready;
+            windows-sidebar-material-active: root.windows-sidebar-material-active;
+            activity => { root.activity(); }
             scroll-memory := SidebarScrollMemory {}
             sidebar-content := VerticalLayout {
                 // IINA's tab row uses 10-point side margins; card widths are
@@ -1175,65 +1145,31 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 width: parent.width;
                 spacing: root.compact-ui ? 6px : 8px;
                 cross-axis-alignment: pane-kind == 1 ? center : start;
-                HorizontalLayout {
+                PlayerSidebarTabs {
                     width: parent.width - 2px * (quick-settings-pane ? 10 : root.compact-ui ? 9 : 12);
-                    alignment: space-between;
-                    if side == 1 : Tool { accent-color: root.interactive-accent-color;
-                        dark-theme: root.dark-theme;
-                        circular: true;
-                        circular-size: root.compact-ui ? 28px : 36px;
-                        windows-acrylic-surface: root.windows-sidebar-material-active;
-                        icon: @image-url("../../../assets/icons/chevron-forward.svg");
-                        hint: "Close sidebar";
-                        activated => {
-                            keys.focus();
-                            if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
-                        }
+                    leading: side == 0;
+                    pane-kind: sidebar-frame.pane-kind;
+                    expanded-tab-labels: sidebar-frame.expanded-tab-labels;
+                    compact-ui: root.compact-ui;
+                    dark-theme: root.dark-theme;
+                    interactive-accent-color: root.interactive-accent-color;
+                    platform-windows: root.platform-windows;
+                    plugin-sidebar-identifiers: root.plugin-sidebar-identifiers;
+                    plugin-sidebar-labels: root.plugin-sidebar-labels;
+                    plugin-sidebar-selected-index: root.plugin-sidebar-selected-index;
+                    quick-settings-tab-selected-fill: root.quick-settings-tab-selected-fill;
+                    quick-settings-tab-selected-foreground: root.quick-settings-tab-selected-foreground;
+                    windows-accent-color: root.windows-accent-color;
+                    windows-accent-foreground: root.windows-accent-foreground;
+                    windows-sidebar-material-active: root.windows-sidebar-material-active;
+                    close-pane => {
+                        // Retire focus before hiding a pane so later shortcuts reach the player.
+                        keys.focus();
+                        if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
                     }
-                    // Tabs switch the visible pane without closing it or changing catalog tokens.
-                    if pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6 : QuickSettingsTabs {
-                        selected-pane: pane-kind;
-                        show-label: expanded-tab-labels;
-                        dark-theme: root.dark-theme;
-                        accent-color: root.quick-settings-tab-selected-fill;
-                        accent-foreground: root.quick-settings-tab-selected-foreground;
-                        focus-accent-color: root.interactive-accent-color;
-                        chosen(pane) => { root.select-settings-pane(pane); }
-                    }
-                    if pane-kind == 3 || pane-kind == 4 : HorizontalLayout {
-                        spacing: 4px;
-                        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Playlist"; selected: pane-kind == 4;
-                            activated => { root.select-playlist-pane(4); } }
-                        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Chapters"; selected: pane-kind == 3;
-                            activated => { root.select-playlist-pane(3); } }
-                    }
-                    if pane-kind == 7 : HorizontalLayout {
-                        Text { text: "Plugins"; color: root.dark-theme ? #dddddd : #29292d;
-                            font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                        if root.plugin-sidebar-labels.length > 0 : ComboBox {
-                            horizontal-stretch: 1;
-                            height: 24px;
-                            model: root.plugin-sidebar-labels;
-                            current-index: max(0, root.plugin-sidebar-selected-index);
-                            selected => {
-                                if self.current-index >= 0 && self.current-index < root.plugin-sidebar-identifiers.length {
-                                    root.select-plugin-sidebar-tab(root.plugin-sidebar-identifiers[self.current-index]);
-                                }
-                            }
-                        }
-                    }
-                    if side == 0 : Tool { accent-color: root.interactive-accent-color;
-                        dark-theme: root.dark-theme;
-                        circular: true;
-                        circular-size: root.compact-ui ? 28px : 36px;
-                        windows-acrylic-surface: root.windows-sidebar-material-active;
-                        icon: @image-url("../../../assets/icons/chevron-backward.svg");
-                        hint: "Close sidebar";
-                        activated => {
-                            // Retire focus before hiding a pane so later shortcuts reach the player.
-                            keys.focus();
-                            if side == 0 { root.leading-sidebar = 0; } else { root.sidebar = 0; }
-                        } }
+                    select-settings-pane(pane) => { root.select-settings-pane(pane); }
+                    select-playlist-pane(pane) => { root.select-playlist-pane(pane); }
+                    select-plugin-sidebar-tab(id) => { root.select-plugin-sidebar-tab(id); }
                 }
                 if pane-kind == 5 : layout-scroll := LayoutSidebarPage {
                     width: parent.width - 20px;

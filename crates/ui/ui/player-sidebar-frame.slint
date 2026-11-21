@@ -1,0 +1,62 @@
+export component PlayerSidebarFrame inherits Rectangle {
+    in property <bool> active-liquid-glass-sidebar;
+    in property <bool> dark-theme;
+    in property <bool> native-video;
+    in property <bool> platform-macos;
+    in property <bool> platform-windows;
+    in property <length> render-height;
+    in property <length> render-width;
+    in property <float> sidebar-material-sample-opacity;
+    in property <image> video-blurred-frame;
+    in property <length> video-inset-leading;
+    in property <length> video-inset-top;
+    in property <bool> video-material-sample-ready;
+    in property <bool> windows-sidebar-material-active;
+    callback activity();
+
+    clip: true;
+    border-radius: root.windows-sidebar-material-active ? 12px : 0px;
+    border-width: root.windows-sidebar-material-active ? 1px : 0px;
+    border-color: root.dark-theme ? #ffffff20 : #00000020;
+    // The transparent Windows host would otherwise reveal the desktop
+    // during the video-sample startup gap or after a stale frame expires.
+    background: root.active-liquid-glass-sidebar
+        ? (root.platform-windows && !root.video-material-sample-ready
+            ? (root.dark-theme ? #151519 : #f2f2f2)
+            : root.dark-theme
+            // REF-24 keeps about 53% of flat-video linear luminance.
+            // The un-carded Windows sidebar measured 54.2% at 28%
+            // tint and 49.1% at 32%; interpolate to 29% here.
+            ? (root.platform-macos ? #1515156b : root.platform-windows ? #1515154A : root.native-video ? #15151599 : #151515b0)
+            : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
+        : (root.dark-theme ? #151519 : #f2f2f2);
+    if root.active-liquid-glass-sidebar &&
+        (!root.platform-windows || root.video-material-sample-ready) : sidebar-video-sample := Image {
+        source: root.video-blurred-frame;
+        x: root.video-inset-leading - parent.x;
+        y: root.video-inset-top - parent.y;
+        width: root.render-width;
+        height: root.render-height;
+        opacity: root.sidebar-material-sample-opacity;
+        image-fit: contain;
+    }
+    // A light material needs its tint above the sampled video. Drawing
+    // the sample over that tint made labels depend on the movie's color.
+    if root.windows-sidebar-material-active && !root.dark-theme &&
+        root.video-material-sample-ready : sidebar-light-tint := Rectangle {
+        width: parent.width; height: parent.height;
+        background: #f2f2f2c8;
+    }
+    // Track row height and None entry follow SidebarTrackSelector.swift.
+    // Saved widths are independent; opening clamps to 80% without overwriting intent.
+    // Playlist/chapters default leading; settings default trailing.
+    // REF-21 supplies Layout and tab-header insets; live Windows Acrylic
+    // pixels still need a matched capture before material tuning is closed.
+    // Unhandled input belongs to this panel, not the video behind it.
+    // In particular, a wheel at a scroll boundary must not change volume.
+    TouchArea {
+        clicked => { root.activity(); }
+        scroll-event(event) => { return accept; }
+    }
+    @children
+}

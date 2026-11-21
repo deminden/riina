@@ -19,6 +19,8 @@ NETWORK_SOURCE = (ROOT / "crates/ui/ui/preferences-network.slint").read_text(enc
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read_text(encoding="utf-8")
 PLAYER_TITLE_SOURCE = (ROOT / "crates/ui/ui/player-title-bar.slint").read_text(encoding="utf-8")
+SIDEBAR_FRAME_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-frame.slint").read_text(encoding="utf-8")
+SIDEBAR_TABS_SOURCE = (ROOT / "crates/ui/ui/player-sidebar-tabs.slint").read_text(encoding="utf-8")
 PLAYER_OSD_SOURCE = (ROOT / "crates/ui/ui/player-osd.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 QUICK_AUDIO_SOURCE = (ROOT / "crates/ui/ui/quick-settings-audio.slint").read_text(encoding="utf-8")
@@ -136,17 +138,22 @@ def main():
         "NetworkSettingsState.network-ytdl-enabled = NetworkSettingsState.network-ytdl-ui-enabled",
     )), "Network must preserve continuous extent, section geometry and extractor ownership rules"
 
-    sidebar_sample = PLAYER_SOURCE.index("sidebar-video-sample := Image")
-    sidebar_tint = PLAYER_SOURCE.index("sidebar-light-tint := Rectangle")
-    sidebar_content = PLAYER_SOURCE.index("sidebar-content := VerticalLayout")
-    assert sidebar_sample < sidebar_tint < sidebar_content, (
+    sidebar_sample = SIDEBAR_FRAME_SOURCE.index("sidebar-video-sample := Image")
+    sidebar_tint = SIDEBAR_FRAME_SOURCE.index("sidebar-light-tint := Rectangle")
+    sidebar_content_slot = SIDEBAR_FRAME_SOURCE.index("@children")
+    assert sidebar_sample < sidebar_tint < sidebar_content_slot and re.search(
+        r"sidebar-frame := PlayerSidebarFrame\s*\{.*?\n\s*sidebar-content := VerticalLayout",
+        PLAYER_SOURCE,
+        re.DOTALL,
+    ), (
         "The light Windows sidebar tint must cover its video sample and stay behind controls"
     )
-    assert "root.windows-sidebar-material-active && !root.dark-theme &&" in PLAYER_SOURCE, (
+    assert "root.windows-sidebar-material-active && !root.dark-theme &&" in SIDEBAR_FRAME_SOURCE, (
         "The light tint must not change dark reference calibration or opaque policy fallback"
     )
     assert (
-        "show-label: expanded-tab-labels;" in PLAYER_SOURCE
+        "expanded-tab-labels: sidebar-frame.expanded-tab-labels;" in PLAYER_SOURCE
+        and "show-label: root.expanded-tab-labels;" in SIDEBAR_TABS_SOURCE
         and QUICK_TABS_SOURCE.count("show-label: root.show-label;") == 4
     ), (
         "Every Quick Settings category must share narrow-window label compression"
@@ -167,8 +174,11 @@ def main():
     assert "content-height: max(self.visible-height, sidebar-page.preferred-height);" in PLAYER_SOURCE, (
         "The shared sidebar scroll extent must include all settings, even in short windows"
     )
-    input_guard = PLAYER_SOURCE.index("Unhandled input belongs to this panel")
-    assert sidebar_tint < input_guard < sidebar_content and "scroll-event(event) => { return accept; }" in PLAYER_SOURCE[input_guard:sidebar_content], (
+    input_guard = SIDEBAR_FRAME_SOURCE.index("Unhandled input belongs to this panel")
+    assert sidebar_tint < input_guard < sidebar_content_slot and (
+        "scroll-event(event) => { return accept; }"
+        in SIDEBAR_FRAME_SOURCE[input_guard:sidebar_content_slot]
+    ), (
         "Unused sidebar input must not fall through to video actions"
     )
     assert "content-width: max(self.visible-width, 300px);" in QUICK_AUDIO_SOURCE, (
