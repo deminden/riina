@@ -1,0 +1,100 @@
+import { Button } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
+
+export component AboutWindow inherits Window {
+    default-font-family: NativeTypography.system-font-family;
+    title: "About Riina";
+    width: 640px;
+    height: 400px;
+    in-out property <bool> acrylic-backdrop-enabled: false;
+    // Keep the native surface alpha-capable from creation; the full-size
+    // content rectangle below supplies the opaque fallback until DWM accepts
+    // Desktop Acrylic.
+    background: transparent;
+    in property <string> version-label: "Version";
+    in property <string> engine-label: "Checking libmpv version…";
+    in property <string> ffmpeg-label: "Checking FFmpeg version…";
+    in property <bool> dark-theme: false;
+    in-out property <int> selected-tab: 0;
+    callback open-license();
+    callback open-project();
+    callback open-contributors();
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: root.acrylic-backdrop-enabled
+            ? transparent
+            : (root.dark-theme ? #242427 : #f5f5f7);
+        HorizontalLayout {
+            spacing: 0px;
+            Rectangle {
+                width: 220px;
+                background: root.acrylic-backdrop-enabled
+                    ? transparent
+                    : (root.dark-theme ? #1d1d20 : #ececef);
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 5px;
+                    Image {
+                        source: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
+                        width: 80px;
+                        height: 80px;
+                        image-fit: contain;
+                    }
+                    Text { text: "Riina"; font-size: 30px; font-weight: 300;
+                        color: root.dark-theme ? #f5f5f7 : #202024; horizontal-alignment: center; }
+                    Text { text: root.version-label; font-size: 12px;
+                        color: root.dark-theme ? #a3a3a8 : #73737a; horizontal-alignment: center; }
+                    Text { text: root.engine-label; font-size: 11px;
+                        color: root.dark-theme ? #a3a3a8 : #73737a; horizontal-alignment: center; }
+                    Text { text: root.ffmpeg-label; font-size: 10px;
+                        color: root.dark-theme ? #a3a3a8 : #73737a; horizontal-alignment: center; }
+                    Rectangle { height: 12px; background: transparent; }
+                    Button { text: "License"; clicked => { root.selected-tab = 0; } }
+                    Button { text: "Contributors"; clicked => { root.selected-tab = 1; } }
+                    Button { text: "Credits"; clicked => { root.selected-tab = 2; } }
+                }
+            }
+            Rectangle {
+                background: root.acrylic-backdrop-enabled
+                    ? transparent
+                    : (root.dark-theme ? #242427 : #f5f5f7);
+                VerticalLayout {
+                    padding: 28px;
+                    spacing: 14px;
+                    if root.selected-tab == 0 : VerticalLayout {
+                        spacing: 14px;
+                        Text { text: "License"; font-size: 20px; font-weight: 600;
+                            color: root.dark-theme ? #f5f5f7 : #202024; }
+                        Text {
+                            text: "Original Riina source is MIT-licensed. The combined application package is distributed under GPLv3.";
+                            font-size: 13px; color: root.dark-theme ? #d0d0d4 : #4b4b50; wrap: word-wrap;
+                        }
+                        Button { text: "View License"; clicked => { root.open-license(); } }
+                    }
+                    if root.selected-tab == 1 : VerticalLayout {
+                        spacing: 14px;
+                        Text { text: "Contributors"; font-size: 20px; font-weight: 600;
+                            color: root.dark-theme ? #f5f5f7 : #202024; }
+                        Text {
+                            text: "See the project contributor graph for the people and accounts that have contributed to Riina.";
+                            font-size: 13px; color: root.dark-theme ? #d0d0d4 : #4b4b50; wrap: word-wrap;
+                        }
+                        Button { text: "View Contributors"; clicked => { root.open-contributors(); } }
+                    }
+                    if root.selected-tab == 2 : VerticalLayout {
+                        spacing: 14px;
+                        Text { text: "Credits"; font-size: 20px; font-weight: 600;
+                            color: root.dark-theme ? #f5f5f7 : #202024; }
+                        Text {
+                            text: "Riina is an independent Rust media player built around libmpv, Slint, and other open-source dependencies.";
+                            font-size: 13px; color: root.dark-theme ? #d0d0d4 : #4b4b50; wrap: word-wrap;
+                        }
+                        Button { text: "Project Website"; clicked => { root.open-project(); } }
+                    }
+                }
+            }
+        }
+    }
+}

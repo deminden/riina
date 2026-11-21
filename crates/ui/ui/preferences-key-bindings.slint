@@ -1,0 +1,145 @@
+
+export struct KeyBindingRow {
+    key: string,
+    action: string,
+    comment: string,
+}
+
+export component KeyBindingActionRow inherits Rectangle {
+    in property <KeyBindingRow> entry;
+    in property <bool> selected: false;
+    in property <int> row-index;
+    in property <int> selected-index: -1;
+    in property <int> row-count: 0;
+    in property <bool> editable: false;
+    callback activated(int);
+    callback edit-requested(int);
+    callback remove-requested(int);
+    key-label-measure := Text { text: root.entry.key; font-size: 12px; visible: false; }
+    private property <length> keycap-width: min(160px, max(48px, key-label-measure.preferred-width + 14px));
+    height: 32px;
+    background: root.selected ? #e5edf7 : touch.has-hover ? #ffffff : transparent;
+    accessible-role: list-item;
+    accessible-label: root.entry.action + ", " + root.entry.key;
+    accessible-action-default => { root.activated(root.row-index); }
+    Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: #eeeeef; }
+    Text { x: 12px; y: 0; width: max(0px, parent.width - root.keycap-width - 32px); height: parent.height;
+        text: root.entry.action; font-size: 12px; color: #29292d;
+        vertical-alignment: center; overflow: elide; }
+    Rectangle { x: parent.width - root.keycap-width - 10px; y: 4px; width: root.keycap-width; height: 24px;
+        border-radius: 5px; border-width: 1px; border-color: #e1e1e5; background: #ffffff; }
+    Text { x: parent.width - root.keycap-width - 6px; y: 4px; width: root.keycap-width - 8px; height: 24px;
+        text: root.entry.key; font-size: 12px; color: #29292d;
+        horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+    if focus.has-focus : Rectangle {
+        width: parent.width; height: parent.height; border-width: 1px;
+        border-color: #90b7ef; border-radius: 3px; background: transparent;
+    }
+    touch := TouchArea {
+        clicked => { focus.focus(); root.activated(root.row-index); }
+        double-clicked => { if root.editable { root.edit-requested(root.row-index); } }
+    }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return && root.selected && root.editable {
+                root.edit-requested(root.row-index); return accept;
+            }
+            if (event.text == Key.Delete || event.text == Key.Backspace) && root.selected && root.editable {
+                root.remove-requested(root.row-index); return accept;
+            }
+            if event.text == Key.DownArrow && root.row-count > 0 {
+                root.activated(min(root.row-count - 1, root.selected-index + 1)); return accept;
+            }
+            if event.text == Key.UpArrow && root.row-count > 0 {
+                root.activated(max(0, root.selected-index - 1)); return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component KeyBindingIconButton inherits FocusScope {
+    in property <string> label;
+    in property <int> icon-kind;
+    callback activated();
+    width: 40px;
+    height: 36px;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { if root.enabled { root.activated(); } }
+    Rectangle { x: 2px; y: 1px; width: parent.width - 4px; height: parent.height - 2px;
+        border-radius: 6px;
+        background: !root.enabled ? transparent : touch.has-hover ? #ededf0 : transparent; }
+    if root.icon-kind == 0 : Rectangle {
+        x: 14px; y: 13px; width: 12px; height: 10px;
+        border-width: 1px; border-color: root.enabled ? #64646a : #a8a8ad; border-radius: 2px;
+        background: transparent;
+        Rectangle { x: -2px; y: -3px; width: 14px; height: 1px; background: root.enabled ? #64646a : #a8a8ad; }
+        Rectangle { x: 2px; y: -6px; width: 6px; height: 2px; background: root.enabled ? #64646a : #a8a8ad; }
+        Rectangle { x: 3px; y: 2px; width: 1px; height: 5px; background: root.enabled ? #8a8a90 : #bcbcc0; }
+        Rectangle { x: 8px; y: 2px; width: 1px; height: 5px; background: root.enabled ? #8a8a90 : #bcbcc0; }
+    }
+    if root.icon-kind == 1 : Image {
+        x: 12px; y: 10px; width: 16px; height: 16px;
+        source: @image-url("../../../assets/icons/keybindings.svg");
+    }
+    if root.icon-kind == 1 : Rectangle {
+        x: 26px; y: 9px; width: 8px; height: 8px;
+        border-radius: 4px; background: #f8f8f8;
+        Rectangle { x: 3px; y: 1px; width: 1px; height: 6px; background: #55555b; }
+        Rectangle { x: 1px; y: 3px; width: 5px; height: 1px; background: #55555b; }
+    }
+    if root.icon-kind == 2 : Rectangle {
+        x: 15px; y: 15px; width: 10px; height: 8px;
+        border-width: 1px; border-color: #64646a; border-radius: 2px;
+        background: transparent;
+        Rectangle { x: 2px; y: -6px; width: 1px; height: 6px; background: #64646a; }
+        Rectangle { x: 7px; y: -6px; width: 1px; height: 6px; background: #64646a; }
+        Rectangle { x: 2px; y: -6px; width: 6px; height: 1px; background: #64646a; }
+        Rectangle { x: 4px; y: 2px; width: 2px; height: 2px; border-radius: 1px; background: #64646a; }
+    }
+    if root.icon-kind == 3 : Image {
+        x: 11px; y: 10px; width: 18px; height: 18px;
+        source: @image-url("../../../assets/icons/config-directory.svg");
+    }
+    if root.icon-kind == 3 : Rectangle {
+        x: 25px; y: 18px; width: 11px; height: 11px; border-radius: 6px;
+        background: #f8f8f8;
+        Rectangle { x: 5px; y: 2px; width: 1px; height: 7px; background: #64646a; }
+        Rectangle { x: 2px; y: 5px; width: 7px; height: 1px; background: #64646a; }
+    }
+    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if root.enabled && (event.text == Key.Return || event.text == " ") {
+                root.activated(); return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export component KeyBindingProfileMenuItem inherits FocusScope {
+    in property <string> label;
+    callback activated();
+    width: 184px;
+    height: 30px;
+    Rectangle {
+        x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
+        border-radius: 5px; background: touch.has-hover ? #e9e9ec : transparent;
+    }
+    Text {
+        x: 12px; width: parent.width - 24px; height: parent.height;
+        text: root.label; font-size: 11px; color: #29292d; vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.activated(); } }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space { root.activated(); return accept; }
+        return reject;
+    }
+}
+
+// Native toolkit button padding can consume a 24px chooser's entire label.
+// Keep this small reference control explicit, including keyboard activation.

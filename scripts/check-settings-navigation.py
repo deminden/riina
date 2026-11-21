@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "crates/ui/ui/preferences.slint").read_text(encoding="utf-8")
+CONTROLS_SOURCE = (ROOT / "crates/ui/ui/preferences-controls.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
@@ -426,8 +427,8 @@ def main():
         and "background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;" in utilities.group(1)
     ), "Utilities should retain the measured content surface with the selected Windows material"
     assert (
-        "x: parent.width - 50px; y: 0; width: 40px; height: parent.height" in SOURCE
-        and "width: 40px; height: 26px; border-radius: 7px" in SOURCE
+        "x: parent.width - 50px; y: 0; width: 40px; height: parent.height" in CONTROLS_SOURCE
+        and "width: 40px; height: 26px; border-radius: 7px" in CONTROLS_SOURCE
     ), "Utilities action pills should match the captured 40 by 26 point target"
     print("Settings routes, scrolling, sidebar compression and action inventories verified.")
 

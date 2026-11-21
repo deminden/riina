@@ -1,0 +1,187 @@
+import { MotionSettings } from "preferences-controls.slint";
+
+export struct PluginPreferencesRow {
+    identifier: string,
+    name: string,
+    version: string,
+    description: string,
+    enabled: bool,
+    runtime-ready: bool,
+}
+
+component PluginEnabledSwitch inherits FocusScope {
+    in-out property <bool> checked: false;
+    in property <bool> switch-enabled: true;
+    in property <string> label: "Plugin enabled";
+    callback toggled(bool);
+    width: 36px;
+    height: 18px;
+    accessible-role: switch;
+    accessible-label: root.label;
+    accessible-value: root.checked ? "On" : "Off";
+    accessible-action-default => { if root.switch-enabled { root.checked = !root.checked; root.toggled(root.checked); } }
+    Rectangle {
+        x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px;
+        border-radius: 9px;
+        background: root.checked ? #1684f8 : #d6d6d9;
+        animate background { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
+    }
+    Rectangle {
+        x: root.checked ? parent.width - 17px : 1px; y: 1px; width: 16px; height: 16px;
+        border-radius: 8px; background: #ffffff;
+        drop-shadow-color: #00000033; drop-shadow-blur: 2px; drop-shadow-offset-y: 1px;
+        animate x { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
+    }
+    touch := TouchArea {
+        enabled: root.switch-enabled;
+        clicked => { focus.focus(); root.checked = !root.checked; root.toggled(root.checked); }
+    }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if root.switch-enabled && (event.text == Key.Space || event.text == Key.Return) {
+                root.checked = !root.checked; root.toggled(root.checked); return accept;
+            }
+            return reject;
+        }
+    }
+    if focus.has-focus : Rectangle {
+        x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px;
+        border-width: 1px; border-color: #78a9f5; border-radius: 11px; background: transparent;
+    }
+}
+
+export component PluginPageIconButton inherits FocusScope {
+    in property <int> icon-kind: 0;
+    in property <string> label;
+    callback activated();
+    width: 24px;
+    height: 24px;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.activated(); }
+    Rectangle {
+        x: 1px; y: 1px; width: parent.width - 2px; height: parent.height - 2px;
+        border-radius: 6px;
+        background: touch.has-hover ? #ededf0 : transparent;
+    }
+    if root.icon-kind == 0 : Rectangle {
+        x: 6px; y: 11px; width: 2px; height: 2px; border-radius: 1px; background: #77777d;
+        Rectangle { x: 5px; y: 0px; width: 2px; height: 2px; border-radius: 1px; background: #77777d; }
+        Rectangle { x: 10px; y: 0px; width: 2px; height: 2px; border-radius: 1px; background: #77777d; }
+    }
+    if root.icon-kind == 1 : Rectangle {
+        x: 5px; y: 5px; width: 13px; height: 13px;
+        border-width: 1px; border-color: #85858a; border-radius: 7px; background: transparent;
+        Rectangle { x: 5px; y: 4px; width: 1px; height: 1px; border-radius: 1px; background: #85858a; }
+        Rectangle { x: 5px; y: 7px; width: 1px; height: 4px; border-radius: 1px; background: #85858a; }
+    }
+    if root.icon-kind == 2 : Image {
+        x: 5px; y: 5px; width: 16px; height: 16px;
+        source: @image-url("../../../assets/icons/resume-history.svg");
+        colorize: #85858a; image-fit: contain;
+    }
+    if root.has-focus : Rectangle {
+        border-width: 1px; border-color: #7daaf0; border-radius: 7px; background: transparent;
+    }
+    touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space { root.activated(); return accept; }
+        return reject;
+    }
+}
+
+export component PluginPreferencesRowView inherits Rectangle {
+    in property <PluginPreferencesRow> entry;
+    in property <int> row-index;
+    in property <bool> last-row: false;
+    callback enabled-toggled(int, bool);
+    callback about-requested(int);
+    callback actions-requested(int);
+    pure callback plugin-id-transfer(string) -> data-transfer;
+    pure callback plugin-id-from-transfer(data-transfer) -> string;
+    callback reorder-requested(string, string);
+    height: 60px;
+    background: transparent;
+    drag-area := DragArea {
+        x: 0; y: 0; width: parent.width; height: parent.height;
+        data: root.plugin-id-transfer(root.entry.identifier);
+        allow-move: true;
+    }
+    drop-area := DropArea {
+        x: 0; y: 0; width: parent.width; height: parent.height;
+        can-drop(event) => {
+            root.plugin-id-from-transfer(event.data) != "" ? DragAction.move : DragAction.none
+        }
+        dropped(event) => {
+            root.reorder-requested(root.plugin-id-from-transfer(event.data), root.entry.identifier);
+            return event.proposed-action;
+        }
+    }
+    if drop-area.has-drag : Rectangle {
+        x: 0; y: 0; width: parent.width; height: parent.height;
+        background: #e5edf7;
+    }
+    if !root.last-row : Rectangle {
+        x: 0px; y: parent.height - 1px; width: parent.width; height: 1px;
+        background: #e1e1e1;
+    }
+    PluginEnabledSwitch {
+        x: 16px; y: 12px; checked: root.entry.enabled;
+        switch-enabled: root.entry.runtime-ready;
+        label: root.entry.name + " enabled";
+        toggled(checked) => { root.enabled-toggled(root.row-index, checked); }
+    }
+    Text {
+        x: 61px; y: 10px; width: 94px; height: 20px;
+        text: root.entry.name; font-size: 13px; font-weight: 600; color: #28282c;
+        vertical-alignment: center; overflow: elide;
+    }
+    Text {
+        x: 61px; y: 32px; width: parent.width - 102px; height: 18px;
+        text: root.entry.description; font-size: 11px; color: #75757a;
+        vertical-alignment: center; overflow: elide;
+    }
+    Text {
+        x: 162px; y: 10px; width: 34px; height: 20px;
+        text: root.entry.version; font-size: 10px; color: #96969a;
+        horizontal-alignment: right; vertical-alignment: center;
+    }
+    PluginPageIconButton {
+        x: 196px; y: 8px; icon-kind: 0; label: "Plugin actions";
+        activated => { root.actions-requested(root.row-index); }
+    }
+    PluginPageIconButton {
+        x: parent.width - 34px; y: 28px; icon-kind: 1; label: "Plugin information";
+        activated => { root.about-requested(root.row-index); }
+    }
+}
+
+export component PluginPageActionButton inherits FocusScope {
+    in property <string> label;
+    callback activated();
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.activated(); }
+    width: 120px;
+    height: 27px;
+    Rectangle {
+        width: parent.width; height: parent.height; border-radius: 6px;
+        border-width: 1px; border-color: #dedee1;
+        background: touch.has-hover || root.has-focus ? #e7e7e9 : #e9e9eb;
+    }
+    Text {
+        width: parent.width; height: parent.height; text: root.label;
+        font-size: 11px; color: #252529; horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space { root.activated(); return accept; }
+        return reject;
+    }
+    if root.has-focus : Rectangle {
+        x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px;
+        border-width: 1px; border-color: #7daaf0; border-radius: 8px; background: transparent;
+    }
+}

@@ -1,0 +1,56 @@
+
+export component PreferenceNavItem inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> selected: false;
+    callback activated();
+    height: 36px;
+    horizontal-stretch: 1;
+    border-radius: 5px;
+    background: selected ? #e7e7eb : touch.has-hover ? #ffffffb8 : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { root.activated(); }
+    Image { x: 5px; y: 8px; width: 20px; height: 20px; source: root.icon; }
+    Text { x: 34px; width: parent.width - 42px; height: parent.height;
+        text: root.label; font-size: 13px; font-weight: 600; color: #242428;
+        vertical-alignment: center; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
+
+export component PreferenceSubNavItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback activated();
+    height: 24px;
+    horizontal-stretch: 1;
+    border-radius: 4px;
+    background: selected ? #e7e7eb : touch.has-hover ? #ffffffb8 : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: selected;
+    accessible-action-default => { root.activated(); }
+    Rectangle { x: 1px; y: 8px; width: 6px; height: 6px; border-radius: 3px;
+        background: root.selected ? #7a7a80 : #9a9a9f; }
+    Text { x: 20px; width: parent.width - 24px; height: parent.height;
+        text: root.label; font-size: 11px; font-weight: root.selected ? 600 : 400;
+        color: #55555b; vertical-alignment: center; overflow: elide; }
+    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    focus := FocusScope {
+        width: parent.width; height: parent.height;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
+}
