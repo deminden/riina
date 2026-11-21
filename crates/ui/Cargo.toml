@@ -6,8 +6,8 @@ rust-version.workspace = true
 license.workspace = true
 
 [lib]
-# The app's integration tests exercise these generated widgets. A standalone
-# harness would compile the same UI again to run zero unit tests.
+# The generated library has no unit tests. Its visual integration test
+# renders the same public components the application consumes.
 test = false
 
 [lints]
@@ -18,3 +18,7 @@ slint.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
+i-slint-renderer-software = "=1.18.1"

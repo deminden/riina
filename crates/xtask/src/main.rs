@@ -109,12 +109,14 @@ fn ui(root: &Path) -> Result<(), String> {
         &[
             "test",
             "-p",
+            "riina-ui",
+            "-p",
             "riina",
             "--locked",
             "--test",
-            "quick_settings_input",
-            "--test",
             "headless_visual",
+            "--test",
+            "quick_settings_input",
         ],
     )
 }

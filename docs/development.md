@@ -167,8 +167,10 @@ compiles the generated widgets only for their consumers.
 Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit
 that metadata. Native window/input and physical-display checks remain separate.
-On Windows, `cargo test -p riina --test headless_visual --locked` compares
+On Windows, `cargo test -p riina-ui --test headless_visual --locked` compares
 decoded RGBA pixels with the PNGs under `tests/visual/headless/windows/`.
+The command compiles the generated UI and software renderer without building
+the player executable or the libmpv adapter.
 The software renderer uses a fixed clock and dimensions. The corpus covers
 playing, paused and stopped states, both player themes, all sidebar panes,
 compact and docked controls, Music Mode, on-screen displays, crop geometry,

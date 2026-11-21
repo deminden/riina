@@ -5122,7 +5122,6 @@ dependencies = [
  "glow",
  "gtk",
  "i-slint-backend-testing",
- "i-slint-renderer-software",
  "icu_decimal",
  "icu_experimental",
  "icu_locale",
@@ -5204,6 +5203,8 @@ version = "4.2.1"
 name = "riina-ui"
 version = "4.2.1"
 dependencies = [
+ "i-slint-renderer-software",
+ "image",
  "slint",
  "slint-build",
 ]
