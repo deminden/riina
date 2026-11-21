@@ -14,10 +14,11 @@ fn main() -> ExitCode {
     let result = match arguments.as_slice() {
         [command] if command == "check" => check(&root),
         [command, flag] if command == "check" && flag == "--fast" => fast_check(&root),
+        [command] if command == "ui" => ui(&root),
         [command] if command == "native" => native(&root, None),
         [command, filter] if command == "native" => native(&root, Some(filter)),
         [command] if command == "coverage" => coverage(&root),
-        _ => Err("Usage: cargo xtask {check [--fast]|native [filter]|coverage}".into()),
+        _ => Err("Usage: cargo xtask {check [--fast]|ui|native [filter]|coverage}".into()),
     };
     if let Err(error) = result {
         let _ = writeln!(io::stderr().lock(), "{error}");
@@ -99,6 +100,23 @@ fn fast_check(root: &Path) -> Result<(), String> {
 
 fn core_tests(root: &Path) -> Result<(), String> {
     cargo(root, &["test", "-p", "riina-core", "--locked"])
+}
+
+fn ui(root: &Path) -> Result<(), String> {
+    python(root, &["scripts/check-settings-navigation.py"])?;
+    cargo(
+        root,
+        &[
+            "test",
+            "-p",
+            "riina",
+            "--locked",
+            "--test",
+            "quick_settings_input",
+            "--test",
+            "headless_visual",
+        ],
+    )
 }
 
 fn shared_build_input(path: &Path) -> bool {

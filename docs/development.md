@@ -138,6 +138,10 @@ argument array with `@('xtask', 'check')` for the full gate or
 `@('xtask', 'native')` for native tests. Pass a third argument such as
 `'subtitles::'` to select one native group.
 
+Run `cargo xtask ui` or `./scripts/dev.ps1 -CargoArguments @('xtask', 'ui')`
+for Slint changes. It checks Settings navigation and runs the headless widget
+tests and Windows pixel comparisons in one Cargo invocation.
+
 `cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned
 toolchain's `llvm-tools` component are installed, it runs the workspace tests
 and reports coverage by crate plus the ten largest uncovered function bodies.
