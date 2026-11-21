@@ -63,7 +63,11 @@ def dependency_packages(metadata, root_name="riina"):
         visited.add(package_id)
         node = nodes.get(package_id)
         if node is not None:
-            pending.extend(dependency["pkg"] for dependency in node["deps"])
+            for dependency in node["deps"]:
+                kinds = dependency.get("dep_kinds")
+                if kinds and all(kind["kind"] == "dev" for kind in kinds):
+                    continue
+                pending.append(dependency["pkg"])
     return [packages[package_id] for package_id in sorted(visited)]
 
 

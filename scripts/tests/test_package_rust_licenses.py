@@ -13,6 +13,31 @@ SPEC.loader.exec_module(LICENSES)
 
 
 class LicenseSelectionTests(unittest.TestCase):
+
+    def test_binary_inventory_excludes_test_only_dependencies_at_every_depth(self):
+        def edge(package, *kinds):
+            return {"pkg": package, "dep_kinds": [{"kind": kind, "target": None} for kind in kinds]}
+
+        package_names = {
+            "app": "riina",
+            "core": "riina-core",
+            "test": "riina-test-support",
+            "generated": "proptest",
+            "build": "generator",
+            "shared": "shared-metadata",
+        }
+        metadata = {
+            "workspace_members": ["app", "core", "test"],
+            "packages": [{"id": key, "name": name} for key, name in package_names.items()],
+            "resolve": {"nodes": [
+                {"id": "app", "deps": [edge("core", None), edge("test", "dev"), edge("build", "dev", "build")]},
+                {"id": "core", "deps": [edge("generated", "dev"), edge("shared", None)]},
+                {"id": "test", "deps": [edge("generated", None), edge("shared", None)]},
+            ]},
+        }
+        included = {package["name"] for package in LICENSES.dependency_packages(metadata)}
+        self.assertEqual(included, {"riina", "riina-core", "generator", "shared-metadata"})
+
     def test_inventory_is_identical_across_host_newline_and_path_ordering(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
