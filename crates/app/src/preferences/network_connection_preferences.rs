@@ -1,6 +1,27 @@
 //! Bind the source-matched Network pane to validated persisted settings.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::PreferencesWindow;
+use riina_core::Preferences;
 use riina_core::network_preferences::{Connection, RtspTransport};
+
+impl PreferenceSection for Connection {
+    fn get(all: &Preferences) -> Self {
+        all.network.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.network = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+}
 
 pub(crate) fn transport_index(transport: RtspTransport) -> i32 {
     match transport {

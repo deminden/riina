@@ -258,7 +258,8 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_network) = read_or_refresh(
-            crate::network_connection_preferences::current_window(&window),
+            riina_core::network_preferences::Connection::read_window(&window)
+                .map_err(SectionError::into_message),
             &app,
             &window,
         ) else {
@@ -659,7 +660,6 @@ fn connect_with_credentials(
                 subtitle_font: subtitle_font.clone(),
                 subtitle_font_size,
                 subtitle_text_style: desired_text_style,
-                network: selected_network,
                 audio: selected_audio,
                 hdr_tone_mapping: selected_tone_mapping.clone(),
                 video_threads: selected_video_threads,
@@ -669,6 +669,7 @@ fn connect_with_credentials(
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_network.put(&mut preferences);
             selected_advanced.put(&mut preferences);
             selected_auto_load.clone().put(&mut preferences);
             selected_subtitle_other.clone().put(&mut preferences);
