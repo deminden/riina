@@ -2,7 +2,7 @@
 use super::{
     bindings::Bindings, builtins::mappings_for, keys::recorded_key, menus::menu_shortcut_rows,
 };
-use crate::PlayerWindow;
+use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
 use slint::{ComponentHandle, ModelRc, VecModel};
 use std::sync::Arc;
@@ -12,9 +12,7 @@ pub(crate) fn install_player(
     settings: &Settings,
     latest_playback: Arc<std::sync::Mutex<riina_core::Playback>>,
 ) {
-    app.set_key_binding_current_profile(settings.current_profile.clone().into());
-    app.set_key_binding_use_system_media_controls(settings.use_system_media_controls);
-    app.set_key_binding_display_raw_values(settings.display_raw_values);
+    settings.write_player(app);
     let mappings = match mappings_for(&settings.current_profile) {
         Ok(mappings) => mappings,
         Err(error) => {

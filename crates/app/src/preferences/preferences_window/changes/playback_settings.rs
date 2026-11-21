@@ -88,7 +88,7 @@ impl Draft {
             window,
         )?;
         let key_bindings = read_or_refresh(
-            crate::key_binding_preferences::current_window(window),
+            key_bindings::Settings::read_window(window).map_err(SectionError::into_message),
             app,
             window,
         )?;
@@ -174,7 +174,7 @@ impl Draft {
     pub(super) fn put(&self, preferences: &mut Preferences) {
         self.audio.clone().put(preferences);
         preferences.video_threads = self.video_threads;
-        preferences.key_bindings = self.key_bindings.clone();
+        self.key_bindings.clone().put(preferences);
         self.tone_mapping.clone().put(preferences);
         self.network.clone().put(preferences);
         self.advanced.clone().put(preferences);
