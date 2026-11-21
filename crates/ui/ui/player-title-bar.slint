@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { TopmostPin } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
 
@@ -24,13 +25,8 @@ export component PlayerTitleBar inherits Rectangle {
     callback toggle-playlist-pane(int);
     callback toggle-fullscreen();
 
-    background: root.active-liquid-glass-osc
-        ? (root.dark-theme
-            // Match REF-20's measured controller luminance over the
-            // flat pattern while keeping Windows' sampled-video blur.
-            ? (root.platform-windows ? #15151528 : root.native-video ? #15151599 : #151515b0)
-            : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
-        : (root.dark-theme ? #151519 : #f2f2f2);
+    background: Theme.title-bar-surface(
+        root.dark-theme, root.active-liquid-glass-osc, root.platform-windows, root.native-video);
     if root.active-liquid-glass-osc : Image {
         source: root.video-blurred-frame;
         x: root.video-inset-leading - parent.x;
@@ -46,7 +42,7 @@ export component PlayerTitleBar inherits Rectangle {
         HorizontalLayout { width: parent.width; height: parent.height;
             padding-left: 12px; padding-right: 12px;
             Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: root.engine-ready; activated => { root.open-file(); } }
-            Text { text: root.media-title; color: root.dark-theme ? #dddddd : #29292d; font-size: 12px;
+            Text { text: root.media-title; color: Theme.title-bar-text(root.dark-theme); font-size: 12px;
                 horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
             if root.always-float-on-top || root.always-show-on-top-icon : TopmostPin {
                 dark-theme: root.dark-theme;

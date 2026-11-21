@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 export component PlayerSidebarFrame inherits Rectangle {
     in property <bool> active-liquid-glass-sidebar;
     in property <bool> dark-theme;
@@ -17,19 +18,12 @@ export component PlayerSidebarFrame inherits Rectangle {
     clip: true;
     border-radius: root.windows-sidebar-material-active ? 12px : 0px;
     border-width: root.windows-sidebar-material-active ? 1px : 0px;
-    border-color: root.dark-theme ? #ffffff20 : #00000020;
+    border-color: Theme.sidebar-material-border(root.dark-theme);
     // The transparent Windows host would otherwise reveal the desktop
     // during the video-sample startup gap or after a stale frame expires.
-    background: root.active-liquid-glass-sidebar
-        ? (root.platform-windows && !root.video-material-sample-ready
-            ? (root.dark-theme ? #151519 : #f2f2f2)
-            : root.dark-theme
-            // REF-24 keeps about 53% of flat-video linear luminance.
-            // The un-carded Windows sidebar measured 54.2% at 28%
-            // tint and 49.1% at 32%; interpolate to 29% here.
-            ? (root.platform-macos ? #1515156b : root.platform-windows ? #1515154A : root.native-video ? #15151599 : #151515b0)
-            : (root.platform-windows ? #f2f2f2c8 : root.native-video ? #f2f2f2c8 : #f2f2f2ed))
-        : (root.dark-theme ? #151519 : #f2f2f2);
+    background: Theme.sidebar-frame-surface(
+        root.dark-theme, root.active-liquid-glass-sidebar, root.platform-macos,
+        root.platform-windows, root.native-video, root.video-material-sample-ready);
     if root.active-liquid-glass-sidebar &&
         (!root.platform-windows || root.video-material-sample-ready) : sidebar-video-sample := Image {
         source: root.video-blurred-frame;
@@ -45,7 +39,7 @@ export component PlayerSidebarFrame inherits Rectangle {
     if root.windows-sidebar-material-active && !root.dark-theme &&
         root.video-material-sample-ready : sidebar-light-tint := Rectangle {
         width: parent.width; height: parent.height;
-        background: #f2f2f2c8;
+        background: Theme.sidebar-light-tint;
     }
     // Track row height and None entry follow SidebarTrackSelector.swift.
     // Saved widths are independent; opening clamps to 80% without overwriting intent.

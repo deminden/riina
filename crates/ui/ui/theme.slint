@@ -119,4 +119,38 @@ export global Theme {
     public pure function sidebar-empty-caption(dark: bool) -> color {
         return dark ? #aaaaaa : #66666b;
     }
+
+    out property <color> sidebar-light-tint: #f2f2f2c8;
+    out property <color> sidebar-catalog-accent: #0a84ff;
+    out property <color> sidebar-catalog-accent-text: #ffffff;
+
+    public pure function title-bar-text(dark: bool) -> color {
+        return dark ? #dddddd : #29292d;
+    }
+
+    public pure function title-bar-surface(dark: bool, material: bool, windows: bool, native-video: bool) -> color {
+        return material
+            // Use REF-20's measured controller luminance for the sampled-video title surface.
+            ? (dark ? (windows ? #15151528 : native-video ? #15151599 : #151515b0)
+                    : (windows || native-video ? #f2f2f2c8 : #f2f2f2ed))
+            : (dark ? #151519 : #f2f2f2);
+    }
+
+    public pure function sidebar-material-border(dark: bool) -> color {
+        return dark ? #ffffff20 : #00000020;
+    }
+
+    public pure function sidebar-frame-surface(
+        dark: bool, material: bool, macos: bool, windows: bool, native-video: bool, sample-ready: bool
+    ) -> color {
+        return material
+            ? (windows && !sample-ready
+                ? (dark ? #151519 : #f2f2f2)
+                // REF-24 keeps about 53% of flat-video linear luminance. The Windows
+                // sidebar measured 54.2% at 28% tint and 49.1% at 32%, giving 29%.
+                : dark
+                    ? (macos ? #1515156b : windows ? #1515154a : native-video ? #15151599 : #151515b0)
+                    : (windows || native-video ? #f2f2f2c8 : #f2f2f2ed))
+            : (dark ? #151519 : #f2f2f2);
+    }
 }

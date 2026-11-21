@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { ComboBox } from "std-widgets.slint";
 import { SidebarTab } from "player-sidebar-controls.slint";
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
@@ -46,13 +47,13 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
     }
     if root.pane-kind == 3 || root.pane-kind == 4 : HorizontalLayout {
         spacing: 4px;
-        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Playlist"; selected: root.pane-kind == 4;
+        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Playlist"; selected: root.pane-kind == 4;
             activated => { root.select-playlist-pane(4); } }
-        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff; accent-foreground: root.platform-windows ? root.windows-accent-foreground : #ffffff; focus-accent-color: root.interactive-accent-color; label: "Chapters"; selected: root.pane-kind == 3;
+        SidebarTab { min-width: 76px; dark-theme: root.dark-theme; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Chapters"; selected: root.pane-kind == 3;
             activated => { root.select-playlist-pane(3); } }
     }
     if root.pane-kind == 7 : HorizontalLayout {
-        Text { text: "Plugins"; color: root.dark-theme ? #dddddd : #29292d;
+        Text { text: "Plugins"; color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 12px; font-weight: 700; vertical-alignment: center; }
         if root.plugin-sidebar-labels.length > 0 : ComboBox {
             horizontal-stretch: 1;
