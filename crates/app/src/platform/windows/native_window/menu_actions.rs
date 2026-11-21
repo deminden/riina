@@ -16,11 +16,14 @@ macro_rules! forward {
     };
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
+    install_application_actions(host, app);
+    install_audio_actions(host, app);
+    install_subtitle_actions(host, app);
+    install_video_window_actions(host, app);
+}
+
+fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_open_media_file, || {
         app.invoke_open_file();
     });
@@ -117,6 +120,9 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_show_plugins_panel, || {
         app.invoke_toggle_plugins_pane();
     });
+}
+
+fn install_audio_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_cycle_audio_tracks, || {
         app.invoke_cycle_audio_track();
     });
@@ -144,6 +150,9 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_reset_audio_delay, || {
         app.invoke_reset_audio_delay();
     });
+}
+
+fn install_subtitle_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_cycle_subtitles, || {
         app.invoke_cycle_subtitle_track();
     });
@@ -189,6 +198,9 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_choose_subtitle_font, || {
         app.invoke_choose_subtitle_font();
     });
+}
+
+fn install_video_window_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_cycle_video_track, || {
         app.invoke_cycle_video_track();
     });

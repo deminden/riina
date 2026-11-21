@@ -1,8 +1,8 @@
 //! The framed owner reads menu state from the controls immediately before opening.
 #[cfg(test)]
 mod tests;
-use crate::{NativeVideoHost, PlayerWindow};
-use slint::{ComponentHandle, Model};
+use crate::{CatalogRow, MenuCatalogRow, NativeVideoHost, PlayerWindow};
+use slint::{ComponentHandle, Model, ModelRc};
 use std::{cell::Cell, rc::Rc};
 
 pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
@@ -36,10 +36,6 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     app.invoke_video_menu_changed();
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     let settings_pane = if app.get_settings_at_leading() {
         app.get_leading_sidebar()
@@ -99,57 +95,29 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_menu_alternates_visible(app.get_menu_alternates_visible());
     host.set_playback_muted(app.global::<riina_ui::PlaybackAudioState>().get_muted());
     host.set_loop_label(app.get_loop_label());
-    let playlist_rows = app.get_playlist();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_playlist(),
         &host.get_playlist_menu_rows(),
-        (0..playlist_rows.row_count())
-            .filter_map(|index| playlist_rows.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.playing,
-            })
-            .collect::<Vec<_>>(),
+        |row| row.playing,
         |rows| host.set_playlist_menu_rows(rows),
     );
     host.set_audio_device_menu_rows(app.get_audio_device_menu_rows());
-    let audio_rows = app.get_audio_tracks();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_audio_tracks(),
         &host.get_audio_track_menu_rows(),
-        (0..audio_rows.row_count())
-            .filter_map(|index| audio_rows.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.selected,
-            })
-            .collect(),
+        |row| row.selected,
         |rows| host.set_audio_track_menu_rows(rows),
     );
-    let chapter_rows = app.get_chapters();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_chapters(),
         &host.get_chapter_menu_rows(),
-        (0..chapter_rows.row_count())
-            .filter_map(|index| chapter_rows.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.selected,
-            })
-            .collect::<Vec<_>>(),
+        |row| row.selected,
         |rows| host.set_chapter_menu_rows(rows),
     );
-    let video_rows = app.get_video_tracks();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_video_tracks(),
         &host.get_video_track_menu_rows(),
-        (0..video_rows.row_count())
-            .filter_map(|index| video_rows.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.selected,
-            })
-            .collect::<Vec<_>>(),
+        |row| row.selected,
         |rows| host.set_video_track_menu_rows(rows),
     );
     host.set_subtitle_visible(app.get_subtitle_visible());
@@ -157,43 +125,22 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_secondary_subtitle_visibility_known(app.get_secondary_subtitle_visibility_known());
     host.set_subtitle_scale_known(app.get_subtitle_scale_known());
     host.set_subtitle_default_encoding(app.get_subtitle_default_encoding());
-    let subtitle_rows = app.get_subtitle_tracks();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_subtitle_tracks(),
         &host.get_subtitle_track_menu_rows(),
-        (0..subtitle_rows.row_count())
-            .filter_map(|index| subtitle_rows.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.selected,
-            })
-            .collect::<Vec<_>>(),
+        |row| row.selected,
         |rows| host.set_subtitle_track_menu_rows(rows),
     );
-    let secondary_subtitle_rows = app.get_secondary_subtitle_tracks();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_secondary_subtitle_tracks(),
         &host.get_secondary_subtitle_menu_rows(),
-        (0..secondary_subtitle_rows.row_count())
-            .filter_map(|index| secondary_subtitle_rows.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.selected,
-            })
-            .collect::<Vec<_>>(),
+        |row| row.selected,
         |rows| host.set_secondary_subtitle_menu_rows(rows),
     );
-    let subtitle_encodings = app.get_subtitle_encoding_options();
-    crate::ui_models::set_rows_if_changed(
+    sync_catalog_rows(
+        app.get_subtitle_encoding_options(),
         &host.get_subtitle_encoding_menu_rows(),
-        (0..subtitle_encodings.row_count())
-            .filter_map(|index| subtitle_encodings.row_data(index))
-            .map(|row| crate::MenuCatalogRow {
-                token: row.token,
-                label: row.label,
-                selected: row.selected,
-            })
-            .collect::<Vec<_>>(),
+        |row| row.selected,
         |rows| host.set_subtitle_encoding_menu_rows(rows),
     );
     host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
@@ -206,4 +153,21 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_picture_in_picture_available(
         app.get_loaded() && app.get_video_width() > 0.0 && !app.get_crop_editing(),
     );
+}
+
+fn sync_catalog_rows(
+    source: ModelRc<CatalogRow>,
+    current: &ModelRc<MenuCatalogRow>,
+    selected: impl Fn(&CatalogRow) -> bool,
+    publish: impl FnOnce(ModelRc<MenuCatalogRow>),
+) {
+    let rows = (0..source.row_count())
+        .filter_map(|index| source.row_data(index))
+        .map(|row| MenuCatalogRow {
+            selected: selected(&row),
+            token: row.token,
+            label: row.label,
+        })
+        .collect();
+    crate::ui_models::set_rows_if_changed(current, rows, publish);
 }
