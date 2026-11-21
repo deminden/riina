@@ -9,6 +9,8 @@ use crate::{
     PlayerWindow, crop_editor::Editor, platform, screenshot_output::Scratch, video_osd::VideoOsd,
 };
 use riina_core::{Command, audio_equalizer};
+use riina_ui::PlayerMenuActions;
+use slint::ComponentHandle;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -45,7 +47,12 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     video_controls::install_deinterlace(app, command_sender);
     transport::install_pause(app, context);
     input::install_mpv_input_action(app, context);
-    bind!(context, app, on_toggle_mute, Command::ToggleMute);
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_toggle_mute,
+        Command::ToggleMute
+    );
     let hdr_player = command_sender.clone();
     hdr_output::install(app, move |command| hdr_player.send(command));
     transport::install_stop_and_steps(app, context);
@@ -59,17 +66,22 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     video_controls::install(app, command_sender);
     bind!(
         context,
-        app,
+        app.global::<PlayerMenuActions>(),
         on_reset_subtitle_delay,
         Command::SubtitleDelay(0.0)
     );
     audio_controls::install(app, command_sender, audio_equalizer.clone());
     subtitle_controls::install(app, command_sender);
-    bind!(context, app, on_reset_audio_delay, Command::AudioDelay(0.0));
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_reset_audio_delay,
+        Command::AudioDelay(0.0)
+    );
     transport::install_loops(app, context);
     bind!(
         context,
-        app,
+        app.global::<PlayerMenuActions>(),
         on_toggle_secondary_subtitle_visibility,
         Command::ToggleSecondarySubtitleVisibility
     );
@@ -77,7 +89,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     audio_controls::install_audio_device(app, command_sender, context.playback());
     bind!(
         context,
-        app,
+        app.global::<PlayerMenuActions>(),
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility
     );

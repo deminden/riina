@@ -2,6 +2,7 @@ use crate::{PlaybackHistoryRow, PlaybackHistoryWindow, PlayerWindow};
 use chrono::{Local, TimeZone};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use riina_core::{RecentMedia, playback_history::Entry};
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::{Cell, RefCell},
@@ -58,60 +59,61 @@ pub(crate) fn install(
     let show_history_sync = history_sync.clone();
     let show_collapsed_groups = collapsed_groups.clone();
 
-    app.on_show_playback_history(move || {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let window = if let Some(window) = show_slot.borrow().as_ref() {
-            window.clone_strong()
-        } else {
-            let window = match PlaybackHistoryWindow::new() {
-                Ok(window) => window,
-                Err(error) => {
-                    app.set_status(format!("Could not open Playback History: {error}").into());
-                    return;
-                }
+    app.global::<PlayerMenuActions>()
+        .on_show_playback_history(move || {
+            let Some(app) = weak_app.upgrade() else {
+                return;
             };
-            crate::appearance_preferences::install_system_typography(&window);
-            connect_window(
-                &app,
-                &window,
-                WindowConnection {
-                    history: show_history.clone(),
-                    player: show_player.clone(),
-                    preferences_path: show_preferences_path.clone(),
-                    history_cleared: show_history_cleared.clone(),
-                    history_sync: show_history_sync.clone(),
-                    collapsed_groups: show_collapsed_groups.clone(),
-                },
-            );
-            crate::platform::center_auxiliary_window(&window, &app);
-            *show_slot.borrow_mut() = Some(window.clone_strong());
-            window
-        };
-        refresh(&window, &show_history, &show_collapsed_groups);
-        show_last_revision.set(Some(revision(&show_history)));
-        if let Err(error) = window.show() {
-            app.set_status(format!("Could not show Playback History: {error}").into());
-        } else {
-            crate::platform::enable_history_acrylic(&window);
-            let history = show_history.clone();
-            let last_revision = show_last_revision.clone();
-            let collapsed_groups = show_collapsed_groups.clone();
-            super::visible_refresh::start(
-                &window,
-                &show_timer,
-                Duration::from_millis(500),
-                move |window| {
-                    let current_revision = revision(&history);
-                    if last_revision.get() != Some(current_revision) {
-                        refresh(window, &history, &collapsed_groups);
-                        last_revision.set(Some(current_revision));
+            let window = if let Some(window) = show_slot.borrow().as_ref() {
+                window.clone_strong()
+            } else {
+                let window = match PlaybackHistoryWindow::new() {
+                    Ok(window) => window,
+                    Err(error) => {
+                        app.set_status(format!("Could not open Playback History: {error}").into());
+                        return;
                     }
-                },
-            );
-        }
-    });
+                };
+                crate::appearance_preferences::install_system_typography(&window);
+                connect_window(
+                    &app,
+                    &window,
+                    WindowConnection {
+                        history: show_history.clone(),
+                        player: show_player.clone(),
+                        preferences_path: show_preferences_path.clone(),
+                        history_cleared: show_history_cleared.clone(),
+                        history_sync: show_history_sync.clone(),
+                        collapsed_groups: show_collapsed_groups.clone(),
+                    },
+                );
+                crate::platform::center_auxiliary_window(&window, &app);
+                *show_slot.borrow_mut() = Some(window.clone_strong());
+                window
+            };
+            refresh(&window, &show_history, &show_collapsed_groups);
+            show_last_revision.set(Some(revision(&show_history)));
+            if let Err(error) = window.show() {
+                app.set_status(format!("Could not show Playback History: {error}").into());
+            } else {
+                crate::platform::enable_history_acrylic(&window);
+                let history = show_history.clone();
+                let last_revision = show_last_revision.clone();
+                let collapsed_groups = show_collapsed_groups.clone();
+                super::visible_refresh::start(
+                    &window,
+                    &show_timer,
+                    Duration::from_millis(500),
+                    move |window| {
+                        let current_revision = revision(&history);
+                        if last_revision.get() != Some(current_revision) {
+                            refresh(window, &history, &collapsed_groups);
+                            last_revision.set(Some(current_revision));
+                        }
+                    },
+                );
+            }
+        });
 
     Guard {
         _window: slot,

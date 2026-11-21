@@ -2,6 +2,7 @@
 use crate::{NativeVideoHost, PictureInPictureWindow, PlayerWindow};
 use riina_core::{Command, pip_lifecycle, pip_preferences::WindowBehavior};
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::winit_030::winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
@@ -164,13 +165,17 @@ impl Controller {
         }));
 
         let toggle_controller = controller.clone();
-        player.on_toggle_picture_in_picture(move || {
-            toggle(toggle_controller.clone());
-        });
+        player
+            .global::<PlayerMenuActions>()
+            .on_toggle_picture_in_picture(move || {
+                toggle(toggle_controller.clone());
+            });
         let weak_player = player_weak.clone();
         host.on_toggle_picture_in_picture(move || {
             if let Some(player) = weak_player.upgrade() {
-                player.invoke_toggle_picture_in_picture();
+                player
+                    .global::<PlayerMenuActions>()
+                    .invoke_toggle_picture_in_picture();
             }
         });
 

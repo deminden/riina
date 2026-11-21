@@ -2,6 +2,7 @@
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 
 pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
@@ -25,25 +26,26 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
         }
     });
     let weak = app.as_weak();
-    app.on_set_menu_video_aspect(move |index| {
-        let Some(app) = weak.upgrade() else { return };
-        refresh_video_menu(&app);
-        if !app.get_loaded()
-            || !app
-                .global::<riina_ui::PlaybackVideoState>()
-                .get_video_aspect_known()
-            || app.get_crop_editing()
-            || app.get_dialog_open()
-        {
-            return;
-        }
-        if let Some(label) = usize::try_from(index)
-            .ok()
-            .and_then(|index| riina_core::video_controls::ASPECT_MENU_PRESETS.get(index))
-        {
-            app.invoke_set_video_aspect((*label).into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_set_menu_video_aspect(move |index| {
+            let Some(app) = weak.upgrade() else { return };
+            refresh_video_menu(&app);
+            if !app.get_loaded()
+                || !app
+                    .global::<riina_ui::PlaybackVideoState>()
+                    .get_video_aspect_known()
+                || app.get_crop_editing()
+                || app.get_dialog_open()
+            {
+                return;
+            }
+            if let Some(label) = usize::try_from(index)
+                .ok()
+                .and_then(|index| riina_core::video_controls::ASPECT_MENU_PRESETS.get(index))
+            {
+                app.invoke_set_video_aspect((*label).into());
+            }
+        });
     let crop_player = player.clone();
     let crop_ui = app.as_weak();
     app.on_set_video_crop(move |index| {
@@ -73,7 +75,7 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
     });
     let delogo_player = player.clone();
     let weak = app.as_weak();
-    app.on_toggle_delogo(move || {
+    app.global::<PlayerMenuActions>().on_toggle_delogo(move || {
         let Some(app) = weak.upgrade() else { return };
         if !app.get_delogo_enabled() || app.get_crop_editing() || app.get_dialog_open() {
             return;
@@ -89,38 +91,39 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
     });
     let menu_crop_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_menu_video_crop(move |index| {
-        let Some(app) = weak.upgrade() else { return };
-        refresh_video_menu(&app);
-        if !app.get_loaded()
-            || !app
-                .global::<riina_ui::PlaybackVideoState>()
-                .get_video_crop_known()
-            || app.get_crop_editing()
-            || app.get_dialog_open()
-        {
-            return;
-        }
-        if index == riina_core::crop::MENU_CUSTOM_INDEX as i32 {
-            app.invoke_begin_custom_crop();
-            return;
-        }
-        let preset = if index == 0 {
-            None
-        } else if let Some(preset) = usize::try_from(index - 1)
-            .ok()
-            .and_then(|index| riina_core::crop::Preset::MENU_ALL.get(index))
-            .copied()
-        {
-            Some(preset)
-        } else {
-            return;
-        };
-        app.invoke_activity();
-        if let Err(error) = menu_crop_player.send(Command::VideoCrop(preset)) {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_set_menu_video_crop(move |index| {
+            let Some(app) = weak.upgrade() else { return };
+            refresh_video_menu(&app);
+            if !app.get_loaded()
+                || !app
+                    .global::<riina_ui::PlaybackVideoState>()
+                    .get_video_crop_known()
+                || app.get_crop_editing()
+                || app.get_dialog_open()
+            {
+                return;
+            }
+            if index == riina_core::crop::MENU_CUSTOM_INDEX as i32 {
+                app.invoke_begin_custom_crop();
+                return;
+            }
+            let preset = if index == 0 {
+                None
+            } else if let Some(preset) = usize::try_from(index - 1)
+                .ok()
+                .and_then(|index| riina_core::crop::Preset::MENU_ALL.get(index))
+                .copied()
+            {
+                Some(preset)
+            } else {
+                return;
+            };
+            app.invoke_activity();
+            if let Err(error) = menu_crop_player.send(Command::VideoCrop(preset)) {
+                app.set_status(error.into());
+            }
+        });
 }
 
 fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
@@ -139,27 +142,28 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
     });
     let menu_rotation_player = player.clone();
     let weak = app.as_weak();
-    app.on_set_menu_video_rotation(move |degrees| {
-        let Some(app) = weak.upgrade() else { return };
-        refresh_video_menu(&app);
-        if !app.get_loaded()
-            || !app
-                .global::<riina_ui::PlaybackVideoState>()
-                .get_video_rotation_known()
-            || app.get_crop_editing()
-            || app.get_dialog_open()
-        {
-            return;
-        }
-        let Some(rotation) = riina_core::video_controls::Rotation::from_degrees(degrees.into())
-        else {
-            return;
-        };
-        app.invoke_activity();
-        if let Err(error) = menu_rotation_player.send(Command::VideoRotation(rotation)) {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_set_menu_video_rotation(move |degrees| {
+            let Some(app) = weak.upgrade() else { return };
+            refresh_video_menu(&app);
+            if !app.get_loaded()
+                || !app
+                    .global::<riina_ui::PlaybackVideoState>()
+                    .get_video_rotation_known()
+                || app.get_crop_editing()
+                || app.get_dialog_open()
+            {
+                return;
+            }
+            let Some(rotation) = riina_core::video_controls::Rotation::from_degrees(degrees.into())
+            else {
+                return;
+            };
+            app.invoke_activity();
+            if let Err(error) = menu_rotation_player.send(Command::VideoRotation(rotation)) {
+                app.set_status(error.into());
+            }
+        });
     let hardware_player = player.clone();
     let weak = app.as_weak();
     app.on_set_hardware_decoding(move |enabled| {
@@ -222,44 +226,46 @@ pub(super) fn refresh_video_menu(app: &PlayerWindow) {
 pub(super) fn install_reflection(app: &PlayerWindow, player: &CommandSender) {
     let reflection_player = player.clone();
     let weak = app.as_weak();
-    app.on_toggle_video_reflection(move |horizontal| {
-        if let Some(app) = weak.upgrade() {
-            refresh_video_menu(&app);
-            if !app.get_loaded()
-                || !app.get_reflection_known()
-                || app.get_crop_editing()
-                || app.get_dialog_open()
-            {
-                return;
+    app.global::<PlayerMenuActions>()
+        .on_toggle_video_reflection(move |horizontal| {
+            if let Some(app) = weak.upgrade() {
+                refresh_video_menu(&app);
+                if !app.get_loaded()
+                    || !app.get_reflection_known()
+                    || app.get_crop_editing()
+                    || app.get_dialog_open()
+                {
+                    return;
+                }
+                let axis = if horizontal {
+                    riina_core::video_reflection::Axis::Horizontal
+                } else {
+                    riina_core::video_reflection::Axis::Vertical
+                };
+                if let Err(error) = reflection_player.send(Command::ToggleVideoReflection(axis)) {
+                    app.set_status(error.into());
+                }
             }
-            let axis = if horizontal {
-                riina_core::video_reflection::Axis::Horizontal
-            } else {
-                riina_core::video_reflection::Axis::Vertical
-            };
-            if let Err(error) = reflection_player.send(Command::ToggleVideoReflection(axis)) {
-                app.set_status(error.into());
-            }
-        }
-    });
+        });
 }
 
 pub(super) fn install_deinterlace(app: &PlayerWindow, player: &CommandSender) {
     let deinterlace_player = player.clone();
     let weak = app.as_weak();
-    app.on_toggle_deinterlace(move || {
-        let Some(app) = weak.upgrade() else { return };
-        refresh_video_menu(&app);
-        if !app.get_loaded()
-            || !app.get_deinterlace_known()
-            || app.get_crop_editing()
-            || app.get_dialog_open()
-        {
-            return;
-        }
-        app.invoke_activity();
-        if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_toggle_deinterlace(move || {
+            let Some(app) = weak.upgrade() else { return };
+            refresh_video_menu(&app);
+            if !app.get_loaded()
+                || !app.get_deinterlace_known()
+                || app.get_crop_editing()
+                || app.get_dialog_open()
+            {
+                return;
+            }
+            app.invoke_activity();
+            if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
+                app.set_status(error.into());
+            }
+        });
 }

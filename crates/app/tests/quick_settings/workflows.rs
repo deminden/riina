@@ -158,7 +158,8 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     });
     let opened = Rc::new(RefCell::new(Vec::new()));
     let observed = opened.clone();
-    app.on_select_item(move |kind, token| observed.borrow_mut().push((kind, token.to_string())));
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |kind, token| observed.borrow_mut().push((kind, token.to_string())));
     flush();
 
     focus(&app, &button(&app, "Clip 0"));

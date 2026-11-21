@@ -180,7 +180,7 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(target_os = "macos")]
         application_menu_observer.normalize();
         if action_after_launch.open_file_panel(supplied_media_argument) {
-            app.invoke_open_file();
+            app.global::<PlayerMenuActions>().invoke_open_file();
         }
         platform::center_player_window(&app, app.get_initial_window_position_enabled());
     }

@@ -5,6 +5,7 @@ use crate::CatalogSelection;
 use riina_core::TrackKind;
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{io, sync::mpsc::TryRecvError, time::Duration};
 
@@ -157,7 +158,10 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     drop(harness);
 
     let capture = Harness::start(profile.join("capture/preferences.json"), true)?;
-    capture.app.invoke_playlist_next();
+    capture
+        .app
+        .global::<PlayerMenuActions>()
+        .invoke_playlist_next();
     capture.expect(Command::CaptureTransitionFrame);
     capture.publish(Playback {
         generation: 1,
@@ -171,7 +175,10 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     capture.expect(Command::VideoViewport(None));
     i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(80));
     capture.expect(Command::PlaylistNext);
-    capture.app.invoke_close_player();
+    capture
+        .app
+        .global::<PlayerMenuActions>()
+        .invoke_close_player();
     capture.expect(Command::Stop);
     Ok(())
 }
@@ -240,15 +247,15 @@ fn exercise_transport_settings(harness: &Harness) {
     let app = &harness.app;
     app.invoke_set_paused(false);
     harness.expect(Command::SetPaused(false));
-    app.invoke_frame_step();
+    app.global::<PlayerMenuActions>().invoke_frame_step();
     harness.expect(Command::FrameStep);
-    app.invoke_frame_back_step();
+    app.global::<PlayerMenuActions>().invoke_frame_back_step();
     harness.expect(Command::FrameBackStep);
-    app.invoke_adjust_chapter(-1);
+    app.global::<PlayerMenuActions>().invoke_adjust_chapter(-1);
     harness.expect(Command::AdjustChapter(-1));
     app.invoke_subtitle_seek(1);
     harness.expect(Command::SubtitleSeek(1));
-    app.invoke_reset_speed();
+    app.global::<PlayerMenuActions>().invoke_reset_speed();
     harness.expect(Command::Speed(1.0));
     app.invoke_set_speed_slider(16.0);
     harness.expect(Command::Speed(4.0));
@@ -257,9 +264,9 @@ fn exercise_transport_settings(harness: &Harness) {
     assert!(!app.invoke_set_speed_text("invalid".into()));
     assert_eq!(app.get_status(), "Enter a numeric playback speed");
     harness.expect_idle();
-    app.invoke_cycle_ab_loop();
+    app.global::<PlayerMenuActions>().invoke_cycle_ab_loop();
     harness.expect(Command::CycleAbLoop);
-    app.invoke_toggle_file_loop();
+    app.global::<PlayerMenuActions>().invoke_toggle_file_loop();
     harness.expect(Command::ToggleFileLoop);
     app.invoke_execute_mpv_input_action("cycle pause".into());
     harness.expect(Command::MpvInputAction("cycle pause".into()));
@@ -267,16 +274,16 @@ fn exercise_transport_settings(harness: &Harness) {
 
 fn exercise_transport_and_tracks(harness: &Harness) {
     let app = &harness.app;
-    app.invoke_toggle_pause();
+    app.global::<PlayerMenuActions>().invoke_toggle_pause();
     harness.expect(Command::TogglePause);
-    app.invoke_stop();
+    app.global::<PlayerMenuActions>().invoke_stop();
     harness.expect(Command::Stop);
-    app.invoke_seek(17.5);
+    app.global::<PlayerMenuActions>().invoke_seek(17.5);
     harness.expect(Command::Seek {
         seconds: 17.5,
         absolute: true,
     });
-    app.invoke_seek_relative(-5.0);
+    app.global::<PlayerMenuActions>().invoke_seek_relative(-5.0);
     harness.expect(Command::Seek {
         seconds: -5.0,
         absolute: false,
@@ -286,15 +293,17 @@ fn exercise_transport_and_tracks(harness: &Harness) {
         (CatalogSelection::PrimarySubtitle, TrackKind::Sub),
         (CatalogSelection::VideoTrack, TrackKind::Video),
     ] {
-        app.invoke_select_item(category, "9007199254740993".into());
+        app.global::<PlayerMenuActions>()
+            .invoke_select_item(category, "9007199254740993".into());
         harness.expect(Command::SelectTrack {
             kind,
             id: Some(9007199254740993),
         });
     }
-    app.invoke_select_item(CatalogSelection::SecondarySubtitle, "no".into());
+    app.global::<PlayerMenuActions>()
+        .invoke_select_item(CatalogSelection::SecondarySubtitle, "no".into());
     harness.expect(Command::SelectSecondarySubtitle(None));
-    app.invoke_playlist_next();
+    app.global::<PlayerMenuActions>().invoke_playlist_next();
     harness.expect(Command::PlaylistNext);
     app.invoke_set_ab_loop_point(0, 1.25);
     harness.expect_idle();
@@ -304,7 +313,8 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
     let app = &harness.app;
     app.global::<riina_ui::PlaybackTimelineState>()
         .set_position_label("2:05".into());
-    app.invoke_open_jump_time_dialog();
+    app.global::<PlayerMenuActions>()
+        .invoke_open_jump_time_dialog();
     assert!(app.get_jump_time_dialog_visible());
     assert_eq!(app.get_jump_time_draft(), "2:05");
     app.invoke_jump_to_time("invalid".into());
@@ -323,16 +333,16 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
     assert_eq!(app.get_jump_time_error(), "");
 
     app.set_url_dialog_draft("previous".into());
-    app.invoke_open_url_dialog();
+    app.global::<PlayerMenuActions>().invoke_open_url_dialog();
     assert!(app.get_url_dialog_visible());
     assert_eq!(app.get_url_dialog_draft(), "");
     app.set_url_dialog_visible(false);
-    app.invoke_browse_files(-1);
+    app.global::<PlayerMenuActions>().invoke_browse_files(-1);
     harness.expect_idle();
 
-    app.invoke_speed(1.5);
+    app.global::<PlayerMenuActions>().invoke_speed(1.5);
     harness.expect(Command::MultiplySpeed(1.5));
-    app.invoke_adjust_volume(-3.0);
+    app.global::<PlayerMenuActions>().invoke_adjust_volume(-3.0);
     harness.expect(Command::AdjustVolume {
         delta: -3.0,
         boost: false,

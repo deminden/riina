@@ -1,4 +1,5 @@
 use super::*;
+use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc};
 
 fn player(fullscreen: bool) -> PlayerWindow {
@@ -22,7 +23,7 @@ fn rejected_fullscreen_transition_preserves_playback_in_both_directions() {
         let observed = pauses.clone();
         app.on_set_paused(move |paused| observed.borrow_mut().push(paused));
         install_fullscreen(&app, Some(host.as_weak()));
-        app.invoke_toggle_fullscreen();
+        app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert_eq!(app.get_fullscreen(), fullscreen);
         assert!(
             pauses.borrow().is_empty(),
@@ -49,7 +50,7 @@ fn accepted_fullscreen_transition_commits_window_state_before_playback_policy() 
             observed.borrow_mut().push((app.get_fullscreen(), paused));
         });
         install_fullscreen(&app, Some(host.as_weak()));
-        app.invoke_toggle_fullscreen();
+        app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert_eq!(app.get_fullscreen(), !fullscreen);
         assert_eq!(*pauses.borrow(), vec![(!fullscreen, fullscreen)]);
     }
@@ -63,7 +64,7 @@ fn missing_native_owner_cannot_fullscreen_the_controls_popup() {
     let weak = host.as_weak();
     drop(host);
     install_fullscreen(&app, Some(weak));
-    app.invoke_toggle_fullscreen();
+    app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
     assert!(!app.get_fullscreen());
 }
 
@@ -78,7 +79,7 @@ fn fullscreen_preferences_do_not_change_playback_when_disabled_or_unloaded() {
         host.on_set_fullscreen_window(|_| true);
         app.on_set_paused(|_| panic!("Playback policy should be inactive"));
         install_fullscreen(&app, Some(host.as_weak()));
-        app.invoke_toggle_fullscreen();
+        app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert!(app.get_fullscreen());
     }
 }

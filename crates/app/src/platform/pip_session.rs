@@ -13,13 +13,14 @@ impl PictureInPictureSession {
         {
             use slint::ComponentHandle;
             let weak = app.as_weak();
-            app.on_toggle_picture_in_picture(move || {
-                if let Some(app) = weak.upgrade() {
-                    app.set_status(
-                        "Picture-in-Picture is unavailable on this presentation path".into(),
-                    );
-                }
-            });
+            app.global::<PlayerMenuActions>()
+                .on_toggle_picture_in_picture(move || {
+                    if let Some(app) = weak.upgrade() {
+                        app.set_status(
+                            "Picture-in-Picture is unavailable on this presentation path".into(),
+                        );
+                    }
+                });
         }
         #[cfg(target_os = "windows")]
         let _ = app;
@@ -94,18 +95,19 @@ mod macos {
             };
             let weak_app = app.as_weak();
             let toggle_manager = self.manager.clone();
-            app.on_toggle_picture_in_picture(move || {
-                let result = toggle_manager
-                    .borrow_mut()
-                    .as_mut()
-                    .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
-                    .and_then(MacPictureInPicture::toggle);
-                if let Err(error) = result
-                    && let Some(app) = weak_app.upgrade()
-                {
-                    app.set_status(error.into());
-                }
-            });
+            app.global::<PlayerMenuActions>()
+                .on_toggle_picture_in_picture(move || {
+                    let result = toggle_manager
+                        .borrow_mut()
+                        .as_mut()
+                        .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
+                        .and_then(MacPictureInPicture::toggle);
+                    if let Err(error) = result
+                        && let Some(app) = weak_app.upgrade()
+                    {
+                        app.set_status(error.into());
+                    }
+                });
 
             let manager = self.manager.clone();
             let dirty = self.dirty.clone();

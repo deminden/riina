@@ -255,7 +255,8 @@ fn draft_survives_observations_and_escape_restores_latest_without_submission() {
     app.set_fullscreen(true);
     let fullscreen_toggles = Rc::new(std::cell::Cell::new(0));
     let toggles = fullscreen_toggles.clone();
-    app.on_toggle_fullscreen(move || toggles.set(toggles.get() + 1));
+    app.global::<PlayerMenuActions>()
+        .on_toggle_fullscreen(move || toggles.set(toggles.get() + 1));
     let submissions = delay_submissions(&app);
     let input = field(&app, "Audio delay in seconds");
     focus(&app, &input);
@@ -434,10 +435,11 @@ fn tab_leaves_the_category_group_for_the_page_in_one_step() {
     connect_settings_tabs(&app);
     let browsed = Rc::new(std::cell::Cell::new(0));
     let count = browsed.clone();
-    app.on_browse_files(move |pane| {
-        assert_eq!(pane, 1);
-        count.set(count.get() + 1);
-    });
+    app.global::<PlayerMenuActions>()
+        .on_browse_files(move |pane| {
+            assert_eq!(pane, 1);
+            count.set(count.get() + 1);
+        });
     focus(&app, &button(&app, "Audio"));
     key(&app, Key::Tab);
     key(&app, Key::Return);
@@ -822,7 +824,8 @@ fn first_timeline_pointer_press_seeks_instead_of_only_focusing() {
     app.set_controls_visible(true);
     let seeks = Rc::new(RefCell::new(Vec::new()));
     let recorded = seeks.clone();
-    app.on_seek(move |value| recorded.borrow_mut().push(value));
+    app.global::<PlayerMenuActions>()
+        .on_seek(move |value| recorded.borrow_mut().push(value));
     flush();
     focus(&app, &field(&app, "Playback position"));
     assert_eq!(seeks.borrow().len(), 1);

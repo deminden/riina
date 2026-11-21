@@ -1,6 +1,7 @@
 //! Persist a completed resize, never every intermediate drag event.
 use crate::PlayerWindow;
 use riina_core::Preferences;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
@@ -33,25 +34,26 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
     )));
     let weak = app.as_weak();
     let weak_settings = app.as_weak();
-    app.on_toggle_settings_pane(move |kind| {
-        let Some(app) = weak_settings.upgrade() else {
-            return;
-        };
-        app.set_remembered_settings_pane(kind);
-        let destination_leading = app.get_settings_at_leading();
-        let current = if destination_leading {
-            app.get_leading_sidebar()
-        } else {
-            app.get_sidebar()
-        };
-        let next = if current == kind { 0 } else { kind };
-        if destination_leading {
-            app.set_leading_sidebar(next);
-        } else {
-            app.set_sidebar(next);
-        }
-        app.invoke_activity();
-    });
+    app.global::<PlayerMenuActions>()
+        .on_toggle_settings_pane(move |kind| {
+            let Some(app) = weak_settings.upgrade() else {
+                return;
+            };
+            app.set_remembered_settings_pane(kind);
+            let destination_leading = app.get_settings_at_leading();
+            let current = if destination_leading {
+                app.get_leading_sidebar()
+            } else {
+                app.get_sidebar()
+            };
+            let next = if current == kind { 0 } else { kind };
+            if destination_leading {
+                app.set_leading_sidebar(next);
+            } else {
+                app.set_sidebar(next);
+            }
+            app.invoke_activity();
+        });
     let weak_settings = app.as_weak();
     app.on_select_settings_pane(move |kind| {
         let Some(app) = weak_settings.upgrade() else {
@@ -66,24 +68,25 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         }
     });
     let weak_playlist = app.as_weak();
-    app.on_toggle_playlist_pane(move |kind| {
-        let Some(app) = weak_playlist.upgrade() else {
-            return;
-        };
-        app.set_remembered_playlist_pane(kind);
-        let destination_leading = app.get_playlist_at_leading();
-        let current = if destination_leading {
-            app.get_leading_sidebar()
-        } else {
-            app.get_sidebar()
-        };
-        let next = if current == kind { 0 } else { kind };
-        if destination_leading {
-            app.set_leading_sidebar(next);
-        } else {
-            app.set_sidebar(next);
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_toggle_playlist_pane(move |kind| {
+            let Some(app) = weak_playlist.upgrade() else {
+                return;
+            };
+            app.set_remembered_playlist_pane(kind);
+            let destination_leading = app.get_playlist_at_leading();
+            let current = if destination_leading {
+                app.get_leading_sidebar()
+            } else {
+                app.get_sidebar()
+            };
+            let next = if current == kind { 0 } else { kind };
+            if destination_leading {
+                app.set_leading_sidebar(next);
+            } else {
+                app.set_sidebar(next);
+            }
+        });
     let weak_playlist = app.as_weak();
     app.on_select_playlist_pane(move |kind| {
         let Some(app) = weak_playlist.upgrade() else {
@@ -98,18 +101,19 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         }
     });
     let weak_plugins = app.as_weak();
-    app.on_toggle_plugins_pane(move || {
-        let Some(app) = weak_plugins.upgrade() else {
-            return;
-        };
-        if app.get_leading_sidebar() == 7 {
-            app.set_leading_sidebar(0);
-        } else if app.get_sidebar() == 7 {
-            app.set_sidebar(0);
-        } else {
-            show_plugins_panel(&app);
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_toggle_plugins_pane(move || {
+            let Some(app) = weak_plugins.upgrade() else {
+                return;
+            };
+            if app.get_leading_sidebar() == 7 {
+                app.set_leading_sidebar(0);
+            } else if app.get_sidebar() == 7 {
+                app.set_sidebar(0);
+            } else {
+                show_plugins_panel(&app);
+            }
+        });
     app.on_sidebar_resize_finished(move || {
         let Some(app) = weak.upgrade() else { return };
         let widths = (

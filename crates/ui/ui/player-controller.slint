@@ -1,5 +1,8 @@
+import { PlaybackAudioState } from "playback-audio-state.slint";
+import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
+import { PlaybackTimelineState } from "playback-timeline-state.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
 import { Theme } from "theme.slint";
-import { CatalogRow } from "catalog-row.slint";
 import { MusicModeControls } from "music-mode-controls.slint";
 import { ToolbarAction } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
@@ -50,19 +53,11 @@ struct ControllerMaterial {
 }
 
 struct ControllerAudio {
-    has-active-audio-track: bool,
-    muted: bool,
-    volume: float,
     volume-limit: float,
     control-disable-volume-slider-scrolling: bool,
 }
 
 struct ControllerTimeline {
-    seekable: bool,
-    position: float,
-    duration: float,
-    position-label: string,
-    duration-label: string,
     ab-loop-a: float,
     ab-loop-b: float,
     ab-loop-a-known: bool,
@@ -80,7 +75,6 @@ struct ControllerTimeline {
 struct ControllerToolbar {
     toolbar-visible-order: [int],
     loaded: bool,
-    subtitle-tracks: [CatalogRow],
     screenshot-available: bool,
     live-text-available: bool,
     live-text-enabled: bool,
@@ -118,26 +112,11 @@ export component PlayerController inherits Rectangle {
     in-out property <bool> music-mode-volume-open;
     in property <bool> paused;
     callback activity();
-    callback cycle-subtitle-track();
     callback layout-settings-changed();
-    callback playlist-next();
-    callback playlist-previous();
-    callback seek(float);
     callback seek-scroll-action-request(float, float) -> bool;
     callback set-ab-loop-point(int, float);
     callback set-volume(float);
-    callback speed(float);
-    callback take-screenshot();
     callback timeline-hovered(float);
-    callback toggle-fullscreen();
-    callback toggle-live-text();
-    callback toggle-music-mode();
-    callback toggle-mute();
-    callback toggle-pause();
-    callback toggle-picture-in-picture();
-    callback toggle-playlist-pane(int);
-    callback toggle-plugins-pane();
-    callback toggle-settings-pane(int);
     callback volume-scroll-action-request(float, float) -> bool;
 
     clip: true;
@@ -269,18 +248,18 @@ export component PlayerController inherits Rectangle {
             background: transparent;
             if root.music.music-mode : MusicModeControls {
                 y: 4px; width: parent.width;
-                paused: root.paused; muted: root.audio.muted; dark-theme: root.appearance.dark-theme;
+                paused: root.paused; muted: PlaybackAudioState.muted; dark-theme: root.appearance.dark-theme;
                 accent-color: root.appearance.interactive-accent-color;
                 playlist-visible: root.music-mode-show-playlist;
                 artwork-visible: root.music-mode-show-album-art;
                 opacity: root.controls-visible ? 1 : 0;
                 animate opacity { duration: root.appearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
-                pause-requested => { root.toggle-pause(); }
-                previous-requested => { root.playlist-previous(); }
-                next-requested => { root.playlist-next(); }
+                pause-requested => { PlayerMenuActions.toggle-pause(); }
+                previous-requested => { PlayerMenuActions.playlist-previous(); }
+                next-requested => { PlayerMenuActions.playlist-next(); }
                 volume-requested => {
                     if !root.music-mode-volume-open { root.music-mode-volume-open = true; }
-                    else { root.toggle-mute(); }
+                    else { PlayerMenuActions.toggle-mute(); }
                 }
                 playlist-requested => { root.music-mode-show-playlist = !root.music-mode-show-playlist; }
                 artwork-requested => { root.music-mode-show-album-art = !root.music-mode-show-album-art; }
@@ -295,13 +274,13 @@ export component PlayerController inherits Rectangle {
             spacing: root.layout.osc-row-gap;
             if !root.music.music-mode && root.balanced-side-width > 0px : Rectangle {
                 width: root.balanced-side-width; height: root.layout.osc-row-height;
-                if root.side-controls-fit && root.audio.has-active-audio-track : HorizontalLayout {
+                if root.side-controls-fit && PlaybackAudioState.has-active-audio-track : HorizontalLayout {
                     width: 116px; height: root.layout.osc-row-height; spacing: 4px;
                     Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme; height: root.layout.osc-row-height;
-                        icon: root.audio.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
-                        hint: "Mute"; activated => { root.toggle-mute(); } }
+                        icon: PlaybackAudioState.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
+                        hint: "Mute"; activated => { PlayerMenuActions.toggle-mute(); } }
                     PlayerSlider { dark-theme: root.appearance.dark-theme; width: 82px; height: root.layout.osc-row-height;
-                        minimum: 0; maximum: root.audio.volume-limit; value: root.audio.volume; hint: "Volume";
+                        minimum: 0; maximum: root.audio.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
                         scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
                         scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
                         scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
@@ -320,8 +299,8 @@ export component PlayerController inherits Rectangle {
                         : @image-url("../../../assets/icons/speed-down.svg");
                     hint: root.music.music-mode ? "Previous media" : "Half playback speed";
                     activated => {
-                        if root.music.music-mode { root.playlist-previous(); }
-                        else { root.speed(0.5); }
+                        if root.music.music-mode { PlayerMenuActions.playlist-previous(); }
+                        else { PlayerMenuActions.speed(0.5); }
                     }
                 }
                 Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme;
@@ -331,7 +310,7 @@ export component PlayerController inherits Rectangle {
                     // moving the hit target or the symmetric pause bars.
                     icon-optical-offset-x: root.paused ? 2.5px : 0px;
                     icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg"); hint: root.paused ? "Play" : "Pause";
-                    activated => { root.toggle-pause(); } }
+                    activated => { PlayerMenuActions.toggle-pause(); } }
                 if root.layout.transport-neighbor-actions-fit : Tool { accent-color: root.appearance.interactive-accent-color;
                     dark-theme: root.appearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
                     icon: root.music.music-mode
@@ -339,8 +318,8 @@ export component PlayerController inherits Rectangle {
                         : @image-url("../../../assets/icons/speed-up.svg");
                     hint: root.music.music-mode ? "Next media" : "Double playback speed";
                     activated => {
-                        if root.music.music-mode { root.playlist-next(); }
-                        else { root.speed(2); }
+                        if root.music.music-mode { PlayerMenuActions.playlist-next(); }
+                        else { PlayerMenuActions.speed(2); }
                     }
                 }
             }
@@ -357,7 +336,7 @@ export component PlayerController inherits Rectangle {
                 action-height: min(root.toolbar-button-width, root.layout.osc-row-height);
                 height: root.layout.osc-row-height;
                 dark-theme: root.appearance.dark-theme;
-                enabled: (action-kind != 5 || (root.toolbar.loaded && root.toolbar.subtitle-tracks.length > 1)) &&
+                enabled: (action-kind != 5 || (root.toolbar.loaded && PlaybackSubtitleState.subtitle-tracks.length > 1)) &&
                     (action-kind != 6 || root.toolbar.screenshot-available) &&
                     (action-kind != 8 || root.toolbar.live-text-available);
                 selected: action-kind == 0 ? (root.toolbar.sidebar == 1 || root.toolbar.sidebar == 2 || root.toolbar.sidebar == 5 || root.toolbar.sidebar == 6 ||
@@ -375,15 +354,15 @@ export component PlayerController inherits Rectangle {
                     action-kind == 6 ? "Take Screenshot" :
                     action-kind == 7 ? "Show plugins panel" : "Live Text";
                 activated(kind) => {
-                    if kind == 0 { root.toggle-settings-pane(root.toolbar.remembered-settings-pane); }
-                    else if kind == 1 { root.toggle-playlist-pane(root.toolbar.remembered-playlist-pane); }
-                    else if kind == 2 { root.toggle-picture-in-picture(); }
-                    else if kind == 3 { root.toggle-fullscreen(); }
-                    else if kind == 4 { root.toggle-music-mode(); }
-                    else if kind == 5 { root.cycle-subtitle-track(); }
-                    else if kind == 6 { root.take-screenshot(); }
-                    else if kind == 7 { root.toggle-plugins-pane(); }
-                    else if kind == 8 { root.toggle-live-text(); }
+                    if kind == 0 { PlayerMenuActions.toggle-settings-pane(root.toolbar.remembered-settings-pane); }
+                    else if kind == 1 { PlayerMenuActions.toggle-playlist-pane(root.toolbar.remembered-playlist-pane); }
+                    else if kind == 2 { PlayerMenuActions.toggle-picture-in-picture(); }
+                    else if kind == 3 { PlayerMenuActions.toggle-fullscreen(); }
+                    else if kind == 4 { PlayerMenuActions.toggle-music-mode(); }
+                    else if kind == 5 { PlayerMenuActions.cycle-subtitle-track(); }
+                    else if kind == 6 { PlayerMenuActions.take-screenshot(); }
+                    else if kind == 7 { PlayerMenuActions.toggle-plugins-pane(); }
+                    else if kind == 8 { PlayerMenuActions.toggle-live-text(); }
                 }
             }
             }
@@ -422,31 +401,31 @@ export component PlayerController inherits Rectangle {
             spacing: root.layout.osc-timeline-gap;
             Text { visible: root.geometry.window-width >= 150px; min-width: root.music.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: root.music.music-mode ? right : center;
-                text: root.timeline.position-label; color: Theme.controller-time-text(root.appearance.dark-theme);
+                text: PlaybackTimelineState.position-label; color: Theme.controller-time-text(root.appearance.dark-theme);
                 font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
             PlayerSlider { dark-theme: root.appearance.dark-theme; height: root.layout.small-video-controller ? 14px : 13px;
                 knob-width: 3px; knob-height: root.layout.small-video-controller ? 12px : 15px; knob-radius: 1px;
-                scroll-override-enabled: root.timeline.seekable && !root.timeline.control-disable-play-slider-scrolling;
+                scroll-override-enabled: PlaybackTimelineState.seekable && !root.timeline.control-disable-play-slider-scrolling;
                 scroll-disabled: root.timeline.control-disable-play-slider-scrolling;
                 scroll-request(delta-x, delta-y) => { root.seek-scroll-action-request(delta-x, delta-y); }
                 loop-a-visible: root.timeline.ab-loop-a-known; loop-a-value: root.timeline.ab-loop-a;
                 loop-b-visible: root.timeline.ab-loop-b-known; loop-b-value: root.timeline.ab-loop-b;
                 show-chapter-positions: root.timeline.show-chapter-pos; chapter-times: root.timeline.chapter-times;
-                preview-enabled: root.timeline.seekable && root.timeline.thumbnail-preview-enabled;
+                preview-enabled: PlaybackTimelineState.seekable && root.timeline.thumbnail-preview-enabled;
                 preview-image: root.timeline.timeline-thumbnail-image;
                 preview-label: root.timeline.timeline-preview-label; preview-width: root.timeline.thumbnail-preview-width;
                 preview-aspect-ratio: root.timeline.video-display-aspect-ratio > 0 ? root.timeline.video-display-aspect-ratio : 16 / 9;
                 preview-above: root.geometry.osc-position != 1;
-                minimum: 0; maximum: max(1, root.timeline.duration); value: root.timeline.position; enabled: root.timeline.seekable; hint: "Playback position";
+                minimum: 0; maximum: max(1, PlaybackTimelineState.duration); value: PlaybackTimelineState.position; enabled: PlaybackTimelineState.seekable; hint: "Playback position";
                 changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
-                changed(value) => { root.seek(value); }
+                changed(value) => { PlayerMenuActions.seek(value); }
                 loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
                 loop-b-moved(value) => { root.set-ab-loop-point(1, value); }
                 preview-requested(value) => { root.timeline-hovered(value); }
                 preview-dismissed => { root.timeline-hovered(-1); } }
             Text { visible: root.geometry.window-width >= 150px; min-width: root.music.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: root.music.music-mode ? left : center;
-                text: root.timeline.duration-label; color: Theme.controller-time-text(root.appearance.dark-theme);
+                text: PlaybackTimelineState.duration-label; color: Theme.controller-time-text(root.appearance.dark-theme);
                 font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
         }
         }
@@ -459,10 +438,10 @@ export component PlayerController inherits Rectangle {
         HorizontalLayout {
             x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px; spacing: 6px;
             Tool { accent-color: root.appearance.interactive-accent-color; dark-theme: root.appearance.dark-theme; width: 24px; height: 24px;
-                icon: root.audio.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
-                hint: "Mute"; activated => { root.toggle-mute(); } }
+                icon: PlaybackAudioState.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
+                hint: "Mute"; activated => { PlayerMenuActions.toggle-mute(); } }
             PlayerSlider { dark-theme: root.appearance.dark-theme; horizontal-stretch: 1; height: 17px;
-                minimum: 0; maximum: root.audio.volume-limit; value: root.audio.volume; hint: "Volume";
+                minimum: 0; maximum: root.audio.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
                 scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
                 scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
                 scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }

@@ -1,3 +1,4 @@
+use riina_ui::PlayerMenuActions;
 mod preset_editor;
 
 use crate::{PlayerWindow, SavedFilterMenuRow, VideoFilterWindowRow, VideoFiltersWindow};
@@ -115,9 +116,11 @@ fn install_for_kind(
         }
     };
     if is_audio {
-        app.on_toggle_saved_audio_filter(toggle_saved);
+        app.global::<PlayerMenuActions>()
+            .on_toggle_saved_audio_filter(toggle_saved);
     } else {
-        app.on_toggle_saved_video_filter(toggle_saved);
+        app.global::<PlayerMenuActions>()
+            .on_toggle_saved_video_filter(toggle_saved);
     }
 
     let open_weak_app = app.as_weak();
@@ -191,9 +194,11 @@ fn install_for_kind(
         }
     };
     if is_audio {
-        app.on_open_audio_filters(open_filter_window);
+        app.global::<PlayerMenuActions>()
+            .on_open_audio_filters(open_filter_window);
     } else {
-        app.on_open_video_filters(open_filter_window);
+        app.global::<PlayerMenuActions>()
+            .on_open_video_filters(open_filter_window);
     }
 
     FilterWindow {

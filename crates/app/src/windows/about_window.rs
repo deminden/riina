@@ -1,5 +1,6 @@
 use crate::{AboutWindow, PlayerWindow};
 use riina_core::{Phase, Playback};
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
@@ -8,7 +9,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
     let refresh_timer = Rc::new(slint::Timer::default());
     let slot = about_slot.clone();
     let weak_app = app.as_weak();
-    app.on_show_about(move || {
+    app.global::<PlayerMenuActions>().on_show_about(move || {
         let Some(app) = weak_app.upgrade() else {
             return;
         };

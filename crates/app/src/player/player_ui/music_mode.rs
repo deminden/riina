@@ -1,6 +1,7 @@
 //! Integrate Music Mode commands and compact window sizing with the player.
 use crate::{PlayerWindow, music_mode_layout, window_aspect};
 use riina_core::{music_mode::State, sync::lock, window_aspect::PixelSize};
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{
     cell::Cell,
@@ -60,15 +61,16 @@ pub(super) fn install_window_resize(app: &PlayerWindow) {
 pub(super) fn install_actions(app: &PlayerWindow, state: &Arc<Mutex<State>>) {
     let weak = app.as_weak();
     let manual_music_mode = state.clone();
-    app.on_toggle_music_mode(move || {
-        if let Some(app) = weak.upgrade() {
-            let active = lock(&manual_music_mode).toggle_manually();
-            if active && app.get_fullscreen() {
-                app.invoke_toggle_fullscreen();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_music_mode(move || {
+            if let Some(app) = weak.upgrade() {
+                let active = lock(&manual_music_mode).toggle_manually();
+                if active && app.get_fullscreen() {
+                    app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
+                }
+                app.set_music_mode(active);
             }
-            app.set_music_mode(active);
-        }
-    });
+        });
     let automatic_music_mode = state.clone();
     app.on_auto_switch_music_mode_changed(move |enabled| {
         lock(&automatic_music_mode).set_auto_switch(enabled);

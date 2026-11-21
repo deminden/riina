@@ -1,6 +1,7 @@
 //! Use the trackpad's native pressure and pinch phases for player actions.
 use crate::{PlayerWindow, platform};
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::cell::Cell;
 
@@ -97,7 +98,7 @@ pub(super) fn install(
                             if pinch_fullscreen_direction.is_none()
                                 && wants_fullscreen != app.get_fullscreen()
                             {
-                                app.invoke_toggle_fullscreen();
+                                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
                             }
                             pinch_fullscreen_direction = Some(wants_fullscreen);
                         }

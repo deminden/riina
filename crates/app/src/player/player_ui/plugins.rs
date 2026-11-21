@@ -3,6 +3,7 @@ mod effects;
 
 use crate::{PlayerWindow, platform};
 use effects::PluginEffects;
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::Cell,
@@ -126,31 +127,32 @@ fn bind_lifecycle(
 ) {
     let menu_action_host = plugin_host_handle.cloned();
     let menu_action_app = app.as_weak();
-    app.on_activate_plugin_menu_item(move |token| {
-        let Some((identifier, scope_and_id)) = token.as_str().split_once('\u{1f}') else {
-            return;
-        };
-        let Some((scope, item_id)) = scope_and_id.split_once('\u{1f}') else {
-            return;
-        };
-        let global = match scope {
-            "global" => true,
-            "player" => false,
-            _ => return,
-        };
-        let Some(host) = &menu_action_host else {
-            if let Some(app) = menu_action_app.upgrade() {
-                app.set_status("The plugin runtime is unavailable.".into());
+    app.global::<PlayerMenuActions>()
+        .on_activate_plugin_menu_item(move |token| {
+            let Some((identifier, scope_and_id)) = token.as_str().split_once('\u{1f}') else {
+                return;
+            };
+            let Some((scope, item_id)) = scope_and_id.split_once('\u{1f}') else {
+                return;
+            };
+            let global = match scope {
+                "global" => true,
+                "player" => false,
+                _ => return,
+            };
+            let Some(host) = &menu_action_host else {
+                if let Some(app) = menu_action_app.upgrade() {
+                    app.set_status("The plugin runtime is unavailable.".into());
+                }
+                return;
+            };
+            if let Err(error) =
+                host.activate_plugin_menu_item(identifier.into(), global, item_id.into())
+                && let Some(app) = menu_action_app.upgrade()
+            {
+                app.set_status(format!("Could not run plugin menu action: {error}").into());
             }
-            return;
-        };
-        if let Err(error) =
-            host.activate_plugin_menu_item(identifier.into(), global, item_id.into())
-            && let Some(app) = menu_action_app.upgrade()
-        {
-            app.set_status(format!("Could not run plugin menu action: {error}").into());
-        }
-    });
+        });
     let menu_update_host = plugin_host_handle.cloned();
     let menu_update_app = app.as_weak();
     app.on_plugin_menu_will_open(move || {
@@ -165,19 +167,20 @@ fn bind_lifecycle(
     });
     let reload_plugins_host = plugin_host_handle.cloned();
     let reload_plugins_app = app.as_weak();
-    app.on_reload_plugins(move || {
-        let Some(host) = &reload_plugins_host else {
-            if let Some(app) = reload_plugins_app.upgrade() {
-                app.set_status("The plugin runtime is unavailable.".into());
+    app.global::<PlayerMenuActions>()
+        .on_reload_plugins(move || {
+            let Some(host) = &reload_plugins_host else {
+                if let Some(app) = reload_plugins_app.upgrade() {
+                    app.set_status("The plugin runtime is unavailable.".into());
+                }
+                return;
+            };
+            if let Err(error) = host.reload_all()
+                && let Some(app) = reload_plugins_app.upgrade()
+            {
+                app.set_status(format!("Could not reload plugins: {error}").into());
             }
-            return;
-        };
-        if let Err(error) = host.reload_all()
-            && let Some(app) = reload_plugins_app.upgrade()
-        {
-            app.set_status(format!("Could not reload plugins: {error}").into());
-        }
-    });
+        });
     let close_event_sent = Rc::new(Cell::new(false));
     let close_event_sent_once = close_event_sent.clone();
     let close_event_host = plugin_host_handle.cloned();
@@ -484,12 +487,13 @@ fn apply_plugin_window_action(
         }
         WindowAction::SetFullscreen(fullscreen) => {
             if app.get_fullscreen() != fullscreen {
-                app.invoke_toggle_fullscreen();
+                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
             }
         }
         WindowAction::SetPictureInPicture(pip) => {
             if app.get_picture_in_picture_active() != pip {
-                app.invoke_toggle_picture_in_picture();
+                app.global::<PlayerMenuActions>()
+                    .invoke_toggle_picture_in_picture();
             }
         }
         WindowAction::SetOnTop(ontop) => app.set_always_float_on_top(ontop),

@@ -1,3 +1,6 @@
+import { PlayerKeyScope } from "player-key-scope.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+export { PlayerMenuActions } from "player-menu-actions.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 export { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackVideoState } from "playback-video-state.slint";
@@ -150,84 +153,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-video-window-height: root.video-window-height;
     menu-value-video-window-width: root.video-window-width;
     menu-value-volume-menu-title: root.volume-menu-title;
-
-    callback activate-plugin-menu-item <=> root.menu-action-activate-plugin-menu-item;
-    callback adjust-audio-delay <=> root.menu-action-adjust-audio-delay;
-    callback adjust-chapter <=> root.menu-action-adjust-chapter;
-    callback adjust-subtitle-delay <=> root.menu-action-adjust-subtitle-delay;
-    callback adjust-volume <=> root.menu-action-adjust-volume;
-    callback bring-all-to-front <=> root.menu-action-bring-all-to-front;
-    callback browse-files <=> root.menu-action-browse-files;
-    callback choose-subtitle-font <=> root.menu-action-choose-subtitle-font;
-    callback clear-open-recent <=> root.menu-action-clear-open-recent;
-    callback close-player <=> root.menu-action-close-player;
-    callback cycle-ab-loop <=> root.menu-action-cycle-ab-loop;
-    callback cycle-audio-track <=> root.menu-action-cycle-audio-track;
-    callback cycle-subtitle-track <=> root.menu-action-cycle-subtitle-track;
-    callback cycle-video-track <=> root.menu-action-cycle-video-track;
-    callback delete-current-media <=> root.menu-action-delete-current-media;
-    callback dump-debug-info <=> root.menu-action-dump-debug-info;
-    callback find-online-subtitles <=> root.menu-action-find-online-subtitles;
-    callback find-online-subtitles-with-provider <=> root.menu-action-find-online-subtitles-with-provider;
-    callback frame-back-step <=> root.menu-action-frame-back-step;
-    callback frame-step <=> root.menu-action-frame-step;
-    callback hide-riina <=> root.menu-action-hide-riina;
-    callback minimize-window <=> root.menu-action-minimize-window;
-    callback multiply-subtitle-scale <=> root.menu-action-multiply-subtitle-scale;
-    callback open-audio-filters <=> root.menu-action-open-audio-filters;
-    callback open-file <=> root.menu-action-open-file;
-    callback open-help-link <=> root.menu-action-open-help-link;
-    callback open-in-new-window <=> root.menu-action-open-in-new-window;
-    callback open-jump-time-dialog <=> root.menu-action-open-jump-time-dialog;
-    callback open-preferences <=> root.menu-action-open-preferences;
-    callback open-recent-path <=> root.menu-action-open-recent-path;
-    callback open-screenshot-folder <=> root.menu-action-open-screenshot-folder;
-    callback open-url-dialog <=> root.menu-action-open-url-dialog;
-    callback open-video-filters <=> root.menu-action-open-video-filters;
-    callback playlist-action <=> root.menu-action-playlist-action;
-    callback playlist-next <=> root.menu-action-playlist-next;
-    callback playlist-previous <=> root.menu-action-playlist-previous;
-    callback quit-riina <=> root.menu-action-quit-riina;
-    callback reload-plugins <=> root.menu-action-reload-plugins;
-    callback reset-audio-delay <=> root.menu-action-reset-audio-delay;
-    callback reset-speed <=> root.menu-action-reset-speed;
-    callback reset-subtitle-delay <=> root.menu-action-reset-subtitle-delay;
-    callback resize-window-command <=> root.menu-action-resize-window-command;
-    callback reveal-current-media <=> root.menu-action-reveal-current-media;
-    callback save-current-playlist <=> root.menu-action-save-current-playlist;
-    callback save-downloaded-subtitle <=> root.menu-action-save-downloaded-subtitle;
-    callback seek <=> root.menu-action-seek;
-    callback seek-relative <=> root.menu-action-seek-relative;
-    callback select-item <=> root.menu-action-select-item;
-    callback set-audio-device <=> root.menu-action-set-audio-device;
-    callback set-menu-video-aspect <=> root.menu-action-set-menu-video-aspect;
-    callback set-menu-video-crop <=> root.menu-action-set-menu-video-crop;
-    callback set-menu-video-rotation <=> root.menu-action-set-menu-video-rotation;
-    callback set-subtitle-encoding <=> root.menu-action-set-subtitle-encoding;
-    callback set-subtitle-scale-slider <=> root.menu-action-set-subtitle-scale-slider;
-    callback show-about <=> root.menu-action-show-about;
-    callback show-playback-history <=> root.menu-action-show-playback-history;
-    callback speed <=> root.menu-action-speed;
-    callback stop <=> root.menu-action-stop;
-    callback take-screenshot <=> root.menu-action-take-screenshot;
-    callback toggle-deinterlace <=> root.menu-action-toggle-deinterlace;
-    callback toggle-delogo <=> root.menu-action-toggle-delogo;
-    callback toggle-file-loop <=> root.menu-action-toggle-file-loop;
-    callback toggle-fullscreen <=> root.menu-action-toggle-fullscreen;
-    callback toggle-live-text <=> root.menu-action-toggle-live-text;
-    callback toggle-music-mode <=> root.menu-action-toggle-music-mode;
-    callback toggle-mute <=> root.menu-action-toggle-mute;
-    callback toggle-pause <=> root.menu-action-toggle-pause;
-    callback toggle-picture-in-picture <=> root.menu-action-toggle-picture-in-picture;
-    callback toggle-playlist-pane <=> root.menu-action-toggle-playlist-pane;
-    callback toggle-plugins-pane <=> root.menu-action-toggle-plugins-pane;
-    callback toggle-saved-audio-filter <=> root.menu-action-toggle-saved-audio-filter;
-    callback toggle-saved-video-filter <=> root.menu-action-toggle-saved-video-filter;
-    callback toggle-secondary-subtitle-visibility <=> root.menu-action-toggle-secondary-subtitle-visibility;
-    callback toggle-settings-pane <=> root.menu-action-toggle-settings-pane;
-    callback toggle-subtitle-visibility <=> root.menu-action-toggle-subtitle-visibility;
-    callback toggle-video-reflection <=> root.menu-action-toggle-video-reflection;
-    callback zoom-window <=> root.menu-action-zoom-window;
 
     in property <string> window-title: "riina";
     title: root.window-title;
@@ -837,7 +762,27 @@ export component PlayerWindow inherits PlayerMenuWindow {
 
     // Keys bubble from focused controls through this scope, including sliders.
     // A sibling key scope would lose fullscreen/escape after toolbar navigation.
-    keys := FocusScope {
+    keys := PlayerKeyScope {
+        menu-alternates-visible <=> root.menu-alternates-visible;
+        native-video: root.native-video;
+        crop-editing: root.crop-editing;
+        jump-time-dialog-visible <=> root.jump-time-dialog-visible;
+        jump-time-error <=> root.jump-time-error;
+        url-dialog-visible <=> root.url-dialog-visible;
+        controls-visible <=> root.controls-visible;
+        primary-shortcut-is-meta: root.primary-shortcut-is-meta;
+        loaded: root.loaded;
+        fullscreen: root.fullscreen;
+        sidebar <=> root.sidebar;
+        leading-sidebar <=> root.leading-sidebar;
+        activate-saved-filter-shortcut(value1, value2, value3, value4, value5) => { return root.activate-saved-filter-shortcut(value1, value2, value3, value4, value5); }
+        activity => { root.activity(); }
+        adjust-subtitle-position(value1) => { root.adjust-subtitle-position(value1); }
+        adjust-subtitle-scale(value1) => { root.adjust-subtitle-scale(value1); }
+        dispatch-key-binding(value1, value2, value3, value4, value5) => { return root.dispatch-key-binding(value1, value2, value3, value4, value5); }
+        finish-custom-crop(value1) => { root.finish-custom-crop(value1); }
+        open-application-menu => { root.open-application-menu(); }
+        subtitle-seek(value1) => { root.subtitle-seek(value1); }
         width: root.width;
         height: root.menu-content-height;
         VideoSurface {
@@ -919,14 +864,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
             always-float-on-top: root.always-float-on-top;
             always-show-on-top-icon: root.always-show-on-top-icon;
             hover-changed(hovered) => { root.title-bar-hovered = hovered; }
-            open-file => { root.open-file(); }
+            open-file => { PlayerMenuActions.open-file(); }
             window-level-toggle-requested(value) => {
                 root.always-float-on-top = value;
                 root.window-level-toggle-requested(value);
             }
-            toggle-settings-pane(pane) => { root.toggle-settings-pane(pane); }
-            toggle-playlist-pane(pane) => { root.toggle-playlist-pane(pane); }
-            toggle-fullscreen => { root.toggle-fullscreen(); }
+            toggle-settings-pane(pane) => { PlayerMenuActions.toggle-settings-pane(pane); }
+            toggle-playlist-pane(pane) => { PlayerMenuActions.toggle-playlist-pane(pane); }
+            toggle-fullscreen => { PlayerMenuActions.toggle-fullscreen(); }
         }
         if (!controls-visible || !loaded) && !crop-editing && !fullscreen &&
             (root.always-float-on-top || root.always-show-on-top-icon) : TopmostPin {
@@ -944,29 +889,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
             private property <int> pane-kind: side == 0 ? root.leading-sidebar : root.sidebar;
             private property <bool> quick-settings-pane:
                 pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6;
-            private property <bool> sidebar-open: pane-kind != 0 && !root.crop-editing;
-            // Keep every category and the close control reachable when the
-            // upstream 80% sidebar limit leaves too little room for tab text.
-            private property <bool> expanded-tab-labels: self.width >= 280px;
-            private property <bool> reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
-            private property <bool> close-transition-pending: false;
-            changed sidebar-open => {
-                self.close-transition-pending = !sidebar-open && !root.animations-disabled;
-            }
-            changed reduce-motion-fade => {
-                if root.animations-disabled { self.close-transition-pending = false; }
-            }
-            Timer {
-                interval: 260ms; running: parent.close-transition-pending;
-                triggered => { parent.close-transition-pending = false; }
-            }
-            visible: sidebar-open || (close-transition-pending && !root.animations-disabled);
-            x: side == 0
-                ? ((sidebar-open || reduce-motion-fade) ? 0px : -self.width)
-                : ((sidebar-open || reduce-motion-fade) ? parent.width - self.width : parent.width);
-            animate x { duration: root.animations-disabled || reduce-motion-fade ? 0ms : 240ms; }
-            opacity: !reduce-motion-fade || sidebar-open ? 1 : 0;
-            animate opacity { duration: reduce-motion-fade ? 240ms : 0ms; }
+            leading: side == 0;
+            viewport-width: parent.width;
+            sidebar-open: pane-kind != 0 && !root.crop-editing;
+            reduce-motion-fade: root.macos-sidebar-reduce-motion-fade;
+            animations-disabled: root.animations-disabled;
             y: root.title-row-height + (root.osc-position == 1 ? root.osc-height : 0px);
             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, parent.width * 0.8);
             height: parent.height - (root.show-player-title-row ? (root.compact-ui ? 60px : 68px) : 0px) -
@@ -1084,12 +1011,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             dark-theme: root.dark-theme;
                             delete-audio-equalizer-profile => { root.delete-audio-equalizer-profile(); }
                             interactive-accent-color: root.interactive-accent-color;
-                            load-external-audio => { root.browse-files(1); }
+                            load-external-audio => { PlayerMenuActions.browse-files(1); }
                             loaded: root.loaded;
                             platform-windows: root.platform-windows;
                             preview-audio-delay(value-1) => { root.preview-audio-delay(value-1); }
                             rename-audio-equalizer-profile(value-1) => { return root.rename-audio-equalizer-profile(value-1); }
-                            reset-audio-delay => { root.reset-audio-delay(); }
+                            reset-audio-delay => { PlayerMenuActions.reset-audio-delay(); }
                             restore-player-focus => { keys.focus(); }
                             save-audio-equalizer-profile(value-1) => { return root.save-audio-equalizer-profile(value-1); }
                             select-audio-equalizer-profile(value-1) => { root.select-audio-equalizer-profile(value-1); }
@@ -1099,7 +1026,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             set-volume-boost(value-1) => { root.set-volume-boost(value-1); }
                             sidebar-card-material-fill: root.sidebar-card-material-fill;
                             sidebar-control-material-fill: root.sidebar-control-material-fill;
-                            track-selected(value-1, value-2) => { root.select-item(root.selection-for-pane(value-1), value-2); }
+                            track-selected(value-1, value-2) => { PlayerMenuActions.select-item(root.selection-for-pane(value-1), value-2); }
                             validate-audio-equalizer-profile-name(value-1, value-2) => { return root.validate-audio-equalizer-profile-name(value-1, value-2); }
                             volume-boost: root.volume-boost;
                             windows-accent-color: root.windows-accent-color;
@@ -1124,10 +1051,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             dark-theme: root.dark-theme;
                             interactive-accent-color: root.interactive-accent-color;
                             playlist-metadata-visible: root.playlist-metadata-visible;
-                            select-row(token) => { root.select-item(root.selection-for-pane(pane-kind), token); }
+                            select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
                             select-playlist-row(index, extend, range) => { root.select-playlist-row(index, extend, range) }
                             reorder-playlist(tokens, index) => { root.reorder-playlist(tokens, index); }
-                            playlist-action(action, token) => { root.playlist-action(action, token); }
+                            playlist-action(action, token) => { PlayerMenuActions.playlist-action(action, token); }
                         }
                         if pane-kind == 6 : VideoQuickSettingsPage {
                             sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
@@ -1137,7 +1064,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             interactive-accent-color: root.interactive-accent-color;
                             loaded: root.loaded;
                             platform-windows: root.platform-windows;
-                            reset-speed => { root.reset-speed(); }
+                            reset-speed => { PlayerMenuActions.reset-speed(); }
                             restore-player-focus => { keys.focus(); }
                             set-hardware-decoding(value) => { root.set-hardware-decoding(value); }
                             set-hdr-enabled(value) => { root.set-hdr-enabled(value); }
@@ -1151,22 +1078,22 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             speed-edit-value: root.speed-edit-value;
                             speed-slider-position: root.speed-slider-position;
                             speed-value: root.speed-value;
-                            track-selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
+                            track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
                             windows-accent-color: root.windows-accent-color;
                             windows-accent-foreground: root.windows-accent-foreground;
                             windows-sidebar-material-active: root.windows-sidebar-material-active;
                         }
                         if pane-kind == 2 : SubtitleQuickSettingsPage {
                             sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
-                            choose-subtitle-font => { root.choose-subtitle-font(); }
+                            choose-subtitle-font => { PlayerMenuActions.choose-subtitle-font(); }
                             compact-ui: root.compact-ui;
                             dark-theme: root.dark-theme;
-                            find-online-subtitles => { root.find-online-subtitles(); }
+                            find-online-subtitles => { PlayerMenuActions.find-online-subtitles(); }
                             interactive-accent-color: root.interactive-accent-color;
-                            load-subtitle => { root.browse-files(2); }
+                            load-subtitle => { PlayerMenuActions.browse-files(2); }
                             loaded: root.loaded;
                             platform-windows: root.platform-windows;
-                            reset-subtitle-delay => { root.reset-subtitle-delay(); }
+                            reset-subtitle-delay => { PlayerMenuActions.reset-subtitle-delay(); }
                             restore-player-focus => { keys.focus(); }
                             set-delay(lane, seconds) => { root.set-delay(lane, seconds); }
                             set-delay-text(lane, text) => { return root.set-delay-text(lane, text); }
@@ -1174,12 +1101,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             set-subtitle-font-size(value) => { root.set-subtitle-font-size(value); }
                             set-subtitle-outline-size(value) => { root.set-subtitle-outline-size(value); }
                             set-subtitle-position(secondary, position) => { root.set-subtitle-position(secondary, position); }
-                            set-subtitle-scale-slider(value) => { root.set-subtitle-scale-slider(value); }
+                            set-subtitle-scale-slider(value) => { PlayerMenuActions.set-subtitle-scale-slider(value); }
                             sidebar-card-material-fill: root.sidebar-card-material-fill;
                             sidebar-control-material-fill: root.sidebar-control-material-fill;
-                            toggle-secondary-subtitle-visibility => { root.toggle-secondary-subtitle-visibility(); }
-                            toggle-subtitle-visibility => { root.toggle-subtitle-visibility(); }
-                            track-selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
+                            toggle-secondary-subtitle-visibility => { PlayerMenuActions.toggle-secondary-subtitle-visibility(); }
+                            toggle-subtitle-visibility => { PlayerMenuActions.toggle-subtitle-visibility(); }
+                            track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
                             windows-accent-color: root.windows-accent-color;
                             windows-accent-foreground: root.windows-accent-foreground;
                             windows-sidebar-material-active: root.windows-sidebar-material-active;
@@ -1190,7 +1117,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     width: parent.width - (root.compact-ui ? 18px : 24px);
                     Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
                         label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label;
-                        activated => { root.playlist-action(5, ""); } }
+                        activated => { PlayerMenuActions.playlist-action(5, ""); } }
                     Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
                         icon: @image-url("../../../assets/icons/shuffle.svg");
                         hint: root.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
@@ -1200,13 +1127,13 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     Rectangle { horizontal-stretch: 1; }
                     Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
                         icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
-                        activated => { root.browse-files(4); } }
+                        activated => { PlayerMenuActions.browse-files(4); } }
                     Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
                         label: "−"; hint: "Remove selected playlist entries"; enabled: root.selected-playlist-token != "";
-                        activated => { root.playlist-action(1, root.selected-playlist-token); } }
+                        activated => { PlayerMenuActions.playlist-action(1, root.selected-playlist-token); } }
                     Tool { width: 24px; dark-theme: root.dark-theme; accent-color: root.interactive-accent-color;
                         icon: @image-url("../../../assets/icons/trash.svg"); hint: "Clear playlist except current file";
-                        activated => { root.playlist-action(4, ""); } }
+                        activated => { PlayerMenuActions.playlist-action(4, ""); } }
                 }
             }
         }
@@ -1277,18 +1204,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 video-material-sample-opacity: root.video-material-sample-opacity,
             };
             audio: {
-                has-active-audio-track: PlaybackAudioState.has-active-audio-track,
-                muted: root.muted,
-                volume: PlaybackAudioState.volume,
                 volume-limit: root.volume-limit,
                 control-disable-volume-slider-scrolling: root.control-disable-volume-slider-scrolling,
             };
             timeline: {
-                seekable: PlaybackTimelineState.seekable,
-                position: PlaybackTimelineState.position,
-                duration: PlaybackTimelineState.duration,
-                position-label: PlaybackTimelineState.position-label,
-                duration-label: PlaybackTimelineState.duration-label,
                 ab-loop-a: root.ab-loop-a,
                 ab-loop-b: root.ab-loop-b,
                 ab-loop-a-known: root.ab-loop-a-known,
@@ -1305,7 +1224,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
             toolbar: {
                 toolbar-visible-order: root.toolbar-visible-order,
                 loaded: root.loaded,
-                subtitle-tracks: PlaybackSubtitleState.subtitle-tracks,
                 screenshot-available: root.screenshot-available,
                 live-text-available: root.live-text-available,
                 live-text-enabled: root.live-text-enabled,
@@ -1332,26 +1250,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
             music-mode-volume-open <=> root.music-mode-volume-open;
             paused: root.paused;
             activity => { root.activity(); }
-            cycle-subtitle-track => { root.cycle-subtitle-track(); }
             layout-settings-changed => { root.layout-settings-changed(); }
-            playlist-next => { root.playlist-next(); }
-            playlist-previous => { root.playlist-previous(); }
-            seek(value) => { root.seek(value); }
             seek-scroll-action-request(delta-x, delta-y) => { return root.seek-scroll-action-request(delta-x, delta-y); }
             set-ab-loop-point(point, value) => { root.set-ab-loop-point(point, value); }
             set-volume(value) => { root.set-volume(value); }
-            speed(value) => { root.speed(value); }
-            take-screenshot => { root.take-screenshot(); }
             timeline-hovered(value) => { root.timeline-hovered(value); }
-            toggle-fullscreen => { root.toggle-fullscreen(); }
-            toggle-live-text => { root.toggle-live-text(); }
-            toggle-music-mode => { root.toggle-music-mode(); }
-            toggle-mute => { root.toggle-mute(); }
-            toggle-pause => { root.toggle-pause(); }
-            toggle-picture-in-picture => { root.toggle-picture-in-picture(); }
-            toggle-playlist-pane(pane) => { root.toggle-playlist-pane(pane); }
-            toggle-plugins-pane => { root.toggle-plugins-pane(); }
-            toggle-settings-pane(pane) => { root.toggle-settings-pane(pane); }
             volume-scroll-action-request(delta-x, delta-y) => { return root.volume-scroll-action-request(delta-x, delta-y); }
         }
         if root.music-mode && root.loaded : MusicModeWindowActions {
@@ -1362,8 +1265,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             accent-color: root.interactive-accent-color;
             opacity: root.controls-visible ? 1 : 0;
             animate opacity { duration: root.animations-disabled ? 0ms : 200ms; }
-            close-requested => { root.close-player(); }
-            back-requested => { root.toggle-music-mode(); }
+            close-requested => { PlayerMenuActions.close-player(); }
+            back-requested => { PlayerMenuActions.toggle-music-mode(); }
         }
         if loaded && !crop-editing : SeekOsd {
             material: root.osd-material;
@@ -1398,7 +1301,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             play-row(token) => {
                 root.selected-playlist-token = "";
                 root.selected-playlist-tokens = [];
-                root.select-item(CatalogSelection.playlist, token);
+                PlayerMenuActions.select-item(CatalogSelection.playlist, token);
             }
         }
         if fullscreen && loaded && controls-visible && display-time-and-battery-in-fullscreen && !crop-editing : FullscreenInfoOsd {
@@ -1455,124 +1358,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
             url-dialog-draft <=> root.url-dialog-draft;
             jump-to-time(text) => { root.jump-to-time(text); }
             open-url(url) => { root.open-url(url); }
-        }
-        key-released(event) => {
-            if (event.text == Key.Alt || !event.modifiers.alt) && menu-alternates-visible {
-                menu-alternates-visible = false;
-            }
-            if native-video && !crop-editing && event.text == Key.F10 { root.open-application-menu(); return accept; }
-            return reject;
-        }
-        key-pressed(event) => {
-            if menu-alternates-visible != event.modifiers.alt {
-                menu-alternates-visible = event.modifiers.alt;
-            }
-            if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
-            if jump-time-dialog-visible {
-                if event.text == Key.Escape { jump-time-dialog-visible = false; jump-time-error = ""; return accept; }
-                return accept;
-            }
-            if url-dialog-visible {
-                if event.text == Key.Escape { url-dialog-visible = false; return accept; }
-                return accept;
-            }
-            if native-video && event.text == Key.F10 { return accept; }
-            if root.activate-saved-filter-shortcut(event.text, event.modifiers.control,
-                    event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
-                return accept;
-            }
-            if root.dispatch-key-binding(event.text, event.modifiers.control,
-                    event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
-                return accept;
-            }
-            root.controls-visible = true; root.activity();
-            if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
-                if event.text == "," && !event.modifiers.shift && !event.modifiers.alt {
-                    root.open-preferences(); return accept;
-                }
-                if event.modifiers.shift {
-                    if event.modifiers.alt || (primary-shortcut-is-meta && event.modifiers.control) { return reject; }
-                    if event.text == "L" { root.toggle-file-loop(); return accept; }
-                    if event.text == ">" { root.adjust-chapter(1); return accept; }
-                    if event.text == "<" { root.adjust-chapter(-1); return accept; }
-                    if event.text == "C" { root.toggle-playlist-pane(3); return accept; }
-                    if event.text == "P" { root.toggle-playlist-pane(4); return accept; }
-                    if event.text == "A" { root.toggle-settings-pane(1); return accept; }
-                    if event.text == "S" { root.take-screenshot(); return accept; }
-                    if event.text == "V" { root.toggle-settings-pane(6); return accept; }
-                    return reject;
-                }
-                // Windows/Linux map the extra macOS Control modifier to Alt;
-                // primary itself is already Control on those platforms.
-                if (primary-shortcut-is-meta ? event.modifiers.control : event.modifiers.alt) {
-                    if primary-shortcut-is-meta && event.modifiers.alt { return reject; }
-                    if event.text == "a" { root.cycle-audio-track(); return accept; }
-                    if event.text == "s" { root.cycle-subtitle-track(); return accept; }
-                    if event.text == "v" { root.cycle-video-track(); return accept; }
-                    if primary-shortcut-is-meta { return reject; }
-                }
-                if event.modifiers.alt {
-                    if event.text == "[" { root.speed(1 / 1.1); return accept; }
-                    if event.text == "]" { root.speed(1.1); return accept; }
-                    return reject;
-                }
-                if event.text == "l" { root.cycle-ab-loop(); return accept; }
-                if event.text == "." { root.stop(); return accept; }
-                if event.text == Key.RightArrow { root.playlist-next(); return accept; }
-                if event.text == Key.LeftArrow { root.playlist-previous(); return accept; }
-                if event.text == "o" { root.open-file(); return accept; }
-                if event.text == "/" { root.toggle-mute(); return accept; }
-                if event.text == "[" { root.speed(0.5); return accept; }
-                if event.text == "]" { root.speed(2); return accept; }
-                if event.text == "\\" { root.reset-speed(); return accept; }
-                return reject;
-            }
-            if event.modifiers.alt && !event.modifiers.shift {
-                if !event.modifiers.control && !event.modifiers.meta && event.text == "v" { root.toggle-secondary-subtitle-visibility(); return accept; }
-                if event.text == Key.RightArrow { root.frame-step(); return accept; }
-                if event.text == Key.LeftArrow { root.frame-back-step(); return accept; }
-                if event.text == Key.UpArrow { root.adjust-volume(1); return accept; }
-                if event.text == Key.DownArrow { root.adjust-volume(-1); return accept; }
-            }
-            if !event.modifiers.control && !event.modifiers.meta {
-                if event.modifiers.shift {
-                    if event.text == "(" { root.adjust-audio-delay(event.modifiers.alt ? 0.1 : 0.5); return accept; }
-                    if event.text == ")" { root.adjust-audio-delay(event.modifiers.alt ? -0.1 : -0.5); return accept; }
-                    if event.text == "_" && !event.modifiers.alt { root.reset-audio-delay(); return accept; }
-                }
-                if event.text == "Z" { root.adjust-subtitle-delay(event.modifiers.alt ? -0.1 : -0.5); return accept; }
-                if event.text == "X" { root.adjust-subtitle-delay(event.modifiers.alt ? 0.1 : 0.5); return accept; }
-                if event.text == "C" && !event.modifiers.alt { root.reset-subtitle-delay(); return accept; }
-            }
-            if event.modifiers.shift && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
-                if event.text == Key.PageUp { root.seek-relative(600); return accept; }
-                if event.text == Key.PageDown { root.seek-relative(-600); return accept; }
-                if event.text == Key.RightArrow { root.subtitle-seek(1); return accept; }
-                if event.text == Key.LeftArrow { root.subtitle-seek(-1); return accept; }
-            }
-            if !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
-                if event.text == "G" { root.adjust-subtitle-scale(0.1); return accept; }
-                if event.text == "F" { root.adjust-subtitle-scale(-0.1); return accept; }
-                if event.text == "R" { root.adjust-subtitle-position(1); return accept; }
-            }
-            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-            if event.text == " " || event.text == "p" { root.toggle-pause(); return accept; }
-            if event.text == Key.RightArrow { root.seek-relative(5); return accept; }
-            if event.text == Key.LeftArrow { root.seek-relative(-5); return accept; }
-            if event.text == Key.UpArrow { root.adjust-volume(5); return accept; }
-            if event.text == Key.DownArrow { root.adjust-volume(-5); return accept; }
-            if event.text == "m" { root.toggle-mute(); return accept; }
-            if event.text == "j" && root.loaded { root.open-jump-time-dialog(); return accept; }
-            if event.text == "v" { root.toggle-subtitle-visibility(); return accept; }
-            if event.text == "r" { root.adjust-subtitle-position(-1); return accept; }
-            if event.text == "t" { root.adjust-subtitle-position(1); return accept; }
-            if event.text == "." { root.frame-step(); return accept; }
-            if event.text == "," { root.frame-back-step(); return accept; }
-            if event.text == "f" { root.toggle-fullscreen(); return accept; }
-            if event.text == Key.Return { if !root.fullscreen { root.toggle-fullscreen(); } return accept; }
-            if event.text == Key.Escape && root.fullscreen { root.toggle-fullscreen(); return accept; }
-            if event.text == Key.Escape && (root.sidebar != 0 || root.leading-sidebar != 0) { root.sidebar = 0; root.leading-sidebar = 0; return accept; }
-            return reject;
         }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.

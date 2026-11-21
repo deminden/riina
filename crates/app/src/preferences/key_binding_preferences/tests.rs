@@ -12,6 +12,7 @@ use super::{
     menus::{MENU_SHORTCUT_ACTIONS, menu_shortcut_rows},
 };
 use riina_core::key_bindings::{ActionKind, Mapping};
+use riina_ui::PlayerMenuActions;
 
 fn shortcut(mac: &str, windows: &str) -> String {
     if cfg!(target_os = "macos") {
@@ -552,13 +553,15 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
     let app = crate::PlayerWindow::new().unwrap();
     let position = std::rc::Rc::new(std::cell::Cell::new(0.0_f32));
     let observed = position.clone();
-    app.on_seek_relative(move |amount| observed.set(amount));
+    app.global::<PlayerMenuActions>()
+        .on_seek_relative(move |amount| observed.set(amount));
     let weak = app.as_weak();
-    app.on_toggle_fullscreen(move || {
-        if let Some(app) = weak.upgrade() {
-            app.set_fullscreen(!app.get_fullscreen());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_toggle_fullscreen(move || {
+            if let Some(app) = weak.upgrade() {
+                app.set_fullscreen(!app.get_fullscreen());
+            }
+        });
     install_player(
         &app,
         &riina_core::key_bindings::Settings::default(),

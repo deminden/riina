@@ -5,6 +5,7 @@ use riina_core::{
     window_aspect::{self as policy, PixelSize},
     window_resize::{ManualSizeCommand, ManualSizeContext, ResizeTiming, manual_size_target},
 };
+use riina_ui::PlayerMenuActions;
 use slint::{
     ComponentHandle, PhysicalPosition, PhysicalSize,
     winit_030::{EventResult, WinitWindowAccessor, winit},
@@ -384,7 +385,7 @@ fn register_resize_command(
     menu_size_target: WindowTarget,
     menu_size_state: Rc<Cell<PixelSize>>,
 ) {
-    app.on_resize_window_command({
+    app.global::<PlayerMenuActions>().on_resize_window_command({
         let weak = app.as_weak();
         move |index| {
             let Some(app) = weak.upgrade() else { return };

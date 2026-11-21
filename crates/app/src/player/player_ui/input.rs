@@ -1,6 +1,7 @@
 //! Native input, focus registration and gesture state belong to one player window.
 use crate::{PlayerWindow, media_open, platform};
 use riina_core::{Command, Phase};
+use riina_ui::PlayerMenuActions;
 use slint::{
     ComponentHandle,
     winit_030::{EventResult, WinitWindowAccessor, winit},
@@ -32,7 +33,7 @@ fn dispatch_control_mouse_action(
     let result = match effect {
         MouseEffect::None => return,
         MouseEffect::Fullscreen => {
-            app.invoke_toggle_fullscreen();
+            app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
             return;
         }
         MouseEffect::SetPaused(paused) => {
@@ -48,7 +49,8 @@ fn dispatch_control_mouse_action(
             return;
         }
         MouseEffect::PictureInPicture => {
-            app.invoke_toggle_picture_in_picture();
+            app.global::<PlayerMenuActions>()
+                .invoke_toggle_picture_in_picture();
             return;
         }
         MouseEffect::CycleAbLoop => {

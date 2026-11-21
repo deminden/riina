@@ -1,4 +1,5 @@
 use super::*;
+use slint::ComponentHandle;
 
 fn profiles(app: &PlayerWindow) {
     app.global::<riina_ui::PlaybackAudioState>()
@@ -166,7 +167,8 @@ fn escape_cancels_a_profile_prompt_without_reaching_fullscreen_or_playback() {
     app.set_fullscreen(true);
     let commands = Rc::new(std::cell::Cell::new(0));
     let recorded = commands.clone();
-    app.on_toggle_fullscreen(move || recorded.set(recorded.get() + 1));
+    app.global::<PlayerMenuActions>()
+        .on_toggle_fullscreen(move || recorded.set(recorded.get() + 1));
     let recorded = commands.clone();
     app.on_dispatch_key_binding(move |_, _, _, _, _| {
         recorded.set(recorded.get() + 1);

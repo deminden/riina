@@ -4,30 +4,36 @@ use crate::{
     CatalogRow, CatalogSelection, MenuCatalogRow, PlayerWindow, video_osd::ActionFeedback,
 };
 use riina_core::{Command, Phase, Playback, TrackKind, sync::lock, time_label};
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::{cell::Cell, path::PathBuf, rc::Rc, time::Duration};
 
 pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerContext) {
-    bind!(context, app, on_select_item, |ctx, category, token| {
-        let command = selection_command(category, token.as_str());
-        let chapter_title = if let Ok(Command::SelectChapter(index)) = &command {
-            lock(ctx.playback())
-                .chapters
-                .get(*index)
-                .and_then(|chapter| chapter.title.clone())
-        } else {
-            None
-        };
-        let Some(app) = ctx.app() else { return };
-        app.invoke_activity();
-        match (command, chapter_title) {
-            (Ok(command), Some(title)) => {
-                ctx.send_with_osd(command, ActionFeedback::Chapter(title), false)
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_select_item,
+        |ctx, category, token| {
+            let command = selection_command(category, token.as_str());
+            let chapter_title = if let Ok(Command::SelectChapter(index)) = &command {
+                lock(ctx.playback())
+                    .chapters
+                    .get(*index)
+                    .and_then(|chapter| chapter.title.clone())
+            } else {
+                None
+            };
+            let Some(app) = ctx.app() else { return };
+            app.invoke_activity();
+            match (command, chapter_title) {
+                (Ok(command), Some(title)) => {
+                    ctx.send_with_osd(command, ActionFeedback::Chapter(title), false)
+                }
+                (Ok(command), None) => ctx.send(command),
+                (Err(error), _) => ctx.report(error),
             }
-            (Ok(command), None) => ctx.send(command),
-            (Err(error), _) => ctx.report(error),
         }
-    });
+    );
 }
 
 fn selection_command(category: CatalogSelection, token: &str) -> Result<Command, String> {
@@ -442,19 +448,19 @@ pub(super) fn current_chapter(state: &Playback) -> Option<usize> {
 pub(super) fn install_track_cycles(app: &PlayerWindow, context: &PlayerContext) {
     bind!(
         context,
-        app,
+        app.global::<PlayerMenuActions>(),
         on_cycle_audio_track,
         Command::CycleTrack(TrackKind::Audio)
     );
     bind!(
         context,
-        app,
+        app.global::<PlayerMenuActions>(),
         on_cycle_subtitle_track,
         Command::CycleTrack(TrackKind::Sub)
     );
     bind!(
         context,
-        app,
+        app.global::<PlayerMenuActions>(),
         on_cycle_video_track,
         Command::CycleTrack(TrackKind::Video)
     );

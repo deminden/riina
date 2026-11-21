@@ -2,6 +2,7 @@
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::sync::{Arc, Mutex};
 
@@ -243,16 +244,17 @@ pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender)
 pub(super) fn install_volume_adjustment(app: &PlayerWindow, command_sender: &CommandSender) {
     let adjustment_player = command_sender.clone();
     let weak = app.as_weak();
-    app.on_adjust_volume(move |delta| {
-        let Some(app) = weak.upgrade() else { return };
-        app.invoke_activity();
-        if let Err(error) = adjustment_player.send(Command::AdjustVolume {
-            delta: delta as f64,
-            boost: app.get_volume_boost(),
-        }) {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_adjust_volume(move |delta| {
+            let Some(app) = weak.upgrade() else { return };
+            app.invoke_activity();
+            if let Err(error) = adjustment_player.send(Command::AdjustVolume {
+                delta: delta as f64,
+                boost: app.get_volume_boost(),
+            }) {
+                app.set_status(error.into());
+            }
+        });
 }
 
 pub(super) fn install_audio_device(
@@ -263,24 +265,25 @@ pub(super) fn install_audio_device(
     let audio_device_player = player.clone();
     let audio_device_state = playback.clone();
     let audio_device_app = app.as_weak();
-    app.on_set_audio_device(move |device| {
-        let Some(app) = audio_device_app.upgrade() else {
-            return;
-        };
-        let device = device.to_string();
-        let available = riina_core::sync::lock(&audio_device_state)
-            .audio_devices
-            .iter()
-            .any(|available| available.name == device);
-        if !available {
-            app.set_status("That audio device is no longer available".into());
-            return;
-        }
-        app.invoke_activity();
-        if let Err(error) = audio_device_player.send(Command::AudioDevice(device)) {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_set_audio_device(move |device| {
+            let Some(app) = audio_device_app.upgrade() else {
+                return;
+            };
+            let device = device.to_string();
+            let available = riina_core::sync::lock(&audio_device_state)
+                .audio_devices
+                .iter()
+                .any(|available| available.name == device);
+            if !available {
+                app.set_status("That audio device is no longer available".into());
+                return;
+            }
+            app.invoke_activity();
+            if let Err(error) = audio_device_player.send(Command::AudioDevice(device)) {
+                app.set_status(error.into());
+            }
+        });
 }
 
 #[cfg(test)]

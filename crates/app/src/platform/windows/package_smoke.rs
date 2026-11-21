@@ -1,5 +1,6 @@
 //! Opt-in integration driver used only by the extracted-package release check.
 use crate::{NativeVideoHost, PlayerWindow};
+use riina_ui::PlayerMenuActions;
 use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
@@ -91,7 +92,7 @@ impl Runner {
                 if self.initial.as_ref() != Some(&surfaces(app, host)?) {
                     return Err("Volume update changed client bounds or menu identity".into());
                 }
-                app.invoke_adjust_volume(5.0);
+                app.global::<PlayerMenuActions>().invoke_adjust_volume(5.0);
                 self.checks.push("volume_preserves_surfaces");
                 Stage::EnterFullscreen
             }
@@ -129,7 +130,7 @@ impl Runner {
                 }
                 surfaces(app, host)?;
                 self.checks.push("controller_reveal_keeps_native_surface");
-                app.invoke_toggle_fullscreen();
+                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
                 Stage::WaitForWindowed
             }
             Stage::WaitForWindowed => {
@@ -256,7 +257,7 @@ impl Runner {
         app.invoke_sidebar_resize_finished();
         check_preferences()?;
         self.checks.push("preference_writers_preserve_settings");
-        app.invoke_adjust_volume(-5.0);
+        app.global::<PlayerMenuActions>().invoke_adjust_volume(-5.0);
         self.checks.push("playing_native_video_and_audio_menu");
         self.wait_for(Stage::WaitForVolume);
         Ok(false)
@@ -310,7 +311,7 @@ pub(super) fn start(app: &PlayerWindow, host: &NativeVideoHost) -> Option<SmokeR
             }
             // The runner checks process exit separately: a stalled decoder shutdown
             // must fail even when all playback and controls checks completed.
-            app.invoke_quit_riina();
+            app.global::<PlayerMenuActions>().invoke_quit_riina();
         },
     );
     Some(SmokeRun { _timer: timer })

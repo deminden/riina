@@ -15,6 +15,35 @@ export component PlayerSidebarFrame inherits Rectangle {
     in property <bool> windows-sidebar-material-active;
     callback activity();
 
+    in property <bool> leading;
+    in property <length> viewport-width;
+    in property <bool> sidebar-open;
+    in property <bool> reduce-motion-fade;
+    in property <bool> animations-disabled;
+
+    // Keep every category and the close control reachable when the
+    // upstream 80% sidebar limit leaves too little room for tab text.
+    out property <bool> expanded-tab-labels: self.width >= 280px;
+
+    private property <bool> close-transition-pending: false;
+    changed sidebar-open => {
+        root.close-transition-pending = !sidebar-open && !root.animations-disabled;
+    }
+    changed reduce-motion-fade => {
+        if root.animations-disabled { root.close-transition-pending = false; }
+    }
+    Timer {
+        interval: 260ms; running: parent.close-transition-pending;
+        triggered => { parent.close-transition-pending = false; }
+    }
+    visible: sidebar-open || (close-transition-pending && !root.animations-disabled);
+    x: root.leading
+        ? ((sidebar-open || reduce-motion-fade) ? 0px : -self.width)
+        : ((sidebar-open || reduce-motion-fade) ? root.viewport-width - self.width : root.viewport-width);
+    animate x { duration: root.animations-disabled || reduce-motion-fade ? 0ms : 240ms; }
+    opacity: !reduce-motion-fade || sidebar-open ? 1 : 0;
+    animate opacity { duration: reduce-motion-fade ? 240ms : 0ms; }
+
     clip: true;
     border-radius: root.windows-sidebar-material-active ? 12px : 0px;
     border-width: root.windows-sidebar-material-active ? 1px : 0px;

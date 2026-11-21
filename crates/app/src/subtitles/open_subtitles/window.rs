@@ -6,6 +6,7 @@ use super::{
 use crate::{OnlineSubtitlesWindow, PlaybackStore, PlayerWindow, subtitle_discovery::Readiness};
 use riina_core::online_subtitles::{Provider, ResultSelection};
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, ModelRc, Timer, VecModel};
 use std::{
     cell::{Cell, RefCell},
@@ -50,88 +51,91 @@ pub(crate) fn connect_player(
     let playback_callback = playback.clone();
     let auto_search_request_for_open = auto_search_request.clone();
     let requested_provider_for_open = requested_provider.clone();
-    app.on_find_online_subtitles(move || {
-        let should_search_after_open = auto_search_request_for_open.replace(false);
-        let requested_provider = requested_provider_for_open.replace(None);
-        let Some(app) = app_weak.upgrade() else {
-            return;
-        };
-        let current = riina_core::sync::lock(&playback_callback)
-            .playlist
-            .iter()
-            .find(|entry| entry.current)
-            .cloned();
-        let Some(current) = current else {
-            app.set_status("Open media before searching for subtitles".into());
-            return;
-        };
-        if current.filename.contains("://") {
-            app.set_status("Online subtitles require local media files".into());
-            return;
-        }
-        let path = PathBuf::from(&current.filename);
-        let fallback = path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or_default();
-        let title = current
-            .title
-            .filter(|title| !title.trim().is_empty())
-            .unwrap_or_else(|| fallback.to_owned());
-        let provider = requested_provider
-            .unwrap_or_else(|| provider_from_index(app.get_open_subtitles_provider_index()));
-        *search.context.borrow_mut() = SearchContext {
-            media_path: path,
-            languages: app.get_subtitle_preferred_languages().to_string(),
-            provider,
-        };
-        let window = if let Some(window) = window_slot_callback.borrow().as_ref() {
-            window.clone_strong()
-        } else {
-            let window = match OnlineSubtitlesWindow::new() {
-                Ok(window) => window,
-                Err(error) => {
-                    app.set_status(
-                        format!("Could not open online subtitle search: {error}").into(),
-                    );
-                    return;
-                }
+    app.global::<PlayerMenuActions>()
+        .on_find_online_subtitles(move || {
+            let should_search_after_open = auto_search_request_for_open.replace(false);
+            let requested_provider = requested_provider_for_open.replace(None);
+            let Some(app) = app_weak.upgrade() else {
+                return;
             };
-            install_window_callbacks(&app, &window, &search, &sender);
-            crate::platform::center_auxiliary_window(&window, &app);
-            *window_slot_callback.borrow_mut() = Some(window.clone_strong());
-            window
-        };
-        window.set_query(title.into());
-        window.set_results(ModelRc::new(VecModel::from(
-            Vec::<crate::OnlineSubtitleRow>::new(),
-        )));
-        search.rows.lock().map(|mut rows| rows.clear()).ok();
-        search.selection.borrow_mut().clear();
-        window.set_selected_count(0);
-        window.set_provider_index(provider_index(provider));
-        window.set_status_text(if provider == Provider::Shooter {
-            "Search Shooter.cn by the local video's sampled content hash.".into()
-        } else {
-            format!("Search {} by title or filename.", provider_name(provider)).into()
-        });
-        if let Err(error) = window.show() {
-            app.set_status(format!("Could not show online subtitle search: {error}").into());
-        } else {
-            crate::platform::enable_online_subtitles_acrylic(&window);
-            if should_search_after_open {
-                window.invoke_search();
+            let current = riina_core::sync::lock(&playback_callback)
+                .playlist
+                .iter()
+                .find(|entry| entry.current)
+                .cloned();
+            let Some(current) = current else {
+                app.set_status("Open media before searching for subtitles".into());
+                return;
+            };
+            if current.filename.contains("://") {
+                app.set_status("Online subtitles require local media files".into());
+                return;
             }
-        }
-    });
+            let path = PathBuf::from(&current.filename);
+            let fallback = path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or_default();
+            let title = current
+                .title
+                .filter(|title| !title.trim().is_empty())
+                .unwrap_or_else(|| fallback.to_owned());
+            let provider = requested_provider
+                .unwrap_or_else(|| provider_from_index(app.get_open_subtitles_provider_index()));
+            *search.context.borrow_mut() = SearchContext {
+                media_path: path,
+                languages: app.get_subtitle_preferred_languages().to_string(),
+                provider,
+            };
+            let window = if let Some(window) = window_slot_callback.borrow().as_ref() {
+                window.clone_strong()
+            } else {
+                let window = match OnlineSubtitlesWindow::new() {
+                    Ok(window) => window,
+                    Err(error) => {
+                        app.set_status(
+                            format!("Could not open online subtitle search: {error}").into(),
+                        );
+                        return;
+                    }
+                };
+                install_window_callbacks(&app, &window, &search, &sender);
+                crate::platform::center_auxiliary_window(&window, &app);
+                *window_slot_callback.borrow_mut() = Some(window.clone_strong());
+                window
+            };
+            window.set_query(title.into());
+            window.set_results(ModelRc::new(VecModel::from(
+                Vec::<crate::OnlineSubtitleRow>::new(),
+            )));
+            search.rows.lock().map(|mut rows| rows.clear()).ok();
+            search.selection.borrow_mut().clear();
+            window.set_selected_count(0);
+            window.set_provider_index(provider_index(provider));
+            window.set_status_text(if provider == Provider::Shooter {
+                "Search Shooter.cn by the local video's sampled content hash.".into()
+            } else {
+                format!("Search {} by title or filename.", provider_name(provider)).into()
+            });
+            if let Err(error) = window.show() {
+                app.set_status(format!("Could not show online subtitle search: {error}").into());
+            } else {
+                crate::platform::enable_online_subtitles_acrylic(&window);
+                if should_search_after_open {
+                    window.invoke_search();
+                }
+            }
+        });
     let requested_provider_for_menu = requested_provider.clone();
-    app.on_find_online_subtitles_with_provider(move |index| {
-        let Some(app) = app_weak_for_provider.upgrade() else {
-            return;
-        };
-        requested_provider_for_menu.set(Some(provider_from_index(index)));
-        app.invoke_find_online_subtitles();
-    });
+    app.global::<PlayerMenuActions>()
+        .on_find_online_subtitles_with_provider(move |index| {
+            let Some(app) = app_weak_for_provider.upgrade() else {
+                return;
+            };
+            requested_provider_for_menu.set(Some(provider_from_index(index)));
+            app.global::<PlayerMenuActions>()
+                .invoke_find_online_subtitles();
+        });
 
     SearchWindowGuard {
         _window: window_slot,
@@ -484,7 +488,8 @@ fn install_automatic_search(
             }
             drop(pending);
             trigger_search.set(true);
-            app.invoke_find_online_subtitles();
+            app.global::<PlayerMenuActions>()
+                .invoke_find_online_subtitles();
         },
     );
     if !app.get_open_subtitles_auto_search() {

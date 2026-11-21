@@ -91,7 +91,8 @@ fn navigation(kind: i32) {
     set_tracks(&app, kind, 8, 2);
     let selected = Rc::new(RefCell::new(Vec::new()));
     let received = selected.clone();
-    app.on_select_item(move |kind, token| received.borrow_mut().push((kind, token.to_string())));
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |kind, token| received.borrow_mut().push((kind, token.to_string())));
     let playback = Rc::new(std::cell::Cell::new(0));
     let received = playback.clone();
     app.on_dispatch_key_binding(move |_, _, _, _, _| {
@@ -187,10 +188,12 @@ fn tab_visits_the_list_once_and_focus_alone_does_not_switch_tracks() {
     set_tracks(&app, 1, 8, 2);
     let selected = Rc::new(RefCell::new(Vec::new()));
     let received = selected.clone();
-    app.on_select_item(move |_, token| received.borrow_mut().push(token.to_string()));
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |_, token| received.borrow_mut().push(token.to_string()));
     let browsed = Rc::new(std::cell::Cell::new(0));
     let received = browsed.clone();
-    app.on_browse_files(move |_| received.set(received.get() + 1));
+    app.global::<PlayerMenuActions>()
+        .on_browse_files(move |_| received.set(received.get() + 1));
     focus(&app, &button(&app, "Audio"));
     key(&app, Key::Tab);
     assert!(selected.borrow().is_empty());
@@ -207,7 +210,8 @@ fn disabled_and_empty_lists_cannot_dispatch_stale_track_tokens() {
     set_tracks(&app, 1, 8, 2);
     let selected = Rc::new(RefCell::new(Vec::new()));
     let received = selected.clone();
-    app.on_select_item(move |_, token| received.borrow_mut().push(token.to_string()));
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |_, token| received.borrow_mut().push(token.to_string()));
     let row = track_row(&app, "Track 2");
     focus(&app, &row);
     selected.borrow_mut().clear();
@@ -267,7 +271,8 @@ fn page_navigation_and_a_shorter_model_keep_the_cursor_in_bounds() {
     set_tracks(&app, 1, 12, 1);
     let selected = Rc::new(RefCell::new(Vec::new()));
     let received = selected.clone();
-    app.on_select_item(move |_, token| received.borrow_mut().push(token.to_string()));
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |_, token| received.borrow_mut().push(token.to_string()));
     focus(&app, &track_row(&app, "Track 1"));
     selected.borrow_mut().clear();
     key(&app, Key::PageDown);

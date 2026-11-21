@@ -10,6 +10,7 @@ use super::{
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::{cell::RefCell, rc::Rc, time::Instant};
 
@@ -38,143 +39,148 @@ fn install_actions(
     let playlist_pending_navigation = pending_navigation.clone();
     let playlist_capture_transition_first = capture_transition_first;
     let weak = app.as_weak();
-    app.on_playlist_action(move |action, token| {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        if action == 12 {
-            window.invoke_activity();
-            let rows = window.get_playlist();
-            let exists = (0..rows.row_count()).any(|index| {
-                rows.row_data(index)
-                    .is_some_and(|row| row.token.as_str() == token.as_str())
-            });
-            if !exists {
-                window.set_status("The playlist item is no longer available".into());
+    app.global::<PlayerMenuActions>()
+        .on_playlist_action(move |action, token| {
+            let Some(window) = weak.upgrade() else {
+                return;
+            };
+            if action == 12 {
+                window.invoke_activity();
+                let rows = window.get_playlist();
+                let exists = (0..rows.row_count()).any(|index| {
+                    rows.row_data(index)
+                        .is_some_and(|row| row.token.as_str() == token.as_str())
+                });
+                if !exists {
+                    window.set_status("The playlist item is no longer available".into());
+                    return;
+                }
+                match token.parse::<i64>() {
+                    Ok(id) => queue_playlist_navigation(
+                        &playlist_player,
+                        &playlist_pending_navigation,
+                        Command::SelectPlaylistId(id),
+                        playlist_capture_transition_first,
+                    ),
+                    Err(error) => {
+                        window.set_status(format!("Invalid playlist item: {error}").into());
+                    }
+                }
                 return;
             }
-            match token.parse::<i64>() {
-                Ok(id) => queue_playlist_navigation(
-                    &playlist_player,
-                    &playlist_pending_navigation,
-                    Command::SelectPlaylistId(id),
-                    playlist_capture_transition_first,
-                ),
-                Err(error) => {
-                    window.set_status(format!("Invalid playlist item: {error}").into());
-                }
-            }
-            return;
-        }
-        if matches!(action, 6..=11) {
-            window.invoke_activity();
-            let rows = window.get_playlist();
-            let selected_index = (0..rows.row_count()).find(|index| {
-                rows.row_data(*index)
-                    .is_some_and(|row| row.token.as_str() == token.as_str())
-            });
-            let result = match action {
-                6 | 7 => {
-                    let paths = selected_playlist_paths(&window, token.as_str());
-                    if paths.is_empty() {
-                        Err("Select a playlist item first".into())
-                    } else {
-                        crate::platform::clipboard::copy_playlist_references(&paths).and_then(
-                            |()| {
-                                if action == 7 {
-                                    selected_playlist_ids(&window, token.as_str()).and_then(|ids| {
-                                        playlist_player.send(Command::RemovePlaylistIds(ids))
-                                    })
-                                } else {
-                                    Ok(())
-                                }
-                            },
-                        )
+            if matches!(action, 6..=11) {
+                window.invoke_activity();
+                let rows = window.get_playlist();
+                let selected_index = (0..rows.row_count()).find(|index| {
+                    rows.row_data(*index)
+                        .is_some_and(|row| row.token.as_str() == token.as_str())
+                });
+                let result = match action {
+                    6 | 7 => {
+                        let paths = selected_playlist_paths(&window, token.as_str());
+                        if paths.is_empty() {
+                            Err("Select a playlist item first".into())
+                        } else {
+                            crate::platform::clipboard::copy_playlist_references(&paths).and_then(
+                                |()| {
+                                    if action == 7 {
+                                        selected_playlist_ids(&window, token.as_str()).and_then(
+                                            |ids| {
+                                                playlist_player
+                                                    .send(Command::RemovePlaylistIds(ids))
+                                            },
+                                        )
+                                    } else {
+                                        Ok(())
+                                    }
+                                },
+                            )
+                        }
                     }
-                }
-                8 => crate::platform::clipboard::read_playlist_references().and_then(|paths| {
-                    if paths.is_empty() {
-                        return Err("Clipboard contains no playlist references".into());
-                    }
-                    let index = playlist_paste_index(&window, token.as_str());
-                    let count = paths.len();
-                    playlist_player
-                        .send(Command::InsertPlaylistFiles { paths, index })
-                        .map(|()| {
-                            let message = crate::video_osd::action_message(
-                                crate::video_osd::ActionFeedback::PlaylistAdded(count),
-                            );
-                            show_osd_message(&window, message.text, false);
-                        })
-                }),
-                9 => selected_index
-                    .and_then(|index| rows.row_data(index))
-                    .ok_or_else(|| "Select a playlist item first".to_owned())
-                    .and_then(|row| {
-                        crate::media_open::open_in_new_player(&window, row.path.as_str())
+                    8 => crate::platform::clipboard::read_playlist_references().and_then(|paths| {
+                        if paths.is_empty() {
+                            return Err("Clipboard contains no playlist references".into());
+                        }
+                        let index = playlist_paste_index(&window, token.as_str());
+                        let count = paths.len();
+                        playlist_player
+                            .send(Command::InsertPlaylistFiles { paths, index })
+                            .map(|()| {
+                                let message = crate::video_osd::action_message(
+                                    crate::video_osd::ActionFeedback::PlaylistAdded(count),
+                                );
+                                show_osd_message(&window, message.text, false);
+                            })
                     }),
-                10 => {
-                    let urls = selected_playlist_paths(&window, token.as_str())
-                        .into_iter()
-                        .filter(|path| crate::platform::is_http_url(path))
-                        .collect::<Vec<_>>();
-                    if urls.is_empty() {
-                        Err("Select an HTTP or HTTPS playlist entry first".into())
-                    } else {
-                        urls.iter().try_for_each(|url| {
-                            crate::platform::open_http_url_in_browser(url)
-                                .map_err(|error| error.to_string())
-                        })
+                    9 => selected_index
+                        .and_then(|index| rows.row_data(index))
+                        .ok_or_else(|| "Select a playlist item first".to_owned())
+                        .and_then(|row| {
+                            crate::media_open::open_in_new_player(&window, row.path.as_str())
+                        }),
+                    10 => {
+                        let urls = selected_playlist_paths(&window, token.as_str())
+                            .into_iter()
+                            .filter(|path| crate::platform::is_http_url(path))
+                            .collect::<Vec<_>>();
+                        if urls.is_empty() {
+                            Err("Select an HTTP or HTTPS playlist entry first".into())
+                        } else {
+                            urls.iter().try_for_each(|url| {
+                                crate::platform::open_http_url_in_browser(url)
+                                    .map_err(|error| error.to_string())
+                            })
+                        }
                     }
-                }
-                11 => {
-                    let urls = selected_playlist_paths(&window, token.as_str())
-                        .into_iter()
-                        .filter(|path| crate::platform::is_http_url(path))
-                        .collect::<Vec<_>>();
-                    if urls.is_empty() {
-                        Err("Select an HTTP or HTTPS playlist entry first".into())
-                    } else {
-                        crate::platform::clipboard::copy_text(&urls.join("\n"))
+                    11 => {
+                        let urls = selected_playlist_paths(&window, token.as_str())
+                            .into_iter()
+                            .filter(|path| crate::platform::is_http_url(path))
+                            .collect::<Vec<_>>();
+                        if urls.is_empty() {
+                            Err("Select an HTTP or HTTPS playlist entry first".into())
+                        } else {
+                            crate::platform::clipboard::copy_text(&urls.join("\n"))
+                        }
                     }
+                    _ => unreachable!(),
+                };
+                if let Err(error) = result {
+                    window.set_status(error.into());
+                } else if action == 7 {
+                    window.set_selected_playlist_token("".into());
+                    window.set_selected_playlist_tokens(slint::ModelRc::default());
+                    install_playlist_selection(&window, &[]);
                 }
-                _ => unreachable!(),
+                return;
+            }
+            let command = match action {
+                1 => selected_playlist_ids(&window, token.as_str()).map(Command::RemovePlaylistIds),
+                2 | 3 => token
+                    .parse()
+                    .map(|id| Command::MovePlaylistId {
+                        id,
+                        direction: if action == 2 { -1 } else { 1 },
+                    })
+                    .map_err(|error: std::num::ParseIntError| error.to_string()),
+                4 => Ok(Command::ClearPlaylist),
+                5 => Ok(Command::CycleLoop),
+                _ => Err("Unknown playlist action".into()),
             };
-            if let Err(error) = result {
+            window.invoke_activity();
+            if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
                 window.set_status(error.into());
-            } else if action == 7 {
+            } else if action == 4 {
+                let message = crate::video_osd::action_message(
+                    crate::video_osd::ActionFeedback::PlaylistCleared,
+                );
+                show_osd_message(&window, message.text, false);
+            } else if action == 1 {
                 window.set_selected_playlist_token("".into());
                 window.set_selected_playlist_tokens(slint::ModelRc::default());
                 install_playlist_selection(&window, &[]);
             }
-            return;
-        }
-        let command = match action {
-            1 => selected_playlist_ids(&window, token.as_str()).map(Command::RemovePlaylistIds),
-            2 | 3 => token
-                .parse()
-                .map(|id| Command::MovePlaylistId {
-                    id,
-                    direction: if action == 2 { -1 } else { 1 },
-                })
-                .map_err(|error: std::num::ParseIntError| error.to_string()),
-            4 => Ok(Command::ClearPlaylist),
-            5 => Ok(Command::CycleLoop),
-            _ => Err("Unknown playlist action".into()),
-        };
-        window.invoke_activity();
-        if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
-            window.set_status(error.into());
-        } else if action == 4 {
-            let message =
-                crate::video_osd::action_message(crate::video_osd::ActionFeedback::PlaylistCleared);
-            show_osd_message(&window, message.text, false);
-        } else if action == 1 {
-            window.set_selected_playlist_token("".into());
-            window.set_selected_playlist_tokens(slint::ModelRc::default());
-            install_playlist_selection(&window, &[]);
-        }
-    });
+        });
 }
 
 fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
@@ -351,7 +357,7 @@ pub(super) fn install_navigation(
     let sender = player.clone();
     let pending = pending_navigation.clone();
     let weak = app.as_weak();
-    app.on_playlist_next(move || {
+    app.global::<PlayerMenuActions>().on_playlist_next(move || {
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
         }
@@ -365,15 +371,16 @@ pub(super) fn install_navigation(
     let sender = player.clone();
     let pending = pending_navigation.clone();
     let weak = app.as_weak();
-    app.on_playlist_previous(move || {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        queue_playlist_navigation(
-            &sender,
-            &pending,
-            Command::PlaylistPrevious,
-            capture_transition_first,
-        );
-    });
+    app.global::<PlayerMenuActions>()
+        .on_playlist_previous(move || {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+            }
+            queue_playlist_navigation(
+                &sender,
+                &pending,
+                Command::PlaylistPrevious,
+                capture_transition_first,
+            );
+        });
 }

@@ -11,6 +11,7 @@ use crate::{
     preference_load::LoadedPreferences,
 };
 use placement::{StartupCenter, center_host_in_work_area};
+use riina_ui::PlayerMenuActions;
 use slint::{
     ComponentHandle,
     winit_030::{WinitWindowAccessor, winit},
@@ -238,7 +239,7 @@ impl NativeApp {
                 // dialogs stranded at the OS-selected (often top-left) position.
                 placement.schedule(host.as_weak(), app.as_weak(), owner_center);
                 if action_after_launch.open_file_panel(supplied_media_argument) {
-                    app.invoke_open_file();
+                    app.global::<PlayerMenuActions>().invoke_open_file();
                 }
                 // Its initial DPI and frameless client geometry are not settled until
                 // the popup exists. Sizing a queued adapter can be overwritten at creation.
@@ -539,7 +540,7 @@ fn install_chrome_close_handlers(
     let close_button_host = host.as_weak();
     let close_button_session = session.clone();
     let close_button_pip = pip.clone();
-    app.on_close_player(move || {
+    app.global::<PlayerMenuActions>().on_close_player(move || {
         let chrome = close_button_chrome.upgrade();
         let should_quit = chrome.as_ref().is_some_and(|app| {
             crate::player_manager::should_quit_after_last_window_closed(
@@ -556,9 +557,9 @@ fn install_chrome_close_handlers(
         }
     });
     let quit_app = app.as_weak();
-    app.on_quit_riina(move || {
+    app.global::<PlayerMenuActions>().on_quit_riina(move || {
         if let Some(app) = quit_app.upgrade() {
-            app.invoke_close_player();
+            app.global::<PlayerMenuActions>().invoke_close_player();
         }
         let _ = slint::quit_event_loop();
     });

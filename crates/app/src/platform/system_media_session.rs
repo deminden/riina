@@ -65,7 +65,7 @@ mod macos {
                     "PLAYPAUSE",
                     latest_playback,
                 ) {
-                    app.invoke_toggle_pause();
+                    app.global::<PlayerMenuActions>().invoke_toggle_pause();
                 }
             }
             Action::Stop => {
@@ -74,7 +74,7 @@ mod macos {
                     "STOP",
                     latest_playback,
                 ) {
-                    app.invoke_stop();
+                    app.global::<PlayerMenuActions>().invoke_stop();
                 }
             }
             Action::Next => {
@@ -83,7 +83,7 @@ mod macos {
                     "NEXT",
                     latest_playback,
                 ) {
-                    app.invoke_playlist_next();
+                    app.global::<PlayerMenuActions>().invoke_playlist_next();
                 }
             }
             Action::Previous => {
@@ -92,7 +92,7 @@ mod macos {
                     "PREV",
                     latest_playback,
                 ) {
-                    app.invoke_playlist_previous();
+                    app.global::<PlayerMenuActions>().invoke_playlist_previous();
                 }
             }
             Action::Forward(seconds) => {
@@ -118,7 +118,8 @@ mod macos {
                 }
             }
             Action::Position(seconds) if seconds.is_finite() && seconds >= 0.0 => {
-                app.invoke_seek(seconds as f32);
+                app.global::<PlayerMenuActions>()
+                    .invoke_seek(seconds as f32);
             }
             Action::Position(_) => {}
             Action::Rate(rate) if rate.is_finite() && rate > 0.0 => {

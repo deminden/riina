@@ -10,6 +10,7 @@ mod timers;
 use super::model::PreferenceModel;
 use crate::PlayerWindow;
 use refresh::refresh;
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -39,67 +40,68 @@ pub(crate) fn connect(
         }
     });
     let parent = app.as_weak();
-    app.on_open_preferences(move || {
-        let Some(app) = parent.upgrade() else { return };
-        if app.get_crop_editing() || app.get_dialog_open() {
-            return;
-        }
-        let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
-        let window = if let Some(window) = existing {
-            window
-        } else {
-            let Some(window) = construction::create(
-                &app,
-                construction::Inputs {
-                    baseline: &baseline,
-                    path: &path,
-                    model: &model,
-                    player: &decoder_player,
-                    playback: &latest_playback,
-                    plugin: plugin_host.as_ref(),
-                },
-                clear_history.clone(),
-            ) else {
+    app.global::<PlayerMenuActions>()
+        .on_open_preferences(move || {
+            let Some(app) = parent.upgrade() else { return };
+            if app.get_crop_editing() || app.get_dialog_open() {
                 return;
-            };
-            timers.install_close(&window);
-            crate::platform::center_auxiliary_window(&window, &app);
-            *current.borrow_mut() = Some(window.clone_strong());
-            window
-        };
-        let target_pane = app.get_preferences_target_pane();
-        if target_pane >= 0 {
-            window.set_selected_pane(target_pane);
-            app.set_preferences_target_pane(-1);
-        }
-        let stored_audio = crate::preference_load::read_valid(&path)
-            .ok()
-            .flatten()
-            .map(|preferences| preferences.audio)
-            .unwrap_or_else(|| baseline.audio.clone());
-        let available_devices = latest_playback
-            .lock()
-            .map(|playback| playback.audio_devices.clone())
-            .unwrap_or_default();
-        crate::audio_preferences::install_window(&window, &stored_audio, &available_devices);
-        refresh(&window, &app);
-        if let Err(error) = window.show() {
-            app.set_status(error.to_string().into());
-            return;
-        }
-        timers.start(
-            &window,
-            latest_playback.clone(),
-            stored_audio,
-            available_devices,
-        );
-        let weak = window.as_weak();
-        let _ = slint::spawn_local(async move {
-            if let Some(window) = weak.upgrade()
-                && let Ok(native) = window.window().winit_window().await
-            {
-                native.focus_window();
             }
+            let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
+            let window = if let Some(window) = existing {
+                window
+            } else {
+                let Some(window) = construction::create(
+                    &app,
+                    construction::Inputs {
+                        baseline: &baseline,
+                        path: &path,
+                        model: &model,
+                        player: &decoder_player,
+                        playback: &latest_playback,
+                        plugin: plugin_host.as_ref(),
+                    },
+                    clear_history.clone(),
+                ) else {
+                    return;
+                };
+                timers.install_close(&window);
+                crate::platform::center_auxiliary_window(&window, &app);
+                *current.borrow_mut() = Some(window.clone_strong());
+                window
+            };
+            let target_pane = app.get_preferences_target_pane();
+            if target_pane >= 0 {
+                window.set_selected_pane(target_pane);
+                app.set_preferences_target_pane(-1);
+            }
+            let stored_audio = crate::preference_load::read_valid(&path)
+                .ok()
+                .flatten()
+                .map(|preferences| preferences.audio)
+                .unwrap_or_else(|| baseline.audio.clone());
+            let available_devices = latest_playback
+                .lock()
+                .map(|playback| playback.audio_devices.clone())
+                .unwrap_or_default();
+            crate::audio_preferences::install_window(&window, &stored_audio, &available_devices);
+            refresh(&window, &app);
+            if let Err(error) = window.show() {
+                app.set_status(error.to_string().into());
+                return;
+            }
+            timers.start(
+                &window,
+                latest_playback.clone(),
+                stored_audio,
+                available_devices,
+            );
+            let weak = window.as_weak();
+            let _ = slint::spawn_local(async move {
+                if let Some(window) = weak.upgrade()
+                    && let Ok(native) = window.window().winit_window().await
+                {
+                    native.focus_window();
+                }
+            });
         });
-    });
 }

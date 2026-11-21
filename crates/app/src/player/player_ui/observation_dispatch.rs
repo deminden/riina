@@ -14,6 +14,7 @@ use riina_core::{
     Phase, Playback, Preferences, RecentMedia, music_mode, sync::lock, video_filters,
 };
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{
     cell::RefCell,
@@ -243,7 +244,7 @@ impl WindowDelivery {
             }
             crate::screenshot_output::cleanup(&app, &captures);
             if enter_fullscreen {
-                app.invoke_toggle_fullscreen();
+                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
             }
             if let Some(error) = clipboard_error {
                 app.set_status(format!("Could not copy screenshot: {error}").into());

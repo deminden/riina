@@ -1,6 +1,7 @@
 //! Own independent shared-renderer player windows for the application lifetime.
 
 use crate::{PlayerWindow, WelcomeWindow, player_ui::UiSession};
+use riina_ui::PlayerMenuActions;
 use slint::{CloseRequestResponse, ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
@@ -76,17 +77,20 @@ impl PlayerManager {
         });
 
         let state = Rc::downgrade(&self.state);
-        app.on_close_player(move || schedule_close(state.clone(), id, false));
+        app.global::<PlayerMenuActions>()
+            .on_close_player(move || schedule_close(state.clone(), id, false));
         let state = Rc::downgrade(&self.state);
-        app.on_quit_riina(move || schedule_quit(state.clone()));
+        app.global::<PlayerMenuActions>()
+            .on_quit_riina(move || schedule_quit(state.clone()));
         let state = Rc::downgrade(&self.state);
         let owner = app.as_weak();
-        app.on_bring_all_to_front(move || {
-            let (Some(state), Some(owner)) = (state.upgrade(), owner.upgrade()) else {
-                return;
-            };
-            bring_all_to_front(&state, &owner);
-        });
+        app.global::<PlayerMenuActions>()
+            .on_bring_all_to_front(move || {
+                let (Some(state), Some(owner)) = (state.upgrade(), owner.upgrade()) else {
+                    return;
+                };
+                bring_all_to_front(&state, &owner);
+            });
         if let Some(welcome) = welcome {
             let state = Rc::downgrade(&self.state);
             welcome.window().on_close_requested(move || {

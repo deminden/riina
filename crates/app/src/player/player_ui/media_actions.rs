@@ -9,6 +9,7 @@ use crate::{
 use recent::{persist_recent_open_documents, remember_recent_open_document};
 use riina_core::{Command, RecentMedia};
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
@@ -126,47 +127,51 @@ fn install_external_file_actions(
 ) {
     let reveal_media_app = app.as_weak();
     let reveal_media_playback = latest_playback.clone();
-    app.on_reveal_current_media(move || {
-        if let Some(app) = reveal_media_app.upgrade() {
-            crate::key_binding_preferences::reveal_current_media(&app, &reveal_media_playback);
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_reveal_current_media(move || {
+            if let Some(app) = reveal_media_app.upgrade() {
+                crate::key_binding_preferences::reveal_current_media(&app, &reveal_media_playback);
+            }
+        });
     let save_playlist_app = app.as_weak();
     let save_playlist_host = open_host.clone();
     let save_playlist_playback = latest_playback.clone();
-    app.on_save_current_playlist(move || {
-        if let Some(app) = save_playlist_app.upgrade() {
-            crate::playlist_export::save_current_playlist(
-                &app,
-                save_playlist_host.clone(),
-                &save_playlist_playback,
-            );
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_save_current_playlist(move || {
+            if let Some(app) = save_playlist_app.upgrade() {
+                crate::playlist_export::save_current_playlist(
+                    &app,
+                    save_playlist_host.clone(),
+                    &save_playlist_playback,
+                );
+            }
+        });
     let save_subtitle_app = app.as_weak();
     let save_subtitle_host = open_host.clone();
     let save_subtitle_playback = latest_playback.clone();
-    app.on_save_downloaded_subtitle(move || {
-        if let Some(app) = save_subtitle_app.upgrade() {
-            crate::file_actions::save_downloaded_subtitle(
-                &app,
-                save_subtitle_host.clone(),
-                &save_subtitle_playback,
-            );
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_save_downloaded_subtitle(move || {
+            if let Some(app) = save_subtitle_app.upgrade() {
+                crate::file_actions::save_downloaded_subtitle(
+                    &app,
+                    save_subtitle_host.clone(),
+                    &save_subtitle_playback,
+                );
+            }
+        });
     let delete_media_app = app.as_weak();
     let delete_media_playback = latest_playback.clone();
     let delete_media_player = commands.clone();
-    app.on_delete_current_media(move || {
-        if let Some(app) = delete_media_app.upgrade() {
-            crate::file_actions::delete_current_media(
-                &app,
-                &delete_media_playback,
-                delete_media_player.clone(),
-            );
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_delete_current_media(move || {
+            if let Some(app) = delete_media_app.upgrade() {
+                crate::file_actions::delete_current_media(
+                    &app,
+                    &delete_media_playback,
+                    delete_media_player.clone(),
+                );
+            }
+        });
 }
 
 fn install_file_open(
@@ -183,18 +188,19 @@ fn install_file_open(
     let new_window_app = app.as_weak();
     let new_window_host = open_host.clone();
     let new_window_sender = open_player.clone();
-    app.on_open_in_new_window(move || {
-        if let Some(app) = new_window_app.upgrade() {
-            ui_dialogs::open(
-                &app,
-                new_window_host.clone(),
-                Purpose::MediaInNewPlayer,
-                new_window_sender.clone(),
-                None,
-            );
-        }
-    });
-    app.on_open_file(move || {
+    app.global::<PlayerMenuActions>()
+        .on_open_in_new_window(move || {
+            if let Some(app) = new_window_app.upgrade() {
+                ui_dialogs::open(
+                    &app,
+                    new_window_host.clone(),
+                    Purpose::MediaInNewPlayer,
+                    new_window_sender.clone(),
+                    None,
+                );
+            }
+        });
+    app.global::<PlayerMenuActions>().on_open_file(move || {
         if let Some(app) = weak.upgrade() {
             let welcome_is_visible = file_welcome
                 .as_ref()
@@ -251,56 +257,60 @@ fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
     let open_recent_preferences_path = prefs_path.clone();
     let recent_player = commands.clone();
     let open_recent_app = app.as_weak();
-    app.on_open_recent_path(move |path| {
-        let Some(app) = open_recent_app.upgrade() else {
-            return;
-        };
-        let Some(media) = open_recent_documents
-            .borrow()
-            .iter()
-            .find(|item| item.path == path.as_str())
-            .cloned()
-        else {
-            return;
-        };
-        remember_recent_open_document(
-            &app,
-            &open_recent_documents,
-            &open_recent_preferences_path,
-            media.path.clone(),
-            media.title.clone(),
-        );
-        media_open::open_recent(
-            &app,
-            media,
-            app.get_resume_last_position(),
-            recent_player.clone(),
-        );
-    });
+    app.global::<PlayerMenuActions>()
+        .on_open_recent_path(move |path| {
+            let Some(app) = open_recent_app.upgrade() else {
+                return;
+            };
+            let Some(media) = open_recent_documents
+                .borrow()
+                .iter()
+                .find(|item| item.path == path.as_str())
+                .cloned()
+            else {
+                return;
+            };
+            remember_recent_open_document(
+                &app,
+                &open_recent_documents,
+                &open_recent_preferences_path,
+                media.path.clone(),
+                media.title.clone(),
+            );
+            media_open::open_recent(
+                &app,
+                media,
+                app.get_resume_last_position(),
+                recent_player.clone(),
+            );
+        });
     let clear_recent_documents = recent_open_documents.clone();
     let clear_recent_flag = recent_open_cleared.clone();
     let clear_preferences_path = prefs_path.clone();
     let clear_recent_app = app.as_weak();
-    app.on_clear_open_recent(move || {
-        if let Some(app) = clear_recent_app.upgrade() {
-            clear_recent_flag.set(true);
-            clear_recent_documents.borrow_mut().clear();
-            app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(Vec::<
-                MenuCatalogRow,
-            >::new(
-            ))));
-            app.invoke_video_menu_changed();
-            if let Err(error) = persist_recent_open_documents(
-                &clear_preferences_path,
-                &clear_recent_documents.borrow(),
-            ) {
-                app.set_status(format!("Could not clear Open Recent: {error}").into());
+    app.global::<PlayerMenuActions>()
+        .on_clear_open_recent(move || {
+            if let Some(app) = clear_recent_app.upgrade() {
+                clear_recent_flag.set(true);
+                clear_recent_documents.borrow_mut().clear();
+                app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(Vec::<
+                    MenuCatalogRow,
+                >::new(
+                ))));
+                app.invoke_video_menu_changed();
+                if let Err(error) = persist_recent_open_documents(
+                    &clear_preferences_path,
+                    &clear_recent_documents.borrow(),
+                ) {
+                    app.set_status(format!("Could not clear Open Recent: {error}").into());
+                }
+                if let Err(error) = platform::clear_recent_documents() {
+                    app.set_status(
+                        format!("Could not clear system recent documents: {error}").into(),
+                    );
+                }
             }
-            if let Err(error) = platform::clear_recent_documents() {
-                app.set_status(format!("Could not clear system recent documents: {error}").into());
-            }
-        }
-    });
+        });
 }
 
 fn install_url_open(
@@ -353,20 +363,21 @@ fn install_url_open(
 
 fn install_help_and_debug(app: &PlayerWindow, latest_playback: &crate::PlaybackStore) {
     let weak = app.as_weak();
-    app.on_open_help_link(move |destination| {
-        let Some(app) = weak.upgrade() else {
-            return;
-        };
-        let Some(url) = help_menu_url(destination.as_str()) else {
-            return;
-        };
-        if let Err(error) = crate::platform::open_http_url_in_browser(url) {
-            app.set_status(format!("Could not open the Help link: {error}").into());
-        }
-    });
+    app.global::<PlayerMenuActions>()
+        .on_open_help_link(move |destination| {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            let Some(url) = help_menu_url(destination.as_str()) else {
+                return;
+            };
+            if let Err(error) = crate::platform::open_http_url_in_browser(url) {
+                app.set_status(format!("Could not open the Help link: {error}").into());
+            }
+        });
     let weak = app.as_weak();
     let debug_playback = latest_playback.clone();
-    app.on_dump_debug_info(move || {
+    app.global::<PlayerMenuActions>().on_dump_debug_info(move || {
         let Some(app) = weak.upgrade() else {
             return;
         };

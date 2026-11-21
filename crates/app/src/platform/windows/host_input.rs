@@ -1,5 +1,7 @@
 //! Keyboard intent arriving on the framed owner instead of the controls popup.
 use crate::PlayerWindow;
+use riina_ui::PlayerMenuActions;
+use slint::ComponentHandle;
 use slint::winit_030::{
     EventResult,
     winit::{
@@ -41,7 +43,7 @@ impl HostInput {
                 if modifiers == ModifiersState::CONTROL
                     && matches!(&event.logical_key, Key::Character(text) if text.eq_ignore_ascii_case("h"))
                 {
-                    app.invoke_hide_riina();
+                    app.global::<PlayerMenuActions>().invoke_hide_riina();
                     return EventResult::PreventDefault;
                 }
                 if event.logical_key == Key::Named(NamedKey::Escape) && app.get_fullscreen() {
@@ -55,7 +57,7 @@ impl HostInput {
                                 modifiers.super_key(),
                             )
                         },
-                        || app.invoke_toggle_fullscreen(),
+                        || app.global::<PlayerMenuActions>().invoke_toggle_fullscreen(),
                     );
                     return EventResult::PreventDefault;
                 }

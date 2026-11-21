@@ -4,6 +4,7 @@ use crate::{LiveTextRegion, PlayerWindow, platform::text_recognition};
 use riina_core::Playback;
 use riina_core::{Command, Phase, Preferences};
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::{
     path::Path,
@@ -51,30 +52,31 @@ pub(super) fn install_actions(app: &PlayerWindow, prefs_path: &Path) {
     });
     let live_text_parent = app.as_weak();
     let live_text_path = prefs_path.to_owned();
-    app.on_toggle_live_text(move || {
-        let Some(app) = live_text_parent.upgrade() else {
-            return;
-        };
-        if !app.get_live_text_available() {
-            app.set_status("Live Text is unavailable on this system".into());
-            return;
-        }
-        let enabled = !app.get_live_text_enabled();
-        let result = crate::preference_store::update(
-            &live_text_path,
-            &Preferences::default(),
-            |preferences| {
-                preferences.live_text_enabled = enabled;
-                Ok(())
-            },
-        );
-        match result {
-            Ok(()) => app.set_live_text_enabled(enabled),
-            Err(error) => {
-                app.set_status(format!("Could not save Live Text preference: {error}").into())
+    app.global::<PlayerMenuActions>()
+        .on_toggle_live_text(move || {
+            let Some(app) = live_text_parent.upgrade() else {
+                return;
+            };
+            if !app.get_live_text_available() {
+                app.set_status("Live Text is unavailable on this system".into());
+                return;
             }
-        }
-    });
+            let enabled = !app.get_live_text_enabled();
+            let result = crate::preference_store::update(
+                &live_text_path,
+                &Preferences::default(),
+                |preferences| {
+                    preferences.live_text_enabled = enabled;
+                    Ok(())
+                },
+            );
+            match result {
+                Ok(()) => app.set_live_text_enabled(enabled),
+                Err(error) => {
+                    app.set_status(format!("Could not save Live Text preference: {error}").into())
+                }
+            }
+        });
 }
 
 pub(super) fn install(

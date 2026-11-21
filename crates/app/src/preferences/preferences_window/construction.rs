@@ -4,6 +4,7 @@ use crate::preferences::model::PreferenceModel;
 use crate::{PlaybackStore, PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
 use riina_core::Preferences;
 use riina_mpv::CommandSender;
+use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 use std::path::Path;
 
@@ -130,7 +131,8 @@ fn connect_font_and_advanced(app: &PlayerWindow, window: &PreferencesWindow) {
                     app.global::<riina_ui::PlaybackSubtitleState>()
                         .get_subtitle_font(),
                 );
-            app.invoke_choose_subtitle_font();
+            app.global::<PlayerMenuActions>()
+                .invoke_choose_subtitle_font();
         }
     });
     let advanced_settings_window = window.as_weak();

@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, ModelRc, VecModel};
 
 pub(crate) fn install_player(
@@ -236,10 +237,10 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
         return;
     };
     match action {
-        RuntimeAction::TogglePause => app.invoke_toggle_pause(),
+        RuntimeAction::TogglePause => app.global::<PlayerMenuActions>().invoke_toggle_pause(),
         RuntimeAction::SetPaused(paused) => app.invoke_set_paused(paused),
-        RuntimeAction::Quit => app.invoke_quit_riina(),
-        RuntimeAction::Stop => app.invoke_stop(),
+        RuntimeAction::Quit => app.global::<PlayerMenuActions>().invoke_quit_riina(),
+        RuntimeAction::Stop => app.global::<PlayerMenuActions>().invoke_stop(),
         RuntimeAction::ShowProgress => {
             let message = {
                 let playback = riina_core::sync::lock(latest_playback);
@@ -254,37 +255,67 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
                 app.invoke_show_video_osd();
             }
         }
-        RuntimeAction::Seek(seconds) => app.invoke_seek_relative(seconds),
-        RuntimeAction::Volume(amount) => app.invoke_adjust_volume(amount),
-        RuntimeAction::Mute => app.invoke_toggle_mute(),
-        RuntimeAction::SubtitleVisibility => app.invoke_toggle_subtitle_visibility(),
+        RuntimeAction::Seek(seconds) => app
+            .global::<PlayerMenuActions>()
+            .invoke_seek_relative(seconds),
+        RuntimeAction::Volume(amount) => app
+            .global::<PlayerMenuActions>()
+            .invoke_adjust_volume(amount),
+        RuntimeAction::Mute => app.global::<PlayerMenuActions>().invoke_toggle_mute(),
+        RuntimeAction::SubtitleVisibility => app
+            .global::<PlayerMenuActions>()
+            .invoke_toggle_subtitle_visibility(),
         RuntimeAction::Fullscreen(desired) => {
             if desired.is_none_or(|desired| desired != app.get_fullscreen()) {
-                app.invoke_toggle_fullscreen();
+                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
             }
         }
-        RuntimeAction::CycleAudio => app.invoke_cycle_audio_track(),
-        RuntimeAction::CycleSubtitle => app.invoke_cycle_subtitle_track(),
-        RuntimeAction::CycleVideo => app.invoke_cycle_video_track(),
-        RuntimeAction::FrameStep => app.invoke_frame_step(),
-        RuntimeAction::FrameBackStep => app.invoke_frame_back_step(),
+        RuntimeAction::CycleAudio => app.global::<PlayerMenuActions>().invoke_cycle_audio_track(),
+        RuntimeAction::CycleSubtitle => app
+            .global::<PlayerMenuActions>()
+            .invoke_cycle_subtitle_track(),
+        RuntimeAction::CycleVideo => app.global::<PlayerMenuActions>().invoke_cycle_video_track(),
+        RuntimeAction::FrameStep => app.global::<PlayerMenuActions>().invoke_frame_step(),
+        RuntimeAction::FrameBackStep => app.global::<PlayerMenuActions>().invoke_frame_back_step(),
         RuntimeAction::SubtitlePosition(amount) => app.invoke_adjust_subtitle_position(amount),
-        RuntimeAction::OpenPreferences => app.invoke_open_preferences(),
-        RuntimeAction::SettingsPane(index) => app.invoke_toggle_settings_pane(index),
-        RuntimeAction::PlaylistNext => app.invoke_playlist_next(),
-        RuntimeAction::PlaylistPrevious => app.invoke_playlist_previous(),
+        RuntimeAction::OpenPreferences => {
+            app.global::<PlayerMenuActions>().invoke_open_preferences()
+        }
+        RuntimeAction::SettingsPane(index) => app
+            .global::<PlayerMenuActions>()
+            .invoke_toggle_settings_pane(index),
+        RuntimeAction::PlaylistNext => app.global::<PlayerMenuActions>().invoke_playlist_next(),
+        RuntimeAction::PlaylistPrevious => {
+            app.global::<PlayerMenuActions>().invoke_playlist_previous()
+        }
         RuntimeAction::PlaylistShuffle => app.invoke_toggle_playlist_shuffle(),
-        RuntimeAction::TogglePlaylistPane(kind) => app.invoke_toggle_playlist_pane(kind),
-        RuntimeAction::ToggleMusicMode => app.invoke_toggle_music_mode(),
-        RuntimeAction::TogglePictureInPicture => app.invoke_toggle_picture_in_picture(),
-        RuntimeAction::FitToScreen => app.invoke_resize_window_command(3),
-        RuntimeAction::ResizeWindow(command) => app.invoke_resize_window_command(command),
-        RuntimeAction::TogglePluginsPanel => app.invoke_toggle_plugins_pane(),
-        RuntimeAction::FindOnlineSubs => app.invoke_find_online_subtitles(),
-        RuntimeAction::ToggleLiveText => app.invoke_toggle_live_text(),
+        RuntimeAction::TogglePlaylistPane(kind) => app
+            .global::<PlayerMenuActions>()
+            .invoke_toggle_playlist_pane(kind),
+        RuntimeAction::ToggleMusicMode => {
+            app.global::<PlayerMenuActions>().invoke_toggle_music_mode()
+        }
+        RuntimeAction::TogglePictureInPicture => app
+            .global::<PlayerMenuActions>()
+            .invoke_toggle_picture_in_picture(),
+        RuntimeAction::FitToScreen => app
+            .global::<PlayerMenuActions>()
+            .invoke_resize_window_command(3),
+        RuntimeAction::ResizeWindow(command) => app
+            .global::<PlayerMenuActions>()
+            .invoke_resize_window_command(command),
+        RuntimeAction::TogglePluginsPanel => app
+            .global::<PlayerMenuActions>()
+            .invoke_toggle_plugins_pane(),
+        RuntimeAction::FindOnlineSubs => app
+            .global::<PlayerMenuActions>()
+            .invoke_find_online_subtitles(),
+        RuntimeAction::ToggleLiveText => {
+            app.global::<PlayerMenuActions>().invoke_toggle_live_text()
+        }
         RuntimeAction::RevealCurrentMedia => reveal_current_media(app, latest_playback),
-        RuntimeAction::AbLoop => app.invoke_cycle_ab_loop(),
-        RuntimeAction::Screenshot => app.invoke_take_screenshot(),
+        RuntimeAction::AbLoop => app.global::<PlayerMenuActions>().invoke_cycle_ab_loop(),
+        RuntimeAction::Screenshot => app.global::<PlayerMenuActions>().invoke_take_screenshot(),
         RuntimeAction::MpvInputAction(action) => app.invoke_execute_mpv_input_action(action.into()),
         RuntimeAction::Ignore => {}
     }

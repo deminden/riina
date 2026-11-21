@@ -106,11 +106,11 @@ impl PlayerContext {
 }
 
 macro_rules! bind {
-    ($context:expr, $app:ident, $callback:ident, |$ctx:ident $(, $argument:ident)*| $body:expr) => {{
+    ($context:expr, $app:expr, $callback:ident, |$ctx:ident $(, $argument:ident)*| $body:expr) => {{
         let $ctx = $context.clone();
-        $app.$callback(move |$($argument),*| $body);
+        ($app).$callback(move |$($argument),*| $body);
     }};
-    ($context:expr, $app:ident, $callback:ident, $command:expr) => {
+    ($context:expr, $app:expr, $callback:ident, $command:expr) => {
         bind!($context, $app, $callback, |ctx| {
             ctx.activity();
             ctx.send($command);

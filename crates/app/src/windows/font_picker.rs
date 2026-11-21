@@ -2,6 +2,7 @@
 mod catalog;
 
 use crate::{FontPicker, PlayerWindow, font_catalog};
+use riina_ui::PlayerMenuActions;
 use slint::{
     ComponentHandle, ModelRc, StandardListViewItem, VecModel,
     winit_030::{WinitWindowAccessor, winit::window::Theme},
@@ -159,58 +160,59 @@ pub fn connect(app: &PlayerWindow) {
         }
     });
     let weak = app.as_weak();
-    app.on_choose_subtitle_font(move || {
-        let Some(app) = weak.upgrade() else {
-            return;
-        };
-        if app.get_dialog_open() {
-            return;
-        }
-        // Reuse the auxiliary window's sample, search and discovered catalog.
-        // Every invocation refreshes playback selection, even if already visible.
-        let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
-        if let Some(picker) = existing {
+    app.global::<PlayerMenuActions>()
+        .on_choose_subtitle_font(move || {
+            let Some(app) = weak.upgrade() else {
+                return;
+            };
+            if app.get_dialog_open() {
+                return;
+            }
+            // Reuse the auxiliary window's sample, search and discovered catalog.
+            // Every invocation refreshes playback selection, even if already visible.
+            let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
+            if let Some(picker) = existing {
+                refresh_selection(&picker, &app);
+                picker.set_picker_active(true);
+                if let Err(error) = picker.show() {
+                    picker.set_picker_active(false);
+                    app.set_status(error.to_string().into());
+                    return;
+                }
+                crate::platform::enable_font_picker_acrylic(&picker);
+                follow_player_theme(&picker, &app, &show_appearance_timer);
+                let window = picker.as_weak();
+                let _ = slint::spawn_local(async move {
+                    if let Some(picker) = window.upgrade()
+                        && let Ok(window) = picker.window().winit_window().await
+                        && picker.get_picker_active()
+                    {
+                        window.focus_window();
+                    }
+                });
+                return;
+            }
+            let picker = match FontPicker::new() {
+                Ok(picker) => picker,
+                Err(error) => {
+                    app.set_status(error.to_string().into());
+                    return;
+                }
+            };
+            crate::appearance_preferences::install_system_typography(&picker);
             refresh_selection(&picker, &app);
-            picker.set_picker_active(true);
+            install_lifecycle(&picker, &app);
             if let Err(error) = picker.show() {
-                picker.set_picker_active(false);
                 app.set_status(error.to_string().into());
                 return;
             }
             crate::platform::enable_font_picker_acrylic(&picker);
             follow_player_theme(&picker, &app, &show_appearance_timer);
+            crate::platform::center_auxiliary_window(&picker, &app);
             let window = picker.as_weak();
-            let _ = slint::spawn_local(async move {
-                if let Some(picker) = window.upgrade()
-                    && let Ok(window) = picker.window().winit_window().await
-                    && picker.get_picker_active()
-                {
-                    window.focus_window();
-                }
-            });
-            return;
-        }
-        let picker = match FontPicker::new() {
-            Ok(picker) => picker,
-            Err(error) => {
-                app.set_status(error.to_string().into());
-                return;
-            }
-        };
-        crate::appearance_preferences::install_system_typography(&picker);
-        refresh_selection(&picker, &app);
-        install_lifecycle(&picker, &app);
-        if let Err(error) = picker.show() {
-            app.set_status(error.to_string().into());
-            return;
-        }
-        crate::platform::enable_font_picker_acrylic(&picker);
-        follow_player_theme(&picker, &app, &show_appearance_timer);
-        crate::platform::center_auxiliary_window(&picker, &app);
-        let window = picker.as_weak();
-        *current.borrow_mut() = Some(picker);
-        discover_catalog(&app, window);
-    });
+            *current.borrow_mut() = Some(picker);
+            discover_catalog(&app, window);
+        });
 }
 
 fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
