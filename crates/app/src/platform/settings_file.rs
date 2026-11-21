@@ -120,25 +120,12 @@ fn replace(source: &Path, destination: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
-    fn directory(name: &str) -> PathBuf {
-        let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tools/settings-test")
-            .join(format!(
-                "{name}-{}-{}",
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
-        std::fs::create_dir_all(&directory).unwrap();
-        directory
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn concurrent_saves_publish_complete_settings_and_preserve_foreign_temporary_files() {
-        let directory = directory("concurrent");
-        let path = directory.join("preferences.json");
+        let directory = TempDir::new("settings-concurrent").unwrap();
+        let path = directory.path().join("preferences.json");
         let foreign = path.with_extension(format!("{}.tmp", std::process::id()));
         std::fs::write(&foreign, b"another operation owns this file").unwrap();
         let payloads: Vec<String> = (0..8).map(|index| serde_json::json!({"writer":index,"template":"Снимок 字-%F-%n","data":"abc".repeat(8192)}).to_string()).collect();
@@ -165,25 +152,25 @@ mod tests {
             std::fs::read(&foreign).unwrap(),
             b"another operation owns this file"
         );
-        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 2);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 2);
     }
 
     #[test]
     fn failed_replacement_preserves_destination_and_removes_owned_temporary_file() {
-        let directory = directory("failure");
-        let path = directory.join("preferences.json");
+        let directory = TempDir::new("settings-failure").unwrap();
+        let path = directory.path().join("preferences.json");
         std::fs::create_dir(&path).unwrap();
         std::fs::write(path.join("sentinel"), b"preserve").unwrap();
         assert!(save(&path, "replacement").is_err());
         assert_eq!(std::fs::read(path.join("sentinel")).unwrap(), b"preserve");
-        assert_eq!(std::fs::read_dir(directory).unwrap().count(), 1);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
     }
 
     #[cfg(target_os = "windows")]
     #[test]
     fn read_only_settings_remain_intact_after_failed_save() {
-        let directory = directory("readonly");
-        let path = directory.join("preferences.json");
+        let directory = TempDir::new("settings-readonly").unwrap();
+        let path = directory.path().join("preferences.json");
         save(&path, "original").unwrap();
         let mut permissions = std::fs::metadata(&path).unwrap().permissions();
         let original_permissions = permissions.clone();
@@ -193,6 +180,6 @@ mod tests {
         std::fs::set_permissions(&path, original_permissions).unwrap();
         assert!(result.is_err());
         assert_eq!(std::fs::read_to_string(path).unwrap(), "original");
-        assert_eq!(std::fs::read_dir(directory).unwrap().count(), 1);
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
     }
 }

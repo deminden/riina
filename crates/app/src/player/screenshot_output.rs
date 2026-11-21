@@ -132,19 +132,9 @@ mod tests {
     #[test]
     fn clipboard_only_cleanup_removes_confirmed_files_and_preserves_unrelated_files() {
         use riina_core::screenshot::Destinations;
-        let directory = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tools/screenshot-cleanup-test")
-            .join(format!(
-                "{}-{}",
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
-        std::fs::create_dir_all(&directory).unwrap();
-        let capture = directory.join("confirmed.png");
-        let other = directory.join("unrelated.png");
+        let directory = riina_test_support::TempDir::new("screenshot-cleanup").unwrap();
+        let capture = directory.path().join("confirmed.png");
+        let other = directory.path().join("unrelated.png");
         std::fs::write(&capture, b"confirmed").unwrap();
         std::fs::write(&other, b"preserve").unwrap();
         let paths = vec![capture.to_string_lossy().into_owned()];

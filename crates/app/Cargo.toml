@@ -84,5 +84,6 @@ wry.workspace = true
 percent-encoding = "=2.3.2"
 
 [dev-dependencies]
+riina-test-support = { path = "../test-support" }
 i-slint-backend-testing = "=1.18.1"
 riina-mpv = { path = "../mpv", features = ["test-support"] }

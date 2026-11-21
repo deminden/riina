@@ -5097,6 +5097,7 @@ dependencies = [
  "rfd",
  "riina-core",
  "riina-mpv",
+ "riina-test-support",
  "riina-ui",
  "roxmltree 0.20.0",
  "rquickjs",
@@ -5134,8 +5135,13 @@ dependencies = [
  "glow",
  "libloading 0.9.0",
  "riina-core",
+ "riina-test-support",
  "serde_json",
 ]
+
+[[package]]
+name = "riina-test-support"
+version = "4.2.1"
 
 [[package]]
 name = "riina-ui"

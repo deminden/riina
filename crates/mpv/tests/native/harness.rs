@@ -43,9 +43,7 @@ impl Harness {
     reason = "A missing fixture root must fail the native test"
 )]
 pub(super) fn fixture_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
+    riina_test_support::workspace_root()
         .expect("Native test fixtures must exist in the repository root")
 }
 
@@ -120,19 +118,5 @@ pub(super) fn wait_for(
     receiver: &mpsc::Receiver<Playback>,
     predicate: impl Fn(&Playback) -> bool,
 ) -> Playback {
-    let deadline = Instant::now() + Duration::from_secs(12);
-    let caller = std::panic::Location::caller();
-    let mut last = None;
-    loop {
-        assert!(
-            Instant::now() < deadline,
-            "Timed out at {caller}; last observed state: {last:?}"
-        );
-        if let Ok(state) = receiver.recv_timeout(Duration::from_millis(200)) {
-            if predicate(&state) {
-                return state;
-            }
-            last = Some(state);
-        }
-    }
+    riina_test_support::wait_for(receiver, Duration::from_secs(12), predicate)
 }
