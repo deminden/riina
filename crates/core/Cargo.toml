@@ -16,3 +16,4 @@ regex = { version = "=1.13.1", default-features = false, features = ["std", "uni
 
 [dev-dependencies]
 proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+riina-test-support = { path = "../test-support" }

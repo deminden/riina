@@ -5178,6 +5178,7 @@ version = "4.2.1"
 dependencies = [
  "proptest",
  "regex",
+ "riina-test-support",
  "serde",
  "serde_json",
  "url",

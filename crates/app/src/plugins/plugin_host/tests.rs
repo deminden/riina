@@ -1,16 +1,11 @@
 use super::*;
+use riina_test_support::TempDir;
 use std::time::Instant;
 
 #[test]
 fn enabled_plugin_packages_follow_the_persisted_iina_order() {
-    let root = std::env::temp_dir().join(format!(
-        "riina-plugin-order-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let directory = TempDir::new("plugin-order").unwrap();
+    let root = directory.path();
     let plugins = root.join("Plugins");
     for (identifier, name) in [("z.last", "Alpha"), ("a.first", "Zulu")] {
         let directory = plugins.join(format!("{identifier}.iinaplugin"));
@@ -36,20 +31,12 @@ fn enabled_plugin_packages_follow_the_persisted_iina_order() {
             .collect::<Vec<_>>(),
         ["z.last", "a.first"]
     );
-
-    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
 fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
-    let root = std::env::temp_dir().join(format!(
-        "riina-late-plugin-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let directory = TempDir::new("late-plugin").unwrap();
+    let root = directory.path();
     let directory = root.join("Plugins/org.example.late-load.iinaplugin");
     std::fs::create_dir_all(&directory).unwrap();
     std::fs::write(
@@ -156,19 +143,12 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
             .count(),
         1
     );
-    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
 fn reload_all_restarts_only_enabled_plugin_entries() {
-    let root = std::env::temp_dir().join(format!(
-        "riina-plugin-reload-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let directory = TempDir::new("plugin-reload").unwrap();
+    let root = directory.path();
     let directory = root.join("Plugins/org.example.reload.iinaplugin");
     std::fs::create_dir_all(&directory).unwrap();
     std::fs::write(
@@ -250,19 +230,12 @@ fn reload_all_restarts_only_enabled_plugin_entries() {
     assert!(!messages.iter().any(|message| {
         matches!(message, PluginHostMessage::Log(text) if text.contains("disabled-entry-started"))
     }));
-    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
 fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
-    let root = std::env::temp_dir().join(format!(
-        "riina-plugin-menu-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let directory = TempDir::new("plugin-menu").unwrap();
+    let root = directory.path();
     let directory = root.join("Plugins/org.example.menu.iinaplugin");
     std::fs::create_dir_all(&directory).unwrap();
     std::fs::write(
@@ -366,7 +339,6 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
     assert!(messages.iter().any(|message| matches!(message,
         PluginHostMessage::Log(text) if text.contains("global-menu-action-ran")
     )));
-    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

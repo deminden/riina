@@ -543,46 +543,12 @@ mod macos_tests {
 #[cfg(test)]
 mod storage_tests {
     use super::save_preferences;
-    use std::{
-        path::PathBuf,
-        sync::atomic::{AtomicU64, Ordering},
-    };
-
-    struct Fixture(PathBuf);
-
-    impl Fixture {
-        fn new() -> Self {
-            static NEXT: AtomicU64 = AtomicU64::new(0);
-            let base = std::env::temp_dir().canonicalize().unwrap();
-            loop {
-                let path = base.join(format!(
-                    "riina-storage-{}-{}",
-                    std::process::id(),
-                    NEXT.fetch_add(1, Ordering::Relaxed)
-                ));
-                match std::fs::create_dir(&path) {
-                    Ok(()) => return Self(path),
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                    Err(error) => panic!("Cannot create storage fixture: {error}"),
-                }
-            }
-        }
-    }
-
-    impl Drop for Fixture {
-        fn drop(&mut self) {
-            assert_eq!(
-                self.0.parent(),
-                Some(std::env::temp_dir().canonicalize().unwrap().as_path())
-            );
-            std::fs::remove_dir_all(&self.0).unwrap();
-        }
-    }
+    use riina_test_support::TempDir;
 
     #[test]
     fn concurrent_replacements_preserve_complete_unicode_preferences() {
-        let fixture = Fixture::new();
-        let path = fixture.0.join("preferences.json");
+        let fixture = TempDir::new("storage").unwrap();
+        let path = fixture.path().join("preferences.json");
         save_preferences(&path, "initial").unwrap();
         let values: Vec<_> = (0..8)
             .map(|index| format!("{{\"title\":\"音楽 {index}\",\"volume_boost\":false}}"))
@@ -594,13 +560,13 @@ mod storage_tests {
             }
         });
         assert!(values.contains(&std::fs::read_to_string(&path).unwrap()));
-        assert_eq!(std::fs::read_dir(&fixture.0).unwrap().count(), 1);
+        assert_eq!(std::fs::read_dir(fixture.path()).unwrap().count(), 1);
     }
 
     #[test]
     fn failed_replacement_keeps_destination_and_cleans_owned_temporary() {
-        let fixture = Fixture::new();
-        let path = fixture.0.join("preferences.json");
+        let fixture = TempDir::new("storage").unwrap();
+        let path = fixture.path().join("preferences.json");
         std::fs::create_dir(&path).unwrap();
         std::fs::write(path.join("retained"), "keep").unwrap();
         assert!(save_preferences(&path, "replacement").is_err());
@@ -608,6 +574,6 @@ mod storage_tests {
             std::fs::read_to_string(path.join("retained")).unwrap(),
             "keep"
         );
-        assert_eq!(std::fs::read_dir(&fixture.0).unwrap().count(), 1);
+        assert_eq!(std::fs::read_dir(fixture.path()).unwrap().count(), 1);
     }
 }

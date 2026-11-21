@@ -1,36 +1,15 @@
 use super::*;
+use riina_test_support::TempDir;
 use std::sync::{Arc, Barrier};
-
-struct Fixture(std::path::PathBuf);
-impl Fixture {
-    fn new() -> Self {
-        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let root = std::env::temp_dir().join(format!(
-            "riina-plugin-grants-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        ));
-        fs::create_dir_all(&root).unwrap();
-        Self(root)
-    }
-    fn preferences(&self) -> std::path::PathBuf {
-        self.0.join("preferences.json")
-    }
-}
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
-    }
-}
 
 #[test]
 fn concurrent_plugin_permission_updates_preserve_other_plugins() {
-    let fixture = Fixture::new();
+    let fixture = TempDir::new("plugin-grants").unwrap();
     let barrier = Arc::new(Barrier::new(6));
     std::thread::scope(|scope| {
         for writer in 0..6 {
             let barrier = barrier.clone();
-            let preferences = fixture.preferences();
+            let preferences = fixture.path().join("preferences.json");
             scope.spawn(move || {
                 for round in 0..12 {
                     barrier.wait();
@@ -44,7 +23,7 @@ fn concurrent_plugin_permission_updates_preserve_other_plugins() {
             });
         }
     });
-    let path = fixture.0.join("plugin-permissions.json");
+    let path = fixture.path().join("plugin-permissions.json");
     let grants: BTreeMap<String, Vec<String>> =
         serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
     assert_eq!(grants.len(), 72, "lost a concurrently saved plugin grant");
@@ -52,8 +31,8 @@ fn concurrent_plugin_permission_updates_preserve_other_plugins() {
 
 #[test]
 fn permission_updates_preserve_denials_and_rollback_only_the_target_plugin() {
-    let fixture = Fixture::new();
-    let preferences = fixture.preferences();
+    let fixture = TempDir::new("plugin-grants").unwrap();
+    let preferences = fixture.path().join("preferences.json");
     let manifest = |permissions| {
         Manifest::parse(&serde_json::json!({"name":"Test","identifier":"org.example.target","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","permissions":permissions}).to_string()).unwrap()
     };
@@ -87,13 +66,13 @@ fn permission_updates_preserve_denials_and_rollback_only_the_target_plugin() {
 
 #[test]
 fn malformed_permission_state_is_not_overwritten() {
-    let fixture = Fixture::new();
-    let path = fixture.0.join("plugin-permissions.json");
+    let fixture = TempDir::new("plugin-grants").unwrap();
+    let path = fixture.path().join("plugin-permissions.json");
     let original = b"{ interrupted grant state";
     fs::write(&path, original).unwrap();
     assert!(
         write_plugin_grants(
-            &fixture.preferences(),
+            &fixture.path().join("preferences.json"),
             "org.example.target",
             Some(vec!["show-osd".into()])
         )

@@ -175,50 +175,29 @@ mod tests {
         })
     }
 
-    struct TestTree(std::path::PathBuf);
+    struct TestTree {
+        _directory: riina_test_support::TempDir,
+        root: std::path::PathBuf,
+    }
 
     impl TestTree {
         fn new() -> Self {
-            let base = std::env::temp_dir().canonicalize().unwrap();
-            let stamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-            loop {
-                let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let path = base.join(format!(
-                    "riina-discovery-{}-{stamp}-{sequence}",
-                    std::process::id()
-                ));
-                // Clock resolution cannot distinguish parallel tests on every OS.
-                // Only successful creation establishes ownership for Drop cleanup;
-                // an existing directory belongs to someone else and stays intact.
-                match std::fs::create_dir(&path) {
-                    Ok(()) => return Self(path),
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                    Err(error) => panic!("Cannot create discovery fixture: {error}"),
-                }
+            let directory = riina_test_support::TempDir::new("file-selection").unwrap();
+            let root = directory.path().canonicalize().unwrap();
+            Self {
+                _directory: directory,
+                root,
             }
         }
 
         fn path(&self, name: &str) -> String {
-            self.0.join(name).into_os_string().into_string().unwrap()
+            self.root.join(name).into_os_string().into_string().unwrap()
         }
 
         fn file(&self, name: &str) {
-            let path = self.0.join(name);
+            let path = self.root.join(name);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, []).unwrap();
-        }
-    }
-
-    impl Drop for TestTree {
-        fn drop(&mut self) {
-            let base = std::env::temp_dir().canonicalize().unwrap();
-            // Only this uniquely created child is owned by the test, never its parent.
-            assert_eq!(self.0.parent(), Some(base.as_path()));
-            std::fs::remove_dir_all(&self.0).unwrap();
         }
     }
 
