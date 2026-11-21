@@ -17,6 +17,9 @@ mod equalizer;
 #[path = "quick_settings/workflows.rs"]
 mod workflows;
 
+#[path = "widgets/settings_navigation.rs"]
+mod settings_navigation;
+
 fn flush() {
     slint::platform::update_timers_and_animations();
 }
