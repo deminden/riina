@@ -47,6 +47,8 @@ For macOS/Linux setup, see [port development](port-development.md).
 | `crates/app/src/windows/` | Auxiliary windows, including About, history, filters and pickers |
 | `crates/app/src/platform/` | OS services, native windows and presentation |
 | `crates/ui/ui/` | Slint components and design tokens |
+| `crates/test-support/` | Test-only temporary directories, fixture paths and snapshot waits |
+| `crates/xtask/` | Local verification, focused native tests and coverage reports |
 | `scripts/` | Dependency setup, checks, packaging and capture tools |
 | `tests/fixtures/` | Original synthetic media and provenance |
 | `tests/visual/` | Capture manifests and presentation evidence |
@@ -57,8 +59,9 @@ The core crate keeps its public types re-exported from `lib.rs`. Their implement
 live in `command/` (intent, argument validation and plans), `playback.rs`,
 `media_catalog.rs`, `captured_frame.rs`, `loop_mode.rs` and `preferences.rs`.
 Cross-feature regressions are grouped under `tests/` by commands, playback and
-preferences. Native property decoding and per-file Auto seek timing belong to
-`crates/mpv/src/properties.rs` and `auto_seek.rs`; player ownership stays in `lib.rs`.
+preferences. `crates/mpv/src/lib.rs` owns player handles and command senders.
+`worker.rs` owns the native core. `properties.rs` and `auto_seek.rs` handle
+native observations and per-file Auto seek timing.
 The `player_ui/` modules own playback observations, media catalog models, native
 material sampling, plugin-window integration and audio/video/subtitle controls.
 The root still owns session resources and their teardown order. Plugin callbacks
@@ -72,6 +75,9 @@ recognition. Discovery readiness uses per-request identities, so a superseded sc
 cannot replace a newer scan's completion state.
 Native frame capture acknowledges rejected and failed requests separately from
 successful pixels, allowing the serialized LiveText capture flow to retry.
+The playlist action module owns row selection, reordering and context actions.
+Window sizing keeps the media generation in Rust and Slint track callbacks
+send typed selection categories with string IDs.
 
 `key_binding_preferences.rs` exposes the shared profile interface. Its modules own
 captured defaults/loading, key identity conversion, the compiled effective index,
