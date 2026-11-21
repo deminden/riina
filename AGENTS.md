@@ -18,6 +18,19 @@ Original riina contributions are MIT. Develop independently from observable
 behavior and documented platform APIs; do not translate IINA implementation code
 or copy its protected assets. Read docs/licensing.md before changing license terms.
 
+## Source entry points
+
+Read [the architecture map](docs/architecture.md) for ownership and threading.
+Start player wiring in `crates/app/src/player/player_ui.rs`, portable playback
+intent in `crates/core/src/command/`, native client work in
+`crates/mpv/src/worker.rs`, and Slint views in `crates/ui/ui/`.
+
+Use `cargo xtask check --fast` for an iteration check and `cargo xtask check`
+for the full workspace gate. `cargo xtask native <filter>` runs a focused native
+group with the pinned DLL. Keep strict workspace Clippy enabled and remove
+line-length exceptions when editing the affected code. The development guide
+describes headless widgets, pixel baselines and optional coverage.
+
 ## Attribution and publishing
 
 Use the configured GitHub account identity for project commits, releases, and
