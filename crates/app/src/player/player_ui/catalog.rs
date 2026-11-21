@@ -178,11 +178,13 @@ pub(super) fn should_fallback_removed_audio_device(
         })
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn update_catalog(app: &PlayerWindow, state: &Playback) {
+    update_tracks(app, state);
+    update_chapters(app, state);
+    update_playlist(app, state);
+}
+
+fn update_tracks(app: &PlayerWindow, state: &Playback) {
     app.set_downloaded_subtitle_save_available(
         crate::file_actions::downloaded_subtitle_path(state).is_some(),
     );
@@ -273,6 +275,9 @@ pub(super) fn update_catalog(app: &PlayerWindow, state: &Playback) {
             .unwrap_or(0) as i32,
     );
     app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
+}
+
+fn update_chapters(app: &PlayerWindow, state: &Playback) {
     app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
         state
             .chapters
@@ -314,6 +319,9 @@ pub(super) fn update_catalog(app: &PlayerWindow, state: &Playback) {
             .filter(|time| time.is_finite() && *time >= 0.0)
             .collect::<Vec<_>>(),
     )));
+}
+
+fn update_playlist(app: &PlayerWindow, state: &Playback) {
     let selected_playlist_tokens = app.get_selected_playlist_tokens();
     app.set_playlist(slint::ModelRc::new(slint::VecModel::from(
         state

@@ -33,10 +33,6 @@ pub(super) struct UiUpdateResources<'a> {
     pub(super) transition_release_generation: &'a AtomicU64,
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn update_ui(
     app: &PlayerWindow,
     state: Arc<Playback>,
@@ -50,13 +46,85 @@ pub(super) fn update_ui(
         video: last_video,
         screenshot: last_screenshot,
     } = observer;
-    use riina_core::video_reflection::Axis;
+    update_transition_cover(app, &state, &resources);
+    let previous_generation = media_geometry.observe(state.generation);
+    update_filter_menu_rows(app, &state, &resources);
+    update_window_title(app, &state);
+    update_media_actions(app, &state);
+    update_feedback(
+        app,
+        &state,
+        displayed.as_deref(),
+        last_seek,
+        last_video,
+        last_screenshot,
+    );
+    app.set_seek_position_label(seek_osd::clock(state.position).into());
+    app.set_seek_duration_label(seek_osd::clock(state.duration).into());
+    app.set_playlist_shuffled(state.playlist_shuffled);
+    if should_fallback_removed_audio_device(displayed.as_deref(), &state)
+        && let Some(audio_device_player) = resources.audio_device_player
+        && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
+    {
+        app.set_status(format!("Could not restore automatic audio output: {error}").into());
+    }
+    // Preserve row identity across clock ticks so focus and accessibility indexes
+    // are not destroyed by unrelated time-pos notifications.
+    if displayed.as_ref().is_none_or(|old| {
+        old.tracks != state.tracks
+            || old.chapters != state.chapters
+            || old.playlist != state.playlist
+            || old.audio_devices != state.audio_devices
+            || old.audio_device != state.audio_device
+            || old.audio_output != state.audio_output
+            || current_chapter(old) != current_chapter(&state)
+    }) {
+        update_catalog(app, &state);
+        *displayed = Some(state.clone());
+    }
+    let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
+        && matches!(
+            state.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
+        );
+    let resize_for_media = update_playback_phase(app, &state, previous_generation);
+    if first_loaded {
+        notify_media_loaded(app, &state);
+    }
+    update_transport(app, &state);
+    update_video_and_artwork(app, &state);
+    update_delays_and_subtitle_style(app, &state);
+    app.set_loop_label(
+        match state.loop_mode() {
+            LoopMode::Off => "Off",
+            LoopMode::File => "File",
+            LoopMode::Playlist => "Playlist",
+        }
+        .into(),
+    );
+    update_hdr_source(app, &state, first_loaded);
+    app.set_media_title(state.title.as_str().into());
+    app.set_music_artist(state.artist.as_deref().unwrap_or_default().into());
+    app.set_music_album(state.album.as_deref().unwrap_or_default().into());
+    app.set_position_label(time_label(state.position).into());
+    app.set_duration_label(time_label(state.duration).into());
+    // Playback state belongs to controls and transient OSD, not permanent text
+    // over the video. Keep failures visible while ordinary clock ticks stay quiet.
+    app.set_status(state.error.as_deref().unwrap_or_default().into());
+    resize_for_media
+}
+
+fn update_transition_cover(
+    app: &PlayerWindow,
+    state: &Playback,
+    resources: &UiUpdateResources<'_>,
+) {
     if app.get_native_video() {
         let show_transition = {
             #[cfg(target_os = "windows")]
             {
                 crate::transition_frame::should_display_until_incoming_stable(
-                    &state,
+                    state,
                     app.get_playlist_auto_play_next(),
                     match resources
                         .transition_release_generation
@@ -69,14 +137,14 @@ pub(super) fn update_ui(
             }
             #[cfg(not(target_os = "windows"))]
             {
-                crate::transition_frame::should_display(&state, app.get_playlist_auto_play_next())
+                crate::transition_frame::should_display(state, app.get_playlist_auto_play_next())
             }
         };
         // The transition surface has an opaque black matte beneath its image.
         // Keep the surface disabled unless the retained frame is present, so
         // a missing capture can never become a black rectangle over playback.
         let show_transition =
-            show_transition && crate::transition_frame::cover_frame(&state).is_some();
+            show_transition && crate::transition_frame::cover_frame(state).is_some();
         let source_generation = state.transition_frame.generation.unwrap_or(u64::MAX);
         let incoming_generation = state
             .incoming_transition_frame
@@ -89,7 +157,7 @@ pub(super) fn update_ui(
             ^ u64::from(show_transition);
         if resources.transition_overlay.swap(key, Ordering::AcqRel) != key {
             let image = if show_transition {
-                crate::transition_frame::cover_frame(&state).map(|frame| {
+                crate::transition_frame::cover_frame(state).map(|frame| {
                     let mut rgba = frame.rgba.as_ref().to_vec();
                     for pixel in rgba.as_chunks_mut::<4>().0 {
                         // Video pixels are an opaque surface. mpv's raw RGBA
@@ -123,7 +191,13 @@ pub(super) fn update_ui(
             }
         }
     }
-    let previous_generation = media_geometry.observe(state.generation);
+}
+
+fn update_filter_menu_rows(
+    app: &PlayerWindow,
+    state: &Playback,
+    resources: &UiUpdateResources<'_>,
+) {
     {
         let settings = riina_core::sync::lock(resources.saved_video_filters);
         let active = state.video_filters.as_deref().unwrap_or_default();
@@ -142,8 +216,11 @@ pub(super) fn update_ui(
             |rows| app.set_saved_audio_filter_rows(rows),
         );
     }
+}
+
+fn update_window_title(app: &PlayerWindow, state: &Playback) {
     #[cfg(target_os = "macos")]
-    let current_media_path = match crate::key_binding_preferences::current_media_location(&state) {
+    let current_media_path = match crate::key_binding_preferences::current_media_location(state) {
         crate::key_binding_preferences::CurrentMediaLocation::Local(path) => {
             std::path::absolute(path).ok()
         }
@@ -184,6 +261,10 @@ pub(super) fn update_ui(
         format!("{filename} — riina")
     };
     app.set_window_title(window_title.into());
+}
+
+fn update_media_actions(app: &PlayerWindow, state: &Playback) {
+    use riina_core::video_reflection::Axis;
     app.set_screenshot_available(
         state
             .tracks
@@ -192,14 +273,14 @@ pub(super) fn update_ui(
             && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed),
     );
     app.set_reveal_current_media_available(
-        match crate::key_binding_preferences::current_media_location(&state) {
+        match crate::key_binding_preferences::current_media_location(state) {
             crate::key_binding_preferences::CurrentMediaLocation::Local(_) => true,
             crate::key_binding_preferences::CurrentMediaLocation::NoMedia
             | crate::key_binding_preferences::CurrentMediaLocation::NonLocal => false,
         },
     );
     app.set_delete_current_media_available(matches!(
-        crate::key_binding_preferences::current_media_location(&state),
+        crate::key_binding_preferences::current_media_location(state),
         crate::key_binding_preferences::CurrentMediaLocation::Local(_)
     ));
     app.set_save_current_playlist_available(!state.playlist.is_empty());
@@ -229,10 +310,18 @@ pub(super) fn update_ui(
             .iter()
             .any(|filter| filter.label.as_deref() == Some(riina_core::delogo::FILTER_LABEL)),
     );
+}
+
+fn update_feedback(
+    app: &PlayerWindow,
+    state: &Playback,
+    displayed: Option<&Playback>,
+    last_seek: &mut seek_osd::SeekOsd,
+    last_video: &std::cell::RefCell<crate::video_osd::VideoOsd>,
+    last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
+) {
     let keep_stopped_feedback = app.get_video_osd_request_feedback();
-    if displayed
-        .as_ref()
-        .is_none_or(|old| old.generation != state.generation)
+    if displayed.is_none_or(|old| old.generation != state.generation)
         || matches!(state.phase, Phase::Loading | Phase::Failed)
         || (state.phase == Phase::Stopped && !keep_stopped_feedback)
         || (state.error.is_some() && !keep_stopped_feedback)
@@ -240,7 +329,7 @@ pub(super) fn update_ui(
         app.set_video_osd_visible(false);
         app.set_video_osd_request_feedback(false);
     }
-    match last_seek.observe_with_suppression(&state, app.get_disable_osd_seek()) {
+    match last_seek.observe_with_suppression(state, app.get_disable_osd_seek()) {
         Change::Hide => app.set_seek_osd_visible(false),
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
@@ -250,7 +339,7 @@ pub(super) fn update_ui(
         video.set_volume_limit(if app.get_volume_boost() { 200.0 } else { 100.0 });
         video.set_disable_speed(app.get_disable_osd_speed());
         video.set_disable_pause_resume(app.get_disable_osd_pause_resume());
-        let message = video.observe(&state);
+        let message = video.observe(state);
         if app.get_osd_enabled() {
             message
         } else {
@@ -264,7 +353,7 @@ pub(super) fn update_ui(
         app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
         app.invoke_show_video_osd();
     }
-    match last_screenshot.observe(&state) {
+    match last_screenshot.observe(state) {
         crate::screenshot_osd::Change::Hide => {
             clear_screenshot_preview(app);
         }
@@ -308,34 +397,13 @@ pub(super) fn update_ui(
     if app.get_crop_editing() {
         clear_screenshot_preview(app);
     }
-    app.set_seek_position_label(seek_osd::clock(state.position).into());
-    app.set_seek_duration_label(seek_osd::clock(state.duration).into());
-    app.set_playlist_shuffled(state.playlist_shuffled);
-    if should_fallback_removed_audio_device(displayed.as_deref(), &state)
-        && let Some(audio_device_player) = resources.audio_device_player
-        && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
-    {
-        app.set_status(format!("Could not restore automatic audio output: {error}").into());
-    }
-    // Preserve row identity across clock ticks so focus and accessibility indexes
-    // are not destroyed by unrelated time-pos notifications.
-    if displayed.as_ref().is_none_or(|old| {
-        old.tracks != state.tracks
-            || old.chapters != state.chapters
-            || old.playlist != state.playlist
-            || old.audio_devices != state.audio_devices
-            || old.audio_device != state.audio_device
-            || old.audio_output != state.audio_output
-            || current_chapter(old) != current_chapter(&state)
-    }) {
-        update_catalog(app, &state);
-        *displayed = Some(state.clone());
-    }
-    let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
-        && matches!(
-            state.phase,
-            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
-        );
+}
+
+fn update_playback_phase(
+    app: &PlayerWindow,
+    state: &Playback,
+    previous_generation: Option<u64>,
+) -> bool {
     if previous_generation != Some(state.generation)
         || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
     {
@@ -355,45 +423,50 @@ pub(super) fn update_ui(
         app.set_controls_visible(true);
     }
     let mut resize_for_media = false;
-    if let Some((width, height, rotation)) = window_video_geometry(&state) {
+    if let Some((width, height, rotation)) = window_video_geometry(state) {
         let geometry_was_missing =
             app.get_video_window_width() <= 0.0 || app.get_video_window_height() <= 0.0;
         app.set_video_window_width(width);
         app.set_video_window_height(height);
         app.set_video_window_rotation(rotation);
-        if media_geometry_requires_resize(previous_generation, geometry_was_missing, &state) {
+        if media_geometry_requires_resize(previous_generation, geometry_was_missing, state) {
             // mpv can publish the loaded phase before its first usable video
             // dimensions. Retry initial sizing when those dimensions arrive.
             resize_for_media = true;
         }
     }
-    if first_loaded {
-        app.invoke_activity();
-        if let Some(entry) = state.playlist.iter().find(|entry| entry.current) {
-            let title = entry
-                .title
-                .as_deref()
-                .filter(|title| !title.trim().is_empty())
-                .map(str::to_owned)
-                .unwrap_or_else(|| {
-                    PathBuf::from(&entry.filename).file_name().map_or_else(
-                        || entry.filename.clone(),
-                        |name| name.to_string_lossy().into_owned(),
-                    )
-                });
-            app.invoke_media_opened(entry.filename.clone().into(), title.into());
-        }
-        if let Some(message) = crate::video_osd::file_start_message(
-            &state.title,
-            app.get_osd_enabled(),
-            app.get_disable_osd_file_start(),
-        ) {
-            app.set_video_osd_request_feedback(false);
-            app.set_video_osd_text(message.text.into());
-            app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
-            app.invoke_show_video_osd();
-        }
+    resize_for_media
+}
+
+fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
+    app.invoke_activity();
+    if let Some(entry) = state.playlist.iter().find(|entry| entry.current) {
+        let title = entry
+            .title
+            .as_deref()
+            .filter(|title| !title.trim().is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                PathBuf::from(&entry.filename).file_name().map_or_else(
+                    || entry.filename.clone(),
+                    |name| name.to_string_lossy().into_owned(),
+                )
+            });
+        app.invoke_media_opened(entry.filename.clone().into(), title.into());
     }
+    if let Some(message) = crate::video_osd::file_start_message(
+        &state.title,
+        app.get_osd_enabled(),
+        app.get_disable_osd_file_start(),
+    ) {
+        app.set_video_osd_request_feedback(false);
+        app.set_video_osd_text(message.text.into());
+        app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+        app.invoke_show_video_osd();
+    }
+}
+
+fn update_transport(app: &PlayerWindow, state: &Playback) {
     app.set_seekable(state.seekable && state.duration.is_some());
     app.set_position(state.position.unwrap_or(0.0) as f32);
     app.set_duration(state.duration.unwrap_or(0.0) as f32);
@@ -414,6 +487,9 @@ pub(super) fn update_ui(
     app.set_speed_value(state.speed as f32);
     app.set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
     app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
+}
+
+fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
     app.set_video_aspect_known(state.video_aspect_override.is_some());
     let display_aspect = state.display_video_parameters().and_then(|video| {
         riina_core::window_aspect::display_aspect_ratio(
@@ -473,10 +549,10 @@ pub(super) fn update_ui(
                 .is_some_and(|video| video.w > 0 && video.h > 0),
     );
     app.set_video_crop_index(
-        riina_core::crop::observed_index(&state).map_or(-1, |index| index as i32),
+        riina_core::crop::observed_index(state).map_or(-1, |index| index as i32),
     );
     app.set_video_crop_menu_index(
-        riina_core::crop::observed_menu_index(&state).map_or(-1, |index| index as i32),
+        riina_core::crop::observed_menu_index(state).map_or(-1, |index| index as i32),
     );
     app.set_video_equalizer_values(slint::ModelRc::new(slint::VecModel::from(
         state
@@ -505,6 +581,9 @@ pub(super) fn update_ui(
             .filter(|value| matches!(value, 0 | 90 | 180 | 270))
             .map_or(-1, |value| (value / 90) as i32),
     );
+}
+
+fn update_delays_and_subtitle_style(app: &PlayerWindow, state: &Playback) {
     app.set_audio_delay(state.audio_delay as f32);
     app.set_audio_delay_text(crate::localized_number::format_delay(state.audio_delay).into());
     app.set_subtitle_delay(state.subtitle_delay as f32);
@@ -561,14 +640,9 @@ pub(super) fn update_ui(
     app.set_subtitle_visible(state.subtitle_visible);
     app.set_secondary_subtitle_visibility_known(state.secondary_subtitle_visible.is_some());
     app.set_secondary_subtitle_visible(state.secondary_subtitle_visible.unwrap_or(false));
-    app.set_loop_label(
-        match state.loop_mode() {
-            LoopMode::Off => "Off",
-            LoopMode::File => "File",
-            LoopMode::Playlist => "Playlist",
-        }
-        .into(),
-    );
+}
+
+fn update_hdr_source(app: &PlayerWindow, state: &Playback, first_loaded: bool) {
     let hdr_source_detected = state
         .video
         .as_ref()
@@ -582,13 +656,4 @@ pub(super) fn update_ui(
     } else if hdr_source_changed {
         app.invoke_refresh_hdr_output();
     }
-    app.set_media_title(state.title.as_str().into());
-    app.set_music_artist(state.artist.as_deref().unwrap_or_default().into());
-    app.set_music_album(state.album.as_deref().unwrap_or_default().into());
-    app.set_position_label(time_label(state.position).into());
-    app.set_duration_label(time_label(state.duration).into());
-    // Playback state belongs to controls and transient OSD, not permanent text
-    // over the video. Keep failures visible while ordinary clock ticks stay quiet.
-    app.set_status(state.error.as_deref().unwrap_or_default().into());
-    resize_for_media
 }
