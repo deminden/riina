@@ -725,7 +725,9 @@ fn configure_with_engine(
         native.as_ref().map(|presentation| presentation.host()),
         latest_playback.clone(),
     );
-    crate::control_preferences::install_player(app, &prefs.controls);
+    crate::preferences::model::install_player_section::<riina_core::control_preferences::Settings>(
+        &prefs, app,
+    );
     crate::key_binding_preferences::install_player(
         app,
         &prefs.key_bindings,

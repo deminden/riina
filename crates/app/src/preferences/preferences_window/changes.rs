@@ -294,13 +294,12 @@ fn connect_with_credentials(
         };
         let previous_video_threads = *saved_video_threads.borrow();
         let video_threads_changed = selected_video_threads != previous_video_threads;
-        let selected_controls = match crate::control_preferences::current_window(&window) {
-            Ok(preferences) => preferences,
-            Err(error) => {
-                app.set_status(error.into());
-                refresh(&window, &app);
-                return;
-            }
+        let Some(selected_controls) = read_or_refresh(
+            model.read_section::<riina_core::control_preferences::Settings>(&window),
+            &app,
+            &window,
+        ) else {
+            return;
         };
         let Some(selected_key_bindings) = read_or_refresh(
             crate::key_binding_preferences::current_window(&window),
@@ -670,7 +669,6 @@ fn connect_with_credentials(
                 hdr_tone_mapping: selected_tone_mapping.clone(),
                 video_threads: selected_video_threads,
                 advanced: selected_advanced,
-                controls: selected_controls.clone(),
                 key_bindings: selected_key_bindings.clone(),
                 network_cache: selected_network_cache.clone(),
                 network_online_videos: selected_network_ytdl.clone(),
@@ -680,6 +678,7 @@ fn connect_with_credentials(
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_controls.put(&mut preferences);
             selected_control_bar.put(&mut preferences);
             selected_window_resize.put(&mut preferences);
             // Utilities can clear history while this window remains open;
@@ -758,7 +757,7 @@ fn connect_with_credentials(
                 model.write_player::<riina_core::osc_preferences::Settings>(&app);
                 app.set_always_float_on_top(window.get_always_float_on_top());
                 app.set_always_show_on_top_icon(window.get_always_show_on_top_icon());
-                crate::control_preferences::install_player(&app, &selected_controls);
+                model.write_player::<riina_core::control_preferences::Settings>(&app);
                 crate::liquid_glass_preferences::install_player(&app, selected_liquid_glass);
                 crate::key_binding_preferences::install_player(
                     &app,

@@ -1,5 +1,29 @@
+use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::control_preferences::{MouseAction, PinchAction, ScrollAction, SeekType, Settings};
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        all.controls.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.controls = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 const SINGLE_CLICK_CHOICES: [MouseAction; 3] =
     [MouseAction::None, MouseAction::Pause, MouseAction::HideOsc];
