@@ -302,7 +302,8 @@ fn exercise_transport_and_tracks(harness: &Harness) {
 
 fn exercise_dialogs_and_relative_controls(harness: &Harness) {
     let app = &harness.app;
-    app.set_position_label("2:05".into());
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_position_label("2:05".into());
     app.invoke_open_jump_time_dialog();
     assert!(app.get_jump_time_dialog_visible());
     assert_eq!(app.get_jump_time_draft(), "2:05");
@@ -356,8 +357,16 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     });
     assert!(app.get_loaded());
     assert!(app.get_paused());
-    assert_eq!(app.get_position(), 1.25);
-    assert_eq!(app.get_duration(), 10.0);
+    assert_eq!(
+        app.global::<riina_ui::PlaybackTimelineState>()
+            .get_position(),
+        1.25
+    );
+    assert_eq!(
+        app.global::<riina_ui::PlaybackTimelineState>()
+            .get_duration(),
+        10.0
+    );
     assert_eq!(
         app.global::<riina_ui::PlaybackAudioState>().get_volume(),
         45.0

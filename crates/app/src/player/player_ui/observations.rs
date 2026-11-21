@@ -58,8 +58,9 @@ pub(super) fn update_ui(
         last_video,
         last_screenshot,
     );
-    app.set_seek_position_label(seek_osd::clock(state.position).into());
-    app.set_seek_duration_label(seek_osd::clock(state.duration).into());
+    let timeline = app.global::<riina_ui::PlaybackTimelineState>();
+    timeline.set_seek_position_label(seek_osd::clock(state.position).into());
+    timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());
     app.set_playlist_shuffled(state.playlist_shuffled);
     if should_fallback_removed_audio_device(displayed.as_deref(), &state)
         && let Some(audio_device_player) = resources.audio_device_player
@@ -105,8 +106,9 @@ pub(super) fn update_ui(
     app.set_media_title(state.title.as_str().into());
     app.set_music_artist(state.artist.as_deref().unwrap_or_default().into());
     app.set_music_album(state.album.as_deref().unwrap_or_default().into());
-    app.set_position_label(time_label(state.position).into());
-    app.set_duration_label(time_label(state.duration).into());
+    let timeline = app.global::<riina_ui::PlaybackTimelineState>();
+    timeline.set_position_label(time_label(state.position).into());
+    timeline.set_duration_label(time_label(state.duration).into());
     // Playback state belongs to controls and transient OSD, not permanent text
     // over the video. Keep failures visible while ordinary clock ticks stay quiet.
     app.set_status(state.error.as_deref().unwrap_or_default().into());
@@ -466,9 +468,10 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_transport(app: &PlayerWindow, state: &Playback) {
-    app.set_seekable(state.seekable && state.duration.is_some());
-    app.set_position(state.position.unwrap_or(0.0) as f32);
-    app.set_duration(state.duration.unwrap_or(0.0) as f32);
+    let timeline = app.global::<riina_ui::PlaybackTimelineState>();
+    timeline.set_seekable(state.seekable && state.duration.is_some());
+    timeline.set_position(state.position.unwrap_or(0.0) as f32);
+    timeline.set_duration(state.duration.unwrap_or(0.0) as f32);
     app.set_ab_loop_a(state.ab_loop_a.unwrap_or_default() as f32);
     app.set_ab_loop_a_known(state.ab_loop_a.is_some());
     app.set_ab_loop_b(state.ab_loop_b.unwrap_or_default() as f32);

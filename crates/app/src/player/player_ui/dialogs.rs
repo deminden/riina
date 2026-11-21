@@ -37,7 +37,10 @@ pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandS
     let weak = app.as_weak();
     app.on_open_jump_time_dialog(move || {
         if let Some(app) = weak.upgrade() {
-            app.set_jump_time_draft(app.get_position_label());
+            app.set_jump_time_draft(
+                app.global::<riina_ui::PlaybackTimelineState>()
+                    .get_position_label(),
+            );
             app.set_jump_time_error("".into());
             app.set_jump_time_dialog_visible(true);
         }

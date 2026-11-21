@@ -1,4 +1,5 @@
 use super::*;
+use slint::ComponentHandle;
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -212,7 +213,8 @@ fn music_window_buttons_do_not_cover_transport_or_timeline() {
     let app = player(0);
     app.set_music_mode(true);
     app.set_controls_visible(true);
-    app.set_seekable(true);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_seekable(true);
     for artwork in [true, false] {
         app.set_music_mode_show_album_art(artwork);
         app.window()

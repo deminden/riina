@@ -148,14 +148,24 @@ fn player(
 
     if window.get_loaded() {
         window.set_media_title("Headless test clip".into());
-        window.set_position(18.0);
-        window.set_duration(72.0);
-        window.set_position_label("0:18".into());
-        window.set_duration_label("1:12".into());
+        window
+            .global::<riina_ui::PlaybackTimelineState>()
+            .set_position(18.0);
+        window
+            .global::<riina_ui::PlaybackTimelineState>()
+            .set_duration(72.0);
+        window
+            .global::<riina_ui::PlaybackTimelineState>()
+            .set_position_label("0:18".into());
+        window
+            .global::<riina_ui::PlaybackTimelineState>()
+            .set_duration_label("1:12".into());
         window
             .global::<riina_ui::PlaybackAudioState>()
             .set_has_active_audio_track(true);
-        window.set_seekable(true);
+        window
+            .global::<riina_ui::PlaybackTimelineState>()
+            .set_seekable(true);
         window.set_status("".into());
         window.set_audio_tracks(catalog(&["Stereo", "Commentary"]));
         window.set_video_tracks(catalog(&["Video track"]));
@@ -243,8 +253,12 @@ fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
     type OverlaySetup = fn(&PlayerWindow);
     let cases: [(&str, OverlaySetup); 6] = [
         ("player-seek-osd", |window| {
-            window.set_seek_position_label("0:18".into());
-            window.set_seek_duration_label("1:12".into());
+            window
+                .global::<riina_ui::PlaybackTimelineState>()
+                .set_seek_position_label("0:18".into());
+            window
+                .global::<riina_ui::PlaybackTimelineState>()
+                .set_seek_duration_label("1:12".into());
             window.set_seek_osd_visible(true);
         }),
         ("player-playback-osd", |window| {

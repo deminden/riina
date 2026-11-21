@@ -72,7 +72,12 @@ impl Runner {
             ));
         }
         self.progressed |= !matches!(self.stage, Stage::WaitForMedia)
-            && (app.get_position() - self.position).abs() > 0.1;
+            && (app
+                .global::<riina_ui::PlaybackTimelineState>()
+                .get_position()
+                - self.position)
+                .abs()
+                > 0.1;
         let next = match self.stage {
             Stage::WaitForMedia => return self.initial_playback(app, host),
             Stage::WaitForVolume => {
@@ -211,7 +216,13 @@ impl Runner {
         app: &PlayerWindow,
         host: &NativeVideoHost,
     ) -> Result<bool, String> {
-        if !app.get_loaded() || app.get_paused() || app.get_position() <= 0.1 {
+        if !app.get_loaded()
+            || app.get_paused()
+            || app
+                .global::<riina_ui::PlaybackTimelineState>()
+                .get_position()
+                <= 0.1
+        {
             return Ok(false);
         }
         if self.expect_recovery {
@@ -227,7 +238,9 @@ impl Runner {
         self.initial = Some(surfaces(app, host)?);
         check_audio_menu(host)?;
         self.volume = app.global::<riina_ui::PlaybackAudioState>().get_volume();
-        self.position = app.get_position();
+        self.position = app
+            .global::<riina_ui::PlaybackTimelineState>()
+            .get_position();
         let path = crate::platform::preferences_path().map_err(|e| e.to_string())?;
         crate::preference_store::update(&path, &riina_core::Preferences::default(), |prefs| {
             prefs.video_threads = 7;

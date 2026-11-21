@@ -1,3 +1,5 @@
+import { PlaybackTimelineState } from "playback-timeline-state.slint";
+export { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 export { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
@@ -419,7 +421,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> menu-alternates-visible: false;
     changed menu-alternates-visible => { root.video-menu-changed(); }
     in property <bool> playing: false;
-    in property <bool> seekable: false;
     private property <bool> muted: PlaybackAudioState.muted;
     changed muted => { root.video-menu-changed(); }
     in-out property <bool> fullscreen: false;
@@ -428,10 +429,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <string> media-title: "riina";
     in property <string> music-artist: "";
     in property <string> music-album: "";
-    in property <string> position-label: "--:--";
-    in property <string> duration-label: "--:--";
-    in property <string> seek-position-label;
-    in property <string> seek-duration-label;
     in-out property <bool> seek-osd-visible: false;
     in-out property <bool> video-osd-visible: false;
     in-out property <bool> screenshot-preview-visible: false;
@@ -503,8 +500,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
     in property <string> startup-status;
-    in property <float> position: 0;
-    in property <float> duration: 0;
     in property <float> ab-loop-a: 0;
     in property <bool> ab-loop-a-known: false;
     in property <float> ab-loop-b: 0;
@@ -1491,11 +1486,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 control-disable-volume-slider-scrolling: root.control-disable-volume-slider-scrolling,
             };
             timeline: {
-                seekable: root.seekable,
-                position: root.position,
-                duration: root.duration,
-                position-label: root.position-label,
-                duration-label: root.duration-label,
+                seekable: PlaybackTimelineState.seekable,
+                position: PlaybackTimelineState.position,
+                duration: PlaybackTimelineState.duration,
+                position-label: PlaybackTimelineState.position-label,
+                duration-label: PlaybackTimelineState.duration-label,
                 ab-loop-a: root.ab-loop-a,
                 ab-loop-b: root.ab-loop-b,
                 ab-loop-a-known: root.ab-loop-a-known,
@@ -1574,13 +1569,13 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         if loaded && !crop-editing : SeekOsd {
             material: root.osd-material;
-            seek-position-label: root.seek-position-label;
-            seek-duration-label: root.seek-duration-label;
+            seek-position-label: PlaybackTimelineState.seek-position-label;
+            seek-duration-label: PlaybackTimelineState.seek-duration-label;
             seek-osd-visible: root.seek-osd-visible;
             osd-enabled: root.osd-enabled;
             osd-text-size: root.osd-text-size;
-            position: root.position;
-            duration: root.duration;
+            position: PlaybackTimelineState.position;
+            duration: PlaybackTimelineState.duration;
             progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-fade-duration: root.osd-fade-duration;
         }

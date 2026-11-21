@@ -112,6 +112,28 @@ fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(DelayLane, String)>>
 }
 
 #[test]
+fn playback_timeline_observations_belong_to_each_player() {
+    let first = player(0);
+    let second = PlayerWindow::new().unwrap();
+    let first_timeline = first.global::<PlaybackTimelineState>();
+    let second_timeline = second.global::<PlaybackTimelineState>();
+
+    first_timeline.set_seekable(true);
+    first_timeline.set_duration(72.0);
+    first_timeline.set_position(18.0);
+    first_timeline.set_position_label("0:18".into());
+
+    assert!(first_timeline.get_seekable());
+    assert_eq!(first_timeline.get_duration(), 72.0);
+    assert_eq!(first_timeline.get_position(), 18.0);
+    assert_eq!(first_timeline.get_position_label(), "0:18");
+    assert!(!second_timeline.get_seekable());
+    assert_eq!(second_timeline.get_duration(), 0.0);
+    assert_eq!(second_timeline.get_position(), 0.0);
+    assert_eq!(second_timeline.get_position_label(), "--:--");
+}
+
+#[test]
 fn playback_audio_observations_belong_to_each_player() {
     let first = player(0);
     let second = PlayerWindow::new().unwrap();
@@ -756,8 +778,10 @@ fn music_mode_transport_has_its_own_center_and_disjoint_utility_buttons() {
 #[test]
 fn first_timeline_pointer_press_seeks_instead_of_only_focusing() {
     let app = player(0);
-    app.set_duration(60.0);
-    app.set_seekable(true);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_duration(60.0);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_seekable(true);
     app.set_controls_visible(true);
     let seeks = Rc::new(RefCell::new(Vec::new()));
     let recorded = seeks.clone();
