@@ -112,6 +112,23 @@ fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(DelayLane, String)>>
 }
 
 #[test]
+fn title_bar_pin_projects_and_toggles_the_player_window_level() {
+    let app = player(0);
+    app.set_show_player_title_row(true);
+    app.set_always_show_on_top_icon(true);
+    let toggles = Rc::new(RefCell::new(Vec::new()));
+    let recorded = toggles.clone();
+    app.on_window_level_toggle_requested(move |value| recorded.borrow_mut().push(value));
+    flush();
+
+    focus(&app, &button(&app, "Float on top"));
+    assert!(app.get_always_float_on_top());
+    focus(&app, &button(&app, "Remove float on top"));
+    assert!(!app.get_always_float_on_top());
+    assert_eq!(*toggles.borrow(), [true, false]);
+}
+
+#[test]
 fn player_entry_dialogs_focus_the_field_and_keep_keyboard_actions() {
     let app = player(0);
     let submitted_time = Rc::new(RefCell::new(None));
