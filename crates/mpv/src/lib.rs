@@ -3,6 +3,7 @@ mod auto_seek;
 #[cfg(test)]
 mod demuxer_tests;
 mod ffi;
+mod pending;
 mod properties;
 #[cfg(feature = "test-support")]
 mod recording;
@@ -13,12 +14,13 @@ pub mod video;
 mod windows_apartment;
 
 use ffi::{Api, EndFile, Property, end_reason, event_id, format};
+use pending::{PendingCommand, ReplyKind};
 use properties::{apply_property, observed_property_value};
 #[cfg(feature = "test-support")]
 pub use recording::RecordingEngine;
 use riina_core::{Command, Phase, Playback};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     ffi::{CStr, CString, c_void},
     panic::{AssertUnwindSafe, catch_unwind},
     path::Path,
@@ -326,11 +328,6 @@ impl Player {
                 let mut dynamic_property_observers = BTreeMap::<u64, String>::new();
                 let mut next_dynamic_property_observer = 1_u64;
                 let mut pending: HashMap<u64, PendingCommand> = HashMap::new();
-                let mut pending_screenshots = HashMap::new();
-                let mut pending_frame_captures = HashSet::new();
-                let mut pending_transition_captures = HashSet::new();
-                let mut pending_incoming_transition_captures = HashSet::new();
-                let mut pending_material_captures = HashSet::new();
                 let mut pending_drop_subtitles = Vec::<String>::new();
                 let mut resume_on_load = false;
                 let mut seek_pending = false;
@@ -453,7 +450,18 @@ impl Player {
                                         seek_feedback.clear();
                                         auto_seek.interrupt_measurement();
                                     }
-                                    if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) {
+                                    let reply = ReplyKind::for_command(
+                                        &command, args.first().map(String::as_str),
+                                    );
+                                    if let Err(error) = issue(
+                                        &worker_api,
+                                        handle,
+                                        &args,
+                                        &mut next_id,
+                                        &mut pending,
+                                        state.generation,
+                                        reply,
+                                    ) {
                                         if matches!(command, Command::CaptureMaterialFrame) {
                                             diagnostic!("Could not request a Windows video material frame: {error}");
                                         } else {
@@ -472,20 +480,6 @@ impl Player {
                                         state.playlist_shuffled = false;
                                     }
                                     if seek_feedback::navigation(&args, &state) { seek_feedback.submitted(next_id); }
-                                    if let Command::ScreenshotToFile { path, .. } = &command {
-                                        pending_screenshots.insert(next_id, Some(path.clone()));
-                                    } else if matches!(command, Command::Screenshot { .. })
-                                        && args.first().is_some_and(|name| name == "screenshot") {
-                                        pending_screenshots.insert(next_id, None);
-                                    } else if matches!(command, Command::CaptureFrame) {
-                                        pending_frame_captures.insert(next_id);
-                                    } else if matches!(command, Command::CaptureTransitionFrame) {
-                                        pending_transition_captures.insert(next_id);
-                                    } else if matches!(command, Command::CaptureIncomingTransitionFrame) {
-                                        pending_incoming_transition_captures.insert(next_id);
-                                    } else if matches!(command, Command::CaptureMaterialFrame) {
-                                        pending_material_captures.insert(next_id);
-                                    }
                                 }
                                 if command_issue_succeeded
                                     && let Some(subtitles) = dropped_subtitles
@@ -519,24 +513,15 @@ impl Player {
                                 if event.error < 0 {
                                     auto_seek.failed(event.userdata);
                                 }
-                                let screenshot = pending_screenshots.remove(&event.userdata);
-                                let frame_capture = pending_frame_captures.remove(&event.userdata);
-                                let transition_capture =
-                                    pending_transition_captures.remove(&event.userdata);
-                                let incoming_transition_capture = pending_incoming_transition_captures
-                                    .remove(&event.userdata);
-                                let material_capture = pending_material_captures.remove(&event.userdata);
                                 if let Some(pending_command) = pending.remove(&event.userdata)
-                                    && (pending_command.generation == state.generation
-                                        || (transition_capture
-                                            && state.generation.saturating_sub(
-                                                pending_command.generation,
-                                            ) <= 1
-                                            && state
-                                                .transition_frame_generation
-                                                .is_none_or(|generation| {
-                                                    generation <= pending_command.generation
-                                                }))) {
+                                    && pending_command.belongs_to(&state)
+                                {
+                                    let frame_capture = matches!(pending_command.kind, ReplyKind::FrameCapture);
+                                    let transition_capture =
+                                        matches!(pending_command.kind, ReplyKind::TransitionCapture);
+                                    let incoming_transition_capture =
+                                        matches!(pending_command.kind, ReplyKind::IncomingTransitionCapture);
+                                    let material_capture = matches!(pending_command.kind, ReplyKind::MaterialCapture);
                                     if frame_capture {
                                         state.finished_frame_capture_requests = state.finished_frame_capture_requests.wrapping_add(1);
                                     }
@@ -623,7 +608,7 @@ impl Player {
                                                 Err(error) => diagnostic!("Could not copy an asynchronous frame capture: {error}"),
                                             }
                                         }
-                                    } else if let Some(path) = screenshot {
+                                    } else if let ReplyKind::Screenshot { path } = pending_command.kind {
                                         // Queue acceptance is not capture success. Retire replies
                                         // from replaced sources without replaying old feedback.
                                         let path = path.or_else(|| {
@@ -677,6 +662,7 @@ impl Player {
                                         &mut next_id,
                                         &mut pending,
                                         state.generation,
+                                        ReplyKind::Plain,
                                     ) {
                                         state.error = Some(error);
                                         break;
@@ -685,7 +671,17 @@ impl Player {
                                 if resume_on_load {
                                     resume_on_load = false;
                                     let args = ["set".into(), "pause".into(), "no".into()];
-                                    if let Err(error) = issue(&worker_api, handle, &args, &mut next_id, &mut pending, state.generation) { state.error = Some(error); }
+                                    if let Err(error) = issue(
+                                        &worker_api,
+                                        handle,
+                                        &args,
+                                        &mut next_id,
+                                        &mut pending,
+                                        state.generation,
+                                        ReplyKind::Plain,
+                                    ) {
+                                        state.error = Some(error);
+                                    }
                                 }
                             },
                             event_id::SEEK => {
@@ -794,6 +790,7 @@ unsafe fn issue(
     next_id: &mut u64,
     pending: &mut HashMap<u64, PendingCommand>,
     generation: u64,
+    kind: ReplyKind,
 ) -> Result<(), String> {
     let args: Vec<_> = args
         .iter()
@@ -808,13 +805,15 @@ unsafe fn issue(
     // before returning, as specified by client.h. Reply ownership stays with mpv.
     api.check(unsafe { (api.command)(handle, *next_id, pointers.as_ptr()) })
         .map_err(|error| format!("mpv {label}: {error}"))?;
-    pending.insert(*next_id, PendingCommand { generation, label });
+    pending.insert(
+        *next_id,
+        PendingCommand {
+            generation,
+            label,
+            kind,
+        },
+    );
     Ok(())
-}
-
-struct PendingCommand {
-    generation: u64,
-    label: String,
 }
 
 // Keep diagnostics actionable without exposing media paths or arbitrary option values.
