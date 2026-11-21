@@ -725,9 +725,7 @@ fn configure_with_engine(
         native.as_ref().map(|presentation| presentation.host()),
         latest_playback.clone(),
     );
-    crate::preferences::model::install_player_section::<riina_core::control_preferences::Settings>(
-        &prefs, app,
-    );
+    crate::preferences::model::install_player_sections(&prefs, app);
     crate::key_binding_preferences::install_player(
         app,
         &prefs.key_bindings,
@@ -746,22 +744,6 @@ fn configure_with_engine(
     app.set_secondary_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.secondary_subtitle_ass_override,
     ));
-    crate::preferences::model::install_player_section::<
-        riina_core::subtitle_controls::PositionPreferences,
-    >(&prefs, app);
-    crate::preferences::model::install_player_section::<
-        riina_core::subtitle_controls::OtherPreferences,
-    >(&prefs, app);
-    crate::preferences::model::install_player_section::<
-        riina_core::subtitle_controls::AutoLoadPreferences,
-    >(&prefs, app);
-    crate::online_subtitles_preferences::install_player(app, &prefs.online_subtitles);
-    crate::preferences::model::install_player_section::<riina_core::network_preferences::Cache>(
-        &prefs, app,
-    );
-    crate::preferences::model::install_player_section::<
-        riina_core::network_preferences::OnlineVideos,
-    >(&prefs, app);
     app.set_subtitle_font(prefs.subtitle_font.clone().into());
     app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
@@ -774,16 +756,7 @@ fn configure_with_engine(
             .map(slint::SharedString::from)
             .to_vec(),
     )));
-    crate::preferences::model::install_player_section::<crate::osd_preferences::Settings>(
-        &prefs, app,
-    );
-    crate::preferences::model::install_player_section::<riina_core::osc_preferences::Settings>(
-        &prefs, app,
-    );
     crate::screenshot_preferences::install(app, &prefs.screenshot);
-    crate::preferences::model::install_player_section::<riina_core::thumbnail_preferences::Settings>(
-        &prefs, app,
-    );
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
     app.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
@@ -815,15 +788,9 @@ fn configure_with_engine(
     app.set_edge_to_edge_video(prefs.edge_to_edge_video);
     app.set_docked_controls(prefs.docked_controls);
     app.set_unlock_window_aspect_ratio(prefs.unlock_window_aspect_ratio);
-    crate::preferences::model::install_player_section::<riina_core::window_resize::Settings>(
-        &prefs, app,
-    );
     app.set_compact_ui(prefs.compact_ui);
     app.set_always_float_on_top(prefs.always_float_on_top);
     app.set_always_show_on_top_icon(prefs.always_show_on_top_icon);
-    crate::preferences::model::install_player_section::<riina_core::liquid_glass::SurfaceSettings>(
-        &prefs, app,
-    );
     let appearance = prefs.effective_theme_material();
     app.set_appearance_mode(appearance.index());
     app.set_surface_material_title(crate::platform::surface_material_title().into());
@@ -833,9 +800,6 @@ fn configure_with_engine(
     app.set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);
     app.set_control_bar_position_vertical(prefs.control_bar_position_vertical as f32);
     app.set_show_chapter_pos(prefs.show_chapter_pos);
-    crate::preferences::model::install_player_section::<riina_core::pip_preferences::Settings>(
-        &prefs, app,
-    );
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);

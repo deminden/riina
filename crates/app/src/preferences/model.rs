@@ -1,7 +1,10 @@
 //! Own the saved preference snapshot and project its sections onto the UI.
 
 use crate::{PlayerWindow, PreferencesWindow, preference_store::Writer};
-use riina_core::Preferences;
+use riina_core::{
+    Preferences, control_preferences, liquid_glass, network_preferences, online_subtitles,
+    osc_preferences, pip_preferences, subtitle_controls, thumbnail_preferences, window_resize,
+};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub(crate) struct SectionError(String);
@@ -84,9 +87,30 @@ impl PreferenceModel {
     }
 }
 
-pub(crate) fn install_player_section<S: PreferenceSection>(
-    prefs: &Preferences,
-    app: &PlayerWindow,
-) {
+type Projection = fn(&Preferences, &PlayerWindow);
+
+const PLAYER_SECTIONS: &[Projection] = &[
+    install_player_section::<control_preferences::Settings>,
+    install_player_section::<subtitle_controls::PositionPreferences>,
+    install_player_section::<subtitle_controls::OtherPreferences>,
+    install_player_section::<subtitle_controls::AutoLoadPreferences>,
+    install_player_section::<online_subtitles::Preferences>,
+    install_player_section::<network_preferences::Cache>,
+    install_player_section::<network_preferences::OnlineVideos>,
+    install_player_section::<crate::osd_preferences::Settings>,
+    install_player_section::<osc_preferences::Settings>,
+    install_player_section::<thumbnail_preferences::Settings>,
+    install_player_section::<window_resize::Settings>,
+    install_player_section::<liquid_glass::SurfaceSettings>,
+    install_player_section::<pip_preferences::Settings>,
+];
+
+pub(crate) fn install_player_sections(prefs: &Preferences, app: &PlayerWindow) {
+    for project in PLAYER_SECTIONS {
+        project(prefs, app);
+    }
+}
+
+fn install_player_section<S: PreferenceSection>(prefs: &Preferences, app: &PlayerWindow) {
     S::get(prefs).write_player(app);
 }

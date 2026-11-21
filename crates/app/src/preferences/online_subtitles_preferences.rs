@@ -1,4 +1,28 @@
+use super::model::{PreferenceSection, SectionError};
+use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::online_subtitles::{Preferences, Provider};
+
+impl PreferenceSection for Preferences {
+    fn get(all: &riina_core::Preferences) -> Self {
+        all.online_subtitles.clone()
+    }
+
+    fn put(self, all: &mut riina_core::Preferences) {
+        all.online_subtitles = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 fn provider(index: i32) -> Provider {
     match index {

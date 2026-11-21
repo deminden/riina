@@ -87,7 +87,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_online_subtitles) = read_or_refresh(
-            crate::online_subtitles_preferences::current_window(&window),
+            model.read_section::<riina_core::online_subtitles::Preferences>(&window),
             &app,
             &window,
         ) else {
