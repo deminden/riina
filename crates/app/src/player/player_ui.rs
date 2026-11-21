@@ -376,8 +376,7 @@ pub(crate) struct UiSession {
     _transition_frame_timer: Option<Rc<slint::Timer>>,
     _video_materials: platform::video_materials::Monitor,
     _subtitle_priority_timer: Rc<slint::Timer>,
-    _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
-    _online_subtitles_timer: Rc<slint::Timer>,
+    _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
     _playback_history_window: crate::playback_history_window::Guard,
     _video_filters_window: Rc<RefCell<Option<crate::VideoFiltersWindow>>>,
     _video_filters_timer: Rc<slint::Timer>,
@@ -719,7 +718,7 @@ fn configure_with_engine(
     );
     *lock(&plugin_command_sender) = Some(command_sender.clone());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
-    let (online_subtitles_window, online_subtitles_timer) = crate::open_subtitles::connect_player(
+    let online_subtitles_window = crate::open_subtitles::connect_player(
         app,
         command_sender.clone(),
         latest_playback.clone(),
@@ -1100,7 +1099,6 @@ fn configure_with_engine(
         _video_materials: video_materials,
         _subtitle_priority_timer: subtitle_priority_timer,
         _online_subtitles_window: online_subtitles_window,
-        _online_subtitles_timer: online_subtitles_timer,
         _playback_history_window: playback_history_window,
         _video_filters_window: video_filters_window,
         _video_filters_timer: video_filters_timer,
