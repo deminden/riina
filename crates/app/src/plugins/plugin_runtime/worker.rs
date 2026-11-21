@@ -70,6 +70,7 @@ pub(super) fn run_entry_worker(
         }
     };
     let overlay_state = Arc::new(Mutex::new(OverlayState::default()));
+    #[cfg(any(target_os = "windows", test))]
     let worker_overlay_state = overlay_state.clone();
     let sidebar_state = Arc::new(Mutex::new(PluginSidebarState::default()));
     let worker_sidebar_state = sidebar_state.clone();
@@ -241,6 +242,7 @@ pub(super) fn run_entry_worker(
                 format!("iina.menu.__activate({})", serde_json::json!(id)),
                 "menu action",
             ),
+            #[cfg(any(target_os = "windows", test))]
             Some(RuntimeCommand::DeliverOverlayMessage(name, data)) => {
                 // An interrupted subscription update must not admit a message.
                 if !worker_overlay_state.lock().is_ok_and(|state| {

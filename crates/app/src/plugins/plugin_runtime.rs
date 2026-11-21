@@ -49,6 +49,7 @@ const MAX_RUNTIME_MEMORY: usize = 32 * 1024 * 1024;
 const MAX_STACK_BYTES: usize = 256 * 1024;
 const MAX_HOST_EVENTS: usize = 128;
 const MAX_MESSAGE_CHARS: usize = 2048;
+#[cfg(any(target_os = "windows", test))]
 const MAX_OVERLAY_INTENT_BYTES: usize = 1024 * 1024;
 const MAX_PLUGIN_MESSAGE_BYTES: usize = 1024 * 1024;
 const MAX_HOST_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
@@ -72,6 +73,7 @@ pub enum UiEffect {
 }
 
 enum RuntimeCommand {
+    #[cfg(any(target_os = "windows", test))]
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverSidebarMessage(String, serde_json::Value),
     DeliverPluginMenuAction(String),
@@ -288,6 +290,7 @@ impl PluginRuntimeSession {
         self.file_system.set_player_context(context);
     }
 
+    #[cfg(any(target_os = "windows", test))]
     pub fn deliver_overlay_message(
         &self,
         name: String,
