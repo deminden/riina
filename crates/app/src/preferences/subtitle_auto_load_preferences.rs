@@ -1,4 +1,5 @@
 //! Keep the Auto Load controls aligned with the persisted shared preference.
+use slint::ComponentHandle;
 
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
@@ -52,12 +53,22 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<AutoLoadPrefer
 pub(crate) fn current_window(
     window: &crate::PreferencesWindow,
 ) -> Result<AutoLoadPreferences, String> {
-    let mode = AutoLoadMode::from_index(window.get_subtitle_auto_load_mode_index())
-        .ok_or_else(|| "Invalid subtitle auto-load mode".to_owned())?;
+    let mode = AutoLoadMode::from_index(
+        window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_auto_load_mode_index(),
+    )
+    .ok_or_else(|| "Invalid subtitle auto-load mode".to_owned())?;
     let preferences = AutoLoadPreferences {
         mode,
-        priority_keywords: window.get_subtitle_auto_load_priority_text().to_string(),
-        search_paths: window.get_subtitle_search_paths_text().to_string(),
+        priority_keywords: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_auto_load_priority_text()
+            .to_string(),
+        search_paths: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_search_paths_text()
+            .to_string(),
     };
     preferences.validate().map_err(str::to_owned)?;
     Ok(preferences)
@@ -70,9 +81,15 @@ pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &AutoLoadPr
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &AutoLoadPreferences) {
-    window.set_subtitle_auto_load_mode_index(preferences.mode.index());
-    window.set_subtitle_auto_load_priority_text(preferences.priority_keywords.clone().into());
-    window.set_subtitle_search_paths_text(preferences.search_paths.clone().into());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_auto_load_mode_index(preferences.mode.index());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_auto_load_priority_text(preferences.priority_keywords.clone().into());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_search_paths_text(preferences.search_paths.clone().into());
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 //! Project a persisted edit and notify the owners of live settings.
+use slint::ComponentHandle;
 
 use super::CredentialStore;
 use crate::{
@@ -97,7 +98,9 @@ fn project_subtitle_providers(
                 let mut retained = selected.clone();
                 retained.api_key = app.get_open_subtitles_api_key().to_string();
                 crate::online_subtitles_preferences::install_player(app, &retained);
-                window.set_open_subtitles_api_key(retained.api_key.into());
+                window
+                    .global::<crate::SubtitleSettingsState>()
+                    .set_open_subtitles_api_key(retained.api_key.into());
                 app.set_status(error.into());
             }
         }
@@ -109,7 +112,9 @@ fn project_subtitle_providers(
         retained.api_key = app.get_open_subtitles_api_key().to_string();
         retained.assrt_token = previous_assrt_token.into();
         crate::online_subtitles_preferences::install_player(app, &retained);
-        window.set_assrt_token(retained.assrt_token.into());
+        window
+            .global::<crate::SubtitleSettingsState>()
+            .set_assrt_token(retained.assrt_token.into());
         app.set_status(error.into());
     }
 }

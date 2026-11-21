@@ -172,17 +172,19 @@ checkbox_cases! {
 }
 
 macro_rules! invalid_values {
-    ($($test:ident => $get:ident, $set:ident, $value:expr;)+) => {
+    ($($test:ident => $([$form:ty])? $get:ident, $set:ident, $value:expr;)+) => {
         $(
             #[test]
             fn $test() {
                 let transaction = Transaction::new();
                 let before = transaction.bytes();
-                let original = transaction.window.$get();
-                transaction.window.$set($value);
+                let form = &transaction.window;
+                $(let form = form.global::<$form>();)?
+                let original = form.$get();
+                form.$set($value);
                 assert!(transaction.apply().is_empty());
                 assert_eq!(transaction.bytes(), before);
-                assert_eq!(transaction.window.$get(), original);
+                assert_eq!(form.$get(), original);
             }
         )+
     };
@@ -212,10 +214,13 @@ invalid_values! {
     invalid_decoder_thread_count_leaves_settings_untouched =>
         get_video_threads_text, set_video_threads_text, "-1".into();
     invalid_subtitle_font_size_leaves_settings_untouched =>
+        [crate::SubtitleSettingsState]
         get_subtitle_font_size_text, set_subtitle_font_size_text, "abc".into();
     invalid_network_cache_size_leaves_settings_untouched =>
+        [crate::NetworkSettingsState]
         get_network_cache_size_kib_text, set_network_cache_size_kib_text, "abc".into();
     invalid_network_prefetch_leaves_settings_untouched =>
+        [crate::NetworkSettingsState]
         get_network_cache_prefetch_secs_text, set_network_cache_prefetch_secs_text, "abc".into();
 }
 
@@ -313,7 +318,10 @@ fn record_history_callback_fires_after_the_file_changes_and_only_once() {
 #[test]
 fn advanced_edits_report_that_the_player_must_restart() {
     let transaction = Transaction::new();
-    transaction.window.set_advanced_enabled(true);
+    transaction
+        .window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_enabled(true);
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
@@ -405,6 +413,7 @@ fn opensubtitles_storage_failure_keeps_the_prior_key_and_omits_secrets_from_json
     app.set_open_subtitles_api_key("existing-api-key".into());
     transaction
         .window
+        .global::<crate::SubtitleSettingsState>()
         .set_open_subtitles_api_key("candidate-api-key".into());
     assert_eq!(
         transaction.apply(),
@@ -412,7 +421,10 @@ fn opensubtitles_storage_failure_keeps_the_prior_key_and_omits_secrets_from_json
     );
     assert_eq!(app.get_open_subtitles_api_key(), "existing-api-key");
     assert_eq!(
-        transaction.window.get_open_subtitles_api_key(),
+        transaction
+            .window
+            .global::<crate::SubtitleSettingsState>()
+            .get_open_subtitles_api_key(),
         "existing-api-key"
     );
     assert_eq!(app.get_status(), "credential store rejected the key");
@@ -441,13 +453,20 @@ fn assrt_storage_failure_keeps_the_prior_token_and_omits_secrets_from_json() {
     app.set_assrt_token("existing-assrt-token".into());
     transaction
         .window
+        .global::<crate::SubtitleSettingsState>()
         .set_assrt_token("candidate-assrt-token".into());
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
     assert_eq!(app.get_assrt_token(), "existing-assrt-token");
-    assert_eq!(transaction.window.get_assrt_token(), "existing-assrt-token");
+    assert_eq!(
+        transaction
+            .window
+            .global::<crate::SubtitleSettingsState>()
+            .get_assrt_token(),
+        "existing-assrt-token"
+    );
     assert_eq!(app.get_status(), "credential store rejected the token");
     let recorded = transaction.player.session.preference_model.snapshot();
     assert_eq!(
@@ -485,8 +504,14 @@ fn valid_video_thread_count_reaches_the_engine_and_file_once() {
 #[test]
 fn cache_edits_apply_the_saved_policy_after_subtitle_reload() {
     let transaction = Transaction::new();
-    let enabled = !transaction.window.get_network_cache_enabled();
-    transaction.window.set_network_cache_enabled(enabled);
+    let enabled = !transaction
+        .window
+        .global::<crate::NetworkSettingsState>()
+        .get_network_cache_enabled();
+    transaction
+        .window
+        .global::<crate::NetworkSettingsState>()
+        .set_network_cache_enabled(enabled);
     let commands = transaction.apply();
     let saved = transaction.profile.read();
     assert_eq!(saved.network_cache.enabled, enabled);
@@ -505,7 +530,10 @@ fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
     let transaction = Transaction::new();
     let before = transaction.bytes();
     transaction.window.set_volume_boost(true);
-    transaction.window.set_subtitle_font_size_text("abc".into());
+    transaction
+        .window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_font_size_text("abc".into());
     assert_eq!(
         transaction.apply(),
         [

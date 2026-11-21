@@ -1,4 +1,5 @@
 //! Edit subtitle preferences while preserving the decoder's accepted state.
+use slint::ComponentHandle;
 
 use super::read_or_refresh;
 use crate::{
@@ -94,12 +95,22 @@ impl Draft {
         sender: &CommandSender,
     ) -> Result<Applied, String> {
         let selected_overrides = (
-            window.get_subtitle_ass_override_primary_index(),
-            window.get_subtitle_ass_override_secondary_index(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_ass_override_primary_index(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_ass_override_secondary_index(),
         );
-        let font = window.get_subtitle_font();
-        let size =
-            crate::subtitle_preferences::font_size(window.get_subtitle_font_size_text().as_str())?;
+        let font = window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_font();
+        let size = crate::subtitle_preferences::font_size(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_font_size_text()
+                .as_str(),
+        )?;
         let (font, font_size) = apply_subtitle_text_preferences(
             app,
             sender,

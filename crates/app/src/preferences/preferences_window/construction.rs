@@ -106,12 +106,16 @@ fn connect_assrt_instructions(app: &PlayerWindow, window: &PreferencesWindow) {
 
 fn connect_font_and_advanced(app: &PlayerWindow, window: &PreferencesWindow) {
     let selected_font = app.get_subtitle_font().to_string();
-    window.set_subtitle_font(selected_font.into());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_font(selected_font.into());
     let choose_parent = app.as_weak();
     let choose_window = window.as_weak();
     window.on_choose_subtitle_font(move || {
         if let (Some(app), Some(window)) = (choose_parent.upgrade(), choose_window.upgrade()) {
-            window.set_subtitle_font(app.get_subtitle_font());
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_font(app.get_subtitle_font());
             app.invoke_choose_subtitle_font();
         }
     });

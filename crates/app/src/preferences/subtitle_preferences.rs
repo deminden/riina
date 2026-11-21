@@ -1,4 +1,5 @@
 //! Map the reference slider's visible order to typed native option values.
+use slint::ComponentHandle;
 
 use riina_core::subtitle_controls::AssOverrideLevel;
 
@@ -115,15 +116,47 @@ pub(crate) fn current_window_style(
             .map_err(|_| "Enter a numeric subtitle style value".to_owned())
     };
     let style = riina_core::subtitle_controls::TextStylePreferences {
-        text_color: style_color_from_ui(window.get_subtitle_text_color())?,
-        bold: window.get_subtitle_bold(),
-        italic: window.get_subtitle_italic(),
-        blur: parse(window.get_subtitle_blur_text())?,
-        spacing: parse(window.get_subtitle_spacing_text())?,
-        outline_size: parse(window.get_subtitle_outline_size_text())?,
-        outline_color: style_color_from_ui(window.get_subtitle_outline_color())?,
-        shadow_offset: parse(window.get_subtitle_shadow_offset_text())?,
-        shadow_color: style_color_from_ui(window.get_subtitle_shadow_color())?,
+        text_color: style_color_from_ui(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_text_color(),
+        )?,
+        bold: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_bold(),
+        italic: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_italic(),
+        blur: parse(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_blur_text(),
+        )?,
+        spacing: parse(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_spacing_text(),
+        )?,
+        outline_size: parse(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_outline_size_text(),
+        )?,
+        outline_color: style_color_from_ui(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_outline_color(),
+        )?,
+        shadow_offset: parse(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_shadow_offset_text(),
+        )?,
+        shadow_color: style_color_from_ui(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_shadow_color(),
+        )?,
     };
     style.validate().map_err(str::to_owned)?;
     Ok(style)
@@ -133,16 +166,36 @@ pub(crate) fn install_window_style(
     window: &crate::PreferencesWindow,
     style: riina_core::subtitle_controls::TextStylePreferences,
 ) {
-    window.set_subtitle_text_color(style_color_to_ui(style.text_color));
-    window.set_subtitle_bold(style.bold);
-    window.set_subtitle_italic(style.italic);
-    window.set_subtitle_background_color(style_color_to_ui(style.shadow_color));
-    window.set_subtitle_outline_size_text(format_number(style.outline_size as f32));
-    window.set_subtitle_outline_color(style_color_to_ui(style.outline_color));
-    window.set_subtitle_shadow_offset_text(format_number(style.shadow_offset as f32));
-    window.set_subtitle_shadow_color(style_color_to_ui(style.shadow_color));
-    window.set_subtitle_blur_text(format_number(style.blur as f32));
-    window.set_subtitle_spacing_text(format_number(style.spacing as f32));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_text_color(style_color_to_ui(style.text_color));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_bold(style.bold);
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_italic(style.italic);
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_background_color(style_color_to_ui(style.shadow_color));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_outline_size_text(format_number(style.outline_size as f32));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_outline_color(style_color_to_ui(style.outline_color));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_shadow_offset_text(format_number(style.shadow_offset as f32));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_shadow_color(style_color_to_ui(style.shadow_color));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_blur_text(format_number(style.blur as f32));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_spacing_text(format_number(style.spacing as f32));
 }
 
 #[cfg(test)]

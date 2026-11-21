@@ -1,5 +1,6 @@
 //! Refresh controls from the owning player.
 use crate::PlayerWindow;
+use slint::ComponentHandle;
 
 pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_surface_material_title(crate::platform::surface_material_title().into());
@@ -33,13 +34,20 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     if let Ok(settings) = crate::key_binding_preferences::current_player(app) {
         let _ = crate::key_binding_preferences::refresh(window, &settings);
     }
-    window.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
     window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
+    window
+        .global::<crate::SubtitleSettingsState>()
         .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());
-    window.set_subtitle_font(app.get_subtitle_font());
-    window.set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
-        app.get_subtitle_font_size_preference(),
-    ));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_font(app.get_subtitle_font());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
+            app.get_subtitle_font_size_preference(),
+        ));
     if let Ok(style) = crate::subtitle_preferences::current_style(app) {
         crate::subtitle_preferences::install_window_style(window, style);
     }
@@ -73,8 +81,11 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::pip_preferences::install_preferences(window, settings);
     }
     window.set_hardware_decoder_index(app.get_hardware_decoder_index());
-    window.set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
     window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_ass_override_primary_index(app.get_subtitle_ass_override_index());
+    window
+        .global::<crate::SubtitleSettingsState>()
         .set_subtitle_ass_override_secondary_index(app.get_secondary_subtitle_ass_override_index());
     if let Ok(position) = crate::subtitle_position_preferences::current_player(app) {
         crate::subtitle_position_preferences::install_window(window, position);

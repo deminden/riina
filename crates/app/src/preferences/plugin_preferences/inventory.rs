@@ -2,6 +2,7 @@
 use super::InstalledPlugin;
 use crate::{PluginPreferencesRow, PreferencesWindow};
 use riina_core::plugin::Manifest;
+use slint::ComponentHandle;
 use slint::{ModelRc, VecModel};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -16,6 +17,7 @@ pub(super) fn refresh(
     enabled: &BTreeSet<String>,
     runtime_available: bool,
 ) {
+    let form = window.global::<crate::NetworkSettingsState>();
     let mut loaded = Vec::new();
     let mut invalid = 0;
     let locale = crate::platform::language::current_locale_identifier();
@@ -59,12 +61,12 @@ pub(super) fn refresh(
         .filter(|plugin| !runtime_available || !current_runtime_supports(&plugin.manifest))
         .count();
     *inventory.borrow_mut() = loaded;
-    window.set_network_ytdl_plugin_active(inventory.borrow().iter().any(|plugin| {
+    form.set_network_ytdl_plugin_active(inventory.borrow().iter().any(|plugin| {
         plugin.manifest.identifier == "io.iina.ytdl"
             && enabled.contains(&plugin.manifest.identifier)
     }));
-    window.set_network_ytdl_ui_enabled(
-        window.get_network_ytdl_enabled() && !window.get_network_ytdl_plugin_active(),
+    form.set_network_ytdl_ui_enabled(
+        form.get_network_ytdl_enabled() && !form.get_network_ytdl_plugin_active(),
     );
     window.set_plugin_rows(plugin_rows(&inventory.borrow(), enabled, runtime_available));
     let status = match (invalid, unavailable) {

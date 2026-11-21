@@ -32,7 +32,9 @@ pub(crate) fn connect(
             .as_ref()
             .map(ComponentHandle::clone_strong)
         {
-            window.set_subtitle_font(font);
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_font(font);
             window.invoke_settings_changed();
         }
     });

@@ -26,15 +26,27 @@ pub(crate) fn install_subtitle_color_panel(app: &PlayerWindow, window: &Preferen
             let color =
                 slint::Color::from_argb_u8(channels[3], channels[0], channels[1], channels[2]);
             match target {
-                1 => window.set_subtitle_text_color(color),
+                1 => window
+                    .global::<crate::SubtitleSettingsState>()
+                    .set_subtitle_text_color(color),
                 2 => {
-                    window.set_subtitle_background_color(color);
-                    window.set_subtitle_shadow_color(color);
+                    window
+                        .global::<crate::SubtitleSettingsState>()
+                        .set_subtitle_background_color(color);
+                    window
+                        .global::<crate::SubtitleSettingsState>()
+                        .set_subtitle_shadow_color(color);
                 }
-                3 => window.set_subtitle_outline_color(color),
+                3 => window
+                    .global::<crate::SubtitleSettingsState>()
+                    .set_subtitle_outline_color(color),
                 4 => {
-                    window.set_subtitle_shadow_color(color);
-                    window.set_subtitle_background_color(color);
+                    window
+                        .global::<crate::SubtitleSettingsState>()
+                        .set_subtitle_shadow_color(color);
+                    window
+                        .global::<crate::SubtitleSettingsState>()
+                        .set_subtitle_background_color(color);
                 }
                 _ => return,
             }

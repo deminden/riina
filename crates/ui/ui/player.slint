@@ -31,7 +31,7 @@ export { NativeVideoHost, MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, Men
 export { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
-export { AudioSettingsState, ControlSettingsState, PreferencesWindow, VideoSettingsState } from "preferences.slint";
+export { AdvancedSettingsState, AudioSettingsState, ControlSettingsState, NetworkSettingsState, PreferencesWindow, SubtitleSettingsState, VideoSettingsState } from "preferences.slint";
 export { OnlineSubtitlesWindow } from "online-subtitles.slint";
 export { PlaybackHistoryWindow, PlaybackHistoryRow } from "history-window.slint";
 export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
@@ -462,6 +462,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> pause-when-leaving-fullscreen: false;
     in-out property <bool> pause-when-inactive: false;
     in-out property <bool> pause-when-minimized: false;
+    callback pause-when-minimized-changed(bool);
+    changed pause-when-minimized => { root.pause-when-minimized-changed(root.pause-when-minimized); }
     in-out property <bool> pause-when-goes-to-sleep: true;
     in-out property <bool> quit-when-no-opened-window: false;
     in-out property <bool> keep-open-on-file-end: true;

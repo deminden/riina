@@ -1,4 +1,5 @@
 //! Keep editable cache values typed at the persistence and engine boundary.
+use slint::ComponentHandle;
 
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
@@ -68,23 +69,24 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<Cache, String>
 }
 
 pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Cache, String> {
+    let form = window.global::<crate::NetworkSettingsState>();
     validate(Cache {
-        enabled: window.get_network_cache_enabled(),
-        pause_initial: window.get_network_cache_pause_initial(),
+        enabled: form.get_network_cache_enabled(),
+        pause_initial: form.get_network_cache_pause_initial(),
         pause_wait_secs: parse_number(
-            window.get_network_cache_pause_wait_text().as_str(),
+            form.get_network_cache_pause_wait_text().as_str(),
             "Buffer-before-start duration",
         )?,
         prefetch_secs: parse_number(
-            window.get_network_cache_prefetch_secs_text().as_str(),
+            form.get_network_cache_prefetch_secs_text().as_str(),
             "Prefetch duration",
         )?,
         buffer_size_kib: parse_number(
-            window.get_network_cache_size_kib_text().as_str(),
+            form.get_network_cache_size_kib_text().as_str(),
             "Cache buffer size",
         )?,
-        show_buffering_throbber: window.get_network_show_buffering_throbber(),
-        show_seeking_throbber: window.get_network_show_seeking_throbber(),
+        show_buffering_throbber: form.get_network_show_buffering_throbber(),
+        show_seeking_throbber: form.get_network_show_seeking_throbber(),
     })
 }
 
@@ -99,13 +101,14 @@ pub(crate) fn install_player(app: &crate::PlayerWindow, cache: &Cache) {
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, cache: &Cache) {
-    window.set_network_cache_enabled(cache.enabled);
-    window.set_network_cache_pause_initial(cache.pause_initial);
-    window.set_network_cache_pause_wait_text(cache.pause_wait_secs.to_string().into());
-    window.set_network_cache_prefetch_secs_text(cache.prefetch_secs.to_string().into());
-    window.set_network_cache_size_kib_text(cache.buffer_size_kib.to_string().into());
-    window.set_network_show_buffering_throbber(cache.show_buffering_throbber);
-    window.set_network_show_seeking_throbber(cache.show_seeking_throbber);
+    let form = window.global::<crate::NetworkSettingsState>();
+    form.set_network_cache_enabled(cache.enabled);
+    form.set_network_cache_pause_initial(cache.pause_initial);
+    form.set_network_cache_pause_wait_text(cache.pause_wait_secs.to_string().into());
+    form.set_network_cache_prefetch_secs_text(cache.prefetch_secs.to_string().into());
+    form.set_network_cache_size_kib_text(cache.buffer_size_kib.to_string().into());
+    form.set_network_show_buffering_throbber(cache.show_buffering_throbber);
+    form.set_network_show_seeking_throbber(cache.show_seeking_throbber);
 }
 
 pub(crate) fn apply(

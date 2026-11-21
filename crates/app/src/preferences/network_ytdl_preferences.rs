@@ -1,4 +1,5 @@
 //! Bind IINA's optional online-video extraction settings to the shared UI state.
+use slint::ComponentHandle;
 
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
@@ -41,10 +42,11 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<OnlineVideos, 
 }
 
 pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<OnlineVideos, String> {
+    let form = window.global::<crate::NetworkSettingsState>();
     validate(OnlineVideos {
-        enabled: window.get_network_ytdl_enabled(),
-        search_path: window.get_network_ytdl_search_path().to_string(),
-        raw_options: window.get_network_ytdl_raw_options().to_string(),
+        enabled: form.get_network_ytdl_enabled(),
+        search_path: form.get_network_ytdl_search_path().to_string(),
+        raw_options: form.get_network_ytdl_raw_options().to_string(),
     })
 }
 
@@ -55,12 +57,11 @@ pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &OnlineVide
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &OnlineVideos) {
-    window.set_network_ytdl_enabled(preferences.enabled);
-    window.set_network_ytdl_ui_enabled(
-        preferences.enabled && !window.get_network_ytdl_plugin_active(),
-    );
-    window.set_network_ytdl_search_path(preferences.search_path.clone().into());
-    window.set_network_ytdl_raw_options(preferences.raw_options.clone().into());
+    let form = window.global::<crate::NetworkSettingsState>();
+    form.set_network_ytdl_enabled(preferences.enabled);
+    form.set_network_ytdl_ui_enabled(preferences.enabled && !form.get_network_ytdl_plugin_active());
+    form.set_network_ytdl_search_path(preferences.search_path.clone().into());
+    form.set_network_ytdl_raw_options(preferences.raw_options.clone().into());
 }
 
 pub(crate) fn apply(

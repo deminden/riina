@@ -29,12 +29,24 @@ impl PreferenceSection for Settings {
 }
 
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
-    window.set_advanced_enabled(settings.enabled);
-    window.set_advanced_log_level_index(log_level_index(settings.log_level));
-    window.set_advanced_logging_enabled(settings.logging_enabled);
-    window.set_advanced_use_mpv_osd(settings.use_mpv_osd);
-    window.set_advanced_use_config_directory(settings.use_config_directory);
-    window.set_advanced_config_directory_text(settings.config_directory.clone().into());
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_enabled(settings.enabled);
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_log_level_index(log_level_index(settings.log_level));
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_logging_enabled(settings.logging_enabled);
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_use_mpv_osd(settings.use_mpv_osd);
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_use_config_directory(settings.use_config_directory);
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_config_directory_text(settings.config_directory.clone().into());
     let options = Rc::new(RefCell::new(settings.user_options.clone()));
     refresh_options(window, &options);
 
@@ -54,7 +66,9 @@ pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
             options.len() as i32 - 1
         };
         refresh_options(&window, &shared);
-        window.set_advanced_mpv_option_selection(index);
+        window
+            .global::<crate::AdvancedSettingsState>()
+            .set_advanced_mpv_option_selection(index);
         window.invoke_settings_changed();
     });
     let weak = window.as_weak();
@@ -74,7 +88,9 @@ pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
         };
         refresh_options(&window, &shared);
         let count = shared.borrow().len();
-        window.set_advanced_mpv_option_selection(if count == 0 { -1 } else { selection as i32 });
+        window
+            .global::<crate::AdvancedSettingsState>()
+            .set_advanced_mpv_option_selection(if count == 0 { -1 } else { selection as i32 });
         window.invoke_settings_changed();
     });
     let weak = window.as_weak();
@@ -162,8 +178,12 @@ pub(crate) fn connect_actions(
                     window.set_folder_dialog_open(false);
                     match result {
                         Ok(Some(directory)) => {
-                            window.set_advanced_config_directory_text(directory.into());
-                            window.set_advanced_use_config_directory(true);
+                            window
+                                .global::<crate::AdvancedSettingsState>()
+                                .set_advanced_config_directory_text(directory.into());
+                            window
+                                .global::<crate::AdvancedSettingsState>()
+                                .set_advanced_use_config_directory(true);
                             window.invoke_settings_changed();
                         }
                         Ok(None) => {}
@@ -191,9 +211,15 @@ pub(crate) fn connect_actions(
 }
 
 pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, String> {
-    let log_level = log_level_from_index(window.get_advanced_log_level_index())
-        .ok_or("Choose a valid log level")?;
-    let model = window.get_advanced_mpv_options();
+    let log_level = log_level_from_index(
+        window
+            .global::<crate::AdvancedSettingsState>()
+            .get_advanced_log_level_index(),
+    )
+    .ok_or("Choose a valid log level")?;
+    let model = window
+        .global::<crate::AdvancedSettingsState>()
+        .get_advanced_mpv_options();
     let user_options = (0..model.row_count())
         .filter_map(|index| model.row_data(index))
         .map(|row| MpvOption {
@@ -202,12 +228,23 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
         })
         .collect();
     let settings = Settings {
-        enabled: window.get_advanced_enabled(),
-        logging_enabled: window.get_advanced_logging_enabled(),
+        enabled: window
+            .global::<crate::AdvancedSettingsState>()
+            .get_advanced_enabled(),
+        logging_enabled: window
+            .global::<crate::AdvancedSettingsState>()
+            .get_advanced_logging_enabled(),
         log_level,
-        use_mpv_osd: window.get_advanced_use_mpv_osd(),
-        use_config_directory: window.get_advanced_use_config_directory(),
-        config_directory: window.get_advanced_config_directory_text().to_string(),
+        use_mpv_osd: window
+            .global::<crate::AdvancedSettingsState>()
+            .get_advanced_use_mpv_osd(),
+        use_config_directory: window
+            .global::<crate::AdvancedSettingsState>()
+            .get_advanced_use_config_directory(),
+        config_directory: window
+            .global::<crate::AdvancedSettingsState>()
+            .get_advanced_config_directory_text()
+            .to_string(),
         user_options,
     };
     settings.validate()?;
@@ -284,7 +321,9 @@ fn refresh_options(window: &PreferencesWindow, options: &Rc<RefCell<Vec<MpvOptio
             value: option.value.clone().into(),
         })
         .collect::<Vec<_>>();
-    window.set_advanced_mpv_options(ModelRc::new(VecModel::from(rows)));
+    window
+        .global::<crate::AdvancedSettingsState>()
+        .set_advanced_mpv_options(ModelRc::new(VecModel::from(rows)));
 }
 
 fn log_level_index(level: LogLevel) -> i32 {

@@ -1,4 +1,5 @@
 //! Keep the Subtitle > Other controls and native subtitle policy in sync.
+use slint::ComponentHandle;
 
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
@@ -56,10 +57,17 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<OtherPreferenc
 pub(crate) fn current_window(
     window: &crate::PreferencesWindow,
 ) -> Result<OtherPreferences, String> {
-    let encoding = encoding_code(window.get_subtitle_encoding_index())
-        .ok_or_else(|| "Invalid subtitle encoding selection".to_owned())?;
+    let encoding = encoding_code(
+        window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_encoding_index(),
+    )
+    .ok_or_else(|| "Invalid subtitle encoding selection".to_owned())?;
     let preferences = OtherPreferences {
-        preferred_languages: window.get_subtitle_preferred_languages_text().to_string(),
+        preferred_languages: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_preferred_languages_text()
+            .to_string(),
         default_encoding: encoding.into(),
     };
     preferences.validate().map_err(str::to_owned)?;
@@ -90,12 +98,16 @@ pub(crate) fn install_window(
     window: &crate::PreferencesWindow,
     preferences: &OtherPreferences,
 ) -> Result<(), String> {
-    window.set_subtitle_preferred_languages_text(preferences.preferred_languages.clone().into());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_preferred_languages_text(preferences.preferred_languages.clone().into());
     crate::language_token_preferences::install_subtitle(window, &preferences.preferred_languages);
     let index = preferences
         .encoding_index()
         .ok_or_else(|| "Invalid subtitle encoding selection".to_owned())?;
-    window.set_subtitle_encoding_index(index);
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_encoding_index(index);
     Ok(())
 }
 

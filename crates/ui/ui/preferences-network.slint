@@ -1,6 +1,25 @@
 import { PreferenceSwitch, PreferenceNumericInput } from "preferences-controls.slint";
 import { ComboBox, ScrollView } from "std-widgets.slint";
 
+export global NetworkSettingsState {
+    in-out property <bool> network-cache-enabled: true;
+    in-out property <bool> network-cache-pause-initial: false;
+    in-out property <string> network-cache-pause-wait-text: "1";
+    in-out property <string> network-cache-prefetch-secs-text: "36000";
+    in-out property <string> network-cache-size-kib-text: "153600";
+    in-out property <bool> network-show-buffering-throbber: true;
+    in-out property <bool> network-show-seeking-throbber: true;
+    in-out property <string> network-user-agent: "";
+    in-out property <string> network-http-proxy: "";
+    in-out property <int> network-rtsp-transport-index: 1;
+    in property <[string]> network-rtsp-transport-options: ["lavf", "tcp", "udp", "http"];
+    in-out property <bool> network-ytdl-enabled: true;
+    in-out property <bool> network-ytdl-ui-enabled: true;
+    in property <bool> network-ytdl-plugin-active: false;
+    in-out property <string> network-ytdl-search-path: "";
+    in-out property <string> network-ytdl-raw-options: "";
+}
+
 export component NetworkPreferencesPage inherits ScrollView {
     in property <length> network-content-height;
     in-out property <length> network-scroll-position;
@@ -8,23 +27,7 @@ export component NetworkPreferencesPage inherits ScrollView {
     in-out property <int> selected-network-section;
     in property <length> network-online-y;
     in property <bool> mica-backdrop-enabled;
-    in-out property <bool> network-cache-enabled;
     callback settings-changed();
-    in-out property <bool> network-cache-pause-initial;
-    in-out property <string> network-cache-pause-wait-text;
-    in-out property <string> network-cache-prefetch-secs-text;
-    in-out property <string> network-cache-size-kib-text;
-    in-out property <bool> network-show-buffering-throbber;
-    in-out property <bool> network-show-seeking-throbber;
-    in-out property <string> network-user-agent;
-    in-out property <string> network-http-proxy;
-    in property <[string]> network-rtsp-transport-options;
-    in-out property <int> network-rtsp-transport-index;
-    in property <bool> network-ytdl-plugin-active;
-    in-out property <bool> network-ytdl-ui-enabled;
-    in-out property <bool> network-ytdl-enabled;
-    in-out property <string> network-ytdl-search-path;
-    in-out property <string> network-ytdl-raw-options;
 
     content-height: root.network-content-height; content-width: self.visible-width;
     content-y <=> root.network-scroll-position;
@@ -45,7 +48,7 @@ export component NetworkPreferencesPage inherits ScrollView {
             Image { x: 12px; y: 12px; width: 16px; height: 16px; source: @image-url("../../../assets/icons/playlist.svg"); colorize: #77777d; image-fit: contain; }
             PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
                 label: "Prefetch and buffer network data";
-                checked <=> root.network-cache-enabled;
+                checked <=> NetworkSettingsState.network-cache-enabled;
                 toggled => { root.settings-changed(); }
             }
         }
@@ -53,8 +56,8 @@ export component NetworkPreferencesPage inherits ScrollView {
             border-width: 0px; border-color: #dedee2;
             PreferenceSwitch { x: 44px; y: 0; width: parent.width - 58px; height: 26px;
                 label: "Buffer before starting playback";
-                enabled: root.network-cache-enabled;
-                checked <=> root.network-cache-pause-initial; toggled => { root.settings-changed(); }
+                enabled: NetworkSettingsState.network-cache-enabled;
+                checked <=> NetworkSettingsState.network-cache-pause-initial; toggled => { root.settings-changed(); }
             }
             Text { x: 44px; y: 28px; width: parent.width - 62px; height: 80px;
                 text: "Enter buffering mode before playback starts. This can be useful to ensure playback starts smoothly, in exchange for waiting some time to prefetch and buffer network data.";
@@ -65,8 +68,8 @@ export component NetworkPreferencesPage inherits ScrollView {
             Text { x: 44px; y: 0; width: parent.width - 170px; height: 32px;
                 text: "Seconds to buffer before restarting"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
             PreferenceNumericInput { label: "Seconds to buffer before restarting"; font-size: 12px; x: parent.width - 94px; y: 9px; width: 66px; height: 24px;
-                enabled: root.network-cache-enabled;
-                text <=> root.network-cache-pause-wait-text;
+                enabled: NetworkSettingsState.network-cache-enabled;
+                text <=> NetworkSettingsState.network-cache-pause-wait-text;
                 accepted => { root.settings-changed(); }
             }
             Text { x: 44px; y: 40px; width: parent.width - 62px; height: 64px;
@@ -80,8 +83,8 @@ export component NetworkPreferencesPage inherits ScrollView {
             Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
                 text: "Seconds to prefetch"; font-size: 12px; color: #252529; vertical-alignment: center; }
             PreferenceNumericInput { label: "Seconds to prefetch"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
-                enabled: root.network-cache-enabled;
-                text <=> root.network-cache-prefetch-secs-text;
+                enabled: NetworkSettingsState.network-cache-enabled;
+                text <=> NetworkSettingsState.network-cache-prefetch-secs-text;
                 accepted => { root.settings-changed(); }
             }
             Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
@@ -91,8 +94,8 @@ export component NetworkPreferencesPage inherits ScrollView {
             Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
                 text: "Cache buffer size (KiB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
             PreferenceNumericInput { label: "Cache buffer size in KiB"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
-                enabled: root.network-cache-enabled;
-                text <=> root.network-cache-size-kib-text;
+                enabled: NetworkSettingsState.network-cache-enabled;
+                text <=> NetworkSettingsState.network-cache-size-kib-text;
                 accepted => { root.settings-changed(); }
             }
             Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
@@ -101,14 +104,14 @@ export component NetworkPreferencesPage inherits ScrollView {
         Rectangle { x: 0; y: 402px; width: parent.width; height: 40px; background: transparent;
             PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
                 label: "Show throbber when buffering";
-                checked <=> root.network-show-buffering-throbber;
+                checked <=> NetworkSettingsState.network-show-buffering-throbber;
                 toggled => { root.settings-changed(); }
             }
         }
         Rectangle { x: 0; y: 442px; width: parent.width; height: 40px; background: transparent;
             PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
                 label: "Show throbber when seeking";
-                checked <=> root.network-show-seeking-throbber;
+                checked <=> NetworkSettingsState.network-show-seeking-throbber;
                 toggled => { root.settings-changed(); }
             }
         }
@@ -122,7 +125,7 @@ export component NetworkPreferencesPage inherits ScrollView {
         Rectangle { x: 108px; y: 44px; width: parent.width - 122px; height: 24px;
             border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                text <=> root.network-user-agent; font-size: 11px; color: #222222;
+                text <=> NetworkSettingsState.network-user-agent; font-size: 11px; color: #222222;
                 accepted => { root.settings-changed(); }
             }
         }
@@ -131,7 +134,7 @@ export component NetworkPreferencesPage inherits ScrollView {
         Rectangle { x: 108px; y: 82px; width: parent.width - 122px; height: 24px;
             border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                text <=> root.network-http-proxy; font-size: 11px; color: #222222;
+                text <=> NetworkSettingsState.network-http-proxy; font-size: 11px; color: #222222;
                 accepted => { root.settings-changed(); }
             }
         }
@@ -141,8 +144,8 @@ export component NetworkPreferencesPage inherits ScrollView {
         Text { x: 12px; y: 146px; width: 94px; height: 24px; text: "RTSP transport";
             font-size: 12px; color: #252529; vertical-alignment: center; }
         ComboBox { x: 108px; y: 146px; width: parent.width - 122px; height: 25px;
-            model: root.network-rtsp-transport-options;
-            current-index <=> root.network-rtsp-transport-index;
+            model: NetworkSettingsState.network-rtsp-transport-options;
+            current-index <=> NetworkSettingsState.network-rtsp-transport-index;
             selected => { root.settings-changed(); }
         }
         Text { x: 108px; y: 177px; width: parent.width - 122px; height: 16px;
@@ -155,26 +158,26 @@ export component NetworkPreferencesPage inherits ScrollView {
             Image { x: 12px; y: 14px; width: 18px; height: 18px;
                 source: @image-url("../../../assets/icons/plugins.svg"); image-fit: contain; }
             Text { x: 42px; y: 10px; width: parent.width - 58px; height: 22px;
-                text: root.network-ytdl-plugin-active ? "The Online Media plugin is enabled" : "The Online Media plugin is recommended"; font-size: 12px; font-weight: 600; color: #252529; }
+                text: NetworkSettingsState.network-ytdl-plugin-active ? "The Online Media plugin is enabled" : "The Online Media plugin is recommended"; font-size: 12px; font-weight: 600; color: #252529; }
             Text { x: 42px; y: 34px; width: parent.width - 58px; height: 40px;
-                text: root.network-ytdl-plugin-active ? "The plugin adds quality selection and video downloads. mpv's built-in extractor is disabled while the plugin is enabled." : "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor.";
+                text: NetworkSettingsState.network-ytdl-plugin-active ? "The plugin adds quality selection and video downloads. mpv's built-in extractor is disabled while the plugin is enabled." : "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor.";
                 font-size: 11px; color: #77777d; wrap: word-wrap; }
         }
         Rectangle { x: 20px; y: root.network-online-y + 126px; width: parent.width - 40px; height: 220px;
             border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
             PreferenceSwitch { x: 12px; y: 6px; width: parent.width - 24px;
                 label: "Enable mpv's youtube-dl script";
-                checked <=> root.network-ytdl-ui-enabled;
-                enabled: !root.network-ytdl-plugin-active;
-                toggled => { root.network-ytdl-enabled = root.network-ytdl-ui-enabled; root.settings-changed(); }
+                checked <=> NetworkSettingsState.network-ytdl-ui-enabled;
+                enabled: !NetworkSettingsState.network-ytdl-plugin-active;
+                toggled => { NetworkSettingsState.network-ytdl-enabled = NetworkSettingsState.network-ytdl-ui-enabled; root.settings-changed(); }
             }
             Text { x: 12px; y: 43px; width: parent.width - 24px; height: 32px;
                 text: "Custom youtube-dl path"; font-size: 12px; color: #252529; }
             Rectangle { x: 12px; y: 63px; width: parent.width - 24px; height: 24px;
                 border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                    text <=> root.network-ytdl-search-path; font-size: 11px; color: #222222;
-                    enabled: root.network-ytdl-enabled && !root.network-ytdl-plugin-active;
+                    text <=> NetworkSettingsState.network-ytdl-search-path; font-size: 11px; color: #222222;
+                    enabled: NetworkSettingsState.network-ytdl-enabled && !NetworkSettingsState.network-ytdl-plugin-active;
                     accepted => { root.settings-changed(); }
                 }
             }
@@ -186,8 +189,8 @@ export component NetworkPreferencesPage inherits ScrollView {
             Rectangle { x: 12px; y: 141px; width: parent.width - 24px; height: 24px;
                 border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                    text <=> root.network-ytdl-raw-options; font-size: 11px; color: #222222;
-                    enabled: root.network-ytdl-enabled && !root.network-ytdl-plugin-active;
+                    text <=> NetworkSettingsState.network-ytdl-raw-options; font-size: 11px; color: #222222;
+                    enabled: NetworkSettingsState.network-ytdl-enabled && !NetworkSettingsState.network-ytdl-plugin-active;
                     accepted => { root.settings-changed(); }
                 }
             }

@@ -2,10 +2,13 @@ import { KeyBindingProfileDialog, DeleteKeyBindingProfileDialog, KeyBindingMappi
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { KeyBindingsPreferencesPage } from "preferences-key-binding-page.slint";
 import { NetworkPreferencesPage } from "preferences-network.slint";
-import { SubtitlesPreferencesPage } from "preferences-subtitles.slint";
+export { NetworkSettingsState } from "preferences-network.slint";
+import { SubtitleSettingsState, SubtitlesPreferencesPage } from "preferences-subtitles.slint";
+export { SubtitleSettingsState } from "preferences-subtitles.slint";
 import { InterfacePreferencesPage } from "preferences-interface.slint";
 import { GeneralPreferencesPage } from "preferences-general.slint";
 import { AdvancedPreferencesPage } from "preferences-advanced.slint";
+export { AdvancedSettingsState } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
 export { ControlSettingsState } from "preferences-control.slint";
 import { AudioPreferencesPage } from "preferences-audio.slint";
@@ -167,13 +170,13 @@ export component PreferencesWindow inherits Window {
     in property <[PreferencesSearchResult]> search-results: [];
     in-out property <int> selected-search-index: -1;
     in-out property <length> subtitle-scroll-position: 0px;
-    private property <length> subtitle-autoload-height: subtitle-auto-load-advanced-expanded ? 240px : 82px;
+    private property <length> subtitle-autoload-height: SubtitleSettingsState.subtitle-auto-load-advanced-expanded ? 240px : 82px;
     private property <length> subtitle-ass-y: 78px + subtitle-autoload-height + 20px;
     private property <length> subtitle-text-y: subtitle-ass-y + 400px;
-    private property <length> subtitle-text-height: subtitle-text-advanced-expanded ? 288px : 244px;
+    private property <length> subtitle-text-height: SubtitleSettingsState.subtitle-text-advanced-expanded ? 288px : 244px;
     private property <length> subtitle-position-y: subtitle-text-y + 26px + subtitle-text-height + 20px;
     private property <length> subtitle-online-y: subtitle-position-y + 294px;
-    private property <length> subtitle-online-height: open-subtitles-provider-index == 1 ? 276px : open-subtitles-provider-index == 2 ? 224px : 244px;
+    private property <length> subtitle-online-height: SubtitleSettingsState.open-subtitles-provider-index == 1 ? 276px : SubtitleSettingsState.open-subtitles-provider-index == 2 ? 224px : 244px;
     private property <length> subtitle-other-y: subtitle-online-y + 26px + subtitle-online-height + 20px;
     private property <length> subtitle-content-height: max(subtitle-other-y + 214px, root.height + subtitle-other-y - 16px);
     private property <[string]> subtitle-override-descriptions: [
@@ -191,8 +194,8 @@ export component PreferencesWindow inherits Window {
         root.subtitle-scroll-position = section == 0 ? 0px : 16px - root.subtitle-section-y(section);
     }
     function choose-subtitle-override(index: int) {
-        if root.subtitle-ass-override-lane == 0 { root.subtitle-ass-override-primary-index = index; }
-        else { root.subtitle-ass-override-secondary-index = index; }
+        if SubtitleSettingsState.subtitle-ass-override-lane == 0 { SubtitleSettingsState.subtitle-ass-override-primary-index = index; }
+        else { SubtitleSettingsState.subtitle-ass-override-secondary-index = index; }
         root.settings-changed();
     }
 
@@ -244,80 +247,18 @@ export component PreferencesWindow inherits Window {
     callback key-binding-profile-created(string, int);
     callback key-binding-profile-editor-cancelled();
     callback key-binding-search-changed(string);
-    in-out property <int> subtitle-ass-override-lane: 0;
-    in-out property <int> subtitle-ass-override-primary-index: 2;
-    in-out property <int> subtitle-ass-override-secondary-index: 2;
-    in-out property <int> subtitle-align-x-index: 1;
-    in-out property <int> subtitle-align-y-index: 2;
-    in-out property <string> subtitle-position-text: "100";
-    in-out property <bool> subtitle-display-in-letterbox: true;
-    in-out property <bool> subtitle-scale-with-window: true;
-    in-out property <string> subtitle-margin-x-text: "25";
-    in-out property <string> subtitle-margin-y-text: "22";
-    in-out property <string> subtitle-preferred-languages-text: "";
-    in property <[string]> subtitle-language-tokens;
     callback add-subtitle-language-token(string);
     callback remove-subtitle-language-token(int);
-    in-out property <string> open-subtitles-api-key: "";
-    in-out property <int> open-subtitles-provider-index: 0;
-    in-out property <[string]> open-subtitles-provider-options: ["OpenSubtitles", "Assrt.net", "Shooter.cn"];
-    in-out property <string> assrt-token: "";
-    in-out property <bool> open-subtitles-auto-search: false;
-    in-out property <string> open-subtitles-threshold-text: "20";
-    in-out property <int> subtitle-encoding-index: 0;
-    in property <[string]> subtitle-encoding-options;
-    in-out property <int> subtitle-auto-load-mode-index: 2;
-    in property <[string]> subtitle-auto-load-mode-options;
-    in-out property <string> subtitle-auto-load-priority-text;
-    in-out property <string> subtitle-search-paths-text: "./*";
-    in-out property <bool> subtitle-auto-load-advanced-expanded: false;
-    in-out property <string> subtitle-font: "sans-serif";
-    in-out property <string> subtitle-font-size-text: "55";
-    in-out property <color> subtitle-text-color: #ffffff;
-    in-out property <bool> subtitle-bold: false;
-    in-out property <bool> subtitle-italic: false;
-    in-out property <color> subtitle-background-color: #00000000;
-    in-out property <string> subtitle-outline-size-text: "3";
-    in-out property <color> subtitle-outline-color: #000000;
-    in-out property <string> subtitle-shadow-offset-text: "0";
-    in-out property <color> subtitle-shadow-color: #00000000;
-    in-out property <string> subtitle-blur-text: "0";
-    in-out property <string> subtitle-spacing-text: "0";
-    in-out property <bool> subtitle-text-advanced-expanded: false;
     in-out property <bool> volume-boost: false;
     callback add-audio-language-token(string);
     callback remove-audio-language-token(int);
-    in-out property <bool> network-cache-enabled: true;
-    in-out property <bool> network-cache-pause-initial: false;
-    in-out property <string> network-cache-pause-wait-text: "1";
-    in-out property <string> network-cache-prefetch-secs-text: "36000";
-    in-out property <string> network-cache-size-kib-text: "153600";
-    in-out property <bool> network-show-buffering-throbber: true;
-    in-out property <bool> network-show-seeking-throbber: true;
-    in-out property <string> network-user-agent: "";
-    in-out property <string> network-http-proxy: "";
-    in-out property <int> network-rtsp-transport-index: 1;
-    in property <[string]> network-rtsp-transport-options: ["lavf", "tcp", "udp", "http"];
-    in-out property <bool> advanced-enabled: false;
-    in-out property <int> advanced-log-level-index: 1;
-    in-out property <bool> advanced-logging-enabled: false;
-    in-out property <bool> advanced-use-mpv-osd: false;
-    in-out property <bool> advanced-use-config-directory: false;
-    in-out property <string> advanced-config-directory-text: "~/.config/mpv/";
     in-out property <bool> live-text-enabled <=> VideoSettingsState.live-text-enabled;
     in property <bool> live-text-available: false;
-    in property <[AdvancedMpvOptionRow]> advanced-mpv-options: [];
-    in-out property <int> advanced-mpv-option-selection: -1;
     in property <[PluginPreferencesRow]> plugin-rows: [];
     in-out property <string> plugin-update-status: "All plugins are up to date.";
     in-out property <bool> plugin-github-sheet-open: false;
     in-out property <string> plugin-github-repository: "";
     in-out property <bool> plugin-github-installing: false;
-    in-out property <bool> network-ytdl-enabled: true;
-    in-out property <bool> network-ytdl-ui-enabled: true;
-    in property <bool> network-ytdl-plugin-active: false;
-    in-out property <string> network-ytdl-search-path: "";
-    in-out property <string> network-ytdl-raw-options: "";
     in-out property <bool> compact-ui: false;
     in-out property <bool> docked-controls: false;
     in-out property <bool> edge-to-edge-video: true;
@@ -611,54 +552,17 @@ export component PreferencesWindow inherits Window {
         subtitle-other-y: root.subtitle-other-y;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         subtitle-autoload-height: root.subtitle-autoload-height;
-        subtitle-auto-load-mode-options: root.subtitle-auto-load-mode-options;
-        subtitle-auto-load-mode-index <=> root.subtitle-auto-load-mode-index;
         settings-changed => { root.settings-changed(); }
-        subtitle-auto-load-advanced-expanded <=> root.subtitle-auto-load-advanced-expanded;
-        subtitle-auto-load-priority-text <=> root.subtitle-auto-load-priority-text;
-        subtitle-search-paths-text <=> root.subtitle-search-paths-text;
-        subtitle-ass-override-lane <=> root.subtitle-ass-override-lane;
         subtitle-override-descriptions: root.subtitle-override-descriptions;
-        subtitle-ass-override-primary-index: root.subtitle-ass-override-primary-index;
-        subtitle-ass-override-secondary-index: root.subtitle-ass-override-secondary-index;
         choose-subtitle-override(value) => { root.choose-subtitle-override(value); }
         subtitle-text-height: root.subtitle-text-height;
-        subtitle-font: root.subtitle-font;
         choose-subtitle-font => { root.choose-subtitle-font(); }
-        subtitle-font-size-text <=> root.subtitle-font-size-text;
-        subtitle-bold <=> root.subtitle-bold;
-        subtitle-italic <=> root.subtitle-italic;
-        subtitle-text-color <=> root.subtitle-text-color;
         platform-macos: root.platform-macos;
         native-subtitle-color-requested(value1, value2) => { root.native-subtitle-color-requested(value1, value2); }
-        subtitle-background-color <=> root.subtitle-background-color;
-        subtitle-shadow-color <=> root.subtitle-shadow-color;
-        subtitle-outline-size-text <=> root.subtitle-outline-size-text;
-        subtitle-outline-color <=> root.subtitle-outline-color;
-        subtitle-shadow-offset-text <=> root.subtitle-shadow-offset-text;
-        subtitle-text-advanced-expanded <=> root.subtitle-text-advanced-expanded;
-        subtitle-blur-text <=> root.subtitle-blur-text;
-        subtitle-spacing-text <=> root.subtitle-spacing-text;
-        subtitle-align-x-index <=> root.subtitle-align-x-index;
-        subtitle-align-y-index <=> root.subtitle-align-y-index;
-        subtitle-margin-x-text <=> root.subtitle-margin-x-text;
-        subtitle-margin-y-text <=> root.subtitle-margin-y-text;
-        subtitle-position-text <=> root.subtitle-position-text;
-        subtitle-display-in-letterbox <=> root.subtitle-display-in-letterbox;
-        subtitle-scale-with-window <=> root.subtitle-scale-with-window;
         subtitle-online-height: root.subtitle-online-height;
-        open-subtitles-provider-options: root.open-subtitles-provider-options;
-        open-subtitles-provider-index <=> root.open-subtitles-provider-index;
-        open-subtitles-api-key <=> root.open-subtitles-api-key;
-        assrt-token <=> root.assrt-token;
         open-assrt-token-page => { root.open-assrt-token-page(); }
-        open-subtitles-auto-search <=> root.open-subtitles-auto-search;
-        open-subtitles-threshold-text <=> root.open-subtitles-threshold-text;
-        subtitle-language-tokens: root.subtitle-language-tokens;
         add-subtitle-language-token(value1) => { root.add-subtitle-language-token(value1); }
         remove-subtitle-language-token(value1) => { root.remove-subtitle-language-token(value1); }
-        subtitle-encoding-options: root.subtitle-encoding-options;
-        subtitle-encoding-index <=> root.subtitle-encoding-index;
     }
 
     if root.selected-pane == 3 : AudioPreferencesPage {
@@ -682,23 +586,7 @@ export component PreferencesWindow inherits Window {
         selected-network-section <=> root.selected-network-section;
         network-online-y: root.network-online-y;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        network-cache-enabled <=> root.network-cache-enabled;
         settings-changed => { root.settings-changed(); }
-        network-cache-pause-initial <=> root.network-cache-pause-initial;
-        network-cache-pause-wait-text <=> root.network-cache-pause-wait-text;
-        network-cache-prefetch-secs-text <=> root.network-cache-prefetch-secs-text;
-        network-cache-size-kib-text <=> root.network-cache-size-kib-text;
-        network-show-buffering-throbber <=> root.network-show-buffering-throbber;
-        network-show-seeking-throbber <=> root.network-show-seeking-throbber;
-        network-user-agent <=> root.network-user-agent;
-        network-http-proxy <=> root.network-http-proxy;
-        network-rtsp-transport-options: root.network-rtsp-transport-options;
-        network-rtsp-transport-index <=> root.network-rtsp-transport-index;
-        network-ytdl-plugin-active: root.network-ytdl-plugin-active;
-        network-ytdl-ui-enabled <=> root.network-ytdl-ui-enabled;
-        network-ytdl-enabled <=> root.network-ytdl-enabled;
-        network-ytdl-search-path <=> root.network-ytdl-search-path;
-        network-ytdl-raw-options <=> root.network-ytdl-raw-options;
     }
 
     if root.selected-pane == 6 : ControlPreferencesPage {
@@ -739,18 +627,10 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 8 : AdvancedPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        advanced-enabled <=> root.advanced-enabled;
         advanced-settings-changed => { root.advanced-settings-changed(); }
-        advanced-log-level-index <=> root.advanced-log-level-index;
         advanced-open-log-folder => { root.advanced-open-log-folder(); }
-        advanced-logging-enabled <=> root.advanced-logging-enabled;
         advanced-open-log-viewer => { root.advanced-open-log-viewer(); }
-        advanced-use-mpv-osd <=> root.advanced-use-mpv-osd;
-        advanced-config-directory-text <=> root.advanced-config-directory-text;
-        advanced-use-config-directory <=> root.advanced-use-config-directory;
         advanced-choose-config-directory => { root.advanced-choose-config-directory(); }
-        advanced-mpv-options: root.advanced-mpv-options;
-        advanced-mpv-option-selection <=> root.advanced-mpv-option-selection;
         advanced-option-edited(value1, value2, value3) => { root.advanced-option-edited(value1, value2, value3); }
         settings-changed => { root.settings-changed(); }
         advanced-option-added => { root.advanced-option-added(); }

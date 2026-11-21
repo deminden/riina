@@ -902,10 +902,14 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
     }
     if page == 4 {
         if section == "Auto Load" && title != "Subtitle matching mode" {
-            window.set_subtitle_auto_load_advanced_expanded(true);
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_auto_load_advanced_expanded(true);
         }
         if title == "Shadow and other styles" {
-            window.set_subtitle_text_advanced_expanded(true);
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_text_advanced_expanded(true);
         }
         window.invoke_reveal_subtitle_section(match section {
             "ASS Subtitles" => 1,

@@ -1,4 +1,5 @@
 //! Bind the source-matched Network pane to validated persisted settings.
+use slint::ComponentHandle;
 
 use super::model::{PreferenceSection, SectionError};
 use crate::PreferencesWindow;
@@ -43,10 +44,11 @@ pub(crate) fn transport(index: i32) -> Option<RtspTransport> {
 }
 
 pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Connection, String> {
+    let form = window.global::<crate::NetworkSettingsState>();
     let preferences = Connection {
-        user_agent: window.get_network_user_agent().to_string(),
-        http_proxy: window.get_network_http_proxy().to_string(),
-        rtsp_transport: transport(window.get_network_rtsp_transport_index())
+        user_agent: form.get_network_user_agent().to_string(),
+        http_proxy: form.get_network_http_proxy().to_string(),
+        rtsp_transport: transport(form.get_network_rtsp_transport_index())
             .ok_or_else(|| "Invalid RTSP transport selection".to_owned())?,
     };
     preferences.validate().map_err(str::to_owned)?;
@@ -54,10 +56,11 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Connec
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &Connection) {
-    window.set_network_user_agent(preferences.user_agent.clone().into());
-    window.set_network_http_proxy(preferences.http_proxy.clone().into());
-    window.set_network_rtsp_transport_index(transport_index(preferences.rtsp_transport));
-    window.set_network_rtsp_transport_options(slint::ModelRc::new(slint::VecModel::from(
+    let form = window.global::<crate::NetworkSettingsState>();
+    form.set_network_user_agent(preferences.user_agent.clone().into());
+    form.set_network_http_proxy(preferences.http_proxy.clone().into());
+    form.set_network_rtsp_transport_index(transport_index(preferences.rtsp_transport));
+    form.set_network_rtsp_transport_options(slint::ModelRc::new(slint::VecModel::from(
         vec!["lavf", "tcp", "udp", "http"]
             .into_iter()
             .map(Into::into)

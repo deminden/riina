@@ -131,8 +131,8 @@ def main():
     assert all(token in network_body for token in (
         "content-y <=> root.network-scroll-position", "content-height: root.network-content-height",
         "height: root.network-content-height", "root.network-connection-y + 26px",
-        "root.network-online-y + 126px", "root.network-ytdl-enabled && !root.network-ytdl-plugin-active",
-        "root.network-ytdl-enabled = root.network-ytdl-ui-enabled",
+        "root.network-online-y + 126px", "NetworkSettingsState.network-ytdl-enabled && !NetworkSettingsState.network-ytdl-plugin-active",
+        "NetworkSettingsState.network-ytdl-enabled = NetworkSettingsState.network-ytdl-ui-enabled",
     )), "Network must preserve continuous extent, section geometry and extractor ownership rules"
 
     sidebar_sample = PLAYER_SOURCE.index("sidebar-video-sample := Image")

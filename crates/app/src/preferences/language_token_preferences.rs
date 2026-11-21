@@ -52,8 +52,12 @@ fn remove(value: &str, index: i32) -> Option<String> {
 }
 
 fn apply_subtitle(window: &PreferencesWindow, value: String) {
-    window.set_subtitle_preferred_languages_text(value.clone().into());
-    window.set_subtitle_language_tokens(model(&value));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_preferred_languages_text(value.clone().into());
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_language_tokens(model(&value));
 }
 
 fn apply_audio(window: &PreferencesWindow, value: String) {
@@ -67,7 +71,10 @@ pub(crate) fn connect(window: &PreferencesWindow) {
     window.on_add_subtitle_language_token(move |entry| {
         let Some(window) = weak.upgrade() else { return };
         let Some(value) = add(
-            window.get_subtitle_preferred_languages_text().as_str(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_preferred_languages_text()
+                .as_str(),
             entry.as_str(),
         ) else {
             return;
@@ -79,7 +86,10 @@ pub(crate) fn connect(window: &PreferencesWindow) {
     window.on_remove_subtitle_language_token(move |index| {
         let Some(window) = weak.upgrade() else { return };
         let Some(value) = remove(
-            window.get_subtitle_preferred_languages_text().as_str(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_preferred_languages_text()
+                .as_str(),
             index,
         ) else {
             return;
@@ -120,7 +130,9 @@ pub(crate) fn connect(window: &PreferencesWindow) {
 }
 
 pub(crate) fn install_subtitle(window: &PreferencesWindow, value: &str) {
-    window.set_subtitle_language_tokens(model(value));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_language_tokens(model(value));
 }
 
 pub(crate) fn install_audio(window: &PreferencesWindow, value: &str) {

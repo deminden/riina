@@ -1,4 +1,5 @@
 //! Translate editable Preferences values into portable subtitle placement intent.
+use slint::ComponentHandle;
 
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
@@ -85,22 +86,43 @@ pub(crate) fn current_window(
     window: &crate::PreferencesWindow,
 ) -> Result<PositionPreferences, String> {
     let preferences = PositionPreferences {
-        horizontal: horizontal(window.get_subtitle_align_x_index())
-            .ok_or_else(|| "Invalid horizontal subtitle alignment".to_owned())?,
-        vertical: vertical(window.get_subtitle_align_y_index())
-            .ok_or_else(|| "Invalid vertical subtitle alignment".to_owned())?,
+        horizontal: horizontal(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_align_x_index(),
+        )
+        .ok_or_else(|| "Invalid horizontal subtitle alignment".to_owned())?,
+        vertical: vertical(
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_align_y_index(),
+        )
+        .ok_or_else(|| "Invalid vertical subtitle alignment".to_owned())?,
         position: number(
-            window.get_subtitle_position_text().as_str(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_position_text()
+                .as_str(),
             "subtitle position",
         )?,
-        display_in_letterbox: window.get_subtitle_display_in_letterbox(),
-        scale_with_window: window.get_subtitle_scale_with_window(),
+        display_in_letterbox: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_display_in_letterbox(),
+        scale_with_window: window
+            .global::<crate::SubtitleSettingsState>()
+            .get_subtitle_scale_with_window(),
         margin_x: number(
-            window.get_subtitle_margin_x_text().as_str(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_margin_x_text()
+                .as_str(),
             "horizontal subtitle margin",
         )?,
         margin_y: number(
-            window.get_subtitle_margin_y_text().as_str(),
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_margin_y_text()
+                .as_str(),
             "vertical subtitle margin",
         )?,
     };
@@ -127,21 +149,35 @@ pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: PositionPre
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: PositionPreferences) {
-    window.set_subtitle_align_x_index(match preferences.horizontal {
-        HorizontalAlignment::Left => 0,
-        HorizontalAlignment::Center => 1,
-        HorizontalAlignment::Right => 2,
-    });
-    window.set_subtitle_align_y_index(match preferences.vertical {
-        VerticalAlignment::Top => 0,
-        VerticalAlignment::Center => 1,
-        VerticalAlignment::Bottom => 2,
-    });
-    window.set_subtitle_position_text(format_number(preferences.position));
-    window.set_subtitle_display_in_letterbox(preferences.display_in_letterbox);
-    window.set_subtitle_scale_with_window(preferences.scale_with_window);
-    window.set_subtitle_margin_x_text(format_number(preferences.margin_x));
-    window.set_subtitle_margin_y_text(format_number(preferences.margin_y));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_align_x_index(match preferences.horizontal {
+            HorizontalAlignment::Left => 0,
+            HorizontalAlignment::Center => 1,
+            HorizontalAlignment::Right => 2,
+        });
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_align_y_index(match preferences.vertical {
+            VerticalAlignment::Top => 0,
+            VerticalAlignment::Center => 1,
+            VerticalAlignment::Bottom => 2,
+        });
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_position_text(format_number(preferences.position));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_display_in_letterbox(preferences.display_in_letterbox);
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_scale_with_window(preferences.scale_with_window);
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_margin_x_text(format_number(preferences.margin_x));
+    window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_margin_y_text(format_number(preferences.margin_y));
 }
 
 fn format_number(value: f64) -> slint::SharedString {
