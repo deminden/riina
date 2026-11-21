@@ -139,38 +139,28 @@ pub(crate) fn delete_current_media(
     let observed_playback = latest_playback.clone();
     let trash_name = crate::platform::system_trash_name();
     app.set_status(format!("Moving current media to the {trash_name}…").into());
-    let started = std::thread::Builder::new()
-        .name("riina-file-trash".into())
-        .spawn(move || {
-            let result = trash::delete(&path).map_err(|error| error.to_string());
-            let _ = slint::invoke_from_event_loop(move || {
-                let Some(app) = weak_app.upgrade() else {
-                    return;
-                };
-                match result {
-                    Ok(()) => {
-                        let still_listed = lock(&observed_playback)
-                            .playlist
-                            .iter()
-                            .any(|entry| entry.id == entry_id && entry.filename == filename);
-                        if still_listed
-                            && let Err(error) =
-                                player.send(Command::RemovePlaylistId(entry_id))
-                        {
-                            app.set_status(format!(
+    let started = crate::background::spawn_named("riina-file-trash", move || {
+        let result = trash::delete(&path).map_err(|error| error.to_string());
+        let _ = crate::background::to_ui(weak_app, move |app| match result {
+            Ok(()) => {
+                let still_listed = lock(&observed_playback)
+                    .playlist
+                    .iter()
+                    .any(|entry| entry.id == entry_id && entry.filename == filename);
+                if still_listed && let Err(error) = player.send(Command::RemovePlaylistId(entry_id))
+                {
+                    app.set_status(format!(
                                 "File moved to the {trash_name}, but its playlist item could not be removed: {error}"
                             ).into());
-                            return;
-                        }
-                        app.set_status(format!("Moved current media to the {trash_name}").into());
-                    }
-                    Err(error) => app.set_status(
-                        format!("Could not move the current media to the {trash_name}: {error}")
-                            .into(),
-                    ),
+                    return;
                 }
-            });
+                app.set_status(format!("Moved current media to the {trash_name}").into());
+            }
+            Err(error) => app.set_status(
+                format!("Could not move the current media to the {trash_name}: {error}").into(),
+            ),
         });
+    });
     if let Err(error) = started {
         app.set_status(format!("Could not start the file Trash operation: {error}").into());
     }

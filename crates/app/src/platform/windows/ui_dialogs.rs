@@ -116,23 +116,21 @@ pub fn open(
                 window.set_enable(false);
             }
             let owner = file_dialog::DialogOwner::new(owner)?;
-            std::thread::Builder::new()
-                .name("file-picker".into())
-                .spawn(move || {
-                    let result =
-                        file_dialog::open_files(&owner, purpose.allows_multiple(), purpose.title());
-                    let _ = slint::invoke_from_event_loop(move || {
-                        modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
-                        if let Some(app) = weak.upgrade() {
-                            let result = result
-                                .and_then(|paths| dispatch_selection(&app, purpose, paths, sender));
-                            if let Err(error) = result {
-                                app.set_status(error.into());
-                            }
+            crate::background::spawn_named("file-picker", move || {
+                let result =
+                    file_dialog::open_files(&owner, purpose.allows_multiple(), purpose.title());
+                let _ = slint::invoke_from_event_loop(move || {
+                    modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
+                    if let Some(app) = weak.upgrade() {
+                        let result = result
+                            .and_then(|paths| dispatch_selection(&app, purpose, paths, sender));
+                        if let Err(error) = result {
+                            app.set_status(error.into());
                         }
-                    });
-                })
-                .map_err(|e| e.to_string())?;
+                    }
+                });
+            })
+            .map_err(|e| e.to_string())?;
             Ok::<(), String>(())
         }
         .await;

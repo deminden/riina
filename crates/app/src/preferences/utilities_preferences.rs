@@ -51,17 +51,13 @@ pub(crate) fn connect(
         {
             let weak_window = window.as_weak();
             window.set_utilities_status("Updating file associations…".into());
-            let worker = std::thread::Builder::new()
-                .name("riina-file-associations".into())
-                .spawn(move || {
+            let worker = crate::background::spawn_named("riina-file-associations", move || {
                     let message = match register_default_file_types(video, audio, playlists) {
                         Ok(count) => default_app_status(count),
                         Err(error) => error,
                     };
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(window) = weak_window.upgrade() {
-                            window.set_utilities_status(message.into());
-                        }
+                    let _ = crate::background::to_ui(weak_window, move |window| {
+                        window.set_utilities_status(message.into());
                     });
                 });
             if let Err(error) = worker {

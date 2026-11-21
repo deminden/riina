@@ -66,6 +66,11 @@ cannot discard their side effects. `observations` projects playback state and
 catalogs into Slint. Plugin entry workers have a separate runtime and send player
 intents through the existing command path.
 
+The app's named background tasks register until their work returns. Their
+owners retain join handles where teardown depends on the work completing.
+The application logs tasks still running when the main event loop exits.
+UI deliveries that depend on a live window use a weak component handle.
+
 `UiSession` releases its player ownership before the native presentation drops.
 Windows native playback joins its worker before the target window can disappear.
 On the shared GL route, the renderer retains player ownership until rendering

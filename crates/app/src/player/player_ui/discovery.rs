@@ -64,10 +64,8 @@ pub(super) fn install(
                         &riina_core::sync::lock(&playback),
                     );
                     if still_current && let Err(error) = sender.send(command) {
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(app) = weak_app.upgrade() {
-                                app.set_status(error.into());
-                            }
+                        let _ = crate::background::to_ui(weak_app, move |app| {
+                            app.set_status(error.into());
                         });
                     }
                 });
@@ -109,10 +107,8 @@ pub(super) fn install(
                         ))
                     {
                         let weak_app = weak_app.clone();
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(app) = weak_app.upgrade() {
-                                app.set_status(error.into());
-                            }
+                        let _ = crate::background::to_ui(weak_app, move |app| {
+                            app.set_status(error.into());
                         });
                     }
                     ready.complete(request);

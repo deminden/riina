@@ -558,9 +558,7 @@ fn connect_context_actions(
                 let trash_sync = action_sync.clone();
                 let trash_groups = action_groups.clone();
                 let trash_anchor = selection_anchor.clone();
-                let _ = std::thread::Builder::new()
-                    .name("riina-history-trash-selection".into())
-                    .spawn(move || {
+                let _ = crate::background::spawn_named("riina-history-trash-selection", move || {
                         let mut removed_references = Vec::new();
                         let mut failures = Vec::new();
                         for (reference, path) in files {

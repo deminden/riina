@@ -81,48 +81,50 @@ fn start_material_transform_worker() -> (
         std::sync::mpsc::sync_channel::<MaterialTransformRequest>(1);
     let (result_sender, result_receiver) =
         std::sync::mpsc::sync_channel::<MaterialTransformResult>(1);
-    let worker = std::thread::Builder::new()
-        .name("riina-material-transform".to_owned())
-        .spawn(move || {
-            while let Ok(mut request) = request_receiver.recv() {
-                // A slow sample should not build a queue of obsolete video
-                // frames. Prefer the newest waiting sample before processing.
-                while let Ok(newer) = request_receiver.try_recv() {
-                    request = newer;
-                }
-                let started = Instant::now();
-                let input_width = request.frame.width;
-                let input_height = request.frame.height;
-                let input_offset = ((input_height / 2 * input_width + input_width / 2) * 4) as usize;
-                let input_center = request
-                    .frame
-                    .rgba
-                    .get(input_offset..input_offset + 3)
-                    .map(|rgb| [rgb[0], rgb[1], rgb[2]]);
-                let pixels = crate::video_blur::sampled_frame_pixels(request.frame.as_ref());
-                if std::env::var_os("RIINA_TRACE_MATERIAL_PIXELS").is_some()
-                    && let (Some(input_center), Ok(output)) = (input_center, pixels.as_ref())
-                {
-                    let output_offset =
-                        ((output.height / 2 * output.width + output.width / 2) * 4) as usize;
-                    if let Some(rgb) = output.rgba.get(output_offset..output_offset + 3) {
-                        crate::diagnostics::warn!(
-                            "Windows material center source={} input={:02X}{:02X}{:02X} blurred={:02X}{:02X}{:02X}",
-                            request.key.source.label(),
-                            input_center[0], input_center[1], input_center[2],
-                            rgb[0], rgb[1], rgb[2],
-                        );
-                    }
-                }
-                let result = MaterialTransformResult {
-                    key: request.key,
-                    captured_at: request.captured_at,
-                    transform_time: started.elapsed(),
-                    pixels,
-                };
-                let _ = result_sender.try_send(result);
+    let worker = crate::background::spawn_named("riina-material-transform", move || {
+        while let Ok(mut request) = request_receiver.recv() {
+            // A slow sample should not build a queue of obsolete video
+            // frames. Prefer the newest waiting sample before processing.
+            while let Ok(newer) = request_receiver.try_recv() {
+                request = newer;
             }
-        });
+            let started = Instant::now();
+            let input_width = request.frame.width;
+            let input_height = request.frame.height;
+            let input_offset = ((input_height / 2 * input_width + input_width / 2) * 4) as usize;
+            let input_center = request
+                .frame
+                .rgba
+                .get(input_offset..input_offset + 3)
+                .map(|rgb| [rgb[0], rgb[1], rgb[2]]);
+            let pixels = crate::video_blur::sampled_frame_pixels(request.frame.as_ref());
+            if std::env::var_os("RIINA_TRACE_MATERIAL_PIXELS").is_some()
+                && let (Some(input_center), Ok(output)) = (input_center, pixels.as_ref())
+            {
+                let output_offset =
+                    ((output.height / 2 * output.width + output.width / 2) * 4) as usize;
+                if let Some(rgb) = output.rgba.get(output_offset..output_offset + 3) {
+                    crate::diagnostics::warn!(
+                        "Windows material center source={} input={:02X}{:02X}{:02X} blurred={:02X}{:02X}{:02X}",
+                        request.key.source.label(),
+                        input_center[0],
+                        input_center[1],
+                        input_center[2],
+                        rgb[0],
+                        rgb[1],
+                        rgb[2],
+                    );
+                }
+            }
+            let result = MaterialTransformResult {
+                key: request.key,
+                captured_at: request.captured_at,
+                transform_time: started.elapsed(),
+                pixels,
+            };
+            let _ = result_sender.try_send(result);
+        }
+    });
     if let Err(error) = worker {
         crate::diagnostics::warn!("Could not start the Windows material transform worker: {error}");
     }

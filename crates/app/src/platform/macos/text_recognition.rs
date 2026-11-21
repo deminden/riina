@@ -20,29 +20,23 @@ use objc2_vision::{
     VNRequestTextRecognitionLevel,
 };
 use riina_core::CapturedFrame;
-use std::{
-    ffi::c_void,
-    io, ptr,
-    thread::{self, JoinHandle},
-};
+use std::{ffi::c_void, io, ptr, thread::JoinHandle};
 
 /// IINA's Live Text interaction is available starting with macOS 13.
 pub(crate) fn check_availability(
     complete: impl FnOnce(bool) + Send + 'static,
 ) -> io::Result<JoinHandle<()>> {
-    thread::Builder::new()
-        .name("riina-text-availability".into())
-        .spawn(move || {
-            let version = NSOperatingSystemVersion {
-                majorVersion: 13,
-                minorVersion: 0,
-                patchVersion: 0,
-            };
-            complete(
-                NSProcessInfo::processInfo().isOperatingSystemAtLeastVersion(version)
-                    && live_text_enabled_by_system(),
-            );
-        })
+    crate::background::spawn_named("riina-text-availability", move || {
+        let version = NSOperatingSystemVersion {
+            majorVersion: 13,
+            minorVersion: 0,
+            patchVersion: 0,
+        };
+        complete(
+            NSProcessInfo::processInfo().isOperatingSystemAtLeastVersion(version)
+                && live_text_enabled_by_system(),
+        );
+    })
 }
 
 /// Match IINA's availability gate: the user can disable Live Text globally,
@@ -60,12 +54,10 @@ pub(crate) fn recognize(
     frame: CapturedFrame,
     complete: impl FnOnce(Result<Vec<Region>, String>) + Send + 'static,
 ) -> io::Result<JoinHandle<()>> {
-    thread::Builder::new()
-        .name("riina-live-text".into())
-        .spawn(move || {
-            let result = autoreleasepool(|_| recognize_frame(&frame));
-            complete(result);
-        })
+    crate::background::spawn_named("riina-live-text", move || {
+        let result = autoreleasepool(|_| recognize_frame(&frame));
+        complete(result);
+    })
 }
 
 fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {

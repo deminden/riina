@@ -236,32 +236,31 @@ impl PluginRuntimeSession {
         };
         let source = source.to_owned();
         let plugin_identifier = plugin_identifier.to_owned();
-        let worker = std::thread::Builder::new()
-            .name(format!(
-                "plugin-{}",
-                plugin_identifier.chars().take(32).collect::<String>()
-            ))
-            .spawn(move || {
-                run_entry_worker(
-                    source,
-                    plugin_identifier,
-                    permissions,
-                    PluginWorkerHost {
-                        execution: worker_execution,
-                        global_api_mode,
-                        module_context,
-                        file_system: storage.file_system,
-                        events: worker_events,
-                        player_event_subscriptions: worker_player_event_subscriptions,
-                        observed_mpv_properties: worker_observed_mpv_properties,
-                        mpv_property_observation_requests: worker_mpv_property_observation_requests,
-                    },
-                    receiver,
-                    ready_sender,
-                    network_context,
-                );
-            })
-            .map_err(|error| format!("Could not start plugin worker: {error}"))?;
+        let thread_name = format!(
+            "plugin-{}",
+            plugin_identifier.chars().take(32).collect::<String>()
+        );
+        let worker = crate::background::spawn_named(thread_name, move || {
+            run_entry_worker(
+                source,
+                plugin_identifier,
+                permissions,
+                PluginWorkerHost {
+                    execution: worker_execution,
+                    global_api_mode,
+                    module_context,
+                    file_system: storage.file_system,
+                    events: worker_events,
+                    player_event_subscriptions: worker_player_event_subscriptions,
+                    observed_mpv_properties: worker_observed_mpv_properties,
+                    mpv_property_observation_requests: worker_mpv_property_observation_requests,
+                },
+                receiver,
+                ready_sender,
+                network_context,
+            );
+        })
+        .map_err(|error| format!("Could not start plugin worker: {error}"))?;
         match ready_receiver.recv_timeout(Duration::from_secs(3)) {
             Ok(Ok(())) => Ok(Self {
                 execution,

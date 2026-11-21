@@ -54,9 +54,7 @@ fn wide(value: &str) -> Vec<u16> {
 }
 
 pub fn clear() -> io::Result<()> {
-    std::thread::Builder::new()
-        .name("clear-recent-destinations".into())
-        .spawn(clear_on_shell_apartment)?
+    crate::background::spawn_named("clear-recent-destinations", clear_on_shell_apartment)?
         .join()
         .map_err(|_| io::Error::other("Windows Shell recent-document worker panicked"))?
 }

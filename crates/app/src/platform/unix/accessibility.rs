@@ -22,10 +22,7 @@ pub(crate) fn system_reduce_motion_enabled() -> bool {
     let watcher = WATCHER.get_or_init(|| Mutex::new(None));
     let mut watcher = riina_core::sync::lock(watcher);
     if watcher.is_none() {
-        *watcher = thread::Builder::new()
-            .name("riina-xdg-accessibility".into())
-            .spawn(watch_settings)
-            .ok();
+        *watcher = crate::background::spawn_named("riina-xdg-accessibility", watch_settings).ok();
     }
     REDUCED_MOTION.load(Ordering::Relaxed)
 }

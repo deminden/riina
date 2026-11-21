@@ -264,20 +264,18 @@ impl PluginHost {
             .with_core_version(version_snapshot(None))
             .with_recent_documents(recent_document_values(recent_media))
             .with_playback_history(playback_history_values(playback_history));
-        let worker = std::thread::Builder::new()
-            .name("riina-plugin-host".into())
-            .spawn(move || {
-                crate::plugin_packages::sweep_staging(&plugins_directory);
-                run_host(
-                    plugins_directory,
-                    permissions_path,
-                    enabled_path,
-                    worker_messages,
-                    initial_player_context,
-                    receiver,
-                );
-            })
-            .map_err(|error| format!("Could not start plugin host: {error}"))?;
+        let worker = crate::background::spawn_named("riina-plugin-host", move || {
+            crate::plugin_packages::sweep_staging(&plugins_directory);
+            run_host(
+                plugins_directory,
+                permissions_path,
+                enabled_path,
+                worker_messages,
+                initial_player_context,
+                receiver,
+            );
+        })
+        .map_err(|error| format!("Could not start plugin host: {error}"))?;
         Ok(Self {
             handle: PluginHostHandle { commands, messages },
             worker: Some(worker),

@@ -595,12 +595,10 @@ fn configure_with_engine(
     if use_system_services {
         let weak = app.as_weak();
         let _ = platform::text_recognition::check_availability(move |available| {
-            let _ = slint::invoke_from_event_loop(move || {
-                if let Some(app) = weak.upgrade() {
-                    app.set_live_text_available(available);
-                    if !available {
-                        app.set_live_text_enabled(false);
-                    }
+            let _ = crate::background::to_ui(weak, move |app| {
+                app.set_live_text_available(available);
+                if !available {
+                    app.set_live_text_enabled(false);
                 }
             });
         });
@@ -790,10 +788,8 @@ fn configure_with_engine(
         );
         if let Some(error) = history_error {
             let weak = app_weak.clone();
-            let _ = slint::invoke_from_event_loop(move || {
-                if let Some(app) = weak.upgrade() {
-                    app.set_status(format!("Could not save playback history: {error}").into());
-                }
+            let _ = crate::background::to_ui(weak, move |app| {
+                app.set_status(format!("Could not save playback history: {error}").into());
             });
         }
         {

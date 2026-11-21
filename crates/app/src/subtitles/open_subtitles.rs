@@ -388,10 +388,7 @@ pub(crate) fn connect_player(
                         &query,
                         &search_context.languages,
                     );
-                    let _ = slint::invoke_from_event_loop(move || {
-                        let Some(window) = weak_window.upgrade() else {
-                            return;
-                        };
+                    let _ = crate::background::to_ui(weak_window, move |window| {
                         window.set_searching(false);
                         match result {
                             Ok(found) => {
@@ -512,10 +509,7 @@ pub(crate) fn connect_player(
                             }
                         }
                     }
-                    let _ = slint::invoke_from_event_loop(move || {
-                        let Some(window) = weak_window.upgrade() else {
-                            return;
-                        };
+                    let _ = crate::background::to_ui(weak_window, move |window| {
                         let mut queued = 0_usize;
                         let mut load_error = None;
                         for path in paths {

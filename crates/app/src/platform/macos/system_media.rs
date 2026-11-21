@@ -91,19 +91,17 @@ impl GeneratedArtworkTask {
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancel.clone();
         let (sender, receiver) = mpsc::channel();
-        let thread = thread::Builder::new()
-            .name("riina-now-playing-artwork".into())
-            .spawn(move || {
-                let result = capture_now_playing_artwork(
-                    &library,
-                    &media,
-                    track_id,
-                    fallback_time,
-                    &worker_cancel,
-                );
-                let _ = sender.send(result);
-            })
-            .map_err(|error| format!("Could not start Now Playing artwork extraction: {error}"))?;
+        let thread = crate::background::spawn_named("riina-now-playing-artwork", move || {
+            let result = capture_now_playing_artwork(
+                &library,
+                &media,
+                track_id,
+                fallback_time,
+                &worker_cancel,
+            );
+            let _ = sender.send(result);
+        })
+        .map_err(|error| format!("Could not start Now Playing artwork extraction: {error}"))?;
         Ok(Self {
             generation,
             cancel,

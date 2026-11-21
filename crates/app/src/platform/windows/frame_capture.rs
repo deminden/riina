@@ -7,7 +7,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, Receiver, Sender},
     },
-    thread::{self, JoinHandle},
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
 use windows::{
@@ -107,17 +107,15 @@ impl FrameCapture {
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
         let worker_state = state.clone();
         let hwnd = hwnd.0 as isize;
-        let worker = thread::Builder::new()
-            .name("riina-wgc-material".into())
-            .spawn(move || {
-                capture_worker(
-                    HWND(hwnd as *mut _),
-                    worker_state,
-                    shutdown_receiver,
-                    ready_sender,
-                )
-            })
-            .map_err(|error| format!("Could not start Windows video capture: {error}"))?;
+        let worker = crate::background::spawn_named("riina-wgc-material", move || {
+            capture_worker(
+                HWND(hwnd as *mut _),
+                worker_state,
+                shutdown_receiver,
+                ready_sender,
+            )
+        })
+        .map_err(|error| format!("Could not start Windows video capture: {error}"))?;
 
         match ready_receiver.recv_timeout(Duration::from_secs(8)) {
             Ok(Ok(())) => Ok(Self(Arc::new(CaptureOwner {

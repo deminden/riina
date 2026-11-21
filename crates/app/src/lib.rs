@@ -1,5 +1,6 @@
 //! Application orchestration for the Riina executable.
 
+mod background;
 mod debug_dump;
 mod diagnostics;
 mod file_actions;
@@ -76,7 +77,9 @@ pub unsafe fn run_from_command_line() -> std::process::ExitCode {
         diagnostics::log(diagnostics::Level::Info, "mpv", message);
     });
     // SAFETY: the caller establishes single-threaded process startup.
-    match unsafe { run() } {
+    let result = unsafe { run() };
+    background::report_running();
+    match result {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             diagnostics::error!("Could not start or run Riina: {error}");

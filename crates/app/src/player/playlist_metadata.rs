@@ -35,19 +35,17 @@ fn cache() -> &'static Cache {
             requests,
             revision: AtomicU64::new(0),
         };
-        let worker = std::thread::Builder::new()
-            .name("riina-playlist-tags".into())
-            .spawn(move || {
-                while let Ok(path) = receiver.recv() {
-                    let metadata = read_metadata(&path);
-                    let Some(cache) = CACHE.get() else { continue };
-                    let mut entries = lock(&cache.entries);
-                    if let Some(entry) = entries.get_mut(&path) {
-                        *entry = metadata;
-                        cache.revision.fetch_add(1, Ordering::Release);
-                    }
+        let worker = crate::background::spawn_named("riina-playlist-tags", move || {
+            while let Ok(path) = receiver.recv() {
+                let metadata = read_metadata(&path);
+                let Some(cache) = CACHE.get() else { continue };
+                let mut entries = lock(&cache.entries);
+                if let Some(entry) = entries.get_mut(&path) {
+                    *entry = metadata;
+                    cache.revision.fetch_add(1, Ordering::Release);
                 }
-            });
+            }
+        });
         if let Err(error) = worker {
             crate::diagnostics::warn!("Could not start playlist metadata reader: {error}");
         }

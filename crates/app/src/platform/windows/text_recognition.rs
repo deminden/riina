@@ -25,18 +25,16 @@ pub(crate) struct Region {
 pub(crate) fn check_availability(
     complete: impl FnOnce(bool) + Send + 'static,
 ) -> std::io::Result<JoinHandle<()>> {
-    thread::Builder::new()
-        .name("riina-text-availability".into())
-        .spawn(move || {
-            complete(
-                with_apartment(|| {
-                    OcrEngine::TryCreateFromUserProfileLanguages()
-                        .map(|_| ())
-                        .map_err(|error| error.to_string())
-                })
-                .is_ok(),
-            );
-        })
+    crate::background::spawn_named("riina-text-availability", move || {
+        complete(
+            with_apartment(|| {
+                OcrEngine::TryCreateFromUserProfileLanguages()
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            })
+            .is_ok(),
+        );
+    })
 }
 
 /// OCR starts independently of playback and rendering; callers reject stale results.
@@ -44,9 +42,9 @@ pub(crate) fn recognize(
     frame: CapturedFrame,
     complete: impl FnOnce(Result<Vec<Region>, String>) + Send + 'static,
 ) -> std::io::Result<JoinHandle<()>> {
-    thread::Builder::new()
-        .name("riina-live-text".into())
-        .spawn(move || complete(with_apartment(|| recognize_frame(&frame))))
+    crate::background::spawn_named("riina-live-text", move || {
+        complete(with_apartment(|| recognize_frame(&frame)))
+    })
 }
 
 fn with_apartment<T>(operation: impl FnOnce() -> Result<T, String>) -> Result<T, String> {

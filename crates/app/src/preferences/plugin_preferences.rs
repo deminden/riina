@@ -141,17 +141,13 @@ pub(crate) fn connect(
         let weak_result = weak.clone();
         window.set_plugin_github_installing(true);
         window.set_plugin_update_status(format!("Downloading {source}…").into());
-        let started = std::thread::Builder::new()
-            .name("plugin-github-install".into())
-            .spawn(move || {
-                let result = crate::plugin_github::stage_repository(&source, &plugins);
-                riina_core::sync::lock(&results).insert(id, result);
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(window) = weak_result.upgrade() {
-                        window.invoke_plugin_github_install_completed(id as i32);
-                    }
-                });
+        let started = crate::background::spawn_named("plugin-github-install", move || {
+            let result = crate::plugin_github::stage_repository(&source, &plugins);
+            riina_core::sync::lock(&results).insert(id, result);
+            let _ = crate::background::to_ui(weak_result, move |window| {
+                window.invoke_plugin_github_install_completed(id as i32);
             });
+        });
         if let Err(error) = started {
             window.set_plugin_github_installing(false);
             window.set_plugin_update_status(
@@ -258,22 +254,20 @@ pub(crate) fn connect(
             let weak_result = weak.clone();
             let generations_result = generations.clone();
             let available_updates_result = available_updates_for_refresh.clone();
-            let started = std::thread::Builder::new()
-                .name("plugin-update-check".into())
-                .spawn(move || {
-                    let (status, versions) = check_update_status(&plugins_to_check);
-                    if generations_result.load(Ordering::Relaxed) != generation {
-                        return;
+            let started = crate::background::spawn_named("plugin-update-check", move || {
+                let (status, versions) = check_update_status(&plugins_to_check);
+                if generations_result.load(Ordering::Relaxed) != generation {
+                    return;
+                }
+                *riina_core::sync::lock(&available_updates_result) = versions;
+                let _ = slint::invoke_from_event_loop(move || {
+                    if generations_result.load(Ordering::Relaxed) == generation
+                        && let Some(window) = weak_result.upgrade()
+                    {
+                        window.set_plugin_update_status(status.into());
                     }
-                    *riina_core::sync::lock(&available_updates_result) = versions;
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if generations_result.load(Ordering::Relaxed) == generation
-                            && let Some(window) = weak_result.upgrade()
-                        {
-                            window.set_plugin_update_status(status.into());
-                        }
-                    });
                 });
+            });
             if let Err(error) = started {
                 window.set_plugin_update_status(
                     format!("Could not start update check: {error}").into(),
@@ -364,9 +358,7 @@ pub(crate) fn connect(
         let id_for_result = id;
         let plugin_name = previous.manifest.name.clone();
         window.set_plugin_github_installing(true);
-        let started = std::thread::Builder::new()
-            .name("plugin-update-apply".into())
-            .spawn(move || {
+        let started = crate::background::spawn_named("plugin-update-apply", move || {
                 let result = apply_plugin_update(
                     staged,
                     previous.clone(),
@@ -376,10 +368,8 @@ pub(crate) fn connect(
                     should_activate,
                 );
                 riina_core::sync::lock(&results).insert(id_for_result, result);
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(window) = weak_result.upgrade() {
-                        window.invoke_plugin_update_completed(id_for_result as i32);
-                    }
+                let _ = crate::background::to_ui(weak_result, move |window| {
+                    window.invoke_plugin_update_completed(id_for_result as i32);
                 });
             });
         if let Err(error) = started {
@@ -567,9 +557,7 @@ pub(crate) fn connect(
             if let Some(window) = weak.upgrade() {
                 window.set_plugin_github_installing(true);
             }
-            let started = std::thread::Builder::new()
-                .name("plugin-update-download".into())
-                .spawn(move || {
+            let started = crate::background::spawn_named("plugin-update-download", move || {
                     let result = crate::plugin_github::stage_repository(&repository, &plugins)
                         .and_then(|staged| {
                             if staged.manifest.identifier != plugin_for_update.manifest.identifier {
@@ -579,10 +567,8 @@ pub(crate) fn connect(
                         })
                         .map(|staged| (staged, plugin_for_update));
                     riina_core::sync::lock(&staged).insert(id, result);
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(window) = weak_result.upgrade() {
-                            window.invoke_plugin_update_staged(id as i32);
-                        }
+                    let _ = crate::background::to_ui(weak_result, move |window| {
+                        window.invoke_plugin_update_staged(id as i32);
                     });
                 });
             if let Some(window) = weak.upgrade() {

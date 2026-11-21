@@ -76,12 +76,10 @@ pub(super) fn install<'js>(
                     };
                     let sender = network_sender.clone();
                     let domains = domains.clone();
-                    let worker = std::thread::Builder::new()
-                        .name("plugin-http".into())
-                        .spawn(move || {
-                            let result = perform_http_request(&method, &url, &options, &domains);
-                            slot.deliver(&sender, RuntimeCommand::DeliverNetworkResult(id, result));
-                        });
+                    let worker = crate::background::spawn_named("plugin-http", move || {
+                        let result = perform_http_request(&method, &url, &options, &domains);
+                        slot.deliver(&sender, RuntimeCommand::DeliverNetworkResult(id, result));
+                    });
                     if let Err(error) = worker {
                         return Err(http_js_error(format!(
                             "Could not start HTTP request: {error}"
@@ -127,9 +125,8 @@ pub(super) fn install<'js>(
                     let domains = download_domains.clone();
                     let files = download_files.clone();
                     let filesystem_granted = download_filesystem_granted;
-                    let worker = std::thread::Builder::new()
-                        .name("plugin-http-download".into())
-                        .spawn(move || {
+                    let worker =
+                        crate::background::spawn_named("plugin-http-download", move || {
                             let result = perform_http_download(&url, &options, &domains).and_then(
                                 |content| {
                                     files.write_download(&destination, &content, filesystem_granted)
@@ -185,12 +182,10 @@ pub(super) fn install<'js>(
                     };
                     let sender = xmlrpc_sender.clone();
                     let domains = xmlrpc_domains.clone();
-                    let worker = std::thread::Builder::new()
-                        .name("plugin-xmlrpc".into())
-                        .spawn(move || {
-                            let result = perform_xmlrpc_call(&location, &method, &args, &domains);
-                            slot.deliver(&sender, RuntimeCommand::DeliverXmlRpcResult(id, result));
-                        });
+                    let worker = crate::background::spawn_named("plugin-xmlrpc", move || {
+                        let result = perform_xmlrpc_call(&location, &method, &args, &domains);
+                        slot.deliver(&sender, RuntimeCommand::DeliverXmlRpcResult(id, result));
+                    });
                     if let Err(error) = worker {
                         return Err(http_js_error(format!(
                             "Could not start XML-RPC call: {error}"

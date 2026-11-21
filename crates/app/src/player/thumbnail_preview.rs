@@ -41,19 +41,17 @@ impl PreviewTask {
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancel.clone();
         let (sender, events) = mpsc::sync_channel(EVENT_CAPACITY);
-        let thread = thread::Builder::new()
-            .name("riina-thumbnail-preview".into())
-            .spawn(move || {
-                run_preview_task(
-                    &library,
-                    &source,
-                    &settings,
-                    cache_root.as_deref(),
-                    &sender,
-                    &worker_cancel,
-                )
-            })
-            .map_err(|error| format!("Could not start thumbnail preview: {error}"))?;
+        let thread = crate::background::spawn_named("riina-thumbnail-preview", move || {
+            run_preview_task(
+                &library,
+                &source,
+                &settings,
+                cache_root.as_deref(),
+                &sender,
+                &worker_cancel,
+            )
+        })
+        .map_err(|error| format!("Could not start thumbnail preview: {error}"))?;
         Ok(Self {
             cancel,
             events: Some(events),
@@ -230,9 +228,7 @@ impl Controller {
             return;
         };
         task.cancel();
-        let _ = thread::Builder::new()
-            .name("riina-thumbnail-cleanup".into())
-            .spawn(move || drop(task));
+        let _ = crate::background::spawn_named("riina-thumbnail-cleanup", move || drop(task));
     }
 }
 

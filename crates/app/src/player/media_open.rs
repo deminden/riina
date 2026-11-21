@@ -45,23 +45,21 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     app.set_status("Preparing media for a new player…".into());
     let weak = app.as_weak();
     let failure = weak.clone();
-    let started = std::thread::Builder::new()
-        .name("new-player-media-discovery".into())
-        .spawn(move || {
-            let result = file_selection::prepare(paths, true);
-            let _ = slint::invoke_from_event_loop(move || {
-                if let Some(app) = weak.upgrade()
-                    && let Err(error) = result.and_then(|paths| {
-                        if paths.is_empty() {
-                            return Err("No playable files were found".into());
-                        }
-                        open_paths_in_new_player(&app, &paths)
-                    })
-                {
-                    app.set_status(error.into());
-                }
-            });
+    let started = crate::background::spawn_named("new-player-media-discovery", move || {
+        let result = file_selection::prepare(paths, true);
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(app) = weak.upgrade()
+                && let Err(error) = result.and_then(|paths| {
+                    if paths.is_empty() {
+                        return Err("No playable files were found".into());
+                    }
+                    open_paths_in_new_player(&app, &paths)
+                })
+            {
+                app.set_status(error.into());
+            }
         });
+    });
     if let Err(error) = started
         && let Some(app) = failure.upgrade()
     {
@@ -385,64 +383,60 @@ fn selection_at(
     let failure = weak.clone();
     let original_paths = paths.clone();
     app.set_status("Opening…".into());
-    let started = std::thread::Builder::new()
-        .name("media-discovery".into())
-        .spawn(move || {
-            let subtitles = if subtitle_fallback && !append {
-                original_paths
-                    .iter()
-                    .map(|path| crate::platform::resolve_alias_path(path))
-                    .filter(|path| riina_core::file_selection::is_supported_subtitle(path))
-                    .collect::<Vec<_>>()
-            } else {
-                Vec::new()
-            };
-            let result = (if subtitle_fallback {
-                resolve_dropped_url_shortcuts(paths)
-            } else {
-                Ok(paths)
-            })
-            .and_then(|paths| file_selection::prepare(paths, !append))
-            .and_then(|paths| {
-                if paths.is_empty() {
-                    if !subtitles.is_empty() {
-                        Ok(PreparedSelection::Subtitles(subtitles))
-                    } else {
-                        Err("No playable files were found".into())
-                    }
-                } else if let Some(position) = resume_position
-                    && position.is_finite()
-                    && position >= 0.0
-                    && !append
-                    && paths.len() == 1
-                {
-                    Ok(PreparedSelection::Command(Command::LoadAtPosition {
-                        path: paths[0].clone(),
-                        position,
-                    }))
+    let started = crate::background::spawn_named("media-discovery", move || {
+        let subtitles = if subtitle_fallback && !append {
+            original_paths
+                .iter()
+                .map(|path| crate::platform::resolve_alias_path(path))
+                .filter(|path| riina_core::file_selection::is_supported_subtitle(path))
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        let result = (if subtitle_fallback {
+            resolve_dropped_url_shortcuts(paths)
+        } else {
+            Ok(paths)
+        })
+        .and_then(|paths| file_selection::prepare(paths, !append))
+        .and_then(|paths| {
+            if paths.is_empty() {
+                if !subtitles.is_empty() {
+                    Ok(PreparedSelection::Subtitles(subtitles))
                 } else {
-                    let command = if append {
-                        Command::AppendFiles(paths)
-                    } else {
-                        Command::OpenFiles(paths)
-                    };
-                    if !subtitles.is_empty() {
-                        let paths = match command {
-                            Command::OpenFiles(paths) => paths,
-                            _ => {
-                                return Err(
-                                    "Dropped subtitles require an opened media batch".into()
-                                );
-                            }
-                        };
-                        Ok(PreparedSelection::CommandWithSubtitles(paths, subtitles))
-                    } else {
-                        Ok(PreparedSelection::Command(command))
-                    }
+                    Err("No playable files were found".into())
                 }
-            });
-            let _ = slint::invoke_from_event_loop(move || {
-                if let Some(app) = weak.upgrade()
+            } else if let Some(position) = resume_position
+                && position.is_finite()
+                && position >= 0.0
+                && !append
+                && paths.len() == 1
+            {
+                Ok(PreparedSelection::Command(Command::LoadAtPosition {
+                    path: paths[0].clone(),
+                    position,
+                }))
+            } else {
+                let command = if append {
+                    Command::AppendFiles(paths)
+                } else {
+                    Command::OpenFiles(paths)
+                };
+                if !subtitles.is_empty() {
+                    let paths = match command {
+                        Command::OpenFiles(paths) => paths,
+                        _ => {
+                            return Err("Dropped subtitles require an opened media batch".into());
+                        }
+                    };
+                    Ok(PreparedSelection::CommandWithSubtitles(paths, subtitles))
+                } else {
+                    Ok(PreparedSelection::Command(command))
+                }
+            }
+        });
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(app) = weak.upgrade()
                     // A newer accepted selection or Stop owns the player now.
                     && app.get_media_request_generation() == generation
                     && let Err(error) = result.and_then(|prepared| match prepared {
@@ -495,11 +489,11 @@ fn selection_at(
                             Ok(())
                         }
                     })
-                {
-                    app.set_status(error.into());
-                }
-            });
+            {
+                app.set_status(error.into());
+            }
         });
+    });
     if let Err(error) = started
         && let Some(app) = failure.upgrade()
         && app.get_media_request_generation() == generation

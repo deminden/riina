@@ -12,16 +12,14 @@ pub(crate) fn pick(
         let token = super::file_dialog::DialogOwner::new(owner.clone())?;
         owner.set_enable(false);
         let restore = owner.clone();
-        let started = std::thread::Builder::new()
-            .name("screenshot-folder-picker".into())
-            .spawn(move || {
-                let result = super::file_dialog::pick_folder(&token);
-                let _ = slint::invoke_from_event_loop(move || {
-                    owner.set_enable(true);
-                    owner.focus_window();
-                    complete(result);
-                });
+        let started = crate::background::spawn_named("screenshot-folder-picker", move || {
+            let result = super::file_dialog::pick_folder(&token);
+            let _ = slint::invoke_from_event_loop(move || {
+                owner.set_enable(true);
+                owner.focus_window();
+                complete(result);
             });
+        });
         if let Err(error) = started {
             restore.set_enable(true);
             return Err(error.to_string());
