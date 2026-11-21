@@ -48,7 +48,10 @@ impl Draft {
         model: &PreferenceModel,
     ) -> Option<Self> {
         Some(Self {
-            previous_font: app.get_subtitle_font().to_string(),
+            previous_font: app
+                .global::<riina_ui::PlaybackSubtitleState>()
+                .get_subtitle_font()
+                .to_string(),
             previous_size: crate::subtitle_preferences::current_font_size(app),
             previous_style: read_or_refresh(
                 crate::subtitle_preferences::current_style(app),

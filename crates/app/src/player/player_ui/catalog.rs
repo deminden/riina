@@ -241,8 +241,10 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
                     .set_audio_tracks(model);
             }
             TrackKind::Sub => {
-                app.set_subtitle_track_selected_index(selected_index);
-                app.set_subtitle_tracks(model);
+                app.global::<riina_ui::PlaybackSubtitleState>()
+                    .set_subtitle_track_selected_index(selected_index);
+                app.global::<riina_ui::PlaybackSubtitleState>()
+                    .set_subtitle_tracks(model);
             }
         }
     }
@@ -273,13 +275,15 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
         playing: false,
         network: false,
     }));
-    app.set_secondary_subtitle_track_selected_index(
-        secondary_rows
-            .iter()
-            .position(|row| row.selected)
-            .unwrap_or(0) as i32,
-    );
-    app.set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_secondary_subtitle_track_selected_index(
+            secondary_rows
+                .iter()
+                .position(|row| row.selected)
+                .unwrap_or(0) as i32,
+        );
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
 }
 
 fn update_chapters(app: &PlayerWindow, state: &Playback) {

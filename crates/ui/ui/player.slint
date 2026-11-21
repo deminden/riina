@@ -1,3 +1,5 @@
+import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
+export { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackVideoState } from "playback-video-state.slint";
 export { PlaybackVideoState } from "playback-video-state.slint";
 import { PlayerOsdState } from "player-osd-state.slint";
@@ -121,18 +123,18 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-saved-audio-filter-rows: root.saved-audio-filter-rows;
     menu-value-saved-video-filter-rows: root.saved-video-filter-rows;
     menu-value-screenshot-available: root.screenshot-available;
-    menu-value-secondary-subtitle-tracks: root.secondary-subtitle-tracks;
-    menu-value-secondary-subtitle-visibility-known: root.secondary-subtitle-visibility-known;
-    menu-value-secondary-subtitle-visible: root.secondary-subtitle-visible;
+    menu-value-secondary-subtitle-tracks: PlaybackSubtitleState.secondary-subtitle-tracks;
+    menu-value-secondary-subtitle-visibility-known: PlaybackSubtitleState.secondary-subtitle-visibility-known;
+    menu-value-secondary-subtitle-visible: PlaybackSubtitleState.secondary-subtitle-visible;
     menu-value-settings-at-leading: root.settings-at-leading;
     menu-value-sidebar: root.sidebar;
     menu-value-speed-edit-value: root.speed-edit-value;
     menu-value-subtitle-default-encoding: root.subtitle-default-encoding;
-    menu-value-subtitle-delay-text: root.subtitle-delay-text;
-    menu-value-subtitle-encoding-options: root.subtitle-encoding-options;
-    menu-value-subtitle-scale-known: root.subtitle-scale-known;
-    menu-value-subtitle-tracks: root.subtitle-tracks;
-    menu-value-subtitle-visible: root.subtitle-visible;
+    menu-value-subtitle-delay-text: PlaybackSubtitleState.subtitle-delay-text;
+    menu-value-subtitle-encoding-options: PlaybackSubtitleState.subtitle-encoding-options;
+    menu-value-subtitle-scale-known: PlaybackSubtitleState.subtitle-scale-known;
+    menu-value-subtitle-tracks: PlaybackSubtitleState.subtitle-tracks;
+    menu-value-subtitle-visible: PlaybackSubtitleState.subtitle-visible;
     menu-value-unlock-window-aspect-ratio <=> root.unlock-window-aspect-ratio;
     menu-value-video-aspect-known: root.video-aspect-known;
     menu-value-video-aspect-menu-index: root.video-aspect-menu-index;
@@ -528,8 +530,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     private property <float> volume-limit: volume-boost ? 200 : 100;
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
-    in property <int> subtitle-track-selected-index: 0;
-    in property <int> secondary-subtitle-track-selected-index: 0;
     private property <[MenuCatalogRow]> audio-device-menu-rows: PlaybackAudioState.audio-device-menu-rows;
     changed audio-device-menu-rows => { root.video-menu-changed(); }
     private property <[CatalogRow]> video-tracks: PlaybackVideoState.video-tracks;
@@ -553,11 +553,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <float> speed-slider-position: 8;
     in property <string> speed-edit-value: "1";
     changed speed-edit-value => { root.video-menu-changed(); }
-    in property <[CatalogRow]> subtitle-tracks;
-    in property <[CatalogRow]> secondary-subtitle-tracks;
-    in property <[CatalogRow]> subtitle-encoding-options;
-    in property <bool> secondary-subtitle-visible;
-    in property <bool> secondary-subtitle-visibility-known;
     in property <[CatalogRow]> chapters;
     changed chapters => { root.video-menu-changed(); }
     in property <[float]> chapter-times: [];
@@ -641,21 +636,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback select-playlist-row(int, bool, bool) -> [string];
     private property <string> audio-delay-text: PlaybackAudioState.audio-delay-text;
     changed audio-delay-text => { root.video-menu-changed(); }
-    in property <float> subtitle-delay: 0;
-    in property <string> subtitle-delay-text: "0";
-    in property <float> secondary-subtitle-delay: 0;
-    in property <string> secondary-subtitle-delay-text: "0";
-    in property <bool> secondary-subtitle-delay-known: false;
-    in property <float> secondary-subtitle-position: 0;
-    in property <bool> secondary-subtitle-position-known: false;
-    in property <float> subtitle-position: 0;
-    in property <bool> subtitle-position-known: false;
-    in property <float> subtitle-scale-slider: 0;
-    in property <bool> subtitle-scale-known: false;
-    in property <float> subtitle-font-size: 0;
-    in property <bool> subtitle-font-size-known: false;
-    in-out property <string> subtitle-font;
-    in property <bool> subtitle-font-known: false;
     in-out property <float> subtitle-font-size-preference: 55;
     in-out property <color> subtitle-text-preference-color: Theme.subtitle-text-default;
     in-out property <bool> subtitle-bold-preference: false;
@@ -667,18 +647,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <color> subtitle-shadow-preference-color: Theme.subtitle-shadow-default;
     in-out property <float> subtitle-blur-preference: 0;
     in-out property <float> subtitle-spacing-preference: 0;
-    in property <float> subtitle-outline-size: 0;
-    in property <bool> subtitle-outline-size-known: false;
-    in property <color> subtitle-text-color;
-    in property <color> subtitle-border-color;
-    in property <color> subtitle-shadow-color;
-    in property <bool> subtitle-text-color-known: false;
-    in property <bool> subtitle-border-color-known: false;
-    in property <bool> subtitle-shadow-color-known: false;
-    in property <bool> subtitle-text-style-available: true;
-    in property <bool> subtitle-ass-style-warning: false;
-    in-out property <bool> edit-secondary-subtitle: false;
-    in property <bool> subtitle-visible: true;
     in property <string> loop-label: "Off";
     changed loop-label => { root.video-menu-changed(); }
     in-out property <bool> controls-visible: true;
@@ -1193,7 +1161,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             choose-subtitle-font => { root.choose-subtitle-font(); }
                             compact-ui: root.compact-ui;
                             dark-theme: root.dark-theme;
-                            edit-secondary-subtitle <=> root.edit-secondary-subtitle;
                             find-online-subtitles => { root.find-online-subtitles(); }
                             interactive-accent-color: root.interactive-accent-color;
                             load-subtitle => { root.browse-files(2); }
@@ -1201,15 +1168,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             platform-windows: root.platform-windows;
                             reset-subtitle-delay => { root.reset-subtitle-delay(); }
                             restore-player-focus => { keys.focus(); }
-                            secondary-subtitle-delay: root.secondary-subtitle-delay;
-                            secondary-subtitle-delay-known: root.secondary-subtitle-delay-known;
-                            secondary-subtitle-delay-text: root.secondary-subtitle-delay-text;
-                            secondary-subtitle-position: root.secondary-subtitle-position;
-                            secondary-subtitle-position-known: root.secondary-subtitle-position-known;
-                            secondary-subtitle-track-selected-index: root.secondary-subtitle-track-selected-index;
-                            secondary-subtitle-tracks: root.secondary-subtitle-tracks;
-                            secondary-subtitle-visibility-known: root.secondary-subtitle-visibility-known;
-                            secondary-subtitle-visible: root.secondary-subtitle-visible;
                             set-delay(lane, seconds) => { root.set-delay(lane, seconds); }
                             set-delay-text(lane, text) => { return root.set-delay-text(lane, text); }
                             set-subtitle-color(component, color) => { root.set-subtitle-color(component, color); }
@@ -1219,29 +1177,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             set-subtitle-scale-slider(value) => { root.set-subtitle-scale-slider(value); }
                             sidebar-card-material-fill: root.sidebar-card-material-fill;
                             sidebar-control-material-fill: root.sidebar-control-material-fill;
-                            subtitle-ass-style-warning: root.subtitle-ass-style-warning;
-                            subtitle-border-color: root.subtitle-border-color;
-                            subtitle-border-color-known: root.subtitle-border-color-known;
-                            subtitle-delay: root.subtitle-delay;
-                            subtitle-delay-text: root.subtitle-delay-text;
-                            subtitle-font: root.subtitle-font;
-                            subtitle-font-known: root.subtitle-font-known;
-                            subtitle-font-size: root.subtitle-font-size;
-                            subtitle-font-size-known: root.subtitle-font-size-known;
-                            subtitle-outline-size: root.subtitle-outline-size;
-                            subtitle-outline-size-known: root.subtitle-outline-size-known;
-                            subtitle-position: root.subtitle-position;
-                            subtitle-position-known: root.subtitle-position-known;
-                            subtitle-scale-known: root.subtitle-scale-known;
-                            subtitle-scale-slider: root.subtitle-scale-slider;
-                            subtitle-shadow-color: root.subtitle-shadow-color;
-                            subtitle-shadow-color-known: root.subtitle-shadow-color-known;
-                            subtitle-text-color: root.subtitle-text-color;
-                            subtitle-text-color-known: root.subtitle-text-color-known;
-                            subtitle-text-style-available: root.subtitle-text-style-available;
-                            subtitle-track-selected-index: root.subtitle-track-selected-index;
-                            subtitle-tracks: root.subtitle-tracks;
-                            subtitle-visible: root.subtitle-visible;
                             toggle-secondary-subtitle-visibility => { root.toggle-secondary-subtitle-visibility(); }
                             toggle-subtitle-visibility => { root.toggle-subtitle-visibility(); }
                             track-selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
@@ -1370,7 +1305,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             toolbar: {
                 toolbar-visible-order: root.toolbar-visible-order,
                 loaded: root.loaded,
-                subtitle-tracks: root.subtitle-tracks,
+                subtitle-tracks: PlaybackSubtitleState.subtitle-tracks,
                 screenshot-available: root.screenshot-available,
                 live-text-available: root.live-text-available,
                 live-text-enabled: root.live-text-enabled,

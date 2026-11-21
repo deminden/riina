@@ -88,7 +88,9 @@ fn preview_width_scale(family: &font_catalog::FontFamily, face: &font_catalog::F
 
 fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
     apply_theme(picker, app.get_dark_theme());
-    let font = app.get_subtitle_font();
+    let font = app
+        .global::<riina_ui::PlaybackSubtitleState>()
+        .get_subtitle_font();
     picker.set_custom_name(
         if font == riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT {
             "".into()

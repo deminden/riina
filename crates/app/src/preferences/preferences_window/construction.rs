@@ -113,7 +113,10 @@ fn connect_assrt_instructions(app: &PlayerWindow, window: &PreferencesWindow) {
 }
 
 fn connect_font_and_advanced(app: &PlayerWindow, window: &PreferencesWindow) {
-    let selected_font = app.get_subtitle_font().to_string();
+    let selected_font = app
+        .global::<riina_ui::PlaybackSubtitleState>()
+        .get_subtitle_font()
+        .to_string();
     window
         .global::<crate::SubtitleSettingsState>()
         .set_subtitle_font(selected_font.into());
@@ -123,7 +126,10 @@ fn connect_font_and_advanced(app: &PlayerWindow, window: &PreferencesWindow) {
         if let (Some(app), Some(window)) = (choose_parent.upgrade(), choose_window.upgrade()) {
             window
                 .global::<crate::SubtitleSettingsState>()
-                .set_subtitle_font(app.get_subtitle_font());
+                .set_subtitle_font(
+                    app.global::<riina_ui::PlaybackSubtitleState>()
+                        .get_subtitle_font(),
+                );
             app.invoke_choose_subtitle_font();
         }
     });

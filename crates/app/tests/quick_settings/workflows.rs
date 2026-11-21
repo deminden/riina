@@ -65,8 +65,10 @@ fn settings_pages_keep_independent_scroll_positions() {
         .set_video_tracks(model());
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_tracks(model());
-    app.set_subtitle_tracks(model());
-    app.set_secondary_subtitle_tracks(model());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_tracks(model());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_secondary_subtitle_tracks(model());
     i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
     flush();
     let top = page_y(&app);
@@ -260,8 +262,10 @@ fn first_pointer_press_opens_subtitle_color_and_changes_an_equalizer_band() {
             .all(|(index, gain)| *index == 0 && gain.abs() < 0.5)
     );
     switch(&app, 2);
-    app.set_subtitle_text_color_known(true);
-    app.set_subtitle_text_style_available(true);
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_text_color_known(true);
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_text_style_available(true);
     flush();
     focus(&app, &field(&app, "Subtitle text color"));
     assert!(

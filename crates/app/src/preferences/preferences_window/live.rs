@@ -75,7 +75,8 @@ pub(super) fn apply_subtitle_text_preferences(
         }
         return Err(error.to_string());
     }
-    app.set_subtitle_font(font.clone().into());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_font(font.clone().into());
     app.set_subtitle_font_size_preference(selected_size as f32);
     Ok((font, selected_size))
 }
@@ -94,7 +95,8 @@ pub(super) fn restore_subtitle_text_preferences(
     if selected_font != previous_font {
         let _ = player.send(Command::SubtitleFont(previous_font.to_owned()));
     }
-    app.set_subtitle_font(previous_font.into());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_font(previous_font.into());
     app.set_subtitle_font_size_preference(previous_size as f32);
 }
 

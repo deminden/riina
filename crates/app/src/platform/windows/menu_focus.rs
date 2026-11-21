@@ -280,7 +280,11 @@ unsafe extern "system" fn menu_proc(
             ),
             (
                 "Subtitle Delay:",
-                format!("Subtitle Delay: {}s", app.get_subtitle_delay_text()),
+                format!(
+                    "Subtitle Delay: {}s",
+                    app.global::<riina_ui::PlaybackSubtitleState>()
+                        .get_subtitle_delay_text()
+                ),
             ),
         ];
         for (prefix, label) in information {

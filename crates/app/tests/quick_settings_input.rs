@@ -36,7 +36,8 @@ fn player(pane: i32) -> PlayerWindow {
     app.set_sidebar(pane);
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_delay_text("0".into());
-    app.set_subtitle_delay_text("0".into());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_delay_text("0".into());
     app.set_speed_edit_value("1".into());
     app.window().set_size(LogicalSize::new(1000.0, 900.0));
     app.show().unwrap();
@@ -279,13 +280,16 @@ fn draft_survives_observations_and_escape_restores_latest_without_submission() {
 #[test]
 fn changing_subtitle_lane_discards_its_draft_before_secondary_submission() {
     let app = player(2);
-    app.set_secondary_subtitle_delay_known(true);
-    app.set_secondary_subtitle_delay_text("-0.75".into());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_secondary_subtitle_delay_known(true);
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_secondary_subtitle_delay_text("-0.75".into());
     let submissions = delay_submissions(&app);
     let primary = field(&app, "Subtitle delay in seconds");
     focus(&app, &primary);
     primary.set_accessible_value("1.5");
-    app.set_edit_secondary_subtitle(true);
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_edit_secondary_subtitle(true);
     flush();
     let secondary = field(&app, "Secondary subtitle delay in seconds");
     assert_eq!(secondary.accessible_value().unwrap(), "-0.75");

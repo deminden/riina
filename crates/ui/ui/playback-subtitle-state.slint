@@ -1,0 +1,39 @@
+import { CatalogRow } from "catalog-row.slint";
+
+// Primary and secondary subtitle observations belong to the active player.
+export global PlaybackSubtitleState {
+    in-out property <bool> edit-secondary-subtitle: false;
+    in-out property <float> secondary-subtitle-delay: 0;
+    in-out property <bool> secondary-subtitle-delay-known: false;
+    in-out property <string> secondary-subtitle-delay-text: "0";
+    in-out property <float> secondary-subtitle-position: 0;
+    in-out property <bool> secondary-subtitle-position-known: false;
+    in-out property <int> secondary-subtitle-track-selected-index: 0;
+    in-out property <[CatalogRow]> secondary-subtitle-tracks;
+    in-out property <bool> secondary-subtitle-visibility-known;
+    in-out property <bool> secondary-subtitle-visible;
+    in-out property <bool> subtitle-ass-style-warning: false;
+    in-out property <color> subtitle-border-color;
+    in-out property <bool> subtitle-border-color-known: false;
+    in-out property <float> subtitle-delay: 0;
+    in-out property <string> subtitle-delay-text: "0";
+    in-out property <string> subtitle-font;
+    in-out property <bool> subtitle-font-known: false;
+    in-out property <float> subtitle-font-size: 0;
+    in-out property <bool> subtitle-font-size-known: false;
+    in-out property <float> subtitle-outline-size: 0;
+    in-out property <bool> subtitle-outline-size-known: false;
+    in-out property <float> subtitle-position: 0;
+    in-out property <bool> subtitle-position-known: false;
+    in-out property <bool> subtitle-scale-known: false;
+    in-out property <float> subtitle-scale-slider: 0;
+    in-out property <color> subtitle-shadow-color;
+    in-out property <bool> subtitle-shadow-color-known: false;
+    in-out property <color> subtitle-text-color;
+    in-out property <bool> subtitle-text-color-known: false;
+    in-out property <bool> subtitle-text-style-available: true;
+    in-out property <int> subtitle-track-selected-index: 0;
+    in-out property <[CatalogRow]> subtitle-tracks;
+    in-out property <bool> subtitle-visible: true;
+    in-out property <[CatalogRow]> subtitle-encoding-options;
+}

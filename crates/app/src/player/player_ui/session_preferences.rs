@@ -176,7 +176,10 @@ fn capture_session_state(
         track_all_files_in_recent_open_menu: app.get_track_all_files_in_recent_open_menu(),
         subtitle_other: crate::subtitle_other_preferences::current_player(app)
             .map_err(std::io::Error::other)?,
-        subtitle_font: app.get_subtitle_font().to_string(),
+        subtitle_font: app
+            .global::<riina_ui::PlaybackSubtitleState>()
+            .get_subtitle_font()
+            .to_string(),
         subtitle_font_size: crate::subtitle_preferences::current_font_size(app),
         subtitle_text_style: crate::subtitle_preferences::current_style(app)
             .map_err(std::io::Error::other)?,

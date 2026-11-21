@@ -1,4 +1,5 @@
 use super::*;
+use slint::ComponentHandle;
 
 #[expect(
     clippy::panic,
@@ -54,12 +55,16 @@ fn set_tracks(app: &PlayerWindow, kind: i32, count: usize, selected: usize) {
                 .set_video_tracks(model);
         }
         2 => {
-            app.set_subtitle_track_selected_index(selected as i32);
-            app.set_subtitle_tracks(model);
+            app.global::<riina_ui::PlaybackSubtitleState>()
+                .set_subtitle_track_selected_index(selected as i32);
+            app.global::<riina_ui::PlaybackSubtitleState>()
+                .set_subtitle_tracks(model);
         }
         5 => {
-            app.set_secondary_subtitle_track_selected_index(selected as i32);
-            app.set_secondary_subtitle_tracks(model);
+            app.global::<riina_ui::PlaybackSubtitleState>()
+                .set_secondary_subtitle_track_selected_index(selected as i32);
+            app.global::<riina_ui::PlaybackSubtitleState>()
+                .set_secondary_subtitle_tracks(model);
         }
         _ => panic!("Not a Quick Settings track kind"),
     }

@@ -39,7 +39,10 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     subtitles.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
     subtitles
         .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());
-    subtitles.set_subtitle_font(app.get_subtitle_font());
+    subtitles.set_subtitle_font(
+        app.global::<riina_ui::PlaybackSubtitleState>()
+            .get_subtitle_font(),
+    );
     subtitles.set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
         app.get_subtitle_font_size_preference(),
     ));

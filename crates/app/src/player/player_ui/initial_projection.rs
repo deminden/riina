@@ -81,7 +81,8 @@ fn install_media(
     app.set_secondary_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.secondary_subtitle_ass_override,
     ));
-    app.set_subtitle_font(prefs.subtitle_font.clone().into());
+    app.global::<riina_ui::PlaybackSubtitleState>()
+        .set_subtitle_font(prefs.subtitle_font.clone().into());
     app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
     if let Some(welcome) = welcome {

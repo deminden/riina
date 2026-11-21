@@ -37,6 +37,7 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
 }
 
 fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
+    let subtitles = app.global::<riina_ui::PlaybackSubtitleState>();
     let settings_pane = if app.get_settings_at_leading() {
         app.get_leading_sidebar()
     } else {
@@ -125,25 +126,27 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         |row| row.selected,
         |rows| host.set_video_track_menu_rows(rows),
     );
-    host.set_subtitle_visible(app.get_subtitle_visible());
-    host.set_secondary_subtitle_visible(app.get_secondary_subtitle_visible());
-    host.set_secondary_subtitle_visibility_known(app.get_secondary_subtitle_visibility_known());
-    host.set_subtitle_scale_known(app.get_subtitle_scale_known());
+    host.set_subtitle_visible(subtitles.get_subtitle_visible());
+    host.set_secondary_subtitle_visible(subtitles.get_secondary_subtitle_visible());
+    host.set_secondary_subtitle_visibility_known(
+        subtitles.get_secondary_subtitle_visibility_known(),
+    );
+    host.set_subtitle_scale_known(subtitles.get_subtitle_scale_known());
     host.set_subtitle_default_encoding(app.get_subtitle_default_encoding());
     sync_catalog_rows(
-        app.get_subtitle_tracks(),
+        subtitles.get_subtitle_tracks(),
         &host.get_subtitle_track_menu_rows(),
         |row| row.selected,
         |rows| host.set_subtitle_track_menu_rows(rows),
     );
     sync_catalog_rows(
-        app.get_secondary_subtitle_tracks(),
+        subtitles.get_secondary_subtitle_tracks(),
         &host.get_secondary_subtitle_menu_rows(),
         |row| row.selected,
         |rows| host.set_secondary_subtitle_menu_rows(rows),
     );
     sync_catalog_rows(
-        app.get_subtitle_encoding_options(),
+        subtitles.get_subtitle_encoding_options(),
         &host.get_subtitle_encoding_menu_rows(),
         |row| row.selected,
         |rows| host.set_subtitle_encoding_menu_rows(rows),

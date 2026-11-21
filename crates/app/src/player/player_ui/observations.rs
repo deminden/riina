@@ -527,24 +527,27 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_delays_and_subtitle_style(app: &PlayerWindow, state: &Playback) {
+    let subtitles = app.global::<riina_ui::PlaybackSubtitleState>();
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_delay(state.audio_delay as f32);
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_delay_text(crate::localized_number::format_delay(state.audio_delay).into());
-    app.set_subtitle_delay(state.subtitle_delay as f32);
-    app.set_subtitle_delay_text(crate::localized_number::format_delay(state.subtitle_delay).into());
-    app.set_subtitle_scale_known(state.subtitle_scale.is_some());
-    app.set_subtitle_font_size_known(state.subtitle_font_size.is_some());
-    app.set_subtitle_font_known(state.subtitle_font.is_some());
+    subtitles.set_subtitle_delay(state.subtitle_delay as f32);
+    subtitles.set_subtitle_delay_text(
+        crate::localized_number::format_delay(state.subtitle_delay).into(),
+    );
+    subtitles.set_subtitle_scale_known(state.subtitle_scale.is_some());
+    subtitles.set_subtitle_font_size_known(state.subtitle_font_size.is_some());
+    subtitles.set_subtitle_font_known(state.subtitle_font.is_some());
     if let Some(font) = &state.subtitle_font {
-        app.set_subtitle_font(font.clone().into());
+        subtitles.set_subtitle_font(font.clone().into());
     }
-    app.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
+    subtitles.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
     if let Some(size) = state.subtitle_font_size {
         app.set_subtitle_font_size_preference(size as f32);
     }
-    app.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
-    app.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);
+    subtitles.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
+    subtitles.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);
     let ui_color = |color: Option<riina_core::subtitle_color::SubtitleColor>| {
         let [r, g, b, a] = color
             .unwrap_or(riina_core::subtitle_color::SubtitleColor::CLEAR)
@@ -556,35 +559,36 @@ fn update_delays_and_subtitle_style(app: &PlayerWindow, state: &Playback) {
             (b * 255.0).round() as u8,
         )
     };
-    app.set_subtitle_text_color_known(state.subtitle_text_color.is_some());
-    app.set_subtitle_border_color_known(state.subtitle_border_color.is_some());
-    app.set_subtitle_shadow_color_known(state.subtitle_shadow_color.is_some());
-    app.set_subtitle_text_color(ui_color(state.subtitle_text_color));
-    app.set_subtitle_border_color(ui_color(state.subtitle_border_color));
-    app.set_subtitle_shadow_color(ui_color(state.subtitle_shadow_color));
+    subtitles.set_subtitle_text_color_known(state.subtitle_text_color.is_some());
+    subtitles.set_subtitle_border_color_known(state.subtitle_border_color.is_some());
+    subtitles.set_subtitle_shadow_color_known(state.subtitle_shadow_color.is_some());
+    subtitles.set_subtitle_text_color(ui_color(state.subtitle_text_color));
+    subtitles.set_subtitle_border_color(ui_color(state.subtitle_border_color));
+    subtitles.set_subtitle_shadow_color(ui_color(state.subtitle_shadow_color));
     let subtitle_style = state.subtitle_style_availability();
-    app.set_subtitle_text_style_available(subtitle_style.text_controls);
-    app.set_subtitle_ass_style_warning(subtitle_style.ass_warning);
+    subtitles.set_subtitle_text_style_available(subtitle_style.text_controls);
+    subtitles.set_subtitle_ass_style_warning(subtitle_style.ass_warning);
     let scale = state.subtitle_scale.unwrap_or(1.0).clamp(0.1, 10.0);
-    app.set_subtitle_scale_slider(
+    subtitles.set_subtitle_scale_slider(
         (if scale >= 1.0 {
             scale - 1.0
         } else {
             1.0 - scale.recip()
         }) as f32,
     );
-    app.set_subtitle_position_known(state.subtitle_position.is_some());
-    app.set_subtitle_position(state.subtitle_position.unwrap_or(0.0) as f32);
-    app.set_secondary_subtitle_delay_known(state.secondary_subtitle_delay.is_some());
-    app.set_secondary_subtitle_delay(state.secondary_subtitle_delay.unwrap_or(0.0) as f32);
-    app.set_secondary_subtitle_delay_text(
+    subtitles.set_subtitle_position_known(state.subtitle_position.is_some());
+    subtitles.set_subtitle_position(state.subtitle_position.unwrap_or(0.0) as f32);
+    subtitles.set_secondary_subtitle_delay_known(state.secondary_subtitle_delay.is_some());
+    subtitles.set_secondary_subtitle_delay(state.secondary_subtitle_delay.unwrap_or(0.0) as f32);
+    subtitles.set_secondary_subtitle_delay_text(
         crate::localized_number::format_delay(state.secondary_subtitle_delay.unwrap_or(0.0)).into(),
     );
-    app.set_secondary_subtitle_position_known(state.secondary_subtitle_position.is_some());
-    app.set_secondary_subtitle_position(state.secondary_subtitle_position.unwrap_or(0.0) as f32);
-    app.set_subtitle_visible(state.subtitle_visible);
-    app.set_secondary_subtitle_visibility_known(state.secondary_subtitle_visible.is_some());
-    app.set_secondary_subtitle_visible(state.secondary_subtitle_visible.unwrap_or(false));
+    subtitles.set_secondary_subtitle_position_known(state.secondary_subtitle_position.is_some());
+    subtitles
+        .set_secondary_subtitle_position(state.secondary_subtitle_position.unwrap_or(0.0) as f32);
+    subtitles.set_subtitle_visible(state.subtitle_visible);
+    subtitles.set_secondary_subtitle_visibility_known(state.secondary_subtitle_visible.is_some());
+    subtitles.set_secondary_subtitle_visible(state.secondary_subtitle_visible.unwrap_or(false));
 }
 
 fn update_hdr_source(app: &PlayerWindow, state: &Playback, first_loaded: bool) {
