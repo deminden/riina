@@ -1,6 +1,7 @@
 //! Save changes that belong to an individual player session.
 
 use super::*;
+use slint::ComponentHandle;
 
 pub(super) fn connect(
     app: &PlayerWindow,
@@ -146,7 +147,8 @@ fn capture_session_state(
     // These values can change through the player, its native menus, or engine
     // observations. Settings-only controls are already in the model.
     Ok(Preferences {
-        volume: f64::from(app.get_volume()).min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
+        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume())
+            .min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
         volume_boost: app.get_volume_boost(),
         resume_last_position: app.get_resume_last_position(),
         live_text_enabled: app.get_live_text_enabled(),

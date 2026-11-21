@@ -79,7 +79,7 @@ impl Runner {
                 }
                 self.initial = Some(surfaces(app, host)?);
                 check_audio_menu(host)?;
-                self.volume = app.get_volume();
+                self.volume = app.global::<riina_ui::PlaybackAudioState>().get_volume();
                 self.position = app.get_position();
                 let path = crate::platform::preferences_path().map_err(|e| e.to_string())?;
                 crate::preference_store::update(
@@ -105,7 +105,11 @@ impl Runner {
                 self.checks.push("playing_native_video_and_audio_menu");
             }
             1 => {
-                if (app.get_volume() - (self.volume - 5.0).max(0.0)).abs() > 0.1 {
+                if (app.global::<riina_ui::PlaybackAudioState>().get_volume()
+                    - (self.volume - 5.0).max(0.0))
+                .abs()
+                    > 0.1
+                {
                     return Ok(false);
                 }
                 if self.initial.as_ref() != Some(&surfaces(app, host)?) {

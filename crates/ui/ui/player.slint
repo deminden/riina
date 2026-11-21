@@ -1,3 +1,5 @@
+import { PlaybackAudioState } from "playback-audio-state.slint";
+export { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
 import { PlayerSidebarFrame } from "player-sidebar-frame.slint";
 import { PlayerTitleBar } from "player-title-bar.slint";
@@ -418,7 +420,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed menu-alternates-visible => { root.video-menu-changed(); }
     in property <bool> playing: false;
     in property <bool> seekable: false;
-    in property <bool> muted: false;
+    private property <bool> muted: PlaybackAudioState.muted;
     changed muted => { root.video-menu-changed(); }
     in-out property <bool> fullscreen: false;
     in-out property <bool> picture-in-picture-active: false;
@@ -507,8 +509,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> ab-loop-a-known: false;
     in property <float> ab-loop-b: 0;
     in property <bool> ab-loop-b-known: false;
-    in property <float> volume: 100;
-    in property <string> volume-menu-title: "Volume: 100";
+    private property <string> volume-menu-title: PlaybackAudioState.volume-menu-title;
     changed volume-menu-title => { root.video-menu-changed(); }
     in-out property <bool> volume-boost: false;
     in-out property <int> control-pinch-index: 0;
@@ -568,7 +569,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
     in property <[CatalogRow]> audio-tracks;
-    in property <bool> has-active-audio-track: false;
     in property <int> audio-track-selected-index: 0;
     in property <int> video-track-selected-index: 0;
     in property <int> subtitle-track-selected-index: 0;
@@ -1484,9 +1484,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 video-material-sample-opacity: root.video-material-sample-opacity,
             };
             audio: {
-                has-active-audio-track: root.has-active-audio-track,
+                has-active-audio-track: PlaybackAudioState.has-active-audio-track,
                 muted: root.muted,
-                volume: root.volume,
+                volume: PlaybackAudioState.volume,
                 volume-limit: root.volume-limit,
                 control-disable-volume-slider-scrolling: root.control-disable-volume-slider-scrolling,
             };

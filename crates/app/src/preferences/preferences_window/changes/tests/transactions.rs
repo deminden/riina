@@ -607,7 +607,11 @@ fn saving_a_session_retains_committed_preferences_and_updates_runtime_volume() {
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
-    transaction.player.app.set_volume(72.0);
+    transaction
+        .player
+        .app
+        .global::<riina_ui::PlaybackAudioState>()
+        .set_volume(72.0);
     transaction
         .player
         .session
@@ -628,7 +632,11 @@ fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
     let mut foreign = baseline;
     foreign.audio.audio_threads = 5;
     writer.save(&foreign).unwrap();
-    transaction.player.app.set_volume(65.0);
+    transaction
+        .player
+        .app
+        .global::<riina_ui::PlaybackAudioState>()
+        .set_volume(65.0);
     transaction
         .player
         .session

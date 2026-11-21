@@ -97,7 +97,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_current_file_manager_name(app.get_current_file_manager_name());
     host.set_playback_paused(app.get_paused());
     host.set_menu_alternates_visible(app.get_menu_alternates_visible());
-    host.set_playback_muted(app.get_muted());
+    host.set_playback_muted(app.global::<riina_ui::PlaybackAudioState>().get_muted());
     host.set_loop_label(app.get_loop_label());
     let playlist_rows = app.get_playlist();
     crate::ui_models::set_rows_if_changed(

@@ -200,11 +200,15 @@ pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender)
     let weak = app.as_weak();
     app.on_set_volume_boost(move |enabled| {
         if let Some(app) = weak.upgrade() {
-            let volume = app.get_volume().min(if enabled { 200.0 } else { 100.0 });
+            let volume = app
+                .global::<riina_ui::PlaybackAudioState>()
+                .get_volume()
+                .min(if enabled { 200.0 } else { 100.0 });
             match boost_player.send(Command::SetVolumeBoost(enabled)) {
                 Ok(()) => {
                     app.set_volume_boost(enabled);
-                    app.set_volume(volume);
+                    app.global::<riina_ui::PlaybackAudioState>()
+                        .set_volume(volume);
                 }
                 Err(error) => app.set_status(error.into()),
             }

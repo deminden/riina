@@ -263,7 +263,12 @@ unsafe extern "system" fn menu_proc(
         && let Some(app) = context.app.upgrade()
     {
         let information = [
-            ("Volume:", app.get_volume_menu_title().to_string()),
+            (
+                "Volume:",
+                app.global::<riina_ui::PlaybackAudioState>()
+                    .get_volume_menu_title()
+                    .to_string(),
+            ),
             ("Speed:", format!("Speed: {}x", app.get_speed_edit_value())),
             (
                 "Audio Delay:",

@@ -188,12 +188,13 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
     app.set_downloaded_subtitle_save_available(
         crate::file_actions::downloaded_subtitle_path(state).is_some(),
     );
-    app.set_has_active_audio_track(
-        state
-            .tracks
-            .iter()
-            .any(|track| track.kind == TrackKind::Audio && track.is_primary_selected()),
-    );
+    app.global::<riina_ui::PlaybackAudioState>()
+        .set_has_active_audio_track(
+            state
+                .tracks
+                .iter()
+                .any(|track| track.kind == TrackKind::Audio && track.is_primary_selected()),
+        );
     app.set_audio_device_menu_rows(slint::ModelRc::new(slint::VecModel::from(
         audio_device_menu_rows(state),
     )));

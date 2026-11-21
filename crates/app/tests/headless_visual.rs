@@ -152,7 +152,9 @@ fn player(
         window.set_duration(72.0);
         window.set_position_label("0:18".into());
         window.set_duration_label("1:12".into());
-        window.set_has_active_audio_track(true);
+        window
+            .global::<riina_ui::PlaybackAudioState>()
+            .set_has_active_audio_track(true);
         window.set_seekable(true);
         window.set_status("".into());
         window.set_audio_tracks(catalog(&["Stereo", "Commentary"]));

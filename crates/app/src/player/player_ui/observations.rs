@@ -12,7 +12,6 @@ use crate::{
     seek_osd::{self, Change},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, TrackKind, time_label};
-#[cfg(target_os = "macos")]
 use slint::ComponentHandle;
 #[cfg(not(target_os = "macos"))]
 use std::path::Path;
@@ -474,8 +473,9 @@ fn update_transport(app: &PlayerWindow, state: &Playback) {
     app.set_ab_loop_a_known(state.ab_loop_a.is_some());
     app.set_ab_loop_b(state.ab_loop_b.unwrap_or_default() as f32);
     app.set_ab_loop_b_known(state.ab_loop_b.is_some());
-    app.set_volume(state.volume as f32);
-    app.set_volume_menu_title(
+    let audio = app.global::<riina_ui::PlaybackAudioState>();
+    audio.set_volume(state.volume as f32);
+    audio.set_volume_menu_title(
         format!(
             "Volume: {}{}",
             crate::localized_number::format_delay(state.volume),
@@ -483,7 +483,7 @@ fn update_transport(app: &PlayerWindow, state: &Playback) {
         )
         .into(),
     );
-    app.set_muted(state.muted);
+    audio.set_muted(state.muted);
     app.set_speed_value(state.speed as f32);
     app.set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
     app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());

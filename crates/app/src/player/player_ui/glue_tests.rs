@@ -5,6 +5,7 @@ use crate::CatalogSelection;
 use riina_core::TrackKind;
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
+use slint::ComponentHandle;
 use std::{io, sync::mpsc::TryRecvError, time::Duration};
 
 pub(crate) struct Harness {
@@ -357,7 +358,10 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     assert!(app.get_paused());
     assert_eq!(app.get_position(), 1.25);
     assert_eq!(app.get_duration(), 10.0);
-    assert_eq!(app.get_volume(), 45.0);
+    assert_eq!(
+        app.global::<riina_ui::PlaybackAudioState>().get_volume(),
+        45.0
+    );
     assert_eq!(app.get_media_title(), "Headless fixture");
 
     app.invoke_set_ab_loop_point(0, 1.25);

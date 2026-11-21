@@ -1,6 +1,7 @@
 //! Apply live decoder preferences and undo accepted changes on failure.
 use crate::PlayerWindow;
 use riina_core::Command;
+use slint::ComponentHandle;
 
 pub(super) fn apply_text_style(
     app: &PlayerWindow,
@@ -208,7 +209,8 @@ impl AppliedDecoderSettings {
                     let _ = sender.send(Command::SetVolumeBoost(applied.previous.boost));
                     return Err(error);
                 }
-                app.set_volume(capped_volume);
+                app.global::<riina_ui::PlaybackAudioState>()
+                    .set_volume(capped_volume);
             }
             app.set_volume_boost(boost);
             applied.boost_changed = true;
@@ -227,11 +229,12 @@ impl AppliedDecoderSettings {
     pub(super) fn restore(&self, app: &PlayerWindow, sender: &riina_mpv::CommandSender) {
         if self.boost_changed {
             let _ = sender.send(Command::SetVolumeBoost(self.previous.boost));
-            if self.previous.volume != app.get_volume() {
+            if self.previous.volume != app.global::<riina_ui::PlaybackAudioState>().get_volume() {
                 let _ = sender.send(Command::Volume(f64::from(self.previous.volume)));
             }
             app.set_volume_boost(self.previous.boost);
-            app.set_volume(self.previous.volume);
+            app.global::<riina_ui::PlaybackAudioState>()
+                .set_volume(self.previous.volume);
         }
         if self.decoder_changed {
             if let Some(previous_mode) =

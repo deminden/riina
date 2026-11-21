@@ -112,6 +112,26 @@ fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(DelayLane, String)>>
 }
 
 #[test]
+fn playback_audio_observations_belong_to_each_player() {
+    let first = player(0);
+    let second = PlayerWindow::new().unwrap();
+    let first_audio = first.global::<PlaybackAudioState>();
+    let second_audio = second.global::<PlaybackAudioState>();
+
+    first_audio.set_volume(27.0);
+    first_audio.set_muted(true);
+    first_audio.set_has_active_audio_track(true);
+    second_audio.set_volume(61.0);
+
+    assert_eq!(first_audio.get_volume(), 27.0);
+    assert!(first_audio.get_muted());
+    assert!(first_audio.get_has_active_audio_track());
+    assert_eq!(second_audio.get_volume(), 61.0);
+    assert!(!second_audio.get_muted());
+    assert!(!second_audio.get_has_active_audio_track());
+}
+
+#[test]
 fn title_bar_pin_projects_and_toggles_the_player_window_level() {
     let app = player(0);
     app.set_show_player_title_row(true);
@@ -639,7 +659,8 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
     for order in [vec![], vec![0], vec![7, 2, 1, 0], vec![7, 2, 1, 0, 6]] {
         app.set_toolbar_visible_order(slint::ModelRc::new(slint::VecModel::from(order)));
         for has_audio in [false, true] {
-            app.set_has_active_audio_track(has_audio);
+            app.global::<riina_ui::PlaybackAudioState>()
+                .set_has_active_audio_track(has_audio);
             for compact in [false, true] {
                 app.set_compact_ui(compact);
                 for (leading, trailing) in [(0, 0), (5, 0), (0, 5)] {
