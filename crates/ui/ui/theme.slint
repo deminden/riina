@@ -1,0 +1,16 @@
+// Each caller supplies its own theme because player windows can differ.
+export global Theme {
+    out property <color> settings-field-border: #b8b8bc;
+
+    public pure function sidebar-card-border(dark: bool) -> color {
+        return dark ? #ffffff18 : #00000014;
+    }
+
+    public pure function sidebar-section-divider(dark: bool) -> color {
+        return dark ? #ffffff28 : #00000020;
+    }
+
+    public pure function sidebar-section-caption(dark: bool) -> color {
+        return dark ? #bdbdc5 : #707078;
+    }
+}

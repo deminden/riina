@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { CheckBox, ComboBox, ScrollView, Palette } from "std-widgets.slint";
 import { NativeTypography, PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
 
@@ -720,7 +721,7 @@ component PreferenceNumericInput inherits Rectangle {
     clip: true;
     border-radius: 2px;
     border-width: 1px;
-    border-color: root.enabled ? #b8b8bc : #d7d7da;
+    border-color: root.enabled ? Theme.settings-field-border : #d7d7da;
     background: root.enabled ? #ffffff : #eeeeef;
     TextInput {
         x: 3px; y: 1px; width: parent.width - 6px; height: parent.height - 2px;
@@ -741,7 +742,7 @@ component LanguageTokenEditor inherits Rectangle {
     callback remove-token(int);
     border-radius: 2px;
     border-width: 1px;
-    border-color: #b8b8bc;
+    border-color: Theme.settings-field-border;
     background: #ffffff;
 
     ScrollView {
@@ -1962,7 +1963,7 @@ export component PreferencesWindow inherits Window {
                     selected => { root.settings-changed(); }
                 }
                 Rectangle { x: 100px; y: 1px; width: 82px; height: 23px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                    border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
                     TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                         text <=> root.initial-window-size-value-text; font-size: 11px; color: #222222;
                         accepted => { root.settings-changed(); }
@@ -1985,7 +1986,7 @@ export component PreferencesWindow inherits Window {
                 Text { x: 0; y: 0; width: 60px; height: 23px; text: "X Offset:";
                     font-size: 11px; color: #252529; vertical-alignment: center; }
                 Rectangle { x: 62px; y: 0; width: 56px; height: 23px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                    border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
                     TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
                         text <=> root.initial-window-x-offset-text; font-size: 11px; color: #222222;
                         accepted => { root.settings-changed(); }
@@ -2008,7 +2009,7 @@ export component PreferencesWindow inherits Window {
                 Text { x: 0; y: 48px; width: 60px; height: 23px; text: "Y Offset:";
                     font-size: 11px; color: #252529; vertical-alignment: center; }
                 Rectangle { x: 62px; y: 48px; width: 56px; height: 23px;
-                    border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                    border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
                     TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
                         text <=> root.initial-window-y-offset-text; font-size: 11px; color: #222222;
                         accepted => { root.settings-changed(); }
@@ -2095,7 +2096,7 @@ export component PreferencesWindow inherits Window {
                 toggled => { root.settings-changed(); }
             }
             Rectangle { x: 170px; y: 118px; width: 70px; height: 24px;
-                border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> root.control-auto-hide-timeout-text; enabled: root.control-auto-hide-enabled;
                     font-size: 11px; color: #222222;
@@ -2214,7 +2215,7 @@ export component PreferencesWindow inherits Window {
             Text { x: 36px; y: 39px; width: 132px; height: 24px; text: "Auto hide after:";
                 font-size: 12px; color: #222222; vertical-alignment: center; }
             Rectangle { x: 170px; y: 39px; width: 70px; height: 24px;
-                border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> root.osd-timeout-text; font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
@@ -2225,7 +2226,7 @@ export component PreferencesWindow inherits Window {
             Text { x: 36px; y: 68px; width: 132px; height: 24px; text: "Text size:";
                 font-size: 12px; color: #222222; vertical-alignment: center; }
             Rectangle { x: 170px; y: 68px; width: 70px; height: 24px;
-                border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> root.osd-text-size-text; font-size: 11px; color: #222222;
                     accepted => { root.settings-changed(); }
@@ -2516,7 +2517,7 @@ export component PreferencesWindow inherits Window {
                 }
                 if root.subtitle-auto-load-advanced-expanded : Rectangle { x: 14px; y: 82px; width: parent.width - 28px; height: 150px; background: transparent;
                     Text { x: 0px; y: 8px; width: parent.width; height: 18px; text: "Filename priority keywords"; font-size: 12px; color: #252529; }
-                    Rectangle { x: 0px; y: 30px; width: parent.width; height: 24px; border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff; clip: true;
+                    Rectangle { x: 0px; y: 30px; width: parent.width; height: 24px; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff; clip: true;
                         TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
                             accessible-label: "Subtitle filename priority keywords"; text <=> root.subtitle-auto-load-priority-text;
                             accepted => { root.settings-changed(); }
@@ -2524,7 +2525,7 @@ export component PreferencesWindow inherits Window {
                     }
                     Text { x: 0px; y: 58px; width: parent.width; height: 20px; text: "Comma-separated strings, in priority order."; font-size: 10px; color: #77777d; }
                     Text { x: 0px; y: 84px; width: parent.width; height: 18px; text: "Also search these directories"; font-size: 12px; color: #252529; }
-                    Rectangle { x: 0px; y: 106px; width: parent.width; height: 24px; border-width: 1px; border-color: #b8b8bc; border-radius: 3px; background: #ffffff; clip: true;
+                    Rectangle { x: 0px; y: 106px; width: parent.width; height: 24px; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff; clip: true;
                         TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
                             accessible-label: "Subtitle search paths"; text <=> root.subtitle-search-paths-text;
                             accepted => { root.settings-changed(); }
@@ -2618,7 +2619,7 @@ export component PreferencesWindow inherits Window {
                 ComboBox { x: 130px; y: 12px; width: parent.width - 144px; height: 26px; model: root.open-subtitles-provider-options; current-index <=> root.open-subtitles-provider-index; selected => { root.settings-changed(); } }
                 if root.open-subtitles-provider-index != 2 : Rectangle { x: 14px; y: 48px; width: parent.width - 28px; height: 84px; background: transparent;
                     Text { x: 0px; y: 0px; width: parent.width; height: 18px; text: root.open-subtitles-provider-index == 1 ? "Assrt.net token" : "OpenSubtitles API key"; font-size: 12px; color: #252529; }
-                    Rectangle { x: 0px; y: 22px; width: parent.width; height: 24px; background: #ffffff; border-width: 1px; border-color: #b8b8bc; border-radius: 3px; clip: true;
+                    Rectangle { x: 0px; y: 22px; width: parent.width; height: 24px; background: #ffffff; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; clip: true;
                         TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: root.open-subtitles-provider-index == 0;
                             accessible-label: "OpenSubtitles API key"; text <=> root.open-subtitles-api-key; accepted => { root.settings-changed(); }
                         }
@@ -3424,7 +3425,7 @@ export component PreferencesWindow inherits Window {
             Text { x: 20px; y: 42px; width: parent.width - 40px; height: 18px;
                 text: root.key-binding-profile-editor-mode == 2 ? "Enter a new name for this set." : "Enter a name for the new set."; font-size: 11px; color: #68686e; }
             Rectangle { x: 20px; y: 70px; width: parent.width - 40px; height: 30px;
-                border-radius: 5px; border-width: 1px; border-color: #b8b8bc; background: #ffffff;
+                border-radius: 5px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
                 TextInput { x: 7px; y: 1px; width: parent.width - 14px; height: parent.height - 2px;
                     text <=> root.key-binding-profile-editor-name; single-line: true;
                     font-size: 11px; color: #222226; accessible-label: "Key binding set name"; }
@@ -3498,7 +3499,7 @@ export component PreferencesWindow inherits Window {
                 accessible-role: button; accessible-label: "Press a key to record its shortcut";
                 Rectangle { width: parent.width; height: parent.height;
                     border-radius: 4px; border-width: 1px;
-                    border-color: parent.has-focus ? #168bff : #b8b8bc;
+                    border-color: parent.has-focus ? #168bff : Theme.settings-field-border;
                     background: #ffffff;
                     Text { width: parent.width; height: parent.height;
                         text: root.key-binding-editor-key.is-empty ? "Press a key…" : root.key-binding-editor-key;
@@ -3517,7 +3518,7 @@ export component PreferencesWindow inherits Window {
             Text { x: 20px; y: 101px; width: 52px; height: 26px; text: "Action";
                 font-size: 11px; color: #29292d; vertical-alignment: center; }
             Rectangle { x: 76px; y: 101px; width: parent.width - 96px; height: 26px;
-                border-radius: 4px; border-width: 1px; border-color: #b8b8bc; background: #ffffff;
+                border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> root.key-binding-editor-action; single-line: true;
                     font-size: 11px; color: #222226; accessible-label: "Mapping action"; }
@@ -3525,7 +3526,7 @@ export component PreferencesWindow inherits Window {
             Text { x: 20px; y: 135px; width: 52px; height: 26px; text: "Note";
                 font-size: 11px; color: #29292d; vertical-alignment: center; }
             Rectangle { x: 76px; y: 135px; width: parent.width - 96px; height: 26px;
-                border-radius: 4px; border-width: 1px; border-color: #b8b8bc; background: #ffffff;
+                border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> root.key-binding-editor-comment; single-line: true;
                     font-size: 11px; color: #222226; accessible-label: "Mapping comment"; }
@@ -3571,7 +3572,7 @@ export component PreferencesWindow inherits Window {
             Text { x: 20px; y: 82px; width: 80px; height: 26px; text: "GitHub URL";
                 font-size: 11px; color: #29292d; vertical-alignment: center; }
             Rectangle { x: 102px; y: 82px; width: parent.width - 122px; height: 26px;
-                border-radius: 4px; border-width: 1px; border-color: #b8b8bc; background: #ffffff;
+                border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> root.plugin-github-repository; single-line: true;
                     font-size: 11px; color: #222226; enabled: !root.plugin-github-installing;

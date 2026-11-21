@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
 import { Tool } from "player-tool.slint";
 import { MusicModeControls, MusicModeWindowActions } from "music-mode-controls.slint";
@@ -235,11 +236,11 @@ component SidebarSectionTitle inherits Rectangle {
     background: transparent;
     HorizontalLayout {
         spacing: 8px; cross-axis-alignment: center;
-        leading-rule := Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
+        leading-rule := Rectangle { height: 1px; background: Theme.sidebar-section-divider(root.dark-theme);
             horizontal-stretch: 1; }
-        caption := Text { text: root.label; color: root.dark-theme ? #bdbdc5 : #707078;
+        caption := Text { text: root.label; color: Theme.sidebar-section-caption(root.dark-theme);
             font-size: 12px; font-weight: 700; vertical-alignment: center; }
-        trailing-rule := Rectangle { height: 1px; background: root.dark-theme ? #ffffff28 : #00000020;
+        trailing-rule := Rectangle { height: 1px; background: Theme.sidebar-section-divider(root.dark-theme);
             horizontal-stretch: 1; }
     }
 }
@@ -2405,7 +2406,7 @@ export component PlayerWindow inherits Window {
                         width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: root.compact-ui ? 138px : 152px; border-radius: 8px;
                         border-width: 1px;
-                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        border-color: Theme.sidebar-card-border(root.dark-theme);
                         background: root.sidebar-card-material-fill;
                         VerticalLayout {
                             // Mirror IINA's 12/10-point card inset and distinct
@@ -2469,7 +2470,7 @@ export component PlayerWindow inherits Window {
                         width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: 44px; border-radius: 8px;
                         border-width: 1px;
-                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        border-color: Theme.sidebar-card-border(root.dark-theme);
                         background: root.sidebar-card-material-fill;
                         VerticalLayout { padding: 5px; alignment: center;
                             SidebarPositionToggle { label: "Compact Interface";
@@ -2485,7 +2486,7 @@ export component PlayerWindow inherits Window {
                         height: (root.edge-to-edge-video ? 76px : 44px) +
                             (root.unlock-window-aspect-ratio ? 32px : 0px);
                         border-radius: 8px; border-width: 1px;
-                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        border-color: Theme.sidebar-card-border(root.dark-theme);
                         background: root.sidebar-card-material-fill;
                         VerticalLayout { padding: 9px; spacing: 1px; alignment: center;
                             SidebarPositionToggle { label: "Edge-to-Edge Video";
@@ -2543,7 +2544,7 @@ export component PlayerWindow inherits Window {
                         width: layout-content.width - (root.compact-ui ? 8px : 12px);
                         height: root.compact-ui ? 106px : 118px; border-radius: 8px;
                         border-width: 1px;
-                        border-color: root.dark-theme ? #ffffff18 : #00000014;
+                        border-color: Theme.sidebar-card-border(root.dark-theme);
                         background: root.sidebar-card-material-fill;
                         VerticalLayout {
                             padding: root.compact-ui ? 10px : 12px;
@@ -2618,7 +2619,7 @@ export component PlayerWindow inherits Window {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
                             height: 48px; border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             HorizontalLayout { padding-left: 12px; padding-right: 12px;
                                 padding-top: 11px; padding-bottom: 11px;
@@ -2653,7 +2654,7 @@ export component PlayerWindow inherits Window {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
                             height: 92px; border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout { padding: 8px; spacing: 4px;
                             HorizontalLayout { height: 24px; spacing: 8px;
@@ -2754,7 +2755,7 @@ export component PlayerWindow inherits Window {
                                 root.width * 0.8
                             ) - (root.compact-ui ? 28px : 32px);
                             height: 246px + (equalizer-scroll.content-width > equalizer-scroll.visible-width ? 16px : 0px); border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout {
                                 padding: root.compact-ui ? 10px : 12px;
@@ -3017,7 +3018,7 @@ export component PlayerWindow inherits Window {
                             // title-to-slider and slider-to-tick-mark spacing.
                             height: root.compact-ui ? 88px : 92px;
                             border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout {
                                 padding-left: root.compact-ui ? 10px : 12px;
@@ -3098,7 +3099,7 @@ export component PlayerWindow inherits Window {
                                 ? (root.compact-ui ? 66px : 74px)
                                 : (root.compact-ui ? 40px : 44px);
                             border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout {
                                 padding: root.compact-ui ? 10px : 12px;
@@ -3128,7 +3129,7 @@ export component PlayerWindow inherits Window {
                             // gaps, card padding, and 2-point inner inset.
                             height: root.compact-ui ? 126px : 146px;
                             border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout {
                                 padding-left: root.compact-ui ? 11px : 13px;
@@ -3202,7 +3203,7 @@ export component PlayerWindow inherits Window {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 30px : 36px);
                             height: 48px; border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             HorizontalLayout { padding: 8px; spacing: 8px;
                                 Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px;
@@ -3257,7 +3258,7 @@ export component PlayerWindow inherits Window {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
                             height: 190px; border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout { padding: 8px; spacing: 8px;
                                 Rectangle { height: 28px; border-radius: 5px;
@@ -3343,7 +3344,7 @@ export component PlayerWindow inherits Window {
                             width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
                                 root.width * 0.8) - (root.compact-ui ? 28px : 32px);
                             height: 200px; border-radius: 8px; border-width: 1px;
-                            border-color: root.dark-theme ? #ffffff18 : #00000014;
+                            border-color: Theme.sidebar-card-border(root.dark-theme);
                             background: root.sidebar-card-material-fill;
                             VerticalLayout { padding: 8px; spacing: 8px;
                             HorizontalLayout { height: 30px; spacing: 8px;
