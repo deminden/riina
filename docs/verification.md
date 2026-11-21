@@ -536,6 +536,13 @@ changes in the fixture's video region in all three sessions. Each Riina process
 and virtual display exited. The previously reproduced intermittent black-video
 failure remains open.
 
+The native session adapter commit `7226679` passed Linux x64 strict Clippy,
+808 workspace tests and a locked application build. Three isolated sessions
+opened the fixture and exited through Quit. The first session captured a black
+video region at 0.083 s and 1.292 s while mpv returned decoded video. The relaunch
+and fresh-profile sessions showed motion in 197 and 242 of 7,099 video-region
+pixels, respectively. Riina and Xvfb exited after the cohort.
+
 ## Running checks
 
 ### Portable and workspace checks
