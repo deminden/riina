@@ -170,8 +170,11 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
         if let Some(app) = weak.upgrade() {
             app.invoke_activity();
             let mode = if enabled {
-                crate::codec_preferences::hardware_decoder(app.get_hardware_decoder_index())
-                    .unwrap_or(riina_core::video_controls::HardwareDecoder::Auto)
+                crate::codec_preferences::hardware_decoder(
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .get_hardware_decoder_index(),
+                )
+                .unwrap_or(riina_core::video_controls::HardwareDecoder::Auto)
             } else {
                 riina_core::video_controls::HardwareDecoder::Disabled
             };

@@ -77,7 +77,8 @@ pub(super) fn apply_subtitle_text_preferences(
     }
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_subtitle_font(font.clone().into());
-    app.set_subtitle_font_size_preference(selected_size as f32);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_subtitle_font_size_preference(selected_size as f32);
     Ok((font, selected_size))
 }
 
@@ -97,7 +98,8 @@ pub(super) fn restore_subtitle_text_preferences(
     }
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_subtitle_font(previous_font.into());
-    app.set_subtitle_font_size_preference(previous_size as f32);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_subtitle_font_size_preference(previous_size as f32);
 }
 
 pub(super) fn apply_ass_override(
@@ -142,8 +144,10 @@ pub(super) fn apply_ass_override(
         }
         return Err(error.to_string());
     }
-    app.set_subtitle_ass_override_index(selected.0);
-    app.set_secondary_subtitle_ass_override_index(selected.1);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_subtitle_ass_override_index(selected.0);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_secondary_subtitle_ass_override_index(selected.1);
     Ok((primary, secondary))
 }
 
@@ -171,8 +175,10 @@ pub(super) fn restore_ass_override(
             level,
         });
     }
-    app.set_subtitle_ass_override_index(previous.0);
-    app.set_secondary_subtitle_ass_override_index(previous.1);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_subtitle_ass_override_index(previous.0);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_secondary_subtitle_ass_override_index(previous.1);
 }
 
 pub(super) struct DecoderState {
@@ -214,7 +220,8 @@ impl AppliedDecoderSettings {
                 app.global::<riina_ui::PlaybackAudioState>()
                     .set_volume(capped_volume);
             }
-            app.set_volume_boost(boost);
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_volume_boost(boost);
             applied.boost_changed = true;
         }
         if decoder_index != applied.previous.decoder_index {
@@ -222,7 +229,8 @@ impl AppliedDecoderSettings {
                 applied.restore(app, sender);
                 return Err(error);
             }
-            app.set_hardware_decoder_index(decoder_index);
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_hardware_decoder_index(decoder_index);
             applied.decoder_changed = true;
         }
         Ok(applied)
@@ -234,7 +242,8 @@ impl AppliedDecoderSettings {
             if self.previous.volume != app.global::<riina_ui::PlaybackAudioState>().get_volume() {
                 let _ = sender.send(Command::Volume(f64::from(self.previous.volume)));
             }
-            app.set_volume_boost(self.previous.boost);
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_volume_boost(self.previous.boost);
             app.global::<riina_ui::PlaybackAudioState>()
                 .set_volume(self.previous.volume);
         }
@@ -244,7 +253,8 @@ impl AppliedDecoderSettings {
             {
                 let _ = sender.send(Command::HardwareDecoding(previous_mode));
             }
-            app.set_hardware_decoder_index(self.previous.decoder_index);
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_hardware_decoder_index(self.previous.decoder_index);
         }
     }
 }

@@ -1,5 +1,6 @@
 //! Capture side effects cannot be coalesced with disposable playback snapshots.
 use riina_core::Playback;
+use slint::ComponentHandle;
 /// The worker retains this owner through native teardown, including captures
 /// whose completion never reaches a closing UI event loop.
 #[derive(Default)]
@@ -67,7 +68,10 @@ impl Completions {
     }
 }
 pub(crate) fn copy(app: &crate::PlayerWindow, paths: &[String]) -> Option<String> {
-    if !app.get_screenshot_copy_to_clipboard() {
+    if !app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_screenshot_copy_to_clipboard()
+    {
         return None;
     }
     let mut error = None;
@@ -86,8 +90,12 @@ pub(crate) fn copy(app: &crate::PlayerWindow, paths: &[String]) -> Option<String
 pub(crate) fn cleanup(app: &crate::PlayerWindow, paths: &[String]) {
     cleanup_paths(
         riina_core::screenshot::Destinations {
-            save_to_file: app.get_screenshot_save_to_file(),
-            copy_to_clipboard: app.get_screenshot_copy_to_clipboard(),
+            save_to_file: app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_screenshot_save_to_file(),
+            copy_to_clipboard: app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_screenshot_copy_to_clipboard(),
         },
         paths,
     );

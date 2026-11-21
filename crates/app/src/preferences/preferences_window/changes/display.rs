@@ -11,6 +11,7 @@ use riina_core::{
     pip_preferences::Settings as PictureInPicture,
     thumbnail_preferences::Settings as ThumbnailPreview, window_resize,
 };
+use slint::ComponentHandle;
 
 struct Layout {
     position: i32,
@@ -57,13 +58,17 @@ impl Draft {
             compact: app.get_compact_ui(),
             docked: app.get_docked_controls(),
         };
-        let previous_chapter_positions = app.get_show_chapter_pos();
+        let previous_chapter_positions = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_show_chapter_pos();
         let previous_resize = read_or_refresh(
             crate::window_resize_preferences::from_player(app),
             app,
             window,
         )?;
-        let previous_volume_boost = app.get_volume_boost();
+        let previous_volume_boost = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_volume_boost();
         let previous_material = crate::liquid_glass_preferences::current_player(app);
         let material = read_or_refresh(
             model.read_section::<liquid_glass::SurfaceSettings>(window),
@@ -100,12 +105,13 @@ impl Draft {
     }
 
     pub(super) fn project_before_save(&self, app: &PlayerWindow, window: &PreferencesWindow) {
+        let player_preferences = app.global::<riina_ui::PlayerPreferences>();
         self.resize.write_player(app);
-        app.set_osd_enabled(window.get_osd_enabled());
-        app.set_disable_osd_speed(window.get_disable_osd_speed());
-        app.set_disable_osd_seek(window.get_disable_osd_seek());
+        player_preferences.set_osd_enabled(window.get_osd_enabled());
+        player_preferences.set_disable_osd_speed(window.get_disable_osd_speed());
+        player_preferences.set_disable_osd_seek(window.get_disable_osd_seek());
         app.set_osc_position(window.get_osc_position().clamp(0, 2));
-        app.set_show_chapter_pos(window.get_show_chapter_pos());
+        player_preferences.set_show_chapter_pos(window.get_show_chapter_pos());
         app.set_compact_ui(window.get_compact_ui());
         if !app.get_edge_to_edge_video() {
             app.set_docked_controls(window.get_docked_controls());
@@ -126,7 +132,8 @@ impl Draft {
     pub(super) fn restore(&self, app: &PlayerWindow) {
         self.previous_osd.install_player(app);
         app.set_osc_position(self.previous_layout.position);
-        app.set_show_chapter_pos(self.previous_chapter_positions);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_show_chapter_pos(self.previous_chapter_positions);
         app.set_compact_ui(self.previous_layout.compact);
         app.set_docked_controls(self.previous_layout.docked);
         self.previous_material.write_player(app);

@@ -47,8 +47,14 @@ fn encoding_code(index: i32) -> Option<&'static str> {
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<OtherPreferences, String> {
     let preferences = OtherPreferences {
-        preferred_languages: app.get_subtitle_preferred_languages().to_string(),
-        default_encoding: app.get_subtitle_default_encoding().to_string(),
+        preferred_languages: app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_subtitle_preferred_languages()
+            .to_string(),
+        default_encoding: app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_subtitle_default_encoding()
+            .to_string(),
     };
     preferences.validate().map_err(str::to_owned)?;
     Ok(preferences)
@@ -75,8 +81,10 @@ pub(crate) fn current_window(
 }
 
 pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &OtherPreferences) {
-    app.set_subtitle_preferred_languages(preferences.preferred_languages.clone().into());
-    app.set_subtitle_default_encoding(preferences.default_encoding.clone().into());
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_subtitle_preferred_languages(preferences.preferred_languages.clone().into());
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_subtitle_default_encoding(preferences.default_encoding.clone().into());
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_subtitle_encoding_options(ModelRc::new(VecModel::from(
             SUBTITLE_ENCODING_CHOICES

@@ -182,7 +182,11 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
         if action_after_launch.open_file_panel(supplied_media_argument) {
             app.global::<PlayerMenuActions>().invoke_open_file();
         }
-        platform::center_player_window(&app, app.get_initial_window_position_enabled());
+        platform::center_player_window(
+            &app,
+            app.global::<riina_ui::PlayerPreferences>()
+                .get_initial_window_position_enabled(),
+        );
     }
     slint::run_event_loop()?;
     player_manager.save_all()

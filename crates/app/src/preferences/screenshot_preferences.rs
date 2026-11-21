@@ -4,17 +4,20 @@ use riina_core::screenshot::{Format, Settings};
 use slint::ComponentHandle;
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {
-    app.set_screenshot_save_to_file(settings.destinations.save_to_file);
-    app.set_screenshot_copy_to_clipboard(settings.destinations.copy_to_clipboard);
-    app.set_screenshot_format(settings.encoding.format.native_value().into());
-    app.set_screenshot_template(settings.encoding.template.clone().into());
-    app.set_screenshot_custom_directory(settings.directory.is_some());
-    app.set_screenshot_directory(settings.directory.clone().unwrap_or_default().into());
-    app.set_screenshot_include_subtitles(settings.include_subtitles);
-    app.set_screenshot_show_preview(settings.show_preview);
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_screenshot_save_to_file(settings.destinations.save_to_file);
+    player_preferences.set_screenshot_copy_to_clipboard(settings.destinations.copy_to_clipboard);
+    player_preferences.set_screenshot_format(settings.encoding.format.native_value().into());
+    player_preferences.set_screenshot_template(settings.encoding.template.clone().into());
+    player_preferences.set_screenshot_custom_directory(settings.directory.is_some());
+    player_preferences
+        .set_screenshot_directory(settings.directory.clone().unwrap_or_default().into());
+    player_preferences.set_screenshot_include_subtitles(settings.include_subtitles);
+    player_preferences.set_screenshot_show_preview(settings.show_preview);
 }
 
 pub(crate) fn project_window_edit(app: &PlayerWindow, window: &crate::PreferencesWindow) {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
     // AVIF can be configured externally but has no item in the pinned
     // General pane. Editing another control must preserve that choice.
@@ -24,30 +27,30 @@ pub(crate) fn project_window_edit(app: &PlayerWindow, window: &crate::Preference
             .get_format_index(),
     ) && let Some(format) = formats.get(index)
     {
-        app.set_screenshot_format((*format).into());
+        player_preferences.set_screenshot_format((*format).into());
     }
-    app.set_screenshot_include_subtitles(
+    player_preferences.set_screenshot_include_subtitles(
         window
             .global::<riina_ui::GeneralSettingsState>()
             .get_include_subtitles(),
     );
-    app.set_screenshot_show_preview(
+    player_preferences.set_screenshot_show_preview(
         window
             .global::<riina_ui::GeneralSettingsState>()
             .get_show_preview(),
     );
-    app.set_screenshot_save_to_file(
+    player_preferences.set_screenshot_save_to_file(
         window
             .global::<riina_ui::GeneralSettingsState>()
             .get_save_to_file(),
     );
-    app.set_screenshot_copy_to_clipboard(
+    player_preferences.set_screenshot_copy_to_clipboard(
         window
             .global::<riina_ui::GeneralSettingsState>()
             .get_copy_to_clipboard(),
     );
-    app.set_screenshot_custom_directory(window.get_custom_directory());
-    app.set_screenshot_directory(
+    player_preferences.set_screenshot_custom_directory(window.get_custom_directory());
+    player_preferences.set_screenshot_directory(
         window
             .global::<riina_ui::GeneralSettingsState>()
             .get_directory(),
@@ -55,7 +58,8 @@ pub(crate) fn project_window_edit(app: &PlayerWindow, window: &crate::Preference
 }
 
 pub(crate) fn current(app: &PlayerWindow) -> Result<Settings, String> {
-    let format = match app.get_screenshot_format().as_str() {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    let format = match player_preferences.get_screenshot_format().as_str() {
         "png" => Format::Png,
         "jpg" => Format::Jpg,
         "jpeg" => Format::Jpeg,
@@ -66,18 +70,18 @@ pub(crate) fn current(app: &PlayerWindow) -> Result<Settings, String> {
     };
     let settings = Settings {
         destinations: riina_core::screenshot::Destinations {
-            save_to_file: app.get_screenshot_save_to_file(),
-            copy_to_clipboard: app.get_screenshot_copy_to_clipboard(),
+            save_to_file: player_preferences.get_screenshot_save_to_file(),
+            copy_to_clipboard: player_preferences.get_screenshot_copy_to_clipboard(),
         },
         encoding: riina_core::screenshot::Encoding {
             format,
-            template: app.get_screenshot_template().to_string(),
+            template: player_preferences.get_screenshot_template().to_string(),
         },
-        directory: app
+        directory: player_preferences
             .get_screenshot_custom_directory()
-            .then(|| app.get_screenshot_directory().to_string()),
-        include_subtitles: app.get_screenshot_include_subtitles(),
-        show_preview: app.get_screenshot_show_preview(),
+            .then(|| player_preferences.get_screenshot_directory().to_string()),
+        include_subtitles: player_preferences.get_screenshot_include_subtitles(),
+        show_preview: player_preferences.get_screenshot_show_preview(),
     };
     // An invalid draft must not replace saved preferences or reach libmpv.
     settings.validate()?;

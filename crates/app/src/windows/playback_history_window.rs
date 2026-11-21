@@ -656,7 +656,13 @@ fn media_open_history_entry(
         title: String::new(),
         position,
     };
-    crate::media_open::open_recent(app, recent, app.get_resume_last_position(), player);
+    crate::media_open::open_recent(
+        app,
+        recent,
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_resume_last_position(),
+        player,
+    );
 }
 
 fn refresh(

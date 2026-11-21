@@ -257,10 +257,13 @@ fn profile_names(settings: &Settings) -> Result<Vec<String>, String> {
 }
 
 pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let settings = Settings {
-        current_profile: app.get_key_binding_current_profile().to_string(),
-        use_system_media_controls: app.get_key_binding_use_system_media_controls(),
-        display_raw_values: app.get_key_binding_display_raw_values(),
+        current_profile: player_preferences
+            .get_key_binding_current_profile()
+            .to_string(),
+        use_system_media_controls: player_preferences.get_key_binding_use_system_media_controls(),
+        display_raw_values: player_preferences.get_key_binding_display_raw_values(),
     };
     settings.validate().map_err(str::to_owned)?;
     Ok(settings)

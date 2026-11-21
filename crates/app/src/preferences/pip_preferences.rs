@@ -4,6 +4,7 @@ use riina_core::{
     Preferences,
     pip_preferences::{Settings, WindowBehavior},
 };
+use slint::ComponentHandle;
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {
@@ -28,11 +29,12 @@ impl PreferenceSection for Settings {
 }
 
 pub(crate) fn current_player(window: &PlayerWindow) -> Result<Settings, String> {
+    let player_preferences = window.global::<riina_ui::PlayerPreferences>();
     current(
-        window.get_pip_window_behavior_index(),
-        window.get_pip_pause_when_entering(),
-        window.get_pip_toggle_by_minimizing(),
-        window.get_pip_minimize_toggle_video_only(),
+        player_preferences.get_pip_window_behavior_index(),
+        player_preferences.get_pip_pause_when_entering(),
+        player_preferences.get_pip_toggle_by_minimizing(),
+        player_preferences.get_pip_minimize_toggle_video_only(),
     )
 }
 
@@ -46,10 +48,11 @@ pub(crate) fn current_preferences(window: &PreferencesWindow) -> Result<Settings
 }
 
 pub(crate) fn install_player(window: &PlayerWindow, settings: Settings) {
-    window.set_pip_window_behavior_index(settings.window_behavior.index());
-    window.set_pip_pause_when_entering(settings.pause_when_entering);
-    window.set_pip_toggle_by_minimizing(settings.toggle_by_minimizing);
-    window.set_pip_minimize_toggle_video_only(settings.minimize_toggle_video_only);
+    let player_preferences = window.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_pip_window_behavior_index(settings.window_behavior.index());
+    player_preferences.set_pip_pause_when_entering(settings.pause_when_entering);
+    player_preferences.set_pip_toggle_by_minimizing(settings.toggle_by_minimizing);
+    player_preferences.set_pip_minimize_toggle_video_only(settings.minimize_toggle_video_only);
 }
 
 pub(crate) fn install_preferences(window: &PreferencesWindow, settings: Settings) {

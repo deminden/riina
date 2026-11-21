@@ -31,7 +31,8 @@ fn flush() {
 fn player(pane: i32) -> PlayerWindow {
     i_slint_backend_testing::init_no_event_loop();
     let app = PlayerWindow::new().unwrap();
-    app.set_disable_animations(true);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_disable_animations(true);
     app.set_loaded(true);
     app.set_sidebar(pane);
     app.global::<riina_ui::PlaybackAudioState>()

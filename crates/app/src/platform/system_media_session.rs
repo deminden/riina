@@ -133,7 +133,9 @@ mod macos {
             }
             Action::Inactive => {
                 *application_active = false;
-                if app.get_pause_when_inactive()
+                if app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_pause_when_inactive()
                     && (player_window_was_focused || some_player_window_is_focused())
                     && !paused_by_inactive.is_pending()
                 {
@@ -144,7 +146,11 @@ mod macos {
                 }
             }
             Action::Active => *application_active = true,
-            Action::Sleep if app.get_pause_when_goes_to_sleep() => {
+            Action::Sleep
+                if app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_pause_when_goes_to_sleep() =>
+            {
                 let should_pause = {
                     let state = riina_core::sync::lock(latest_playback);
                     state.phase == Phase::Playing && !state.paused
@@ -188,9 +194,14 @@ mod macos {
                     Duration::from_millis(50),
                     move || {
                         let Some(app) = weak.upgrade() else { return };
-                        let profile = app.get_key_binding_current_profile().to_string();
-                        let active =
-                            app.get_loaded() && app.get_key_binding_use_system_media_controls();
+                        let profile = app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .get_key_binding_current_profile()
+                            .to_string();
+                        let active = app.get_loaded()
+                            && app
+                                .global::<riina_ui::PlayerPreferences>()
+                                .get_key_binding_use_system_media_controls();
                         if active
                             && (skip_intervals
                                 .as_ref()
@@ -213,9 +224,11 @@ mod macos {
                             .synchronize(active, &profile, forward, backward);
                         if active {
                             let current = riina_core::sync::lock(&playback).clone();
-                            controls_tick
-                                .borrow_mut()
-                                .publish_playback(&current, app.get_thumbnail_preview_enabled());
+                            controls_tick.borrow_mut().publish_playback(
+                                &current,
+                                app.global::<riina_ui::PlayerPreferences>()
+                                    .get_thumbnail_preview_enabled(),
+                            );
                         }
                         let actions = controls_tick.borrow().drain_actions().collect::<Vec<_>>();
                         for action in actions {
@@ -235,7 +248,10 @@ mod macos {
                             .window()
                             .with_winit_window(|window| window.has_focus())
                             .unwrap_or(false);
-                        if app.get_pause_when_inactive() {
+                        if app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .get_pause_when_inactive()
+                        {
                             if application_active
                                 && !focused
                                 && some_player_window_is_focused()
@@ -252,7 +268,10 @@ mod macos {
                                 }
                             }
                         }
-                        if !app.get_pause_when_inactive() {
+                        if !app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .get_pause_when_inactive()
+                        {
                             paused_by_inactive.cancel();
                         }
                         player_window_was_focused = focused;

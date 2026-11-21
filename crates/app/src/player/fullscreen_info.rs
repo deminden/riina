@@ -36,7 +36,9 @@ fn update(app: &PlayerWindow) {
 
 fn should_show(app: &PlayerWindow) -> bool {
     app.get_fullscreen()
-        && app.get_display_time_and_battery_in_fullscreen()
+        && app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_display_time_and_battery_in_fullscreen()
         && app.get_controls_visible()
         && app.get_loaded()
         && !app.get_crop_editing()

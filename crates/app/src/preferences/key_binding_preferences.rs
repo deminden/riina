@@ -9,6 +9,7 @@ mod menus;
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::{Preferences, key_bindings::Settings};
+use slint::ComponentHandle;
 
 pub(crate) use builtins::mappings_for;
 pub(crate) use dispatch::{
@@ -40,9 +41,11 @@ impl PreferenceSection for Settings {
     }
 
     fn write_player(&self, app: &PlayerWindow) {
-        app.set_key_binding_current_profile(self.current_profile.clone().into());
-        app.set_key_binding_use_system_media_controls(self.use_system_media_controls);
-        app.set_key_binding_display_raw_values(self.display_raw_values);
+        let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+        player_preferences.set_key_binding_current_profile(self.current_profile.clone().into());
+        player_preferences
+            .set_key_binding_use_system_media_controls(self.use_system_media_controls);
+        player_preferences.set_key_binding_display_raw_values(self.display_raw_values);
     }
 }
 

@@ -99,13 +99,17 @@ pub(super) fn install_fullscreen(
                 if fullscreen
                     && app.get_loaded()
                     && app.get_paused()
-                    && app.get_play_when_entering_fullscreen()
+                    && app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .get_play_when_entering_fullscreen()
                 {
                     app.invoke_set_paused(false);
                 } else if !fullscreen
                     && app.get_loaded()
                     && !app.get_paused()
-                    && app.get_pause_when_leaving_fullscreen()
+                    && app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .get_pause_when_leaving_fullscreen()
                 {
                     app.invoke_set_paused(true);
                 }

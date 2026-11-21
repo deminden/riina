@@ -6,7 +6,10 @@ use std::{cell::Cell, rc::Rc};
 
 pub(super) fn install(app: &PlayerWindow, send: impl Fn(Command) -> Result<(), String> + 'static) {
     let send = Rc::new(send);
-    let requested = Rc::new(Cell::new(app.get_default_hdr_mode_enabled()));
+    let requested = Rc::new(Cell::new(
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_default_hdr_mode_enabled(),
+    ));
     let request = requested.clone();
     let player = send.clone();
     let weak = app.as_weak();
@@ -19,7 +22,10 @@ pub(super) fn install(app: &PlayerWindow, send: impl Fn(Command) -> Result<(), S
     let weak = app.as_weak();
     app.on_reset_hdr_output(move || {
         if let Some(app) = weak.upgrade() {
-            request.set(app.get_default_hdr_mode_enabled());
+            request.set(
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_default_hdr_mode_enabled(),
+            );
             app.invoke_refresh_hdr_output();
         }
     });
@@ -48,7 +54,8 @@ fn apply(
     match send(Command::SetHdrEnabledWithIcc {
         enabled,
         load_icc_profile: use_display_profile(
-            app.get_load_icc_profile(),
+            app.global::<riina_ui::PlayerPreferences>()
+                .get_load_icc_profile(),
             video.get_hdr_source_detected(),
             cfg!(target_os = "windows") && app.get_native_video(),
         ),
@@ -91,8 +98,10 @@ pub(super) fn install_display_observer(
 
     let video = app.global::<riina_ui::PlaybackVideoState>();
     video.set_hdr_enabled(prefs.hdr_enabled);
-    app.set_default_hdr_mode_enabled(prefs.hdr_enabled);
-    app.set_load_icc_profile(prefs.load_icc_profile);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_default_hdr_mode_enabled(prefs.hdr_enabled);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_load_icc_profile(prefs.load_icc_profile);
     video.set_hdr_display_active(
         native.is_some_and(|presentation| presentation.hdr_display_active()),
     );
@@ -123,7 +132,8 @@ mod tests {
     fn native_windows_hdr_conversion_keeps_the_swapchain_target_instead_of_an_sdr_profile() {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new().unwrap();
-        app.set_load_icc_profile(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_load_icc_profile(true);
         app.set_native_video(true);
         let video = app.global::<riina_ui::PlaybackVideoState>();
         video.set_hdr_source_detected(true);
@@ -157,7 +167,8 @@ mod tests {
             .collect();
         assert_eq!(profiles, [false, true, true]);
         assert!(
-            app.get_load_icc_profile(),
+            app.global::<riina_ui::PlayerPreferences>()
+                .get_load_icc_profile(),
             "The saved preference is retained"
         );
     }
@@ -166,11 +177,13 @@ mod tests {
     fn paused_hdr_video_resets_output_when_desktop_changes_to_sdr_and_restores_intent() {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new().unwrap();
-        app.set_default_hdr_mode_enabled(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_default_hdr_mode_enabled(true);
         let video = app.global::<riina_ui::PlaybackVideoState>();
         video.set_hdr_source_detected(true);
         app.set_paused(true);
-        app.set_load_icc_profile(false);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_load_icc_profile(false);
         let commands = Rc::new(RefCell::new(Vec::new()));
         let observed = commands.clone();
         install(&app, move |command| {
@@ -204,7 +217,8 @@ mod tests {
     fn manual_disable_survives_display_changes_until_the_next_file() {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new().unwrap();
-        app.set_default_hdr_mode_enabled(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_default_hdr_mode_enabled(true);
         let video = app.global::<riina_ui::PlaybackVideoState>();
         video.set_hdr_source_detected(true);
         install(&app, |_| Ok(()));
@@ -227,7 +241,8 @@ mod tests {
         let video = app.global::<riina_ui::PlaybackVideoState>();
         video.set_hdr_enabled(false);
         video.set_hdr_source_detected(true);
-        app.set_default_hdr_mode_enabled(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_default_hdr_mode_enabled(true);
         install(&app, |_| Err("engine closed".into()));
         app.invoke_set_hdr_enabled(true);
         assert!(!video.get_hdr_enabled());

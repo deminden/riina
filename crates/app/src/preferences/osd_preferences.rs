@@ -2,6 +2,7 @@
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::Preferences;
+use slint::ComponentHandle;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Settings {
@@ -54,15 +55,17 @@ impl PreferenceSection for Settings {
 }
 
 pub(crate) fn current_player(window: &PlayerWindow) -> Settings {
+    let player_preferences = window.global::<riina_ui::PlayerPreferences>();
     Settings {
-        enabled: window.get_osd_enabled(),
-        disable_file_start: window.get_disable_osd_file_start(),
-        disable_pause_resume: window.get_disable_osd_pause_resume(),
-        disable_speed: window.get_disable_osd_speed(),
-        disable_seek: window.get_disable_osd_seek(),
-        timeout_secs: f64::from(window.get_osd_timeout_secs()),
-        text_size: f64::from(window.get_osd_text_size()),
-        display_time_and_battery_in_fullscreen: window.get_display_time_and_battery_in_fullscreen(),
+        enabled: player_preferences.get_osd_enabled(),
+        disable_file_start: player_preferences.get_disable_osd_file_start(),
+        disable_pause_resume: player_preferences.get_disable_osd_pause_resume(),
+        disable_speed: player_preferences.get_disable_osd_speed(),
+        disable_seek: player_preferences.get_disable_osd_seek(),
+        timeout_secs: f64::from(player_preferences.get_osd_timeout_secs()),
+        text_size: f64::from(player_preferences.get_osd_text_size()),
+        display_time_and_battery_in_fullscreen: player_preferences
+            .get_display_time_and_battery_in_fullscreen(),
     }
 }
 
@@ -92,14 +95,15 @@ impl Settings {
     }
 
     pub(crate) fn install_player(self, window: &PlayerWindow) {
-        window.set_osd_enabled(self.enabled);
-        window.set_disable_osd_file_start(self.disable_file_start);
-        window.set_disable_osd_pause_resume(self.disable_pause_resume);
-        window.set_disable_osd_speed(self.disable_speed);
-        window.set_disable_osd_seek(self.disable_seek);
-        window.set_osd_timeout_secs(self.timeout_secs as f32);
-        window.set_osd_text_size(self.text_size as f32);
-        window.set_display_time_and_battery_in_fullscreen(
+        let player_preferences = window.global::<riina_ui::PlayerPreferences>();
+        player_preferences.set_osd_enabled(self.enabled);
+        player_preferences.set_disable_osd_file_start(self.disable_file_start);
+        player_preferences.set_disable_osd_pause_resume(self.disable_pause_resume);
+        player_preferences.set_disable_osd_speed(self.disable_speed);
+        player_preferences.set_disable_osd_seek(self.disable_seek);
+        player_preferences.set_osd_timeout_secs(self.timeout_secs as f32);
+        player_preferences.set_osd_text_size(self.text_size as f32);
+        player_preferences.set_display_time_and_battery_in_fullscreen(
             self.display_time_and_battery_in_fullscreen,
         );
     }

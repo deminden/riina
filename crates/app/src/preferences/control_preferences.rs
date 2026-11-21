@@ -59,53 +59,72 @@ fn choice(index: i32, choices: &[MouseAction], label: &str) -> Result<MouseActio
 }
 
 pub(crate) fn install_player(app: &PlayerWindow, settings: &Settings) {
-    app.set_control_pinch_index(settings.pinch_action.index());
-    app.set_control_force_touch_index(settings.force_touch_action.index());
-    app.set_control_single_click_index(settings.single_click_action.index());
-    app.set_control_double_click_index(settings.double_click_action.index());
-    app.set_control_right_click_index(settings.right_click_action.index());
-    app.set_control_middle_click_index(settings.middle_click_action.index());
-    app.set_control_accepts_first_mouse(settings.accepts_first_mouse);
-    app.set_control_vertical_scroll_index(settings.vertical_scroll_action.index());
-    app.set_control_horizontal_scroll_index(settings.horizontal_scroll_action.index());
-    app.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
-    app.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
-    app.set_control_seek_type_index(settings.seek_type.index());
-    app.set_control_relative_seek_amount(i32::from(settings.relative_seek_amount));
-    app.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
-    app.set_control_speed_sensitivity(i32::from(settings.speed_sensitivity));
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_control_pinch_index(settings.pinch_action.index());
+    player_preferences.set_control_force_touch_index(settings.force_touch_action.index());
+    player_preferences.set_control_single_click_index(settings.single_click_action.index());
+    player_preferences.set_control_double_click_index(settings.double_click_action.index());
+    player_preferences.set_control_right_click_index(settings.right_click_action.index());
+    player_preferences.set_control_middle_click_index(settings.middle_click_action.index());
+    player_preferences.set_control_accepts_first_mouse(settings.accepts_first_mouse);
+    player_preferences.set_control_vertical_scroll_index(settings.vertical_scroll_action.index());
+    player_preferences
+        .set_control_horizontal_scroll_index(settings.horizontal_scroll_action.index());
+    player_preferences
+        .set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
+    player_preferences
+        .set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
+    player_preferences.set_control_seek_type_index(settings.seek_type.index());
+    player_preferences.set_control_relative_seek_amount(i32::from(settings.relative_seek_amount));
+    player_preferences.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
+    player_preferences.set_control_speed_sensitivity(i32::from(settings.speed_sensitivity));
 }
 
 pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let settings = Settings {
-        pinch_action: PinchAction::from_index(app.get_control_pinch_index())
+        pinch_action: PinchAction::from_index(player_preferences.get_control_pinch_index())
             .ok_or_else(|| "Invalid pinch action".to_owned())?,
-        force_touch_action: MouseAction::from_index(app.get_control_force_touch_index())
-            .ok_or_else(|| "Invalid Force Touch action".to_owned())?,
-        single_click_action: MouseAction::from_index(app.get_control_single_click_index())
-            .ok_or_else(|| "Invalid single-click action".to_owned())?,
-        double_click_action: MouseAction::from_index(app.get_control_double_click_index())
-            .ok_or_else(|| "Invalid double-click action".to_owned())?,
-        right_click_action: MouseAction::from_index(app.get_control_right_click_index())
-            .ok_or_else(|| "Invalid right-click action".to_owned())?,
-        middle_click_action: MouseAction::from_index(app.get_control_middle_click_index())
-            .ok_or_else(|| "Invalid middle-click action".to_owned())?,
-        accepts_first_mouse: app.get_control_accepts_first_mouse(),
-        vertical_scroll_action: ScrollAction::from_index(app.get_control_vertical_scroll_index())
-            .ok_or_else(|| "Invalid vertical-scroll action".to_owned())?,
+        force_touch_action: MouseAction::from_index(
+            player_preferences.get_control_force_touch_index(),
+        )
+        .ok_or_else(|| "Invalid Force Touch action".to_owned())?,
+        single_click_action: MouseAction::from_index(
+            player_preferences.get_control_single_click_index(),
+        )
+        .ok_or_else(|| "Invalid single-click action".to_owned())?,
+        double_click_action: MouseAction::from_index(
+            player_preferences.get_control_double_click_index(),
+        )
+        .ok_or_else(|| "Invalid double-click action".to_owned())?,
+        right_click_action: MouseAction::from_index(
+            player_preferences.get_control_right_click_index(),
+        )
+        .ok_or_else(|| "Invalid right-click action".to_owned())?,
+        middle_click_action: MouseAction::from_index(
+            player_preferences.get_control_middle_click_index(),
+        )
+        .ok_or_else(|| "Invalid middle-click action".to_owned())?,
+        accepts_first_mouse: player_preferences.get_control_accepts_first_mouse(),
+        vertical_scroll_action: ScrollAction::from_index(
+            player_preferences.get_control_vertical_scroll_index(),
+        )
+        .ok_or_else(|| "Invalid vertical-scroll action".to_owned())?,
         horizontal_scroll_action: ScrollAction::from_index(
-            app.get_control_horizontal_scroll_index(),
+            player_preferences.get_control_horizontal_scroll_index(),
         )
         .ok_or_else(|| "Invalid horizontal-scroll action".to_owned())?,
-        disable_play_slider_scrolling: app.get_control_disable_play_slider_scrolling(),
-        disable_volume_slider_scrolling: app.get_control_disable_volume_slider_scrolling(),
-        seek_type: SeekType::from_index(app.get_control_seek_type_index())
+        disable_play_slider_scrolling: player_preferences
+            .get_control_disable_play_slider_scrolling(),
+        disable_volume_slider_scrolling: player_preferences
+            .get_control_disable_volume_slider_scrolling(),
+        seek_type: SeekType::from_index(player_preferences.get_control_seek_type_index())
             .ok_or_else(|| "Invalid seek type".to_owned())?,
-        relative_seek_amount: u8::try_from(app.get_control_relative_seek_amount())
+        relative_seek_amount: u8::try_from(player_preferences.get_control_relative_seek_amount())
             .map_err(|_| "Invalid relative seek amount")?,
-        volume_sensitivity: u8::try_from(app.get_control_volume_sensitivity())
+        volume_sensitivity: u8::try_from(player_preferences.get_control_volume_sensitivity())
             .map_err(|_| "Invalid volume sensitivity")?,
-        speed_sensitivity: u8::try_from(app.get_control_speed_sensitivity())
+        speed_sensitivity: u8::try_from(player_preferences.get_control_speed_sensitivity())
             .map_err(|_| "Invalid speed sensitivity")?,
     };
     settings.validate().map_err(str::to_owned)?;

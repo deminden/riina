@@ -114,7 +114,11 @@ pub(crate) fn show_osd_message(
     text: impl Into<slint::SharedString>,
     keep_stopped: bool,
 ) {
-    if !app.get_osd_enabled() || app.get_crop_editing() {
+    if !app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_osd_enabled()
+        || app.get_crop_editing()
+    {
         return;
     }
     app.set_video_osd_request_feedback(keep_stopped);

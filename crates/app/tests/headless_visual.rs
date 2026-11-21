@@ -128,7 +128,9 @@ fn player(
     let window = PlayerWindow::new()?;
     window.set_platform_windows(true);
     window.set_native_video(false);
-    window.set_disable_animations(true);
+    window
+        .global::<riina_ui::PlayerPreferences>()
+        .set_disable_animations(true);
     window.set_dark_theme(dark);
     window.set_engine_ready(true);
     window.set_controls_visible(true);
@@ -287,7 +289,9 @@ fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
         }),
         ("player-fullscreen-info", |window| {
             window.set_fullscreen(true);
-            window.set_display_time_and_battery_in_fullscreen(true);
+            window
+                .global::<riina_ui::PlayerPreferences>()
+                .set_display_time_and_battery_in_fullscreen(true);
             window
                 .global::<riina_ui::PlayerOsdState>()
                 .set_fullscreen_info_time("16:45".into());

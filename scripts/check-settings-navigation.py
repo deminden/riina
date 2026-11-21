@@ -388,7 +388,7 @@ def main():
     )
     assert (
         re.search(
-            r"if fullscreen\s*&&\s*loaded\s*&&\s*controls-visible\s*&&\s*display-time-and-battery-in-fullscreen\s*&&\s*!crop-editing\s*:\s*FullscreenInfoOsd",
+            r"if fullscreen\s*&&\s*loaded\s*&&\s*controls-visible\s*&&\s*PlayerPreferences\.display-time-and-battery-in-fullscreen\s*&&\s*!crop-editing\s*:\s*FullscreenInfoOsd",
             PLAYER_SOURCE,
         )
         and all(

@@ -76,25 +76,27 @@ impl Draft {
 
 impl Policy {
     fn from_player(app: &PlayerWindow) -> Self {
+        let player_preferences = app.global::<riina_ui::PlayerPreferences>();
         Self {
-            pause_when_open: app.get_pause_when_open(),
-            play_when_entering_fullscreen: app.get_play_when_entering_fullscreen(),
-            pause_when_leaving_fullscreen: app.get_pause_when_leaving_fullscreen(),
-            pause_when_inactive: app.get_pause_when_inactive(),
-            pause_when_minimized: app.get_pause_when_minimized(),
-            pause_when_goes_to_sleep: app.get_pause_when_goes_to_sleep(),
-            quit_when_no_opened_window: app.get_quit_when_no_opened_window(),
-            keep_open_on_file_end: app.get_keep_open_on_file_end(),
-            playlist_auto_play_next: app.get_playlist_auto_play_next(),
-            playlist_auto_add: app.get_playlist_auto_add(),
-            playlist_show_metadata: app.get_playlist_show_metadata(),
-            playlist_show_metadata_in_music_mode: app.get_playlist_show_metadata_in_music_mode(),
-            auto_repeat: app.get_auto_repeat(),
-            default_repeat_mode: app.get_default_repeat_mode_index(),
-            fullscreen_when_open: app.get_fullscreen_when_open(),
-            resume_last_position: app.get_resume_last_position(),
-            record_playback_history: app.get_record_playback_history(),
-            launch_action: app.get_launch_action_index(),
+            pause_when_open: player_preferences.get_pause_when_open(),
+            play_when_entering_fullscreen: player_preferences.get_play_when_entering_fullscreen(),
+            pause_when_leaving_fullscreen: player_preferences.get_pause_when_leaving_fullscreen(),
+            pause_when_inactive: player_preferences.get_pause_when_inactive(),
+            pause_when_minimized: player_preferences.get_pause_when_minimized(),
+            pause_when_goes_to_sleep: player_preferences.get_pause_when_goes_to_sleep(),
+            quit_when_no_opened_window: player_preferences.get_quit_when_no_opened_window(),
+            keep_open_on_file_end: player_preferences.get_keep_open_on_file_end(),
+            playlist_auto_play_next: player_preferences.get_playlist_auto_play_next(),
+            playlist_auto_add: player_preferences.get_playlist_auto_add(),
+            playlist_show_metadata: player_preferences.get_playlist_show_metadata(),
+            playlist_show_metadata_in_music_mode: player_preferences
+                .get_playlist_show_metadata_in_music_mode(),
+            auto_repeat: player_preferences.get_auto_repeat(),
+            default_repeat_mode: player_preferences.get_default_repeat_mode_index(),
+            fullscreen_when_open: player_preferences.get_fullscreen_when_open(),
+            resume_last_position: player_preferences.get_resume_last_position(),
+            record_playback_history: player_preferences.get_record_playback_history(),
+            launch_action: player_preferences.get_launch_action_index(),
         }
     }
 
@@ -158,31 +160,34 @@ impl Policy {
     }
 
     pub(super) fn project_open_policy(&self, app: &PlayerWindow) {
-        app.set_pause_when_open(self.pause_when_open);
-        app.set_fullscreen_when_open(self.fullscreen_when_open);
-        app.set_resume_last_position(self.resume_last_position);
-        app.set_record_playback_history(self.record_playback_history);
-        app.set_launch_action_index(self.launch_action.clamp(0, 2));
+        let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+        player_preferences.set_pause_when_open(self.pause_when_open);
+        player_preferences.set_fullscreen_when_open(self.fullscreen_when_open);
+        player_preferences.set_resume_last_position(self.resume_last_position);
+        player_preferences.set_record_playback_history(self.record_playback_history);
+        player_preferences.set_launch_action_index(self.launch_action.clamp(0, 2));
     }
 
     pub(super) fn restore(&self, app: &PlayerWindow) {
-        app.set_pause_when_open(self.pause_when_open);
-        app.set_play_when_entering_fullscreen(self.play_when_entering_fullscreen);
-        app.set_pause_when_leaving_fullscreen(self.pause_when_leaving_fullscreen);
-        app.set_pause_when_inactive(self.pause_when_inactive);
-        app.set_pause_when_minimized(self.pause_when_minimized);
-        app.set_pause_when_goes_to_sleep(self.pause_when_goes_to_sleep);
-        app.set_quit_when_no_opened_window(self.quit_when_no_opened_window);
-        app.set_keep_open_on_file_end(self.keep_open_on_file_end);
-        app.set_playlist_auto_play_next(self.playlist_auto_play_next);
-        app.set_playlist_auto_add(self.playlist_auto_add);
-        app.set_playlist_show_metadata(self.playlist_show_metadata);
-        app.set_playlist_show_metadata_in_music_mode(self.playlist_show_metadata_in_music_mode);
-        app.set_auto_repeat(self.auto_repeat);
-        app.set_default_repeat_mode_index(self.default_repeat_mode);
-        app.set_fullscreen_when_open(self.fullscreen_when_open);
-        app.set_resume_last_position(self.resume_last_position);
-        app.set_record_playback_history(self.record_playback_history);
-        app.set_launch_action_index(self.launch_action);
+        let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+        player_preferences.set_pause_when_open(self.pause_when_open);
+        player_preferences.set_play_when_entering_fullscreen(self.play_when_entering_fullscreen);
+        player_preferences.set_pause_when_leaving_fullscreen(self.pause_when_leaving_fullscreen);
+        player_preferences.set_pause_when_inactive(self.pause_when_inactive);
+        player_preferences.set_pause_when_minimized(self.pause_when_minimized);
+        player_preferences.set_pause_when_goes_to_sleep(self.pause_when_goes_to_sleep);
+        player_preferences.set_quit_when_no_opened_window(self.quit_when_no_opened_window);
+        player_preferences.set_keep_open_on_file_end(self.keep_open_on_file_end);
+        player_preferences.set_playlist_auto_play_next(self.playlist_auto_play_next);
+        player_preferences.set_playlist_auto_add(self.playlist_auto_add);
+        player_preferences.set_playlist_show_metadata(self.playlist_show_metadata);
+        player_preferences
+            .set_playlist_show_metadata_in_music_mode(self.playlist_show_metadata_in_music_mode);
+        player_preferences.set_auto_repeat(self.auto_repeat);
+        player_preferences.set_default_repeat_mode_index(self.default_repeat_mode);
+        player_preferences.set_fullscreen_when_open(self.fullscreen_when_open);
+        player_preferences.set_resume_last_position(self.resume_last_position);
+        player_preferences.set_record_playback_history(self.record_playback_history);
+        player_preferences.set_launch_action_index(self.launch_action);
     }
 }

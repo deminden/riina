@@ -218,7 +218,8 @@ fn open_player(
     crate::platform::center_player_window_for_owner(
         &app,
         owner,
-        app.get_initial_window_position_enabled(),
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_initial_window_position_enabled(),
     );
     Ok(())
 }
@@ -299,7 +300,10 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     }
     let empty = state.borrow().players.is_empty();
     let quit_when_empty = should_quit_after_last_window_closed(
-        player.app.get_quit_when_no_opened_window(),
+        player
+            .app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_quit_when_no_opened_window(),
         state.borrow().players.len(),
     );
     drop(player);

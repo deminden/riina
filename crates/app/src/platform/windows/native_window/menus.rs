@@ -37,6 +37,7 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
 }
 
 fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let subtitles = app.global::<riina_ui::PlaybackSubtitleState>();
     let settings_pane = if app.get_settings_at_leading() {
         app.get_leading_sidebar()
@@ -83,7 +84,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_unlock_window_aspect_ratio(app.get_unlock_window_aspect_ratio());
     host.set_live_text_available(app.get_live_text_available());
     host.set_live_text_enabled(app.get_live_text_enabled());
-    host.set_record_recent_files(app.get_record_recent_files());
+    host.set_record_recent_files(player_preferences.get_record_recent_files());
     host.set_recent_open_menu_rows(app.get_recent_open_menu_rows());
     host.set_plugin_menu_rows(app.get_plugin_menu_rows());
     host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
@@ -91,7 +92,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_delete_current_media_available(app.get_delete_current_media_available());
     host.set_save_current_playlist_available(app.get_save_current_playlist_available());
     host.set_downloaded_subtitle_save_available(app.get_downloaded_subtitle_save_available());
-    host.set_open_subtitles_provider_index(app.get_open_subtitles_provider_index());
+    host.set_open_subtitles_provider_index(player_preferences.get_open_subtitles_provider_index());
     host.set_current_file_manager_name(app.get_current_file_manager_name());
     host.set_playback_paused(app.get_paused());
     host.set_menu_alternates_visible(app.get_menu_alternates_visible());
@@ -132,7 +133,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         subtitles.get_secondary_subtitle_visibility_known(),
     );
     host.set_subtitle_scale_known(subtitles.get_subtitle_scale_known());
-    host.set_subtitle_default_encoding(app.get_subtitle_default_encoding());
+    host.set_subtitle_default_encoding(player_preferences.get_subtitle_default_encoding());
     sync_catalog_rows(
         subtitles.get_subtitle_tracks(),
         &host.get_subtitle_track_menu_rows(),

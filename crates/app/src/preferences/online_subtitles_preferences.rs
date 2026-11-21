@@ -42,12 +42,13 @@ fn provider_index(provider: Provider) -> i32 {
 }
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<Preferences, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let preferences = Preferences {
-        provider: provider(app.get_open_subtitles_provider_index()),
-        api_key: app.get_open_subtitles_api_key().to_string(),
-        assrt_token: app.get_assrt_token().to_string(),
-        auto_search: app.get_open_subtitles_auto_search(),
-        auto_search_threshold_minutes: app
+        provider: provider(player_preferences.get_open_subtitles_provider_index()),
+        api_key: player_preferences.get_open_subtitles_api_key().to_string(),
+        assrt_token: player_preferences.get_assrt_token().to_string(),
+        auto_search: player_preferences.get_open_subtitles_auto_search(),
+        auto_search_threshold_minutes: player_preferences
             .get_open_subtitles_threshold_text()
             .trim()
             .parse()
@@ -91,11 +92,12 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Prefer
 }
 
 pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &Preferences) {
-    app.set_open_subtitles_provider_index(provider_index(preferences.provider));
-    app.set_open_subtitles_api_key(preferences.api_key.clone().into());
-    app.set_assrt_token(preferences.assrt_token.clone().into());
-    app.set_open_subtitles_auto_search(preferences.auto_search);
-    app.set_open_subtitles_threshold_text(
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_open_subtitles_provider_index(provider_index(preferences.provider));
+    player_preferences.set_open_subtitles_api_key(preferences.api_key.clone().into());
+    player_preferences.set_assrt_token(preferences.assrt_token.clone().into());
+    player_preferences.set_open_subtitles_auto_search(preferences.auto_search);
+    player_preferences.set_open_subtitles_threshold_text(
         preferences.auto_search_threshold_minutes.to_string().into(),
     );
 }

@@ -213,7 +213,8 @@ impl WindowDelivery {
                 );
             let enter_fullscreen = lock(&self.opening_fullscreen).observe(
                 &state,
-                app.get_fullscreen_when_open(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_fullscreen_when_open(),
                 app.get_fullscreen(),
                 false,
             );

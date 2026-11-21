@@ -185,7 +185,8 @@ impl Runner {
                 }
                 self.checks
                     .push("encoded_escape_dispatches_profile_fullscreen_exit");
-                app.set_pause_when_minimized(true);
+                app.global::<riina_ui::PlayerPreferences>()
+                    .set_pause_when_minimized(true);
                 host.window()
                     .with_winit_window(|window| window.set_minimized(true));
                 Stage::WaitForMinimize

@@ -43,7 +43,10 @@ fn dispatch_control_mouse_action(
             player.set_paused(paused)
         }
         MouseEffect::HideControls => {
-            if app.get_control_auto_hide_enabled() {
+            if app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_control_auto_hide_enabled()
+            {
                 app.set_controls_visible(false);
             }
             return;
@@ -304,7 +307,9 @@ fn scroll_action_handler(
             riina_core::control_preferences::ScrollEffect::AdjustVolume(delta) => {
                 Command::AdjustVolume {
                     delta,
-                    boost: app.get_volume_boost(),
+                    boost: app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .get_volume_boost(),
                 }
             }
             riina_core::control_preferences::ScrollEffect::Seek(seconds) => {
@@ -421,7 +426,10 @@ pub(super) fn install(
     let single_app = app.as_weak();
     app.on_single_click_action(move |action| {
         if let Some(app) = single_app.upgrade()
-            && app.get_control_double_click_index() == 0
+            && app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_control_double_click_index()
+                == 0
         {
             dispatch_control_mouse_action(&app, &single_player, action);
             return;

@@ -144,13 +144,19 @@ fn capture_session_state(
     app: &PlayerWindow,
     preferences: Preferences,
 ) -> std::io::Result<Preferences> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     // These values can change through the player, its native menus, or engine
     // observations. Settings-only controls are already in the model.
     Ok(Preferences {
-        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume())
-            .min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
-        volume_boost: app.get_volume_boost(),
-        resume_last_position: app.get_resume_last_position(),
+        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume()).min(
+            if player_preferences.get_volume_boost() {
+                200.0
+            } else {
+                100.0
+            },
+        ),
+        volume_boost: player_preferences.get_volume_boost(),
+        resume_last_position: player_preferences.get_resume_last_position(),
         live_text_enabled: app.get_live_text_enabled(),
         always_float_on_top: app.get_always_float_on_top(),
         theme_material: Some(
@@ -172,8 +178,9 @@ fn capture_session_state(
         control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
         music_mode_show_playlist: app.get_music_mode_show_playlist(),
         music_mode_show_album_art: app.get_music_mode_show_album_art(),
-        record_recent_files: app.get_record_recent_files(),
-        track_all_files_in_recent_open_menu: app.get_track_all_files_in_recent_open_menu(),
+        record_recent_files: player_preferences.get_record_recent_files(),
+        track_all_files_in_recent_open_menu: player_preferences
+            .get_track_all_files_in_recent_open_menu(),
         subtitle_other: crate::subtitle_other_preferences::current_player(app)
             .map_err(std::io::Error::other)?,
         subtitle_font: app

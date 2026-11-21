@@ -1,0 +1,145 @@
+import { Theme } from "theme.slint";
+
+// Current preference values used by the player and its Settings projection.
+export global PlayerPreferences {
+    // Playback and history
+    in-out property <int> launch-action-index: 0;
+    in-out property <bool> pause-when-open: false;
+    in-out property <bool> play-when-entering-fullscreen: false;
+    in-out property <bool> pause-when-leaving-fullscreen: false;
+    in-out property <bool> pause-when-inactive: false;
+    in-out property <bool> pause-when-minimized: false;
+    in-out property <bool> pause-when-goes-to-sleep: true;
+    in-out property <bool> quit-when-no-opened-window: false;
+    in-out property <bool> keep-open-on-file-end: true;
+    in-out property <bool> playlist-auto-add: true;
+    in-out property <bool> playlist-auto-play-next: true;
+    in-out property <bool> playlist-show-metadata: true;
+    in-out property <bool> playlist-show-metadata-in-music-mode: true;
+    in-out property <bool> auto-repeat: false;
+    in-out property <int> default-repeat-mode-index: 0;
+    in-out property <bool> fullscreen-when-open: false;
+    in-out property <bool> resume-last-position: true;
+    in-out property <bool> record-playback-history: true;
+    in-out property <bool> record-recent-files: true;
+    in-out property <bool> track-all-files-in-recent-open-menu: true;
+
+    // Video output and window sizing
+    in-out property <bool> default-hdr-mode-enabled: true;
+    in-out property <bool> load-icc-profile: true;
+    in-out property <int> hardware-decoder-index: 1;
+    in-out property <int> window-resize-option-index: 2;
+    in-out property <int> window-resize-timing-index: 1;
+    in-out property <bool> use-physical-resolution: true;
+    in-out property <bool> initial-window-size-enabled: false;
+    in-out property <int> initial-window-size-axis-index: 0;
+    in-out property <string> initial-window-size-value-text: "1280";
+    in-out property <int> initial-window-size-unit-index: 0;
+    in-out property <bool> initial-window-position-enabled: false;
+    in-out property <int> initial-window-x-anchor-index: 0;
+    in-out property <string> initial-window-x-offset-text: "20";
+    in-out property <int> initial-window-x-unit-index: 0;
+    in-out property <int> initial-window-y-anchor-index: 1;
+    in-out property <string> initial-window-y-offset-text: "20";
+    in-out property <int> initial-window-y-unit-index: 0;
+
+    // Input and controller
+    in-out property <bool> volume-boost: false;
+    in-out property <int> control-pinch-index: 0;
+    in-out property <int> control-force-touch-index: 0;
+    in-out property <int> control-single-click-index: 3;
+    in-out property <int> control-double-click-index: 1;
+    in-out property <int> control-right-click-index: 2;
+    in-out property <int> control-middle-click-index: 0;
+    in-out property <bool> control-accepts-first-mouse: false;
+    in-out property <int> control-vertical-scroll-index: 0;
+    in-out property <int> control-horizontal-scroll-index: 1;
+    in-out property <bool> control-disable-play-slider-scrolling: false;
+    in-out property <bool> control-disable-volume-slider-scrolling: false;
+    in-out property <int> control-seek-type-index: 0;
+    in-out property <int> control-relative-seek-amount: 3;
+    in-out property <int> control-volume-sensitivity: 3;
+    in-out property <int> control-speed-sensitivity: 3;
+    in-out property <string> key-binding-current-profile: "IINA Default";
+    in-out property <bool> key-binding-use-system-media-controls: true;
+    in-out property <bool> key-binding-display-raw-values: false;
+    in-out property <bool> show-chapter-pos: false;
+    in-out property <bool> control-auto-hide-enabled: true;
+    in-out property <float> control-auto-hide-timeout-secs: 2.5;
+
+    // Screenshot and thumbnail
+    in-out property <bool> screenshot-show-preview: true;
+    in-out property <bool> screenshot-save-to-file: true;
+    in-out property <bool> thumbnail-preview-enabled: true;
+    in-out property <string> thumbnail-cache-size-text: "500";
+    in-out property <bool> thumbnail-remote-enabled: false;
+    in-out property <string> thumbnail-width-text: "120";
+    in-out property <bool> screenshot-copy-to-clipboard: false;
+    in-out property <string> screenshot-format: "png";
+    in-out property <string> screenshot-template: "%F-%n";
+    in-out property <bool> screenshot-custom-directory: false;
+    in-out property <string> screenshot-directory;
+    in-out property <bool> screenshot-include-subtitles: true;
+
+    // Feedback and motion
+    in-out property <bool> disable-animations: false;
+    in-out property <bool> osd-enabled: true;
+    in-out property <bool> disable-osd-file-start: false;
+    in-out property <bool> disable-osd-pause-resume: false;
+    in-out property <bool> disable-osd-speed: false;
+    in-out property <bool> disable-osd-seek: false;
+    in-out property <float> osd-timeout-secs: 1;
+    in-out property <float> osd-text-size: 20;
+    in-out property <bool> display-time-and-battery-in-fullscreen: false;
+
+    // Picture in Picture
+    in-out property <int> pip-window-behavior-index: 1;
+    in-out property <bool> pip-pause-when-entering: false;
+    in-out property <bool> pip-toggle-by-minimizing: false;
+    in-out property <bool> pip-minimize-toggle-video-only: false;
+
+    // Networking
+    in-out property <bool> network-cache-enabled: true;
+    in-out property <bool> network-cache-pause-initial: false;
+    in-out property <string> network-cache-pause-wait-text: "1";
+    in-out property <string> network-cache-prefetch-secs-text: "36000";
+    in-out property <string> network-cache-size-kib-text: "153600";
+    in-out property <bool> network-ytdl-enabled: true;
+    in-out property <bool> network-ytdl-plugin-active: false;
+    in-out property <string> network-ytdl-search-path: "";
+    in-out property <string> network-ytdl-raw-options: "";
+    in-out property <bool> network-show-buffering-throbber: true;
+    in-out property <bool> network-show-seeking-throbber: true;
+
+    // Subtitle display and discovery
+    in-out property <int> subtitle-ass-override-index: 2;
+    in-out property <int> secondary-subtitle-ass-override-index: 2;
+    in-out property <int> subtitle-align-x-index: 1;
+    in-out property <int> subtitle-align-y-index: 2;
+    in-out property <string> subtitle-position-text: "100";
+    in-out property <string> subtitle-preferred-languages: "";
+    in-out property <string> open-subtitles-api-key: "";
+    in-out property <int> open-subtitles-provider-index: 0;
+    in-out property <string> assrt-token: "";
+    in-out property <bool> open-subtitles-auto-search: false;
+    in-out property <string> open-subtitles-threshold-text: "20";
+    in-out property <string> subtitle-default-encoding: "auto";
+    in-out property <int> subtitle-auto-load-mode-index: 2;
+    in-out property <string> subtitle-auto-load-priority;
+    in-out property <string> subtitle-search-paths: "./*";
+    in-out property <bool> subtitle-display-in-letterbox: true;
+    in-out property <bool> subtitle-scale-with-window: true;
+    in-out property <string> subtitle-margin-x-text: "25";
+    in-out property <string> subtitle-margin-y-text: "22";
+    in-out property <float> subtitle-font-size-preference: 55;
+    in-out property <color> subtitle-text-preference-color: Theme.subtitle-text-default;
+    in-out property <bool> subtitle-bold-preference: false;
+    in-out property <bool> subtitle-italic-preference: false;
+    in-out property <color> subtitle-background-preference-color: Theme.subtitle-background-default;
+    in-out property <float> subtitle-outline-size-preference: 3;
+    in-out property <color> subtitle-outline-preference-color: Theme.subtitle-outline-default;
+    in-out property <float> subtitle-shadow-offset-preference: 0;
+    in-out property <color> subtitle-shadow-preference-color: Theme.subtitle-shadow-default;
+    in-out property <float> subtitle-blur-preference: 0;
+    in-out property <float> subtitle-spacing-preference: 0;
+}

@@ -39,12 +39,15 @@ pub(crate) fn mode_options() -> ModelRc<SharedString> {
 }
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<AutoLoadPreferences, String> {
-    let mode = AutoLoadMode::from_index(app.get_subtitle_auto_load_mode_index())
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    let mode = AutoLoadMode::from_index(player_preferences.get_subtitle_auto_load_mode_index())
         .ok_or_else(|| "Invalid subtitle auto-load mode".to_owned())?;
     let preferences = AutoLoadPreferences {
         mode,
-        priority_keywords: app.get_subtitle_auto_load_priority().to_string(),
-        search_paths: app.get_subtitle_search_paths().to_string(),
+        priority_keywords: player_preferences
+            .get_subtitle_auto_load_priority()
+            .to_string(),
+        search_paths: player_preferences.get_subtitle_search_paths().to_string(),
     };
     preferences.validate().map_err(str::to_owned)?;
     Ok(preferences)
@@ -75,9 +78,11 @@ pub(crate) fn current_window(
 }
 
 pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &AutoLoadPreferences) {
-    app.set_subtitle_auto_load_mode_index(preferences.mode.index());
-    app.set_subtitle_auto_load_priority(preferences.priority_keywords.clone().into());
-    app.set_subtitle_search_paths(preferences.search_paths.clone().into());
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_subtitle_auto_load_mode_index(preferences.mode.index());
+    player_preferences
+        .set_subtitle_auto_load_priority(preferences.priority_keywords.clone().into());
+    player_preferences.set_subtitle_search_paths(preferences.search_paths.clone().into());
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &AutoLoadPreferences) {

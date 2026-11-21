@@ -138,7 +138,8 @@ pub(super) fn register_enabled(
         if plugin.manifest.identifier == "io.iina.ytdl"
             && let Some(app) = plugin_state_parent.upgrade()
         {
-            app.set_network_ytdl_plugin_active(should_enable);
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_network_ytdl_plugin_active(should_enable);
             if let Err(error) =
                 crate::network_ytdl_preferences::apply_plugin_override(&player, &app, should_enable)
             {

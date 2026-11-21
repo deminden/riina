@@ -354,8 +354,13 @@ fn update_playlist(app: &PlayerWindow, state: &Playback) {
                         )
                     }
                 });
-                let metadata = (app.get_playlist_show_metadata()
-                    && (!app.get_playlist_show_metadata_in_music_mode() || app.get_music_mode()))
+                let metadata = (app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_playlist_show_metadata()
+                    && (!app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .get_playlist_show_metadata_in_music_mode()
+                        || app.get_music_mode()))
                 .then(|| crate::playlist_metadata::lookup(&entry.filename))
                 .flatten();
                 CatalogRow {
@@ -421,8 +426,10 @@ pub(super) fn install_playlist_metadata_refresh(
             let Some(app) = weak.upgrade() else { return };
             let state = (
                 crate::playlist_metadata::revision(),
-                app.get_playlist_show_metadata(),
-                app.get_playlist_show_metadata_in_music_mode(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_playlist_show_metadata(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_playlist_show_metadata_in_music_mode(),
                 app.get_music_mode(),
             );
             if observed.get() == Some(state) {

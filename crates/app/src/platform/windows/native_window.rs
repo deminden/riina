@@ -299,7 +299,8 @@ impl NativeApp {
             }
             let should_quit = chrome.as_ref().is_some_and(|app| {
                 crate::player_manager::should_quit_after_last_window_closed(
-                    app.get_quit_when_no_opened_window(),
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .get_quit_when_no_opened_window(),
                     0,
                 )
             });
@@ -436,9 +437,10 @@ fn keep_player_after_welcome_close(
     let close_welcome_app = app.as_weak();
     let close_welcome_host = host.as_weak();
     welcome.window().on_close_requested(move || {
-        let setting = quit_preference
-            .upgrade()
-            .is_some_and(|app| app.get_quit_when_no_opened_window());
+        let setting = quit_preference.upgrade().is_some_and(|app| {
+            app.global::<riina_ui::PlayerPreferences>()
+                .get_quit_when_no_opened_window()
+        });
         let should_quit = crate::player_manager::should_quit_after_last_window_closed(setting, 0);
         if should_quit {
             let _ = slint::quit_event_loop();
@@ -523,8 +525,10 @@ fn install_chrome_close_handlers(
             return slint::CloseRequestResponse::KeepWindowShown;
         }
         let should_quit = crate::player_manager::should_quit_after_last_window_closed(
-            app.as_ref()
-                .is_some_and(PlayerWindow::get_quit_when_no_opened_window),
+            app.as_ref().is_some_and(|app| {
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_quit_when_no_opened_window()
+            }),
             0,
         );
         close(&close_session, &close_pip, app.as_ref());
@@ -544,7 +548,8 @@ fn install_chrome_close_handlers(
         let chrome = close_button_chrome.upgrade();
         let should_quit = chrome.as_ref().is_some_and(|app| {
             crate::player_manager::should_quit_after_last_window_closed(
-                app.get_quit_when_no_opened_window(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_quit_when_no_opened_window(),
                 0,
             )
         });

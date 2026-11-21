@@ -12,8 +12,9 @@ pub(super) struct DisplayColor {
 
 impl DisplayColor {
     pub(super) fn update(&mut self, app: &PlayerWindow, video: &mut VideoSurface, player: &Player) {
+        let player_preferences = app.global::<riina_ui::PlayerPreferences>();
         if let Some(display) = platform::display_identity(app.window()) {
-            if !app.get_load_icc_profile()
+            if !player_preferences.get_load_icc_profile()
                 && let Some((cached_display, profile, _)) = self.profile.take()
             {
                 self.profile = Some((cached_display, profile, false));
@@ -22,10 +23,11 @@ impl DisplayColor {
                 self.profile
                     .as_ref()
                     .is_none_or(|(cached_display, _, attempted)| {
-                        *cached_display != display || (app.get_load_icc_profile() && !attempted)
+                        *cached_display != display
+                            || (player_preferences.get_load_icc_profile() && !attempted)
                     });
             if needs_profile {
-                let attempted = app.get_load_icc_profile();
+                let attempted = player_preferences.get_load_icc_profile();
                 let mut profile = attempted
                     .then(|| platform::icc_profile_for_window(app.window()))
                     .flatten();
@@ -48,8 +50,9 @@ impl DisplayColor {
             let hdr_output_active = video.get_hdr_source_detected()
                 && video.get_hdr_enabled()
                 && video.get_hdr_display_active();
-            let should_use_icc =
-                app.get_load_icc_profile() && profile_available && !hdr_output_active;
+            let should_use_icc = player_preferences.get_load_icc_profile()
+                && profile_available
+                && !hdr_output_active;
             if self.active != Some(should_use_icc) {
                 if let Err(error) = player.send(Command::SetIccProfileAuto(should_use_icc)) {
                     crate::diagnostics::warn!(

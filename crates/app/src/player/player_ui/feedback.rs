@@ -13,7 +13,11 @@ pub(super) fn clear_screenshot_preview(app: &PlayerWindow) {
 }
 
 fn configured_osd_timeout(app: &PlayerWindow) -> Duration {
-    Duration::try_from_secs_f64(f64::from(app.get_osd_timeout_secs())).unwrap_or_default()
+    Duration::try_from_secs_f64(f64::from(
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_osd_timeout_secs(),
+    ))
+    .unwrap_or_default()
 }
 
 #[derive(Default, Clone, Copy)]
@@ -41,7 +45,9 @@ impl ControlHide {
 
 fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
     timer.stop();
-    if !app.get_control_auto_hide_enabled()
+    if !app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_control_auto_hide_enabled()
         || !app.get_controls_visible()
         || !app.get_loaded()
         || app.get_dialog_open()
@@ -49,8 +55,11 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
     {
         return;
     }
-    let timeout = Duration::try_from_secs_f64(f64::from(app.get_control_auto_hide_timeout_secs()))
-        .unwrap_or_default();
+    let timeout = Duration::try_from_secs_f64(f64::from(
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_control_auto_hide_timeout_secs(),
+    ))
+    .unwrap_or_default();
     let weak = app.as_weak();
     // IINA's controller deadline is interaction-driven; pausing does not pin its chrome.
     timer.start(slint::TimerMode::SingleShot, timeout, move || {
@@ -59,7 +68,9 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
             // Quick Settings surface covers it. Do not let that stale hover
             // keep the transport tray over the panel indefinitely.
             if (ControlHide {
-                enabled: app.get_control_auto_hide_enabled(),
+                enabled: app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_control_auto_hide_enabled(),
                 loaded: app.get_loaded(),
                 dialog_open: app.get_dialog_open(),
                 crop_editing: app.get_crop_editing(),
@@ -118,7 +129,11 @@ fn install_controls_fade(app: &PlayerWindow) {
         });
         if visible {
             app.set_controls_rendered(true);
-        } else if app.get_disable_animations() || app.get_system_reduce_motion() {
+        } else if app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_disable_animations()
+            || app.get_system_reduce_motion()
+        {
             app.set_controls_rendered(false);
         } else {
             let weak = app.as_weak();
@@ -226,7 +241,13 @@ fn install_seek_osd(app: &PlayerWindow, seek_timer: Rc<slint::Timer>) {
     let weak = app.as_weak();
     app.on_show_seek_osd(move || {
         let Some(app) = weak.upgrade() else { return };
-        if !app.get_osd_enabled() || app.get_disable_osd_seek() {
+        if !app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_osd_enabled()
+            || app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_disable_osd_seek()
+        {
             return;
         }
         app.global::<riina_ui::PlayerOsdState>()
@@ -252,7 +273,11 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
     let weak = app.as_weak();
     app.on_show_screenshot_preview(move || {
         let Some(app) = weak.upgrade() else { return };
-        if !app.get_osd_enabled() || app.get_crop_editing() {
+        if !app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_osd_enabled()
+            || app.get_crop_editing()
+        {
             return;
         }
         app.global::<riina_ui::PlayerOsdState>()
@@ -314,7 +339,10 @@ fn install_video_osd(
     let weak = app.as_weak();
     app.on_show_video_osd(move || {
         let Some(app) = weak.upgrade() else { return };
-        if !app.get_osd_enabled() {
+        if !app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_osd_enabled()
+        {
             return;
         }
         app.global::<riina_ui::PlayerOsdState>()
@@ -329,7 +357,10 @@ fn install_video_osd(
             configured_osd_timeout(&app),
             move || {
                 let Some(app) = weak.upgrade() else { return };
-                if !app.get_osd_enabled() {
+                if !app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_osd_enabled()
+                {
                     pending_video_osd.borrow_mut().clear_pending();
                     app.global::<riina_ui::PlayerOsdState>()
                         .set_video_osd_visible(false);
@@ -380,7 +411,10 @@ fn install_controls_deadline(app: &PlayerWindow) {
         {
             auto_hide_timer.stop();
             app.set_controls_visible(true);
-        } else if app.get_control_auto_hide_enabled() {
+        } else if app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_control_auto_hide_enabled()
+        {
             schedule_control_hide(&app, &auto_hide_timer);
         } else {
             auto_hide_timer.stop();

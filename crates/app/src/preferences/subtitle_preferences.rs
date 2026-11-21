@@ -54,7 +54,10 @@ pub(crate) fn format_number(value: f32) -> slint::SharedString {
 }
 
 pub(crate) fn current_font_size(app: &crate::PlayerWindow) -> f64 {
-    round_source_precision(f64::from(app.get_subtitle_font_size_preference()))
+    round_source_precision(f64::from(
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_subtitle_font_size_preference(),
+    ))
 }
 
 pub(crate) fn style_color_to_ui(color: riina_core::subtitle_color::SubtitleColor) -> slint::Color {
@@ -74,33 +77,45 @@ pub(crate) fn install_style(
     app: &crate::PlayerWindow,
     style: riina_core::subtitle_controls::TextStylePreferences,
 ) {
-    app.set_subtitle_text_preference_color(style_color_to_ui(style.text_color));
-    app.set_subtitle_bold_preference(style.bold);
-    app.set_subtitle_italic_preference(style.italic);
-    app.set_subtitle_background_preference_color(style_color_to_ui(style.shadow_color));
-    app.set_subtitle_outline_size_preference(style.outline_size as f32);
-    app.set_subtitle_outline_preference_color(style_color_to_ui(style.outline_color));
-    app.set_subtitle_shadow_offset_preference(style.shadow_offset as f32);
-    app.set_subtitle_shadow_preference_color(style_color_to_ui(style.shadow_color));
-    app.set_subtitle_blur_preference(style.blur as f32);
-    app.set_subtitle_spacing_preference(style.spacing as f32);
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_subtitle_text_preference_color(style_color_to_ui(style.text_color));
+    player_preferences.set_subtitle_bold_preference(style.bold);
+    player_preferences.set_subtitle_italic_preference(style.italic);
+    player_preferences
+        .set_subtitle_background_preference_color(style_color_to_ui(style.shadow_color));
+    player_preferences.set_subtitle_outline_size_preference(style.outline_size as f32);
+    player_preferences
+        .set_subtitle_outline_preference_color(style_color_to_ui(style.outline_color));
+    player_preferences.set_subtitle_shadow_offset_preference(style.shadow_offset as f32);
+    player_preferences.set_subtitle_shadow_preference_color(style_color_to_ui(style.shadow_color));
+    player_preferences.set_subtitle_blur_preference(style.blur as f32);
+    player_preferences.set_subtitle_spacing_preference(style.spacing as f32);
 }
 
 pub(crate) fn current_style(
     app: &crate::PlayerWindow,
 ) -> Result<riina_core::subtitle_controls::TextStylePreferences, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let style = riina_core::subtitle_controls::TextStylePreferences {
-        text_color: style_color_from_ui(app.get_subtitle_text_preference_color())?,
-        bold: app.get_subtitle_bold_preference(),
-        italic: app.get_subtitle_italic_preference(),
-        blur: round_source_precision(f64::from(app.get_subtitle_blur_preference())),
-        spacing: round_source_precision(f64::from(app.get_subtitle_spacing_preference())),
-        outline_size: round_source_precision(f64::from(app.get_subtitle_outline_size_preference())),
-        outline_color: style_color_from_ui(app.get_subtitle_outline_preference_color())?,
-        shadow_offset: round_source_precision(f64::from(
-            app.get_subtitle_shadow_offset_preference(),
+        text_color: style_color_from_ui(player_preferences.get_subtitle_text_preference_color())?,
+        bold: player_preferences.get_subtitle_bold_preference(),
+        italic: player_preferences.get_subtitle_italic_preference(),
+        blur: round_source_precision(f64::from(player_preferences.get_subtitle_blur_preference())),
+        spacing: round_source_precision(f64::from(
+            player_preferences.get_subtitle_spacing_preference(),
         )),
-        shadow_color: style_color_from_ui(app.get_subtitle_shadow_preference_color())?,
+        outline_size: round_source_precision(f64::from(
+            player_preferences.get_subtitle_outline_size_preference(),
+        )),
+        outline_color: style_color_from_ui(
+            player_preferences.get_subtitle_outline_preference_color(),
+        )?,
+        shadow_offset: round_source_precision(f64::from(
+            player_preferences.get_subtitle_shadow_offset_preference(),
+        )),
+        shadow_color: style_color_from_ui(
+            player_preferences.get_subtitle_shadow_preference_color(),
+        )?,
     };
     style.validate().map_err(str::to_owned)?;
     Ok(style)

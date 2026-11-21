@@ -59,8 +59,10 @@ impl Draft {
                 window,
             )?,
             previous_overrides: (
-                app.get_subtitle_ass_override_index(),
-                app.get_secondary_subtitle_ass_override_index(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_subtitle_ass_override_index(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_secondary_subtitle_ass_override_index(),
             ),
             previous_position: read_or_refresh(
                 crate::subtitle_position_preferences::current_player(app),

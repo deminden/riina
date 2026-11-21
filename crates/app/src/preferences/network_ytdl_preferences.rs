@@ -34,10 +34,15 @@ fn validate(preferences: OnlineVideos) -> Result<OnlineVideos, String> {
 }
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<OnlineVideos, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     validate(OnlineVideos {
-        enabled: app.get_network_ytdl_enabled(),
-        search_path: app.get_network_ytdl_search_path().to_string(),
-        raw_options: app.get_network_ytdl_raw_options().to_string(),
+        enabled: player_preferences.get_network_ytdl_enabled(),
+        search_path: player_preferences
+            .get_network_ytdl_search_path()
+            .to_string(),
+        raw_options: player_preferences
+            .get_network_ytdl_raw_options()
+            .to_string(),
     })
 }
 
@@ -51,9 +56,10 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Online
 }
 
 pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &OnlineVideos) {
-    app.set_network_ytdl_enabled(preferences.enabled);
-    app.set_network_ytdl_search_path(preferences.search_path.clone().into());
-    app.set_network_ytdl_raw_options(preferences.raw_options.clone().into());
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_network_ytdl_enabled(preferences.enabled);
+    player_preferences.set_network_ytdl_search_path(preferences.search_path.clone().into());
+    player_preferences.set_network_ytdl_raw_options(preferences.raw_options.clone().into());
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &OnlineVideos) {
@@ -72,7 +78,10 @@ pub(crate) fn apply(
 ) -> Result<(), String> {
     if previous != selected {
         let mut effective = selected.clone();
-        if app.get_network_ytdl_plugin_active() {
+        if app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_network_ytdl_plugin_active()
+        {
             effective.enabled = false;
         }
         player
@@ -105,7 +114,10 @@ pub(crate) fn restore(
 ) {
     if previous != selected {
         let mut effective = previous.clone();
-        if app.get_network_ytdl_plugin_active() {
+        if app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_network_ytdl_plugin_active()
+        {
             effective.enabled = false;
         }
         let _ = player.send(riina_core::Command::NetworkOnlineVideos(effective));

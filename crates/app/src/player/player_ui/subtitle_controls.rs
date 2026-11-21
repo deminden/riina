@@ -9,63 +9,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     let menu = app.global::<PlayerMenuActions>();
     let scale_player = player.clone();
     let absolute_scale_player = player.clone();
-    let font_size_player = player.clone();
-    crate::font_picker::connect(app);
-    let outline_size_player = player.clone();
-    let color_player = player.clone();
-    let weak = app.as_weak();
-    app.on_set_subtitle_color(move |target, value| {
-        if let Some(app) = weak.upgrade() {
-            let rgba = [value.red(), value.green(), value.blue(), value.alpha()]
-                .map(|channel| f64::from(channel) / 255.0);
-            let Ok(color) = riina_core::subtitle_color::SubtitleColor::from_rgba(rgba) else {
-                return;
-            };
-            let command = match target {
-                1 => Command::SubtitleTextColor(color),
-                2 => Command::SubtitleShadowColor(color),
-                3 => Command::SubtitleBorderColor(color),
-                _ => return,
-            };
-            app.invoke_activity();
-            if let Err(error) = color_player.send(command) {
-                app.set_status(error.into());
-            } else {
-                match target {
-                    1 => app.set_subtitle_text_preference_color(value),
-                    2 => {
-                        app.set_subtitle_shadow_preference_color(value);
-                        app.set_subtitle_background_preference_color(value);
-                    }
-                    3 => app.set_subtitle_outline_preference_color(value),
-                    _ => unreachable!("target was validated above"),
-                }
-            }
-        }
-    });
-    let weak = app.as_weak();
-    app.on_set_subtitle_outline_size(move |value| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
-            {
-                app.set_status(error.into());
-            } else {
-                app.set_subtitle_outline_size_preference(value);
-            }
-        }
-    });
-    let weak = app.as_weak();
-    app.on_set_subtitle_font_size(move |value| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
-                app.set_status(error.into());
-            } else {
-                app.set_subtitle_font_size_preference(value);
-            }
-        }
-    });
+    install_appearance(app, player);
     let weak = app.as_weak();
     menu.on_set_subtitle_scale_slider(move |value| {
         if let Some(app) = weak.upgrade() {
@@ -159,6 +103,74 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     });
 }
 
+fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
+    let font_size_player = player.clone();
+    crate::font_picker::connect(app);
+    let outline_size_player = player.clone();
+    let color_player = player.clone();
+    let weak = app.as_weak();
+    app.on_set_subtitle_color(move |target, value| {
+        if let Some(app) = weak.upgrade() {
+            let rgba = [value.red(), value.green(), value.blue(), value.alpha()]
+                .map(|channel| f64::from(channel) / 255.0);
+            let Ok(color) = riina_core::subtitle_color::SubtitleColor::from_rgba(rgba) else {
+                return;
+            };
+            let command = match target {
+                1 => Command::SubtitleTextColor(color),
+                2 => Command::SubtitleShadowColor(color),
+                3 => Command::SubtitleBorderColor(color),
+                _ => return,
+            };
+            app.invoke_activity();
+            if let Err(error) = color_player.send(command) {
+                app.set_status(error.into());
+            } else {
+                match target {
+                    1 => app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .set_subtitle_text_preference_color(value),
+                    2 => {
+                        app.global::<riina_ui::PlayerPreferences>()
+                            .set_subtitle_shadow_preference_color(value);
+                        app.global::<riina_ui::PlayerPreferences>()
+                            .set_subtitle_background_preference_color(value);
+                    }
+                    3 => app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .set_subtitle_outline_preference_color(value),
+                    _ => unreachable!("target was validated above"),
+                }
+            }
+        }
+    });
+    let weak = app.as_weak();
+    app.on_set_subtitle_outline_size(move |value| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
+            {
+                app.set_status(error.into());
+            } else {
+                app.global::<riina_ui::PlayerPreferences>()
+                    .set_subtitle_outline_size_preference(value);
+            }
+        }
+    });
+    let weak = app.as_weak();
+    app.on_set_subtitle_font_size(move |value| {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+            if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
+                app.set_status(error.into());
+            } else {
+                app.global::<riina_ui::PlayerPreferences>()
+                    .set_subtitle_font_size_preference(value);
+            }
+        }
+    });
+}
+
 pub(super) fn install_encoding(app: &PlayerWindow, player: &CommandSender) {
     let subtitle_encoding_player = player.clone();
     let weak = app.as_weak();
@@ -175,7 +187,9 @@ pub(super) fn install_encoding(app: &PlayerWindow, player: &CommandSender) {
             }
             app.invoke_activity();
             match subtitle_encoding_player.send(Command::SubtitleEncoding(encoding.clone())) {
-                Ok(()) => app.set_subtitle_default_encoding(encoding.into()),
+                Ok(()) => app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .set_subtitle_default_encoding(encoding.into()),
                 Err(error) => app.set_status(error.into()),
             }
         });

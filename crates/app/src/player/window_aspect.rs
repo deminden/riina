@@ -409,7 +409,9 @@ fn register_resize_command(
                         video_height: f64::from(app.get_video_window_height()),
                         rotation: Some(i64::from(app.get_video_window_rotation())),
                         display_scale: scale,
-                        use_physical_resolution: app.get_use_physical_resolution(),
+                        use_physical_resolution: app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .get_use_physical_resolution(),
                         maximum,
                         minimum: PixelSize {
                             width: (285.0 * scale).round() as u32,

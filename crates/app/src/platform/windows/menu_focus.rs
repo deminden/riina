@@ -246,9 +246,7 @@ unsafe extern "system" fn menu_proc(
     }
     if message == WM_APPCOMMAND
         && let Some(app) = context.app.upgrade()
-        && app.get_key_binding_use_system_media_controls()
-        && let Some(key) = system_media_key(((lparam.0 as u32) >> 16) & 0x7ff)
-        && app.invoke_dispatch_key_binding(key.into(), false, false, false, false)
+        && dispatch_system_media_shortcut(&app, lparam)
     {
         return LRESULT(1);
     }
@@ -418,6 +416,14 @@ unsafe extern "system" fn menu_proc(
     }
     // SAFETY: preserve the original subclass chain for all other messages.
     unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+}
+
+fn dispatch_system_media_shortcut(app: &PlayerWindow, lparam: LPARAM) -> bool {
+    app.global::<riina_ui::PlayerPreferences>()
+        .get_key_binding_use_system_media_controls()
+        && system_media_key(((lparam.0 as u32) >> 16) & 0x7ff).is_some_and(|key| {
+            app.invoke_dispatch_key_binding(key.into(), false, false, false, false)
+        })
 }
 
 fn system_media_key(command: u32) -> Option<&'static str> {

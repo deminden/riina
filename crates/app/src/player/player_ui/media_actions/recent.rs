@@ -1,6 +1,7 @@
 //! Separate resume history from the Open Recent document list.
 use crate::{MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, platform};
 use riina_core::{Preferences, time_label};
+use slint::ComponentHandle;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub(crate) fn recent_media_rows(media: &[riina_core::RecentMedia]) -> Vec<RecentMediaRow> {
@@ -51,7 +52,11 @@ pub(super) fn remember_recent_open_document(
     path: String,
     title: String,
 ) {
-    if !app.get_record_recent_files() || path.is_empty() {
+    if !app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_record_recent_files()
+        || path.is_empty()
+    {
         return;
     }
     let native_path = path.clone();

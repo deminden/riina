@@ -5,6 +5,7 @@ use riina_core::{
     Command, Preferences, control_preferences, liquid_glass, network_preferences, online_subtitles,
     osc_preferences, pip_preferences, subtitle_controls, thumbnail_preferences, window_resize,
 };
+use slint::ComponentHandle;
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 pub(crate) struct SectionError(String);
@@ -69,8 +70,14 @@ impl PreferenceModel {
     }
 
     pub(crate) fn retain_subtitle_credentials(&self, app: &PlayerWindow) {
-        let api_key = app.get_open_subtitles_api_key().to_string();
-        let assrt_token = app.get_assrt_token().to_string();
+        let api_key = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_open_subtitles_api_key()
+            .to_string();
+        let assrt_token = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_assrt_token()
+            .to_string();
         let mut current = self.0.current.borrow_mut();
         current.online_subtitles.api_key = api_key;
         current.online_subtitles.assrt_token = assrt_token;

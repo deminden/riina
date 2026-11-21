@@ -119,7 +119,8 @@ fn update_transition_cover(
     if app.get_native_video() {
         let show_transition = platform::transition_cover::should_display(
             state,
-            app.get_playlist_auto_play_next(),
+            app.global::<riina_ui::PlayerPreferences>()
+                .get_playlist_auto_play_next(),
             resources.transition_release_generation,
         );
         // The transition surface has an opaque black matte beneath its image.
@@ -257,6 +258,7 @@ fn update_feedback(
     last_video: &std::cell::RefCell<crate::video_osd::VideoOsd>,
     last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
 ) {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let osd = app.global::<riina_ui::PlayerOsdState>();
     let keep_stopped_feedback = app.get_video_osd_request_feedback();
     if displayed.is_none_or(|old| old.generation != state.generation)
@@ -267,18 +269,22 @@ fn update_feedback(
         osd.set_video_osd_visible(false);
         app.set_video_osd_request_feedback(false);
     }
-    match last_seek.observe_with_suppression(state, app.get_disable_osd_seek()) {
+    match last_seek.observe_with_suppression(state, player_preferences.get_disable_osd_seek()) {
         Change::Hide => osd.set_seek_osd_visible(false),
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
     }
     let video_message = {
         let mut video = last_video.borrow_mut();
-        video.set_volume_limit(if app.get_volume_boost() { 200.0 } else { 100.0 });
-        video.set_disable_speed(app.get_disable_osd_speed());
-        video.set_disable_pause_resume(app.get_disable_osd_pause_resume());
+        video.set_volume_limit(if player_preferences.get_volume_boost() {
+            200.0
+        } else {
+            100.0
+        });
+        video.set_disable_speed(player_preferences.get_disable_osd_speed());
+        video.set_disable_pause_resume(player_preferences.get_disable_osd_pause_resume());
         let message = video.observe(state);
-        if app.get_osd_enabled() {
+        if player_preferences.get_osd_enabled() {
             message
         } else {
             video.clear_pending();
@@ -296,9 +302,9 @@ fn update_feedback(
             clear_screenshot_preview(app);
         }
         crate::screenshot_osd::Change::Show(path)
-            if app.get_osd_enabled() && !app.get_crop_editing() =>
+            if player_preferences.get_osd_enabled() && !app.get_crop_editing() =>
         {
-            if !app.get_screenshot_show_preview() {
+            if !player_preferences.get_screenshot_show_preview() {
                 app.set_video_osd_request_feedback(false);
                 osd.set_video_osd_text("Screenshot Captured".into());
                 osd.set_video_osd_progress(-1.0);
@@ -312,11 +318,13 @@ fn update_feedback(
                         osd.set_screenshot_preview_image(image);
                         osd.set_screenshot_preview_width(width);
                         osd.set_screenshot_preview_height(height);
-                        osd.set_screenshot_preview_path(if app.get_screenshot_save_to_file() {
-                            path.into()
-                        } else {
-                            "".into()
-                        });
+                        osd.set_screenshot_preview_path(
+                            if player_preferences.get_screenshot_save_to_file() {
+                                path.into()
+                            } else {
+                                "".into()
+                            },
+                        );
                         app.invoke_show_screenshot_preview();
                     }
                     Err(_) => {
@@ -394,8 +402,10 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
     }
     if let Some(message) = crate::video_osd::file_start_message(
         &state.title,
-        app.get_osd_enabled(),
-        app.get_disable_osd_file_start(),
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_osd_enabled(),
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_disable_osd_file_start(),
     ) {
         let osd = app.global::<riina_ui::PlayerOsdState>();
         app.set_video_osd_request_feedback(false);
@@ -544,7 +554,8 @@ fn update_delays_and_subtitle_style(app: &PlayerWindow, state: &Playback) {
     }
     subtitles.set_subtitle_font_size(state.subtitle_font_size.unwrap_or(0.0) as f32);
     if let Some(size) = state.subtitle_font_size {
-        app.set_subtitle_font_size_preference(size as f32);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_subtitle_font_size_preference(size as f32);
     }
     subtitles.set_subtitle_outline_size_known(state.subtitle_outline_size.is_some());
     subtitles.set_subtitle_outline_size(state.subtitle_outline_size.unwrap_or(0.0) as f32);

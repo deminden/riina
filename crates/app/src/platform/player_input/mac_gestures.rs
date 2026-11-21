@@ -71,7 +71,12 @@ pub(super) fn install(
                 if stage < 2 {
                     force_touch_active.set(false);
                 } else if stage == 2 && !force_touch_active.replace(true) {
-                    dispatch(&app, &player, app.get_control_force_touch_index());
+                    dispatch(
+                        &app,
+                        &player,
+                        app.global::<riina_ui::PlayerPreferences>()
+                            .get_control_force_touch_index(),
+                    );
                 }
             }
             platform::ControlGesture::Pinch { delta, phase } => {

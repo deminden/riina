@@ -53,7 +53,10 @@ pub(super) fn install_pause_on_minimize(
         };
         let action = {
             let mut pause = pause.borrow_mut();
-            if app.get_pause_when_minimized() {
+            if app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_pause_when_minimized()
+            {
                 let state = riina_core::sync::lock(&playback);
                 if minimized {
                     pause.pause(&state).then_some(true)
@@ -106,7 +109,8 @@ mod tests {
         app.on_set_paused(move |paused| observed.borrow_mut().push(paused));
         let flush_changes = || i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
 
-        app.set_pause_when_minimized(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_pause_when_minimized(true);
         app.window().set_minimized(true);
         flush_changes();
         assert!(decisions.borrow().is_empty());
@@ -118,10 +122,12 @@ mod tests {
         flush_changes();
         assert_eq!(*decisions.borrow(), [true, false]);
 
-        app.set_pause_when_minimized(false);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_pause_when_minimized(false);
         owner.window().set_minimized(true);
         flush_changes();
-        app.set_pause_when_minimized(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_pause_when_minimized(true);
         flush_changes();
         assert_eq!(*decisions.borrow(), [true, false]);
         owner.window().set_minimized(false);

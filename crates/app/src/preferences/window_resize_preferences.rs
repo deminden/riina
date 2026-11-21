@@ -6,6 +6,7 @@ use riina_core::window_resize::{
     GeometryUnit, HorizontalAnchor, InitialGeometry, InitialPosition, InitialSize, ResizeOption,
     ResizeTiming, Settings, SizeAxis, VerticalAnchor,
 };
+use slint::ComponentHandle;
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {
@@ -30,12 +31,13 @@ impl PreferenceSection for Settings {
 }
 
 pub(crate) fn from_player(app: &PlayerWindow) -> Result<Settings, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     Ok(Settings {
-        option: ResizeOption::from_index(app.get_window_resize_option_index())
+        option: ResizeOption::from_index(player_preferences.get_window_resize_option_index())
             .ok_or("Choose a valid window resize option")?,
-        timing: ResizeTiming::from_index(app.get_window_resize_timing_index())
+        timing: ResizeTiming::from_index(player_preferences.get_window_resize_timing_index())
             .ok_or("Choose a valid window resize timing")?,
-        use_physical_resolution: app.get_use_physical_resolution(),
+        use_physical_resolution: player_preferences.get_use_physical_resolution(),
         initial_geometry: geometry_from_player(app)?,
     })
 }
@@ -52,32 +54,36 @@ pub(crate) fn from_preferences(window: &PreferencesWindow) -> Result<Settings, S
 }
 
 pub(crate) fn install_player(app: &PlayerWindow, settings: Settings) {
-    app.set_window_resize_option_index(settings.option.index());
-    app.set_window_resize_timing_index(settings.timing.index());
-    app.set_use_physical_resolution(settings.use_physical_resolution);
-    app.set_initial_window_size_enabled(settings.initial_geometry.size.is_some());
-    app.set_initial_window_position_enabled(settings.initial_geometry.position.is_some());
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_window_resize_option_index(settings.option.index());
+    player_preferences.set_window_resize_timing_index(settings.timing.index());
+    player_preferences.set_use_physical_resolution(settings.use_physical_resolution);
+    player_preferences.set_initial_window_size_enabled(settings.initial_geometry.size.is_some());
+    player_preferences
+        .set_initial_window_position_enabled(settings.initial_geometry.position.is_some());
     if let Some(size) = settings.initial_geometry.size {
-        app.set_initial_window_size_axis_index(match size.axis {
+        player_preferences.set_initial_window_size_axis_index(match size.axis {
             SizeAxis::Width => 0,
             SizeAxis::Height => 1,
         });
-        app.set_initial_window_size_value_text(size.value.to_string().into());
-        app.set_initial_window_size_unit_index(unit_index(size.unit));
+        player_preferences.set_initial_window_size_value_text(size.value.to_string().into());
+        player_preferences.set_initial_window_size_unit_index(unit_index(size.unit));
     }
     if let Some(position) = settings.initial_geometry.position {
-        app.set_initial_window_x_anchor_index(match position.horizontal_anchor {
+        player_preferences.set_initial_window_x_anchor_index(match position.horizontal_anchor {
             HorizontalAnchor::Left => 0,
             HorizontalAnchor::Right => 1,
         });
-        app.set_initial_window_x_offset_text(position.horizontal_offset.to_string().into());
-        app.set_initial_window_x_unit_index(unit_index(position.horizontal_unit));
-        app.set_initial_window_y_anchor_index(match position.vertical_anchor {
+        player_preferences
+            .set_initial_window_x_offset_text(position.horizontal_offset.to_string().into());
+        player_preferences.set_initial_window_x_unit_index(unit_index(position.horizontal_unit));
+        player_preferences.set_initial_window_y_anchor_index(match position.vertical_anchor {
             VerticalAnchor::Bottom => 0,
             VerticalAnchor::Top => 1,
         });
-        app.set_initial_window_y_offset_text(position.vertical_offset.to_string().into());
-        app.set_initial_window_y_unit_index(unit_index(position.vertical_unit));
+        player_preferences
+            .set_initial_window_y_offset_text(position.vertical_offset.to_string().into());
+        player_preferences.set_initial_window_y_unit_index(unit_index(position.vertical_unit));
     }
 }
 
@@ -112,18 +118,25 @@ pub(crate) fn install_preferences(window: &PreferencesWindow, settings: Settings
 }
 
 fn geometry_from_player(app: &PlayerWindow) -> Result<InitialGeometry, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     geometry(
-        app.get_initial_window_size_enabled(),
-        app.get_initial_window_size_axis_index(),
-        app.get_initial_window_size_value_text().as_str(),
-        app.get_initial_window_size_unit_index(),
-        app.get_initial_window_position_enabled(),
-        app.get_initial_window_x_anchor_index(),
-        app.get_initial_window_x_offset_text().as_str(),
-        app.get_initial_window_x_unit_index(),
-        app.get_initial_window_y_anchor_index(),
-        app.get_initial_window_y_offset_text().as_str(),
-        app.get_initial_window_y_unit_index(),
+        player_preferences.get_initial_window_size_enabled(),
+        player_preferences.get_initial_window_size_axis_index(),
+        player_preferences
+            .get_initial_window_size_value_text()
+            .as_str(),
+        player_preferences.get_initial_window_size_unit_index(),
+        player_preferences.get_initial_window_position_enabled(),
+        player_preferences.get_initial_window_x_anchor_index(),
+        player_preferences
+            .get_initial_window_x_offset_text()
+            .as_str(),
+        player_preferences.get_initial_window_x_unit_index(),
+        player_preferences.get_initial_window_y_anchor_index(),
+        player_preferences
+            .get_initial_window_y_offset_text()
+            .as_str(),
+        player_preferences.get_initial_window_y_unit_index(),
     )
 }
 

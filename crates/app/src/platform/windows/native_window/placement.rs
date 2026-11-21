@@ -93,9 +93,10 @@ struct CenterState {
 
 impl StartupCenter {
     pub(super) fn refresh_position_policy(&self, app: &PlayerWindow) {
-        self.0
-            .pending
-            .set(!app.get_initial_window_position_enabled());
+        self.0.pending.set(
+            !app.global::<riina_ui::PlayerPreferences>()
+                .get_initial_window_position_enabled(),
+        );
     }
 
     pub(super) fn media_loaded(&self) -> bool {
@@ -137,7 +138,11 @@ impl StartupCenter {
                 return;
             }
             if let (Some(host), Some(app)) = (host.upgrade(), app.upgrade()) {
-                if app.get_initial_window_position_enabled() || app.get_fullscreen() {
+                if app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_initial_window_position_enabled()
+                    || app.get_fullscreen()
+                {
                     state.pending.set(false);
                     return;
                 }

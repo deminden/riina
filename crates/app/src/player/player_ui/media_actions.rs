@@ -280,7 +280,8 @@ fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
             media_open::open_recent(
                 &app,
                 media,
-                app.get_resume_last_position(),
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_resume_last_position(),
                 recent_player.clone(),
             );
         });
@@ -438,7 +439,11 @@ fn install_welcome_recent(
                 if let Some(welcome) = recent_welcome.as_ref().and_then(slint::Weak::upgrade) {
                     let _ = welcome.hide();
                 }
-                let request = PendingWelcomeOpen::Recent(media, app.get_resume_last_position());
+                let request = PendingWelcomeOpen::Recent(
+                    media,
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .get_resume_last_position(),
+                );
                 if app.get_engine_ready() {
                     dispatch_welcome_open(&app, request, &recent_player);
                 } else {
@@ -448,7 +453,8 @@ fn install_welcome_recent(
                 media_open::open_recent(
                     &app,
                     media,
-                    app.get_resume_last_position(),
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .get_resume_last_position(),
                     recent_player.clone(),
                 );
             }
@@ -465,7 +471,9 @@ fn install_media_opened(app: &PlayerWindow, context: &Context<'_>, welcome_windo
     let opened_welcome = welcome_window.clone();
     app.on_media_opened(move |path, title| {
         if let Some(app) = opened_app.upgrade()
-            && app.get_track_all_files_in_recent_open_menu()
+            && app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_track_all_files_in_recent_open_menu()
         {
             remember_recent_open_document(
                 &app,

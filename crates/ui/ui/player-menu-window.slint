@@ -1,3 +1,7 @@
+import { PlaybackAudioState } from "playback-audio-state.slint";
+import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
+import { PlaybackVideoState } from "playback-video-state.slint";
+import { PlayerPreferences } from "player-preferences.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { MenuCatalogRow, MenuShortcutRow, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
@@ -8,9 +12,6 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-bar-visible;
     in property <[MenuShortcutRow]> menu-value-menu-shortcuts;
     in-out property <bool> menu-value-always-float-on-top;
-    in property <string> menu-value-audio-delay-text;
-    in property <[MenuCatalogRow]> menu-value-audio-device-menu-rows;
-    in property <[CatalogRow]> menu-value-audio-tracks;
     in property <[CatalogRow]> menu-value-chapters;
     in property <bool> menu-value-crop-editing;
     in property <string> menu-value-current-file-manager-name;
@@ -29,8 +30,6 @@ export component PlayerMenuWindow inherits Window {
     in property <string> menu-value-loop-label;
     in property <bool> menu-value-menu-alternates-visible;
     in property <bool> menu-value-music-mode;
-    in property <bool> menu-value-muted;
-    in property <int> menu-value-open-subtitles-provider-index;
     in property <bool> menu-value-paused;
     in property <bool> menu-value-picture-in-picture-active;
     in property <bool> menu-value-picture-in-picture-available;
@@ -39,40 +38,20 @@ export component PlayerMenuWindow inherits Window {
     in-out property <int> menu-value-preferences-target-pane;
     in property <bool> menu-value-primary-shortcut-is-meta;
     in property <[MenuCatalogRow]> menu-value-recent-open-menu-rows;
-    in property <bool> menu-value-record-recent-files;
     in property <bool> menu-value-reflection-known;
     in property <bool> menu-value-reveal-current-media-available;
     in property <bool> menu-value-save-current-playlist-available;
     in property <[SavedFilterMenuRow]> menu-value-saved-audio-filter-rows;
     in property <[SavedFilterMenuRow]> menu-value-saved-video-filter-rows;
     in property <bool> menu-value-screenshot-available;
-    in property <[CatalogRow]> menu-value-secondary-subtitle-tracks;
-    in property <bool> menu-value-secondary-subtitle-visibility-known;
-    in property <bool> menu-value-secondary-subtitle-visible;
     in property <bool> menu-value-settings-at-leading;
     in property <int> menu-value-sidebar;
     in property <string> menu-value-speed-edit-value;
-    in property <string> menu-value-subtitle-default-encoding;
-    in property <string> menu-value-subtitle-delay-text;
-    in property <[CatalogRow]> menu-value-subtitle-encoding-options;
-    in property <bool> menu-value-subtitle-scale-known;
-    in property <[CatalogRow]> menu-value-subtitle-tracks;
-    in property <bool> menu-value-subtitle-visible;
     in-out property <bool> menu-value-unlock-window-aspect-ratio;
-    in property <bool> menu-value-video-aspect-known;
-    in property <int> menu-value-video-aspect-menu-index;
-    in property <[string]> menu-value-video-aspect-menu-labels;
-    in property <bool> menu-value-video-crop-known;
-    in property <int> menu-value-video-crop-menu-index;
-    in property <[string]> menu-value-video-crop-menu-labels;
     in property <bool> menu-value-video-flipped;
     in property <bool> menu-value-video-mirrored;
-    in property <int> menu-value-video-rotation-index;
-    in property <bool> menu-value-video-rotation-known;
-    in property <[CatalogRow]> menu-value-video-tracks;
     in property <float> menu-value-video-window-height;
     in property <float> menu-value-video-window-width;
-    in property <string> menu-value-volume-menu-title;
 
     function menu-shortcut(index: int) -> keys {
         if index < 0 || index >= root.menu-value-menu-shortcuts.length { return @keys(); }
@@ -118,7 +97,7 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Open URL…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O);
                 activated => { PlayerMenuActions.open-url-dialog(); } }
-            if root.menu-value-record-recent-files : Menu {
+            if PlayerPreferences.record-recent-files : Menu {
                 title: "Open Recent";
                 enabled: root.menu-value-recent-open-menu-rows.length > 0;
                 for row in root.menu-value-recent-open-menu-rows : MenuItem {
@@ -260,7 +239,7 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(19);
                 activated => { PlayerMenuActions.cycle-video-track(); } }
             Menu { title: "Video Track"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                for row in root.menu-value-video-tracks : MenuItem {
+                for row in PlaybackVideoState.video-tracks : MenuItem {
                     title: row.label;
                     checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.select-item(CatalogSelection.video-track, row.token); }
@@ -319,29 +298,29 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(30);
                 activated => { PlayerMenuActions.toggle-music-mode(); } }
             MenuSeparator {}
-            Menu { title: "Aspect Ratio"; enabled: root.menu-value-loaded && root.menu-value-video-aspect-known && !root.menu-value-crop-editing;
-                for label[index] in root.menu-value-video-aspect-menu-labels : MenuItem {
-                    title: label; checkable: true; checked: root.menu-value-video-aspect-menu-index == index;
+            Menu { title: "Aspect Ratio"; enabled: root.menu-value-loaded && PlaybackVideoState.video-aspect-known && !root.menu-value-crop-editing;
+                for label[index] in PlaybackVideoState.video-aspect-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: PlaybackVideoState.video-aspect-menu-index == index;
                     activated => { PlayerMenuActions.set-menu-video-aspect(index); }
                 }
             }
-            Menu { title: "Crop"; enabled: root.menu-value-loaded && root.menu-value-video-crop-known && !root.menu-value-crop-editing;
-                for label[index] in root.menu-value-video-crop-menu-labels : MenuItem {
-                    title: label; checkable: true; checked: root.menu-value-video-crop-menu-index == index;
+            Menu { title: "Crop"; enabled: root.menu-value-loaded && PlaybackVideoState.video-crop-known && !root.menu-value-crop-editing;
+                for label[index] in PlaybackVideoState.video-crop-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: PlaybackVideoState.video-crop-menu-index == index;
                     activated => { PlayerMenuActions.set-menu-video-crop(index); }
                 }
                 MenuSeparator {}
-                MenuItem { title: "Custom…"; checkable: true; checked: root.menu-value-video-crop-menu-index == 10;
+                MenuItem { title: "Custom…"; checkable: true; checked: PlaybackVideoState.video-crop-menu-index == 10;
                     activated => { PlayerMenuActions.set-menu-video-crop(10); } }
             }
-            Menu { title: "Rotation"; enabled: root.menu-value-loaded && root.menu-value-video-rotation-known && !root.menu-value-crop-editing;
-                MenuItem { title: "0°"; checkable: true; checked: root.menu-value-video-rotation-index == 0;
+            Menu { title: "Rotation"; enabled: root.menu-value-loaded && PlaybackVideoState.video-rotation-known && !root.menu-value-crop-editing;
+                MenuItem { title: "0°"; checkable: true; checked: PlaybackVideoState.video-rotation-index == 0;
                     activated => { PlayerMenuActions.set-menu-video-rotation(0); } }
-                MenuItem { title: "90°"; checkable: true; checked: root.menu-value-video-rotation-index == 1;
+                MenuItem { title: "90°"; checkable: true; checked: PlaybackVideoState.video-rotation-index == 1;
                     activated => { PlayerMenuActions.set-menu-video-rotation(90); } }
-                MenuItem { title: "180°"; checkable: true; checked: root.menu-value-video-rotation-index == 2;
+                MenuItem { title: "180°"; checkable: true; checked: PlaybackVideoState.video-rotation-index == 2;
                     activated => { PlayerMenuActions.set-menu-video-rotation(180); } }
-                MenuItem { title: "270°"; checkable: true; checked: root.menu-value-video-rotation-index == 3;
+                MenuItem { title: "270°"; checkable: true; checked: PlaybackVideoState.video-rotation-index == 3;
                     activated => { PlayerMenuActions.set-menu-video-rotation(270); } }
             }
             Menu { title: "Flip"; enabled: root.menu-value-loaded && root.menu-value-reflection-known && !root.menu-value-crop-editing;
@@ -377,7 +356,7 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(32);
                 activated => { PlayerMenuActions.cycle-audio-track(); } }
             Menu { title: "Audio Track"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                for row in root.menu-value-audio-tracks : MenuItem {
+                for row in PlaybackAudioState.audio-tracks : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.select-item(CatalogSelection.audio-track, row.token); }
                 }
@@ -385,7 +364,7 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Load External Audio…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.browse-files(1); } }
             MenuSeparator {}
-            MenuItem { title: root.menu-value-volume-menu-title; enabled: false; }
+            MenuItem { title: PlaybackAudioState.volume-menu-title; enabled: false; }
             MenuItem { title: root.menu-value-menu-alternates-visible ? "Volume + 1%" : "Volume + 5%";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 35 : 33);
@@ -394,12 +373,12 @@ export component PlayerMenuWindow inherits Window {
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 36 : 34);
                 activated => { PlayerMenuActions.adjust-volume(root.menu-value-menu-alternates-visible ? -1 : -5); } }
-            MenuItem { title: "Mute"; checkable: true; checked: root.menu-value-muted;
+            MenuItem { title: "Mute"; checkable: true; checked: PlaybackAudioState.muted;
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(37);
                 activated => { PlayerMenuActions.toggle-mute(); } }
             MenuSeparator {}
-            MenuItem { title: "Audio Delay: " + root.menu-value-audio-delay-text + "s"; enabled: false; }
+            MenuItem { title: "Audio Delay: " + PlaybackAudioState.audio-delay-text + "s"; enabled: false; }
             MenuItem { title: root.menu-value-menu-alternates-visible ? "Audio Delay + 0.1s" : "Audio Delay + 0.5s";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 40 : 38);
@@ -413,8 +392,8 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.reset-audio-delay(); } }
             MenuSeparator {}
             Menu { title: "Audio Device";
-                enabled: root.menu-value-loaded && !root.menu-value-crop-editing && root.menu-value-audio-device-menu-rows.length > 0;
-                for row in root.menu-value-audio-device-menu-rows : MenuItem {
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing && PlaybackAudioState.audio-device-menu-rows.length > 0;
+                for row in PlaybackAudioState.audio-device-menu-rows : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.set-audio-device(row.token); }
                 }
@@ -440,32 +419,32 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(43);
                 activated => { PlayerMenuActions.cycle-subtitle-track(); } }
             Menu { title: "Subtitle"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                for row in root.menu-value-subtitle-tracks : MenuItem {
+                for row in PlaybackSubtitleState.subtitle-tracks : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.select-item(CatalogSelection.primary-subtitle, row.token); }
                 }
             }
-            MenuItem { title: root.menu-value-subtitle-visible ? "Hide Subtitles" : "Show Subtitles";
-                checkable: true; checked: root.menu-value-subtitle-visible;
+            MenuItem { title: PlaybackSubtitleState.subtitle-visible ? "Hide Subtitles" : "Show Subtitles";
+                checkable: true; checked: PlaybackSubtitleState.subtitle-visible;
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(44);
                 activated => { PlayerMenuActions.toggle-subtitle-visibility(); } }
             Menu { title: "Secondary Subtitle"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                for row in root.menu-value-secondary-subtitle-tracks : MenuItem {
+                for row in PlaybackSubtitleState.secondary-subtitle-tracks : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.select-item(CatalogSelection.secondary-subtitle, row.token); }
                 }
             }
-            MenuItem { title: root.menu-value-secondary-subtitle-visible ? "Hide Secondary Subtitles" : "Show Secondary Subtitles";
-                checkable: true; checked: root.menu-value-secondary-subtitle-visible;
-                enabled: root.menu-value-loaded && root.menu-value-secondary-subtitle-visibility-known && !root.menu-value-crop-editing;
+            MenuItem { title: PlaybackSubtitleState.secondary-subtitle-visible ? "Hide Secondary Subtitles" : "Show Secondary Subtitles";
+                checkable: true; checked: PlaybackSubtitleState.secondary-subtitle-visible;
+                enabled: root.menu-value-loaded && PlaybackSubtitleState.secondary-subtitle-visibility-known && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(54);
                 activated => { PlayerMenuActions.toggle-secondary-subtitle-visibility(); }
             }
             MenuItem { title: "Load External Subtitle…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.browse-files(2); } }
             MenuSeparator {}
-            MenuItem { title: root.menu-value-open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.menu-value-open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : PlayerPreferences.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(55);
                 activated => { PlayerMenuActions.find-online-subtitles(); } }
             Menu { title: "Find Online Subtitles from"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
@@ -479,21 +458,21 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuSeparator {}
             Menu { title: "Encoding"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                for row in root.menu-value-subtitle-encoding-options : MenuItem {
+                for row in PlaybackSubtitleState.subtitle-encoding-options : MenuItem {
                     title: row.label; checkable: true;
-                    checked: root.menu-value-subtitle-default-encoding == row.token;
+                    checked: PlayerPreferences.subtitle-default-encoding == row.token;
                     activated => { PlayerMenuActions.set-subtitle-encoding(row.token); }
                 }
             }
             MenuSeparator {}
-            MenuItem { title: "Scale Up"; enabled: root.menu-value-loaded && root.menu-value-subtitle-scale-known && !root.menu-value-crop-editing;
+            MenuItem { title: "Scale Up"; enabled: root.menu-value-loaded && PlaybackSubtitleState.subtitle-scale-known && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.multiply-subtitle-scale(1.1); } }
-            MenuItem { title: "Scale Down"; enabled: root.menu-value-loaded && root.menu-value-subtitle-scale-known && !root.menu-value-crop-editing;
+            MenuItem { title: "Scale Down"; enabled: root.menu-value-loaded && PlaybackSubtitleState.subtitle-scale-known && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.multiply-subtitle-scale(0.9); } }
-            MenuItem { title: "Reset Subtitle Scale"; enabled: root.menu-value-loaded && root.menu-value-subtitle-scale-known && !root.menu-value-crop-editing;
+            MenuItem { title: "Reset Subtitle Scale"; enabled: root.menu-value-loaded && PlaybackSubtitleState.subtitle-scale-known && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.set-subtitle-scale-slider(0); } }
             MenuSeparator {}
-            MenuItem { title: "Subtitle Delay: " + root.menu-value-subtitle-delay-text + "s"; enabled: false; }
+            MenuItem { title: "Subtitle Delay: " + PlaybackSubtitleState.subtitle-delay-text + "s"; enabled: false; }
             MenuItem { title: root.menu-value-menu-alternates-visible ? "Subtitle Delay + 0.1s" : "Subtitle Delay + 0.5s";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 52 : 49);

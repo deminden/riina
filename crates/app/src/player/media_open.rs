@@ -6,9 +6,12 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::ffi::OsString;
 
 fn apply_manual_open_repeat(app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
-    if let Some(command) =
-        manual_open_repeat_command(app.get_auto_repeat(), app.get_default_repeat_mode_index())?
-    {
+    if let Some(command) = manual_open_repeat_command(
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_auto_repeat(),
+        app.global::<riina_ui::PlayerPreferences>()
+            .get_default_repeat_mode_index(),
+    )? {
         sender.send(command).map_err(|error| error.to_string())?;
     }
     Ok(())

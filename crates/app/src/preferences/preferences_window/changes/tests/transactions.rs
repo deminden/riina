@@ -1,5 +1,7 @@
 use super::*;
 use crate::player_ui::glue_tests::Harness;
+use riina_ui::PlayerPreferences;
+use slint::ComponentHandle;
 
 struct Transaction {
     player: Harness,
@@ -85,7 +87,8 @@ impl Transaction {
 }
 
 macro_rules! checkbox_cases {
-    ($($test:ident => $([$form:ty])? $window_get:ident, $window_set:ident, $app_get:ident, $saved:expr;)+) => {
+    ($($test:ident => $([$form:ty])? $window_get:ident, $window_set:ident,
+      $([$projected:ty])? $app_get:ident, $saved:expr;)+) => {
         $(
             #[test]
             fn $test() {
@@ -96,7 +99,9 @@ macro_rules! checkbox_cases {
                 form.$window_set(target);
                 assert_eq!(transaction.apply(), [transaction.expected_subtitle_reload()]);
                 assert_eq!(($saved)(&transaction.profile.read()), target);
-                assert_eq!(transaction.player.app.$app_get(), target);
+                let projected = &transaction.player.app;
+                $(let projected = projected.global::<$projected>();)?
+                assert_eq!(projected.$app_get(), target);
             }
         )+
     };
@@ -105,91 +110,93 @@ macro_rules! checkbox_cases {
 checkbox_cases! {
     fullscreen_intent_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
-        get_fullscreen_when_open, set_fullscreen_when_open, get_fullscreen_when_open,
+        get_fullscreen_when_open, set_fullscreen_when_open, [PlayerPreferences] get_fullscreen_when_open,
         |p: &Preferences| p.fullscreen_when_open;
     fullscreen_entry_resume_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_play_when_entering_fullscreen, set_play_when_entering_fullscreen,
-        get_play_when_entering_fullscreen, |p: &Preferences| p.play_when_entering_fullscreen;
+        [PlayerPreferences] get_play_when_entering_fullscreen, |p: &Preferences| p.play_when_entering_fullscreen;
     fullscreen_exit_pause_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_pause_when_leaving_fullscreen, set_pause_when_leaving_fullscreen,
-        get_pause_when_leaving_fullscreen, |p: &Preferences| p.pause_when_leaving_fullscreen;
+        [PlayerPreferences] get_pause_when_leaving_fullscreen, |p: &Preferences| p.pause_when_leaving_fullscreen;
     inactive_pause_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_pause_when_inactive, set_pause_when_inactive,
-        get_pause_when_inactive, |p: &Preferences| p.pause_when_inactive;
+        [PlayerPreferences] get_pause_when_inactive, |p: &Preferences| p.pause_when_inactive;
     minimized_pause_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_pause_when_minimized, set_pause_when_minimized,
-        get_pause_when_minimized, |p: &Preferences| p.pause_when_minimized;
+        [PlayerPreferences] get_pause_when_minimized, |p: &Preferences| p.pause_when_minimized;
     sleep_pause_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_pause_when_goes_to_sleep, set_pause_when_goes_to_sleep,
-        get_pause_when_goes_to_sleep, |p: &Preferences| p.pause_when_goes_to_sleep;
+        [PlayerPreferences] get_pause_when_goes_to_sleep, |p: &Preferences| p.pause_when_goes_to_sleep;
     quitting_last_player_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_quit_when_no_opened_window, set_quit_when_no_opened_window,
-        get_quit_when_no_opened_window, |p: &Preferences| p.quit_when_no_opened_window;
+        [PlayerPreferences] get_quit_when_no_opened_window, |p: &Preferences| p.quit_when_no_opened_window;
     recent_files_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_record_recent_files, set_record_recent_files,
-        get_record_recent_files, |p: &Preferences| p.record_recent_files;
+        [PlayerPreferences] get_record_recent_files, |p: &Preferences| p.record_recent_files;
     open_menu_tracking_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_track_all_files_in_recent_open_menu, set_track_all_files_in_recent_open_menu,
-        get_track_all_files_in_recent_open_menu, |p: &Preferences| p.track_all_files_in_recent_open_menu;
+        [PlayerPreferences] get_track_all_files_in_recent_open_menu,
+        |p: &Preferences| p.track_all_files_in_recent_open_menu;
     playlist_auto_add_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
-        get_playlist_auto_add, set_playlist_auto_add, get_playlist_auto_add,
+        get_playlist_auto_add, set_playlist_auto_add, [PlayerPreferences] get_playlist_auto_add,
         |p: &Preferences| p.playlist_auto_add;
     playlist_metadata_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
-        get_playlist_show_metadata, set_playlist_show_metadata, get_playlist_show_metadata,
+        get_playlist_show_metadata, set_playlist_show_metadata, [PlayerPreferences] get_playlist_show_metadata,
         |p: &Preferences| p.playlist_show_metadata;
     music_playlist_metadata_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_playlist_show_metadata_in_music_mode, set_playlist_show_metadata_in_music_mode,
-        get_playlist_show_metadata_in_music_mode, |p: &Preferences| p.playlist_show_metadata_in_music_mode;
+        [PlayerPreferences] get_playlist_show_metadata_in_music_mode,
+        |p: &Preferences| p.playlist_show_metadata_in_music_mode;
     repeat_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
-        get_auto_repeat, set_auto_repeat, get_auto_repeat, |p: &Preferences| p.auto_repeat;
+        get_auto_repeat, set_auto_repeat, [PlayerPreferences] get_auto_repeat, |p: &Preferences| p.auto_repeat;
     chapter_markers_persist_and_project =>
-        get_show_chapter_pos, set_show_chapter_pos, get_show_chapter_pos,
+        get_show_chapter_pos, set_show_chapter_pos, [PlayerPreferences] get_show_chapter_pos,
         |p: &Preferences| p.show_chapter_pos;
     animation_preference_persists_and_projects =>
-        get_disable_animations, set_disable_animations, get_disable_animations,
+        get_disable_animations, set_disable_animations, [PlayerPreferences] get_disable_animations,
         |p: &Preferences| p.disable_animations;
     always_show_on_top_icon_persists_and_projects =>
         get_always_show_on_top_icon, set_always_show_on_top_icon, get_always_show_on_top_icon,
         |p: &Preferences| p.always_show_on_top_icon;
     osd_enabled_persists_and_projects =>
-        get_osd_enabled, set_osd_enabled, get_osd_enabled, |p: &Preferences| p.enable_osd;
+        get_osd_enabled, set_osd_enabled, [PlayerPreferences] get_osd_enabled, |p: &Preferences| p.enable_osd;
     osd_pause_suppression_persists_and_projects =>
-        get_disable_osd_pause_resume, set_disable_osd_pause_resume, get_disable_osd_pause_resume,
+        get_disable_osd_pause_resume, set_disable_osd_pause_resume, [PlayerPreferences] get_disable_osd_pause_resume,
         |p: &Preferences| p.disable_osd_pause_resume;
     thumbnails_enabled_persists_and_projects =>
-        get_thumbnail_preview_enabled, set_thumbnail_preview_enabled, get_thumbnail_preview_enabled,
+        get_thumbnail_preview_enabled, set_thumbnail_preview_enabled, [PlayerPreferences] get_thumbnail_preview_enabled,
         |p: &Preferences| p.thumbnail_preview.enabled;
     remote_thumbnail_policy_persists_and_projects =>
-        get_thumbnail_remote_enabled, set_thumbnail_remote_enabled, get_thumbnail_remote_enabled,
+        get_thumbnail_remote_enabled, set_thumbnail_remote_enabled, [PlayerPreferences] get_thumbnail_remote_enabled,
         |p: &Preferences| p.thumbnail_preview.enable_for_remote_files;
     pip_pause_policy_persists_and_projects =>
-        get_pip_pause_when_entering, set_pip_pause_when_entering, get_pip_pause_when_entering,
+        get_pip_pause_when_entering, set_pip_pause_when_entering, [PlayerPreferences] get_pip_pause_when_entering,
         |p: &Preferences| p.picture_in_picture.pause_when_entering;
     pip_minimize_policy_persists_and_projects =>
-        get_pip_toggle_by_minimizing, set_pip_toggle_by_minimizing, get_pip_toggle_by_minimizing,
+        get_pip_toggle_by_minimizing, set_pip_toggle_by_minimizing, [PlayerPreferences] get_pip_toggle_by_minimizing,
         |p: &Preferences| p.picture_in_picture.toggle_by_minimizing;
     floating_window_policy_persists_and_projects =>
         get_always_float_on_top, set_always_float_on_top, get_always_float_on_top,
         |p: &Preferences| p.always_float_on_top;
     screenshot_preview_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
-        get_show_preview, set_show_preview, get_screenshot_show_preview,
+        get_show_preview, set_show_preview, [PlayerPreferences] get_screenshot_show_preview,
         |p: &Preferences| p.screenshot.show_preview;
     screenshot_subtitle_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
-        get_include_subtitles, set_include_subtitles, get_screenshot_include_subtitles,
+        get_include_subtitles, set_include_subtitles, [PlayerPreferences] get_screenshot_include_subtitles,
         |p: &Preferences| p.screenshot.include_subtitles;
 }
 
@@ -259,7 +266,13 @@ fn volume_boost_sends_its_command_before_subtitle_reload() {
         ]
     );
     assert!(transaction.profile.read().volume_boost);
-    assert!(transaction.player.app.get_volume_boost());
+    assert!(
+        transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_volume_boost()
+    );
 }
 
 #[test]
@@ -284,7 +297,13 @@ fn pause_when_open_callback_observes_the_persisted_edit_and_fires_once() {
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
-    assert!(transaction.player.app.get_pause_when_open());
+    assert!(
+        transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_pause_when_open()
+    );
     assert_eq!(observed.get(), 1);
     assert_eq!(
         transaction.apply(),
@@ -312,7 +331,14 @@ fn resume_policy_sends_its_command_only_when_changed() {
         ]
     );
     assert_eq!(transaction.profile.read().resume_last_position, target);
-    assert_eq!(transaction.player.app.get_resume_last_position(), target);
+    assert_eq!(
+        transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_resume_last_position(),
+        target
+    );
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
@@ -341,7 +367,13 @@ fn record_history_callback_fires_after_the_file_changes_and_only_once() {
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
-    assert!(!transaction.player.app.get_record_playback_history());
+    assert!(
+        !transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_record_playback_history()
+    );
     assert_eq!(observed.get(), 1);
     assert_eq!(
         transaction.apply(),
@@ -395,7 +427,13 @@ fn rejected_volume_boost_restores_the_setting_without_writing() {
     assert_eq!(transaction.apply(), queued);
     assert_eq!(transaction.bytes(), before);
     assert!(!transaction.window.get_volume_boost());
-    assert!(!transaction.player.app.get_volume_boost());
+    assert!(
+        !transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_volume_boost()
+    );
 }
 
 #[test]
@@ -415,7 +453,13 @@ fn rejected_subtitle_reload_restores_an_independent_live_setting() {
             .global::<riina_ui::GeneralSettingsState>()
             .get_fullscreen_when_open()
     );
-    assert!(!transaction.player.app.get_fullscreen_when_open());
+    assert!(
+        !transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_fullscreen_when_open()
+    );
 }
 
 #[test]
@@ -459,7 +503,8 @@ fn opensubtitles_storage_failure_keeps_the_prior_key_and_omits_secrets_from_json
         assrt: |_| panic!("Unexpected Assrt credential write"),
     });
     let app = &transaction.player.app;
-    app.set_open_subtitles_api_key("existing-api-key".into());
+    app.global::<PlayerPreferences>()
+        .set_open_subtitles_api_key("existing-api-key".into());
     transaction
         .window
         .global::<crate::SubtitleSettingsState>()
@@ -468,7 +513,11 @@ fn opensubtitles_storage_failure_keeps_the_prior_key_and_omits_secrets_from_json
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
-    assert_eq!(app.get_open_subtitles_api_key(), "existing-api-key");
+    assert_eq!(
+        app.global::<PlayerPreferences>()
+            .get_open_subtitles_api_key(),
+        "existing-api-key"
+    );
     assert_eq!(
         transaction
             .window
@@ -499,7 +548,8 @@ fn assrt_storage_failure_keeps_the_prior_token_and_omits_secrets_from_json() {
         },
     });
     let app = &transaction.player.app;
-    app.set_assrt_token("existing-assrt-token".into());
+    app.global::<PlayerPreferences>()
+        .set_assrt_token("existing-assrt-token".into());
     transaction
         .window
         .global::<crate::SubtitleSettingsState>()
@@ -508,7 +558,10 @@ fn assrt_storage_failure_keeps_the_prior_token_and_omits_secrets_from_json() {
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
-    assert_eq!(app.get_assrt_token(), "existing-assrt-token");
+    assert_eq!(
+        app.global::<PlayerPreferences>().get_assrt_token(),
+        "existing-assrt-token"
+    );
     assert_eq!(
         transaction
             .window
@@ -564,7 +617,14 @@ fn cache_edits_apply_the_saved_policy_after_subtitle_reload() {
     let commands = transaction.apply();
     let saved = transaction.profile.read();
     assert_eq!(saved.network_cache.enabled, enabled);
-    assert_eq!(transaction.player.app.get_network_cache_enabled(), enabled);
+    assert_eq!(
+        transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_network_cache_enabled(),
+        enabled
+    );
     assert_eq!(
         commands,
         [
@@ -591,7 +651,13 @@ fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
         ]
     );
     assert_eq!(transaction.bytes(), before);
-    assert!(!transaction.player.app.get_volume_boost());
+    assert!(
+        !transaction
+            .player
+            .app
+            .global::<PlayerPreferences>()
+            .get_volume_boost()
+    );
     assert!(!transaction.window.get_volume_boost());
 }
 
@@ -655,7 +721,8 @@ fn session_save_captures_controls_edited_directly_in_the_player() {
     app.set_music_mode_show_playlist(true);
     app.set_control_bar_position_horizontal(0.25);
     app.set_trailing_sidebar_width(320.0);
-    app.set_subtitle_font_size_preference(38.0);
+    app.global::<PlayerPreferences>()
+        .set_subtitle_font_size_preference(38.0);
     transaction.player.session.save(app).unwrap();
     let saved = transaction.profile.read();
     assert!(!saved.music_mode_show_album_art);

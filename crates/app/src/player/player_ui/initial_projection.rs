@@ -47,9 +47,11 @@ pub(super) fn install_session(
 }
 
 fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
-    app.set_volume_boost(prefs.volume_boost);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_volume_boost(prefs.volume_boost);
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
-    app.set_disable_animations(prefs.disable_animations);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_disable_animations(prefs.disable_animations);
     app.set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
     app.set_platform_macos(cfg!(target_os = "macos"));
     app.set_platform_windows(cfg!(target_os = "windows"));
@@ -74,16 +76,18 @@ fn install_media(
     welcome: Option<&WelcomeWindow>,
     recent_open_documents: &RefCell<Vec<RecentMedia>>,
 ) {
-    app.set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
-    app.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences
+        .set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
+    player_preferences.set_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.subtitle_ass_override,
     ));
-    app.set_secondary_subtitle_ass_override_index(crate::subtitle_preferences::index(
-        prefs.secondary_subtitle_ass_override,
-    ));
+    player_preferences.set_secondary_subtitle_ass_override_index(
+        crate::subtitle_preferences::index(prefs.secondary_subtitle_ass_override),
+    );
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_subtitle_font(prefs.subtitle_font.clone().into());
-    app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
+    player_preferences.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
     if let Some(welcome) = welcome {
         welcome.set_app_version(env!("CARGO_PKG_VERSION").into());
@@ -96,29 +100,31 @@ fn install_media(
                 .to_vec(),
         )));
     crate::screenshot_preferences::install(app, &prefs.screenshot);
-    app.set_pause_when_open(prefs.pause_when_open);
-    app.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
-    app.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
-    app.set_pause_when_inactive(prefs.pause_when_inactive);
-    app.set_pause_when_minimized(prefs.pause_when_minimized);
-    app.set_pause_when_goes_to_sleep(prefs.pause_when_goes_to_sleep);
-    app.set_quit_when_no_opened_window(prefs.quit_when_no_opened_window);
-    app.set_keep_open_on_file_end(prefs.keep_open_on_file_end);
-    app.set_playlist_auto_play_next(prefs.playlist_auto_play_next);
-    app.set_playlist_auto_add(prefs.playlist_auto_add);
-    app.set_playlist_show_metadata(prefs.playlist_show_metadata);
-    app.set_playlist_show_metadata_in_music_mode(prefs.playlist_show_metadata_in_music_mode);
-    app.set_auto_repeat(prefs.auto_repeat);
-    app.set_default_repeat_mode_index(prefs.default_repeat_mode.index());
-    app.set_fullscreen_when_open(prefs.fullscreen_when_open);
-    app.set_resume_last_position(prefs.resume_last_position);
-    app.set_record_playback_history(prefs.record_playback_history);
-    app.set_record_recent_files(prefs.record_recent_files);
-    app.set_track_all_files_in_recent_open_menu(prefs.track_all_files_in_recent_open_menu);
+    player_preferences.set_pause_when_open(prefs.pause_when_open);
+    player_preferences.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
+    player_preferences.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
+    player_preferences.set_pause_when_inactive(prefs.pause_when_inactive);
+    player_preferences.set_pause_when_minimized(prefs.pause_when_minimized);
+    player_preferences.set_pause_when_goes_to_sleep(prefs.pause_when_goes_to_sleep);
+    player_preferences.set_quit_when_no_opened_window(prefs.quit_when_no_opened_window);
+    player_preferences.set_keep_open_on_file_end(prefs.keep_open_on_file_end);
+    player_preferences.set_playlist_auto_play_next(prefs.playlist_auto_play_next);
+    player_preferences.set_playlist_auto_add(prefs.playlist_auto_add);
+    player_preferences.set_playlist_show_metadata(prefs.playlist_show_metadata);
+    player_preferences
+        .set_playlist_show_metadata_in_music_mode(prefs.playlist_show_metadata_in_music_mode);
+    player_preferences.set_auto_repeat(prefs.auto_repeat);
+    player_preferences.set_default_repeat_mode_index(prefs.default_repeat_mode.index());
+    player_preferences.set_fullscreen_when_open(prefs.fullscreen_when_open);
+    player_preferences.set_resume_last_position(prefs.resume_last_position);
+    player_preferences.set_record_playback_history(prefs.record_playback_history);
+    player_preferences.set_record_recent_files(prefs.record_recent_files);
+    player_preferences
+        .set_track_all_files_in_recent_open_menu(prefs.track_all_files_in_recent_open_menu);
     app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
         recent_open_menu_rows(&recent_open_documents.borrow()),
     )));
-    app.set_launch_action_index(prefs.action_after_launch.index());
+    player_preferences.set_launch_action_index(prefs.action_after_launch.index());
 }
 
 fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) -> Rc<slint::Timer> {
@@ -141,7 +147,8 @@ fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) ->
     app.set_osc_position(i32::from(prefs.osc_position));
     app.set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);
     app.set_control_bar_position_vertical(prefs.control_bar_position_vertical as f32);
-    app.set_show_chapter_pos(prefs.show_chapter_pos);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_show_chapter_pos(prefs.show_chapter_pos);
     crate::sidebar_preferences::connect(app, prefs_path.to_path_buf(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.to_path_buf(), prefs.clone());
     refresh_video_menu(app);

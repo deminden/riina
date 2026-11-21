@@ -79,7 +79,9 @@ fn connect_with_credentials(
             return;
         };
         let previous_volume = app.global::<riina_ui::PlaybackAudioState>().get_volume();
-        let previous_decoder = app.get_hardware_decoder_index();
+        let previous_decoder = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_hardware_decoder_index();
         let Some(subtitles) = subtitles::Draft::read(&app, &window, &model) else {
             return;
         };
@@ -90,7 +92,10 @@ fn connect_with_credentials(
         ) else {
             return;
         };
-        let previous_assrt_token = app.get_assrt_token().to_string();
+        let previous_assrt_token = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_assrt_token()
+            .to_string();
         let Some(playback) =
             playback_settings::Draft::read(&app, &window, &model, &saved, &baseline)
         else {
@@ -216,9 +221,19 @@ fn capture_preferences(
 ) -> riina_core::Preferences {
     riina_core::Preferences {
         screenshot,
-        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume())
-            .min(if app.get_volume_boost() { 200.0 } else { 100.0 }),
-        volume_boost: app.get_volume_boost(),
+        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume()).min(
+            if app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_volume_boost()
+            {
+                200.0
+            } else {
+                100.0
+            },
+        ),
+        volume_boost: app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_volume_boost(),
         show_chapter_pos: window.get_show_chapter_pos(),
         allow_multiple_windows: window
             .global::<riina_ui::GeneralSettingsState>()

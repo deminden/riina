@@ -439,5 +439,5 @@ fn material_visible(app: &PlayerWindow) -> bool {
                     || !osd.get_plugin_osd_message().is_empty()
                     || (app.get_fullscreen()
                         && app.get_controls_visible()
-                        && app.get_display_time_and_battery_in_fullscreen()))))
+                        && app.global::<riina_ui::PlayerPreferences>().get_display_time_and_battery_in_fullscreen()))))
 }

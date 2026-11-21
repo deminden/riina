@@ -30,8 +30,14 @@ impl PreferenceSection for Settings {
 pub(crate) fn current_player(window: &PlayerWindow) -> Settings {
     let defaults = Settings::default();
     Settings {
-        auto_hide_enabled: window.get_control_auto_hide_enabled(),
-        auto_hide_timeout_secs: f64::from(window.get_control_auto_hide_timeout_secs()),
+        auto_hide_enabled: window
+            .global::<riina_ui::PlayerPreferences>()
+            .get_control_auto_hide_enabled(),
+        auto_hide_timeout_secs: f64::from(
+            window
+                .global::<riina_ui::PlayerPreferences>()
+                .get_control_auto_hide_timeout_secs(),
+        ),
         toolbar_buttons: toolbar_mask([
             window.get_toolbar_show_plugins(),
             window.get_toolbar_show_pip(),
@@ -71,8 +77,12 @@ pub(crate) fn current_preferences(window: &PreferencesWindow) -> Result<Settings
 }
 
 pub(crate) fn install_player(window: &PlayerWindow, settings: Settings) {
-    window.set_control_auto_hide_enabled(settings.auto_hide_enabled);
-    window.set_control_auto_hide_timeout_secs(settings.auto_hide_timeout_secs as f32);
+    window
+        .global::<riina_ui::PlayerPreferences>()
+        .set_control_auto_hide_enabled(settings.auto_hide_enabled);
+    window
+        .global::<riina_ui::PlayerPreferences>()
+        .set_control_auto_hide_timeout_secs(settings.auto_hide_timeout_secs as f32);
     refresh_visible_order_for(window, settings);
     install_toolbar(window, settings);
 }

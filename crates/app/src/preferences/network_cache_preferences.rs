@@ -48,23 +48,30 @@ fn validate(cache: Cache) -> Result<Cache, String> {
 }
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<Cache, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     validate(Cache {
-        enabled: app.get_network_cache_enabled(),
-        pause_initial: app.get_network_cache_pause_initial(),
+        enabled: player_preferences.get_network_cache_enabled(),
+        pause_initial: player_preferences.get_network_cache_pause_initial(),
         pause_wait_secs: parse_number(
-            app.get_network_cache_pause_wait_text().as_str(),
+            player_preferences
+                .get_network_cache_pause_wait_text()
+                .as_str(),
             "Buffer-before-start duration",
         )?,
         prefetch_secs: parse_number(
-            app.get_network_cache_prefetch_secs_text().as_str(),
+            player_preferences
+                .get_network_cache_prefetch_secs_text()
+                .as_str(),
             "Prefetch duration",
         )?,
         buffer_size_kib: parse_number(
-            app.get_network_cache_size_kib_text().as_str(),
+            player_preferences
+                .get_network_cache_size_kib_text()
+                .as_str(),
             "Cache buffer size",
         )?,
-        show_buffering_throbber: app.get_network_show_buffering_throbber(),
-        show_seeking_throbber: app.get_network_show_seeking_throbber(),
+        show_buffering_throbber: player_preferences.get_network_show_buffering_throbber(),
+        show_seeking_throbber: player_preferences.get_network_show_seeking_throbber(),
     })
 }
 
@@ -91,13 +98,14 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Cache,
 }
 
 pub(crate) fn install_player(app: &crate::PlayerWindow, cache: &Cache) {
-    app.set_network_cache_enabled(cache.enabled);
-    app.set_network_cache_pause_initial(cache.pause_initial);
-    app.set_network_cache_pause_wait_text(cache.pause_wait_secs.to_string().into());
-    app.set_network_cache_prefetch_secs_text(cache.prefetch_secs.to_string().into());
-    app.set_network_cache_size_kib_text(cache.buffer_size_kib.to_string().into());
-    app.set_network_show_buffering_throbber(cache.show_buffering_throbber);
-    app.set_network_show_seeking_throbber(cache.show_seeking_throbber);
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_network_cache_enabled(cache.enabled);
+    player_preferences.set_network_cache_pause_initial(cache.pause_initial);
+    player_preferences.set_network_cache_pause_wait_text(cache.pause_wait_secs.to_string().into());
+    player_preferences.set_network_cache_prefetch_secs_text(cache.prefetch_secs.to_string().into());
+    player_preferences.set_network_cache_size_kib_text(cache.buffer_size_kib.to_string().into());
+    player_preferences.set_network_show_buffering_throbber(cache.show_buffering_throbber);
+    player_preferences.set_network_show_seeking_throbber(cache.show_seeking_throbber);
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, cache: &Cache) {

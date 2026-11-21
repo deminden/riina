@@ -1,6 +1,7 @@
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::{Preferences, thumbnail_preferences::Settings};
+use slint::ComponentHandle;
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {
@@ -25,18 +26,21 @@ impl PreferenceSection for Settings {
 }
 
 pub(crate) fn install_player(window: &PlayerWindow, settings: &Settings) {
-    window.set_thumbnail_preview_enabled(settings.enabled);
-    window.set_thumbnail_cache_size_text(settings.maximum_cache_size_mb.to_string().into());
-    window.set_thumbnail_remote_enabled(settings.enable_for_remote_files);
-    window.set_thumbnail_width_text(settings.width.to_string().into());
+    let player_preferences = window.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_thumbnail_preview_enabled(settings.enabled);
+    player_preferences
+        .set_thumbnail_cache_size_text(settings.maximum_cache_size_mb.to_string().into());
+    player_preferences.set_thumbnail_remote_enabled(settings.enable_for_remote_files);
+    player_preferences.set_thumbnail_width_text(settings.width.to_string().into());
 }
 
 pub(crate) fn current_player(window: &PlayerWindow) -> Result<Settings, String> {
+    let player_preferences = window.global::<riina_ui::PlayerPreferences>();
     current(
-        window.get_thumbnail_preview_enabled(),
-        window.get_thumbnail_cache_size_text().as_str(),
-        window.get_thumbnail_remote_enabled(),
-        window.get_thumbnail_width_text().as_str(),
+        player_preferences.get_thumbnail_preview_enabled(),
+        player_preferences.get_thumbnail_cache_size_text().as_str(),
+        player_preferences.get_thumbnail_remote_enabled(),
+        player_preferences.get_thumbnail_width_text().as_str(),
     )
 }
 

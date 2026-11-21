@@ -85,7 +85,8 @@ pub(super) fn options_for_session(
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
     let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(prefs_path, "io.iina.ytdl");
-    app.set_network_ytdl_plugin_active(ytdl_plugin_active);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_network_ytdl_plugin_active(ytdl_plugin_active);
     let advanced_options = crate::advanced_preferences::engine_options(&prefs.advanced, prefs_path);
     engine_options(
         prefs,

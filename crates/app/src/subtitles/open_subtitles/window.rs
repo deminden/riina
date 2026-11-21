@@ -80,11 +80,18 @@ pub(crate) fn connect_player(
                 .title
                 .filter(|title| !title.trim().is_empty())
                 .unwrap_or_else(|| fallback.to_owned());
-            let provider = requested_provider
-                .unwrap_or_else(|| provider_from_index(app.get_open_subtitles_provider_index()));
+            let provider = requested_provider.unwrap_or_else(|| {
+                provider_from_index(
+                    app.global::<riina_ui::PlayerPreferences>()
+                        .get_open_subtitles_provider_index(),
+                )
+            });
             *search.context.borrow_mut() = SearchContext {
                 media_path: path,
-                languages: app.get_subtitle_preferred_languages().to_string(),
+                languages: app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_subtitle_preferred_languages()
+                    .to_string(),
                 provider,
             };
             let window = if let Some(window) = window_slot_callback.borrow().as_ref() {
@@ -172,8 +179,14 @@ fn install_search(app: &PlayerWindow, window: &OnlineSubtitlesWindow, state: &Se
             return;
         };
         let query = window.get_query().to_string();
-        let key = app.get_open_subtitles_api_key().to_string();
-        let assrt_token = app.get_assrt_token().to_string();
+        let key = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_open_subtitles_api_key()
+            .to_string();
+        let assrt_token = app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_assrt_token()
+            .to_string();
         let search_context = search_context.borrow().clone();
         let provider = search_context.provider;
         window.set_searching(true);
@@ -307,8 +320,8 @@ fn install_download(
         if selected_rows.is_empty() {
             return;
         }
-        let key = app.get_open_subtitles_api_key().to_string();
-        let assrt_token = app.get_assrt_token().to_string();
+        let key = app.global::<riina_ui::PlayerPreferences>().get_open_subtitles_api_key().to_string();
+        let assrt_token = app.global::<riina_ui::PlayerPreferences>().get_assrt_token().to_string();
         let total = selected_rows.len();
         window.set_downloading(true);
         window.set_status_text(format!("Downloading {total} selected subtitle{}…", if total == 1 { "" } else { "s" }).into());
@@ -492,7 +505,10 @@ fn install_automatic_search(
                 .invoke_find_online_subtitles();
         },
     );
-    if !app.get_open_subtitles_auto_search() {
+    if !app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_open_subtitles_auto_search()
+    {
         auto_timer.stop();
     }
     let weak_timer = Rc::downgrade(&auto_timer);
@@ -560,21 +576,25 @@ mod tests {
         let timer = install_automatic_search(&app, playback, readiness, requested.clone());
         assert!(!timer.running());
 
-        app.set_open_subtitles_auto_search(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_open_subtitles_auto_search(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
         i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(500));
         assert!(!requested.get());
 
-        app.set_open_subtitles_auto_search(false);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_open_subtitles_auto_search(false);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(!timer.running());
 
-        app.set_open_subtitles_auto_search(true);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_open_subtitles_auto_search(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
         drop(timer);
-        app.set_open_subtitles_auto_search(false);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_open_subtitles_auto_search(false);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         Ok(())
     }

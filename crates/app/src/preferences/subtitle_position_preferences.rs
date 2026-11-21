@@ -58,23 +58,24 @@ fn number(text: &str, field: &str) -> Result<f64, String> {
 }
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<PositionPreferences, String> {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let preferences = PositionPreferences {
-        horizontal: horizontal(app.get_subtitle_align_x_index())
+        horizontal: horizontal(player_preferences.get_subtitle_align_x_index())
             .ok_or_else(|| "Invalid horizontal subtitle alignment".to_owned())?,
-        vertical: vertical(app.get_subtitle_align_y_index())
+        vertical: vertical(player_preferences.get_subtitle_align_y_index())
             .ok_or_else(|| "Invalid vertical subtitle alignment".to_owned())?,
         position: number(
-            app.get_subtitle_position_text().as_str(),
+            player_preferences.get_subtitle_position_text().as_str(),
             "subtitle position",
         )?,
-        display_in_letterbox: app.get_subtitle_display_in_letterbox(),
-        scale_with_window: app.get_subtitle_scale_with_window(),
+        display_in_letterbox: player_preferences.get_subtitle_display_in_letterbox(),
+        scale_with_window: player_preferences.get_subtitle_scale_with_window(),
         margin_x: number(
-            app.get_subtitle_margin_x_text().as_str(),
+            player_preferences.get_subtitle_margin_x_text().as_str(),
             "horizontal subtitle margin",
         )?,
         margin_y: number(
-            app.get_subtitle_margin_y_text().as_str(),
+            player_preferences.get_subtitle_margin_y_text().as_str(),
             "vertical subtitle margin",
         )?,
     };
@@ -131,21 +132,22 @@ pub(crate) fn current_window(
 }
 
 pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: PositionPreferences) {
-    app.set_subtitle_align_x_index(match preferences.horizontal {
+    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    player_preferences.set_subtitle_align_x_index(match preferences.horizontal {
         HorizontalAlignment::Left => 0,
         HorizontalAlignment::Center => 1,
         HorizontalAlignment::Right => 2,
     });
-    app.set_subtitle_align_y_index(match preferences.vertical {
+    player_preferences.set_subtitle_align_y_index(match preferences.vertical {
         VerticalAlignment::Top => 0,
         VerticalAlignment::Center => 1,
         VerticalAlignment::Bottom => 2,
     });
-    app.set_subtitle_position_text(format_number(preferences.position));
-    app.set_subtitle_display_in_letterbox(preferences.display_in_letterbox);
-    app.set_subtitle_scale_with_window(preferences.scale_with_window);
-    app.set_subtitle_margin_x_text(format_number(preferences.margin_x));
-    app.set_subtitle_margin_y_text(format_number(preferences.margin_y));
+    player_preferences.set_subtitle_position_text(format_number(preferences.position));
+    player_preferences.set_subtitle_display_in_letterbox(preferences.display_in_letterbox);
+    player_preferences.set_subtitle_scale_with_window(preferences.scale_with_window);
+    player_preferences.set_subtitle_margin_x_text(format_number(preferences.margin_x));
+    player_preferences.set_subtitle_margin_y_text(format_number(preferences.margin_y));
 }
 
 pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: PositionPreferences) {

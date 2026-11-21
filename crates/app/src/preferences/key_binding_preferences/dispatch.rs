@@ -34,7 +34,11 @@ pub(crate) fn install_player(
         let Some(app) = player.upgrade() else {
             return true;
         };
-        if is_system_media_key(&key) && !app.get_key_binding_use_system_media_controls() {
+        if is_system_media_key(&key)
+            && !app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_key_binding_use_system_media_controls()
+        {
             return false;
         }
         dispatch_mapping(&app, mapping, &observed_playback);
@@ -180,10 +184,16 @@ pub(crate) fn dispatch_system_media_key(
     key: &str,
     latest_playback: &crate::PlaybackStore,
 ) -> bool {
-    if !app.get_key_binding_use_system_media_controls() {
+    if !app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_key_binding_use_system_media_controls()
+    {
         return false;
     }
-    let Ok(mappings) = mappings_for(&app.get_key_binding_current_profile()) else {
+    let Ok(mappings) = mappings_for(
+        &app.global::<riina_ui::PlayerPreferences>()
+            .get_key_binding_current_profile(),
+    ) else {
         return false;
     };
     let mappings = Bindings::new(mappings);

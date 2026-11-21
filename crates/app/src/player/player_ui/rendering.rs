@@ -233,7 +233,9 @@ fn project_blur(
             || !osd.get_plugin_osd_message().is_empty()
             || (app.get_fullscreen()
                 && app.get_controls_visible()
-                && app.get_display_time_and_battery_in_fullscreen()));
+                && app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_display_time_and_battery_in_fullscreen()));
     let blur_enabled =
         app.get_system_materials_enabled() && (sidebar_blur || controller_blur || osd_blur);
     if blur_enabled {

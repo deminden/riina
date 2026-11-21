@@ -46,10 +46,11 @@ pub(super) fn install(
             if preferences.mode == riina_core::subtitle_controls::AutoLoadMode::Disabled {
                 subtitle_discovery_ready_controller.mark_ready(state.generation);
             }
-            if let Some(request) = auto_folder_state
-                .borrow_mut()
-                .observe(&state, app.get_playlist_auto_add())
-            {
+            if let Some(request) = auto_folder_state.borrow_mut().observe(
+                &state,
+                app.global::<riina_ui::PlayerPreferences>()
+                    .get_playlist_auto_add(),
+            ) {
                 let snapshot = state.clone();
                 let request_check = request.clone();
                 let playback = auto_folder_playback.clone();

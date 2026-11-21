@@ -7,8 +7,10 @@ fn player(fullscreen: bool) -> PlayerWindow {
     app.set_loaded(true);
     app.set_fullscreen(fullscreen);
     app.set_paused(!fullscreen);
-    app.set_play_when_entering_fullscreen(true);
-    app.set_pause_when_leaving_fullscreen(true);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_play_when_entering_fullscreen(true);
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_pause_when_leaving_fullscreen(true);
     app
 }
 
@@ -74,7 +76,8 @@ fn fullscreen_preferences_do_not_change_playback_when_disabled_or_unloaded() {
     for loaded in [false, true] {
         let app = player(false);
         app.set_loaded(loaded);
-        app.set_play_when_entering_fullscreen(false);
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_play_when_entering_fullscreen(false);
         let host = NativeVideoHost::new().unwrap();
         host.on_set_fullscreen_window(|_| true);
         app.on_set_paused(|_| panic!("Playback policy should be inactive"));
