@@ -36,11 +36,11 @@ fn music_mode_choices_are_saved_immediately_and_can_return_to_defaults() {
     let (app, window) = windows();
     let path = TestPath::new();
     let initial = Preferences::default();
-    let writer = crate::preference_store::Writer::new(path.0.clone(), initial.clone());
+    let model = PreferenceModel::new(path.0.clone(), initial.clone());
     window.set_auto_switch_to_music_mode(!initial.auto_switch_to_music_mode);
     window.set_music_mode_show_playlist(!initial.music_mode_show_playlist);
     window.set_music_mode_show_album_art(!initial.music_mode_show_album_art);
-    save_preferences(&window, &app, &writer, initial.clone()).unwrap();
+    save_preferences(&window, &app, &model, initial.clone()).unwrap();
     let saved = path.read();
     assert_eq!(
         saved.auto_switch_to_music_mode,
@@ -70,7 +70,7 @@ fn music_mode_choices_are_saved_immediately_and_can_return_to_defaults() {
     window.set_auto_switch_to_music_mode(initial.auto_switch_to_music_mode);
     window.set_music_mode_show_playlist(initial.music_mode_show_playlist);
     window.set_music_mode_show_album_art(initial.music_mode_show_album_art);
-    save_preferences(&window, &app, &writer, initial.clone()).unwrap();
+    save_preferences(&window, &app, &model, initial.clone()).unwrap();
     let saved = path.read();
     assert_eq!(
         saved.auto_switch_to_music_mode,
@@ -91,13 +91,13 @@ fn failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable() {
     let (app, window) = windows();
     let path = TestPath::new();
     let initial = Preferences::default();
-    let writer = crate::preference_store::Writer::new(path.0.clone(), initial.clone());
+    let model = PreferenceModel::new(path.0.clone(), initial.clone());
     // A directory in place of the preferences file reliably rejects the write.
     std::fs::create_dir_all(&path.0).unwrap();
     window.set_auto_switch_to_music_mode(!initial.auto_switch_to_music_mode);
     window.set_music_mode_show_playlist(!initial.music_mode_show_playlist);
     window.set_music_mode_show_album_art(!initial.music_mode_show_album_art);
-    assert!(save_preferences(&window, &app, &writer, initial.clone()).is_err());
+    assert!(save_preferences(&window, &app, &model, initial.clone()).is_err());
     assert_eq!(
         app.get_auto_switch_to_music_mode(),
         initial.auto_switch_to_music_mode
@@ -111,7 +111,7 @@ fn failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable() {
         initial.music_mode_show_album_art
     );
     std::fs::remove_dir(&path.0).unwrap();
-    save_preferences(&window, &app, &writer, initial).unwrap();
+    save_preferences(&window, &app, &model, initial).unwrap();
     assert_eq!(
         path.read().music_mode_show_playlist,
         window.get_music_mode_show_playlist()

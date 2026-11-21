@@ -8,6 +8,7 @@ pub(crate) mod key_binding_profiles;
 pub(crate) mod language_token_preferences;
 pub(crate) mod layout_preferences;
 pub(crate) mod liquid_glass_preferences;
+pub(crate) mod model;
 pub(crate) mod network_cache_preferences;
 pub(crate) mod network_connection_preferences;
 pub(crate) mod network_ytdl_preferences;

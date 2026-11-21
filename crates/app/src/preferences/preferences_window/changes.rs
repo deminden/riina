@@ -1,7 +1,10 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
 use super::{live::*, refresh::refresh};
-use crate::{PlayerWindow, PreferencesWindow};
-use riina_core::Command;
+use crate::{
+    PlayerWindow, PreferencesWindow,
+    preferences::model::{PreferenceModel, PreferenceSection},
+};
+use riina_core::{Command, thumbnail_preferences::Settings as ThumbnailPreview};
 use slint::ComponentHandle;
 use std::{
     cell::RefCell,
@@ -57,7 +60,7 @@ fn connect_with_credentials(
 ) {
     let parent = app.as_weak();
     let weak = window.as_weak();
-    let writer = crate::preference_store::Writer::new(path.clone(), baseline.clone());
+    let model = PreferenceModel::new(path.clone(), baseline.clone());
     let saved_open_policy = RefCell::new((
         baseline.allow_multiple_windows,
         baseline.group_simultaneous_opens_in_playlist,
@@ -140,7 +143,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_thumbnail_preview) = read_or_refresh(
-            crate::thumbnail_preferences::current_window(&window),
+            model.read_section::<ThumbnailPreview>(&window),
             &app,
             &window,
         ) else {
@@ -595,7 +598,6 @@ fn connect_with_credentials(
         .and_then(|screenshot| {
             let mut preferences = riina_core::Preferences {
                 screenshot,
-                thumbnail_preview: selected_thumbnail_preview.clone(),
                 volume: f64::from(app.get_volume()).min(if app.get_volume_boost() {
                     200.0
                 } else {
@@ -687,10 +689,11 @@ fn connect_with_credentials(
                 liquid_glass: selected_liquid_glass,
                 ..baseline.clone()
             };
+            selected_thumbnail_preview.put(&mut preferences);
             // Utilities can clear history while this window remains open;
             // preserve that live system action over its original snapshot.
             crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
-            save_preferences(&window, &app, &writer, preferences)
+            save_preferences(&window, &app, &model, preferences)
         });
         match result {
             Ok(()) => {
@@ -719,7 +722,7 @@ fn connect_with_credentials(
                 );
                 app.set_auto_repeat(selected_auto_repeat);
                 app.set_default_repeat_mode_index(selected_default_repeat_mode.index());
-                crate::thumbnail_preferences::install_player(&app, &selected_thumbnail_preview);
+                model.write_player::<ThumbnailPreview>(&app);
                 if selected_online_subtitles.api_key == app.get_open_subtitles_api_key().as_str() {
                     crate::online_subtitles_preferences::install_player(
                         &app,
@@ -892,18 +895,21 @@ fn connect_with_credentials(
 fn save_preferences(
     window: &PreferencesWindow,
     app: &PlayerWindow,
-    writer: &crate::preference_store::Writer,
+    model: &PreferenceModel,
     mut preferences: riina_core::Preferences,
 ) -> Result<(), String> {
     preferences.auto_switch_to_music_mode = window.get_auto_switch_to_music_mode();
     preferences.music_mode_show_playlist = window.get_music_mode_show_playlist();
     preferences.music_mode_show_album_art = window.get_music_mode_show_album_art();
-    writer.save(&preferences)?;
     // These setters trigger automatic-mode and window-geometry callbacks. Apply
     // them only after saving, so a rejected edit cannot alter playback policy.
-    app.set_auto_switch_to_music_mode(preferences.auto_switch_to_music_mode);
-    app.set_music_mode_show_playlist(preferences.music_mode_show_playlist);
-    app.set_music_mode_show_album_art(preferences.music_mode_show_album_art);
+    let auto_switch = preferences.auto_switch_to_music_mode;
+    let show_playlist = preferences.music_mode_show_playlist;
+    let show_album_art = preferences.music_mode_show_album_art;
+    model.save(preferences)?;
+    app.set_auto_switch_to_music_mode(auto_switch);
+    app.set_music_mode_show_playlist(show_playlist);
+    app.set_music_mode_show_album_art(show_album_art);
     Ok(())
 }
 

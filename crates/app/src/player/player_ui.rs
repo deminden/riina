@@ -772,7 +772,7 @@ fn configure_with_engine(
     app.set_display_time_and_battery_in_fullscreen(prefs.display_time_and_battery_in_fullscreen);
     crate::osc_preferences::install_player(app, prefs.control_bar);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
-    crate::thumbnail_preferences::install_player(app, &prefs.thumbnail_preview);
+    crate::preferences::model::install_player_sections(&prefs, app);
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
     app.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
