@@ -514,6 +514,12 @@ AVKit Picture-in-Picture code and libmpv crate, with stubs for Slint and native
 display-profile access. A full macOS build, presentation and lifecycle check
 remain open.
 
+The macOS Now Playing projection from `4684478` and the input and document
+adapters from `7226679` also passed strict `aarch64-apple-darwin` source probes.
+Those checks used the real AppKit scroll monitor, trackpad dispatch and
+represented-document code with stubbed Slint and Winit window access.
+Native linking and interactive input on macOS remain open.
+
 ## Linux x64 application checks 2026-11-21
 
 An exact `da50ecd` checkout in WSL completed strict Clippy, 803 workspace tests,
