@@ -14,6 +14,7 @@ mod live_text;
 mod media_actions;
 mod playback_mailbox;
 mod rendering;
+mod startup;
 mod transport;
 mod window_actions;
 use feedback::clear_screenshot_preview;
@@ -324,37 +325,6 @@ fn refresh_welcome_history(
     });
 }
 
-fn resume_engine_options(
-    watch_later_directory: &std::path::Path,
-    resume_last_position: bool,
-    subtitle_auto_load: &riina_core::subtitle_controls::AutoLoadPreferences,
-    network: &riina_core::network_preferences::Connection,
-    network_cache: &riina_core::network_preferences::Cache,
-    network_online_videos: &riina_core::network_preferences::OnlineVideos,
-) -> Result<Vec<(String, String)>, String> {
-    let enabled = if resume_last_position { "yes" } else { "no" }.to_owned();
-    let mut options = vec![
-        (
-            "watch-later-directory".into(),
-            watch_later_directory.to_string_lossy().into_owned(),
-        ),
-        ("save-position-on-quit".into(), enabled.clone()),
-        ("resume-playback".into(), enabled),
-    ];
-    options.push((
-        "sub-auto".into(),
-        subtitle_auto_load.mpv_matching_mode().into(),
-    ));
-    options.push((
-        "sub-file-paths".into(),
-        subtitle_auto_load.mpv_search_paths().unwrap_or_default(),
-    ));
-    options.extend(network.engine_options()?);
-    options.extend(network_cache.engine_options()?);
-    options.extend(network_online_videos.engine_options()?);
-    Ok(options)
-}
-
 fn window_video_geometry(state: &Playback) -> Option<(f32, f32, i32)> {
     if matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed) {
         return None;
@@ -658,49 +628,18 @@ fn configure_with_engine(
     std::fs::create_dir_all(&watch_later_directory)?;
     let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(&prefs_path, "io.iina.ytdl");
     app.set_network_ytdl_plugin_active(ytdl_plugin_active);
-    let mut network_online_videos = prefs.network_online_videos.clone();
-    if ytdl_plugin_active {
-        network_online_videos.enabled = false;
-    }
-    let mut engine_options = resume_engine_options(
+    let advanced_options =
+        crate::advanced_preferences::engine_options(&prefs.advanced, &prefs_path);
+    let engine_options = startup::engine_options(
+        &prefs,
         &watch_later_directory,
-        prefs.resume_last_position,
-        &prefs.subtitle_auto_load,
-        &prefs.network,
-        &prefs.network_cache,
-        &network_online_videos,
+        startup::OptionsFlags {
+            ytdl_plugin_active,
+            platform_manages_icc: cfg!(target_os = "macos"),
+        },
+        advanced_options,
     )
     .map_err(std::io::Error::other)?;
-    engine_options.push((
-        "keep-open".into(),
-        riina_core::playlist_end_policy(prefs.keep_open_on_file_end, prefs.playlist_auto_play_next)
-            .into(),
-    ));
-    engine_options.extend(
-        prefs
-            .audio
-            .engine_options()
-            .map_err(std::io::Error::other)?,
-    );
-    engine_options.push(("vd-lavc-threads".into(), prefs.video_threads.to_string()));
-    engine_options.extend(
-        prefs
-            .hdr_tone_mapping
-            .engine_options()
-            .map_err(std::io::Error::other)?,
-    );
-    if !prefs.hdr_enabled {
-        engine_options.extend(riina_core::hdr_preferences::disabled_output_options());
-    }
-    #[cfg(target_os = "macos")]
-    {
-        engine_options.retain(|(name, _)| name != "icc-profile-auto");
-        engine_options.push(("icc-profile-auto".into(), "no".into()));
-    }
-    engine_options.extend(
-        crate::advanced_preferences::engine_options(&prefs.advanced, &prefs_path)
-            .map_err(std::io::Error::other)?,
-    );
     app.set_volume_boost(prefs.volume_boost);
     app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.set_disable_animations(prefs.disable_animations);
@@ -2077,58 +2016,7 @@ fn configure_with_engine(
     );
     window_actions::install_lifecycle(app, welcome);
 
-    if prefs
-        .audio_equalizer
-        .gains_db
-        .iter()
-        .any(|gain| *gain != 0.0)
-    {
-        command_sender
-            .send(Command::AudioEqualizer(prefs.audio_equalizer.gains_db))
-            .map_err(std::io::Error::other)?;
-    }
-    command_sender
-        .send(Command::SetVolumeBoost(prefs.volume_boost))
-        .map_err(std::io::Error::other)?;
-    command_sender
-        .send(Command::SetPauseWhenOpen(prefs.pause_when_open))
-        .map_err(std::io::Error::other)?;
-    command_sender
-        .send(Command::HardwareDecoding(prefs.hardware_decoder))
-        .map_err(std::io::Error::other)?;
-    command_sender
-        .send(Command::SubtitleAssOverride {
-            lane: riina_core::subtitle_controls::SubtitleLane::Primary,
-            level: prefs.subtitle_ass_override,
-        })
-        .map_err(std::io::Error::other)?;
-    command_sender
-        .send(Command::SubtitleAssOverride {
-            lane: riina_core::subtitle_controls::SubtitleLane::Secondary,
-            level: prefs.secondary_subtitle_ass_override,
-        })
-        .map_err(std::io::Error::other)?;
-    command_sender
-        .send(Command::SubtitleFont(prefs.subtitle_font.clone()))
-        .map_err(std::io::Error::other)?;
-    command_sender
-        .send(Command::SubtitleFontSize(prefs.subtitle_font_size))
-        .map_err(std::io::Error::other)?;
-    for command in crate::subtitle_preferences::commands(prefs.subtitle_text_style) {
-        command_sender
-            .send(command)
-            .map_err(std::io::Error::other)?;
-    }
-    for command in prefs.subtitle_position.commands() {
-        command_sender
-            .send(command)
-            .map_err(std::io::Error::other)?;
-    }
-    for command in prefs.subtitle_other.commands() {
-        command_sender
-            .send(command)
-            .map_err(std::io::Error::other)?;
-    }
+    startup::apply_player_preferences(&command_sender, &prefs)?;
     crate::fullscreen_info::connect(app);
     if native.is_some() {
         app.set_engine_ready(true);
@@ -2213,7 +2101,7 @@ fn configure_with_engine(
 #[cfg(test)]
 mod welcome_tests {
     use super::{
-        recent_document_rows, recent_media_rows, resume_engine_options, resume_media_rows,
+        recent_document_rows, recent_media_rows, resume_media_rows, startup::resume_engine_options,
     };
     use riina_core::RecentMedia;
 
