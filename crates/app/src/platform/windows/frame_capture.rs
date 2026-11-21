@@ -231,11 +231,51 @@ fn capture_worker(
     unsafe { RoUninitialize() };
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, String> {
+    let (device, context, winrt_device) = create_capture_device()?;
+    let interop: IGraphicsCaptureItemInterop =
+        factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()
+            .map_err(|error| format!("Could not load Windows Graphics Capture interop: {error}"))?;
+    // SAFETY: Windows receives the source HWND by value and validates it for capture.
+    let item: GraphicsCaptureItem = unsafe { interop.CreateForWindow(hwnd) }
+        .map_err(|error| format!("Could not capture the native video window: {error}"))?;
+    let size = item
+        .Size()
+        .map_err(|error| format!("Could not read the native video capture size: {error}"))?;
+    validate_size(size)?;
+    let pixel_format = DirectXPixelFormat::B8G8R8A8UIntNormalized;
+    let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&winrt_device, pixel_format, 2, size)
+        .map_err(|error| format!("Could not create a free-threaded video frame pool: {error}"))?;
+    let session = pool
+        .CreateCaptureSession(&item)
+        .map_err(|error| format!("Could not create the native video capture session: {error}"))?;
+    // This capture reads only Riina's own window. Suppress Windows' capture
+    // border where the platform supports doing so.
+    let _ = session.SetIsBorderRequired(false);
+
+    let frame_arrived = frame_handler(
+        hwnd,
+        state,
+        device,
+        context,
+        winrt_device,
+        size,
+        pixel_format,
+    );
+    let frame_arrived_token = pool
+        .FrameArrived(&frame_arrived)
+        .map_err(|error| format!("Could not subscribe to video frames: {error}"))?;
+    session
+        .StartCapture()
+        .map_err(|error| format!("Could not start native video capture: {error}"))?;
+    Ok(ActiveCapture {
+        pool,
+        session,
+        frame_arrived_token,
+    })
+}
+
+fn create_capture_device() -> Result<(ID3D11Device, ID3D11DeviceContext, IDirect3DDevice), String> {
     let mut device = None;
     let mut immediate_context = None;
     let feature_levels = [D3D_FEATURE_LEVEL_11_0];
@@ -266,27 +306,18 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
     let winrt_device: IDirect3DDevice = inspectable
         .cast()
         .map_err(|error| format!("Could not query the WinRT D3D11 device: {error}"))?;
+    Ok((device, context, winrt_device))
+}
 
-    let interop: IGraphicsCaptureItemInterop =
-        factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()
-            .map_err(|error| format!("Could not load Windows Graphics Capture interop: {error}"))?;
-    // SAFETY: Windows receives the source HWND by value and validates it for capture.
-    let item: GraphicsCaptureItem = unsafe { interop.CreateForWindow(hwnd) }
-        .map_err(|error| format!("Could not capture the native video window: {error}"))?;
-    let size = item
-        .Size()
-        .map_err(|error| format!("Could not read the native video capture size: {error}"))?;
-    validate_size(size)?;
-    let pixel_format = DirectXPixelFormat::B8G8R8A8UIntNormalized;
-    let pool = Direct3D11CaptureFramePool::CreateFreeThreaded(&winrt_device, pixel_format, 2, size)
-        .map_err(|error| format!("Could not create a free-threaded video frame pool: {error}"))?;
-    let session = pool
-        .CreateCaptureSession(&item)
-        .map_err(|error| format!("Could not create the native video capture session: {error}"))?;
-    // This capture reads only Riina's own window. Suppress Windows' capture
-    // border where the platform supports doing so.
-    let _ = session.SetIsBorderRequired(false);
-
+fn frame_handler(
+    hwnd: HWND,
+    state: Arc<CaptureState>,
+    device: ID3D11Device,
+    context: ID3D11DeviceContext,
+    winrt_device: IDirect3DDevice,
+    size: SizeInt32,
+    pixel_format: DirectXPixelFormat,
+) -> TypedEventHandler<Direct3D11CaptureFramePool, IInspectable> {
     let pool_size = Arc::new(Mutex::new((size.Width, size.Height)));
     let readback = Arc::new(Mutex::new(ReadbackContext {
         device,
@@ -298,141 +329,128 @@ fn start_capture(hwnd: HWND, state: Arc<CaptureState>) -> Result<ActiveCapture, 
     let callback_pool_size = pool_size;
     let callback_hwnd = hwnd.0 as isize;
     let callback_device = AgileCaptureDevice(winrt_device);
-    let frame_arrived =
-        TypedEventHandler::<Direct3D11CaptureFramePool, IInspectable>::new(move |sender, _| {
-            let Some(pool) = sender.as_ref() else {
-                return Ok(());
-            };
-            let Some(frame) = newest_frame(pool) else {
-                return Ok(());
-            };
-            let content_size = match frame.ContentSize() {
-                Ok(size) if size.Width > 0 && size.Height > 0 => size,
-                _ => {
-                    let _ = frame.Close();
-                    return Ok(());
-                }
-            };
-            // The native pool might have been resized mid-update. A poisoned
-            // size record cannot establish matching dimensions for a readback.
-            let Ok(mut pool_size) = callback_pool_size.lock() else {
-                let _ = frame.Close();
-                return Ok(());
-            };
-            if *pool_size != (content_size.Width, content_size.Height) {
-                let size = SizeInt32 {
-                    Width: content_size.Width,
-                    Height: content_size.Height,
-                };
-                if validate_size(size).is_ok()
-                    && callback_device.recreate(pool, pixel_format, size).is_ok()
-                {
-                    *pool_size = (content_size.Width, content_size.Height);
-                }
+    TypedEventHandler::<Direct3D11CaptureFramePool, IInspectable>::new(move |sender, _| {
+        let Some(pool) = sender.as_ref() else {
+            return Ok(());
+        };
+        let Some(frame) = newest_frame(pool) else {
+            return Ok(());
+        };
+        let content_size = match frame.ContentSize() {
+            Ok(size) if size.Width > 0 && size.Height > 0 => size,
+            _ => {
                 let _ = frame.Close();
                 return Ok(());
             }
-            drop(pool_size);
-
-            if !callback_state.enabled.load(Ordering::Acquire) {
-                let _ = frame.Close();
-                return Ok(());
-            }
-            let capture_epoch = callback_state.epoch.load(Ordering::Acquire);
-            let mut last_capture = match callback_state.last_capture.lock() {
-                Ok(last_capture) => last_capture,
-                Err(_) => {
-                    let _ = frame.Close();
-                    return Ok(());
-                }
+        };
+        // The native pool might have been resized mid-update. A poisoned
+        // size record cannot establish matching dimensions for a readback.
+        let Ok(mut pool_size) = callback_pool_size.lock() else {
+            let _ = frame.Close();
+            return Ok(());
+        };
+        if *pool_size != (content_size.Width, content_size.Height) {
+            let size = SizeInt32 {
+                Width: content_size.Width,
+                Height: content_size.Height,
             };
-            if last_capture.elapsed() < CAPTURE_INTERVAL {
-                let _ = frame.Close();
-                return Ok(());
-            }
-            *last_capture = Instant::now();
-            drop(last_capture);
-
-            let captured_at = Instant::now();
-            let compositor_time = frame.SystemRelativeTime().ok().map(|time| time.Duration);
-            let readback_started = Instant::now();
-            let capture_result =
-                frame
-                    .Surface()
-                    .map_err(|error| error.to_string())
-                    .and_then(|surface| {
-                        let access: IDirect3DDxgiInterfaceAccess =
-                            surface.cast().map_err(|error| error.to_string())?;
-                        // SAFETY: the live WinRT frame is backed by this D3D11 surface.
-                        let source: ID3D11Texture2D =
-                            unsafe { access.GetInterface() }.map_err(|error| error.to_string())?;
-                        let mut readback = callback_readback
-                            .lock()
-                            .map_err(|_| "Capture readback state was poisoned".to_owned())?;
-                        readback_sample(HWND(callback_hwnd as *mut _), &source, &mut readback)
-                    });
-            if std::env::var_os("RIINA_TRACE_MATERIAL").is_some() {
-                crate::diagnostics::warn!(
-                    "Windows material WGC readback_ms={}",
-                    readback_started.elapsed().as_millis(),
-                );
+            if validate_size(size).is_ok()
+                && callback_device.recreate(pool, pixel_format, size).is_ok()
+            {
+                *pool_size = (content_size.Width, content_size.Height);
             }
             let _ = frame.Close();
-            match capture_result {
-                Ok(frame) => {
-                    if !callback_state.enabled.load(Ordering::Acquire)
-                        || callback_state.epoch.load(Ordering::Acquire) != capture_epoch
-                    {
-                        return Ok(());
-                    }
-                    {
-                        let mut latest = riina_core::sync::lock(&callback_state.latest);
-                        let newer_than_published = latest.as_ref().is_none_or(|previous| {
-                            match (compositor_time, previous.compositor_time) {
-                                (Some(current), Some(previous)) => current > previous,
-                                (Some(_), None) => true,
-                                (None, Some(_)) => false,
-                                (None, None) => captured_at > previous.captured_at,
-                            }
-                        });
-                        if newer_than_published
-                            && callback_state.enabled.load(Ordering::Acquire)
-                            && callback_state.epoch.load(Ordering::Acquire) == capture_epoch
-                        {
-                            let sequence =
-                                callback_state.sequence.fetch_add(1, Ordering::AcqRel) + 1;
-                            *latest = Some(MaterialFrameSample {
-                                sequence,
-                                frame: Arc::new(frame),
-                                captured_at,
-                                compositor_time,
-                            });
-                        }
-                    }
+            return Ok(());
+        }
+        drop(pool_size);
+
+        if !callback_state.enabled.load(Ordering::Acquire) {
+            let _ = frame.Close();
+            return Ok(());
+        }
+        let capture_epoch = callback_state.epoch.load(Ordering::Acquire);
+        let mut last_capture = match callback_state.last_capture.lock() {
+            Ok(last_capture) => last_capture,
+            Err(_) => {
+                let _ = frame.Close();
+                return Ok(());
+            }
+        };
+        if last_capture.elapsed() < CAPTURE_INTERVAL {
+            let _ = frame.Close();
+            return Ok(());
+        }
+        *last_capture = Instant::now();
+        drop(last_capture);
+
+        let captured_at = Instant::now();
+        let compositor_time = frame.SystemRelativeTime().ok().map(|time| time.Duration);
+        let readback_started = Instant::now();
+        let capture_result =
+            frame
+                .Surface()
+                .map_err(|error| error.to_string())
+                .and_then(|surface| {
+                    let access: IDirect3DDxgiInterfaceAccess =
+                        surface.cast().map_err(|error| error.to_string())?;
+                    // SAFETY: the live WinRT frame is backed by this D3D11 surface.
+                    let source: ID3D11Texture2D =
+                        unsafe { access.GetInterface() }.map_err(|error| error.to_string())?;
+                    let mut readback = callback_readback
+                        .lock()
+                        .map_err(|_| "Capture readback state was poisoned".to_owned())?;
+                    readback_sample(HWND(callback_hwnd as *mut _), &source, &mut readback)
+                });
+        if std::env::var_os("RIINA_TRACE_MATERIAL").is_some() {
+            crate::diagnostics::warn!(
+                "Windows material WGC readback_ms={}",
+                readback_started.elapsed().as_millis(),
+            );
+        }
+        let _ = frame.Close();
+        match capture_result {
+            Ok(frame) => {
+                if !callback_state.enabled.load(Ordering::Acquire)
+                    || callback_state.epoch.load(Ordering::Acquire) != capture_epoch
+                {
+                    return Ok(());
                 }
-                Err(error) => {
-                    if !callback_state
-                        .failed_readback_logged
-                        .swap(true, Ordering::AcqRel)
+                {
+                    let mut latest = riina_core::sync::lock(&callback_state.latest);
+                    let newer_than_published = latest.as_ref().is_none_or(|previous| {
+                        match (compositor_time, previous.compositor_time) {
+                            (Some(current), Some(previous)) => current > previous,
+                            (Some(_), None) => true,
+                            (None, Some(_)) => false,
+                            (None, None) => captured_at > previous.captured_at,
+                        }
+                    });
+                    if newer_than_published
+                        && callback_state.enabled.load(Ordering::Acquire)
+                        && callback_state.epoch.load(Ordering::Acquire) == capture_epoch
                     {
-                        crate::diagnostics::warn!(
-                            "Windows video material capture fell back to mpv: {error}"
-                        );
+                        let sequence = callback_state.sequence.fetch_add(1, Ordering::AcqRel) + 1;
+                        *latest = Some(MaterialFrameSample {
+                            sequence,
+                            frame: Arc::new(frame),
+                            captured_at,
+                            compositor_time,
+                        });
                     }
                 }
             }
-            Ok(())
-        });
-    let frame_arrived_token = pool
-        .FrameArrived(&frame_arrived)
-        .map_err(|error| format!("Could not subscribe to video frames: {error}"))?;
-    session
-        .StartCapture()
-        .map_err(|error| format!("Could not start native video capture: {error}"))?;
-    Ok(ActiveCapture {
-        pool,
-        session,
-        frame_arrived_token,
+            Err(error) => {
+                if !callback_state
+                    .failed_readback_logged
+                    .swap(true, Ordering::AcqRel)
+                {
+                    crate::diagnostics::warn!(
+                        "Windows video material capture fell back to mpv: {error}"
+                    );
+                }
+            }
+        }
+        Ok(())
     })
 }
 
