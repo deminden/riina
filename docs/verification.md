@@ -378,6 +378,23 @@ links, changed local capture bytes, malformed records and unsupported acceptance
 claims. All 69 records and 68 available capture hashes passed locally. These
 record checks do not establish matched geometry or pixel parity.
 
+## Linux virtual display 2026-11-21
+
+The x64 application at `f9171e4` passed strict workspace Clippy and 793
+workspace tests on Ubuntu 26.04 under WSL. The application linked against
+the staged GTK and WebKitGTK libraries. The runtime check used Ubuntu's
+libmpv 0.41.0 beside the executable, a private Xvfb display and Mesa
+llvmpipe. It opened two isolated copies of the moving-square fixture in
+successive sessions. In the first session, a 7,099-pixel video region stayed
+identical in both paused comparisons and changed by 187 pixels between two
+playing captures. The second session displayed the second fixture. Both quit
+through the app shortcut, logged the native worker join and exited.
+
+A separate profile that explicitly selected null audio advanced the playback
+clock with a black video surface in the virtual display. The GLES context also
+reported that the optional video-blur shader requires desktop GLSL. Linux
+package, real display and audio endpoint verification remain open.
+
 ## Running checks
 
 ### Portable and workspace checks
