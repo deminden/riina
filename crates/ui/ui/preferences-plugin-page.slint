@@ -1,0 +1,62 @@
+import { PluginPreferencesRow, PluginPageIconButton, PluginPreferencesRowView, PluginPageActionButton } from "preferences-plugins.slint";
+
+export component PluginsPreferencesPage inherits Rectangle {
+    in property <bool> mica-backdrop-enabled;
+    callback plugin-request-github-install();
+    callback plugin-request-local-install();
+    in property <string> plugin-update-status;
+    callback plugin-refresh();
+    in property <[PluginPreferencesRow]> plugin-rows;
+    pure callback plugin-id-transfer(string) -> data-transfer;
+    pure callback plugin-id-from-transfer(data-transfer) -> string;
+    callback plugin-enabled-changed(int, bool);
+    callback plugin-row-about(int);
+    callback plugin-row-actions(int);
+    callback plugin-reordered(string, string);
+
+    background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
+    Text { x: 20px; y: 16px; text: "Plugins"; font-size: 15px; font-weight: 600; color: #222222; }
+    Rectangle {
+        x: 12px; y: 52px; width: parent.width - 24px; height: 104px;
+        border-width: 1px; border-color: #dedee1; border-radius: 13px; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
+        Text {
+            x: 12px; y: 10px; width: parent.width - 24px; height: 42px;
+            text: "You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically.";
+            font-size: 11px; color: #77777d; wrap: word-wrap;
+            vertical-alignment: center;
+        }
+        PluginPageActionButton {
+            x: 12px; y: 67px; width: 104px; label: "Get Plugins…";
+            activated => { root.plugin-request-github-install(); }
+        }
+        PluginPageActionButton {
+            x: 124px; y: 67px; width: 160px; label: "Install Local Package…";
+            activated => { root.plugin-request-local-install(); }
+        }
+    }
+    Text {
+        x: 12px; y: 163px; width: parent.width - 56px; height: 28px;
+        text: root.plugin-update-status; font-size: 11px; font-weight: 600;
+        color: #85858a; vertical-alignment: center; overflow: elide;
+    }
+    PluginPageIconButton {
+        x: parent.width - 47px; y: 165px; width: 28px; height: 24px;
+        icon-kind: 2; label: "Check for plugin updates";
+        activated => { root.plugin-refresh(); }
+    }
+    if root.plugin-rows.length > 0 : Rectangle {
+        x: 12px; y: 196px; width: parent.width - 24px;
+        height: root.plugin-rows.length * 60px;
+        border-width: 1px; border-color: #dedee1; border-radius: 13px; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
+        for row[index] in root.plugin-rows : PluginPreferencesRowView {
+            x: 0px; y: index * 60px; width: parent.width;
+            entry: row; row-index: index; last-row: index == root.plugin-rows.length - 1;
+            plugin-id-transfer(identifier) => { root.plugin-id-transfer(identifier); }
+            plugin-id-from-transfer(transfer) => { root.plugin-id-from-transfer(transfer); }
+            enabled-toggled(index, enabled) => { root.plugin-enabled-changed(index, enabled); }
+            about-requested(index) => { root.plugin-row-about(index); }
+            actions-requested(index) => { root.plugin-row-actions(index); }
+            reorder-requested(dragged, target) => { root.plugin-reordered(dragged, target); }
+        }
+    }
+}

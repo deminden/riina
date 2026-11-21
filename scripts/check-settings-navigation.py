@@ -11,6 +11,10 @@ THEME_SOURCE = (ROOT / "crates/ui/ui/theme.slint").read_text(encoding="utf-8")
 AUDIO_SOURCE = (ROOT / "crates/ui/ui/preferences-audio.slint").read_text(encoding="utf-8")
 ADVANCED_SOURCE = (ROOT / "crates/ui/ui/preferences-advanced.slint").read_text(encoding="utf-8")
 VIDEO_SOURCE = (ROOT / "crates/ui/ui/preferences-video.slint").read_text(encoding="utf-8")
+GENERAL_SOURCE = (ROOT / "crates/ui/ui/preferences-general.slint").read_text(encoding="utf-8")
+INTERFACE_SOURCE = (ROOT / "crates/ui/ui/preferences-interface.slint").read_text(encoding="utf-8")
+SUBTITLES_SOURCE = (ROOT / "crates/ui/ui/preferences-subtitles.slint").read_text(encoding="utf-8")
+NETWORK_SOURCE = (ROOT / "crates/ui/ui/preferences-network.slint").read_text(encoding="utf-8")
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 QUICK_TABS_SOURCE = (ROOT / "crates/ui/ui/quick-settings-tabs.slint").read_text(encoding="utf-8")
 SEARCH_SOURCE = (ROOT / "crates/app/src/settings_search.rs").read_text(encoding="utf-8")
@@ -41,17 +45,14 @@ def main():
     routes = [(label, selected, activated) for label, _, selected, activated in nav]
     assert routes == expected_routes, f"Unexpected settings navigation: {routes!r}"
 
-    general_page = re.search(
-        r"if root\.selected-pane == 0\s*:\s*ScrollView\s*\{(.*?)"
-        r"(?=\n\s*if root\.selected-pane == 1\s*:)",
-        SOURCE,
-        re.DOTALL,
-    )
-    assert general_page and "content-y <=> root.general-scroll-position" in general_page.group(1), (
-        "General settings must remain one continuous scroll page"
-    )
+    assert "if root.selected-pane == 0 : GeneralPreferencesPage" in SOURCE
+    assert (
+        "GeneralPreferencesPage inherits ScrollView" in GENERAL_SOURCE
+        and "content-y <=> root.general-scroll-position" in GENERAL_SOURCE
+        and "general-scroll-position <=> root.general-scroll-position;" in SOURCE
+    ), "General settings must remain one continuous scroll page"
     headings = [
-        general_page.group(1).find(f'text: "{label}"')
+        GENERAL_SOURCE.find(f'text: "{label}"')
         for label in EXPECTED_GENERAL_SECTIONS
     ]
     assert all(position >= 0 for position in headings) and headings == sorted(headings), (
@@ -74,15 +75,16 @@ def main():
         )
         assert re.search(
             rf'y: root\.general-{target}-y;\s*text: "{section}"',
-            general_page.group(1),
+            GENERAL_SOURCE,
         ), f"{section} heading and navigation must share one position"
 
-    subtitle_page = re.search(
-        r"if root\.selected-pane == 4\s*:\s*ScrollView\s*\{(.*?)"
-        r"(?=\n\s*if root\.selected-pane == 3\s*:)", SOURCE, re.DOTALL,
-    )
-    assert subtitle_page, "Subtitles must remain a continuous scroll page"
-    subtitle_body = subtitle_page.group(1)
+    assert "if root.selected-pane == 4 : SubtitlesPreferencesPage" in SOURCE
+    assert (
+        "SubtitlesPreferencesPage inherits ScrollView" in SUBTITLES_SOURCE
+        and "content-y <=> root.subtitle-scroll-position" in SUBTITLES_SOURCE
+        and "subtitle-scroll-position <=> root.subtitle-scroll-position;" in SOURCE
+    ), "Subtitles must remain a continuous scroll page"
+    subtitle_body = SUBTITLES_SOURCE
     subtitle_sections = ["Auto Load", "ASS Subtitles", "Text Subtitles", "Position", "Online Subtitles", "Other"]
     headings = [subtitle_body.find(f'text: "{label}"') for label in subtitle_sections]
     assert all(position >= 0 for position in headings) and headings == sorted(headings), (
@@ -107,12 +109,12 @@ def main():
         'root.remove-subtitle-language-token(index);',
     )), "Subtitle layout changes must retain lane, font and language actions"
 
-    network_page = re.search(
-        r"if root\.selected-pane == 5\s*:\s*ScrollView\s*\{(.*?)"
-        r"(?=\n\s*if root\.selected-pane == 6\s*:)", SOURCE, re.DOTALL,
-    )
-    assert network_page, "Network must remain one scrollable page"
-    network_body = network_page.group(1)
+    assert "if root.selected-pane == 5 : NetworkPreferencesPage" in SOURCE
+    assert (
+        "NetworkPreferencesPage inherits ScrollView" in NETWORK_SOURCE
+        and "network-scroll-position <=> root.network-scroll-position;" in SOURCE
+    ), "Network must remain one scrollable page"
+    network_body = NETWORK_SOURCE
     assert "if root.selected-network-section" not in network_body, (
         "Network navigation must reveal sections rather than hide adjacent settings"
     )
@@ -180,19 +182,16 @@ def main():
     assert interface_sections == expected_sections, (
         f"Unexpected Interface subsection navigation: {interface_sections!r}"
     )
-    interface_body = re.search(
-        r"if root\.selected-pane == 1\s*:\s*ScrollView\s*\{(\s*"
-        r"x: 200px;.*?)(?=\n\s*if root\.selected-pane == 2\s*:)",
-        SOURCE,
-        re.DOTALL,
-    )
-    assert interface_body and "content-y <=> root.interface-scroll-position" in interface_body.group(1), (
-        "Interface subsections must scroll the settings content"
-    )
+    assert "if root.selected-pane == 1 : InterfacePreferencesPage" in SOURCE
+    assert (
+        "InterfacePreferencesPage inherits ScrollView" in INTERFACE_SOURCE
+        and "content-y <=> root.interface-scroll-position" in INTERFACE_SOURCE
+        and "interface-scroll-position <=> root.interface-scroll-position;" in SOURCE
+    ), "Interface settings must remain one continuous scroll page"
     scroll_sections = re.findall(
         r"(?:if|else if) root\.interface-scroll-position > root\.(interface-[a-z-]+-threshold) "
         r"\{ root\.selected-interface-section = (\d+); \}",
-        interface_body.group(1),
+        INTERFACE_SOURCE,
     )
     expected_scroll_sections = [
         ("interface-appearance-threshold", "0"),
@@ -205,7 +204,7 @@ def main():
     assert scroll_sections == expected_scroll_sections, (
         f"Interface scroll positions must select their matching subsection: {scroll_sections!r}"
     )
-    assert "else { root.selected-interface-section = 6; }" in interface_body.group(1), (
+    assert "else { root.selected-interface-section = 6; }" in INTERFACE_SOURCE, (
         "The final Interface subsection must remain selectable at the scroll limit"
     )
     assert "if root.selected-pane == 2 : VideoPreferencesPage" in SOURCE
@@ -248,11 +247,11 @@ def main():
     assert section_routes == expected_routes, (
         f"Interface links must land on reachable section positions: {section_routes!r}"
     )
-    assert 'label: "Always float on top"' in SOURCE and "checked <=> root.always-float-on-top" in SOURCE, (
+    assert 'label: "Always float on top"' in INTERFACE_SOURCE and "checked <=> root.always-float-on-top" in INTERFACE_SOURCE, (
         "The captured Window section must expose the implemented always-on-top option"
     )
     for label in ["Initial window size", "Initial window position"]:
-        assert f'label: "{label}"' in SOURCE, f"The Window section is missing {label!r}"
+        assert f'label: "{label}"' in INTERFACE_SOURCE, f"The Window section is missing {label!r}"
     for prop in [
         "initial-window-size-axis-index", "initial-window-size-value-text",
         "initial-window-size-unit-index", "initial-window-x-anchor-index",
@@ -260,7 +259,7 @@ def main():
         "initial-window-y-anchor-index", "initial-window-y-offset-text",
         "initial-window-y-unit-index",
     ]:
-        assert f"<=> root.{prop}" in SOURCE, f"The geometry control is not bound to {prop}"
+        assert f"<=> root.{prop}" in INTERFACE_SOURCE, f"The geometry control is not bound to {prop}"
     for prop in [
         "interface-appearance-card-y", "interface-appearance-card-height",
         "interface-window-title-y", "interface-window-y", "interface-window-card-height", "interface-resize-y",
@@ -277,18 +276,18 @@ def main():
         "interface-appearance-card-y: 81px;" in SOURCE
         and "interface-appearance-card-height: 122px + liquid-glass-detail-height;" in SOURCE
         and "liquid-glass-detail-height: liquid-glass-expanded ? 96px : 0px;" in SOURCE
-        and 'label: root.surface-material-title' in SOURCE
+        and 'label: root.surface-material-title' in INTERFACE_SOURCE
         and '"Liquid Glass"' in (ROOT / "crates/app/src/platform.rs").read_text(encoding="utf-8")
         and '"Translucent Surfaces"' in (ROOT / "crates/app/src/platform.rs").read_text(encoding="utf-8")
-        and 'label: "On-Screen Display"' in SOURCE
-        and 'label: "On-Screen Controller"' in SOURCE
-        and 'label: "Sidebar"' in SOURCE
+        and 'label: "On-Screen Display"' in INTERFACE_SOURCE
+        and 'label: "On-Screen Controller"' in INTERFACE_SOURCE
+        and 'label: "Sidebar"' in INTERFACE_SOURCE
         and "interface-window-title-y: interface-appearance-card-y + interface-appearance-card-height + 17px;" in SOURCE
         and "interface-window-y: interface-window-title-y + 28px;" in SOURCE
         and "interface-window-card-height: 82px + initial-window-size-detail-height + initial-window-position-detail-height;" in SOURCE
         and "interface-resize-y: interface-window-y + interface-window-card-height + 16px;" in SOURCE
         and "interface-physical-resolution-y: interface-resize-y + 134px;" in SOURCE
-        and "height: 118px;" in interface_body.group(1)
+        and "height: 118px;" in INTERFACE_SOURCE
     ), "The captured Appearance, Window, and resize cards must retain their default source proportions"
     for target in [
         "interface_window_target", "interface_osc_target", "interface_osd_target",
@@ -309,13 +308,13 @@ def main():
         "Do not resize",
         "Use physical resolution on Retina displays",
     ]:
-        assert label in SOURCE, f"The captured Window section is missing {label!r}"
+        assert label in INTERFACE_SOURCE, f"The captured Window section is missing {label!r}"
     assert "window-resize-option-index" in SOURCE and "window-resize-timing-index" in SOURCE, (
         "The visible resize choices must retain their selected state"
     )
     assert (
-        'label: "Always show float on top status in the title bar"' in SOURCE
-        and "checked <=> root.always-show-on-top-icon" in SOURCE
+        'label: "Always show float on top status in the title bar"' in INTERFACE_SOURCE
+        and "checked <=> root.always-show-on-top-icon" in INTERFACE_SOURCE
     ), "The captured title-bar pin visibility preference must be represented"
     assert (
         "root.always-float-on-top || root.always-show-on-top-icon : TopmostPin" in PLAYER_SOURCE

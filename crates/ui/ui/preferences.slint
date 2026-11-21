@@ -1,3 +1,9 @@
+import { PluginsPreferencesPage } from "preferences-plugin-page.slint";
+import { KeyBindingsPreferencesPage } from "preferences-key-binding-page.slint";
+import { NetworkPreferencesPage } from "preferences-network.slint";
+import { SubtitlesPreferencesPage } from "preferences-subtitles.slint";
+import { InterfacePreferencesPage } from "preferences-interface.slint";
+import { GeneralPreferencesPage } from "preferences-general.slint";
 import { AdvancedPreferencesPage } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
 import { AudioPreferencesPage } from "preferences-audio.slint";
@@ -6,15 +12,15 @@ import { UtilitiesPreferencesPage } from "preferences-utilities.slint";
 import { PreferenceNavItem, PreferenceSubNavItem } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchField, PreferenceSearchResultCell } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
-import { KeyBindingRow, KeyBindingActionRow, KeyBindingIconButton, KeyBindingProfileMenuItem } from "preferences-key-bindings.slint";
+import { KeyBindingRow } from "preferences-key-bindings.slint";
 export { KeyBindingRow } from "preferences-key-bindings.slint";
-import { PluginPreferencesRow, PluginPageIconButton, PluginPreferencesRowView, PluginPageActionButton } from "preferences-plugins.slint";
+import { PluginPreferencesRow, PluginPageActionButton } from "preferences-plugins.slint";
 export { PluginPreferencesRow } from "preferences-plugins.slint";
-import { MotionSettings, AdvancedMpvOptionRow, FolderChooser, PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, ToolbarPreferenceRow, PreferenceNumericInput, LanguageTokenEditor, PreferenceChoiceRow, PreferenceRadioRow, PreferenceToggle, GeneralDisclosureRow, GeneralSettingToggle, PreferenceOptionCard, PreferenceDisclosure, PreferenceDetailRow } from "preferences-controls.slint";
+import { MotionSettings, AdvancedMpvOptionRow, PreferenceActionButton } from "preferences-controls.slint";
 export { AdvancedMpvOptionRow } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
-import { CheckBox, ComboBox, ScrollView, Palette } from "std-widgets.slint";
-import { NativeTypography, SubtitleColorWell } from "shared-controls.slint";
+import { CheckBox, ScrollView, Palette } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
 
 export component PreferencesWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
@@ -584,656 +590,157 @@ export component PreferencesWindow inherits Window {
             }
         }
     }
-    if root.selected-pane == 0 : ScrollView {
+    if root.selected-pane == 0 : GeneralPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.general-content-height;
-        content-width: self.visible-width;
-        content-y <=> root.general-scroll-position;
-        horizontal-scrollbar-policy: always-off;
-        changed content-y => {
-            if root.general-scroll-position > root.general-history-target / 2 { root.selected-general-section = 0; }
-            else if root.general-scroll-position > (root.general-history-target + root.general-playlist-target) / 2 { root.selected-general-section = 1; }
-            else if root.general-scroll-position > (root.general-playlist-target + root.general-screenshots-target) / 2 { root.selected-general-section = 2; }
-            else { root.selected-general-section = 3; }
-        }
-        Rectangle {
-        width: parent.width;
-        height: root.general-content-height;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 20px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle {
-            x: 12px; y: 81px; width: parent.width - 24px;
-            height: 122px + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 38px; y: 0; width: 120px; height: 40px; text: "At launch";
-                font-size: 13px; color: #222222; vertical-alignment: center; }
-            ComboBox { x: 180px; y: 7px; width: parent.width - 192px; height: 26px;
-                model: ["Show welcome window", "Show open file panel", "Do nothing"];
-                current-index <=> root.launch-action-index;
-                selected => { root.settings-changed(); }
-            }
-            Rectangle { x: 12px; y: 40px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            GeneralDisclosureRow { x: 0; y: 41px; width: parent.width; label: "When media is opened";
-                expanded: root.when-media-opened-expanded;
-                activated => { root.when-media-opened-expanded = !root.when-media-opened-expanded; } }
-            Rectangle { x: 12px; y: 81px + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            if root.when-media-opened-expanded : GeneralSettingToggle {
-                x: 12px; y: 82px; width: parent.width - 24px; height: 32px;
-                label: "Pause"; checked <=> root.pause-when-open;
-                toggled => { root.settings-changed(); }
-            }
-            if root.when-media-opened-expanded : GeneralSettingToggle {
-                x: 12px; y: 114px; width: parent.width - 24px; height: 32px;
-                label: "Enter fullscreen"; checked <=> root.fullscreen-when-open;
-                toggled => { root.settings-changed(); }
-            }
-            if root.when-media-opened-expanded : GeneralSettingToggle {
-                x: 12px; y: 146px; width: parent.width - 24px; height: 32px;
-                label: "Automatically switch to Music Mode";
-                checked <=> root.auto-switch-to-music-mode; toggled => { root.settings-changed(); }
-            }
-            if root.when-media-opened-expanded : GeneralSettingToggle {
-                x: 12px; y: 178px; width: parent.width - 24px; height: 32px;
-                label: "Show playlist in Music Mode";
-                checked <=> root.music-mode-show-playlist; toggled => { root.settings-changed(); }
-            }
-            if root.when-media-opened-expanded : GeneralSettingToggle {
-                x: 12px; y: 210px; width: parent.width - 24px; height: 32px;
-                label: "Show album artwork in Music Mode";
-                checked <=> root.music-mode-show-album-art; toggled => { root.settings-changed(); }
-            }
-            GeneralDisclosureRow {
-                x: 0; y: 82px + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width; label: "Pause/resume when";
-                expanded: root.pause-resume-when-expanded;
-                activated => { root.pause-resume-when-expanded = !root.pause-resume-when-expanded; }
-            }
-            if root.pause-resume-when-expanded : GeneralSettingToggle {
-                x: 12px; y: 122px + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width - 24px; height: 32px;
-                label: "Play when entering fullscreen";
-                checked <=> root.play-when-entering-fullscreen;
-                toggled => { root.settings-changed(); }
-            }
-            if root.pause-resume-when-expanded : GeneralSettingToggle {
-                x: 12px; y: 154px + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width - 24px; height: 32px;
-                label: "Pause when leaving fullscreen";
-                checked <=> root.pause-when-leaving-fullscreen;
-                toggled => { root.settings-changed(); }
-            }
-            if root.pause-resume-when-expanded && root.pause-policies-available : GeneralSettingToggle {
-                x: 12px; y: 186px + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width - 24px; height: 32px;
-                label: "Window becomes inactive/active";
-                checked <=> root.pause-when-inactive;
-                toggled => { root.settings-changed(); }
-            }
-            if root.pause-resume-when-expanded : GeneralSettingToggle {
-                x: 12px; y: (root.pause-policies-available ? 218px : 186px) + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width - 24px; height: 32px;
-                label: "Minimized/un-minimized";
-                checked <=> root.pause-when-minimized;
-                toggled => { root.settings-changed(); }
-            }
-            if root.pause-resume-when-expanded && root.pause-policies-available : GeneralSettingToggle {
-                x: 12px; y: 250px + (root.when-media-opened-expanded ? 166px : 0px);
-                width: parent.width - 24px; height: 32px;
-                label: "Pause when machine goes to sleep";
-                checked <=> root.pause-when-goes-to-sleep;
-                toggled => { root.settings-changed(); }
-            }
-        }
-        Rectangle {
-            x: 12px; y: 81px + 122px + 16px
-                + (root.when-media-opened-expanded ? 166px : 0px)
-                + (root.pause-resume-when-expanded ? (root.pause-policies-available ? 168px : 104px) : 0px);
-            width: parent.width - 24px; height: 212px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            GeneralSettingToggle { x: 12px; y: 8px; width: parent.width - 24px; height: 36px;
-                label: "Always open media in new window";
-                checked <=> root.allow-multiple-windows; toggled => { root.settings-changed(); } }
-            Rectangle { x: 24px; y: 47px; width: parent.width - 36px; height: 1px; background: #e1e1e1; }
-            GeneralSettingToggle { x: 32px; y: 48px; width: parent.width - 44px; height: 40px;
-                label: "Group media in playlist when opening multiple files at once";
-                checked <=> root.group-simultaneous-opens-in-playlist;
-                enabled: root.allow-multiple-windows; toggled => { root.settings-changed(); } }
-            Rectangle { x: 24px; y: 89px; width: parent.width - 36px; height: 1px; background: #e1e1e1; }
-            GeneralSettingToggle { x: 32px; y: 90px; width: parent.width - 44px; height: 40px;
-                label: "Allow opening the same file in multiple windows";
-                checked <=> root.allow-duplicate-players;
-                enabled: root.allow-multiple-windows; toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 131px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            GeneralSettingToggle { x: 12px; y: 132px; width: parent.width - 24px; height: 36px;
-                label: "Quit after all windows are closed";
-                checked <=> root.quit-when-no-opened-window; toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 169px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            GeneralSettingToggle { x: 12px; y: 170px; width: parent.width - 24px; height: 36px;
-                label: "Keep window open after playback finishes";
-                checked <=> root.keep-open-on-file-end; toggled => { root.settings-changed(); } }
-        }
-        Text { x: 20px; y: root.general-history-y;
-            text: "History"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle { x: 12px; y: root.general-history-y + 29px;
-            width: parent.width - 24px; height: 164px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            CheckBox { x: 16px; y: 6px; height: 32px; text: "Resume last position";
-                checked <=> root.resume-last-position; toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 43px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 16px; y: 48px; height: 32px; text: "Record playback history";
-                checked <=> root.record-playback-history; toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 83px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 16px; y: 88px; height: 32px; text: "Enable \"Open Recent\" menu";
-                checked <=> root.record-recent-files; toggled => { root.settings-changed(); } }
-            Rectangle { x: 24px; y: 123px; width: parent.width - 36px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 32px; y: 128px; width: parent.width - 48px; height: 32px;
-                text: "Track all played files in \"Open Recent\" menu";
-                checked <=> root.track-all-files-in-recent-open-menu;
-                enabled: root.record-recent-files; toggled => { root.settings-changed(); } }
-        }
-        Text { x: 20px; y: root.general-playlist-y;
-            text: "Playlist"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle { x: 12px; y: root.general-playlist-y + 28px;
-            width: parent.width - 24px; height: 192px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            CheckBox { x: 16px; y: 2px; height: 28px; text: "Add files in the same folder automatically";
-                checked <=> root.playlist-auto-add; toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 32px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 16px; y: 34px; height: 28px; text: "Play next item automatically";
-                checked <=> root.playlist-auto-play-next; toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 64px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 16px; y: 66px; width: parent.width - 32px; height: 28px;
-                text: "Show artist and track name for audio files when available";
-                checked <=> root.playlist-show-metadata; toggled => { root.settings-changed(); } }
-            CheckBox { x: 36px; y: 94px; width: parent.width - 52px; height: 28px;
-                text: "Only in Music Mode"; enabled: root.playlist-show-metadata;
-                checked <=> root.playlist-show-metadata-in-music-mode;
-                toggled => { root.settings-changed(); } }
-            Rectangle { x: 12px; y: 124px; width: parent.width - 24px; height: 1px; background: #e1e1e1; }
-            CheckBox { x: 16px; y: 128px; width: parent.width - 32px; height: 28px;
-                text: "Loop when a file is opened manually";
-                checked <=> root.auto-repeat; toggled => { root.settings-changed(); } }
-            ComboBox { x: 36px; y: 158px; width: parent.width - 52px; height: 26px;
-                model: ["Loop playlist", "Loop file"];
-                current-index <=> root.default-repeat-mode-index;
-                enabled: root.auto-repeat;
-                selected => { root.settings-changed(); }
-            }
-        }
-        Text { x: 20px; y: root.general-screenshots-y;
-            text: "Screenshots"; font-weight: 600; font-size: 13px; color: #7a7a80; }
-        Rectangle { x: 12px; y: root.general-screenshots-y + 28px;
-            width: parent.width - 24px; height: 184px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-        Text { x: 16px; y: 8px; text: "Destination:"; font-size: 13px; color: #222222; }
-        Text { x: 16px; y: 112px; text: "Options:"; font-size: 13px; color: #222222; }
-        CheckBox { x: 120px; y: 28px; height: 24px; text: "Save to";
-            checked <=> root.save-to-file;
-            toggled => { root.settings-changed(); }
-        }
-        Text { x: 198px; y: 32px; width: 112px; text: root.directory;
-            overflow: elide; font-size: 13px; color: #666666; }
-        FolderChooser { x: parent.width - 43px; y: 29px; width: 24px; height: 22px;
-            enabled: root.save-to-file && !root.folder-dialog-open;
-            activated => { root.choose-folder(); } }
-        Text { x: 137px; y: 56px; text: "Format:"; font-size: 13px; color: #222222; }
-        ComboBox {
-            x: 194px; y: 52px; width: 132px; height: 24px;
-            model: ["PNG", "JPEG (.jpg)", "JPEG (.jpeg)", "WebP (.webp)", "JPEG XL (.jxl)"];
-            current-index <=> root.format-index;
-            enabled: root.save-to-file;
-            selected => { root.settings-changed(); }
-        }
-        CheckBox { x: 120px; y: 80px; height: 24px; text: "Copy to clipboard";
-            checked <=> root.copy-to-clipboard;
-            toggled => { root.settings-changed(); }
-        }
-        CheckBox { x: 120px; y: 136px; height: 24px; text: "Include subtitles";
-            checked <=> root.include-subtitles;
-            toggled => { root.settings-changed(); }
-        }
-        CheckBox { x: 120px; y: 160px; height: 24px; text: "Show previews after taking screenshots";
-            checked <=> root.show-preview;
-            toggled => { root.settings-changed(); }
-        }
-        }
-        }
+        general-content-height: root.general-content-height;
+        general-scroll-position <=> root.general-scroll-position;
+        general-history-target: root.general-history-target;
+        selected-general-section <=> root.selected-general-section;
+        general-playlist-target: root.general-playlist-target;
+        general-screenshots-target: root.general-screenshots-target;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        when-media-opened-expanded <=> root.when-media-opened-expanded;
+        pause-resume-when-expanded <=> root.pause-resume-when-expanded;
+        pause-policies-available: root.pause-policies-available;
+        launch-action-index <=> root.launch-action-index;
+        settings-changed => { root.settings-changed(); }
+        pause-when-open <=> root.pause-when-open;
+        fullscreen-when-open <=> root.fullscreen-when-open;
+        auto-switch-to-music-mode <=> root.auto-switch-to-music-mode;
+        music-mode-show-playlist <=> root.music-mode-show-playlist;
+        music-mode-show-album-art <=> root.music-mode-show-album-art;
+        play-when-entering-fullscreen <=> root.play-when-entering-fullscreen;
+        pause-when-leaving-fullscreen <=> root.pause-when-leaving-fullscreen;
+        pause-when-inactive <=> root.pause-when-inactive;
+        pause-when-minimized <=> root.pause-when-minimized;
+        pause-when-goes-to-sleep <=> root.pause-when-goes-to-sleep;
+        allow-multiple-windows <=> root.allow-multiple-windows;
+        group-simultaneous-opens-in-playlist <=> root.group-simultaneous-opens-in-playlist;
+        allow-duplicate-players <=> root.allow-duplicate-players;
+        quit-when-no-opened-window <=> root.quit-when-no-opened-window;
+        keep-open-on-file-end <=> root.keep-open-on-file-end;
+        general-history-y: root.general-history-y;
+        resume-last-position <=> root.resume-last-position;
+        record-playback-history <=> root.record-playback-history;
+        record-recent-files <=> root.record-recent-files;
+        track-all-files-in-recent-open-menu <=> root.track-all-files-in-recent-open-menu;
+        general-playlist-y: root.general-playlist-y;
+        playlist-auto-add <=> root.playlist-auto-add;
+        playlist-auto-play-next <=> root.playlist-auto-play-next;
+        playlist-show-metadata <=> root.playlist-show-metadata;
+        playlist-show-metadata-in-music-mode <=> root.playlist-show-metadata-in-music-mode;
+        auto-repeat <=> root.auto-repeat;
+        default-repeat-mode-index <=> root.default-repeat-mode-index;
+        general-screenshots-y: root.general-screenshots-y;
+        save-to-file <=> root.save-to-file;
+        directory: root.directory;
+        folder-dialog-open: root.folder-dialog-open;
+        choose-folder => { root.choose-folder(); }
+        format-index <=> root.format-index;
+        copy-to-clipboard <=> root.copy-to-clipboard;
+        include-subtitles <=> root.include-subtitles;
+        show-preview <=> root.show-preview;
     }
-    if root.selected-pane == 1 : ScrollView {
+
+    if root.selected-pane == 1 : InterfacePreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.interface-content-height;
-        content-width: self.visible-width;
-        content-y <=> root.interface-scroll-position;
-        horizontal-scrollbar-policy: always-off;
-        scrolled => {
-            if root.interface-scroll-position > root.interface-appearance-threshold { root.selected-interface-section = 0; }
-            else if root.interface-scroll-position > root.interface-window-threshold { root.selected-interface-section = 1; }
-            else if root.interface-scroll-position > root.interface-osc-threshold { root.selected-interface-section = 2; }
-            else if root.interface-scroll-position > root.interface-osd-threshold { root.selected-interface-section = 3; }
-            else if root.interface-scroll-position > root.interface-thumbnail-threshold { root.selected-interface-section = 4; }
-            else if root.interface-scroll-position > root.interface-pip-threshold { root.selected-interface-section = 5; }
-            else { root.selected-interface-section = 6; }
-        }
-        Rectangle { width: parent.width; height: root.interface-content-height;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 28px; y: 16px; text: "Interface"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 28px; y: 52px; text: "Appearance";
-            font-size: 13px; font-weight: 600; color: #7a7a80; }
-        Rectangle { x: 20px; y: root.interface-appearance-card-y;
-            width: parent.width - 40px; height: root.interface-appearance-card-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 36px; y: 8px; text: "Appearance";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            ComboBox { x: 160px; y: 4px; width: 190px; height: 24px;
-                model: ["Dark", "Light", "Match System Appearance"];
-                current-index <=> root.appearance-index;
-                selected => { root.settings-changed(); }
-            }
-            PreferenceDetailRow { x: 36px; y: 44px; width: parent.width - 60px;
-                label: root.surface-material-title; expanded: root.liquid-glass-expanded;
-                toggled => { root.liquid-glass-expanded = !root.liquid-glass-expanded; }
-            }
-            if root.liquid-glass-expanded : VerticalLayout {
-                x: 52px; y: 80px; width: parent.width - 68px; height: 84px; spacing: 0px;
-                PreferenceSwitch { height: 28px; label: "On-Screen Display";
-                    checked <=> root.liquid-glass-osd;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { height: 28px; label: "On-Screen Controller";
-                    checked <=> root.liquid-glass-osc;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { height: 28px; label: "Sidebar";
-                    checked <=> root.liquid-glass-sidebar;
-                    toggled => { root.settings-changed(); }
-                }
-            }
-            PreferenceSwitch { x: 36px; y: 84px + root.liquid-glass-detail-height;
-                width: parent.width - 48px; label: "Compact Interface";
-                checked <=> root.compact-ui;
-                toggled => { root.settings-changed(); }
-            }
-        }
-        Text { x: 28px; y: root.interface-window-title-y; text: "Window";
-            font-size: 13px; font-weight: 600; color: #7a7a80; }
-        Rectangle { x: 20px; y: root.interface-window-y; width: parent.width - 40px; height: root.interface-window-card-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            PreferenceToggle { x: 24px; y: 4px; width: parent.width - 48px;
-                label: "Initial window size"; checked <=> root.initial-window-size-enabled;
-                toggled => { root.settings-changed(); }
-            }
-            if root.initial-window-size-enabled : Rectangle {
-                x: 32px; y: 42px; width: parent.width - 64px; height: 26px; background: transparent;
-                ComboBox { x: 0; y: 1px; width: 92px; height: 23px;
-                    model: ["Width", "Height"];
-                    current-index <=> root.initial-window-size-axis-index;
-                    selected => { root.settings-changed(); }
-                }
-                Rectangle { x: 100px; y: 1px; width: 82px; height: 23px;
-                    border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
-                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                        text <=> root.initial-window-size-value-text; font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                ComboBox { x: 190px; y: 1px; width: 116px; height: 23px;
-                    model: ["point", "% of screen"];
-                    current-index <=> root.initial-window-size-unit-index;
-                    selected => { root.settings-changed(); }
-                }
-            }
-            PreferenceToggle { x: 24px; y: 44px + root.initial-window-size-detail-height;
-                width: parent.width - 48px; label: "Initial window position";
-                checked <=> root.initial-window-position-enabled;
-                toggled => { root.settings-changed(); }
-            }
-            if root.initial-window-position-enabled : Rectangle {
-                x: 32px; y: 80px + root.initial-window-size-detail-height;
-                width: parent.width - 64px; height: 96px; background: transparent;
-                Text { x: 0; y: 0; width: 60px; height: 23px; text: "X Offset:";
-                    font-size: 11px; color: #252529; vertical-alignment: center; }
-                Rectangle { x: 62px; y: 0; width: 56px; height: 23px;
-                    border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
-                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                        text <=> root.initial-window-x-offset-text; font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                ComboBox { x: 122px; y: 0; width: 94px; height: 23px;
-                    model: ["point", "% of screen"];
-                    current-index <=> root.initial-window-x-unit-index;
-                    selected => { root.settings-changed(); }
-                }
-                Text { x: 16px; y: 24px; width: 34px; height: 23px; text: "to the";
-                    font-size: 11px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 52px; y: 24px; width: 84px; height: 23px;
-                    model: ["left", "right"];
-                    current-index <=> root.initial-window-x-anchor-index;
-                    selected => { root.settings-changed(); }
-                }
-                Text { x: 140px; y: 24px; width: 92px; height: 23px; text: "side of screen";
-                    font-size: 11px; color: #252529; vertical-alignment: center; }
-                Text { x: 0; y: 48px; width: 60px; height: 23px; text: "Y Offset:";
-                    font-size: 11px; color: #252529; vertical-alignment: center; }
-                Rectangle { x: 62px; y: 48px; width: 56px; height: 23px;
-                    border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
-                    TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                        text <=> root.initial-window-y-offset-text; font-size: 11px; color: #222222;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                ComboBox { x: 122px; y: 48px; width: 94px; height: 23px;
-                    model: ["point", "% of screen"];
-                    current-index <=> root.initial-window-y-unit-index;
-                    selected => { root.settings-changed(); }
-                }
-                Text { x: 16px; y: 72px; width: 34px; height: 23px; text: "to the";
-                    font-size: 11px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 52px; y: 72px; width: 84px; height: 23px;
-                    model: ["bottom", "top"];
-                    current-index <=> root.initial-window-y-anchor-index;
-                    selected => { root.settings-changed(); }
-                }
-                Text { x: 140px; y: 72px; width: 92px; height: 23px; text: "side of screen";
-                    font-size: 11px; color: #252529; vertical-alignment: center; }
-            }
-        }
-        Rectangle { x: 20px; y: root.interface-resize-y; width: parent.width - 40px; height: 118px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 36px; y: 7px; width: 150px; height: 24px; text: "Resize window to:";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            ComboBox { x: 232px; y: 4px; width: parent.width - 252px; height: 24px;
-                model: ["Fit Screen", "0.5x Video Size", "1x Video Size", "1.5x Video Size", "2x Video Size"];
-                current-index <=> root.window-resize-option-index;
-                selected => { root.settings-changed(); }
-            }
-            PreferenceRadioRow { x: 28px; y: 40px; width: parent.width - 48px;
-                label: "Always when playing a new file"; checked: root.window-resize-timing-index == 0;
-                activated => { root.window-resize-timing-index = 0; root.settings-changed(); }
-            }
-            PreferenceRadioRow { x: 28px; y: 64px; width: parent.width - 48px;
-                label: "When media is opened manually"; checked: root.window-resize-timing-index == 1;
-                activated => { root.window-resize-timing-index = 1; root.settings-changed(); }
-            }
-            PreferenceRadioRow { x: 28px; y: 88px; width: parent.width - 48px;
-                label: "Do not resize"; checked: root.window-resize-timing-index == 2;
-                activated => { root.window-resize-timing-index = 2; root.settings-changed(); }
-            }
-        }
-        Rectangle { x: 20px; y: root.interface-physical-resolution-y; width: parent.width - 40px; height: 40px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px; label: "Use physical resolution on Retina displays";
-                checked <=> root.use-physical-resolution;
-                toggled => { root.settings-changed(); }
-            }
-        }
-        Rectangle { x: 20px; y: root.interface-float-y; width: parent.width - 40px; height: 80px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Always float on top";
-                checked <=> root.always-float-on-top;
-                toggled => { root.settings-changed(); }
-            }
-            PreferenceSwitch { x: 36px; y: 44px; width: parent.width - 48px; label: "Always show float on top status in the title bar";
-                checked <=> root.always-show-on-top-icon;
-                toggled => { root.settings-changed(); }
-            }
-        }
-        Rectangle { x: 20px; y: root.interface-osc-y; width: parent.width - 40px; height: root.interface-osc-card-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 0; y: 8px; text: "On-Screen Controller:";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            ComboBox { x: 160px; y: 4px; width: 150px; height: 24px;
-                model: ["Floating", "Top", "Bottom"];
-                current-index <=> root.osc-position;
-                selected => { root.settings-changed(); }
-            }
-            CheckBox { x: 160px; y: 42px; height: 24px; text: "Dock control bar and titlebar";
-                checked <=> root.docked-controls;
-                enabled: !root.edge-to-edge-video;
-                toggled => { root.settings-changed(); }
-            }
-            PreferenceSwitch { x: 36px; y: 82px; width: parent.width - 48px;
-                label: "Show chapter position in progress bar";
-                checked <=> root.show-chapter-pos;
-                toggled => { root.settings-changed(); }
-            }
-            PreferenceSwitch { x: 36px; y: 116px; width: 128px;
-                label: "Auto hide after:";
-                checked <=> root.control-auto-hide-enabled;
-                toggled => { root.settings-changed(); }
-            }
-            Rectangle { x: 170px; y: 118px; width: 70px; height: 24px;
-                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.control-auto-hide-timeout-text; enabled: root.control-auto-hide-enabled;
-                    font-size: 11px; color: #222222;
-                    accepted => { root.settings-changed(); }
-                }
-            }
-            Text { x: 244px; y: 118px; width: 20px; height: 24px; text: "s";
-                font-size: 11px; color: root.control-auto-hide-enabled ? #55555b : #a0a0a4;
-                vertical-alignment: center; }
-            PreferenceSwitch { x: 36px; y: 150px; width: parent.width - 48px;
-                label: "Prevent scroll wheel from changing playback position";
-                checked <=> root.control-disable-play-slider-scrolling;
-                toggled => { root.settings-changed(); }
-            }
-            PreferenceSwitch { x: 36px; y: 186px; width: parent.width - 48px;
-                label: "Prevent scroll wheel from changing volume";
-                checked <=> root.control-disable-volume-slider-scrolling;
-                toggled => { root.settings-changed(); }
-            }
-            Text { x: 36px; y: 218px; text: "Toolbar buttons";
-                font-size: 12px; font-weight: 600; color: #222222; }
-            PreferenceActionButton { x: parent.width - 112px; y: 214px;
-                label: "Restore Default";
-                activated => { root.toolbar-reset(); }
-            }
-            for action-kind[index] in root.toolbar-order : ToolbarPreferenceRow {
-                x: 36px; y: 238px + index * 28px; width: parent.width - 72px;
-                label: action-kind == 0 ? "Quick Settings" :
-                    action-kind == 1 ? "Playlist and chapters" :
-                    action-kind == 2 ? "Picture in Picture" :
-                    action-kind == 3 ? "Full Screen" :
-                    action-kind == 4 ? "Music Mode" :
-                    action-kind == 5 ? "Subtitle Track" :
-                    action-kind == 6 ? "Screenshot" :
-                    action-kind == 7 ? "Plugins" : "Live Text";
-                position: index; count: root.toolbar-order.length;
-                drag-index: root.toolbar-drag-index;
-                drop-index: root.toolbar-drop-index;
-                drag-start-y: root.toolbar-drag-start-y;
-                drag-active: root.toolbar-drag-active;
-                checked: action-kind == 0 ? root.toolbar-show-quick-settings :
-                    action-kind == 1 ? root.toolbar-show-playlist :
-                    action-kind == 2 ? root.toolbar-show-pip :
-                    action-kind == 3 ? root.toolbar-show-fullscreen :
-                    action-kind == 4 ? root.toolbar-show-music-mode :
-                    action-kind == 5 ? root.toolbar-show-subtitle-track :
-                    action-kind == 6 ? root.toolbar-show-screenshot :
-                    action-kind == 7 ? root.toolbar-show-plugins : root.toolbar-show-live-text;
-                toggled(value) => {
-                    if action-kind == 0 { root.toolbar-show-quick-settings = value; }
-                    else if action-kind == 1 { root.toolbar-show-playlist = value; }
-                    else if action-kind == 2 { root.toolbar-show-pip = value; }
-                    else if action-kind == 3 { root.toolbar-show-fullscreen = value; }
-                    else if action-kind == 4 { root.toolbar-show-music-mode = value; }
-                    else if action-kind == 5 { root.toolbar-show-subtitle-track = value; }
-                    else if action-kind == 6 { root.toolbar-show-screenshot = value; }
-                    else if action-kind == 7 { root.toolbar-show-plugins = value; }
-                    else { root.toolbar-show-live-text = value; }
-                    root.settings-changed();
-                }
-                move-requested(position, destination) => { root.toolbar-move(position, destination); }
-                drag-started(position, start-y) => {
-                    root.toolbar-drag-index = position;
-                    root.toolbar-drop-index = position;
-                    root.toolbar-drag-start-y = start-y;
-                    root.toolbar-drag-active = false;
-                }
-                drag-target-changed(destination) => {
-                    root.toolbar-drag-active = true;
-                    root.toolbar-drop-index = destination;
-                }
-                drag-finished => {
-                    root.toolbar-drag-finished();
-                    root.toolbar-drag-index = -1;
-                    root.toolbar-drop-index = -1;
-                    root.toolbar-drag-active = false;
-                }
-            }
-        }
-        Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;
-            height: 92px + root.osd-suppression-detail-height;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Enable OSD";
-                checked <=> root.osd-enabled;
-                toggled => { root.settings-changed(); }
-            }
-            PreferenceDisclosure { x: 36px; y: 40px; label: "Suppress messages for:";
-                expanded: root.osd-suppression-expanded;
-                toggled => { root.osd-suppression-expanded = !root.osd-suppression-expanded; }
-            }
-            if root.osd-suppression-expanded : VerticalLayout {
-                x: 52px; y: 64px; width: parent.width - 68px; height: 108px; spacing: 0px;
-                PreferenceSwitch { height: 27px; label: "File start";
-                    checked <=> root.disable-osd-file-start;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { height: 27px; label: "Pause / Resume";
-                    checked <=> root.disable-osd-pause-resume;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { height: 27px; label: "Seek";
-                    checked <=> root.disable-osd-seek;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { height: 27px; label: "Speed";
-                    checked <=> root.disable-osd-speed;
-                    toggled => { root.settings-changed(); }
-                }
-            }
-        }
-        Rectangle { x: 20px; y: root.interface-osd-y + 108px + root.osd-suppression-detail-height;
-            width: parent.width - 40px; height: 112px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 36px; y: 4px; text: "On-Screen Display";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            Text { x: 36px; y: 39px; width: 132px; height: 24px; text: "Auto hide after:";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            Rectangle { x: 170px; y: 39px; width: 70px; height: 24px;
-                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.osd-timeout-text; font-size: 11px; color: #222222;
-                    accepted => { root.settings-changed(); }
-                }
-            }
-            Text { x: 244px; y: 39px; width: 20px; height: 24px; text: "s";
-                font-size: 11px; color: #55555b; vertical-alignment: center; }
-            Text { x: 36px; y: 68px; width: 132px; height: 24px; text: "Text size:";
-                font-size: 12px; color: #222222; vertical-alignment: center; }
-            Rectangle { x: 170px; y: 68px; width: 70px; height: 24px;
-                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.osd-text-size-text; font-size: 11px; color: #222222;
-                    accepted => { root.settings-changed(); }
-                }
-            }
-            Text { x: 244px; y: 68px; width: 24px; height: 24px; text: "pt";
-                font-size: 11px; color: #55555b; vertical-alignment: center; }
-            PreferenceSwitch { x: 270px; y: 67px; width: parent.width - 282px;
-                label: "Time and battery in full screen";
-                checked <=> root.display-time-and-battery-in-fullscreen;
-                toggled => { root.settings-changed(); }
-            }
-        }
-        Text { x: 28px; y: root.interface-pip-y; text: "Picture-in-Picture";
-            font-size: 13px; font-weight: 600; color: #77777d; }
-        Rectangle {
-            x: 20px; y: root.interface-pip-y + 28px; width: parent.width - 40px;
-            height: root.interface-pip-card-height;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            VerticalLayout { x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px; spacing: 0px;
-                PreferenceChoiceRow { width: parent.width; label: "Window after entering";
-                    options: ["Do nothing", "Hide", "Minimize"];
-                    selected-index <=> root.pip-window-behavior-index;
-                    selected => { root.settings-changed(); }
-                }
-                PreferenceSwitch { width: parent.width; label: "Automatically pause playback";
-                    checked <=> root.pip-pause-when-entering;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { width: parent.width;
-                    label: "Toggle Picture-in-Picture by minimizing/un-minimizing the window";
-                    checked <=> root.pip-toggle-by-minimizing;
-                    toggled => { root.settings-changed(); }
-                }
-                PreferenceSwitch { width: parent.width; label: "Only for video files";
-                    enabled: root.pip-toggle-by-minimizing;
-                    checked <=> root.pip-minimize-toggle-video-only;
-                    toggled => { root.settings-changed(); }
-                }
-            }
-        }
-        Rectangle {
-            x: 20px; y: root.interface-thumbnail-y;
-            width: parent.width - 40px; height: 220px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 0; y: 8px; text: "Thumbnail Preview";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            PreferenceSwitch { x: 16px; y: 36px; width: parent.width - 32px;
-                label: "Enable thumbnail preview";
-                checked <=> root.thumbnail-preview-enabled;
-                toggled => { root.settings-changed(); }
-            }
-            Text { x: 16px; y: 76px; width: 210px; height: 24px;
-                text: "Maximum cache size"; font-size: 12px; color: #252529;
-                vertical-alignment: center; }
-            PreferenceNumericInput { x: parent.width - 91px; y: 76px; width: 57px; height: 24px;
-                text <=> root.thumbnail-cache-size-text;
-                enabled: root.thumbnail-preview-enabled;
-                accepted => { root.settings-changed(); }
-            }
-            Text { x: parent.width - 29px; y: 76px; width: 24px; height: 24px;
-                text: "MB"; font-size: 11px; color: #77777d; vertical-alignment: center; }
-            PreferenceSwitch { x: 16px; y: 112px; width: parent.width - 32px;
-                label: "Generate previews for files on remote volumes";
-                checked <=> root.thumbnail-remote-enabled;
-                enabled: root.thumbnail-preview-enabled;
-                toggled => { root.settings-changed(); }
-            }
-            Text { x: 16px; y: 150px; width: 210px; height: 24px;
-                text: "Thumbnail width"; font-size: 12px; color: #252529;
-                vertical-alignment: center; }
-            PreferenceNumericInput { x: parent.width - 91px; y: 150px; width: 57px; height: 24px;
-                text <=> root.thumbnail-width-text;
-                enabled: root.thumbnail-preview-enabled;
-                accepted => { root.settings-changed(); }
-            }
-            Text { x: parent.width - 29px; y: 150px; width: 24px; height: 24px;
-                text: "pt"; font-size: 11px; color: #77777d; vertical-alignment: center; }
-            Text { x: 16px; y: 182px; width: parent.width - 32px;
-                text: "Width is measured in points and applies to generated previews.";
-                font-size: 10px; color: #77777d; }
-        }
-        Rectangle {
-            x: 20px; y: root.interface-accessibility-y;
-            width: parent.width - 40px; height: 80px;
-            border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 0; y: 8px; text: "Accessibility";
-                font-weight: 600; font-size: 13px; color: #222222; }
-            PreferenceSwitch { x: 16px; y: 29px; width: parent.width - 32px;
-                label: "Disable animations"; checked <=> root.disable-animations;
-                toggled => { root.settings-changed(); }
-            }
-            Text { x: 16px; y: 58px; text: "Turn off interface motion.";
-                font-size: 10px; color: #77777d; }
-        }
-        }
+        interface-content-height: root.interface-content-height;
+        interface-scroll-position <=> root.interface-scroll-position;
+        interface-appearance-threshold: root.interface-appearance-threshold;
+        selected-interface-section <=> root.selected-interface-section;
+        interface-window-threshold: root.interface-window-threshold;
+        interface-osc-threshold: root.interface-osc-threshold;
+        interface-osd-threshold: root.interface-osd-threshold;
+        interface-thumbnail-threshold: root.interface-thumbnail-threshold;
+        interface-pip-threshold: root.interface-pip-threshold;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        interface-appearance-card-y: root.interface-appearance-card-y;
+        interface-appearance-card-height: root.interface-appearance-card-height;
+        appearance-index <=> root.appearance-index;
+        settings-changed => { root.settings-changed(); }
+        surface-material-title: root.surface-material-title;
+        liquid-glass-expanded <=> root.liquid-glass-expanded;
+        liquid-glass-osd <=> root.liquid-glass-osd;
+        liquid-glass-osc <=> root.liquid-glass-osc;
+        liquid-glass-sidebar <=> root.liquid-glass-sidebar;
+        liquid-glass-detail-height: root.liquid-glass-detail-height;
+        compact-ui <=> root.compact-ui;
+        interface-window-title-y: root.interface-window-title-y;
+        interface-window-y: root.interface-window-y;
+        interface-window-card-height: root.interface-window-card-height;
+        initial-window-size-enabled <=> root.initial-window-size-enabled;
+        initial-window-size-axis-index <=> root.initial-window-size-axis-index;
+        initial-window-size-value-text <=> root.initial-window-size-value-text;
+        initial-window-size-unit-index <=> root.initial-window-size-unit-index;
+        initial-window-size-detail-height: root.initial-window-size-detail-height;
+        initial-window-position-enabled <=> root.initial-window-position-enabled;
+        initial-window-x-offset-text <=> root.initial-window-x-offset-text;
+        initial-window-x-unit-index <=> root.initial-window-x-unit-index;
+        initial-window-x-anchor-index <=> root.initial-window-x-anchor-index;
+        initial-window-y-offset-text <=> root.initial-window-y-offset-text;
+        initial-window-y-unit-index <=> root.initial-window-y-unit-index;
+        initial-window-y-anchor-index <=> root.initial-window-y-anchor-index;
+        interface-resize-y: root.interface-resize-y;
+        window-resize-option-index <=> root.window-resize-option-index;
+        window-resize-timing-index <=> root.window-resize-timing-index;
+        interface-physical-resolution-y: root.interface-physical-resolution-y;
+        use-physical-resolution <=> root.use-physical-resolution;
+        interface-float-y: root.interface-float-y;
+        always-float-on-top <=> root.always-float-on-top;
+        always-show-on-top-icon <=> root.always-show-on-top-icon;
+        interface-osc-y: root.interface-osc-y;
+        interface-osc-card-height: root.interface-osc-card-height;
+        osc-position <=> root.osc-position;
+        docked-controls <=> root.docked-controls;
+        edge-to-edge-video: root.edge-to-edge-video;
+        show-chapter-pos <=> root.show-chapter-pos;
+        control-auto-hide-enabled <=> root.control-auto-hide-enabled;
+        control-auto-hide-timeout-text <=> root.control-auto-hide-timeout-text;
+        control-disable-play-slider-scrolling <=> root.control-disable-play-slider-scrolling;
+        control-disable-volume-slider-scrolling <=> root.control-disable-volume-slider-scrolling;
+        toolbar-reset => { root.toolbar-reset(); }
+        toolbar-order: root.toolbar-order;
+        toolbar-drag-index <=> root.toolbar-drag-index;
+        toolbar-drop-index <=> root.toolbar-drop-index;
+        toolbar-drag-start-y <=> root.toolbar-drag-start-y;
+        toolbar-drag-active <=> root.toolbar-drag-active;
+        toolbar-show-quick-settings <=> root.toolbar-show-quick-settings;
+        toolbar-show-playlist <=> root.toolbar-show-playlist;
+        toolbar-show-pip <=> root.toolbar-show-pip;
+        toolbar-show-fullscreen <=> root.toolbar-show-fullscreen;
+        toolbar-show-music-mode <=> root.toolbar-show-music-mode;
+        toolbar-show-subtitle-track <=> root.toolbar-show-subtitle-track;
+        toolbar-show-screenshot <=> root.toolbar-show-screenshot;
+        toolbar-show-plugins <=> root.toolbar-show-plugins;
+        toolbar-show-live-text <=> root.toolbar-show-live-text;
+        toolbar-move(value1, value2) => { root.toolbar-move(value1, value2); }
+        toolbar-drag-finished => { root.toolbar-drag-finished(); }
+        interface-osd-y: root.interface-osd-y;
+        osd-suppression-detail-height: root.osd-suppression-detail-height;
+        osd-enabled <=> root.osd-enabled;
+        osd-suppression-expanded <=> root.osd-suppression-expanded;
+        disable-osd-file-start <=> root.disable-osd-file-start;
+        disable-osd-pause-resume <=> root.disable-osd-pause-resume;
+        disable-osd-seek <=> root.disable-osd-seek;
+        disable-osd-speed <=> root.disable-osd-speed;
+        osd-timeout-text <=> root.osd-timeout-text;
+        osd-text-size-text <=> root.osd-text-size-text;
+        display-time-and-battery-in-fullscreen <=> root.display-time-and-battery-in-fullscreen;
+        interface-pip-y: root.interface-pip-y;
+        interface-pip-card-height: root.interface-pip-card-height;
+        pip-window-behavior-index <=> root.pip-window-behavior-index;
+        pip-pause-when-entering <=> root.pip-pause-when-entering;
+        pip-toggle-by-minimizing <=> root.pip-toggle-by-minimizing;
+        pip-minimize-toggle-video-only <=> root.pip-minimize-toggle-video-only;
+        interface-thumbnail-y: root.interface-thumbnail-y;
+        thumbnail-preview-enabled <=> root.thumbnail-preview-enabled;
+        thumbnail-cache-size-text <=> root.thumbnail-cache-size-text;
+        thumbnail-remote-enabled <=> root.thumbnail-remote-enabled;
+        thumbnail-width-text <=> root.thumbnail-width-text;
+        interface-accessibility-y: root.interface-accessibility-y;
+        disable-animations <=> root.disable-animations;
     }
+
     if root.selected-pane == 2 : VideoPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         video-scroll-position <=> root.video-scroll-position;
@@ -1256,173 +763,68 @@ export component PreferencesWindow inherits Window {
         tone-mapping-param-text <=> root.tone-mapping-param-text;
     }
 
-    if root.selected-pane == 4 : ScrollView {
+    if root.selected-pane == 4 : SubtitlesPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-y <=> root.subtitle-scroll-position;
-        content-height: root.subtitle-content-height;
-        content-width: self.visible-width;
-        horizontal-scrollbar-policy: always-off;
-        changed content-y => {
-            if root.subtitle-scroll-position > 16px - root.subtitle-ass-y { root.selected-subtitle-section = 0; }
-            else if root.subtitle-scroll-position > 16px - root.subtitle-text-y { root.selected-subtitle-section = 1; }
-            else if root.subtitle-scroll-position > 16px - root.subtitle-position-y { root.selected-subtitle-section = 2; }
-            else if root.subtitle-scroll-position > 16px - root.subtitle-online-y { root.selected-subtitle-section = 3; }
-            else if root.subtitle-scroll-position > 16px - root.subtitle-other-y { root.selected-subtitle-section = 4; }
-            else { root.selected-subtitle-section = 5; }
-        }
-        Rectangle { x: 0px; y: 0px; width: parent.width; height: root.subtitle-content-height;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-            Text { x: 28px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: #222222; }
-            Text { x: 28px; y: 52px; text: "Auto Load"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: root.subtitle-autoload-height;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 14px; y: 6px; width: 80px; height: 28px; text: "Auto load"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 102px; y: 8px; width: parent.width - 116px; height: 26px;
-                    model: root.subtitle-auto-load-mode-options; current-index <=> root.subtitle-auto-load-mode-index;
-                    selected => { root.settings-changed(); }
-                }
-                Rectangle { x: 14px; y: 40px; width: parent.width - 28px; height: 1px; background: #dedee1; }
-                GeneralDisclosureRow { x: 0px; y: 41px; width: parent.width; label: "Advanced";
-                    expanded: root.subtitle-auto-load-advanced-expanded;
-                    activated => { root.subtitle-auto-load-advanced-expanded = !root.subtitle-auto-load-advanced-expanded; }
-                }
-                if root.subtitle-auto-load-advanced-expanded : Rectangle { x: 14px; y: 82px; width: parent.width - 28px; height: 150px; background: transparent;
-                    Text { x: 0px; y: 8px; width: parent.width; height: 18px; text: "Filename priority keywords"; font-size: 12px; color: #252529; }
-                    Rectangle { x: 0px; y: 30px; width: parent.width; height: 24px; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff; clip: true;
-                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                            accessible-label: "Subtitle filename priority keywords"; text <=> root.subtitle-auto-load-priority-text;
-                            accepted => { root.settings-changed(); }
-                        }
-                    }
-                    Text { x: 0px; y: 58px; width: parent.width; height: 20px; text: "Comma-separated strings, in priority order."; font-size: 10px; color: #77777d; }
-                    Text { x: 0px; y: 84px; width: parent.width; height: 18px; text: "Also search these directories"; font-size: 12px; color: #252529; }
-                    Rectangle { x: 0px; y: 106px; width: parent.width; height: 24px; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff; clip: true;
-                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                            accessible-label: "Subtitle search paths"; text <=> root.subtitle-search-paths-text;
-                            accepted => { root.settings-changed(); }
-                        }
-                    }
-                }
-            }
-            Text { x: 28px; y: root.subtitle-ass-y; text: "ASS Subtitles"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: root.subtitle-ass-y + 26px; width: parent.width - 40px; height: 354px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 14px; y: 12px; width: 150px; height: 26px; text: "Override level"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                OverrideLaneButton { x: parent.width - 178px; y: 12px; width: 80px; height: 26px; label: "Primary"; accessible-label: "Primary subtitles";
-                    selected: root.subtitle-ass-override-lane == 0; activated => { root.subtitle-ass-override-lane = 0; }
-                }
-                OverrideLaneButton { x: parent.width - 94px; y: 12px; width: 80px; height: 26px; label: "Secondary"; accessible-label: "Secondary subtitles";
-                    selected: root.subtitle-ass-override-lane == 1; activated => { root.subtitle-ass-override-lane = 1; }
-                }
-                for option[index] in ["no", "yes", "scale", "force", "strip"] : PreferenceOptionCard {
-                    x: 14px; y: 54px + index * 58px; width: parent.width - 28px;
-                    title: option; description: root.subtitle-override-descriptions[index];
-                    selected: (root.subtitle-ass-override-lane == 0 ? root.subtitle-ass-override-primary-index : root.subtitle-ass-override-secondary-index) == index;
-                    activated => { root.choose-subtitle-override(index); }
-                }
-            }
-            Text { x: 28px; y: root.subtitle-text-y; text: "Text Subtitles"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: root.subtitle-text-y + 26px; width: parent.width - 40px; height: root.subtitle-text-height;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 14px; y: 12px; width: 70px; height: 26px; text: "Font"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceActionButton { x: 90px; y: 12px; width: parent.width - 104px; label: root.subtitle-font; accessible-label: "Choose subtitle font";
-                    activated => { root.choose-subtitle-font(); }
-                }
-                Text { x: 14px; y: 52px; width: 70px; height: 24px; text: "Size"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { x: 90px; y: 52px; width: 44px; height: 24px; label: "Subtitle font size"; text <=> root.subtitle-font-size-text; accepted => { root.settings-changed(); } }
-                CheckBox { x: 150px; y: 52px; width: 72px; height: 24px; text: "Bold"; checked <=> root.subtitle-bold; toggled => { root.settings-changed(); } }
-                CheckBox { x: 236px; y: 52px; width: 72px; height: 24px; text: "Italic"; checked <=> root.subtitle-italic; toggled => { root.settings-changed(); } }
-                Text { x: 14px; y: 92px; width: 70px; height: 24px; text: "Color"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                SubtitleColorWell { x: 90px; y: 92px; observed-color: root.subtitle-text-color; hint: "Subtitle text color"; native-color-panel: root.platform-macos; color-target: 1;
-                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
-                    edited(value) => { root.subtitle-text-color = value; root.settings-changed(); }
-                }
-                Text { x: 150px; y: 92px; width: 100px; height: 24px; text: "Background"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                SubtitleColorWell { x: parent.width - 54px; y: 92px; observed-color: root.subtitle-background-color; hint: "Subtitle background color"; native-color-panel: root.platform-macos; color-target: 2;
-                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
-                    edited(value) => { root.subtitle-background-color = value; root.subtitle-shadow-color = value; root.settings-changed(); }
-                }
-                Text { x: 14px; y: 132px; width: 70px; height: 24px; text: "Border"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { x: 90px; y: 132px; width: 44px; height: 24px; label: "Subtitle border size"; text <=> root.subtitle-outline-size-text; accepted => { root.settings-changed(); } }
-                Text { x: 166px; y: 132px; width: 74px; height: 24px; text: "Color"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                SubtitleColorWell { x: parent.width - 54px; y: 132px; observed-color: root.subtitle-outline-color; hint: "Subtitle border color"; native-color-panel: root.platform-macos; color-target: 3;
-                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
-                    edited(value) => { root.subtitle-outline-color = value; root.settings-changed(); }
-                }
-                Text { x: 14px; y: 172px; width: 70px; height: 24px; text: "Shadow"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { x: 90px; y: 172px; width: 44px; height: 24px; label: "Subtitle shadow offset"; text <=> root.subtitle-shadow-offset-text; accepted => { root.settings-changed(); } }
-                Text { x: 166px; y: 172px; width: 74px; height: 24px; text: "Color"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                SubtitleColorWell { x: parent.width - 54px; y: 172px; observed-color: root.subtitle-shadow-color; hint: "Subtitle shadow color"; native-color-panel: root.platform-macos; color-target: 4;
-                    native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
-                    edited(value) => { root.subtitle-shadow-color = value; root.subtitle-background-color = value; root.settings-changed(); }
-                }
-                GeneralDisclosureRow { x: 0px; y: 204px; width: parent.width; label: "Other styles"; expanded: root.subtitle-text-advanced-expanded;
-                    activated => { root.subtitle-text-advanced-expanded = !root.subtitle-text-advanced-expanded; }
-                }
-                if root.subtitle-text-advanced-expanded : Rectangle { x: 14px; y: 248px; width: parent.width - 28px; height: 26px; background: transparent;
-                    Text { x: 0px; y: 0px; width: 40px; height: 24px; text: "Blur"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                    PreferenceNumericInput { x: 44px; y: 0px; width: 44px; height: 24px; label: "Subtitle blur"; text <=> root.subtitle-blur-text; accepted => { root.settings-changed(); } }
-                    Text { x: 108px; y: 0px; width: 100px; height: 24px; text: "Font spacing"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                    PreferenceNumericInput { x: parent.width - 56px; y: 0px; width: 56px; height: 24px; label: "Subtitle font spacing"; text <=> root.subtitle-spacing-text; accepted => { root.settings-changed(); } }
-                }
-            }
-            Text { x: 28px; y: root.subtitle-position-y; text: "Position"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: root.subtitle-position-y + 26px; width: parent.width - 40px; height: 248px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 14px; y: 12px; width: 126px; height: 24px; text: "Horizontal alignment"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 150px; y: 12px; width: parent.width - 164px; height: 26px; model: ["Left", "Center", "Right"]; current-index <=> root.subtitle-align-x-index; selected => { root.settings-changed(); } }
-                Text { x: 14px; y: 52px; width: 126px; height: 24px; text: "Vertical alignment"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 150px; y: 52px; width: parent.width - 164px; height: 26px; model: ["Top", "Center", "Bottom"]; current-index <=> root.subtitle-align-y-index; selected => { root.settings-changed(); } }
-                Text { x: 14px; y: 92px; width: 64px; height: 24px; text: "Margin X"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { x: 80px; y: 92px; width: 54px; height: 24px; label: "Horizontal subtitle margin"; text <=> root.subtitle-margin-x-text; accepted => { root.settings-changed(); } }
-                Text { x: 166px; y: 92px; width: 64px; height: 24px; text: "Margin Y"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { x: parent.width - 68px; y: 92px; width: 54px; height: 24px; label: "Vertical subtitle margin"; text <=> root.subtitle-margin-y-text; accepted => { root.settings-changed(); } }
-                Text { x: 14px; y: 132px; width: 150px; height: 24px; text: "Vertical position"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { x: 180px; y: 132px; width: 64px; height: 24px; label: "Subtitle vertical position percent"; text <=> root.subtitle-position-text; accepted => { root.settings-changed(); } }
-                Text { x: 250px; y: 132px; width: 24px; height: 24px; text: "%"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceSwitch { x: 14px; y: 168px; width: parent.width - 28px; label: "Display subtitles in fullscreen letterboxes"; checked <=> root.subtitle-display-in-letterbox; toggled => { root.settings-changed(); } }
-                PreferenceSwitch { x: 14px; y: 204px; width: parent.width - 28px; label: "Scale subtitles with window size"; checked <=> root.subtitle-scale-with-window; toggled => { root.settings-changed(); } }
-            }
-            Text { x: 28px; y: root.subtitle-online-y; text: "Online Subtitles"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: root.subtitle-online-y + 26px; width: parent.width - 40px; height: root.subtitle-online-height;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 14px; y: 12px; width: 104px; height: 26px; text: "Provider"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 130px; y: 12px; width: parent.width - 144px; height: 26px; model: root.open-subtitles-provider-options; current-index <=> root.open-subtitles-provider-index; selected => { root.settings-changed(); } }
-                if root.open-subtitles-provider-index != 2 : Rectangle { x: 14px; y: 48px; width: parent.width - 28px; height: 84px; background: transparent;
-                    Text { x: 0px; y: 0px; width: parent.width; height: 18px; text: root.open-subtitles-provider-index == 1 ? "Assrt.net token" : "OpenSubtitles API key"; font-size: 12px; color: #252529; }
-                    Rectangle { x: 0px; y: 22px; width: parent.width; height: 24px; background: #ffffff; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; clip: true;
-                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: root.open-subtitles-provider-index == 0;
-                            accessible-label: "OpenSubtitles API key"; text <=> root.open-subtitles-api-key; accepted => { root.settings-changed(); }
-                        }
-                        TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: root.open-subtitles-provider-index == 1;
-                            accessible-label: "Assrt.net token"; text <=> root.assrt-token; accepted => { root.settings-changed(); }
-                        }
-                    }
-                    Text { x: 0px; y: 52px; width: parent.width; height: 30px; text: "Stored in your system credential store."; font-size: 10px; color: #77777d; wrap: word-wrap; }
-                }
-                if root.open-subtitles-provider-index == 1 : PreferenceActionButton { x: 14px; y: 136px; width: 176px; label: "Get an Assrt API token"; activated => { root.open-assrt-token-page(); } }
-                if root.open-subtitles-provider-index == 2 : Text { x: 14px; y: 48px; width: parent.width - 28px; height: 54px; text: "Shooter matches local videos using file samples and their path. Searching sends both to Shooter.cn; no account is needed."; font-size: 10px; color: #77777d; wrap: word-wrap; }
-                PreferenceSwitch { x: 14px; y: root.open-subtitles-provider-index == 1 ? 168px : root.open-subtitles-provider-index == 2 ? 116px : 136px; width: parent.width - 28px;
-                    label: "Search online subtitles automatically"; checked <=> root.open-subtitles-auto-search; toggled => { root.settings-changed(); }
-                }
-                Text { x: 14px; y: root.subtitle-online-height - 68px; width: parent.width - 28px; height: 20px; text: "Only search when media is longer than"; font-size: 11px; color: #252529; }
-                PreferenceNumericInput { x: 14px; y: root.subtitle-online-height - 40px; width: 64px; height: 24px; label: "Online subtitle search minimum minutes"; text <=> root.open-subtitles-threshold-text; accepted => { root.settings-changed(); } }
-                Text { x: 88px; y: root.subtitle-online-height - 40px; width: 80px; height: 24px; text: "minutes"; font-size: 12px; color: #252529; vertical-alignment: center; }
-            }
-            Text { x: 28px; y: root.subtitle-other-y; text: "Other"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: root.subtitle-other-y + 26px; width: parent.width - 40px; height: 168px;
-                border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 14px; y: 12px; width: parent.width - 28px; height: 20px; text: "Preferred languages"; font-size: 12px; color: #252529; }
-                LanguageTokenEditor { x: 14px; y: 36px; width: parent.width - 28px; height: 26px; tokens: root.subtitle-language-tokens;
-                    add-token(entry) => { root.add-subtitle-language-token(entry); }
-                    remove-token(index) => { root.remove-subtitle-language-token(index); }
-                }
-                Text { x: 14px; y: 68px; width: parent.width - 28px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: #77777d; wrap: word-wrap; }
-                Text { x: 14px; y: 116px; width: 120px; height: 26px; text: "Default encoding"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                ComboBox { x: 148px; y: 116px; width: parent.width - 162px; height: 26px; model: root.subtitle-encoding-options; current-index <=> root.subtitle-encoding-index; selected => { root.settings-changed(); } }
-            }
-        }
+        subtitle-scroll-position <=> root.subtitle-scroll-position;
+        subtitle-content-height: root.subtitle-content-height;
+        subtitle-ass-y: root.subtitle-ass-y;
+        selected-subtitle-section <=> root.selected-subtitle-section;
+        subtitle-text-y: root.subtitle-text-y;
+        subtitle-position-y: root.subtitle-position-y;
+        subtitle-online-y: root.subtitle-online-y;
+        subtitle-other-y: root.subtitle-other-y;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        subtitle-autoload-height: root.subtitle-autoload-height;
+        subtitle-auto-load-mode-options: root.subtitle-auto-load-mode-options;
+        subtitle-auto-load-mode-index <=> root.subtitle-auto-load-mode-index;
+        settings-changed => { root.settings-changed(); }
+        subtitle-auto-load-advanced-expanded <=> root.subtitle-auto-load-advanced-expanded;
+        subtitle-auto-load-priority-text <=> root.subtitle-auto-load-priority-text;
+        subtitle-search-paths-text <=> root.subtitle-search-paths-text;
+        subtitle-ass-override-lane <=> root.subtitle-ass-override-lane;
+        subtitle-override-descriptions: root.subtitle-override-descriptions;
+        subtitle-ass-override-primary-index: root.subtitle-ass-override-primary-index;
+        subtitle-ass-override-secondary-index: root.subtitle-ass-override-secondary-index;
+        choose-subtitle-override(value) => { root.choose-subtitle-override(value); }
+        subtitle-text-height: root.subtitle-text-height;
+        subtitle-font: root.subtitle-font;
+        choose-subtitle-font => { root.choose-subtitle-font(); }
+        subtitle-font-size-text <=> root.subtitle-font-size-text;
+        subtitle-bold <=> root.subtitle-bold;
+        subtitle-italic <=> root.subtitle-italic;
+        subtitle-text-color <=> root.subtitle-text-color;
+        platform-macos: root.platform-macos;
+        native-subtitle-color-requested(value1, value2) => { root.native-subtitle-color-requested(value1, value2); }
+        subtitle-background-color <=> root.subtitle-background-color;
+        subtitle-shadow-color <=> root.subtitle-shadow-color;
+        subtitle-outline-size-text <=> root.subtitle-outline-size-text;
+        subtitle-outline-color <=> root.subtitle-outline-color;
+        subtitle-shadow-offset-text <=> root.subtitle-shadow-offset-text;
+        subtitle-text-advanced-expanded <=> root.subtitle-text-advanced-expanded;
+        subtitle-blur-text <=> root.subtitle-blur-text;
+        subtitle-spacing-text <=> root.subtitle-spacing-text;
+        subtitle-align-x-index <=> root.subtitle-align-x-index;
+        subtitle-align-y-index <=> root.subtitle-align-y-index;
+        subtitle-margin-x-text <=> root.subtitle-margin-x-text;
+        subtitle-margin-y-text <=> root.subtitle-margin-y-text;
+        subtitle-position-text <=> root.subtitle-position-text;
+        subtitle-display-in-letterbox <=> root.subtitle-display-in-letterbox;
+        subtitle-scale-with-window <=> root.subtitle-scale-with-window;
+        subtitle-online-height: root.subtitle-online-height;
+        open-subtitles-provider-options: root.open-subtitles-provider-options;
+        open-subtitles-provider-index <=> root.open-subtitles-provider-index;
+        open-subtitles-api-key <=> root.open-subtitles-api-key;
+        assrt-token <=> root.assrt-token;
+        open-assrt-token-page => { root.open-assrt-token-page(); }
+        open-subtitles-auto-search <=> root.open-subtitles-auto-search;
+        open-subtitles-threshold-text <=> root.open-subtitles-threshold-text;
+        subtitle-language-tokens: root.subtitle-language-tokens;
+        add-subtitle-language-token(value1) => { root.add-subtitle-language-token(value1); }
+        remove-subtitle-language-token(value1) => { root.remove-subtitle-language-token(value1); }
+        subtitle-encoding-options: root.subtitle-encoding-options;
+        subtitle-encoding-index <=> root.subtitle-encoding-index;
     }
+
     if root.selected-pane == 3 : AudioPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         audio-content-height: root.audio-content-height;
@@ -1456,179 +858,33 @@ export component PreferencesWindow inherits Window {
         remove-audio-language-token(value1) => { root.remove-audio-language-token(value1); }
     }
 
-    if root.selected-pane == 5 : ScrollView {
+    if root.selected-pane == 5 : NetworkPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-height: root.network-content-height; content-width: self.visible-width;
-        content-y <=> root.network-scroll-position;
-        horizontal-scrollbar-policy: always-off;
-        changed content-y => {
-            if root.network-scroll-position > 16px - root.network-connection-y { root.selected-network-section = 0; }
-            else if root.network-scroll-position > 16px - root.network-online-y { root.selected-network-section = 1; }
-            else { root.selected-network-section = 2; }
-        }
-        Rectangle { width: parent.width; height: root.network-content-height;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 28px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 28px; y: 54px; text: "Cache"; font-size: 13px; font-weight: 600; color: #77777d; }
-        Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 482px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            // Match the reference's compact rows; explanations stay with the control they qualify.
-            Rectangle { x: 0; y: 0; width: parent.width; height: 40px; background: transparent;
-                Image { x: 12px; y: 12px; width: 16px; height: 16px; source: @image-url("../../../assets/icons/playlist.svg"); colorize: #77777d; image-fit: contain; }
-                PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
-                    label: "Prefetch and buffer network data";
-                    checked <=> root.network-cache-enabled;
-                    toggled => { root.settings-changed(); }
-                }
-            }
-            Rectangle { x: 0; y: 40px; width: parent.width; height: 120px; background: transparent;
-                border-width: 0px; border-color: #dedee2;
-                PreferenceSwitch { x: 44px; y: 0; width: parent.width - 58px; height: 26px;
-                    label: "Buffer before starting playback";
-                    enabled: root.network-cache-enabled;
-                    checked <=> root.network-cache-pause-initial; toggled => { root.settings-changed(); }
-                }
-                Text { x: 44px; y: 28px; width: parent.width - 62px; height: 80px;
-                    text: "Enter buffering mode before playback starts. This can be useful to ensure playback starts smoothly, in exchange for waiting some time to prefetch and buffer network data.";
-                    font-size: 11px; color: #77777d; wrap: word-wrap;
-                }
-            }
-            Rectangle { x: 0; y: 160px; width: parent.width; height: 130px; background: transparent;
-                Text { x: 44px; y: 0; width: parent.width - 170px; height: 32px;
-                    text: "Seconds to buffer before restarting"; font-size: 12px; color: #252529; vertical-alignment: center; wrap: word-wrap; }
-                PreferenceNumericInput { label: "Seconds to buffer before restarting"; font-size: 12px; x: parent.width - 94px; y: 9px; width: 66px; height: 24px;
-                    enabled: root.network-cache-enabled;
-                    text <=> root.network-cache-pause-wait-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 44px; y: 40px; width: parent.width - 62px; height: 64px;
-                    text: "Number of seconds the cache should have buffered before starting playback again if buffering mode was entered. Increase this setting if playback quickly reenters buffering mode.";
-                    font-size: 11px; color: #77777d; wrap: word-wrap;
-                }
-                Text { x: 44px; y: 108px; width: parent.width - 62px; height: 18px;
-                    text: "Default: 1"; font-size: 11px; color: #77777d; }
-            }
-            Rectangle { x: 0; y: 290px; width: parent.width; height: 56px; background: transparent;
-                Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
-                    text: "Seconds to prefetch"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { label: "Seconds to prefetch"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
-                    enabled: root.network-cache-enabled;
-                    text <=> root.network-cache-prefetch-secs-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
-                    text: "Default: 36,000"; font-size: 11px; color: #77777d; vertical-alignment: center; }
-            }
-            Rectangle { x: 0; y: 346px; width: parent.width; height: 56px; background: transparent;
-                Text { x: 44px; y: 0; width: parent.width - 170px; height: 30px;
-                    text: "Cache buffer size (KiB)"; font-size: 12px; color: #252529; vertical-alignment: center; }
-                PreferenceNumericInput { label: "Cache buffer size in KiB"; font-size: 12px; x: parent.width - 94px; y: 4px; width: 66px; height: 24px;
-                    enabled: root.network-cache-enabled;
-                    text <=> root.network-cache-size-kib-text;
-                    accepted => { root.settings-changed(); }
-                }
-                Text { x: 44px; y: 27px; width: parent.width - 62px; height: 20px;
-                    text: "Default: 153,600"; font-size: 11px; color: #77777d; vertical-alignment: center; }
-            }
-            Rectangle { x: 0; y: 402px; width: parent.width; height: 40px; background: transparent;
-                PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
-                    label: "Show throbber when buffering";
-                    checked <=> root.network-show-buffering-throbber;
-                    toggled => { root.settings-changed(); }
-                }
-            }
-            Rectangle { x: 0; y: 442px; width: parent.width; height: 40px; background: transparent;
-                PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px;
-                    label: "Show throbber when seeking";
-                    checked <=> root.network-show-seeking-throbber;
-                    toggled => { root.settings-changed(); }
-                }
-            }
-        }
-        Text { x: 28px; y: root.network-connection-y; text: "Network"; font-size: 13px; font-weight: 600; color: #77777d; }
-        Rectangle {
-            x: 20px; y: root.network-connection-y + 26px; width: parent.width - 40px; height: 205px;
-            border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            Text { x: 12px; y: 44px; width: 94px; height: 24px; text: "User agent";
-                font-size: 12px; color: #252529; vertical-alignment: center; }
-            Rectangle { x: 108px; y: 44px; width: parent.width - 122px; height: 24px;
-                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                    text <=> root.network-user-agent; font-size: 11px; color: #222222;
-                    accepted => { root.settings-changed(); }
-                }
-            }
-            Text { x: 12px; y: 82px; width: 94px; height: 24px; text: "HTTP proxy";
-                font-size: 12px; color: #252529; vertical-alignment: center; }
-            Rectangle { x: 108px; y: 82px; width: parent.width - 122px; height: 24px;
-                border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                    text <=> root.network-http-proxy; font-size: 11px; color: #222222;
-                    accepted => { root.settings-changed(); }
-                }
-            }
-            Text { x: 108px; y: 108px; width: parent.width - 122px; height: 30px;
-                text: "Enter a proxy URL, such as http://proxy.example:8080.";
-                font-size: 11px; color: #77777d; wrap: word-wrap; }
-            Text { x: 12px; y: 146px; width: 94px; height: 24px; text: "RTSP transport";
-                font-size: 12px; color: #252529; vertical-alignment: center; }
-            ComboBox { x: 108px; y: 146px; width: parent.width - 122px; height: 25px;
-                model: root.network-rtsp-transport-options;
-                current-index <=> root.network-rtsp-transport-index;
-                selected => { root.settings-changed(); }
-            }
-            Text { x: 108px; y: 177px; width: parent.width - 122px; height: 16px;
-                text: "Changes take effect after restarting riina.";
-                font-size: 11px; color: #77777d; vertical-alignment: center; }
-        }
-        Text { x: 28px; y: root.network-online-y; text: "Online Videos (yt-dlp)"; font-size: 13px; font-weight: 600; color: #77777d; }
-            Rectangle { x: 20px; y: root.network-online-y + 26px; width: parent.width - 40px; height: 90px;
-                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-                Image { x: 12px; y: 14px; width: 18px; height: 18px;
-                    source: @image-url("../../../assets/icons/plugins.svg"); image-fit: contain; }
-                Text { x: 42px; y: 10px; width: parent.width - 58px; height: 22px;
-                    text: root.network-ytdl-plugin-active ? "The Online Media plugin is enabled" : "The Online Media plugin is recommended"; font-size: 12px; font-weight: 600; color: #252529; }
-                Text { x: 42px; y: 34px; width: parent.width - 58px; height: 40px;
-                    text: root.network-ytdl-plugin-active ? "The plugin adds quality selection and video downloads. mpv's built-in extractor is disabled while the plugin is enabled." : "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor.";
-                    font-size: 11px; color: #77777d; wrap: word-wrap; }
-            }
-            Rectangle { x: 20px; y: root.network-online-y + 126px; width: parent.width - 40px; height: 220px;
-                border-radius: 12px; border-width: 1px; border-color: #e4e4e8; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-                PreferenceSwitch { x: 12px; y: 6px; width: parent.width - 24px;
-                    label: "Enable mpv's youtube-dl script";
-                    checked <=> root.network-ytdl-ui-enabled;
-                    enabled: !root.network-ytdl-plugin-active;
-                    toggled => { root.network-ytdl-enabled = root.network-ytdl-ui-enabled; root.settings-changed(); }
-                }
-                Text { x: 12px; y: 43px; width: parent.width - 24px; height: 32px;
-                    text: "Custom youtube-dl path"; font-size: 12px; color: #252529; }
-                Rectangle { x: 12px; y: 63px; width: parent.width - 24px; height: 24px;
-                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
-                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                        text <=> root.network-ytdl-search-path; font-size: 11px; color: #222222;
-                        enabled: root.network-ytdl-enabled && !root.network-ytdl-plugin-active;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                Text { x: 12px; y: 90px; width: parent.width - 24px; height: 24px;
-                    text: "Search this folder at startup. Restart required.";
-                    font-size: 11px; color: #77777d; }
-                Text { x: 12px; y: 119px; width: parent.width - 24px; height: 22px;
-                    text: "Raw options"; font-size: 12px; color: #252529; }
-                Rectangle { x: 12px; y: 141px; width: parent.width - 24px; height: 24px;
-                    border-radius: 4px; border-width: 1px; border-color: #c8c8cd; background: #ffffff; clip: true;
-                    TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                        text <=> root.network-ytdl-raw-options; font-size: 11px; color: #222222;
-                        enabled: root.network-ytdl-enabled && !root.network-ytdl-plugin-active;
-                        accepted => { root.settings-changed(); }
-                    }
-                }
-                Text { x: 12px; y: 168px; width: parent.width - 24px; height: 28px;
-                    text: "Format: <key>=<value>[,<key>=<value>[,…]]";
-                    font-size: 11px; color: #77777d; }
-            }
-        }
+        network-content-height: root.network-content-height;
+        network-scroll-position <=> root.network-scroll-position;
+        network-connection-y: root.network-connection-y;
+        selected-network-section <=> root.selected-network-section;
+        network-online-y: root.network-online-y;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        network-cache-enabled <=> root.network-cache-enabled;
+        settings-changed => { root.settings-changed(); }
+        network-cache-pause-initial <=> root.network-cache-pause-initial;
+        network-cache-pause-wait-text <=> root.network-cache-pause-wait-text;
+        network-cache-prefetch-secs-text <=> root.network-cache-prefetch-secs-text;
+        network-cache-size-kib-text <=> root.network-cache-size-kib-text;
+        network-show-buffering-throbber <=> root.network-show-buffering-throbber;
+        network-show-seeking-throbber <=> root.network-show-seeking-throbber;
+        network-user-agent <=> root.network-user-agent;
+        network-http-proxy <=> root.network-http-proxy;
+        network-rtsp-transport-options: root.network-rtsp-transport-options;
+        network-rtsp-transport-index <=> root.network-rtsp-transport-index;
+        network-ytdl-plugin-active: root.network-ytdl-plugin-active;
+        network-ytdl-ui-enabled <=> root.network-ytdl-ui-enabled;
+        network-ytdl-enabled <=> root.network-ytdl-enabled;
+        network-ytdl-search-path <=> root.network-ytdl-search-path;
+        network-ytdl-raw-options <=> root.network-ytdl-raw-options;
     }
+
     if root.selected-pane == 6 : ControlPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
@@ -1648,178 +904,35 @@ export component PreferencesWindow inherits Window {
         control-volume-sensitivity <=> root.control-volume-sensitivity;
     }
 
-    if root.selected-pane == 7 : ScrollView {
+    if root.selected-pane == 7 : KeyBindingsPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        content-width: self.visible-width;
-        content-height: max(parent.height, root.key-binding-rows.length == 0 ? 310px : 290px + root.key-binding-rows.length * 32px);
-        vertical-scrollbar-policy: as-needed;
-        horizontal-scrollbar-policy: always-off;
-        Rectangle {
-            width: parent.width; height: max(parent.height, root.key-binding-rows.length == 0 ? 310px : 290px + root.key-binding-rows.length * 32px);
-            background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-            Text { x: 28px; y: 16px; text: "Key Bindings";
-                font-size: 15px; font-weight: 600; color: #222222; }
-            Rectangle {
-                x: 20px; y: 52px; width: parent.width - 40px; height: 42px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
-                background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Image { x: 12px; y: 13px; width: 16px; height: 16px;
-                    source: @image-url("../../../assets/icons/keybindings.svg"); }
-                Text { x: 37px; y: 0; width: 178px; height: parent.height;
-                    text: "Use system media control"; font-size: 12px; color: #252529;
-                    vertical-alignment: center; }
-                Text { x: 206px; y: 11px; width: 18px; height: 18px;
-                    text: "?"; font-size: 11px; color: #55555b;
-                    horizontal-alignment: center; vertical-alignment: center; }
-                PreferenceSwitch {
-                    x: parent.width - 52px; y: 7px; width: 44px;
-                    label: "Use system media control"; show-label: false;
-                    checked <=> root.key-binding-use-system-media-controls;
-                    toggled => { root.key-binding-settings-changed(); root.settings-changed(); }
-                }
-            }
-            Rectangle {
-                x: 20px; y: 110px; width: parent.width - 40px;
-                height: root.key-binding-rows.length == 0 ? 200px : 180px + root.key-binding-rows.length * 32px;
-                border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
-                background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-                Text { x: 12px; y: 8px; width: 66px; height: 36px;
-                    text: "Key binding set"; font-size: 11px; color: #29292d;
-                    vertical-alignment: center; wrap: word-wrap; }
-                ComboBox {
-                    x: 82px; y: 8px; width: parent.width - 182px; height: 28px;
-                    model: root.key-binding-profiles;
-                    current-index <=> root.key-binding-profile-index;
-                    selected => {
-                        if root.key-binding-profile-index >= 0
-                            && root.key-binding-profile-index < root.key-binding-profiles.length {
-                            root.key-binding-current-profile = root.key-binding-profiles[root.key-binding-profile-index];
-                            root.key-binding-profile-selected(root.key-binding-current-profile);
-                            root.settings-changed();
-                        }
-                    }
-                }
-                KeyBindingIconButton {
-                    x: parent.width - 82px; y: 4px; label: "Delete profile"; icon-kind: 0;
-                    enabled: root.key-binding-profile-index >= 5;
-                    activated => { root.key-binding-profile-delete-confirm-open = true; }
-                }
-                KeyBindingIconButton {
-                    x: parent.width - 44px; y: 4px; label: "Add key binding set"; icon-kind: 3;
-                    activated => { root.key-binding-profile-menu-open = !root.key-binding-profile-menu-open; }
-                }
-                Rectangle { x: 1px; y: 52px; width: parent.width - 2px; height: 1px; background: #e3e3e6; }
-                Rectangle {
-                    x: 28px; y: 62px; width: parent.width - 136px; height: 28px;
-                    border-width: 1px; border-color: #dedee2; border-radius: 14px;
-                    background: #ffffff;
-                    Image { x: 8px; y: 6px; width: 16px; height: 16px;
-                        source: @image-url("../../../assets/icons/search.svg"); }
-                    if root.key-binding-search-query.is-empty : Text {
-                        x: 30px; y: 0; width: parent.width - 38px; height: parent.height;
-                        text: "Search"; font-size: 11px; color: #89898f; vertical-alignment: center;
-                    }
-                    TextInput {
-                        x: 30px; y: 0; width: parent.width - 38px; height: parent.height;
-                        text <=> root.key-binding-search-query; single-line: true;
-                        font-size: 11px; color: #29292d; vertical-alignment: center;
-                        accessible-label: "Search key bindings";
-                        changed text => { root.key-binding-search-changed(self.text); }
-                    }
-                }
-                KeyBindingIconButton {
-                    x: parent.width - 96px; y: 58px; width: 40px; height: 36px;
-                    label: "Add key binding"; icon-kind: 1;
-                    enabled: root.key-binding-profile-index >= 5;
-                    activated => { root.key-binding-add-requested(); }
-                }
-                if root.key-binding-rows.length == 0 : Text {
-                    x: 28px; y: 100px; width: parent.width - 52px; height: 44px;
-                    text: "No mappings in this configuration";
-                    font-size: 11px; color: #77777d; vertical-alignment: center;
-                }
-                if root.key-binding-rows.length > 0 : VerticalLayout {
-                    x: 20px; y: 96px; width: parent.width - 40px;
-                    spacing: 0px;
-                    for row[index] in root.key-binding-rows : KeyBindingActionRow {
-                        entry: row; row-index: index; row-count: root.key-binding-rows.length;
-                        editable: root.key-binding-profile-index >= 5;
-                        selected-index: root.key-binding-selected-row;
-                        selected: root.key-binding-selected-row == index;
-                        activated(selected-row) => {
-                            root.key-binding-selected-row = selected-row;
-                            root.key-binding-row-selected(selected-row);
-                        }
-                        edit-requested(row-index) => { root.key-binding-edit-requested(row-index); }
-                        remove-requested(row-index) => { root.key-binding-remove-requested(row-index); }
-                    }
-                }
-                Rectangle {
-                    x: 1px; y: root.key-binding-rows.length == 0 ? 152px : 132px + root.key-binding-rows.length * 32px;
-                    width: parent.width - 2px; height: 1px; background: #e3e3e6;
-                }
-                Text {
-                    x: 20px; y: root.key-binding-rows.length == 0 ? 164px : 144px + root.key-binding-rows.length * 32px;
-                    width: parent.width - 88px; height: 28px;
-                    text: "Display raw values"; font-size: 11px; color: #29292d;
-                    vertical-alignment: center;
-                }
-                PreferenceSwitch {
-                    x: parent.width - 68px; y: root.key-binding-rows.length == 0 ? 164px : 144px + root.key-binding-rows.length * 32px;
-                    width: 44px; height: 28px; label: "Display raw values"; show-label: false;
-                    checked <=> root.key-binding-display-raw-values;
-                    toggled => { root.key-binding-settings-changed(); root.settings-changed(); }
-                }
-                if root.key-binding-profile-menu-open : Rectangle {
-                    x: parent.width - 194px; y: 34px; width: 188px; height: root.key-binding-profile-index >= 5 ? 158px : 128px;
-                    border-width: 1px; border-color: #d4d4d8; border-radius: 8px;
-                    background: #ffffff;
-                    KeyBindingProfileMenuItem {
-                        x: 2px; y: 3px; label: "Create empty set";
-                        activated => {
-                            root.key-binding-profile-menu-open = false;
-                            root.key-binding-profile-editor-mode = 0;
-                            root.key-binding-profile-editor-name = "";
-                            root.key-binding-profile-editor-open = true;
-                        }
-                    }
-                    KeyBindingProfileMenuItem {
-                        x: 2px; y: 33px; label: "Duplicate current set";
-                        activated => {
-                            root.key-binding-profile-menu-open = false;
-                            root.key-binding-profile-editor-mode = 1;
-                            root.key-binding-profile-editor-name = "";
-                            root.key-binding-profile-editor-open = true;
-                        }
-                    }
-                    if root.key-binding-profile-index >= 5 : KeyBindingProfileMenuItem {
-                        x: 2px; y: 63px; label: "Rename current set…";
-                        activated => {
-                            root.key-binding-profile-menu-open = false;
-                            root.key-binding-profile-editor-mode = 2;
-                            root.key-binding-profile-editor-name = root.key-binding-current-profile;
-                            root.key-binding-profile-editor-open = true;
-                        }
-                    }
-                    KeyBindingProfileMenuItem {
-                        x: 2px; y: root.key-binding-profile-index >= 5 ? 93px : 63px; label: "Import configuration…";
-                        activated => {
-                            root.key-binding-profile-menu-open = false;
-                            root.key-binding-import-profile-requested();
-                        }
-                    }
-                    Rectangle { x: 8px; y: root.key-binding-profile-index >= 5 ? 124px : 94px; width: parent.width - 16px; height: 1px; background: #e5e5e8; }
-                    KeyBindingProfileMenuItem {
-                        x: 2px; y: root.key-binding-profile-index >= 5 ? 126px : 96px; label: "Show profile file";
-                        activated => {
-                            root.key-binding-profile-menu-open = false;
-                            root.key-binding-reveal-profile();
-                        }
-                    }
-                }
-            }
-        }
+        window-height: root.height;
+        key-binding-rows: root.key-binding-rows;
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        key-binding-use-system-media-controls <=> root.key-binding-use-system-media-controls;
+        key-binding-settings-changed => { root.key-binding-settings-changed(); }
+        settings-changed => { root.settings-changed(); }
+        key-binding-profiles: root.key-binding-profiles;
+        key-binding-profile-index <=> root.key-binding-profile-index;
+        key-binding-current-profile <=> root.key-binding-current-profile;
+        key-binding-profile-selected(value1) => { root.key-binding-profile-selected(value1); }
+        key-binding-profile-delete-confirm-open <=> root.key-binding-profile-delete-confirm-open;
+        key-binding-profile-menu-open <=> root.key-binding-profile-menu-open;
+        key-binding-search-query <=> root.key-binding-search-query;
+        key-binding-search-changed(value1) => { root.key-binding-search-changed(value1); }
+        key-binding-add-requested => { root.key-binding-add-requested(); }
+        key-binding-selected-row <=> root.key-binding-selected-row;
+        key-binding-row-selected(value1) => { root.key-binding-row-selected(value1); }
+        key-binding-edit-requested(value1) => { root.key-binding-edit-requested(value1); }
+        key-binding-remove-requested(value1) => { root.key-binding-remove-requested(value1); }
+        key-binding-display-raw-values <=> root.key-binding-display-raw-values;
+        key-binding-profile-editor-mode <=> root.key-binding-profile-editor-mode;
+        key-binding-profile-editor-name <=> root.key-binding-profile-editor-name;
+        key-binding-profile-editor-open <=> root.key-binding-profile-editor-open;
+        key-binding-import-profile-requested => { root.key-binding-import-profile-requested(); }
+        key-binding-reveal-profile => { root.key-binding-reveal-profile(); }
     }
+
     if root.selected-pane == 8 : AdvancedPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
@@ -1841,54 +954,22 @@ export component PreferencesWindow inherits Window {
         advanced-option-removed(value1) => { root.advanced-option-removed(value1); }
     }
 
-    if root.selected-pane == 9 : Rectangle {
+    if root.selected-pane == 9 : PluginsPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 20px; y: 16px; text: "Plugins"; font-size: 15px; font-weight: 600; color: #222222; }
-        Rectangle {
-            x: 12px; y: 52px; width: parent.width - 24px; height: 104px;
-            border-width: 1px; border-color: #dedee1; border-radius: 13px; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            Text {
-                x: 12px; y: 10px; width: parent.width - 24px; height: 42px;
-                text: "You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically.";
-                font-size: 11px; color: #77777d; wrap: word-wrap;
-                vertical-alignment: center;
-            }
-            PluginPageActionButton {
-                x: 12px; y: 67px; width: 104px; label: "Get Plugins…";
-                activated => { root.plugin-request-github-install(); }
-            }
-            PluginPageActionButton {
-                x: 124px; y: 67px; width: 160px; label: "Install Local Package…";
-                activated => { root.plugin-request-local-install(); }
-            }
-        }
-        Text {
-            x: 12px; y: 163px; width: parent.width - 56px; height: 28px;
-            text: root.plugin-update-status; font-size: 11px; font-weight: 600;
-            color: #85858a; vertical-alignment: center; overflow: elide;
-        }
-        PluginPageIconButton {
-            x: parent.width - 47px; y: 165px; width: 28px; height: 24px;
-            icon-kind: 2; label: "Check for plugin updates";
-            activated => { root.plugin-refresh(); }
-        }
-        if root.plugin-rows.length > 0 : Rectangle {
-            x: 12px; y: 196px; width: parent.width - 24px;
-            height: root.plugin-rows.length * 60px;
-            border-width: 1px; border-color: #dedee1; border-radius: 13px; background: root.mica-backdrop-enabled ? #ffffff80 : #fafafa;
-            for row[index] in root.plugin-rows : PluginPreferencesRowView {
-                x: 0px; y: index * 60px; width: parent.width;
-                entry: row; row-index: index; last-row: index == root.plugin-rows.length - 1;
-                plugin-id-transfer(identifier) => { root.plugin-id-transfer(identifier); }
-                plugin-id-from-transfer(transfer) => { root.plugin-id-from-transfer(transfer); }
-                enabled-toggled(index, enabled) => { root.plugin-enabled-changed(index, enabled); }
-                about-requested(index) => { root.plugin-row-about(index); }
-                actions-requested(index) => { root.plugin-row-actions(index); }
-                reorder-requested(dragged, target) => { root.plugin-reordered(dragged, target); }
-            }
-        }
+        mica-backdrop-enabled: root.mica-backdrop-enabled;
+        plugin-request-github-install => { root.plugin-request-github-install(); }
+        plugin-request-local-install => { root.plugin-request-local-install(); }
+        plugin-update-status: root.plugin-update-status;
+        plugin-refresh => { root.plugin-refresh(); }
+        plugin-rows: root.plugin-rows;
+        plugin-id-transfer(value) => { return root.plugin-id-transfer(value); }
+        plugin-id-from-transfer(value) => { return root.plugin-id-from-transfer(value); }
+        plugin-enabled-changed(value1, value2) => { root.plugin-enabled-changed(value1, value2); }
+        plugin-row-about(value1) => { root.plugin-row-about(value1); }
+        plugin-row-actions(value1) => { root.plugin-row-actions(value1); }
+        plugin-reordered(value1, value2) => { root.plugin-reordered(value1, value2); }
     }
+
     if root.selected-pane == 10 : UtilitiesPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
