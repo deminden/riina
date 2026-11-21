@@ -247,8 +247,10 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
             };
             if let Some(message) = message {
                 app.set_video_osd_request_feedback(false);
-                app.set_video_osd_text(message.text.into());
-                app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+                app.global::<riina_ui::PlayerOsdState>()
+                    .set_video_osd_text(message.text.into());
+                app.global::<riina_ui::PlayerOsdState>()
+                    .set_video_osd_progress(message.progress.unwrap_or(-1.0));
                 app.invoke_show_video_osd();
             }
         }

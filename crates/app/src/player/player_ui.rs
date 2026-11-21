@@ -46,6 +46,7 @@ use crate::{
 };
 use riina_core::{Command, Phase, Playback, Preferences};
 use riina_mpv::Player;
+use slint::ComponentHandle;
 use std::{
     cell::RefCell,
     path::PathBuf,
@@ -117,8 +118,9 @@ pub(crate) fn show_osd_message(
         return;
     }
     app.set_video_osd_request_feedback(keep_stopped);
-    app.set_video_osd_text(text.into());
-    app.set_video_osd_progress(-1.0);
+    let osd = app.global::<riina_ui::PlayerOsdState>();
+    osd.set_video_osd_text(text.into());
+    osd.set_video_osd_progress(-1.0);
     app.invoke_show_video_osd();
 }
 

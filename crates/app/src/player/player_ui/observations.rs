@@ -257,17 +257,18 @@ fn update_feedback(
     last_video: &std::cell::RefCell<crate::video_osd::VideoOsd>,
     last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
 ) {
+    let osd = app.global::<riina_ui::PlayerOsdState>();
     let keep_stopped_feedback = app.get_video_osd_request_feedback();
     if displayed.is_none_or(|old| old.generation != state.generation)
         || matches!(state.phase, Phase::Loading | Phase::Failed)
         || (state.phase == Phase::Stopped && !keep_stopped_feedback)
         || (state.error.is_some() && !keep_stopped_feedback)
     {
-        app.set_video_osd_visible(false);
+        osd.set_video_osd_visible(false);
         app.set_video_osd_request_feedback(false);
     }
     match last_seek.observe_with_suppression(state, app.get_disable_osd_seek()) {
-        Change::Hide => app.set_seek_osd_visible(false),
+        Change::Hide => osd.set_seek_osd_visible(false),
         Change::Show => app.invoke_show_seek_osd(),
         Change::Keep => {}
     }
@@ -286,8 +287,8 @@ fn update_feedback(
     };
     if let Some(message) = video_message {
         app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
-        app.set_video_osd_text(message.text.into());
-        app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+        osd.set_video_osd_text(message.text.into());
+        osd.set_video_osd_progress(message.progress.unwrap_or(-1.0));
         app.invoke_show_video_osd();
     }
     match last_screenshot.observe(state) {
@@ -299,8 +300,8 @@ fn update_feedback(
         {
             if !app.get_screenshot_show_preview() {
                 app.set_video_osd_request_feedback(false);
-                app.set_video_osd_text("Screenshot Captured".into());
-                app.set_video_osd_progress(-1.0);
+                osd.set_video_osd_text("Screenshot Captured".into());
+                osd.set_video_osd_progress(-1.0);
                 app.invoke_show_video_osd();
             } else {
                 match slint::Image::load_from_path(std::path::Path::new(&path)) {
@@ -308,10 +309,10 @@ fn update_feedback(
                         let size = image.size();
                         let (width, height) =
                             crate::screenshot_osd::preview_size(size.width, size.height);
-                        app.set_screenshot_preview_image(image);
-                        app.set_screenshot_preview_width(width);
-                        app.set_screenshot_preview_height(height);
-                        app.set_screenshot_preview_path(if app.get_screenshot_save_to_file() {
+                        osd.set_screenshot_preview_image(image);
+                        osd.set_screenshot_preview_width(width);
+                        osd.set_screenshot_preview_height(height);
+                        osd.set_screenshot_preview_path(if app.get_screenshot_save_to_file() {
                             path.into()
                         } else {
                             "".into()
@@ -322,8 +323,8 @@ fn update_feedback(
                         // Saving succeeded even if the preview decoder cannot open
                         // this format; preserve reference normal-message fallback.
                         app.set_video_osd_request_feedback(false);
-                        app.set_video_osd_text("Screenshot Captured".into());
-                        app.set_video_osd_progress(-1.0);
+                        osd.set_video_osd_text("Screenshot Captured".into());
+                        osd.set_video_osd_progress(-1.0);
                         app.invoke_show_video_osd();
                     }
                 }
@@ -396,9 +397,10 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
         app.get_osd_enabled(),
         app.get_disable_osd_file_start(),
     ) {
+        let osd = app.global::<riina_ui::PlayerOsdState>();
         app.set_video_osd_request_feedback(false);
-        app.set_video_osd_text(message.text.into());
-        app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+        osd.set_video_osd_text(message.text.into());
+        osd.set_video_osd_progress(message.progress.unwrap_or(-1.0));
         app.invoke_show_video_osd();
     }
 }

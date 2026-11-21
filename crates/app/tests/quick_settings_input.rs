@@ -164,6 +164,28 @@ fn playback_audio_observations_belong_to_each_player() {
 }
 
 #[test]
+fn playback_feedback_belongs_to_each_player() {
+    let first = player(0);
+    let second = PlayerWindow::new().unwrap();
+    let first_feedback = first.global::<PlayerOsdState>();
+    let second_feedback = second.global::<PlayerOsdState>();
+
+    first_feedback.set_video_osd_visible(true);
+    first_feedback.set_video_osd_text("Paused".into());
+    first_feedback.set_screenshot_preview_visible(true);
+    first_feedback.set_fullscreen_info_time("07:00".into());
+
+    assert!(first_feedback.get_video_osd_visible());
+    assert_eq!(first_feedback.get_video_osd_text(), "Paused");
+    assert!(first_feedback.get_screenshot_preview_visible());
+    assert_eq!(first_feedback.get_fullscreen_info_time(), "07:00");
+    assert!(!second_feedback.get_video_osd_visible());
+    assert!(second_feedback.get_video_osd_text().is_empty());
+    assert!(!second_feedback.get_screenshot_preview_visible());
+    assert!(second_feedback.get_fullscreen_info_time().is_empty());
+}
+
+#[test]
 fn title_bar_pin_projects_and_toggles_the_player_window_level() {
     let app = player(0);
     app.set_show_player_title_row(true);

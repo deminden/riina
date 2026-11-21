@@ -5,9 +5,10 @@ use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 pub(super) fn clear_screenshot_preview(app: &PlayerWindow) {
-    app.set_screenshot_preview_visible(false);
-    app.set_screenshot_preview_path("".into());
-    app.set_screenshot_preview_image(slint::Image::default());
+    let osd = app.global::<riina_ui::PlayerOsdState>();
+    osd.set_screenshot_preview_visible(false);
+    osd.set_screenshot_preview_path("".into());
+    osd.set_screenshot_preview_image(slint::Image::default());
 }
 
 fn configured_osd_timeout(app: &PlayerWindow) -> Duration {
@@ -157,8 +158,10 @@ fn install_osd_policy(
         disable_video_timer.stop();
         disable_screenshot_timer.stop();
         disable_video_osd.borrow_mut().clear_pending();
-        app.set_seek_osd_visible(false);
-        app.set_video_osd_visible(false);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_seek_osd_visible(false);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_video_osd_visible(false);
         app.set_video_osd_request_feedback(false);
         clear_screenshot_preview(&app);
     });
@@ -222,16 +225,19 @@ fn install_seek_osd(app: &PlayerWindow, seek_timer: Rc<slint::Timer>) {
         if !app.get_osd_enabled() || app.get_disable_osd_seek() {
             return;
         }
-        app.set_seek_osd_visible(true);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_seek_osd_visible(true);
         clear_screenshot_preview(&app);
-        app.set_video_osd_visible(false);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_video_osd_visible(false);
         let weak = weak.clone();
         seek_timer.start(
             slint::TimerMode::SingleShot,
             configured_osd_timeout(&app),
             move || {
                 if let Some(app) = weak.upgrade() {
-                    app.set_seek_osd_visible(false);
+                    app.global::<riina_ui::PlayerOsdState>()
+                        .set_seek_osd_visible(false);
                 }
             },
         );
@@ -245,9 +251,12 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
         if !app.get_osd_enabled() || app.get_crop_editing() {
             return;
         }
-        app.set_seek_osd_visible(false);
-        app.set_video_osd_visible(false);
-        app.set_screenshot_preview_visible(true);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_seek_osd_visible(false);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_video_osd_visible(false);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_screenshot_preview_visible(true);
         let weak = weak.clone();
         screenshot_timer.start(
             slint::TimerMode::SingleShot,
@@ -262,11 +271,17 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
     let weak = app.as_weak();
     app.on_screenshot_preview_action(move |action| {
         let Some(app) = weak.upgrade() else { return };
-        if !app.get_screenshot_preview_visible() || app.get_crop_editing() || app.get_dialog_open()
+        if !app
+            .global::<riina_ui::PlayerOsdState>()
+            .get_screenshot_preview_visible()
+            || app.get_crop_editing()
+            || app.get_dialog_open()
         {
             return;
         }
-        let path = app.get_screenshot_preview_path();
+        let path = app
+            .global::<riina_ui::PlayerOsdState>()
+            .get_screenshot_preview_path();
         if path.is_empty() {
             return;
         }
@@ -298,9 +313,11 @@ fn install_video_osd(
         if !app.get_osd_enabled() {
             return;
         }
-        app.set_seek_osd_visible(false);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_seek_osd_visible(false);
         clear_screenshot_preview(&app);
-        app.set_video_osd_visible(true);
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_video_osd_visible(true);
         let weak = weak.clone();
         let pending_video_osd = pending_video_osd.clone();
         video_timer.start(
@@ -310,7 +327,8 @@ fn install_video_osd(
                 let Some(app) = weak.upgrade() else { return };
                 if !app.get_osd_enabled() {
                     pending_video_osd.borrow_mut().clear_pending();
-                    app.set_video_osd_visible(false);
+                    app.global::<riina_ui::PlayerOsdState>()
+                        .set_video_osd_visible(false);
                     app.set_video_osd_request_feedback(false);
                     return;
                 }
@@ -319,11 +337,14 @@ fn install_video_osd(
                     app.set_video_osd_request_feedback(
                         message.kind == crate::video_osd::Kind::Aspect,
                     );
-                    app.set_video_osd_text(message.text.into());
-                    app.set_video_osd_progress(message.progress.unwrap_or(-1.0));
+                    app.global::<riina_ui::PlayerOsdState>()
+                        .set_video_osd_text(message.text.into());
+                    app.global::<riina_ui::PlayerOsdState>()
+                        .set_video_osd_progress(message.progress.unwrap_or(-1.0));
                     app.invoke_show_video_osd();
                 } else {
-                    app.set_video_osd_visible(false);
+                    app.global::<riina_ui::PlayerOsdState>()
+                        .set_video_osd_visible(false);
                     app.set_video_osd_request_feedback(false);
                 }
             },

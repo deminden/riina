@@ -418,6 +418,7 @@ impl MaterialSampler {
 }
 
 fn material_visible(app: &PlayerWindow) -> bool {
+    let osd = app.global::<riina_ui::PlayerOsdState>();
     app.get_system_materials_enabled()
         && app.get_native_video()
         && !app.get_native_transition_frame()
@@ -432,9 +433,9 @@ fn material_visible(app: &PlayerWindow) -> bool {
                 && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0))
             || (app.get_liquid_glass_osd()
                 && app.get_loaded()
-                && (app.get_video_osd_visible()
-                    || app.get_seek_osd_visible()
-                    || !app.get_plugin_osd_message().is_empty()
+                && (osd.get_video_osd_visible()
+                    || osd.get_seek_osd_visible()
+                    || !osd.get_plugin_osd_message().is_empty()
                     || (app.get_fullscreen()
                         && app.get_controls_visible()
                         && app.get_display_time_and_battery_in_fullscreen()))))

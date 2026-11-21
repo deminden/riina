@@ -99,7 +99,8 @@ impl PluginEffects {
     fn show_osd(&self, app: &PlayerWindow, text: String) {
         let generation = self.osd_generation.get().wrapping_add(1);
         self.osd_generation.set(generation);
-        app.set_plugin_osd_message(text.into());
+        app.global::<riina_ui::PlayerOsdState>()
+            .set_plugin_osd_message(text.into());
         if let Some(timer) = self.osd_timer.as_ref().and_then(Weak::upgrade) {
             let weak = app.as_weak();
             let current = self.osd_generation.clone();
@@ -107,7 +108,8 @@ impl PluginEffects {
                 if current.get() == generation
                     && let Some(app) = weak.upgrade()
                 {
-                    app.set_plugin_osd_message("".into());
+                    app.global::<riina_ui::PlayerOsdState>()
+                        .set_plugin_osd_message("".into());
                 }
             });
         }

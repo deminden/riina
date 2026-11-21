@@ -157,8 +157,10 @@ impl Editor {
         if entering {
             app.set_sidebar(0);
             app.set_leading_sidebar(0);
-            app.set_seek_osd_visible(false);
-            app.set_video_osd_visible(false);
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_seek_osd_visible(false);
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_video_osd_visible(false);
             let weak = app.as_weak();
             slint::Timer::single_shot(Duration::from_millis(32), move || {
                 if let Some(app) = weak.upgrade()

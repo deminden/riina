@@ -261,22 +261,38 @@ fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
             window
                 .global::<riina_ui::PlaybackTimelineState>()
                 .set_seek_duration_label("1:12".into());
-            window.set_seek_osd_visible(true);
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_seek_osd_visible(true);
         }),
         ("player-playback-osd", |window| {
-            window.set_video_osd_text("Volume: 64%".into());
-            window.set_video_osd_progress(0.64);
-            window.set_video_osd_visible(true);
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_video_osd_text("Volume: 64%".into());
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_video_osd_progress(0.64);
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_video_osd_visible(true);
         }),
         ("player-plugin-osd", |window| {
-            window.set_plugin_osd_message("Plugin message".into());
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_plugin_osd_message("Plugin message".into());
         }),
         ("player-fullscreen-info", |window| {
             window.set_fullscreen(true);
             window.set_display_time_and_battery_in_fullscreen(true);
-            window.set_fullscreen_info_time("16:45".into());
-            window.set_fullscreen_info_battery("82%".into());
-            window.set_fullscreen_info_battery_level(82.0);
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_fullscreen_info_time("16:45".into());
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_fullscreen_info_battery("82%".into());
+            window
+                .global::<riina_ui::PlayerOsdState>()
+                .set_fullscreen_info_battery_level(82.0);
         }),
         ("player-crop-video", |window| {
             window.set_crop_picture_x(24.0);

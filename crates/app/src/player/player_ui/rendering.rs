@@ -225,11 +225,12 @@ fn project_blur(
     let controller_blur = app.get_liquid_glass_osc()
         && app.get_loaded()
         && (app.get_controls_visible() || app.get_music_mode());
+    let osd = app.global::<riina_ui::PlayerOsdState>();
     let osd_blur = app.get_liquid_glass_osd()
         && app.get_loaded()
-        && (app.get_video_osd_visible()
-            || app.get_seek_osd_visible()
-            || !app.get_plugin_osd_message().is_empty()
+        && (osd.get_video_osd_visible()
+            || osd.get_seek_osd_visible()
+            || !osd.get_plugin_osd_message().is_empty()
             || (app.get_fullscreen()
                 && app.get_controls_visible()
                 && app.get_display_time_and_battery_in_fullscreen()));

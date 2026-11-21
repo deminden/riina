@@ -1,0 +1,16 @@
+// The visible messages and captures belong to the owning player.
+export global PlayerOsdState {
+    in-out property <bool> seek-osd-visible: false;
+    in-out property <bool> video-osd-visible: false;
+    in-out property <bool> screenshot-preview-visible: false;
+    in-out property <image> screenshot-preview-image;
+    in-out property <float> screenshot-preview-width: 300;
+    in-out property <float> screenshot-preview-height: 200;
+    in-out property <string> screenshot-preview-path;
+    in-out property <string> video-osd-text;
+    in-out property <float> video-osd-progress: -1;
+    in-out property <string> fullscreen-info-time: "";
+    in-out property <string> fullscreen-info-battery: "";
+    in-out property <float> fullscreen-info-battery-level: 0;
+    in-out property <string> plugin-osd-message: "";
+}

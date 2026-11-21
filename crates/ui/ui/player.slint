@@ -1,3 +1,5 @@
+import { PlayerOsdState } from "player-osd-state.slint";
+export { PlayerOsdState } from "player-osd-state.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
 export { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
@@ -300,7 +302,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <string> timeline-preview-label: "";
     in property <float> thumbnail-preview-width: 120;
     callback timeline-hovered(float);
-    in-out property <string> plugin-osd-message: "";
     in property <[PluginMenuRow]> plugin-menu-rows: [];
     in property <[string]> plugin-menu-order: [];
     changed plugin-menu-rows => { root.video-menu-changed(); }
@@ -408,17 +409,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <string> media-title: "riina";
     in property <string> music-artist: "";
     in property <string> music-album: "";
-    in-out property <bool> seek-osd-visible: false;
-    in-out property <bool> video-osd-visible: false;
-    in-out property <bool> screenshot-preview-visible: false;
-    in property <image> screenshot-preview-image;
-    in property <float> screenshot-preview-width: 300;
-    in property <float> screenshot-preview-height: 200;
-    in property <string> screenshot-preview-path;
     callback show-screenshot-preview();
     callback screenshot-preview-action(int);
-    in property <string> video-osd-text;
-    in property <float> video-osd-progress: -1;
     in property <bool> osd-enabled: true;
     callback osd-enabled-changed(bool);
     changed osd-enabled => { root.osd-enabled-changed(root.osd-enabled); }
@@ -429,9 +421,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <float> osd-timeout-secs: 1;
     in-out property <float> osd-text-size: 20;
     in-out property <bool> display-time-and-battery-in-fullscreen: false;
-    in property <string> fullscreen-info-time: "";
-    in property <string> fullscreen-info-battery: "";
-    in property <float> fullscreen-info-battery-level: 0;
     in-out property <bool> screenshot-show-preview: true;
     in-out property <bool> screenshot-save-to-file: true;
     in-out property <int> launch-action-index: 0;
@@ -1470,23 +1459,17 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         if loaded && !crop-editing : SeekOsd {
             material: root.osd-material;
-            seek-position-label: PlaybackTimelineState.seek-position-label;
-            seek-duration-label: PlaybackTimelineState.seek-duration-label;
-            seek-osd-visible: root.seek-osd-visible;
+            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-enabled: root.osd-enabled;
             osd-text-size: root.osd-text-size;
-            position: PlaybackTimelineState.position;
-            duration: PlaybackTimelineState.duration;
-            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-fade-duration: root.osd-fade-duration;
         }
-        if !root.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
+        if !PlayerOsdState.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
             x: (parent.width - self.width) / 2;
             y: max(8px,
                 parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
             width: min(420px, parent.width - 32px);
             material: root.osd-material;
-            plugin-osd-message: root.plugin-osd-message;
             native-video: root.native-video;
         }
         if status != "" || startup-status != "" : Text { x: 16px; y: parent.height - 27px; width: parent.width - 32px;
@@ -1520,29 +1503,23 @@ export component PlayerWindow inherits PlayerMenuWindow {
             width: self.card-width;
             material: root.osd-material;
             media-title: root.media-title;
-            fullscreen-info-time: root.fullscreen-info-time;
-            fullscreen-info-battery: root.fullscreen-info-battery;
-            fullscreen-info-battery-level: root.fullscreen-info-battery-level;
         }
         if loaded : PlaybackOsd {
             material: root.osd-material;
-            video-osd-visible: root.video-osd-visible;
+            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-enabled: root.osd-enabled;
             osd-text-size: root.osd-text-size;
-            video-osd-text: root.video-osd-text;
-            video-osd-progress: root.video-osd-progress;
-            progress-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             osd-fade-duration: root.osd-fade-duration;
         }
         if loaded && !crop-editing : ScreenshotPreview {
             x: Theme.playback-osd-left; y: Theme.playback-osd-top;
-            active: root.screenshot-preview-visible && root.osd-enabled;
-            opacity: root.screenshot-preview-visible && root.osd-enabled ? 1 : 0;
+            active: PlayerOsdState.screenshot-preview-visible && root.osd-enabled;
+            opacity: PlayerOsdState.screenshot-preview-visible && root.osd-enabled ? 1 : 0;
             animate opacity { duration: root.osd-fade-duration; }
-            capture: root.screenshot-preview-image;
-            has-file: root.screenshot-preview-path != "";
-            image-width: root.screenshot-preview-width * 1px;
-            image-height: root.screenshot-preview-height * 1px;
+            capture: PlayerOsdState.screenshot-preview-image;
+            has-file: PlayerOsdState.screenshot-preview-path != "";
+            image-width: PlayerOsdState.screenshot-preview-width * 1px;
+            image-height: PlayerOsdState.screenshot-preview-height * 1px;
             delete-capture => { root.screenshot-preview-action(0); }
             edit-capture => { root.screenshot-preview-action(1); }
             reveal-capture => { root.screenshot-preview-action(2); }

@@ -392,7 +392,7 @@ def main():
             PLAYER_SOURCE,
         )
         and all(
-            f"{field}: root.{field};" in PLAYER_SOURCE and f"text: root.{field};" in PLAYER_OSD_SOURCE
+            f"text: PlayerOsdState.{field};" in PLAYER_OSD_SOURCE
             for field in ("fullscreen-info-time", "fullscreen-info-battery")
         )
         and 'changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }' in PLAYER_SOURCE

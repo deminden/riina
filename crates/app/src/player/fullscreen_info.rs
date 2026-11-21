@@ -25,10 +25,13 @@ fn battery_label(value: f32) -> Option<String> {
 fn update(app: &PlayerWindow) {
     // Use the local clock and minute precision; the system's locale-specific
     // 12/24-hour display preference remains a platform adaptation to refine.
-    app.set_fullscreen_info_time(Local::now().format("%H:%M").to_string().into());
+    app.global::<riina_ui::PlayerOsdState>()
+        .set_fullscreen_info_time(Local::now().format("%H:%M").to_string().into());
     let battery = current_battery_percent();
-    app.set_fullscreen_info_battery(battery.and_then(battery_label).unwrap_or_default().into());
-    app.set_fullscreen_info_battery_level(battery.unwrap_or_default());
+    app.global::<riina_ui::PlayerOsdState>()
+        .set_fullscreen_info_battery(battery.and_then(battery_label).unwrap_or_default().into());
+    app.global::<riina_ui::PlayerOsdState>()
+        .set_fullscreen_info_battery_level(battery.unwrap_or_default());
 }
 
 fn should_show(app: &PlayerWindow) -> bool {
@@ -49,9 +52,12 @@ pub(crate) fn connect(app: &PlayerWindow) {
             return;
         };
         if !should_show(&app) {
-            app.set_fullscreen_info_time("".into());
-            app.set_fullscreen_info_battery("".into());
-            app.set_fullscreen_info_battery_level(0.0);
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_fullscreen_info_time("".into());
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_fullscreen_info_battery("".into());
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_fullscreen_info_battery_level(0.0);
             timer_for_callback.stop();
             return;
         }
