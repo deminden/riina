@@ -2,6 +2,26 @@
 
 use super::*;
 
+pub(super) fn connect(
+    app: &PlayerWindow,
+    context: &PlayerContext,
+    history: &history_session::Tracking,
+) {
+    crate::preferences_window::connect(
+        app,
+        context.commands().clone(),
+        context.preferences_path().to_path_buf(),
+        context.preferences().clone(),
+        context.playback().clone(),
+        context.plugin_host().cloned(),
+        history.clear_hook(
+            context.preferences_path().to_path_buf(),
+            context.plugin_host().cloned(),
+            context.playback().clone(),
+        ),
+    );
+}
+
 impl UiSession {
     pub(crate) fn save(&self, app: &PlayerWindow) -> Result<(), Box<dyn std::error::Error>> {
         let mut prefs = capture_session_state(app, self.preference_model.snapshot())?;

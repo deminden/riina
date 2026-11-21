@@ -8,7 +8,8 @@ use crate::{
     preference_load::{LoadedPreferences, Recovery},
 };
 use riina_core::{Command, Preferences, audio_equalizer, sync::lock, video_filters};
-use riina_mpv::CommandSender;
+use riina_mpv::{CommandSender, Player};
+use slint::ComponentHandle;
 use std::{
     path::Path,
     sync::{Arc, Mutex},
@@ -219,6 +220,59 @@ pub(super) fn apply_player_preferences(
         command_sender
             .send(command)
             .map_err(std::io::Error::other)?;
+    }
+    Ok(())
+}
+
+pub(super) fn install_toolbar_order(app: &PlayerWindow) {
+    let toolbar_settings_window = app.as_weak();
+    app.on_toolbar_settings_changed(move || {
+        if let Some(app) = toolbar_settings_window.upgrade() {
+            crate::osc_preferences::refresh_visible_order(&app);
+        }
+    });
+    crate::osc_preferences::refresh_visible_order(app);
+}
+
+pub(super) struct InitialMedia {
+    pub(super) files: Vec<std::ffi::OsString>,
+    pub(super) resume_position: Option<f64>,
+}
+
+pub(super) fn activate_output(
+    app: &PlayerWindow,
+    native_presentation: bool,
+    player: Option<&Player>,
+    command_sender: &CommandSender,
+    prefs: &Preferences,
+    media: InitialMedia,
+    #[cfg(target_os = "macos")] picture_in_picture: &crate::platform::PictureInPictureSession,
+) -> Result<(), Box<dyn std::error::Error>> {
+    apply_player_preferences(command_sender, prefs)?;
+    crate::fullscreen_info::connect(app);
+    if native_presentation {
+        app.set_engine_ready(true);
+        command_sender
+            .send(Command::Volume(prefs.volume))
+            .map_err(std::io::Error::other)?;
+        if !media.files.is_empty() {
+            crate::media_open::startup_at(
+                app,
+                media.files,
+                media.resume_position,
+                command_sender.clone(),
+            );
+        }
+    } else if let Some(player) = player {
+        super::rendering::install(
+            app,
+            player,
+            media.files,
+            media.resume_position,
+            prefs.volume,
+            #[cfg(target_os = "macos")]
+            picture_in_picture.render_manager(),
+        )?;
     }
     Ok(())
 }

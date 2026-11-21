@@ -41,12 +41,11 @@ mod session_preferences;
 use plugin_menus::reorder_plugin_menu_rows;
 
 use crate::{
-    PlayerWindow, WelcomeWindow, media_open, platform, preference_load::LoadedPreferences,
+    PlayerWindow, WelcomeWindow, platform, preference_load::LoadedPreferences,
     preferences::model::PreferenceModel,
 };
 use riina_core::{Command, Phase, Playback, Preferences};
 use riina_mpv::Player;
-use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
@@ -372,14 +371,7 @@ fn configure_with_engine(
             capture_transition_first,
         },
     );
-    let weak = app.as_weak();
-    let toolbar_settings_window = weak.clone();
-    app.on_toolbar_settings_changed(move || {
-        if let Some(app) = toolbar_settings_window.upgrade() {
-            crate::osc_preferences::refresh_visible_order(&app);
-        }
-    });
-    crate::osc_preferences::refresh_visible_order(app);
+    startup::install_toolbar_order(app);
     live_text::install_actions(app, &prefs_path);
     music_mode::install_actions(app, &music_mode_state);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
@@ -391,19 +383,7 @@ fn configure_with_engine(
         plugin_host_handle,
         prefs_path.clone(),
     );
-    crate::preferences_window::connect(
-        app,
-        context.commands().clone(),
-        context.preferences_path().to_path_buf(),
-        context.preferences().clone(),
-        context.playback().clone(),
-        context.plugin_host().cloned(),
-        history.clear_hook(
-            prefs_path.clone(),
-            context.plugin_host().cloned(),
-            latest_playback.clone(),
-        ),
-    );
+    session_preferences::connect(app, &context, &history);
     media_actions::install_resume_preference(app, &command_sender, welcome, &recent_media);
     history.install_recording_action(app);
     media_actions::install_pause_on_open(app, &command_sender);
@@ -435,27 +415,19 @@ fn configure_with_engine(
     );
     window_actions::install_lifecycle(app, welcome);
 
-    startup::apply_player_preferences(&command_sender, &prefs)?;
-    crate::fullscreen_info::connect(app);
-    if native.is_some() {
-        app.set_engine_ready(true);
-        command_sender
-            .send(Command::Volume(prefs.volume))
-            .map_err(std::io::Error::other)?;
-        if !media.is_empty() {
-            media_open::startup_at(app, media, startup_resume_position, command_sender.clone());
-        }
-    } else if let Some(player) = &player {
-        rendering::install(
-            app,
-            player,
-            media,
-            startup_resume_position,
-            prefs.volume,
-            #[cfg(target_os = "macos")]
-            picture_in_picture.render_manager(),
-        )?;
-    }
+    startup::activate_output(
+        app,
+        native.is_some(),
+        player.as_ref(),
+        &command_sender,
+        &prefs,
+        startup::InitialMedia {
+            files: media,
+            resume_position: startup_resume_position,
+        },
+        #[cfg(target_os = "macos")]
+        &picture_in_picture,
+    )?;
     Ok(UiSession {
         player: player.map(SessionResource::Live),
         platform_extras: platform::SessionExtras {
