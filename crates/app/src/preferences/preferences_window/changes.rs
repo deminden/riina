@@ -259,7 +259,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_network_cache) = read_or_refresh(
-            crate::network_cache_preferences::current_window(&window),
+            model.read_section::<riina_core::network_preferences::Cache>(&window),
             &app,
             &window,
         ) else {
@@ -676,13 +676,13 @@ fn connect_with_credentials(
                 video_threads: selected_video_threads,
                 advanced: selected_advanced,
                 key_bindings: selected_key_bindings.clone(),
-                network_cache: selected_network_cache.clone(),
                 network_online_videos: selected_network_ytdl.clone(),
                 ..baseline.clone()
             };
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_network_cache.clone().put(&mut preferences);
             selected_liquid_glass.put(&mut preferences);
             selected_controls.put(&mut preferences);
             selected_control_bar.put(&mut preferences);

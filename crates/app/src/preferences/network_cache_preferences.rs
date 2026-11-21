@@ -1,6 +1,31 @@
 //! Keep editable cache values typed at the persistence and engine boundary.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::{Command, network_preferences::Cache};
+
+impl PreferenceSection for Cache {
+    fn get(all: &Preferences) -> Self {
+        all.network_cache.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.network_cache = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 fn parse_number<T: std::str::FromStr>(text: &str, label: &str) -> Result<T, String> {
     text.trim()
