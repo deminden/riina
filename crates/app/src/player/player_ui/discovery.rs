@@ -55,20 +55,25 @@ pub(super) fn install(
                 let playback = auto_folder_playback.clone();
                 let sender = auto_folder_player.clone();
                 let weak_app = app.as_weak();
-                std::thread::spawn(move || {
-                    let Some(command) = crate::auto_playlist::prepare(&request, &snapshot) else {
-                        return;
-                    };
-                    let still_current = crate::auto_playlist::request_is_current(
-                        &request_check,
-                        &riina_core::sync::lock(&playback),
-                    );
-                    if still_current && let Err(error) = sender.send(command) {
-                        let _ = crate::background::to_ui(weak_app, move |app| {
-                            app.set_status(error.into());
-                        });
-                    }
-                });
+                let started =
+                    crate::background::spawn_named("riina-playlist-auto-add", move || {
+                        let Some(command) = crate::auto_playlist::prepare(&request, &snapshot)
+                        else {
+                            return;
+                        };
+                        let still_current = crate::auto_playlist::request_is_current(
+                            &request_check,
+                            &riina_core::sync::lock(&playback),
+                        );
+                        if still_current && let Err(error) = sender.send(command) {
+                            let _ = crate::background::to_ui(weak_app, move |app| {
+                                app.set_status(error.into());
+                            });
+                        }
+                    });
+                if let Err(error) = started {
+                    app.set_status(format!("Could not start playlist discovery: {error}").into());
+                }
             }
             if let Some((generation, media_path)) = subtitle_discovery_state
                 .borrow_mut()
@@ -80,39 +85,46 @@ pub(super) fn install(
                 let sender = subtitle_discovery_player.clone();
                 let weak_app = app.as_weak();
                 let ready = subtitle_discovery_ready_controller.clone();
-                std::thread::spawn(move || {
-                    let files =
-                        crate::subtitle_discovery::find_matching_files(&media_path, &preferences);
-                    let expected_path = media_path.to_string_lossy().into_owned();
-                    let current = ready.is_current(request) && {
-                        let state = riina_core::sync::lock(&playback);
-                        state.generation == generation
-                            && matches!(
-                                state.phase,
-                                Phase::Playing | Phase::Paused | Phase::Buffering
-                            )
-                            && state
-                                .playlist
-                                .iter()
-                                .find(|entry| entry.current)
-                                .is_some_and(|entry| entry.filename == expected_path)
-                    };
-                    if current
-                        && !files.is_empty()
-                        && let Err(error) = sender.send(Command::AddSubtitlesWithoutSelection(
-                            files
-                                .into_iter()
-                                .map(|path| path.to_string_lossy().into_owned())
-                                .collect(),
-                        ))
-                    {
-                        let weak_app = weak_app.clone();
-                        let _ = crate::background::to_ui(weak_app, move |app| {
-                            app.set_status(error.into());
-                        });
-                    }
-                    ready.complete(request);
-                });
+                let started =
+                    crate::background::spawn_named("riina-subtitle-discovery", move || {
+                        let files = crate::subtitle_discovery::find_matching_files(
+                            &media_path,
+                            &preferences,
+                        );
+                        let expected_path = media_path.to_string_lossy().into_owned();
+                        let current = ready.is_current(request) && {
+                            let state = riina_core::sync::lock(&playback);
+                            state.generation == generation
+                                && matches!(
+                                    state.phase,
+                                    Phase::Playing | Phase::Paused | Phase::Buffering
+                                )
+                                && state
+                                    .playlist
+                                    .iter()
+                                    .find(|entry| entry.current)
+                                    .is_some_and(|entry| entry.filename == expected_path)
+                        };
+                        if current
+                            && !files.is_empty()
+                            && let Err(error) = sender.send(Command::AddSubtitlesWithoutSelection(
+                                files
+                                    .into_iter()
+                                    .map(|path| path.to_string_lossy().into_owned())
+                                    .collect(),
+                            ))
+                        {
+                            let weak_app = weak_app.clone();
+                            let _ = crate::background::to_ui(weak_app, move |app| {
+                                app.set_status(error.into());
+                            });
+                        }
+                        ready.complete(request);
+                    });
+                if let Err(error) = started {
+                    subtitle_discovery_ready_controller.complete(request);
+                    app.set_status(format!("Could not start subtitle discovery: {error}").into());
+                }
             }
             let selected = priority_controller
                 .borrow_mut()

@@ -379,7 +379,7 @@ pub(crate) fn connect_player(
                 )));
                 let weak_window = window.as_weak();
                 let rows = rows.clone();
-                std::thread::spawn(move || {
+                let started = crate::background::spawn_named("riina-subtitle-search", move || {
                     let result = search_provider(
                         provider,
                         &key,
@@ -407,6 +407,10 @@ pub(crate) fn connect_player(
                         }
                     });
                 });
+                if let Err(error) = started {
+                    window.set_searching(false);
+                    window.set_status_text(format!("Could not start subtitle search: {error}").into());
+                }
             });
             let weak_window = window.as_weak();
             let rows = rows_callback.clone();
@@ -478,7 +482,7 @@ pub(crate) fn connect_player(
                 let weak_window = window.as_weak();
                 let weak_app = app.as_weak();
                 let sender = sender.clone();
-                std::thread::spawn(move || {
+                let started = crate::background::spawn_named("riina-subtitle-download", move || {
                     let mut paths = Vec::with_capacity(total);
                     let mut failure = None;
                     for (index, row) in selected_rows.iter().enumerate() {
@@ -537,6 +541,10 @@ pub(crate) fn connect_player(
                         }
                     });
                 });
+                if let Err(error) = started {
+                    window.set_downloading(false);
+                    window.set_status_text(format!("Could not start subtitle download: {error}").into());
+                }
             });
             let weak_window = window.as_weak();
             window.on_cancel(move || {
