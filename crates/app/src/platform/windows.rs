@@ -1,3 +1,4 @@
+pub(crate) mod accessibility;
 pub(crate) mod bring_to_front;
 pub(crate) mod file_dialog;
 mod frame_capture;

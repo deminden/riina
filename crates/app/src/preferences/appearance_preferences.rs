@@ -13,16 +13,7 @@ pub(crate) fn install_system_typography<T: ComponentHandle>(component: &T)
 where
     for<'a> crate::NativeTypography<'a>: Global<'a, T>,
 {
-    let family = {
-        #[cfg(target_os = "macos")]
-        {
-            crate::platform::system_font_family_name()
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            String::new()
-        }
-    };
+    let family = crate::platform::system_font_family_name();
     component
         .global::<crate::NativeTypography>()
         .set_system_font_family(family.into());

@@ -328,14 +328,25 @@ pub fn playback_library() -> PathBuf {
         }
     }
     #[cfg(target_os = "macos")]
-    for directory in ["/opt/homebrew/lib", "/usr/local/lib"] {
+    let installed = ["/opt/homebrew/lib", "/usr/local/lib"];
+    #[cfg(target_os = "linux")]
+    let installed = [
+        #[cfg(target_arch = "x86_64")]
+        "/usr/lib/x86_64-linux-gnu",
+        #[cfg(target_arch = "aarch64")]
+        "/usr/lib/aarch64-linux-gnu",
+        "/usr/lib64",
+        "/usr/local/lib",
+        "/usr/lib",
+    ];
+    for directory in installed {
         let library = Path::new(directory).join(name);
         if library.is_file() {
             return library;
         }
     }
-    // The system loader resolves a versioned SONAME. Media directories never
-    // participate in discovery; user-installed codecs stay a separate dependency.
+    // Keep media and working directories outside the search. The native loader
+    // reports this name when there is no absolute installation path.
     PathBuf::from(name)
 }
 

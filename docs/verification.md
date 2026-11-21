@@ -390,6 +390,15 @@ identical in both paused comparisons and changed by 187 pixels between two
 playing captures. The second session displayed the second fixture. Both quit
 through the app shortcut, logged the native worker join and exited.
 
+An archive of `135d0d1` with the system-library search and appearance
+adapter changes passed strict Clippy, 794 workspace tests and a locked full
+application build in the same Ubuntu environment. A follow-up put libmpv in
+the test namespace's `/usr/lib/x86_64-linux-gnu`, leaving the application
+directory without a bundled copy. Both process maps confirmed the installed
+path. The same 7,099-pixel region changed by 236 pixels during playback and
+stayed identical in both paused comparisons. The second fixture rendered and
+both test processes quit and joined their native workers.
+
 A separate profile that explicitly selected null audio advanced the playback
 clock with a black video surface in the virtual display. The GLES context also
 reported that the optional video-blur shader requires desktop GLSL. Linux

@@ -6,3 +6,7 @@ pub(crate) fn system_font_family_name() -> String {
         .familyName()
         .map_or_else(String::new, |family| family.to_string())
 }
+
+pub(crate) fn system_reduce_motion_enabled() -> bool {
+    objc2_app_kit::NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+}

@@ -749,39 +749,16 @@ pub(crate) fn register_default_file_types(
     }
 }
 
-/// Respect the Windows client-area motion accessibility switch without
-/// mutating a user preference or making calls into the OS from a render callback.
+/// Read the platform motion preference outside the render callback.
 pub(crate) fn system_reduce_motion_enabled() -> bool {
     #[cfg(target_os = "windows")]
     {
-        use ::windows::{
-            Win32::UI::WindowsAndMessaging::{
-                SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
-                SystemParametersInfoW,
-            },
-            core::BOOL,
-        };
-
-        let mut animations_enabled = BOOL(1);
-        // SAFETY: SPI_GETCLIENTAREAANIMATION writes one BOOL to the valid local
-        // output pointer; the zero flags value performs a read-only query.
-        unsafe {
-            SystemParametersInfoW(
-                SPI_GETCLIENTAREAANIMATION,
-                0,
-                Some((&mut animations_enabled as *mut BOOL).cast()),
-                SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
-            )
-            .is_ok()
-                && !animations_enabled.as_bool()
-        }
+        windows::accessibility::system_reduce_motion_enabled()
     }
 
     #[cfg(target_os = "macos")]
     {
-        use objc2_app_kit::NSWorkspace;
-
-        NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+        macos::system_reduce_motion_enabled()
     }
 
     #[cfg(target_os = "linux")]
@@ -1136,8 +1113,16 @@ pub(crate) use macos::{
     ControlGesture, GesturePhase, MacApplicationMenuObserver, MacPictureInPicture,
     MacPluginMenuObserver, MacScrollEventMonitor, MacSubtitleColorPanel, RemoteMediaAction,
     SystemMediaControls, display_identity, display_name_for_path, icc_profile_for_window,
-    install_control_gestures, set_represented_file, system_font_family_name,
+    install_control_gestures, set_represented_file,
 };
+
+#[cfg(target_os = "macos")]
+pub(crate) use macos::system_font_family_name;
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn system_font_family_name() -> String {
+    String::new()
+}
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod unix;

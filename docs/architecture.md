@@ -89,5 +89,9 @@ The shared GL renderer uses the current Slint context. Window focus, dialogs,
 clipboard access, desktop materials and OS media integration are platform
 services. Test playback can use null native output or a recording engine to
 exercise UI callbacks without a native window. Windows software-rendered pixel
-baselines cover the Slint surfaces. See [port development](port-development.md)
-and [verification](verification.md) for runtime coverage on each target.
+baselines cover the Slint surfaces. The platform service recipe shows how to
+add a native query without coupling its caller to the target.
+[Add a platform service](recipes/add-a-platform-service.md)
+
+See [port development](port-development.md) and [verification](verification.md)
+for runtime coverage on each target.

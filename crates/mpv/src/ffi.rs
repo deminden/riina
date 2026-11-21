@@ -321,10 +321,11 @@ pub struct Api {
 impl Api {
     pub fn load(path: &Path) -> Result<Self, String> {
         if !path.is_absolute() || !path.is_file() {
-            return Err(format!(
-                "libmpv is missing at {}. Run scripts/fetch-mpv.ps1.",
-                path.display()
-            ));
+            #[cfg(windows)]
+            let remedy = "Run scripts/fetch-mpv.ps1.";
+            #[cfg(not(windows))]
+            let remedy = "Install libmpv or place the matching library beside Riina.";
+            return Err(format!("libmpv is missing at {}. {remedy}", path.display()));
         }
         // IINA links the engine for the application's lifetime. Retain the same
         // ownership boundary here: closing a player destroys its core, while

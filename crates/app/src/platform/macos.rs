@@ -10,7 +10,7 @@ mod scroll_events;
 mod system_media;
 pub(crate) mod text_recognition;
 mod window_document;
-pub(crate) use appearance::system_font_family_name;
+pub(crate) use appearance::{system_font_family_name, system_reduce_motion_enabled};
 pub(crate) use application_menu::MacApplicationMenuObserver;
 pub(crate) use color_panel::MacSubtitleColorPanel;
 pub(crate) use gesture_events::{ControlGesture, GesturePhase, install_control_gestures};
