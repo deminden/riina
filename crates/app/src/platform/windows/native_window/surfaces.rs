@@ -2,12 +2,15 @@
 #[cfg(test)]
 mod tests;
 use super::super::window_geometry;
-use crate::PlayerWindow;
+use crate::{NativeVideoHost, PlayerWindow};
 use slint::{
     ComponentHandle,
     winit_030::{WinitWindowAccessor, winit},
 };
-use std::cell::{Cell, RefCell};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 use windows::Win32::{
     Foundation::{HWND, LPARAM, RECT},
     Graphics::{
@@ -279,4 +282,45 @@ pub(super) fn sync_native_theme(
         winit::window::Theme::Light
     }));
     last_native_theme.set(Some(dark_theme));
+}
+
+pub(super) fn watch_alignment(
+    host: &NativeVideoHost,
+    chrome: &PlayerWindow,
+    timer: &slint::Timer,
+    overlay_hidden: &Rc<Cell<bool>>,
+) {
+    let alignment_host = host.as_weak();
+    let alignment_chrome = chrome.as_weak();
+    let timer_overlay_hidden = overlay_hidden.clone();
+    let last_native_theme = Rc::new(Cell::new(None));
+    let alignment_native_theme = last_native_theme.clone();
+    timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(16),
+        move || {
+            if let (Some(host), Some(chrome)) =
+                (alignment_host.upgrade(), alignment_chrome.upgrade())
+            {
+                host.window().with_winit_window(|window| {
+                    sync_native_theme(window, chrome.get_dark_theme(), &alignment_native_theme);
+                });
+                // mpv can resize or hide its child HWND during a
+                // playlist handoff without resizing the host. Repair
+                // that transient independently of host WM_SIZE events.
+                let aligned = align(host.window(), &chrome);
+                if aligned && timer_overlay_hidden.get() {
+                    set_overlay_visibility(&chrome, true);
+                    timer_overlay_hidden.set(false);
+                } else if !aligned && !timer_overlay_hidden.get() {
+                    // The retry loop is also the fallback when Winit
+                    // misses a host move notification. Never leave a
+                    // detached transparent surface visible at its old
+                    // desktop coordinates while geometry catches up.
+                    set_overlay_visibility(&chrome, false);
+                    timer_overlay_hidden.set(true);
+                }
+            }
+        },
+    );
 }

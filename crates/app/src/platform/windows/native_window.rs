@@ -1,4 +1,6 @@
 //! Native video owns a host HWND; the shared player UI owns its transparent popup.
+mod events;
+mod material_watch;
 mod menu_actions;
 mod menus;
 mod placement;
@@ -8,10 +10,10 @@ use crate::{
     player_ui::{UiSession, configure_player},
     preference_load::LoadedPreferences,
 };
-use placement::{center_host_in_work_area, schedule_startup_center};
+use placement::{StartupCenter, center_host_in_work_area};
 use slint::{
     ComponentHandle,
-    winit_030::{EventResult, WinitWindowAccessor, winit},
+    winit_030::{WinitWindowAccessor, winit},
 };
 use std::{
     cell::{Cell, RefCell},
@@ -21,12 +23,8 @@ use std::{
         Arc,
         atomic::{AtomicIsize, Ordering},
     },
-    time::{Duration, Instant},
 };
-use surfaces::{
-    align, dismiss_unaligned_transition_cover, enable_video_transparency, set_overlay_visibility,
-    sync_native_theme,
-};
+use surfaces::{align, enable_video_transparency};
 use winit::platform::windows::WindowAttributesExtWindows;
 #[expect(
     clippy::too_many_lines,
@@ -103,13 +101,9 @@ pub fn run(
     let startup_menu_lifecycle = menu_lifecycle.clone();
     let menu_focus = Rc::new(Cell::new(false));
     let startup_menu_focus = menu_focus.clone();
-    let startup_center_pending = Rc::new(Cell::new(false));
-    let startup_media_loaded = Rc::new(Cell::new(false));
-    let startup_center_generation = Rc::new(Cell::new(0_u64));
+    let placement = StartupCenter::default();
+    let event_placement = placement.clone();
     let event_center_host = host.as_weak();
-    let event_startup_center_pending = startup_center_pending.clone();
-    let event_startup_media_loaded = startup_media_loaded.clone();
-    let event_startup_center_generation = startup_center_generation.clone();
     let startup_failure = Rc::new(RefCell::new(None));
     let initialization_failure = startup_failure.clone();
     host.show()?;
@@ -125,104 +119,7 @@ pub fn run(
             // player and playback session are still being initialized.
             center_host_in_work_area(&window, owner_center);
             window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(285.0, 120.0)));
-            let initial_material_policy = super::materials::native_mica_enabled();
-            let mica_attribute_applied = match initial_material_policy
-                .then(|| super::materials::apply_main_window_mica(&window))
-            {
-                Some(Ok(())) => true,
-                Some(Err(error)) => {
-                    crate::diagnostics::warn!(
-                        "Windows system backdrop unavailable; keeping the renderer fallback: {error}"
-                    );
-                    false
-                }
-                None => false,
-            };
-            host.set_mica_backdrop_enabled(mica_attribute_applied);
-            let material_host = host.as_weak();
-            let last_material_policy = Rc::new(Cell::new(initial_material_policy));
-            let applied_material_policy = Rc::new(Cell::new(if initial_material_policy {
-                mica_attribute_applied.then_some(true)
-            } else {
-                Some(false)
-            }));
-            let material_retry_delay = Rc::new(Cell::new(Duration::from_millis(500)));
-            let material_retry_after = Rc::new(Cell::new(Instant::now()));
-            let material_last_error = Rc::new(RefCell::new(None::<String>));
-            let timer_material_host = material_host.clone();
-            let timer_last_material_policy = last_material_policy.clone();
-            let timer_applied_material_policy = applied_material_policy.clone();
-            let timer_material_retry_delay = material_retry_delay.clone();
-            let timer_material_retry_after = material_retry_after.clone();
-            let timer_material_last_error = material_last_error.clone();
-            startup_material_policy_timer.start(
-                slint::TimerMode::Repeated,
-                Duration::from_millis(500),
-                move || {
-                    let policy_enabled = super::materials::native_mica_enabled();
-                    let policy_changed = timer_last_material_policy.get() != policy_enabled;
-                    if policy_changed {
-                        timer_last_material_policy.set(policy_enabled);
-                        timer_material_retry_delay.set(Duration::from_millis(500));
-                        timer_material_retry_after.set(Instant::now());
-                        *timer_material_last_error.borrow_mut() = None;
-                    }
-                    let Some(host) = timer_material_host.upgrade() else {
-                        return;
-                    };
-                    if timer_applied_material_policy.get() == Some(policy_enabled)
-                        && host.get_mica_backdrop_enabled() == policy_enabled
-                    {
-                        return;
-                    }
-                    if Instant::now() < timer_material_retry_after.get() {
-                        return;
-                    }
-                    let mut update_result = None;
-                    host.window().with_winit_window(|window| {
-                        update_result = Some(if policy_enabled {
-                            super::materials::apply_main_window_mica(window)
-                        } else {
-                            super::materials::clear_main_window_backdrop(window)
-                        });
-                    });
-                    match update_result {
-                        Some(Ok(())) => {
-                            timer_applied_material_policy.set(Some(policy_enabled));
-                            host.set_mica_backdrop_enabled(policy_enabled);
-                            timer_material_retry_delay.set(Duration::from_millis(500));
-                            *timer_material_last_error.borrow_mut() = None;
-                        }
-                        Some(Err(error)) => {
-                            timer_applied_material_policy.set(None);
-                            if !policy_enabled {
-                                host.set_mica_backdrop_enabled(false);
-                            }
-                            let mut last_error = timer_material_last_error.borrow_mut();
-                            if last_error.as_deref() != Some(error.as_str()) {
-                                crate::diagnostics::warn!("Could not update the Windows system backdrop policy: {error}");
-                                *last_error = Some(error);
-                            }
-                            let retry_delay = timer_material_retry_delay.get();
-                            timer_material_retry_after.set(Instant::now() + retry_delay);
-                            timer_material_retry_delay.set(
-                                retry_delay.saturating_mul(2).min(Duration::from_secs(30)),
-                            );
-                        }
-                        None => {
-                            timer_applied_material_policy.set(None);
-                            if !policy_enabled {
-                                host.set_mica_backdrop_enabled(false);
-                            }
-                            let retry_delay = timer_material_retry_delay.get();
-                            timer_material_retry_after.set(Instant::now() + retry_delay);
-                            timer_material_retry_delay.set(
-                                retry_delay.saturating_mul(2).min(Duration::from_secs(30)),
-                            );
-                        }
-                    }
-                },
-            );
+            material_watch::install(&host, &window, &startup_material_policy_timer);
             let presentation = super::NativePresentation::new(window, host.as_weak())
                 .map_err(std::io::Error::other)?;
             let video_hwnd = presentation.owner_handle();
@@ -232,42 +129,11 @@ pub fn run(
             let app = PlayerWindow::new()?;
             app.set_native_video(true);
             app.set_system_materials_enabled(super::materials::native_materials_enabled());
-            let alignment_host = host.as_weak();
-            let alignment_chrome = app.as_weak();
-            let timer_overlay_hidden = startup_overlay_hidden.clone();
-            let last_native_theme = Rc::new(Cell::new(None));
-            let alignment_native_theme = last_native_theme.clone();
-            startup_surface_alignment_timer.start(
-                slint::TimerMode::Repeated,
-                std::time::Duration::from_millis(16),
-                move || {
-                    if let (Some(host), Some(chrome)) =
-                        (alignment_host.upgrade(), alignment_chrome.upgrade())
-                    {
-                        host.window().with_winit_window(|window| {
-                            sync_native_theme(
-                                window,
-                                chrome.get_dark_theme(),
-                                &alignment_native_theme,
-                            );
-                        });
-                        // mpv can resize or hide its child HWND during a
-                        // playlist handoff without resizing the host. Repair
-                        // that transient independently of host WM_SIZE events.
-                        let aligned = align(host.window(), &chrome);
-                        if aligned && timer_overlay_hidden.get() {
-                            set_overlay_visibility(&chrome, true);
-                            timer_overlay_hidden.set(false);
-                        } else if !aligned && !timer_overlay_hidden.get() {
-                            // The retry loop is also the fallback when Winit
-                            // misses a host move notification. Never leave a
-                            // detached transparent surface visible at its old
-                            // desktop coordinates while geometry catches up.
-                            set_overlay_visibility(&chrome, false);
-                            timer_overlay_hidden.set(true);
-                        }
-                    }
-                },
+            surfaces::watch_alignment(
+                &host,
+                &app,
+                &startup_surface_alignment_timer,
+                &startup_overlay_hidden,
             );
             let title_host = host.as_weak();
             app.on_window_title_changed(move |title| {
@@ -276,26 +142,7 @@ pub fn run(
                 }
             });
             let music_original_size = Rc::new(Cell::new(None));
-            startup_center_pending.set(!app.get_initial_window_position_enabled());
-            let loaded_center_host = host.as_weak();
-            let loaded_center_app = app.as_weak();
-            let loaded_center_pending = startup_center_pending.clone();
-            let loaded_media_state = startup_media_loaded.clone();
-            let loaded_center_generation = startup_center_generation.clone();
-            let loaded_owner_center = owner_center;
-            app.on_initial_media_loaded(move || {
-                if !loaded_center_pending.get() {
-                    return;
-                }
-                loaded_media_state.set(true);
-                schedule_startup_center(
-                    loaded_center_host.clone(),
-                    loaded_center_app.clone(),
-                    loaded_center_pending.clone(),
-                    loaded_center_generation.clone(),
-                    loaded_owner_center,
-                );
-            });
+            placement.watch_initial_media(&host, &app, owner_center);
             let saved_music_size = music_original_size.clone();
             let music_host = host.as_weak();
             let music_app = app.as_weak();
@@ -305,7 +152,8 @@ pub fn run(
                     return;
                 };
                 if let Some(menu) = music_menu.borrow().as_ref()
-                    && let Err(error) = menu.set_visible(!app.get_music_mode() && !app.get_fullscreen())
+                    && let Err(error) =
+                        menu.set_visible(!app.get_music_mode() && !app.get_fullscreen())
                 {
                     app.set_status(error.into());
                     return;
@@ -418,8 +266,9 @@ pub fn run(
             // Slint stores one event hook per window. Return the aspect filter
             // to our owner router so it cannot replace alignment/focus handling.
             let media_geometry = crate::window_aspect::MediaGeometry::default();
-            *startup_resize_filter.borrow_mut() =
-                Some(crate::window_aspect::connect_to_native_host(&app, &host, &media_geometry));
+            *startup_resize_filter.borrow_mut() = Some(
+                crate::window_aspect::connect_to_native_host(&app, &host, &media_geometry),
+            );
             let menu_handle = presentation.owner_handle();
             *startup_menu_lifecycle.borrow_mut() = Some(
                 super::menu_focus::MenuFocus::install(
@@ -437,7 +286,8 @@ pub fn run(
             let fullscreen_host = host.as_weak();
             let fullscreen_app = app.as_weak();
             host.on_set_fullscreen_window(move |fullscreen| {
-                let (Some(host), Some(app)) = (fullscreen_host.upgrade(), fullscreen_app.upgrade()) else {
+                let (Some(host), Some(app)) = (fullscreen_host.upgrade(), fullscreen_app.upgrade())
+                else {
                     return false;
                 };
                 if let Some(menu) = fullscreen_menu.borrow().as_ref()
@@ -471,7 +321,7 @@ pub fn run(
                 loaded,
                 media_geometry,
             )?;
-            startup_center_pending.set(!app.get_initial_window_position_enabled());
+            placement.refresh_position_policy(&app);
             let commands = configured
                 .player()
                 .ok_or("The player engine was not initialized")?
@@ -541,18 +391,13 @@ pub fn run(
             // realization, while the framed owner's menu guard retains it.
             let _controls = app.window().winit_window().await?;
             if let Some(menu) = startup_menu_lifecycle.borrow_mut().as_mut() {
-                menu.attach_controls(app.window()).map_err(std::io::Error::other)?;
+                menu.attach_controls(app.window())
+                    .map_err(std::io::Error::other)?;
             }
             // The native host otherwise keeps Winit's default placement until
             // playback loads. That leaves idle launches and cancelled open
             // dialogs stranded at the OS-selected (often top-left) position.
-            schedule_startup_center(
-                host.as_weak(),
-                app.as_weak(),
-                startup_center_pending.clone(),
-                startup_center_generation.clone(),
-                owner_center,
-            );
+            placement.schedule(host.as_weak(), app.as_weak(), owner_center);
             if action_after_launch.open_file_panel(supplied_media_argument) {
                 app.invoke_open_file();
             }
@@ -594,92 +439,17 @@ pub fn run(
             let _ = slint::quit_event_loop();
         }
     })?;
-    let event_chrome = chrome.clone();
-    let event_overlay_hidden = overlay_hidden_for_alignment.clone();
-    let scroll_transition = Rc::new(Cell::new(0_u64));
-    let event_scroll_transition = scroll_transition.clone();
-    let host_input = super::host_input::HostInput::default();
-    host.window().on_winit_window_event(move |host, event| {
-        if let Some(app) = event_chrome.borrow().as_ref()
-            && host_input.handle(app, event) == EventResult::PreventDefault
-        {
-            return EventResult::PreventDefault;
-        }
-        if event_startup_media_loaded.get()
-            && matches!(
-                event,
-                winit::event::WindowEvent::Resized(_)
-                    | winit::event::WindowEvent::ScaleFactorChanged { .. }
-            )
-            && let Some(app) = event_chrome.borrow().as_ref()
-        {
-            schedule_startup_center(
-                event_center_host.clone(),
-                app.as_weak(),
-                event_startup_center_pending.clone(),
-                event_startup_center_generation.clone(),
-                owner_center,
-            );
-        }
-        let result = resize_filter
-            .borrow()
-            .as_ref()
-            .map_or(EventResult::Propagate, |filter| filter(host, event));
-        if matches!(
-            event,
-            winit::event::WindowEvent::Focused(_)
-                | winit::event::WindowEvent::CursorEntered { .. }
-                | winit::event::WindowEvent::CursorLeft { .. }
-        ) && let Some(app) = event_chrome.borrow().as_ref()
-        {
-            // Switching between the aligned video and chrome HWNDs can produce
-            // a stale wheel delta. Keep that transition from becoming a seek.
-            app.set_scroll_input_suppressed(true);
-            let generation = event_scroll_transition.get().wrapping_add(1);
-            event_scroll_transition.set(generation);
-            let scroll_transition = event_scroll_transition.clone();
-            let weak_app = app.as_weak();
-            slint::Timer::single_shot(std::time::Duration::from_millis(220), move || {
-                if scroll_transition.get() == generation
-                    && let Some(app) = weak_app.upgrade()
-                {
-                    app.set_scroll_input_suppressed(false);
-                }
-            });
-        }
-        if matches!(
-            event,
-            winit::event::WindowEvent::Moved(_)
-                | winit::event::WindowEvent::Resized(_)
-                | winit::event::WindowEvent::ScaleFactorChanged { .. }
-        ) && let Some(app) = event_chrome.borrow().as_ref()
-        {
-            let host_moved = matches!(event, winit::event::WindowEvent::Moved(_));
-            if host_moved {
-                // Retained frames belong to the old client geometry. Keep the
-                // live popup visible while aligning it: fullscreen also emits
-                // Moved, and hiding/showing a surface during that transition can
-                // strand its compositor image even while UI state advances.
-                dismiss_unaligned_transition_cover(app);
-            }
-            crate::player_ui::hdr_output::update_display(
-                app,
-                super::presentation::hdr_display_active_for_slint(host),
-            );
-            let aligned = align(host, app);
-            if !aligned {
-                // Hide only a proven mismatch; the retry loop restores it once
-                // Win32 confirms matching host, child and popup client bounds.
-                if !event_overlay_hidden.replace(true) {
-                    set_overlay_visibility(app, false);
-                }
-            } else if aligned && event_overlay_hidden.get() {
-                set_overlay_visibility(app, true);
-                event_overlay_hidden.set(false);
-            }
-        }
-        result
-    });
+    events::install_filter(
+        &host,
+        events::FilterInputs {
+            event_chrome: chrome.clone(),
+            event_overlay_hidden: overlay_hidden_for_alignment.clone(),
+            event_placement,
+            event_center_host,
+            owner_center,
+            resize_filter,
+        },
+    );
     let close_session = session.clone();
     let close_pip = pip_controller.clone();
     let close_chrome = chrome.clone();

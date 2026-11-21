@@ -81,31 +81,71 @@ pub(super) fn center_host_in_work_area(
     };
 }
 
-pub(super) fn schedule_startup_center(
-    host: slint::Weak<NativeVideoHost>,
-    app: slint::Weak<PlayerWindow>,
-    pending: Rc<Cell<bool>>,
-    generation: Rc<Cell<u64>>,
-    owner_center: Option<(i32, i32)>,
-) {
-    if !pending.get() {
-        return;
+#[derive(Clone, Default)]
+pub(super) struct StartupCenter(Rc<CenterState>);
+
+#[derive(Default)]
+struct CenterState {
+    pending: Cell<bool>,
+    media_loaded: Cell<bool>,
+    generation: Cell<u64>,
+}
+
+impl StartupCenter {
+    pub(super) fn refresh_position_policy(&self, app: &PlayerWindow) {
+        self.0
+            .pending
+            .set(!app.get_initial_window_position_enabled());
     }
-    let next = generation.get().wrapping_add(1);
-    generation.set(next);
-    slint::Timer::single_shot(std::time::Duration::from_millis(250), move || {
-        if generation.get() != next || !pending.get() {
+
+    pub(super) fn media_loaded(&self) -> bool {
+        self.0.media_loaded.get()
+    }
+
+    pub(super) fn watch_initial_media(
+        &self,
+        host: &NativeVideoHost,
+        app: &PlayerWindow,
+        owner_center: Option<(i32, i32)>,
+    ) {
+        self.refresh_position_policy(app);
+        let placement = self.clone();
+        let host = host.as_weak();
+        let player = app.as_weak();
+        app.on_initial_media_loaded(move || {
+            if placement.0.pending.get() {
+                placement.0.media_loaded.set(true);
+                placement.schedule(host.clone(), player.clone(), owner_center);
+            }
+        });
+    }
+
+    pub(super) fn schedule(
+        &self,
+        host: slint::Weak<NativeVideoHost>,
+        app: slint::Weak<PlayerWindow>,
+        owner_center: Option<(i32, i32)>,
+    ) {
+        if !self.0.pending.get() {
             return;
         }
-        if let (Some(host), Some(app)) = (host.upgrade(), app.upgrade()) {
-            if app.get_initial_window_position_enabled() || app.get_fullscreen() {
-                pending.set(false);
+        let next = self.0.generation.get().wrapping_add(1);
+        self.0.generation.set(next);
+        let state = self.0.clone();
+        slint::Timer::single_shot(std::time::Duration::from_millis(250), move || {
+            if state.generation.get() != next || !state.pending.get() {
                 return;
             }
-            host.window()
-                .with_winit_window(|window| center_host_in_work_area(window, owner_center));
-            align(host.window(), &app);
-            pending.set(false);
-        }
-    });
+            if let (Some(host), Some(app)) = (host.upgrade(), app.upgrade()) {
+                if app.get_initial_window_position_enabled() || app.get_fullscreen() {
+                    state.pending.set(false);
+                    return;
+                }
+                host.window()
+                    .with_winit_window(|window| center_host_in_work_area(window, owner_center));
+                align(host.window(), &app);
+                state.pending.set(false);
+            }
+        });
+    }
 }
