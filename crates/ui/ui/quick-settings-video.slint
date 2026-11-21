@@ -1,0 +1,236 @@
+import { CatalogRow } from "catalog-row.slint";
+import { Theme } from "theme.slint";
+import { PlayerSlider } from "shared-controls.slint";
+import { Tool } from "player-tool.slint";
+import { QuickSettingsInput } from "quick-settings-input.slint";
+import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
+import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
+
+export component VideoQuickSettingsPage inherits VerticalLayout {
+    in property <length> sidebar-width;
+    in property <bool> animations-disabled;
+    in property <bool> compact-ui;
+    in property <bool> dark-theme;
+    in property <bool> hardware-decoding-enabled;
+    in property <bool> hardware-decoding-known;
+    in property <bool> hdr-display-active;
+    in property <bool> hdr-enabled;
+    in property <bool> hdr-source-detected;
+    in property <color> interactive-accent-color;
+    in property <bool> loaded;
+    in property <bool> platform-windows;
+    callback reset-speed();
+    callback restore-player-focus();
+    callback set-hardware-decoding(bool);
+    callback set-hdr-enabled(bool);
+    callback set-speed-slider(float);
+    callback set-speed-text(string) -> bool;
+    callback set-video-aspect(string);
+    callback set-video-crop(int);
+    callback set-video-equalizer(int, float);
+    callback set-video-rotation(int);
+    in property <color> sidebar-card-material-fill;
+    in property <string> speed-edit-value;
+    in property <float> speed-slider-position;
+    in property <float> speed-value;
+    callback track-selected(int, string);
+    in property <int> video-aspect-index;
+    in property <bool> video-aspect-known;
+    in property <[string]> video-aspect-presets;
+    in property <int> video-crop-index;
+    in property <bool> video-crop-known;
+    in property <[string]> video-crop-presets;
+    in property <[bool]> video-equalizer-known;
+    in property <[int]> video-equalizer-values;
+    in property <int> video-rotation-index;
+    in property <bool> video-rotation-known;
+    in property <int> video-track-selected-index;
+    in property <[CatalogRow]> video-tracks;
+    in property <color> windows-accent-color;
+    in property <color> windows-accent-foreground;
+    in property <bool> windows-sidebar-material-active;
+
+    width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
+    spacing: root.compact-ui ? 16px : 18px;
+    QuickSettingsTrackList {
+        width: parent.width;
+        tracks: root.video-tracks; observed-index: root.video-track-selected-index;
+        track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
+        dark-theme: root.dark-theme;
+        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+        focus-accent-color: root.interactive-accent-color;
+        card-fill: root.sidebar-card-material-fill;
+        card-edge: root.dark-theme ? #ffffff18 : #00000014;
+        selected(kind, token) => { root.track-selected(kind, token); }
+    }
+    VideoControls {
+        width: parent.width;
+        compact-ui: root.compact-ui;
+        animations-disabled: root.animations-disabled;
+        dark-theme: root.dark-theme;
+        windows-acrylic-surface: root.windows-sidebar-material-active;
+        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+        focus-accent-color: root.interactive-accent-color;
+        accent-foreground: root.windows-accent-foreground;
+        card-fill: root.sidebar-card-material-fill;
+        card-edge: root.dark-theme ? #ffffff18 : #00000014;
+        aspect-presets: root.video-aspect-presets;
+        aspect-index: root.video-aspect-index;
+        rotation-index: root.video-rotation-index;
+        crop-presets: root.video-crop-presets;
+        crop-index: root.video-crop-index;
+        crop-enabled: root.loaded && root.video-crop-known;
+        crop-changed(value) => { root.set-video-crop(value); }
+        aspect-enabled: root.loaded && root.video-aspect-known;
+        rotation-enabled: root.loaded && root.video-rotation-known;
+        aspect-changed(value) => { root.set-video-aspect(value); }
+        rotation-changed(value) => { root.set-video-rotation(value); }
+    }
+    Rectangle {
+        // Match IINA's 12/10-point container inset and its
+        // title-to-slider and slider-to-tick-mark spacing.
+        height: root.compact-ui ? 88px : 92px;
+        border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout {
+            padding-left: root.compact-ui ? 10px : 12px;
+            padding-right: root.compact-ui ? 10px : 12px;
+            padding-top: root.compact-ui ? 9px : 11px;
+            padding-bottom: root.compact-ui ? 9px : 11px;
+            spacing: 0px;
+            HorizontalLayout { height: 16px; spacing: 8px;
+                Image { width: 16px; height: 16px;
+                    source: @image-url("../../../assets/icons/playback-speed.svg");
+                    image-fit: contain; colorize: root.dark-theme ? #dddddd : #29292d; }
+                Text { text: "Speed"; font-size: 12px; font-weight: 700;
+                    color: root.dark-theme ? #dddddd : #29292d;
+                    vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                if root.speed-value != 1 : Tool {
+                    accent-color: root.interactive-accent-color;
+                    dark-theme: root.dark-theme; width: 16px; height: 16px;
+                    icon-size: 14px;
+                    icon: @image-url("../../../assets/icons/reset.svg");
+                    hint: "Reset playback speed";
+                    activated => { root.reset-speed(); }
+                }
+            }
+            Rectangle { height: 18px; background: transparent; }
+            HorizontalLayout { spacing: 8px; height: 20px;
+                PlayerSlider { dark-theme: root.dark-theme; height: 20px;
+                    minimum: 0; maximum: 24; step: 1;
+                    value: root.speed-slider-position; hint: "Playback speed";
+                    show-value-label: true;
+                    value-label-above-control: true;
+                    knob-width: 10px; knob-height: 18px; knob-radius: 5px;
+                    value-label: root.speed-edit-value + "x";
+                    enabled: root.loaded;
+                    changed(value) => { root.set-speed-slider(value); }
+                }
+                QuickSettingsInput { width: 50px; height: 18px;
+                    accent-color: root.interactive-accent-color;
+                    dark-theme: root.dark-theme;
+                    windows-acrylic-surface: root.windows-sidebar-material-active;
+                    observed-value: root.speed-edit-value;
+                    enabled: root.loaded; hint: "Custom playback speed";
+                    committed(text) => { return root.set-speed-text(text); }
+                    editing-finished => { root.restore-player-focus(); }
+                }
+            }
+            // The source slider's final two points separate
+            // its knob from the 14-point tick-label row.
+            HorizontalLayout { spacing: 8px; height: 14px;
+                Rectangle { horizontal-stretch: 1; height: 14px;
+                    background: transparent;
+                    Text { text: "0.25x"; x: 0px; width: 35px; height: 14px;
+                        font-size: 10px; vertical-alignment: center;
+                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                    Text { text: "1x"; width: 30px; height: 14px;
+                        x: (parent.width - 10px) / 3 - self.width / 2 + 5px;
+                        font-size: 10px; horizontal-alignment: center;
+                        vertical-alignment: center;
+                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                    Text { text: "4x"; width: 30px; height: 14px;
+                        x: (parent.width - 10px) * 2 / 3 - self.width / 2 + 5px;
+                        font-size: 10px; horizontal-alignment: center;
+                        vertical-alignment: center;
+                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                    Text { text: "16x"; width: 35px; height: 14px;
+                        x: parent.width - self.width; font-size: 10px;
+                        horizontal-alignment: right; vertical-alignment: center;
+                        color: root.dark-theme ? #bbbbbb : #66666b; }
+                }
+                Rectangle { width: 50px; background: transparent; }
+            }
+        }
+    }
+    Rectangle {
+        // IINA wraps hardware decode and optional HDR in one
+        // card, with the same sidebar spacing as its other rows.
+        height: root.hdr-source-detected && root.hdr-display-active
+        ? (root.compact-ui ? 66px : 74px)
+        : (root.compact-ui ? 40px : 44px);
+        border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout {
+            padding: root.compact-ui ? 10px : 12px;
+            spacing: root.compact-ui ? 8px : 12px;
+            HardwareDecodingControls {
+                dark-theme: root.dark-theme;
+                windows-acrylic-surface: root.windows-sidebar-material-active;
+                accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                focus-accent-color: root.interactive-accent-color;
+                hardware-enabled: root.hardware-decoding-enabled;
+                hardware-known: root.hardware-decoding-known;
+                hardware-changed(value) => { root.set-hardware-decoding(value); }
+            }
+            if root.hdr-source-detected && root.hdr-display-active : HdrControls {
+                dark-theme: root.dark-theme;
+                windows-acrylic-surface: root.windows-sidebar-material-active;
+                accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                focus-accent-color: root.interactive-accent-color;
+                hdr-enabled: root.hdr-enabled;
+                hdr-available: true;
+                hdr-changed(value) => { root.set-hdr-enabled(value); }
+            }
+        }
+    }
+    Rectangle {
+        // Match IINA's small slider rows, source-spaced
+        // gaps, card padding, and 2-point inner inset.
+        height: root.compact-ui ? 126px : 146px;
+        border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout {
+            padding-left: root.compact-ui ? 11px : 13px;
+            padding-right: root.compact-ui ? 11px : 13px;
+            padding-top: root.compact-ui ? 12px : 14px;
+            padding-bottom: root.compact-ui ? 12px : 14px;
+            spacing: root.compact-ui ? 8px : 12px;
+            for label[index] in ["Brightness", "Contrast", "Saturation", "Gamma", "Hue"] : HorizontalLayout {
+                height: 14px; spacing: 8px;
+                // REF-24 places the first slider 65 pt after
+                // the label origin: a 56 pt label column plus
+                // the source's 8 pt row gap.
+                Text { text: label; width: 56px; font-size: 11px;
+                    color: root.dark-theme ? #dddddd : #29292d;
+                    vertical-alignment: center; }
+                PlayerSlider { dark-theme: root.dark-theme; height: 14px; minimum: -100; maximum: 100; step: 1;
+                    neutral-mark: true;
+                    value: root.video-equalizer-values[index]; hint: label;
+                    enabled: root.video-equalizer-known[index];
+                    changed(value) => { root.set-video-equalizer(index, value); }
+                }
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 16px; height: 14px; icon-size: 14px;
+                    windows-acrylic-surface: root.windows-sidebar-material-active;
+                    icon: @image-url("../../../assets/icons/reset.svg");
+                    hint: "Reset " + label; enabled: root.video-equalizer-known[index];
+                    activated => { root.set-video-equalizer(index, 0); }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,322 @@
+import { CatalogRow } from "catalog-row.slint";
+import { Theme } from "theme.slint";
+import { PlayerSlider } from "shared-controls.slint";
+import { Tool } from "player-tool.slint";
+import { QuickSettingsInput } from "quick-settings-input.slint";
+import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
+import { DelayLane } from "delay-lane.slint";
+import { SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
+import { ObservedSizePicker } from "player-chrome-controls.slint";
+import { SubtitleColorWell } from "shared-controls.slint";
+
+export component SubtitleQuickSettingsPage inherits VerticalLayout {
+    in property <length> sidebar-width;
+    callback choose-subtitle-font();
+    in property <bool> compact-ui;
+    in property <bool> dark-theme;
+    in-out property <bool> edit-secondary-subtitle;
+    callback find-online-subtitles();
+    in property <color> interactive-accent-color;
+    callback load-subtitle();
+    in property <bool> loaded;
+    in property <bool> platform-windows;
+    callback reset-subtitle-delay();
+    callback restore-player-focus();
+    in property <float> secondary-subtitle-delay;
+    in property <bool> secondary-subtitle-delay-known;
+    in property <string> secondary-subtitle-delay-text;
+    in property <float> secondary-subtitle-position;
+    in property <bool> secondary-subtitle-position-known;
+    in property <int> secondary-subtitle-track-selected-index;
+    in property <[CatalogRow]> secondary-subtitle-tracks;
+    in property <bool> secondary-subtitle-visibility-known;
+    in property <bool> secondary-subtitle-visible;
+    callback set-delay(DelayLane, float);
+    callback set-delay-text(DelayLane, string) -> bool;
+    callback set-subtitle-color(int, color);
+    callback set-subtitle-font-size(float);
+    callback set-subtitle-outline-size(float);
+    callback set-subtitle-position(bool, float);
+    callback set-subtitle-scale-slider(float);
+    in property <color> sidebar-card-material-fill;
+    in property <color> sidebar-control-material-fill;
+    in property <bool> subtitle-ass-style-warning;
+    in property <color> subtitle-border-color;
+    in property <bool> subtitle-border-color-known;
+    in property <float> subtitle-delay;
+    in property <string> subtitle-delay-text;
+    in property <string> subtitle-font;
+    in property <bool> subtitle-font-known;
+    in property <float> subtitle-font-size;
+    in property <bool> subtitle-font-size-known;
+    in property <float> subtitle-outline-size;
+    in property <bool> subtitle-outline-size-known;
+    in property <float> subtitle-position;
+    in property <bool> subtitle-position-known;
+    in property <bool> subtitle-scale-known;
+    in property <float> subtitle-scale-slider;
+    in property <color> subtitle-shadow-color;
+    in property <bool> subtitle-shadow-color-known;
+    in property <color> subtitle-text-color;
+    in property <bool> subtitle-text-color-known;
+    in property <bool> subtitle-text-style-available;
+    in property <int> subtitle-track-selected-index;
+    in property <[CatalogRow]> subtitle-tracks;
+    in property <bool> subtitle-visible;
+    callback toggle-secondary-subtitle-visibility();
+    callback toggle-subtitle-visibility();
+    callback track-selected(int, string);
+    in property <color> windows-accent-color;
+    in property <color> windows-accent-foreground;
+    in property <bool> windows-sidebar-material-active;
+
+    width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
+    spacing: root.compact-ui ? 16px : 18px;
+    VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
+        SubtitleVisibilityRow { label: "Primary"; number: "1";
+            checked: root.subtitle-visible; enabled: root.loaded;
+            dark-theme: root.dark-theme;
+            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+            changed(value) => { root.toggle-subtitle-visibility(); } }
+        QuickSettingsTrackList { width: parent.width; tracks: root.subtitle-tracks;
+            observed-index: root.subtitle-track-selected-index;
+            hint: "Primary subtitle tracks"; label-prefix: "Primary subtitle: ";
+            focus-accent-color: root.interactive-accent-color;
+            track-kind: 2; dark-theme: root.dark-theme; enabled: root.loaded;
+            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+            card-fill: root.sidebar-card-material-fill;
+            card-edge: root.dark-theme ? #ffffff18 : #00000014;
+            selected(kind, token) => { root.track-selected(kind, token); } }
+    }
+    VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
+        SubtitleVisibilityRow { label: "Secondary"; number: "2";
+            checked: root.secondary-subtitle-visible;
+            enabled: root.loaded && root.secondary-subtitle-visibility-known;
+            dark-theme: root.dark-theme;
+            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+            changed(value) => { root.toggle-secondary-subtitle-visibility(); } }
+        QuickSettingsTrackList { width: parent.width;
+            tracks: root.secondary-subtitle-tracks;
+            observed-index: root.secondary-subtitle-track-selected-index;
+            hint: "Secondary subtitle tracks"; label-prefix: "Secondary subtitle: ";
+            focus-accent-color: root.interactive-accent-color; track-kind: 5;
+            dark-theme: root.dark-theme; enabled: root.loaded;
+            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+            card-fill: root.sidebar-card-material-fill;
+            card-edge: root.dark-theme ? #ffffff18 : #00000014;
+            selected(kind, token) => { root.track-selected(kind, token); } }
+    }
+    Rectangle {
+        width: root.sidebar-width - (root.compact-ui ? 30px : 36px);
+        height: 48px; border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        HorizontalLayout { padding: 8px; spacing: 8px;
+            Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px;
+                background: root.sidebar-control-material-fill;
+                accessible-role: button; accessible-label: "Load subtitle";
+                accessible-enabled: root.loaded;
+                accessible-action-default => { if root.loaded { root.load-subtitle(); } }
+                Text { text: "Load Subtitle…";
+                    color: root.loaded
+                    ? (root.dark-theme ? #eeeeee : #29292d)
+                    : (root.dark-theme ? #777777 : #8a8a90);
+                    font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                if subtitle-load-focus.has-focus : Rectangle { border-width: 1px;
+                    border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
+                TouchArea { enabled: root.loaded;
+                    clicked => { subtitle-load-focus.focus(); root.load-subtitle(); } }
+                subtitle-load-focus := FocusScope {
+                    enabled: root.loaded;
+                    key-pressed(event) => {
+                        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                        if event.text == Key.Return || event.text == " " { root.load-subtitle(); return accept; }
+                        return reject;
+                    }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px;
+                background: root.sidebar-control-material-fill;
+                accessible-role: button; accessible-label: "Search online subtitles";
+                accessible-enabled: root.loaded;
+                accessible-action-default => { if root.loaded { root.find-online-subtitles(); } }
+                Text { text: "Search Online…";
+                    color: root.loaded
+                    ? (root.dark-theme ? #eeeeee : #29292d)
+                    : (root.dark-theme ? #777777 : #8a8a90);
+                    font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                if online-subtitle-focus.has-focus : Rectangle { border-width: 1px;
+                    border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
+                TouchArea { enabled: root.loaded;
+                    clicked => { online-subtitle-focus.focus(); root.find-online-subtitles(); } }
+                online-subtitle-focus := FocusScope {
+                    enabled: root.loaded;
+                    key-pressed(event) => {
+                        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+                        if event.text == Key.Return || event.text == " " { root.find-online-subtitles(); return accept; }
+                        return reject;
+                    }
+                }
+            }
+        }
+    }
+    Rectangle {
+        width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
+        height: 190px; border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout { padding: 8px; spacing: 8px;
+            Rectangle { height: 28px; border-radius: 5px;
+                background: root.dark-theme ? #ffffff0c : #0000000d;
+                HorizontalLayout { padding: 2px; spacing: 1px;
+                    SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color; label: "Primary"; hint: "Edit primary subtitle timing and position";
+                        selected: !root.edit-secondary-subtitle;
+                        dark-theme: root.dark-theme;
+                        windows-acrylic-surface: root.windows-sidebar-material-active;
+                        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                        accent-foreground: root.windows-accent-foreground;
+                        activated => { root.edit-secondary-subtitle = false; } }
+                    SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color; label: "Secondary"; hint: "Edit secondary subtitle timing and position";
+                        selected: root.edit-secondary-subtitle;
+                        dark-theme: root.dark-theme;
+                        windows-acrylic-surface: root.windows-sidebar-material-active;
+                        accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
+                        accent-foreground: root.windows-accent-foreground;
+                        activated => { root.edit-secondary-subtitle = true; } }
+                }
+            }
+            HorizontalLayout { height: 20px; spacing: 8px;
+                Image { source: @image-url("../../../assets/icons/resume-history.svg");
+                    width: 14px; height: 14px; colorize: root.dark-theme ? #d0d0d6 : #55555d; }
+                Text { text: "Delay"; color: root.dark-theme ? #bbbbbb : #66666b;
+                    font-size: 11px; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle delay";
+                    enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
+                    windows-acrylic-surface: root.windows-sidebar-material-active;
+                    activated => {
+                        if root.edit-secondary-subtitle { root.set-delay(DelayLane.secondary-subtitle, 0); }
+                        else { root.reset-subtitle-delay(); }
+                    } }
+            }
+            HorizontalLayout { height: 24px; spacing: 8px;
+                subtitle-delay-slider := PlayerSlider { dark-theme: root.dark-theme;
+                    minimum: -5; maximum: 5; step: 0.1;
+                    value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
+                    enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
+                    hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
+                    changed(value) => { root.set-delay(root.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, value); } }
+                QuickSettingsInput { accent-color: root.interactive-accent-color;
+                    dark-theme: root.dark-theme;
+                    windows-acrylic-surface: root.windows-sidebar-material-active;
+                    observed-value: root.edit-secondary-subtitle
+                    ? root.secondary-subtitle-delay-text : root.subtitle-delay-text;
+                    secondary: root.edit-secondary-subtitle;
+                    enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
+                    hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
+                    committed(text) => {
+                        return root.set-delay-text(root.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, text);
+                    }
+                    editing-finished => { root.restore-player-focus(); } }
+            }
+            HorizontalLayout { height: 14px; spacing: 8px;
+                HorizontalLayout { horizontal-stretch: 1;
+                    Text { width: 32px; text: "-5s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; }
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                    Text { width: 32px; text: "0s"; color: root.dark-theme ? #aaaaaa : #66666b;
+                        font-size: 10px; horizontal-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                    Text { width: 32px; text: "+5s"; color: root.dark-theme ? #aaaaaa : #66666b;
+                        font-size: 10px; horizontal-alignment: right; }
+                }
+                Rectangle { width: 50px; background: transparent; }
+            }
+            HorizontalLayout { height: 16px; spacing: 6px;
+                Text { text: "↕"; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 12px; }
+                Text { text: "Position"; color: root.dark-theme ? #bbbbbb : #66666b;
+                    font-size: 11px; vertical-alignment: center; }
+            }
+            // IINA exposes a 0–100 slider even when mpv accepts larger values.
+            PlayerSlider { dark-theme: root.dark-theme; minimum: 0; maximum: 100; step: 1;
+                value: root.edit-secondary-subtitle ? root.secondary-subtitle-position : root.subtitle-position;
+                enabled: root.loaded && (root.edit-secondary-subtitle
+                ? root.secondary-subtitle-position-known : root.subtitle-position-known);
+                hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
+                changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
+        }
+    }
+    if root.subtitle-text-style-available : Rectangle {
+        width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
+        height: 200px; border-radius: 8px; border-width: 1px;
+        border-color: Theme.sidebar-card-border(root.dark-theme);
+        background: root.sidebar-card-material-fill;
+        VerticalLayout { padding: 8px; spacing: 8px;
+            HorizontalLayout { height: 30px; spacing: 8px;
+                Text { text: "Scale"; color: root.dark-theme ? #dddddd : #29292d;
+                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
+                    enabled: root.loaded && root.subtitle-scale-known; hint: "Subtitle text scale";
+                    changed(value) => { root.set-subtitle-scale-slider(value); } }
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle text scale";
+                    enabled: root.loaded && root.subtitle-scale-known;
+                    activated => { root.set-subtitle-scale-slider(0); } }
+            }
+            HorizontalLayout { height: 30px; spacing: 8px;
+                Text { text: "Font"; color: root.dark-theme ? #dddddd : #29292d;
+                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 140px; label: root.subtitle-font; hint: "Choose subtitle font";
+                    enabled: root.loaded && root.subtitle-font-known;
+                    activated => { root.choose-subtitle-font(); } }
+                ObservedSizePicker { width: 60px; height: 24px;
+                    model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
+                    observed-index: root.subtitle-font-size >= 25 && root.subtitle-font-size <= 75 && mod(root.subtitle-font-size - 25, 5) == 0 ? round((root.subtitle-font-size - 25) / 5) : -1;
+                    observed-value: root.subtitle-font-size-known ? "" + root.subtitle-font-size : "—";
+                    enabled: root.loaded && root.subtitle-font-size-known;
+                    accessible-label: "Subtitle font size";
+                    selected(value) => { if value.is-float() { root.set-subtitle-font-size(value.to-float()); } }
+                }
+            }
+            HorizontalLayout { height: 30px; spacing: 8px;
+                Text { text: "Color"; color: root.dark-theme ? #dddddd : #29292d;
+                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                SubtitleColorWell { observed-color: root.subtitle-text-color; hint: "Subtitle text color";
+                    enabled: root.loaded && root.subtitle-text-color-known;
+                    edited(value) => { root.set-subtitle-color(1, value); } }
+            }
+            HorizontalLayout { height: 30px; spacing: 8px;
+                Text { text: "Border"; color: root.dark-theme ? #dddddd : #29292d;
+                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                ObservedSizePicker { width: 60px; height: 24px;
+                    model: ["0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "4", "5"];
+                    observed-index: root.subtitle-outline-size == 0 ? 0 : root.subtitle-outline-size == 0.25 ? 1 : root.subtitle-outline-size == 0.5 ? 2 : root.subtitle-outline-size == 1 ? 3 : root.subtitle-outline-size == 1.5 ? 4 : root.subtitle-outline-size == 2 ? 5 : root.subtitle-outline-size == 2.5 ? 6 : root.subtitle-outline-size == 3 ? 7 : root.subtitle-outline-size == 4 ? 8 : root.subtitle-outline-size == 5 ? 9 : -1;
+                    observed-value: root.subtitle-outline-size-known ? "" + root.subtitle-outline-size : "—";
+                    enabled: root.loaded && root.subtitle-outline-size-known;
+                    accessible-label: "Subtitle outline width";
+                    selected(value) => { if value.is-float() { root.set-subtitle-outline-size(value.to-float()); } }
+                }
+                SubtitleColorWell { observed-color: root.subtitle-border-color; hint: "Subtitle border color";
+                    enabled: root.loaded && root.subtitle-border-color-known;
+                    edited(value) => { root.set-subtitle-color(3, value); } }
+            }
+            HorizontalLayout { height: 30px; spacing: 8px;
+                Text { text: "Shadow"; color: root.dark-theme ? #dddddd : #29292d;
+                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                SubtitleColorWell { observed-color: root.subtitle-shadow-color; hint: "Subtitle shadow color";
+                    enabled: root.loaded && root.subtitle-shadow-color-known;
+                    edited(value) => { root.set-subtitle-color(2, value); } }
+            }
+        }
+    }
+    if !root.subtitle-text-style-available : Text {
+        text: "Some settings are not available for this subtitle type.";
+        wrap: word-wrap; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 11px;
+    }
+    if root.subtitle-ass-style-warning : Text {
+        text: "Setting style options for ASS subtitles may break rendering.";
+        wrap: word-wrap; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 11px;
+    }
+}

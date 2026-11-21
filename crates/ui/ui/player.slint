@@ -1,3 +1,7 @@
+import { VideoQuickSettingsPage } from "quick-settings-video.slint";
+import { SubtitleQuickSettingsPage } from "quick-settings-subtitles.slint";
+import { DelayLane } from "delay-lane.slint";
+export { DelayLane } from "delay-lane.slint";
 import { AudioQuickSettingsPage } from "quick-settings-audio.slint";
 import { PlayerMenuWindow } from "player-menu-window.slint";
 import { LayoutSidebarPage } from "player-layout-sidebar.slint";
@@ -7,8 +11,8 @@ import { CatalogSidebarRow, PlaylistInteraction } from "playlist-sidebar-row.sli
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
 import { LiveTextRegion, VideoSurface } from "player-video-surface.slint";
 export { LiveTextRegion } from "player-video-surface.slint";
-import { SidebarTab, SidebarSectionTitle, SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
-import { JumpDialogButton, PlaylistSortButton, TopmostPin, ObservedSizePicker } from "player-chrome-controls.slint";
+import { SidebarTab, SidebarSectionTitle } from "player-sidebar-controls.slint";
+import { JumpDialogButton, PlaylistSortButton, TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
@@ -16,13 +20,10 @@ import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scr
 import { Tool } from "player-tool.slint";
 import { MusicModeWindowActions } from "music-mode-controls.slint";
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
-import { QuickSettingsInput } from "quick-settings-input.slint";
-import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 export { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { ScrollView, ComboBox, Button, Palette } from "std-widgets.slint";
-import { NativeTypography, PlayerSlider, SubtitleColorWell } from "shared-controls.slint";
-import { VideoControls, HardwareDecodingControls, HdrControls } from "video-controls.slint";
+import { NativeTypography, PlayerSlider } from "shared-controls.slint";
 import { CropEditor } from "crop-editor.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 import { MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, MenuShortcutRow } from "native-video.slint";
@@ -35,8 +36,6 @@ export { OnlineSubtitlesWindow } from "online-subtitles.slint";
 export { PlaybackHistoryWindow, PlaybackHistoryRow } from "history-window.slint";
 export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
-
-export enum DelayLane { audio, primary-subtitle, secondary-subtitle }
 
 export component PlayerWindow inherits PlayerMenuWindow {
     default-font-family: NativeTypography.system-font-family;
@@ -1363,446 +1362,110 @@ export component PlayerWindow inherits PlayerMenuWindow {
                             reorder-playlist(tokens, index) => { root.reorder-playlist(tokens, index); }
                             playlist-action(action, token) => { root.playlist-action(action, token); }
                         }
-                        if pane-kind == 6 : VerticalLayout {
-                            width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-                                root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            spacing: root.compact-ui ? 16px : 18px;
-                            QuickSettingsTrackList {
-                                width: parent.width;
-                                tracks: root.video-tracks; observed-index: root.video-track-selected-index;
-                                track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
-                                dark-theme: root.dark-theme;
-                                accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                focus-accent-color: root.interactive-accent-color;
-                                card-fill: root.sidebar-card-material-fill;
-                                card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                                selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
-                            }
-                        if pane-kind == 6 : VideoControls {
-                            width: parent.width;
-                            compact-ui: root.compact-ui;
+                        if pane-kind == 6 : VideoQuickSettingsPage {
+                            sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
                             animations-disabled: root.animations-disabled;
+                            compact-ui: root.compact-ui;
                             dark-theme: root.dark-theme;
-                            windows-acrylic-surface: root.windows-sidebar-material-active;
-                            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                            focus-accent-color: root.interactive-accent-color;
-                            accent-foreground: root.windows-accent-foreground;
-                            card-fill: root.sidebar-card-material-fill;
-                            card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                            aspect-presets: root.video-aspect-presets;
-                            aspect-index: root.video-aspect-index;
-                            rotation-index: root.video-rotation-index;
-                            crop-presets: root.video-crop-presets;
-                            crop-index: root.video-crop-index;
-                            crop-enabled: root.loaded && root.video-crop-known;
-                            crop-changed(value) => { root.set-video-crop(value); }
-                            aspect-enabled: root.loaded && root.video-aspect-known;
-                            rotation-enabled: root.loaded && root.video-rotation-known;
-                            aspect-changed(value) => { root.set-video-aspect(value); }
-                            rotation-changed(value) => { root.set-video-rotation(value); }
+                            hardware-decoding-enabled: root.hardware-decoding-enabled;
+                            hardware-decoding-known: root.hardware-decoding-known;
+                            hdr-display-active: root.hdr-display-active;
+                            hdr-enabled: root.hdr-enabled;
+                            hdr-source-detected: root.hdr-source-detected;
+                            interactive-accent-color: root.interactive-accent-color;
+                            loaded: root.loaded;
+                            platform-windows: root.platform-windows;
+                            reset-speed => { root.reset-speed(); }
+                            restore-player-focus => { keys.focus(); }
+                            set-hardware-decoding(value) => { root.set-hardware-decoding(value); }
+                            set-hdr-enabled(value) => { root.set-hdr-enabled(value); }
+                            set-speed-slider(value) => { root.set-speed-slider(value); }
+                            set-speed-text(text) => { return root.set-speed-text(text); }
+                            set-video-aspect(text) => { root.set-video-aspect(text); }
+                            set-video-crop(value) => { root.set-video-crop(value); }
+                            set-video-equalizer(band, value) => { root.set-video-equalizer(band, value); }
+                            set-video-rotation(value) => { root.set-video-rotation(value); }
+                            sidebar-card-material-fill: root.sidebar-card-material-fill;
+                            speed-edit-value: root.speed-edit-value;
+                            speed-slider-position: root.speed-slider-position;
+                            speed-value: root.speed-value;
+                            track-selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
+                            video-aspect-index: root.video-aspect-index;
+                            video-aspect-known: root.video-aspect-known;
+                            video-aspect-presets: root.video-aspect-presets;
+                            video-crop-index: root.video-crop-index;
+                            video-crop-known: root.video-crop-known;
+                            video-crop-presets: root.video-crop-presets;
+                            video-equalizer-known: root.video-equalizer-known;
+                            video-equalizer-values: root.video-equalizer-values;
+                            video-rotation-index: root.video-rotation-index;
+                            video-rotation-known: root.video-rotation-known;
+                            video-track-selected-index: root.video-track-selected-index;
+                            video-tracks: root.video-tracks;
+                            windows-accent-color: root.windows-accent-color;
+                            windows-accent-foreground: root.windows-accent-foreground;
+                            windows-sidebar-material-active: root.windows-sidebar-material-active;
                         }
-                        if pane-kind == 6 : Rectangle {
-                            // Match IINA's 12/10-point container inset and its
-                            // title-to-slider and slider-to-tick-mark spacing.
-                            height: root.compact-ui ? 88px : 92px;
-                            border-radius: 8px; border-width: 1px;
-                            border-color: Theme.sidebar-card-border(root.dark-theme);
-                            background: root.sidebar-card-material-fill;
-                            VerticalLayout {
-                                padding-left: root.compact-ui ? 10px : 12px;
-                                padding-right: root.compact-ui ? 10px : 12px;
-                                padding-top: root.compact-ui ? 9px : 11px;
-                                padding-bottom: root.compact-ui ? 9px : 11px;
-                                spacing: 0px;
-                                HorizontalLayout { height: 16px; spacing: 8px;
-                                    Image { width: 16px; height: 16px;
-                                        source: @image-url("../../../assets/icons/playback-speed.svg");
-                                        image-fit: contain; colorize: root.dark-theme ? #dddddd : #29292d; }
-                                    Text { text: "Speed"; font-size: 12px; font-weight: 700;
-                                        color: root.dark-theme ? #dddddd : #29292d;
-                                        vertical-alignment: center; }
-                                    Rectangle { horizontal-stretch: 1; background: transparent; }
-                                    if root.speed-value != 1 : Tool {
-                                        accent-color: root.interactive-accent-color;
-                                        dark-theme: root.dark-theme; width: 16px; height: 16px;
-                                        icon-size: 14px;
-                                        icon: @image-url("../../../assets/icons/reset.svg");
-                                        hint: "Reset playback speed";
-                                        activated => { root.reset-speed(); }
-                                    }
-                                }
-                                Rectangle { height: 18px; background: transparent; }
-                                HorizontalLayout { spacing: 8px; height: 20px;
-                                    PlayerSlider { dark-theme: root.dark-theme; height: 20px;
-                                        minimum: 0; maximum: 24; step: 1;
-                                        value: root.speed-slider-position; hint: "Playback speed";
-                                        show-value-label: true;
-                                        value-label-above-control: true;
-                                        knob-width: 10px; knob-height: 18px; knob-radius: 5px;
-                                        value-label: root.speed-edit-value + "x";
-                                        enabled: root.loaded;
-                                        changed(value) => { root.set-speed-slider(value); }
-                                    }
-                                    QuickSettingsInput { width: 50px; height: 18px;
-                                        accent-color: root.interactive-accent-color;
-                                        dark-theme: root.dark-theme;
-                                        windows-acrylic-surface: root.windows-sidebar-material-active;
-                                        observed-value: root.speed-edit-value;
-                                        enabled: root.loaded; hint: "Custom playback speed";
-                                        committed(text) => { return root.set-speed-text(text); }
-                                        editing-finished => { keys.focus(); }
-                                    }
-                                }
-                                // The source slider's final two points separate
-                                // its knob from the 14-point tick-label row.
-                                HorizontalLayout { spacing: 8px; height: 14px;
-                                    Rectangle { horizontal-stretch: 1; height: 14px;
-                                        background: transparent;
-                                        Text { text: "0.25x"; x: 0px; width: 35px; height: 14px;
-                                            font-size: 10px; vertical-alignment: center;
-                                            color: root.dark-theme ? #bbbbbb : #66666b; }
-                                        Text { text: "1x"; width: 30px; height: 14px;
-                                            x: (parent.width - 10px) / 3 - self.width / 2 + 5px;
-                                            font-size: 10px; horizontal-alignment: center;
-                                            vertical-alignment: center;
-                                            color: root.dark-theme ? #bbbbbb : #66666b; }
-                                        Text { text: "4x"; width: 30px; height: 14px;
-                                            x: (parent.width - 10px) * 2 / 3 - self.width / 2 + 5px;
-                                            font-size: 10px; horizontal-alignment: center;
-                                            vertical-alignment: center;
-                                            color: root.dark-theme ? #bbbbbb : #66666b; }
-                                        Text { text: "16x"; width: 35px; height: 14px;
-                                            x: parent.width - self.width; font-size: 10px;
-                                            horizontal-alignment: right; vertical-alignment: center;
-                                            color: root.dark-theme ? #bbbbbb : #66666b; }
-                                    }
-                                    Rectangle { width: 50px; background: transparent; }
-                                }
-                            }
-                        }
-                        if pane-kind == 6 : Rectangle {
-                            // IINA wraps hardware decode and optional HDR in one
-                            // card, with the same sidebar spacing as its other rows.
-                            height: root.hdr-source-detected && root.hdr-display-active
-                                ? (root.compact-ui ? 66px : 74px)
-                                : (root.compact-ui ? 40px : 44px);
-                            border-radius: 8px; border-width: 1px;
-                            border-color: Theme.sidebar-card-border(root.dark-theme);
-                            background: root.sidebar-card-material-fill;
-                            VerticalLayout {
-                                padding: root.compact-ui ? 10px : 12px;
-                                spacing: root.compact-ui ? 8px : 12px;
-                                HardwareDecodingControls {
-                                    dark-theme: root.dark-theme;
-                                    windows-acrylic-surface: root.windows-sidebar-material-active;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                    focus-accent-color: root.interactive-accent-color;
-                                    hardware-enabled: root.hardware-decoding-enabled;
-                                    hardware-known: root.hardware-decoding-known;
-                                    hardware-changed(value) => { root.set-hardware-decoding(value); }
-                                }
-                                if root.hdr-source-detected && root.hdr-display-active : HdrControls {
-                                    dark-theme: root.dark-theme;
-                                    windows-acrylic-surface: root.windows-sidebar-material-active;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                    focus-accent-color: root.interactive-accent-color;
-                                    hdr-enabled: root.hdr-enabled;
-                                    hdr-available: true;
-                                    hdr-changed(value) => { root.set-hdr-enabled(value); }
-                                }
-                            }
-                        }
-                        if pane-kind == 6 : Rectangle {
-                            // Match IINA's small slider rows, source-spaced
-                            // gaps, card padding, and 2-point inner inset.
-                            height: root.compact-ui ? 126px : 146px;
-                            border-radius: 8px; border-width: 1px;
-                            border-color: Theme.sidebar-card-border(root.dark-theme);
-                            background: root.sidebar-card-material-fill;
-                            VerticalLayout {
-                                padding-left: root.compact-ui ? 11px : 13px;
-                                padding-right: root.compact-ui ? 11px : 13px;
-                                padding-top: root.compact-ui ? 12px : 14px;
-                                padding-bottom: root.compact-ui ? 12px : 14px;
-                                spacing: root.compact-ui ? 8px : 12px;
-                            for label[index] in ["Brightness", "Contrast", "Saturation", "Gamma", "Hue"] : HorizontalLayout {
-                                height: 14px; spacing: 8px;
-                                // REF-24 places the first slider 65 pt after
-                                // the label origin: a 56 pt label column plus
-                                // the source's 8 pt row gap.
-                                Text { text: label; width: 56px; font-size: 11px;
-                                    color: root.dark-theme ? #dddddd : #29292d;
-                                    vertical-alignment: center; }
-                                PlayerSlider { dark-theme: root.dark-theme; height: 14px; minimum: -100; maximum: 100; step: 1;
-                                    neutral-mark: true;
-                                    value: root.video-equalizer-values[index]; hint: label;
-                                    enabled: root.video-equalizer-known[index];
-                                    changed(value) => { root.set-video-equalizer(index, value); }
-                                }
-                                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 16px; height: 14px; icon-size: 14px;
-                                    windows-acrylic-surface: root.windows-sidebar-material-active;
-                                    icon: @image-url("../../../assets/icons/reset.svg");
-                                    hint: "Reset " + label; enabled: root.video-equalizer-known[index];
-                                    activated => { root.set-video-equalizer(index, 0); }
-                                }
-                            }
-                            }
-                        }
-                        }
-                        if pane-kind == 2 : VerticalLayout {
-                            width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-                                root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            spacing: root.compact-ui ? 16px : 18px;
-                            VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
-                                SubtitleVisibilityRow { label: "Primary"; number: "1";
-                                    checked: root.subtitle-visible; enabled: root.loaded;
-                                    dark-theme: root.dark-theme;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                    changed(value) => { root.toggle-subtitle-visibility(); } }
-                                QuickSettingsTrackList { width: parent.width; tracks: root.subtitle-tracks;
-                                    observed-index: root.subtitle-track-selected-index;
-                                    hint: "Primary subtitle tracks"; label-prefix: "Primary subtitle: ";
-                                    focus-accent-color: root.interactive-accent-color;
-                                    track-kind: 2; dark-theme: root.dark-theme; enabled: root.loaded;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                    card-fill: root.sidebar-card-material-fill;
-                                    card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                                    selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); } }
-                            }
-                            VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
-                                SubtitleVisibilityRow { label: "Secondary"; number: "2";
-                                    checked: root.secondary-subtitle-visible;
-                                    enabled: root.loaded && root.secondary-subtitle-visibility-known;
-                                    dark-theme: root.dark-theme;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                    changed(value) => { root.toggle-secondary-subtitle-visibility(); } }
-                                QuickSettingsTrackList { width: parent.width;
-                                    tracks: root.secondary-subtitle-tracks;
-                                    observed-index: root.secondary-subtitle-track-selected-index;
-                                    hint: "Secondary subtitle tracks"; label-prefix: "Secondary subtitle: ";
-                                    focus-accent-color: root.interactive-accent-color; track-kind: 5;
-                                    dark-theme: root.dark-theme; enabled: root.loaded;
-                                    accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                    card-fill: root.sidebar-card-material-fill;
-                                    card-edge: root.dark-theme ? #ffffff18 : #00000014;
-                                    selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); } }
-                            }
-                        if pane-kind == 2 : Rectangle {
-                            width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-                                root.width * 0.8) - (root.compact-ui ? 30px : 36px);
-                            height: 48px; border-radius: 8px; border-width: 1px;
-                            border-color: Theme.sidebar-card-border(root.dark-theme);
-                            background: root.sidebar-card-material-fill;
-                            HorizontalLayout { padding: 8px; spacing: 8px;
-                                Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px;
-                                    background: root.sidebar-control-material-fill;
-                                    accessible-role: button; accessible-label: "Load subtitle";
-                                    accessible-enabled: root.loaded;
-                                    accessible-action-default => { if root.loaded { root.browse-files(2); } }
-                                    Text { text: "Load Subtitle…";
-                                        color: root.loaded
-                                            ? (root.dark-theme ? #eeeeee : #29292d)
-                                            : (root.dark-theme ? #777777 : #8a8a90);
-                                        font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-                                    if subtitle-load-focus.has-focus : Rectangle { border-width: 1px;
-                                        border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
-                                    TouchArea { enabled: root.loaded;
-                                        clicked => { subtitle-load-focus.focus(); root.browse-files(2); } }
-                                    subtitle-load-focus := FocusScope {
-                                        enabled: root.loaded;
-                                        key-pressed(event) => {
-                                            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                                            if event.text == Key.Return || event.text == " " { root.browse-files(2); return accept; }
-                                            return reject;
-                                        }
-                                    }
-                                }
-                                Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px;
-                                    background: root.sidebar-control-material-fill;
-                                    accessible-role: button; accessible-label: "Search online subtitles";
-                                    accessible-enabled: root.loaded;
-                                    accessible-action-default => { if root.loaded { root.find-online-subtitles(); } }
-                                    Text { text: "Search Online…";
-                                        color: root.loaded
-                                            ? (root.dark-theme ? #eeeeee : #29292d)
-                                            : (root.dark-theme ? #777777 : #8a8a90);
-                                        font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-                                    if online-subtitle-focus.has-focus : Rectangle { border-width: 1px;
-                                        border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
-                                    TouchArea { enabled: root.loaded;
-                                        clicked => { online-subtitle-focus.focus(); root.find-online-subtitles(); } }
-                                    online-subtitle-focus := FocusScope {
-                                        enabled: root.loaded;
-                                        key-pressed(event) => {
-                                            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                                            if event.text == Key.Return || event.text == " " { root.find-online-subtitles(); return accept; }
-                                            return reject;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if pane-kind == 2 : Rectangle {
-                            width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-                                root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            height: 190px; border-radius: 8px; border-width: 1px;
-                            border-color: Theme.sidebar-card-border(root.dark-theme);
-                            background: root.sidebar-card-material-fill;
-                            VerticalLayout { padding: 8px; spacing: 8px;
-                                Rectangle { height: 28px; border-radius: 5px;
-                                    background: root.dark-theme ? #ffffff0c : #0000000d;
-                                    HorizontalLayout { padding: 2px; spacing: 1px;
-                                        SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color; label: "Primary"; hint: "Edit primary subtitle timing and position";
-                                            selected: !root.edit-secondary-subtitle;
-                                            dark-theme: root.dark-theme;
-                                            windows-acrylic-surface: root.windows-sidebar-material-active;
-                                            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                            accent-foreground: root.windows-accent-foreground;
-                                            activated => { root.edit-secondary-subtitle = false; } }
-                                        SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color; label: "Secondary"; hint: "Edit secondary subtitle timing and position";
-                                            selected: root.edit-secondary-subtitle;
-                                            dark-theme: root.dark-theme;
-                                            windows-acrylic-surface: root.windows-sidebar-material-active;
-                                            accent-color: root.platform-windows ? root.windows-accent-color : #0a84ff;
-                                            accent-foreground: root.windows-accent-foreground;
-                                            activated => { root.edit-secondary-subtitle = true; } }
-                                    }
-                                }
-                                HorizontalLayout { height: 20px; spacing: 8px;
-                                    Image { source: @image-url("../../../assets/icons/resume-history.svg");
-                                        width: 14px; height: 14px; colorize: root.dark-theme ? #d0d0d6 : #55555d; }
-                                    Text { text: "Delay"; color: root.dark-theme ? #bbbbbb : #66666b;
-                                        font-size: 11px; vertical-alignment: center; }
-                                    Rectangle { horizontal-stretch: 1; background: transparent; }
-                                    Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle delay";
-                                        enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
-                                        windows-acrylic-surface: root.windows-sidebar-material-active;
-                                        activated => {
-                                            if root.edit-secondary-subtitle { root.set-delay(DelayLane.secondary-subtitle, 0); }
-                                            else { root.reset-subtitle-delay(); }
-                                        } }
-                                }
-                                HorizontalLayout { height: 24px; spacing: 8px;
-                                    subtitle-delay-slider := PlayerSlider { dark-theme: root.dark-theme;
-                                        minimum: -5; maximum: 5; step: 0.1;
-                                        value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
-                                        enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
-                                        hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
-                                        changed(value) => { root.set-delay(root.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, value); } }
-                                    QuickSettingsInput { accent-color: root.interactive-accent-color;
-                                        dark-theme: root.dark-theme;
-                                        windows-acrylic-surface: root.windows-sidebar-material-active;
-                                        observed-value: root.edit-secondary-subtitle
-                                            ? root.secondary-subtitle-delay-text : root.subtitle-delay-text;
-                                        secondary: root.edit-secondary-subtitle;
-                                        enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
-                                        hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
-                                        committed(text) => {
-                                            return root.set-delay-text(root.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, text);
-                                        }
-                                        editing-finished => { keys.focus(); } }
-                                }
-                                HorizontalLayout { height: 14px; spacing: 8px;
-                                    HorizontalLayout { horizontal-stretch: 1;
-                                        Text { width: 32px; text: "-5s"; color: root.dark-theme ? #aaaaaa : #66666b; font-size: 10px; }
-                                        Rectangle { horizontal-stretch: 1; background: transparent; }
-                                        Text { width: 32px; text: "0s"; color: root.dark-theme ? #aaaaaa : #66666b;
-                                            font-size: 10px; horizontal-alignment: center; }
-                                        Rectangle { horizontal-stretch: 1; background: transparent; }
-                                        Text { width: 32px; text: "+5s"; color: root.dark-theme ? #aaaaaa : #66666b;
-                                            font-size: 10px; horizontal-alignment: right; }
-                                    }
-                                    Rectangle { width: 50px; background: transparent; }
-                                }
-                                HorizontalLayout { height: 16px; spacing: 6px;
-                                    Text { text: "↕"; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 12px; }
-                                    Text { text: "Position"; color: root.dark-theme ? #bbbbbb : #66666b;
-                                        font-size: 11px; vertical-alignment: center; }
-                                }
-                                // IINA exposes a 0–100 slider even when mpv accepts larger values.
-                                PlayerSlider { dark-theme: root.dark-theme; minimum: 0; maximum: 100; step: 1;
-                                    value: root.edit-secondary-subtitle ? root.secondary-subtitle-position : root.subtitle-position;
-                                    enabled: root.loaded && (root.edit-secondary-subtitle
-                                        ? root.secondary-subtitle-position-known : root.subtitle-position-known);
-                                    hint: root.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
-                                    changed(value) => { root.set-subtitle-position(root.edit-secondary-subtitle, round(value)); } }
-                            }
-                        }
-                        if pane-kind == 2 && root.subtitle-text-style-available : Rectangle {
-                            width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px,
-                                root.width * 0.8) - (root.compact-ui ? 28px : 32px);
-                            height: 200px; border-radius: 8px; border-width: 1px;
-                            border-color: Theme.sidebar-card-border(root.dark-theme);
-                            background: root.sidebar-card-material-fill;
-                            VerticalLayout { padding: 8px; spacing: 8px;
-                            HorizontalLayout { height: 30px; spacing: 8px;
-                                Text { text: "Scale"; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                                PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: root.subtitle-scale-slider;
-                                    enabled: root.loaded && root.subtitle-scale-known; hint: "Subtitle text scale";
-                                    changed(value) => { root.set-subtitle-scale-slider(value); } }
-                                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle text scale";
-                                    enabled: root.loaded && root.subtitle-scale-known;
-                                    activated => { root.set-subtitle-scale-slider(0); } }
-                            }
-                            HorizontalLayout { height: 30px; spacing: 8px;
-                                Text { text: "Font"; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                                Rectangle { horizontal-stretch: 1; background: transparent; }
-                                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 140px; label: root.subtitle-font; hint: "Choose subtitle font";
-                                    enabled: root.loaded && root.subtitle-font-known;
-                                    activated => { root.choose-subtitle-font(); } }
-                                ObservedSizePicker { width: 60px; height: 24px;
-                                    model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
-                                    observed-index: root.subtitle-font-size >= 25 && root.subtitle-font-size <= 75 && mod(root.subtitle-font-size - 25, 5) == 0 ? round((root.subtitle-font-size - 25) / 5) : -1;
-                                    observed-value: root.subtitle-font-size-known ? "" + root.subtitle-font-size : "—";
-                                    enabled: root.loaded && root.subtitle-font-size-known;
-                                    accessible-label: "Subtitle font size";
-                                    selected(value) => { if value.is-float() { root.set-subtitle-font-size(value.to-float()); } }
-                                }
-                            }
-                            HorizontalLayout { height: 30px; spacing: 8px;
-                                Text { text: "Color"; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                                Rectangle { horizontal-stretch: 1; background: transparent; }
-                                SubtitleColorWell { observed-color: root.subtitle-text-color; hint: "Subtitle text color";
-                                    enabled: root.loaded && root.subtitle-text-color-known;
-                                    edited(value) => { root.set-subtitle-color(1, value); } }
-                            }
-                            HorizontalLayout { height: 30px; spacing: 8px;
-                                Text { text: "Border"; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                                Rectangle { horizontal-stretch: 1; background: transparent; }
-                                ObservedSizePicker { width: 60px; height: 24px;
-                                model: ["0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "4", "5"];
-                                observed-index: root.subtitle-outline-size == 0 ? 0 : root.subtitle-outline-size == 0.25 ? 1 : root.subtitle-outline-size == 0.5 ? 2 : root.subtitle-outline-size == 1 ? 3 : root.subtitle-outline-size == 1.5 ? 4 : root.subtitle-outline-size == 2 ? 5 : root.subtitle-outline-size == 2.5 ? 6 : root.subtitle-outline-size == 3 ? 7 : root.subtitle-outline-size == 4 ? 8 : root.subtitle-outline-size == 5 ? 9 : -1;
-                                observed-value: root.subtitle-outline-size-known ? "" + root.subtitle-outline-size : "—";
-                                enabled: root.loaded && root.subtitle-outline-size-known;
-                                accessible-label: "Subtitle outline width";
-                                selected(value) => { if value.is-float() { root.set-subtitle-outline-size(value.to-float()); } }
-                                }
-                                SubtitleColorWell { observed-color: root.subtitle-border-color; hint: "Subtitle border color";
-                                    enabled: root.loaded && root.subtitle-border-color-known;
-                                    edited(value) => { root.set-subtitle-color(3, value); } }
-                            }
-                            HorizontalLayout { height: 30px; spacing: 8px;
-                                Text { text: "Shadow"; color: root.dark-theme ? #dddddd : #29292d;
-                                    font-size: 12px; font-weight: 700; vertical-alignment: center; }
-                                Rectangle { horizontal-stretch: 1; background: transparent; }
-                                SubtitleColorWell { observed-color: root.subtitle-shadow-color; hint: "Subtitle shadow color";
-                                    enabled: root.loaded && root.subtitle-shadow-color-known;
-                                    edited(value) => { root.set-subtitle-color(2, value); } }
-                            }
-                            }
-                        }
-                        if pane-kind == 2 && !root.subtitle-text-style-available : Text {
-                            text: "Some settings are not available for this subtitle type.";
-                            wrap: word-wrap; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 11px;
-                        }
-                        if pane-kind == 2 && root.subtitle-ass-style-warning : Text {
-                            text: "Setting style options for ASS subtitles may break rendering.";
-                            wrap: word-wrap; color: root.dark-theme ? #bbbbbb : #66666b; font-size: 11px;
-                        }
+                        if pane-kind == 2 : SubtitleQuickSettingsPage {
+                            sidebar-width: min((side == 0 ? root.leading-sidebar-width : root.trailing-sidebar-width) * 1px, root.width * 0.8);
+                            choose-subtitle-font => { root.choose-subtitle-font(); }
+                            compact-ui: root.compact-ui;
+                            dark-theme: root.dark-theme;
+                            edit-secondary-subtitle <=> root.edit-secondary-subtitle;
+                            find-online-subtitles => { root.find-online-subtitles(); }
+                            interactive-accent-color: root.interactive-accent-color;
+                            load-subtitle => { root.browse-files(2); }
+                            loaded: root.loaded;
+                            platform-windows: root.platform-windows;
+                            reset-subtitle-delay => { root.reset-subtitle-delay(); }
+                            restore-player-focus => { keys.focus(); }
+                            secondary-subtitle-delay: root.secondary-subtitle-delay;
+                            secondary-subtitle-delay-known: root.secondary-subtitle-delay-known;
+                            secondary-subtitle-delay-text: root.secondary-subtitle-delay-text;
+                            secondary-subtitle-position: root.secondary-subtitle-position;
+                            secondary-subtitle-position-known: root.secondary-subtitle-position-known;
+                            secondary-subtitle-track-selected-index: root.secondary-subtitle-track-selected-index;
+                            secondary-subtitle-tracks: root.secondary-subtitle-tracks;
+                            secondary-subtitle-visibility-known: root.secondary-subtitle-visibility-known;
+                            secondary-subtitle-visible: root.secondary-subtitle-visible;
+                            set-delay(lane, seconds) => { root.set-delay(lane, seconds); }
+                            set-delay-text(lane, text) => { return root.set-delay-text(lane, text); }
+                            set-subtitle-color(component, color) => { root.set-subtitle-color(component, color); }
+                            set-subtitle-font-size(value) => { root.set-subtitle-font-size(value); }
+                            set-subtitle-outline-size(value) => { root.set-subtitle-outline-size(value); }
+                            set-subtitle-position(secondary, position) => { root.set-subtitle-position(secondary, position); }
+                            set-subtitle-scale-slider(value) => { root.set-subtitle-scale-slider(value); }
+                            sidebar-card-material-fill: root.sidebar-card-material-fill;
+                            sidebar-control-material-fill: root.sidebar-control-material-fill;
+                            subtitle-ass-style-warning: root.subtitle-ass-style-warning;
+                            subtitle-border-color: root.subtitle-border-color;
+                            subtitle-border-color-known: root.subtitle-border-color-known;
+                            subtitle-delay: root.subtitle-delay;
+                            subtitle-delay-text: root.subtitle-delay-text;
+                            subtitle-font: root.subtitle-font;
+                            subtitle-font-known: root.subtitle-font-known;
+                            subtitle-font-size: root.subtitle-font-size;
+                            subtitle-font-size-known: root.subtitle-font-size-known;
+                            subtitle-outline-size: root.subtitle-outline-size;
+                            subtitle-outline-size-known: root.subtitle-outline-size-known;
+                            subtitle-position: root.subtitle-position;
+                            subtitle-position-known: root.subtitle-position-known;
+                            subtitle-scale-known: root.subtitle-scale-known;
+                            subtitle-scale-slider: root.subtitle-scale-slider;
+                            subtitle-shadow-color: root.subtitle-shadow-color;
+                            subtitle-shadow-color-known: root.subtitle-shadow-color-known;
+                            subtitle-text-color: root.subtitle-text-color;
+                            subtitle-text-color-known: root.subtitle-text-color-known;
+                            subtitle-text-style-available: root.subtitle-text-style-available;
+                            subtitle-track-selected-index: root.subtitle-track-selected-index;
+                            subtitle-tracks: root.subtitle-tracks;
+                            subtitle-visible: root.subtitle-visible;
+                            toggle-secondary-subtitle-visibility => { root.toggle-secondary-subtitle-visibility(); }
+                            toggle-subtitle-visibility => { root.toggle-subtitle-visibility(); }
+                            track-selected(kind, token) => { root.select-item(root.selection-for-pane(kind), token); }
+                            windows-accent-color: root.windows-accent-color;
+                            windows-accent-foreground: root.windows-accent-foreground;
+                            windows-sidebar-material-active: root.windows-sidebar-material-active;
                         }
                     }
                 }
