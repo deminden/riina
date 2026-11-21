@@ -260,12 +260,14 @@ impl Editor {
         Ok(())
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "decomposition tracked in docs/review"
-    )]
     pub fn install(&self, app: &PlayerWindow, sender: CommandSender) {
         lock(&self.0).sender = Some(sender.clone());
+        self.install_edit_session(app, sender);
+        self.install_viewport(app);
+        self.install_drag(app);
+    }
+
+    fn install_edit_session(&self, app: &PlayerWindow, sender: CommandSender) {
         let editor = self.clone();
         let weak = app.as_weak();
         let begin_sender = sender.clone();
@@ -295,6 +297,9 @@ impl Editor {
                 app.set_status(error.into());
             }
         });
+    }
+
+    fn install_viewport(&self, app: &PlayerWindow) {
         let editor = self.clone();
         let weak = app.as_weak();
         app.on_crop_viewport_changed(move || {
@@ -345,6 +350,9 @@ impl Editor {
                 editor.refresh(&app);
             }
         });
+    }
+
+    fn install_drag(&self, app: &PlayerWindow) {
         let editor = self.clone();
         let weak = app.as_weak();
         app.on_begin_crop_drag(move |kind, x, y| {

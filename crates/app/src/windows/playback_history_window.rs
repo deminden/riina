@@ -25,6 +25,7 @@ pub(crate) struct Guard {
     _timer: Rc<slint::Timer>,
 }
 
+#[derive(Clone)]
 struct WindowConnection {
     history: HistoryState,
     player: riina_mpv::CommandSender,
@@ -118,23 +119,28 @@ pub(crate) fn install(
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn connect_window(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     connection: WindowConnection,
 ) {
-    let WindowConnection {
-        history,
-        player,
-        preferences_path,
-        history_cleared,
-        history_sync,
-        collapsed_groups,
-    } = connection;
+    let history = &connection.history;
+    let collapsed_groups = &connection.collapsed_groups;
+    let selection_anchor = Arc::new(AtomicI32::new(-1_i32));
+    connect_search(window, history, collapsed_groups);
+    connect_selection(window, history, collapsed_groups, &selection_anchor);
+    connect_group_expansion(window, history, collapsed_groups);
+    connect_context_actions(app, window, selection_anchor, &connection);
+    connect_group_collapse(window, history, collapsed_groups);
+    connect_open_entry(app, window, history, &connection.player);
+    connect_clear_history(app, window, &connection);
+}
+
+fn connect_search(
+    window: &PlaybackHistoryWindow,
+    history: &HistoryState,
+    collapsed_groups: &CollapsedGroups,
+) {
     let weak_window = window.as_weak();
     let observed_history = history.clone();
     let search_collapsed_groups = collapsed_groups.clone();
@@ -144,9 +150,15 @@ fn connect_window(
         };
         refresh(&window, &observed_history, &search_collapsed_groups);
     });
+}
 
+fn connect_selection(
+    window: &PlaybackHistoryWindow,
+    history: &HistoryState,
+    collapsed_groups: &CollapsedGroups,
+    selection_anchor: &Arc<AtomicI32>,
+) {
     let weak_window = window.as_weak();
-    let selection_anchor = Arc::new(AtomicI32::new(-1_i32));
     let anchor_for_selection = selection_anchor.clone();
     let history_for_selection = history.clone();
     let groups_for_selection = collapsed_groups.clone();
@@ -226,7 +238,13 @@ fn connect_window(
         };
         window.invoke_context_action(context_action, SharedString::default());
     });
+}
 
+fn connect_group_expansion(
+    window: &PlaybackHistoryWindow,
+    history: &HistoryState,
+    collapsed_groups: &CollapsedGroups,
+) {
     let weak_window = window.as_weak();
     let groups_for_toggle = collapsed_groups.clone();
     let history_for_toggle = history.clone();
@@ -259,18 +277,13 @@ fn connect_window(
             .clear();
         refresh(&window, &history_for_expand, &groups_for_expand);
     });
+}
 
-    connect_context_actions(
-        app,
-        window,
-        selection_anchor.clone(),
-        history.clone(),
-        player.clone(),
-        history_cleared.clone(),
-        history_sync.clone(),
-        collapsed_groups.clone(),
-    );
-
+fn connect_group_collapse(
+    window: &PlaybackHistoryWindow,
+    history: &HistoryState,
+    collapsed_groups: &CollapsedGroups,
+) {
     let weak_window = window.as_weak();
     let groups_for_collapse = collapsed_groups.clone();
     let history_for_collapse = history.clone();
@@ -298,7 +311,14 @@ fn connect_window(
             .unwrap_or_else(std::sync::PoisonError::into_inner) = group_labels;
         refresh(&window, &history_for_collapse, &groups_for_collapse);
     });
+}
 
+fn connect_open_entry(
+    app: &PlayerWindow,
+    window: &PlaybackHistoryWindow,
+    history: &HistoryState,
+    player: &riina_mpv::CommandSender,
+) {
     let weak_app = app.as_weak();
     let history_for_open = history.clone();
     let player_for_open = player.clone();
@@ -315,13 +335,22 @@ fn connect_window(
             .unwrap_or(0.0);
         media_open_history_entry(&app, path, position, player_for_open.clone());
     });
+}
 
+fn connect_clear_history(
+    app: &PlayerWindow,
+    window: &PlaybackHistoryWindow,
+    connection: &WindowConnection,
+) {
+    let history = &connection.history;
+    let collapsed_groups = &connection.collapsed_groups;
     let weak_app = app.as_weak();
     let weak_window = window.as_weak();
     let history_for_clear = history.clone();
     let groups_for_clear = collapsed_groups.clone();
-    let history_cleared_for_clear = history_cleared.clone();
-    let history_sync_for_clear = history_sync;
+    let history_cleared_for_clear = connection.history_cleared.clone();
+    let history_sync_for_clear = connection.history_sync.clone();
+    let preferences_path = connection.preferences_path.clone();
     window.on_clear_history(move || {
         let (Some(app), Some(window)) = (weak_app.upgrade(), weak_window.upgrade()) else {
             return;
@@ -420,31 +449,15 @@ fn context_selection_in_row_order(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "The callbacks share window identity, selection and history state"
-)]
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn connect_context_actions(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     selection_anchor: Arc<AtomicI32>,
-    history: HistoryState,
-    player: riina_mpv::CommandSender,
-    history_cleared: Arc<std::sync::atomic::AtomicBool>,
-    history_sync: HistorySync,
-    collapsed_groups: CollapsedGroups,
+    connection: &WindowConnection,
 ) {
     let weak_app = app.as_weak();
     let weak_window = window.as_weak();
-    let action_history = history.clone();
-    let action_player = player.clone();
-    let action_cleared = history_cleared.clone();
-    let action_sync = history_sync.clone();
-    let action_groups = collapsed_groups.clone();
+    let context = connection.clone();
     window.on_context_action(move |action, clicked_path| {
         let (Some(app), Some(window)) = (weak_app.upgrade(), weak_window.upgrade()) else {
             return;
@@ -456,7 +469,7 @@ fn connect_context_actions(
                     .into_iter()
                     .filter(|path| describe(path).4)
                     .collect::<Vec<_>>();
-                crate::media_open::selection(&app, playable, false, action_player.clone());
+                crate::media_open::selection(&app, playable, false, context.player.clone());
             }
             1 => {
                 let playable = paths
@@ -478,126 +491,149 @@ fn connect_context_actions(
                     }
                 }
             }
-            3 => {
-                let response = MessageDialog::new()
-                    .set_title("Remove from Playback History")
-                    .set_description(if paths.len() == 1 {
-                        "Remove this item from the playback history?".to_owned()
-                    } else {
-                        format!("Remove {} items from the playback history?", paths.len())
-                    })
-                    .set_buttons(MessageButtons::YesNo)
-                    .show();
-                if response != MessageDialogResult::Yes {
-                    return;
-                }
-                let result = action_history
-                    .lock()
-                    .map_err(|_| "playback history lock poisoned".to_owned())
-                    .and_then(|mut history| {
-                        let removed = history.remove_paths(paths.iter().map(String::as_str))?;
-                        let sync_error = if removed > 0 {
-                            action_cleared.store(true, std::sync::atomic::Ordering::Release);
-                            let entries = history.entries().to_vec();
-                            drop(history);
-                            action_sync(entries).err()
-                        } else {
-                            None
-                        };
-                        Ok::<_, String>((removed, sync_error))
-                    });
-                match result {
-                    Ok((removed, sync_error)) if removed > 0 => {
-                        clear_history_selection(&window, &selection_anchor);
-                        refresh(&window, &action_history, &action_groups);
-                        if let Some(error) = sync_error {
-                            app.set_status(format!("History was removed, but plugins could not be updated: {error}").into());
-                        }
-                    }
-                    Ok((_, _)) => app.set_status("The history items were already removed".into()),
-                    Err(error) => app.set_status(format!("Could not remove history items: {error}").into()),
-                }
-            }
-            4 => {
-                let files = paths
-                    .iter()
-                    .filter_map(|reference| {
-                        path_from_reference(reference)
-                            .filter(|path| path.is_file())
-                            .map(|path| (reference.clone(), path))
-                    })
-                    .collect::<Vec<_>>();
-                if files.is_empty() {
-                    app.set_status("Only available local files can be moved to the system bin".into());
-                    return;
-                }
-                let trash_name = crate::platform::system_trash_name();
-                let description = if files.len() == 1 {
-                    format!("Move {} to the system bin?", files[0].1.display())
-                } else {
-                    format!("Move {} files to the {trash_name}?", files.len())
-                };
-                if MessageDialog::new()
-                    .set_title("Move Files to Trash")
-                    .set_description(description)
-                    .set_buttons(MessageButtons::YesNo)
-                    .show()
-                    != MessageDialogResult::Yes
-                {
-                    return;
-                }
-                let weak_app = weak_app.clone();
-                let weak_window = weak_window.clone();
-                let trash_history = action_history.clone();
-                let trash_cleared = action_cleared.clone();
-                let trash_sync = action_sync.clone();
-                let trash_groups = action_groups.clone();
-                let trash_anchor = selection_anchor.clone();
-                let _ = crate::background::spawn_named("riina-history-trash-selection", move || {
-                        let mut removed_references = Vec::new();
-                        let mut failures = Vec::new();
-                        for (reference, path) in files {
-                            match trash::delete(&path) {
-                                Ok(()) => removed_references.push(reference),
-                                Err(error) => failures.push(error.to_string()),
-                            }
-                        }
-                        let history_result = trash_history
-                            .lock()
-                            .map_err(|_| "playback history lock poisoned".to_owned())
-                            .and_then(|mut history| {
-                                let removed = history.remove_paths(removed_references.iter().map(String::as_str))?;
-                                if removed > 0 {
-                                    trash_cleared.store(true, std::sync::atomic::Ordering::Release);
-                                    let entries = history.entries().to_vec();
-                                    drop(history);
-                                    trash_sync(entries)?;
-                                }
-                                Ok(removed)
-                            });
-                        let _ = crate::background::to_ui(weak_app, move |app| {
-                            let Some(window) = weak_window.upgrade() else {
-                                return;
-                            };
-                            match history_result {
-                                Ok(removed) => {
-                                    if removed > 0 {
-                                        clear_history_selection(&window, &trash_anchor);
-                                        refresh(&window, &trash_history, &trash_groups);
-                                    }
-                                    if failures.is_empty() {
-                                        app.set_status(format!("Moved {removed} files to the {trash_name}").into());
-                                    } else {
-                                        app.set_status(format!("Moved {removed} files to the {trash_name}; {} could not be moved", failures.len()).into());
-                                    }
-                                }
-                                Err(error) => app.set_status(format!("Files were moved to the {trash_name}, but history could not be updated: {error}").into()),
-                            }
-                        });
-                    });
-            }
+            3 => remove_history_entries(&app, &window, paths, &selection_anchor, &context),
+            4 => move_history_files_to_trash(&app, &window, paths, &selection_anchor, &context),
             _ => {}
         }
+    });
+}
+
+fn remove_history_entries(
+    app: &PlayerWindow,
+    window: &PlaybackHistoryWindow,
+    paths: Vec<String>,
+    selection_anchor: &AtomicI32,
+    connection: &WindowConnection,
+) {
+    let response = MessageDialog::new()
+        .set_title("Remove from Playback History")
+        .set_description(if paths.len() == 1 {
+            "Remove this item from the playback history?".to_owned()
+        } else {
+            format!("Remove {} items from the playback history?", paths.len())
+        })
+        .set_buttons(MessageButtons::YesNo)
+        .show();
+    if response != MessageDialogResult::Yes {
+        return;
+    }
+    let result = connection
+        .history
+        .lock()
+        .map_err(|_| "playback history lock poisoned".to_owned())
+        .and_then(|mut history| {
+            let removed = history.remove_paths(paths.iter().map(String::as_str))?;
+            let sync_error = if removed > 0 {
+                connection
+                    .history_cleared
+                    .store(true, std::sync::atomic::Ordering::Release);
+                let entries = history.entries().to_vec();
+                drop(history);
+                (connection.history_sync)(entries).err()
+            } else {
+                None
+            };
+            Ok::<_, String>((removed, sync_error))
+        });
+    match result {
+        Ok((removed, sync_error)) if removed > 0 => {
+            clear_history_selection(window, selection_anchor);
+            refresh(window, &connection.history, &connection.collapsed_groups);
+            if let Some(error) = sync_error {
+                app.set_status(
+                    format!("History was removed, but plugins could not be updated: {error}")
+                        .into(),
+                );
+            }
+        }
+        Ok((_, _)) => app.set_status("The history items were already removed".into()),
+        Err(error) => app.set_status(format!("Could not remove history items: {error}").into()),
+    }
+}
+
+fn move_history_files_to_trash(
+    app: &PlayerWindow,
+    window: &PlaybackHistoryWindow,
+    paths: Vec<String>,
+    selection_anchor: &Arc<AtomicI32>,
+    connection: &WindowConnection,
+) {
+    let files = paths
+        .iter()
+        .filter_map(|reference| {
+            path_from_reference(reference)
+                .filter(|path| path.is_file())
+                .map(|path| (reference.clone(), path))
+        })
+        .collect::<Vec<_>>();
+    if files.is_empty() {
+        app.set_status("Only available local files can be moved to the system bin".into());
+        return;
+    }
+    let trash_name = crate::platform::system_trash_name();
+    let description = if files.len() == 1 {
+        format!("Move {} to the system bin?", files[0].1.display())
+    } else {
+        format!("Move {} files to the {trash_name}?", files.len())
+    };
+    if MessageDialog::new()
+        .set_title("Move Files to Trash")
+        .set_description(description)
+        .set_buttons(MessageButtons::YesNo)
+        .show()
+        != MessageDialogResult::Yes
+    {
+        return;
+    }
+    let weak_app = app.as_weak();
+    let weak_window = window.as_weak();
+    let trash_history = connection.history.clone();
+    let trash_cleared = connection.history_cleared.clone();
+    let trash_sync = connection.history_sync.clone();
+    let trash_groups = connection.collapsed_groups.clone();
+    let trash_anchor = selection_anchor.clone();
+    let _ = crate::background::spawn_named("riina-history-trash-selection", move || {
+        let mut removed_references = Vec::new();
+        let mut failures = Vec::new();
+        for (reference, path) in files {
+            match trash::delete(&path) {
+                Ok(()) => removed_references.push(reference),
+                Err(error) => failures.push(error.to_string()),
+            }
+        }
+        let history_result = trash_history
+            .lock()
+            .map_err(|_| "playback history lock poisoned".to_owned())
+            .and_then(|mut history| {
+                let removed =
+                    history.remove_paths(removed_references.iter().map(String::as_str))?;
+                if removed > 0 {
+                    trash_cleared.store(true, std::sync::atomic::Ordering::Release);
+                    let entries = history.entries().to_vec();
+                    drop(history);
+                    trash_sync(entries)?;
+                }
+                Ok(removed)
+            });
+        let _ = crate::background::to_ui(weak_app, move |app| {
+            let Some(window) = weak_window.upgrade() else {
+                return;
+            };
+            match history_result {
+                    Ok(removed) => {
+                        if removed > 0 {
+                            clear_history_selection(&window, &trash_anchor);
+                            refresh(&window, &trash_history, &trash_groups);
+                        }
+                        if failures.is_empty() {
+                            app.set_status(format!("Moved {removed} files to the {trash_name}").into());
+                        } else {
+                            app.set_status(format!("Moved {removed} files to the {trash_name}; {} could not be moved", failures.len()).into());
+                        }
+                    }
+                    Err(error) => app.set_status(format!("Files were moved to the {trash_name}, but history could not be updated: {error}").into()),
+                }
+        });
     });
 }
 

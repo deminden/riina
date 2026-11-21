@@ -74,19 +74,31 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
     });
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(
     app: &PlayerWindow,
     player: &riina_mpv::CommandSender,
     screenshot_scratch: Arc<crate::screenshot_output::Scratch>,
     last_video: Rc<RefCell<crate::video_osd::VideoOsd>>,
 ) {
-    let disable_video_osd = last_video.clone();
-    let pending_video_osd = last_video;
-    let idle_timer = Rc::new(slint::Timer::default());
+    install_controls_fade(app);
+    let seek_timer = Rc::new(slint::Timer::default());
+    let video_timer = Rc::new(slint::Timer::default());
+    let screenshot_timer = Rc::new(slint::Timer::default());
+    install_osd_policy(
+        app,
+        &seek_timer,
+        &video_timer,
+        &screenshot_timer,
+        last_video.clone(),
+    );
+    install_screenshot_actions(app, player, screenshot_scratch);
+    install_seek_osd(app, seek_timer);
+    install_screenshot_preview(app, screenshot_timer);
+    install_video_osd(app, video_timer, last_video);
+    install_controls_deadline(app);
+}
+
+fn install_controls_fade(app: &PlayerWindow) {
     let controls_fade_timer = Rc::new(slint::Timer::default());
     let controls_fade_parent = app.as_weak();
     let controls_fade_timeout = controls_fade_timer.clone();
@@ -121,9 +133,15 @@ pub(super) fn install(
             );
         }
     });
-    let seek_timer = Rc::new(slint::Timer::default());
-    let video_timer = Rc::new(slint::Timer::default());
-    let screenshot_timer = Rc::new(slint::Timer::default());
+}
+
+fn install_osd_policy(
+    app: &PlayerWindow,
+    seek_timer: &Rc<slint::Timer>,
+    video_timer: &Rc<slint::Timer>,
+    screenshot_timer: &Rc<slint::Timer>,
+    disable_video_osd: Rc<RefCell<crate::video_osd::VideoOsd>>,
+) {
     let disable_seek_timer = seek_timer.clone();
     let disable_video_timer = video_timer.clone();
     let disable_screenshot_timer = screenshot_timer.clone();
@@ -144,6 +162,13 @@ pub(super) fn install(
         app.set_video_osd_request_feedback(false);
         clear_screenshot_preview(&app);
     });
+}
+
+fn install_screenshot_actions(
+    app: &PlayerWindow,
+    player: &riina_mpv::CommandSender,
+    screenshot_scratch: Arc<crate::screenshot_output::Scratch>,
+) {
     let screenshot_player = player.clone();
     let weak = app.as_weak();
     app.on_take_screenshot(move || {
@@ -188,6 +213,9 @@ pub(super) fn install(
             app.set_status(error.to_string().into());
         }
     });
+}
+
+fn install_seek_osd(app: &PlayerWindow, seek_timer: Rc<slint::Timer>) {
     let weak = app.as_weak();
     app.on_show_seek_osd(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -208,6 +236,9 @@ pub(super) fn install(
             },
         );
     });
+}
+
+fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Timer>) {
     let weak = app.as_weak();
     app.on_show_screenshot_preview(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -254,6 +285,13 @@ pub(super) fn install(
             app.set_status(error.to_string().into());
         }
     });
+}
+
+fn install_video_osd(
+    app: &PlayerWindow,
+    video_timer: Rc<slint::Timer>,
+    pending_video_osd: Rc<RefCell<crate::video_osd::VideoOsd>>,
+) {
     let weak = app.as_weak();
     app.on_show_video_osd(move || {
         let Some(app) = weak.upgrade() else { return };
@@ -291,6 +329,10 @@ pub(super) fn install(
             },
         );
     });
+}
+
+fn install_controls_deadline(app: &PlayerWindow) {
+    let idle_timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();
     let activity_timer = idle_timer.clone();
     app.on_activity(move || {

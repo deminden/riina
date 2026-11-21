@@ -170,6 +170,104 @@ struct NowPlayingSnapshot {
     fallback_video_time: Option<f64>,
 }
 
+impl NowPlayingSnapshot {
+    fn from_playback(state: &Playback, thumbnail_preview_enabled: bool) -> Self {
+        let audio_media = state.audio_status() == riina_core::music_mode::AudioStatus::Audio;
+        let artwork_enabled = now_playing_artwork_enabled();
+        let album_art_track = if artwork_enabled {
+            state
+                .tracks
+                .iter()
+                .find(|track| track.kind == riina_core::TrackKind::Video && track.albumart)
+        } else {
+            None
+        };
+        Self {
+            generation: state.generation,
+            title: state.title.clone(),
+            artist: if audio_media {
+                state.artist.clone()
+            } else {
+                None
+            },
+            album: if audio_media {
+                state.album.clone()
+            } else {
+                None
+            },
+            duration: state
+                .duration
+                .filter(|value| value.is_finite() && *value >= 0.0),
+            position: state
+                .position
+                .filter(|value| value.is_finite() && *value >= 0.0),
+            speed: if state.speed.is_finite() {
+                state.speed
+            } else {
+                1.0
+            },
+            paused: state.paused || state.phase != Phase::Playing,
+            phase: state.phase,
+            loop_mode: state.loop_mode(),
+            audio_media,
+            queue_count: state.playlist.len(),
+            queue_index: state.playlist.iter().position(|entry| entry.current),
+            chapter_count: state.chapters.len(),
+            chapter_index: state.position.and_then(|position| {
+                state
+                    .chapters
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, chapter)| chapter.time.is_finite() && chapter.time <= position)
+                    .map(|(index, _)| index)
+                    .next_back()
+            }),
+            artwork_enabled,
+            asset_url: state
+                .playlist
+                .iter()
+                .find(|entry| entry.current)
+                .map(|entry| entry.filename.clone()),
+            artwork_path: album_art_track.and_then(|track| track.external_filename.clone()),
+            embedded_artwork_track: album_art_track
+                .filter(|track| track.external_filename.is_none())
+                .map(|track| track.id),
+            fallback_video_track: if artwork_enabled && thumbnail_preview_enabled && !audio_media {
+                state
+                    .tracks
+                    .iter()
+                    .find(|track| {
+                        track.kind == riina_core::TrackKind::Video
+                            && !track.albumart
+                            && track.selected
+                    })
+                    .map(|track| track.id)
+            } else {
+                None
+            },
+            fallback_video_time: if artwork_enabled && thumbnail_preview_enabled && !audio_media {
+                state
+                    .duration
+                    .filter(|duration| duration.is_finite() && *duration > 0.0)
+                    .map(|duration| {
+                        let requested = if duration < 120.0 {
+                            duration / 2.0
+                        } else {
+                            60.0
+                        };
+                        let sample = (requested / duration
+                            * f64::from(riina_mpv::thumbnail_generator::SAMPLE_COUNT))
+                        .ceil()
+                            - 1.0;
+                        duration * sample / f64::from(riina_mpv::thumbnail_generator::SAMPLE_COUNT)
+                    })
+            } else {
+                None
+            },
+        }
+    }
+}
+
 impl SystemMediaControls {
     pub(crate) fn new(library: PathBuf) -> Self {
         let (sender, receiver) = mpsc::sync_channel(64);
@@ -270,10 +368,6 @@ impl SystemMediaControls {
         self.install_targets(forward_interval, backward_interval);
     }
 
-    #[expect(
-        clippy::too_many_lines,
-        reason = "decomposition tracked in docs/review"
-    )]
     pub(crate) fn publish_playback(&mut self, state: &Playback, thumbnail_preview_enabled: bool) {
         let active = !matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed);
         if !active {
@@ -283,99 +377,7 @@ impl SystemMediaControls {
             return;
         }
 
-        let audio_media = state.audio_status() == riina_core::music_mode::AudioStatus::Audio;
-        let artwork_enabled = now_playing_artwork_enabled();
-        let album_art_track = if artwork_enabled {
-            state
-                .tracks
-                .iter()
-                .find(|track| track.kind == riina_core::TrackKind::Video && track.albumart)
-        } else {
-            None
-        };
-        let snapshot = NowPlayingSnapshot {
-            generation: state.generation,
-            title: state.title.clone(),
-            artist: if audio_media {
-                state.artist.clone()
-            } else {
-                None
-            },
-            album: if audio_media {
-                state.album.clone()
-            } else {
-                None
-            },
-            duration: state
-                .duration
-                .filter(|value| value.is_finite() && *value >= 0.0),
-            position: state
-                .position
-                .filter(|value| value.is_finite() && *value >= 0.0),
-            speed: if state.speed.is_finite() {
-                state.speed
-            } else {
-                1.0
-            },
-            paused: state.paused || state.phase != Phase::Playing,
-            phase: state.phase,
-            loop_mode: state.loop_mode(),
-            audio_media,
-            queue_count: state.playlist.len(),
-            queue_index: state.playlist.iter().position(|entry| entry.current),
-            chapter_count: state.chapters.len(),
-            chapter_index: state.position.and_then(|position| {
-                state
-                    .chapters
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, chapter)| chapter.time.is_finite() && chapter.time <= position)
-                    .map(|(index, _)| index)
-                    .next_back()
-            }),
-            artwork_enabled,
-            asset_url: state
-                .playlist
-                .iter()
-                .find(|entry| entry.current)
-                .map(|entry| entry.filename.clone()),
-            artwork_path: album_art_track.and_then(|track| track.external_filename.clone()),
-            embedded_artwork_track: album_art_track
-                .filter(|track| track.external_filename.is_none())
-                .map(|track| track.id),
-            fallback_video_track: if artwork_enabled && thumbnail_preview_enabled && !audio_media {
-                state
-                    .tracks
-                    .iter()
-                    .find(|track| {
-                        track.kind == riina_core::TrackKind::Video
-                            && !track.albumart
-                            && track.selected
-                    })
-                    .map(|track| track.id)
-            } else {
-                None
-            },
-            fallback_video_time: if artwork_enabled && thumbnail_preview_enabled && !audio_media {
-                state
-                    .duration
-                    .filter(|duration| duration.is_finite() && *duration > 0.0)
-                    .map(|duration| {
-                        let requested = if duration < 120.0 {
-                            duration / 2.0
-                        } else {
-                            60.0
-                        };
-                        let sample = (requested / duration
-                            * f64::from(riina_mpv::thumbnail_generator::SAMPLE_COUNT))
-                        .ceil()
-                            - 1.0;
-                        duration * sample / f64::from(riina_mpv::thumbnail_generator::SAMPLE_COUNT)
-                    })
-            } else {
-                None
-            },
-        };
+        let snapshot = NowPlayingSnapshot::from_playback(state, thumbnail_preview_enabled);
         let artwork_source_changed = self.last_published.as_ref().is_none_or(|previous| {
             previous.generation != snapshot.generation
                 || previous.artwork_path != snapshot.artwork_path
