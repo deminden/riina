@@ -1,10 +1,19 @@
 //! Validated playback intent and its native command plan.
 mod arguments;
+mod audio;
+mod capture;
+mod filters;
 mod plan;
+mod playback;
+mod playlist;
+mod seek;
+mod subtitles;
+mod tracks;
+mod video;
 
 use crate::{
     LoopMode, TrackKind, control_preferences, crop, crop_session, hdr_preferences,
-    network_preferences, playlist, screenshot, subtitle_color, subtitle_controls, video_controls,
+    network_preferences, screenshot, subtitle_color, subtitle_controls, video_controls,
     video_reflection, video_viewport,
 };
 
@@ -143,7 +152,7 @@ pub enum Command {
     PlaylistNext,
     PlaylistPrevious,
     TogglePlaylistShuffle,
-    SortPlaylist(playlist::PlaylistSort),
+    SortPlaylist(crate::playlist::PlaylistSort),
     SelectTrack {
         kind: TrackKind,
         id: Option<i64>,

@@ -1,8 +1,9 @@
+use super::filters::FilterChain;
 use super::{AbLoopPoint, Command, CommandPlan, cmd, flag, set};
 use crate::{
     LoopMode, Phase, Playback, PlaylistEntry, TrackKind, audio_equalizer, crop, delogo,
     hdr_preferences, key_bindings, playlist, screenshot, subtitle_controls, valid_path,
-    video_filters, video_viewport,
+    video_viewport,
 };
 
 impl Command {
@@ -82,14 +83,8 @@ impl Command {
                 ));
                 commands
             }
-            Self::TogglePause if state.phase == Phase::Ended => {
-                // mpv stays at EOF after toggling its pause flag. Treat Play on
-                // the ended state as replay so the visible Play control works.
-                vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
-            }
-            Self::SetPaused(false) if state.phase == Phase::Ended => {
-                // Play from EOF must seek first; setting pause=no alone does not replay.
-                vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
+            Self::TogglePause | Self::SetPaused(false) if state.phase == Phase::Ended => {
+                replay_from_eof()
             }
             Self::NetworkCache(preferences) => preferences.commands()?,
             Self::NetworkOnlineVideos(preferences) => preferences
@@ -150,107 +145,17 @@ impl Command {
                     Vec::new()
                 }
             }
-            Self::ToggleVideoFilter(filter) => {
-                if !video_filters::valid_filter_string(filter) {
-                    return Err("The saved video filter string is invalid".into());
-                }
-                let filters = state
-                    .video_filters
-                    .as_ref()
-                    .ok_or("Video filters are unavailable")?;
-                if let Some(index) = filters.iter().position(|candidate| {
-                    video_filters::is_active(filter, std::slice::from_ref(candidate))
-                }) {
-                    vec![vec!["vf".into(), "del".into(), index.to_string()]]
-                } else {
-                    vec![vec!["vf".into(), "add".into(), filter.clone()]]
-                }
-            }
-            Self::AddVideoFilter(filter) => {
-                if !video_filters::valid_filter_string(filter) {
-                    return Err("The video filter string is invalid".into());
-                }
-                vec![vec!["vf".into(), "add".into(), filter.clone()]]
-            }
-            Self::RemoveVideoFilter(filter) => {
-                let filters = state
-                    .video_filters
-                    .as_ref()
-                    .ok_or("Video filters are unavailable")?;
-                let index = filters
-                    .iter()
-                    .position(|candidate| candidate == filter)
-                    .ok_or("The selected video filter is no longer active")?;
-                vec![vec!["vf".into(), "del".into(), index.to_string()]]
-            }
+            Self::ToggleVideoFilter(filter) => FilterChain::Video.toggle(state, filter)?,
+            Self::AddVideoFilter(filter) => FilterChain::Video.add(filter)?,
+            Self::RemoveVideoFilter(filter) => FilterChain::Video.remove(state, filter)?,
             Self::SetVideoFilterAt { index, filter } => {
-                if !video_filters::valid_filter_string(filter) {
-                    return Err("The video filter string is invalid".into());
-                }
-                let filters = state
-                    .video_filters
-                    .as_ref()
-                    .ok_or("Video filters are unavailable")?;
-                if *index >= filters.len() {
-                    return Err("The selected video filter is no longer active".into());
-                }
-                let mut chain = filters
-                    .iter()
-                    .map(video_filters::format_filter)
-                    .collect::<Vec<_>>();
-                chain[*index] = filter.clone();
-                vec![vec!["vf".into(), "set".into(), chain.join(",")]]
+                FilterChain::Video.replace(state, *index, filter)?
             }
-            Self::ToggleAudioFilter(filter) => {
-                if !video_filters::valid_filter_string(filter) {
-                    return Err("The saved audio filter string is invalid".into());
-                }
-                let filters = state
-                    .audio_filters
-                    .as_ref()
-                    .ok_or("Audio filters are unavailable")?;
-                if let Some(index) = filters.iter().position(|candidate| {
-                    video_filters::is_active(filter, std::slice::from_ref(candidate))
-                }) {
-                    vec![vec!["af".into(), "del".into(), index.to_string()]]
-                } else {
-                    vec![vec!["af".into(), "add".into(), filter.clone()]]
-                }
-            }
-            Self::AddAudioFilter(filter) => {
-                if !video_filters::valid_filter_string(filter) {
-                    return Err("The audio filter string is invalid".into());
-                }
-                vec![vec!["af".into(), "add".into(), filter.clone()]]
-            }
-            Self::RemoveAudioFilter(filter) => {
-                let filters = state
-                    .audio_filters
-                    .as_ref()
-                    .ok_or("Audio filters are unavailable")?;
-                let index = filters
-                    .iter()
-                    .position(|candidate| candidate == filter)
-                    .ok_or("The selected audio filter is no longer active")?;
-                vec![vec!["af".into(), "del".into(), index.to_string()]]
-            }
+            Self::ToggleAudioFilter(filter) => FilterChain::Audio.toggle(state, filter)?,
+            Self::AddAudioFilter(filter) => FilterChain::Audio.add(filter)?,
+            Self::RemoveAudioFilter(filter) => FilterChain::Audio.remove(state, filter)?,
             Self::SetAudioFilterAt { index, filter } => {
-                if !video_filters::valid_filter_string(filter) {
-                    return Err("The audio filter string is invalid".into());
-                }
-                let filters = state
-                    .audio_filters
-                    .as_ref()
-                    .ok_or("Audio filters are unavailable")?;
-                if *index >= filters.len() {
-                    return Err("The selected audio filter is no longer active".into());
-                }
-                let mut chain = filters
-                    .iter()
-                    .map(video_filters::format_filter)
-                    .collect::<Vec<_>>();
-                chain[*index] = filter.clone();
-                vec![vec!["af".into(), "set".into(), chain.join(",")]]
+                FilterChain::Audio.replace(state, *index, filter)?
             }
             Self::VideoCropRectangle(rectangle) => {
                 let source = state
@@ -647,6 +552,11 @@ impl Command {
         })
     }
 }
+fn replay_from_eof() -> Vec<Vec<String>> {
+    // Changing the pause flag at EOF leaves mpv on the last frame.
+    vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
+}
+
 fn set_loop_mode_commands(mode: LoopMode) -> Vec<Vec<String>> {
     match mode {
         LoopMode::Off => vec![set("loop-playlist", "no"), set("loop-file", "no")],
