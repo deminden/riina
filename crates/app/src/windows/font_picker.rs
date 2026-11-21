@@ -1,14 +1,12 @@
 //! Shared picker lifetime and background font discovery.
+mod catalog;
+
 use crate::{FontPicker, PlayerWindow, font_catalog};
 use slint::{
     ComponentHandle, ModelRc, StandardListViewItem, VecModel,
     winit_030::{WinitWindowAccessor, winit::window::Theme},
 };
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 fn items(values: impl Iterator<Item = String>) -> ModelRc<StandardListViewItem> {
     Rc::new(VecModel::from(
@@ -147,10 +145,6 @@ fn follow_player_theme(picker: &FontPicker, app: &PlayerWindow, timer: &Rc<slint
     );
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub fn connect(app: &PlayerWindow) {
     let current = Rc::new(RefCell::new(None::<FontPicker>));
     let appearance_timer = Rc::new(slint::Timer::default());
@@ -203,46 +197,7 @@ pub fn connect(app: &PlayerWindow) {
         };
         crate::appearance_preferences::install_system_typography(&picker);
         refresh_selection(&picker, &app);
-        let parent = app.as_weak();
-        let window = picker.as_weak();
-        picker.on_accept_font(move |text| {
-            let Some(app) = parent.upgrade() else {
-                return;
-            };
-            let selected = if text.is_empty() {
-                riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT.to_owned()
-            } else {
-                text.to_string()
-            };
-            app.invoke_subtitle_font_selected(selected.into());
-            if let Some(window) = window.upgrade() {
-                window.set_picker_active(false);
-                let _ = window.hide();
-            }
-            app.invoke_activity();
-        });
-        let parent = app.as_weak();
-        let window = picker.as_weak();
-        picker.on_cancel(move || {
-            if let Some(window) = window.upgrade() {
-                window.set_picker_active(false);
-                let _ = window.hide();
-            }
-            if let Some(app) = parent.upgrade() {
-                app.invoke_activity();
-            }
-        });
-        let parent = app.as_weak();
-        let window = picker.as_weak();
-        picker.window().on_close_requested(move || {
-            if let Some(window) = window.upgrade() {
-                window.set_picker_active(false);
-            }
-            if let Some(app) = parent.upgrade() {
-                app.invoke_activity();
-            }
-            slint::CloseRequestResponse::HideWindow
-        });
+        install_lifecycle(&picker, &app);
         if let Err(error) = picker.show() {
             app.set_status(error.to_string().into());
             return;
@@ -252,112 +207,68 @@ pub fn connect(app: &PlayerWindow) {
         crate::platform::center_auxiliary_window(&picker, &app);
         let window = picker.as_weak();
         *current.borrow_mut() = Some(picker);
-        // Only owned metadata crosses threads. A hidden reusable picker may
-        // finish discovery, but no scan shows it; player shutdown drops it.
-        let failure = window.clone();
-        if let Err(error) = crate::background::spawn_named("font-discovery", move || {
-            let families = font_catalog::installed_families();
-            let _ = crate::background::to_ui(window, move |picker| {
-                let families = Rc::new(families);
-                let filtered = Rc::new(RefCell::new(Vec::<usize>::new()));
-                let selected = Rc::new(Cell::new(None::<usize>));
-                let data = families.clone();
-                let map = filtered.clone();
-                let selection = selected.clone();
-                let weak = picker.as_weak();
-                picker.on_search(move |text| {
-                    let Some(picker) = weak.upgrade() else {
-                        return;
-                    };
-                    picker.invoke_cancel_reveal();
-                    let indices: Vec<_> = data
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, family)| family.matches(&text))
-                        .map(|(index, _)| index)
-                        .collect();
-                    // Clear row identity before replacing the filtered model;
-                    // the same numeric row may now refer to another family.
-                    picker.set_family_index(-1);
-                    picker.set_face_index(-1);
-                    selection.set(None);
-                    picker.set_preview_font_family("".into());
-                    picker.set_preview_font_weight(400);
-                    picker.set_preview_font_italic(false);
-                    picker.set_preview_font_stretch(1.0);
-                    let rows = items(indices.iter().map(|index| data[*index].name.clone()));
-                    *map.borrow_mut() = indices;
-                    picker.set_faces(items(std::iter::empty()));
-                    picker.set_families(rows);
-                    // Restore a visible exact face without firing user intent
-                    // or changing the filter/custom entry to force a match.
-                    if let Some((row, family, face)) =
-                        selection_for_name(&data, &map.borrow(), &picker.get_custom_name())
-                    {
-                        selection.set(Some(family));
-                        picker.set_faces(items(
-                            data[family].faces.iter().map(|face| face.label.clone()),
-                        ));
-                        picker.invoke_restore_selection(row as i32, face as i32);
-                        preview_face(&picker, &data[family], &data[family].faces[face]);
-                    }
-                });
-                let data = families.clone();
-                let map = filtered.clone();
-                let selection = selected.clone();
-                let weak = picker.as_weak();
-                picker.on_family_selected(move |row| {
-                    let Some(index) = usize::try_from(row)
-                        .ok()
-                        .and_then(|row| map.borrow().get(row).copied())
-                    else {
-                        return;
-                    };
-                    let Some(picker) = weak.upgrade() else {
-                        return;
-                    };
-                    selection.set(Some(index));
-                    picker.set_face_index(-1);
-                    picker.set_faces(items(
-                        data[index].faces.iter().map(|face| face.label.clone()),
-                    ));
-                    if let Some(face_index) = preferred_face_index(&data[index].faces)
-                        && let Some(face) = data[index].faces.get(face_index)
-                    {
-                        picker
-                            .invoke_restore_selection(picker.get_family_index(), face_index as i32);
-                        picker.set_custom_name(face.postscript_name.clone().into());
-                        preview_face(&picker, &data[index], face);
-                    }
-                });
-                let data = families;
-                let weak = picker.as_weak();
-                picker.on_face_selected(move |row| {
-                    let Some(family) = selected.get().and_then(|index| data.get(index)) else {
-                        return;
-                    };
-                    let Some(face) = usize::try_from(row)
-                        .ok()
-                        .and_then(|row| family.faces.get(row))
-                    else {
-                        return;
-                    };
-                    if let Some(picker) = weak.upgrade() {
-                        picker.invoke_cancel_reveal();
-                        picker.set_custom_name(face.postscript_name.clone().into());
-                        preview_face(&picker, family, face);
-                    }
-                });
-                picker.invoke_search(picker.get_filter_text());
-                picker.set_ready(true);
-            });
-        }) {
-            app.set_status(error.to_string().into());
-            if let Some(picker) = failure.upgrade() {
-                picker.set_ready(true);
-            }
+        discover_catalog(&app, window);
+    });
+}
+
+fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
+    let parent = app.as_weak();
+    let window = picker.as_weak();
+    picker.on_accept_font(move |text| {
+        let Some(app) = parent.upgrade() else {
+            return;
+        };
+        let selected = if text.is_empty() {
+            riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT.to_owned()
+        } else {
+            text.to_string()
+        };
+        app.invoke_subtitle_font_selected(selected.into());
+        if let Some(window) = window.upgrade() {
+            window.set_picker_active(false);
+            let _ = window.hide();
+        }
+        app.invoke_activity();
+    });
+    let parent = app.as_weak();
+    let window = picker.as_weak();
+    picker.on_cancel(move || {
+        if let Some(window) = window.upgrade() {
+            window.set_picker_active(false);
+            let _ = window.hide();
+        }
+        if let Some(app) = parent.upgrade() {
+            app.invoke_activity();
         }
     });
+    let parent = app.as_weak();
+    let window = picker.as_weak();
+    picker.window().on_close_requested(move || {
+        if let Some(window) = window.upgrade() {
+            window.set_picker_active(false);
+        }
+        if let Some(app) = parent.upgrade() {
+            app.invoke_activity();
+        }
+        slint::CloseRequestResponse::HideWindow
+    });
+}
+
+fn discover_catalog(app: &PlayerWindow, window: slint::Weak<FontPicker>) {
+    // Only owned metadata crosses threads. A hidden reusable picker may
+    // finish discovery, but no scan shows it; player shutdown drops it.
+    let failure = window.clone();
+    if let Err(error) = crate::background::spawn_named("font-discovery", move || {
+        let families = font_catalog::installed_families();
+        let _ = crate::background::to_ui(window, move |picker| {
+            catalog::install(&picker, families);
+        });
+    }) {
+        app.set_status(error.to_string().into());
+        if let Some(picker) = failure.upgrade() {
+            picker.set_ready(true);
+        }
+    }
 }
 
 #[cfg(test)]
