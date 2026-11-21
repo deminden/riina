@@ -154,6 +154,17 @@ Slint's headless test backend, including pointer/key input and focus changes.
 Debug builds retain the Slint lookup metadata those tests need. Release-profile
 widget tests require `SLINT_EMIT_DEBUG_INFO=1`; normal distribution builds omit
 that metadata. Native window/input and physical-display checks remain separate.
+On Windows, `cargo test -p riina --test headless_visual --locked` compares
+decoded RGBA pixels with the PNGs under `tests/visual/headless/windows/`.
+The software renderer uses a fixed clock and dimensions. The corpus covers
+playing, paused and stopped states, both player themes, all sidebar panes,
+compact and docked controls, Music Mode and all 11 light Settings pages.
+The test runs on Windows to keep system-font rasterization consistent.
+Set `RIINA_UPDATE_HEADLESS_BASELINES=1` only when intentionally regenerating
+the corpus, then rerun without it and inspect the affected frames. These
+are Riina rendering regressions. Native composition and matched IINA
+captures have separate verification.
+
 The app also runs its real player callbacks with a bounded recording engine
 in an isolated Slint test process. Run that headless regression directly with
 `cargo test -p riina --lib --locked player_callbacks_and_playback_projection_work_headlessly`.

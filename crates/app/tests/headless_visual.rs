@@ -1,0 +1,251 @@
+//! Pixel regressions for the generated components with a headless software renderer.
+#![cfg(target_os = "windows")]
+
+use i_slint_renderer_software::{MinimalSoftwareWindow, RepaintBufferType};
+use riina_ui::{CatalogRow, PlayerWindow, PreferencesWindow};
+use slint::{
+    ComponentHandle, Image, PhysicalSize, PlatformError, Rgb8Pixel, SharedPixelBuffer, Window,
+    platform::{Platform, WindowAdapter},
+};
+use std::{
+    error::Error,
+    path::{Path, PathBuf},
+    rc::Rc,
+    time::Duration,
+};
+
+struct OffscreenPlatform;
+
+impl Platform for OffscreenPlatform {
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        Ok(MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer))
+    }
+
+    fn duration_since_start(&self) -> Duration {
+        Duration::ZERO
+    }
+}
+
+struct Baselines {
+    directory: PathBuf,
+    update: bool,
+}
+
+impl Baselines {
+    fn windows() -> Result<Self, Box<dyn Error>> {
+        let directory =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/visual/headless/windows");
+        let update =
+            std::env::var_os("RIINA_UPDATE_HEADLESS_BASELINES").is_some_and(|value| value == "1");
+        if update {
+            std::fs::create_dir_all(&directory)?;
+        }
+        Ok(Self { directory, update })
+    }
+
+    fn verify(
+        &self,
+        name: &str,
+        window: &Window,
+        size: PhysicalSize,
+    ) -> Result<(), Box<dyn Error>> {
+        window.set_size(size);
+        slint::platform::update_timers_and_animations();
+        let snapshot = window.take_snapshot()?;
+        let path = self.directory.join(format!("{name}.png"));
+        assert_eq!(
+            (snapshot.width(), snapshot.height()),
+            (size.width, size.height),
+            "{name}"
+        );
+        let actual = snapshot.as_bytes();
+        let (pixels, remainder) = actual.as_chunks::<4>();
+        assert!(remainder.is_empty());
+        assert!(
+            pixels.iter().any(|pixel| pixel != &pixels[0]),
+            "{name} rendered a uniform frame"
+        );
+        if self.update {
+            image::save_buffer(
+                &path,
+                actual,
+                size.width,
+                size.height,
+                image::ColorType::Rgba8,
+            )?;
+        } else {
+            let expected = image::open(&path)?.into_rgba8();
+            assert_eq!(expected.dimensions(), (size.width, size.height), "{name}");
+            let (expected_pixels, remainder) = expected.as_raw().as_chunks::<4>();
+            assert!(remainder.is_empty());
+            let changed = expected_pixels
+                .iter()
+                .zip(pixels)
+                .filter(|(expected, actual)| expected != actual)
+                .count();
+            assert_eq!(changed, 0, "{name} differs from {}", path.display());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PlaybackState {
+    Stopped,
+    Playing,
+    Paused,
+}
+
+#[derive(Clone, Copy)]
+enum Layout {
+    Standard,
+    Compact,
+    Docked,
+    Music,
+}
+
+fn player(
+    state: PlaybackState,
+    dark: bool,
+    sidebars: (i32, i32),
+    layout: Layout,
+) -> Result<PlayerWindow, PlatformError> {
+    let window = PlayerWindow::new()?;
+    window.set_platform_windows(true);
+    window.set_native_video(false);
+    window.set_disable_animations(true);
+    window.set_dark_theme(dark);
+    window.set_engine_ready(true);
+    window.set_controls_visible(true);
+    window.set_loaded(!matches!(state, PlaybackState::Stopped));
+    window.set_paused(!matches!(state, PlaybackState::Playing));
+    window.set_compact_ui(matches!(layout, Layout::Compact));
+    window.set_docked_controls(matches!(layout, Layout::Docked));
+    if matches!(layout, Layout::Docked) {
+        window.set_edge_to_edge_video(false);
+        window.set_osc_position(2);
+    }
+    window.set_music_mode(matches!(layout, Layout::Music));
+    window.set_music_mode_is_audio(matches!(layout, Layout::Music));
+    window.set_music_mode_show_playlist(matches!(layout, Layout::Music));
+    window.set_sidebar(sidebars.0);
+    window.set_leading_sidebar(sidebars.1);
+
+    if window.get_loaded() {
+        window.set_media_title("Headless test clip".into());
+        window.set_position(18.0);
+        window.set_duration(72.0);
+        window.set_position_label("0:18".into());
+        window.set_duration_label("1:12".into());
+        window.set_has_active_audio_track(true);
+        window.set_seekable(true);
+        window.set_status("".into());
+        window.set_audio_tracks(catalog(&["Stereo", "Commentary"]));
+        window.set_video_tracks(catalog(&["Video track"]));
+        window.set_subtitle_tracks(catalog(&["English", "French"]));
+        window.set_playlist(catalog(&["Headless test clip", "Next clip", "Final clip"]));
+        window.set_chapters(catalog(&["Opening", "Middle", "Credits"]));
+        window.set_video_frame(test_picture());
+    }
+    window.show()?;
+    Ok(window)
+}
+
+fn catalog(labels: &[&str]) -> slint::ModelRc<CatalogRow> {
+    slint::ModelRc::new(slint::VecModel::from(
+        labels
+            .iter()
+            .enumerate()
+            .map(|(index, label)| CatalogRow {
+                token: (index + 1).to_string().into(),
+                label: (*label).into(),
+                selected: index == 0,
+                playing: index == 0,
+                ..Default::default()
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
+
+fn test_picture() -> Image {
+    let mut pixels = SharedPixelBuffer::<Rgb8Pixel>::new(48, 27);
+    for (i, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
+        let x = (i % 48) as u8;
+        let y = (i / 48) as u8;
+        *pixel = Rgb8Pixel::new(35 + 3 * x, 52 + 5 * y, 113);
+    }
+    Image::from_rgb8(pixels)
+}
+
+#[test]
+fn player_and_settings_match_their_pixels() -> Result<(), Box<dyn Error>> {
+    slint::platform::set_platform(Box::new(OffscreenPlatform))?;
+    let baselines = Baselines::windows()?;
+    player_frames(&baselines)?;
+    settings_frames(&baselines)?;
+    Ok(())
+}
+
+fn player_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+    use Layout::{Compact, Docked, Music, Standard};
+    use PlaybackState::{Paused, Playing, Stopped};
+    let cases = [
+        ("stopped", Stopped, (0, 0), Standard),
+        ("playing", Playing, (0, 0), Standard),
+        ("paused", Paused, (0, 0), Standard),
+        ("audio", Paused, (1, 0), Standard),
+        ("subtitles", Paused, (2, 0), Standard),
+        ("playlist", Paused, (4, 0), Standard),
+        ("chapters", Paused, (3, 0), Standard),
+        ("general", Paused, (5, 0), Standard),
+        ("video", Paused, (6, 0), Standard),
+        ("plugins", Paused, (7, 0), Standard),
+        ("paired-sidebars", Paused, (4, 5), Standard),
+        ("compact", Paused, (0, 0), Compact),
+        ("docked", Playing, (0, 0), Docked),
+        ("music", Playing, (0, 0), Music),
+    ];
+    for (theme, dark) in [("dark", true), ("light", false)] {
+        for (name, state, sidebars, layout) in cases {
+            let window = player(state, dark, sidebars, layout)?;
+            let size = if matches!(layout, Music) {
+                PhysicalSize::new(320, 480)
+            } else {
+                PhysicalSize::new(1000, 640)
+            };
+            baselines.verify(&format!("player-{theme}-{name}"), window.window(), size)?;
+            window.hide()?;
+        }
+    }
+    Ok(())
+}
+
+fn settings_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+    // Settings intentionally keep a light palette when the player uses a dark theme.
+    let pages = [
+        "general",
+        "interface",
+        "video",
+        "audio",
+        "subtitles",
+        "network",
+        "control",
+        "keys",
+        "advanced",
+        "plugins",
+        "utilities",
+    ];
+    for (index, name) in pages.into_iter().enumerate() {
+        let window = PreferencesWindow::new()?;
+        window.set_disable_animations(true);
+        window.set_selected_pane(index as i32);
+        window.show()?;
+        baselines.verify(
+            &format!("settings-{name}"),
+            window.window(),
+            PhysicalSize::new(750, 670),
+        )?;
+        window.hide()?;
+    }
+    Ok(())
+}

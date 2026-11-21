@@ -5122,6 +5122,7 @@ dependencies = [
  "glow",
  "gtk",
  "i-slint-backend-testing",
+ "i-slint-renderer-software",
  "icu_decimal",
  "icu_experimental",
  "icu_locale",
