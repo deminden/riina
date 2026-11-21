@@ -14,6 +14,8 @@ format. See [Verification](verification.md) for the scope of the runtime checks.
 | H7 Native protocol | Name protocol values, assert ABI layouts, centralize observed properties, and keep raw client access inside the native handle owner. | `33e29dd`, `617f485`, `88c5619`, `8ed8c1a` |
 | H8 Unsafe boundaries | Enforce documented unsafe blocks through workspace Clippy. | `dda8174` |
 | H9 Plugin output routing | Use typed routes for plugin-driven effects and bounded output. | `7bcec50` |
+| H14 Background task ownership | Name application workers, log panics, report running tasks at exit and centralize weak window delivery. | `e5f0dc9`, `475d58a` |
 | O4 App and UI crate boundaries | Test app callbacks through the library target and compile Slint in its own crate. | `acb0fbf`, `57346d1`, `721035b` |
 | O6 Native worker ownership | Group pending replies, own the core in the event worker and share immutable playback snapshots. | `75eb5f4`, `8ed8c1a`, `2ef80b2`, `5802d69` |
 | O7 Command planning and frame state | Separate argument and plan domains, share filter-chain planning and use typed frame slots. | `2f49a5c`, `8e9a1fb`, `ae692a8` |
+| D2 and D3 Duplicate command logic | Share audio and video filter commands and use one replay plan for ended playback. The command goldens cover both. | `8e9a1fb`, `ae692a8` |
