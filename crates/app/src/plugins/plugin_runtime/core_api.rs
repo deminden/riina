@@ -5,10 +5,6 @@ use riina_core::{Command, control_preferences::SeekType, plugin::WindowAction};
 use rquickjs::{Ctx, Object, function::Func};
 use std::sync::{Arc, Mutex};
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install_plugin_core_api<'js>(
     ctx: Ctx<'js>,
     iina_api: Object<'js>,
@@ -18,9 +14,26 @@ pub(super) fn install_plugin_core_api<'js>(
     allowed_domains: Vec<String>,
 ) -> rquickjs::Result<()> {
     let core_api = Object::new(ctx.clone())?;
+    install_transport(&core_api, &events, &files, permissions, &allowed_domains)?;
+    install_status_readers(&core_api, &files)?;
+    install_track_actions(&core_api, &events, &files, permissions, &allowed_domains)?;
+    install_catalog_readers(&core_api, &files)?;
+    install_window_actions(&core_api, &events, &files)?;
+    iina_api.set("core", core_api)?;
+    ctx.eval::<(), _>(include_str!("core_api.js"))?;
+    Ok(())
+}
+
+fn install_transport(
+    core_api: &Object<'_>,
+    events: &Arc<Mutex<Vec<HostEvent>>>,
+    files: &PluginFiles,
+    permissions: AvailablePermissions,
+    allowed_domains: &[String],
+) -> rquickjs::Result<()> {
     let open_events = events.clone();
     let open_files = files.clone();
-    let open_domains = allowed_domains.clone();
+    let open_domains = allowed_domains.to_vec();
     core_api.set(
         "open",
         Func::from(move |value: String| -> rquickjs::Result<()> {
@@ -131,26 +144,32 @@ pub(super) fn install_plugin_core_api<'js>(
             Ok(())
         }),
     )?;
-    let status_files = files.clone();
-    core_api.set(
-        "__readStatus",
-        Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
-            status_files
-                .core_status_property(&name)
-                .map(|value| value.map(|value| value.to_string()))
-                .map_err(core_js_error)
-        }),
-    )?;
-    let track_read_files = files.clone();
-    core_api.set(
-        "__readCoreProperty",
-        Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
-            track_read_files
-                .core_status_property(&name)
-                .map(|value| value.map(|value| value.to_string()))
-                .map_err(core_js_error)
-        }),
-    )?;
+    Ok(())
+}
+
+fn install_status_readers(core_api: &Object<'_>, files: &PluginFiles) -> rquickjs::Result<()> {
+    for name in ["__readStatus", "__readCoreProperty"] {
+        let files = files.clone();
+        core_api.set(
+            name,
+            Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
+                files
+                    .core_status_property(&name)
+                    .map(|value| value.map(|value| value.to_string()))
+                    .map_err(core_js_error)
+            }),
+        )?;
+    }
+    Ok(())
+}
+
+fn install_track_actions(
+    core_api: &Object<'_>,
+    events: &Arc<Mutex<Vec<HostEvent>>>,
+    files: &PluginFiles,
+    permissions: AvailablePermissions,
+    allowed_domains: &[String],
+) -> rquickjs::Result<()> {
     let track_write_events = events.clone();
     core_api.set(
         "__writeCoreProperty",
@@ -212,7 +231,7 @@ pub(super) fn install_plugin_core_api<'js>(
     )?;
     let track_load_events = events.clone();
     let track_load_files = files.clone();
-    let track_load_domains = allowed_domains.clone();
+    let track_load_domains = allowed_domains.to_vec();
     core_api.set(
         "__loadTrack",
         Func::from(move |kind: String, value: String| -> rquickjs::Result<()> {
@@ -237,54 +256,54 @@ pub(super) fn install_plugin_core_api<'js>(
             Ok(())
         }),
     )?;
-    let chapter_files = files.clone();
-    core_api.set(
+    Ok(())
+}
+
+fn install_catalog_readers(core_api: &Object<'_>, files: &PluginFiles) -> rquickjs::Result<()> {
+    install_catalog_reader(
+        core_api,
         "__readChapters",
-        Func::from(move || -> rquickjs::Result<String> {
-            chapter_files
-                .core_chapters()
-                .and_then(|chapters| {
-                    serde_json::to_string(&chapters).map_err(|error| error.to_string())
-                })
-                .map_err(core_js_error)
-        }),
+        files,
+        PluginFiles::core_chapters,
     )?;
-    let recent_document_files = files.clone();
-    core_api.set(
+    install_catalog_reader(
+        core_api,
         "__readRecentDocuments",
-        Func::from(move || -> rquickjs::Result<String> {
-            recent_document_files
-                .core_recent_documents()
-                .and_then(|documents| {
-                    serde_json::to_string(&documents).map_err(|error| error.to_string())
-                })
-                .map_err(core_js_error)
-        }),
+        files,
+        PluginFiles::core_recent_documents,
     )?;
-    let history_files = files.clone();
-    core_api.set(
+    install_catalog_reader(
+        core_api,
         "__readHistory",
-        Func::from(move || -> rquickjs::Result<String> {
-            history_files
-                .core_playback_history()
-                .and_then(|history| {
-                    serde_json::to_string(&history).map_err(|error| error.to_string())
-                })
-                .map_err(core_js_error)
-        }),
+        files,
+        PluginFiles::core_playback_history,
     )?;
-    let version_files = files.clone();
+    install_catalog_reader(core_api, "__readVersion", files, PluginFiles::core_version)?;
+    Ok(())
+}
+
+fn install_catalog_reader<T: serde::Serialize + 'static>(
+    core_api: &Object<'_>,
+    name: &'static str,
+    files: &PluginFiles,
+    read: fn(&PluginFiles) -> Result<T, String>,
+) -> rquickjs::Result<()> {
+    let files = files.clone();
     core_api.set(
-        "__readVersion",
+        name,
         Func::from(move || -> rquickjs::Result<String> {
-            version_files
-                .core_version()
-                .and_then(|version| {
-                    serde_json::to_string(&version).map_err(|error| error.to_string())
-                })
+            read(&files)
+                .and_then(|value| serde_json::to_string(&value).map_err(|error| error.to_string()))
                 .map_err(core_js_error)
         }),
-    )?;
+    )
+}
+
+fn install_window_actions(
+    core_api: &Object<'_>,
+    events: &Arc<Mutex<Vec<HostEvent>>>,
+    files: &PluginFiles,
+) -> rquickjs::Result<()> {
     let window_files = files.clone();
     core_api.set(
         "__readWindowProperty",
@@ -315,73 +334,6 @@ pub(super) fn install_plugin_core_api<'js>(
                 Ok(true)
             },
         ),
-    )?;
-    iina_api.set("core", core_api)?;
-    ctx.eval::<(), _>(
-        r#"(() => {
-            const core = iina.core;
-            const readStatus = core.__readStatus;
-            const readChapters = core.__readChapters;
-            const readRecentDocuments = core.__readRecentDocuments;
-            const readHistory = core.__readHistory;
-            const readVersion = core.__readVersion;
-            const readWindowProperty = core.__readWindowProperty;
-            const writeWindowProperty = core.__writeWindowProperty;
-            const readCoreProperty = core.__readCoreProperty;
-            const writeCoreProperty = core.__writeCoreProperty;
-            const loadTrack = core.__loadTrack;
-            core.status = new Proxy(Object.create(null), {
-                get(_target, property) {
-                    if (typeof property !== 'string') return undefined;
-                    const serialized = readStatus(property);
-                    return serialized == null ? undefined : JSON.parse(serialized);
-                },
-                set() { return false; }
-            });
-            core.getChapters = () => JSON.parse(readChapters());
-            core.getRecentDocuments = () => JSON.parse(readRecentDocuments());
-            core.getHistory = () => JSON.parse(readHistory()).map(entry => ({
-                ...entry,
-                date: new Date(entry.date)
-            }));
-            core.getVersion = () => JSON.parse(readVersion());
-            core.window = new Proxy(Object.create(null), {
-                get(_target, property) {
-                    if (typeof property !== 'string') return undefined;
-                    const serialized = readWindowProperty(property);
-                    return serialized == null ? undefined : JSON.parse(serialized);
-                },
-                set(_target, property, value) {
-                    if (typeof property !== 'string') return false;
-                    return writeWindowProperty(property, JSON.stringify(value));
-                }
-            });
-            for (const namespace of ['audio', 'subtitle', 'video']) {
-                const api = new Proxy(Object.create(null), {
-                    get(_target, property) {
-                        if (property === 'loadTrack') return url => loadTrack(namespace, url);
-                        if (typeof property !== 'string') return undefined;
-                        const serialized = readCoreProperty(`${namespace}.${property}`);
-                        return serialized == null ? undefined : JSON.parse(serialized);
-                    },
-                    set(_target, property, value) {
-                        if (typeof property === 'string') writeCoreProperty(`${namespace}.${property}`, JSON.stringify(value));
-                        return true;
-                    }
-                });
-                core[namespace] = api;
-            }
-            delete core.__readStatus;
-            delete core.__readChapters;
-            delete core.__readRecentDocuments;
-            delete core.__readHistory;
-            delete core.__readVersion;
-            delete core.__readWindowProperty;
-            delete core.__writeWindowProperty;
-            delete core.__readCoreProperty;
-            delete core.__writeCoreProperty;
-            delete core.__loadTrack;
-        })();"#,
     )?;
     Ok(())
 }

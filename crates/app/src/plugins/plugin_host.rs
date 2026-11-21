@@ -452,10 +452,6 @@ struct PluginDirectory {
     name: String,
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 fn handle_command(
     command: PluginCommand,
     paths: &PluginHostPaths,
@@ -491,33 +487,13 @@ fn handle_command(
             }
         }
         PluginCommand::Disable(identifier) => {
-            sessions.retain(|key, _| key.identifier != identifier);
-            plugin_directories.remove(&identifier);
-            record(
-                messages,
-                PluginHostMessage::RemoveOverlay(identifier.clone()),
-            );
-            record(
-                messages,
-                PluginHostMessage::RemoveSidebar(identifier.clone()),
-            );
-            record(messages, PluginHostMessage::RemovePluginMenu(identifier));
+            remove_plugin(identifier, messages, sessions, plugin_directories);
         }
         PluginCommand::SuspendForUpdate {
             identifier,
             response,
         } => {
-            sessions.retain(|key, _| key.identifier != identifier);
-            plugin_directories.remove(&identifier);
-            record(
-                messages,
-                PluginHostMessage::RemoveOverlay(identifier.clone()),
-            );
-            record(
-                messages,
-                PluginHostMessage::RemoveSidebar(identifier.clone()),
-            );
-            record(messages, PluginHostMessage::RemovePluginMenu(identifier));
+            remove_plugin(identifier, messages, sessions, plugin_directories);
             let _ = response.send(Ok(()));
         }
         PluginCommand::ActivateAfterUpdate {
@@ -550,156 +526,39 @@ fn handle_command(
         PluginCommand::UpdatePlayerFileContext(context) => {
             let events = player_context.player_events_to(&context);
             *player_context = context;
-            for (key, session) in sessions.iter() {
-                if !key.global {
-                    session.update_player_file_context(player_context.clone());
-                    for (name, data) in &events {
-                        if session.is_subscribed_to_player_event(name)
-                            && let Err(error) =
-                                session.deliver_player_event(name.clone(), data.clone())
-                        {
-                            record(messages, PluginHostMessage::Status(error));
-                        }
-                    }
-                }
-            }
+            update_player_sessions(player_context, &events, messages, sessions);
         }
         PluginCommand::UpdateWindowProperties(properties) => {
             let events = player_context.window_events_to(&properties);
             player_context.set_core_window_properties(properties);
-            for (key, session) in sessions.iter() {
-                if !key.global {
-                    session.update_player_file_context(player_context.clone());
-                    for (name, data) in &events {
-                        if session.is_subscribed_to_player_event(name)
-                            && let Err(error) =
-                                session.deliver_player_event(name.clone(), data.clone())
-                        {
-                            record(messages, PluginHostMessage::Status(error));
-                        }
-                    }
-                }
-            }
+            update_player_sessions(player_context, &events, messages, sessions);
         }
         PluginCommand::WindowLoaded => {
-            if !*window_loaded {
-                *window_loaded = true;
-                let identifiers = sessions
-                    .keys()
-                    .filter(|key| !key.global)
-                    .map(|key| key.identifier.clone())
-                    .collect::<Vec<_>>();
-                for identifier in identifiers {
-                    deliver_window_loaded(&identifier, messages, sessions);
+            if !std::mem::replace(window_loaded, true) {
+                for key in sessions.keys().filter(|key| !key.global) {
+                    deliver_window_loaded(&key.identifier, messages, sessions);
                 }
             }
         }
         PluginCommand::PluginOverlayLoaded => {
-            for (key, session) in sessions.iter() {
-                if !key.global
-                    && session.is_subscribed_to_player_event("iina.plugin-overlay-loaded")
-                    && let Err(error) = session.deliver_player_event(
-                        "iina.plugin-overlay-loaded".into(),
-                        serde_json::Value::Null,
-                    )
-                {
-                    record(messages, PluginHostMessage::Status(error));
-                }
-            }
+            broadcast_player_event("iina.plugin-overlay-loaded", messages, sessions);
         }
         PluginCommand::ThumbnailsReady => {
-            for (key, session) in sessions.iter() {
-                if !key.global
-                    && session.is_subscribed_to_player_event("iina.thumbnails-ready")
-                    && let Err(error) = session.deliver_player_event(
-                        "iina.thumbnails-ready".into(),
-                        serde_json::Value::Null,
-                    )
-                {
-                    record(messages, PluginHostMessage::Status(error));
-                }
-            }
+            broadcast_player_event("iina.thumbnails-ready", messages, sessions);
         }
         PluginCommand::MenuUpdate => {
-            for (key, session) in sessions.iter() {
-                if !key.global
-                    && session.is_subscribed_to_player_event("iina.menu-update")
-                    && let Err(error) = session
-                        .deliver_player_event("iina.menu-update".into(), serde_json::Value::Null)
-                {
-                    record(messages, PluginHostMessage::Status(error));
-                }
-            }
+            broadcast_player_event("iina.menu-update", messages, sessions);
         }
-        PluginCommand::ReloadAll => {
-            let identifiers = sessions
-                .keys()
-                .map(|key| key.identifier.clone())
-                .collect::<BTreeSet<_>>();
-            sessions.clear();
-            for identifier in &identifiers {
-                record(
-                    messages,
-                    PluginHostMessage::RemoveOverlay(identifier.clone()),
-                );
-                record(
-                    messages,
-                    PluginHostMessage::RemoveSidebar(identifier.clone()),
-                );
-                record(
-                    messages,
-                    PluginHostMessage::RemovePluginMenu(identifier.clone()),
-                );
-            }
-            plugin_directories.clear();
-            let mut succeeded = 0;
-            for plugin in enabled_packages(&paths.plugins_directory, &paths.enabled_path) {
-                match activate(
-                    &plugin.manifest,
-                    &plugin.directory,
-                    &paths.permissions_path,
-                    messages,
-                    sessions,
-                    plugin_directories,
-                    player_context,
-                ) {
-                    Ok(()) => {
-                        succeeded += 1;
-                        deliver_activation_events(
-                            &plugin.manifest.identifier,
-                            *window_loaded,
-                            player_context,
-                            messages,
-                            sessions,
-                        );
-                    }
-                    Err(error) => record(messages, PluginHostMessage::Status(error)),
-                }
-                pump_session_events(messages, sessions, plugin_directories);
-            }
-            record(
-                messages,
-                PluginHostMessage::Status(format!("Reloaded {succeeded} enabled plugin(s).")),
-            );
-        }
+        PluginCommand::ReloadAll => reload_enabled_plugins(
+            paths,
+            messages,
+            sessions,
+            plugin_directories,
+            player_context,
+            *window_loaded,
+        ),
         PluginCommand::WindowWillClose(response) => {
-            let mut notified_sessions = Vec::new();
-            for (key, session) in sessions.iter() {
-                if !key.global && session.is_subscribed_to_player_event("iina.window-will-close") {
-                    match session.deliver_player_event(
-                        "iina.window-will-close".into(),
-                        serde_json::Value::Null,
-                    ) {
-                        Ok(()) => notified_sessions.push(session),
-                        Err(error) => record(messages, PluginHostMessage::Status(error)),
-                    }
-                }
-            }
-            for session in notified_sessions {
-                if let Err(error) = session.flush_events(Duration::from_secs(2)) {
-                    record(messages, PluginHostMessage::Status(error));
-                }
-            }
+            flush_closing_sessions(messages, sessions);
             let _ = response.send(());
         }
         #[cfg(target_os = "windows")]
@@ -747,10 +606,138 @@ fn handle_command(
     false
 }
 
+fn remove_plugin(
+    identifier: String,
+    messages: &Mutex<Vec<PluginHostMessage>>,
+    sessions: &mut BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    plugin_directories: &mut BTreeMap<String, PluginDirectory>,
+) {
+    sessions.retain(|key, _| key.identifier != identifier);
+    plugin_directories.remove(&identifier);
+    remove_plugin_ui(identifier, messages);
+}
+
+fn remove_plugin_ui(identifier: String, messages: &Mutex<Vec<PluginHostMessage>>) {
+    record(
+        messages,
+        PluginHostMessage::RemoveOverlay(identifier.clone()),
+    );
+    record(
+        messages,
+        PluginHostMessage::RemoveSidebar(identifier.clone()),
+    );
+    record(messages, PluginHostMessage::RemovePluginMenu(identifier));
+}
+
+fn update_player_sessions(
+    player_context: &PluginPlayerFileContext,
+    events: &[(String, serde_json::Value)],
+    messages: &Mutex<Vec<PluginHostMessage>>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+) {
+    for (key, session) in sessions.iter() {
+        if !key.global {
+            session.update_player_file_context(player_context.clone());
+            for (name, data) in events {
+                if session.is_subscribed_to_player_event(name)
+                    && let Err(error) = session.deliver_player_event(name.clone(), data.clone())
+                {
+                    record(messages, PluginHostMessage::Status(error));
+                }
+            }
+        }
+    }
+}
+
+fn broadcast_player_event(
+    name: &str,
+    messages: &Mutex<Vec<PluginHostMessage>>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+) {
+    for (key, session) in sessions {
+        if !key.global
+            && session.is_subscribed_to_player_event(name)
+            && let Err(error) = session.deliver_player_event(name.into(), serde_json::Value::Null)
+        {
+            record(messages, PluginHostMessage::Status(error));
+        }
+    }
+}
+
+fn reload_enabled_plugins(
+    paths: &PluginHostPaths,
+    messages: &Arc<Mutex<Vec<PluginHostMessage>>>,
+    sessions: &mut BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    plugin_directories: &mut BTreeMap<String, PluginDirectory>,
+    player_context: &PluginPlayerFileContext,
+    window_loaded: bool,
+) {
+    let identifiers = sessions
+        .keys()
+        .map(|key| key.identifier.clone())
+        .collect::<BTreeSet<_>>();
+    sessions.clear();
+    for identifier in identifiers {
+        remove_plugin_ui(identifier, messages);
+    }
+    plugin_directories.clear();
+    let mut succeeded = 0;
+    for plugin in enabled_packages(&paths.plugins_directory, &paths.enabled_path) {
+        match activate(
+            &plugin.manifest,
+            &plugin.directory,
+            &paths.permissions_path,
+            messages,
+            sessions,
+            plugin_directories,
+            player_context,
+        ) {
+            Ok(()) => {
+                succeeded += 1;
+                deliver_activation_events(
+                    &plugin.manifest.identifier,
+                    window_loaded,
+                    player_context,
+                    messages,
+                    sessions,
+                );
+            }
+            Err(error) => record(messages, PluginHostMessage::Status(error)),
+        }
+        pump_session_events(messages, sessions, plugin_directories);
+    }
+    record(
+        messages,
+        PluginHostMessage::Status(format!("Reloaded {succeeded} enabled plugin(s).")),
+    );
+}
+
+fn flush_closing_sessions(
+    messages: &Mutex<Vec<PluginHostMessage>>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+) {
+    let mut notified_sessions = Vec::new();
+    for (key, session) in sessions.iter() {
+        if !key.global && session.is_subscribed_to_player_event("iina.window-will-close") {
+            match session
+                .deliver_player_event("iina.window-will-close".into(), serde_json::Value::Null)
+            {
+                Ok(()) => notified_sessions.push(session),
+                Err(error) => record(messages, PluginHostMessage::Status(error)),
+            }
+        }
+    }
+    for session in notified_sessions {
+        if let Err(error) = session.flush_events(Duration::from_secs(2)) {
+            record(messages, PluginHostMessage::Status(error));
+        }
+    }
+}
+
 fn deliver_window_loaded(
     identifier: &str,
     messages: &Arc<Mutex<Vec<PluginHostMessage>>>,
-    sessions: &mut BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
     let key = PluginInstanceKey::player(identifier);
     if let Some(session) = sessions.get(&key)
@@ -767,7 +754,7 @@ fn deliver_activation_events(
     window_loaded: bool,
     player_context: &PluginPlayerFileContext,
     messages: &Arc<Mutex<Vec<PluginHostMessage>>>,
-    sessions: &mut BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
     if window_loaded {
         deliver_window_loaded(identifier, messages, sessions);

@@ -21,10 +21,6 @@ use std::sync::{
     mpsc::{self, Receiver, SyncSender},
 };
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn run_entry_worker(
     source: String,
     plugin_identifier: String,
@@ -34,16 +30,8 @@ pub(super) fn run_entry_worker(
     ready: SyncSender<Result<(), String>>,
     network: NetworkWorkerContext,
 ) {
-    let PluginWorkerHost {
-        execution,
-        global_api_mode,
-        module_context,
-        file_system,
-        events,
-        player_event_subscriptions,
-        observed_mpv_properties,
-        mpv_property_observation_requests,
-    } = host;
+    let execution = host.execution.clone();
+    let events = host.events.clone();
     let interrupt_control = execution.clone();
     let runtime = match Runtime::new() {
         Ok(runtime) => runtime,
@@ -69,126 +57,10 @@ pub(super) fn run_entry_worker(
             return;
         }
     };
-    let overlay_state = Arc::new(Mutex::new(OverlayState::default()));
-    #[cfg(any(target_os = "windows", test))]
-    let worker_overlay_state = overlay_state.clone();
-    let sidebar_state = Arc::new(Mutex::new(PluginSidebarState::default()));
-    let worker_sidebar_state = sidebar_state.clone();
-    let timers = Arc::new(PluginTimers::default());
-    let worker_timers = timers.clone();
+    let services = RealmServices::default();
     execution.begin();
-    let initialized = context.with(|ctx| {
-        let globals = ctx.globals();
-        let api = Object::new(ctx.clone())?;
-
-        let log_events = events.clone();
-        api.set(
-            "log",
-            Func::from(move |message: String| {
-                record(&log_events, UiEffect::Log(message));
-            }),
-        )?;
-        if permissions.show_osd {
-            let osd_events = events.clone();
-            api.set(
-                "showOSD",
-                Func::from(move |message: String| {
-                    record(&osd_events, UiEffect::ShowOsd(message));
-                }),
-            )?;
-        }
-        if permissions.show_alert {
-            let alert_events = events.clone();
-            api.set(
-                "showAlert",
-                Func::from(move |message: String| {
-                    record(&alert_events, UiEffect::ShowAlert(message));
-                }),
-            )?;
-        }
-        globals.set("iina", api.clone())?;
-        events::install(
-            ctx.clone(),
-            api.clone(),
-            global_api_mode,
-            player_event_subscriptions,
-            observed_mpv_properties,
-            mpv_property_observation_requests,
-        )?;
-        let menu_events = events.clone();
-        api.set(
-            "__menuUpdate",
-            Func::from(move |json: String| -> rquickjs::Result<()> {
-                let items = serde_json::from_str::<Vec<PluginMenuItem>>(&json)
-                    .map_err(|error| menu_js_error(error.to_string()))?;
-                PluginMenuItem::validate_all(&items).map_err(menu_js_error)?;
-                record_plugin_menu(&menu_events, items).map_err(menu_js_error)
-            }),
-        )?;
-        ctx.eval::<(), _>(PLUGIN_MENU_API)?;
-        install_plugin_file_api(
-            ctx.clone(),
-            globals.clone(),
-            file_system.clone(),
-            permissions.file_system,
-        )?;
-        install_plugin_core_api(
-            ctx.clone(),
-            api.clone(),
-            events.clone(),
-            file_system.clone(),
-            permissions,
-            network.allowed_domains.clone(),
-        )?;
-        network::install(ctx.clone(), file_system.clone(), permissions, &network)?;
-        modules::install(ctx.clone(), module_context.clone())?;
-        if let Some(mode) = global_api_mode {
-            messaging::install(ctx.clone(), api.clone(), mode, events.clone())?;
-        }
-        timers::install(ctx.clone(), timers.clone())?;
-        webviews::install(
-            ctx.clone(),
-            events.clone(),
-            permissions,
-            overlay_state.clone(),
-            sidebar_state.clone(),
-        )?;
-        let console = Object::new(ctx.clone())?;
-        for method in ["log", "info", "warn", "error"] {
-            let log_events = events.clone();
-            console.set(
-                method,
-                Func::from(move |message: String| {
-                    record(&log_events, UiEffect::Log(message));
-                }),
-            )?;
-        }
-        globals.set("console", console)?;
-
-        // Keep the entry's path on the stack only while it is being evaluated:
-        // nested CommonJS loads resolve relative to that file.
-        if let Some(module_context) = module_context.as_ref() {
-            module_context
-                .current_files
-                .lock()
-                .map_err(|_| {
-                    rquickjs::Error::new_from_js_message(
-                        "require",
-                        "entry path",
-                        "module path stack was poisoned",
-                    )
-                })?
-                .push(module_context.entry.clone());
-        }
-        let evaluated = ctx.eval::<Value, _>(source.as_str()).map(|_| ());
-        // A poisoned ancestry stack cannot establish the base of a require.
-        if let Some(module_context) = module_context.as_ref()
-            && let Ok(mut current_files) = module_context.current_files.lock()
-        {
-            current_files.pop();
-        }
-        evaluated
-    });
+    let initialized =
+        context.with(|ctx| initialize_realm(ctx, source, permissions, host, &network, &services));
     if let Err(error) = initialized {
         let _ = ready.send(Err(format!(
             "Plugin {plugin_identifier} failed to initialize: {error}"
@@ -205,9 +77,157 @@ pub(super) fn run_entry_worker(
         return;
     }
 
+    run_callbacks(&context, &runtime, commands, &execution, &events, &services);
+}
+
+#[derive(Default)]
+struct RealmServices {
+    overlay: Arc<Mutex<OverlayState>>,
+    sidebar: Arc<Mutex<PluginSidebarState>>,
+    timers: Arc<PluginTimers>,
+}
+
+fn initialize_realm(
+    ctx: rquickjs::Ctx<'_>,
+    source: String,
+    permissions: AvailablePermissions,
+    host: PluginWorkerHost,
+    network: &NetworkWorkerContext,
+    services: &RealmServices,
+) -> rquickjs::Result<()> {
+    let PluginWorkerHost {
+        global_api_mode,
+        module_context,
+        file_system,
+        events,
+        player_event_subscriptions,
+        observed_mpv_properties,
+        mpv_property_observation_requests,
+        ..
+    } = host;
+    let globals = ctx.globals();
+    let api = Object::new(ctx.clone())?;
+
+    let log_events = events.clone();
+    api.set(
+        "log",
+        Func::from(move |message: String| {
+            record(&log_events, UiEffect::Log(message));
+        }),
+    )?;
+    if permissions.show_osd {
+        let osd_events = events.clone();
+        api.set(
+            "showOSD",
+            Func::from(move |message: String| {
+                record(&osd_events, UiEffect::ShowOsd(message));
+            }),
+        )?;
+    }
+    if permissions.show_alert {
+        let alert_events = events.clone();
+        api.set(
+            "showAlert",
+            Func::from(move |message: String| {
+                record(&alert_events, UiEffect::ShowAlert(message));
+            }),
+        )?;
+    }
+    globals.set("iina", api.clone())?;
+    events::install(
+        ctx.clone(),
+        api.clone(),
+        global_api_mode,
+        player_event_subscriptions,
+        observed_mpv_properties,
+        mpv_property_observation_requests,
+    )?;
+    let menu_events = events.clone();
+    api.set(
+        "__menuUpdate",
+        Func::from(move |json: String| -> rquickjs::Result<()> {
+            let items = serde_json::from_str::<Vec<PluginMenuItem>>(&json)
+                .map_err(|error| menu_js_error(error.to_string()))?;
+            PluginMenuItem::validate_all(&items).map_err(menu_js_error)?;
+            record_plugin_menu(&menu_events, items).map_err(menu_js_error)
+        }),
+    )?;
+    ctx.eval::<(), _>(PLUGIN_MENU_API)?;
+    install_plugin_file_api(
+        ctx.clone(),
+        globals.clone(),
+        file_system.clone(),
+        permissions.file_system,
+    )?;
+    install_plugin_core_api(
+        ctx.clone(),
+        api.clone(),
+        events.clone(),
+        file_system.clone(),
+        permissions,
+        network.allowed_domains.clone(),
+    )?;
+    network::install(ctx.clone(), file_system.clone(), permissions, network)?;
+    modules::install(ctx.clone(), module_context.clone())?;
+    if let Some(mode) = global_api_mode {
+        messaging::install(ctx.clone(), api.clone(), mode, events.clone())?;
+    }
+    timers::install(ctx.clone(), services.timers.clone())?;
+    webviews::install(
+        ctx.clone(),
+        events.clone(),
+        permissions,
+        services.overlay.clone(),
+        services.sidebar.clone(),
+    )?;
+    let console = Object::new(ctx.clone())?;
+    for method in ["log", "info", "warn", "error"] {
+        let log_events = events.clone();
+        console.set(
+            method,
+            Func::from(move |message: String| {
+                record(&log_events, UiEffect::Log(message));
+            }),
+        )?;
+    }
+    globals.set("console", console)?;
+
+    // Keep the entry's path on the stack only while it is being evaluated:
+    // nested CommonJS loads resolve relative to that file.
+    if let Some(module_context) = module_context.as_ref() {
+        module_context
+            .current_files
+            .lock()
+            .map_err(|_| {
+                rquickjs::Error::new_from_js_message(
+                    "require",
+                    "entry path",
+                    "module path stack was poisoned",
+                )
+            })?
+            .push(module_context.entry.clone());
+    }
+    let evaluated = ctx.eval::<Value, _>(source.as_str()).map(|_| ());
+    // A poisoned ancestry stack cannot establish the base of a require.
+    if let Some(module_context) = module_context.as_ref()
+        && let Ok(mut current_files) = module_context.current_files.lock()
+    {
+        current_files.pop();
+    }
+    evaluated
+}
+
+fn run_callbacks(
+    context: &Context,
+    runtime: &Runtime,
+    commands: Receiver<RuntimeCommand>,
+    execution: &super::execution::ExecutionControl,
+    events: &Mutex<Vec<super::HostEvent>>,
+    services: &RealmServices,
+) {
     let mut prefer_timer = true;
     while !execution.is_cancelled() {
-        let next_timer = worker_timers.next_wait();
+        let next_timer = services.timers.next_wait();
         let command = match next_timer {
             // Alternate ready timers and commands so neither a busy inbox nor
             // a chain of zero-delay timers can starve the other source.
@@ -228,7 +248,7 @@ pub(super) fn run_entry_worker(
         prefer_timer = command.is_some();
         let (script, label) = match command {
             None => {
-                let Some(id) = worker_timers.take_due() else {
+                let Some(id) = services.timers.take_due() else {
                     continue;
                 };
                 (format!("__riinaTimers.fire({id})"), "timer callback")
@@ -245,7 +265,7 @@ pub(super) fn run_entry_worker(
             #[cfg(any(target_os = "windows", test))]
             Some(RuntimeCommand::DeliverOverlayMessage(name, data)) => {
                 // An interrupted subscription update must not admit a message.
-                if !worker_overlay_state.lock().is_ok_and(|state| {
+                if !services.overlay.lock().is_ok_and(|state| {
                     matches!(
                         state.receive_message(name.clone(), data.clone()),
                         Ok(Some(_))
@@ -260,7 +280,7 @@ pub(super) fn run_entry_worker(
             }
             Some(RuntimeCommand::DeliverSidebarMessage(name, data)) => {
                 // An interrupted subscription update must not admit a message.
-                if !worker_sidebar_state.lock().is_ok_and(|state| {
+                if !services.sidebar.lock().is_ok_and(|state| {
                     matches!(
                         state.receive_message(name.clone(), data.clone()),
                         Ok(Some(_))
@@ -310,10 +330,10 @@ pub(super) fn run_entry_worker(
         });
         // Jobs queued before a synchronous exception still belong to this turn.
         // Every route drains them under the same cancellation/deadline budget.
-        let pending = execution.drain_jobs(&runtime);
+        let pending = execution.drain_jobs(runtime);
         for error in evaluated.err().into_iter().chain(pending.err()) {
             record(
-                &events,
+                events,
                 UiEffect::Log(format!("Plugin {label} failed: {error}")),
             );
         }
