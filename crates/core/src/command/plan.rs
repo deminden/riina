@@ -1,4 +1,4 @@
-use super::{AbLoopPoint, Command, CommandPlan};
+use super::{AbLoopPoint, Command, CommandPlan, cmd, flag, set};
 use crate::{
     LoopMode, Phase, Playback, PlaylistEntry, TrackKind, audio_equalizer, crop, delogo,
     hdr_preferences, key_bindings, playlist, screenshot, subtitle_controls, valid_path,
@@ -50,10 +50,10 @@ impl Command {
                 commands
             }
             Self::SubtitleLetterboxMargins(enabled) => {
-                let value = if *enabled { "yes" } else { "no" };
+                let value = flag(*enabled);
                 vec![
-                    vec!["set".into(), "sub-use-margins".into(), value.into()],
-                    vec!["set".into(), "sub-ass-force-margins".into(), value.into()],
+                    set("sub-use-margins", value),
+                    set("sub-ass-force-margins", value),
                 ]
             }
             Self::SubtitleEncoding(encoding) => {
@@ -63,8 +63,7 @@ impl Command {
                 {
                     return Err("Unsupported subtitle encoding".into());
                 }
-                let mut commands =
-                    vec![vec!["set".into(), "sub-codepage".into(), encoding.clone()]];
+                let mut commands = vec![set("sub-codepage", encoding.clone())];
                 commands.extend(
                     state
                         .tracks
@@ -76,38 +75,27 @@ impl Command {
             }
             Self::SubtitleAutoLoad(preferences) => {
                 preferences.validate().map_err(str::to_owned)?;
-                let mut commands = vec![vec![
-                    "set".into(),
-                    "sub-auto".into(),
-                    preferences.mpv_matching_mode().into(),
-                ]];
-                commands.push(vec![
-                    "set".into(),
-                    "sub-file-paths".into(),
+                let mut commands = vec![set("sub-auto", preferences.mpv_matching_mode())];
+                commands.push(set(
+                    "sub-file-paths",
                     preferences.mpv_search_paths().unwrap_or_default(),
-                ]);
+                ));
                 commands
             }
             Self::TogglePause if state.phase == Phase::Ended => {
                 // mpv stays at EOF after toggling its pause flag. Treat Play on
                 // the ended state as replay so the visible Play control works.
-                vec![
-                    vec!["seek".into(), "0".into(), "absolute+exact".into()],
-                    vec!["set".into(), "pause".into(), "no".into()],
-                ]
+                vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
             }
             Self::SetPaused(false) if state.phase == Phase::Ended => {
                 // Play from EOF must seek first; setting pause=no alone does not replay.
-                vec![
-                    vec!["seek".into(), "0".into(), "absolute+exact".into()],
-                    vec!["set".into(), "pause".into(), "no".into()],
-                ]
+                vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
             }
             Self::NetworkCache(preferences) => preferences.commands()?,
             Self::NetworkOnlineVideos(preferences) => preferences
                 .engine_options()?
                 .into_iter()
-                .map(|(name, value)| vec!["set".into(), name, value])
+                .map(|(name, value)| set(&name, value))
                 .collect(),
             Self::Screenshot {
                 directory,
@@ -120,38 +108,27 @@ impl Command {
                     );
                 }
                 vec![
-                    vec![
-                        "set".into(),
-                        "screenshot-format".into(),
-                        encoding.format.native_value().into(),
-                    ],
-                    vec![
-                        "set".into(),
-                        "screenshot-template".into(),
-                        encoding.template.clone(),
-                    ],
+                    set("screenshot-format", encoding.format.native_value()),
+                    set("screenshot-template", encoding.template.clone()),
                     // Match the reference's JXL software path without changing
                     // screenshot conversion policy for the other formats.
-                    vec![
-                        "set".into(),
-                        "screenshot-sw".into(),
+                    set(
+                        "screenshot-sw",
                         if encoding.format == screenshot::Format::Jxl {
                             "yes"
                         } else {
                             "no"
-                        }
-                        .into(),
-                    ],
+                        },
+                    ),
                     // Keep the native trailing separator: mixed '/' in a
                     // verbatim Windows path is rejected by screenshot writing.
-                    vec![
-                        "set".into(),
-                        "screenshot-dir".into(),
+                    set(
+                        "screenshot-dir",
                         std::path::Path::new(directory)
                             .join("")
                             .to_string_lossy()
                             .into_owned(),
-                    ],
+                    ),
                     vec!["screenshot".into(), content.native_value().into()],
                 ]
             }
@@ -341,16 +318,16 @@ impl Command {
                 );
                 let mut commands = Vec::with_capacity(2);
                 if active && state.save_position_on_quit == Some(true) {
-                    commands.push(vec!["write-watch-later-config".into()]);
+                    commands.push(cmd(["write-watch-later-config"]));
                 }
-                commands.push(vec!["stop".into()]);
+                commands.push(cmd(["stop"]));
                 commands
             }
             Self::SetResumeLastPosition(enabled) => {
-                let value = if *enabled { "yes" } else { "no" };
+                let value = flag(*enabled);
                 vec![
-                    vec!["set".into(), "save-position-on-quit".into(), value.into()],
-                    vec!["set".into(), "resume-playback".into(), value.into()],
+                    set("save-position-on-quit", value),
+                    set("resume-playback", value),
                 ]
             }
             Self::SetAbLoop { a, b } => {
@@ -366,10 +343,7 @@ impl Command {
                     }
                 };
                 let (a, b) = (point(*a)?, point(*b)?);
-                vec![
-                    vec!["set".into(), "ab-loop-a".into(), a],
-                    vec!["set".into(), "ab-loop-b".into(), b],
-                ]
+                vec![set("ab-loop-a", a), set("ab-loop-b", b)]
             }
             Self::SetAbLoopPoint { point, value } => {
                 let name = match point {
@@ -383,14 +357,10 @@ impl Command {
                     }
                     _ => return Err("Invalid A–B loop point".into()),
                 };
-                vec![vec!["set".into(), name.into(), value]]
+                vec![set(name, value)]
             }
             Self::SetToneMapping(settings) => settings.engine_commands()?,
-            Self::SetIccProfileAuto(enabled) => vec![vec![
-                "set".into(),
-                "icc-profile-auto".into(),
-                if *enabled { "yes" } else { "no" }.into(),
-            ]],
+            Self::SetIccProfileAuto(enabled) => vec![set("icc-profile-auto", flag(*enabled))],
             Self::SetHdrEnabled(enabled) => {
                 let primaries = if *enabled {
                     let source = state
@@ -424,11 +394,9 @@ impl Command {
                 };
                 hdr_preferences::output_commands_with_icc(*enabled, primaries, *load_icc_profile)?
             }
-            Self::VideoThreads(threads) if *threads <= i32::MAX as u32 => vec![vec![
-                "set".into(),
-                "vd-lavc-threads".into(),
-                threads.to_string(),
-            ]],
+            Self::VideoThreads(threads) if *threads <= i32::MAX as u32 => {
+                vec![set("vd-lavc-threads", threads.to_string())]
+            }
             Self::VideoThreads(_) => {
                 return Err("Video decoder threads must be between 0 and 2,147,483,647".into());
             }
@@ -521,14 +489,7 @@ impl Command {
                     // PlayerCore.openURLs opens the first playable item, then appends
                     // the remainder. Validate everything before replacing old media.
                     commands[0][2] = "replace".into();
-                    commands.insert(
-                        0,
-                        vec![
-                            "set".into(),
-                            "pause".into(),
-                            if state.pause_when_open { "yes" } else { "no" }.into(),
-                        ],
-                    );
+                    commands.insert(0, set("pause", flag(state.pause_when_open)));
                     // HDR overrides target the current source's primaries. Clear
                     // them before replacement so the next source inherits auto/ICC.
                     let hdr_reset = hdr_preferences::output_commands(false, None)?;
@@ -593,14 +554,7 @@ impl Command {
             }
             Self::Load(_) | Self::LoadAtPosition { .. } => {
                 let mut commands = hdr_preferences::output_commands(false, None)?;
-                commands.extend([
-                    vec![
-                        "set".into(),
-                        "pause".into(),
-                        if state.pause_when_open { "yes" } else { "no" }.into(),
-                    ],
-                    self.mpv_args()?,
-                ]);
+                commands.extend([set("pause", flag(state.pause_when_open)), self.mpv_args()?]);
                 commands
             }
             Self::SelectChapter(index) => {
@@ -614,7 +568,7 @@ impl Command {
                 // PlayerCore.playChapter seeks to the observed time and always resumes.
                 vec![
                     vec!["seek".into(), chapter.time.to_string(), "absolute".into()],
-                    vec!["set".into(), "pause".into(), "no".into()],
+                    set("pause", "no"),
                 ]
             }
             Self::SelectPlaylistEntry(index) => {
@@ -622,20 +576,14 @@ impl Command {
                     return Err("The playlist entry is no longer available".into());
                 }
                 resume_on_load = true;
-                vec![
-                    vec!["set".into(), "pause".into(), "yes".into()],
-                    self.mpv_args()?,
-                ]
+                vec![set("pause", "yes"), self.mpv_args()?]
             }
             Self::PlaylistPrevious if state.playlist.first().is_some_and(|entry| entry.current) => {
-                vec![vec!["seek".into(), "0".into(), "absolute".into()]]
+                vec![cmd(["seek", "0", "absolute"])]
             }
             Self::PlaylistNext | Self::PlaylistPrevious => {
                 resume_on_load = true;
-                vec![
-                    vec!["set".into(), "pause".into(), "yes".into()],
-                    self.mpv_args()?,
-                ]
+                vec![set("pause", "yes"), self.mpv_args()?]
             }
             Self::RemovePlaylistEntry(index) if *index >= state.playlist.len() => {
                 return Err("The playlist entry is no longer available".into());
@@ -701,15 +649,9 @@ impl Command {
 }
 fn set_loop_mode_commands(mode: LoopMode) -> Vec<Vec<String>> {
     match mode {
-        LoopMode::Off => vec![
-            vec!["set".into(), "loop-playlist".into(), "no".into()],
-            vec!["set".into(), "loop-file".into(), "no".into()],
-        ],
-        LoopMode::File => vec![vec!["set".into(), "loop-file".into(), "inf".into()]],
-        LoopMode::Playlist => vec![
-            vec!["set".into(), "loop-playlist".into(), "inf".into()],
-            vec!["set".into(), "loop-file".into(), "no".into()],
-        ],
+        LoopMode::Off => vec![set("loop-playlist", "no"), set("loop-file", "no")],
+        LoopMode::File => vec![set("loop-file", "inf")],
+        LoopMode::Playlist => vec![set("loop-playlist", "inf"), set("loop-file", "no")],
     }
 }
 
@@ -724,11 +666,7 @@ fn volume_adjustment(delta: f64, boost: bool) -> Vec<Vec<String>> {
     // Native add clamps against the active range and uses the engine's current
     // volume. A zero adjustment also clamps when the user turns boost off.
     vec![
-        vec![
-            "set".into(),
-            "volume-max".into(),
-            if boost { "200" } else { "100" }.into(),
-        ],
+        set("volume-max", if boost { "200" } else { "100" }),
         vec!["add".into(), "volume".into(), delta.to_string()],
     ]
 }

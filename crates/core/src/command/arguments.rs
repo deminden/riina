@@ -1,4 +1,4 @@
-use super::Command;
+use super::{Command, cmd, flag, set};
 use crate::{
     control_preferences, key_bindings, playlist_end_policy, subtitle_controls, valid_path,
 };
@@ -28,22 +28,17 @@ impl Command {
             Self::LoadAtPosition { .. } => {
                 return Err("The resume file or position is invalid".into());
             }
-            Self::SetPaused(paused) => vec![
-                "set".into(),
-                "pause".into(),
-                if *paused { "yes" } else { "no" }.into(),
-            ],
-            Self::TogglePause => vec!["cycle".into(), "pause".into()],
+            Self::SetPaused(paused) => set("pause", flag(*paused)),
+            Self::TogglePause => cmd(["cycle", "pause"]),
             Self::SetPlaybackEndPolicy {
                 keep_open_on_file_end,
                 playlist_auto_play_next,
-            } => vec![
-                "set".into(),
-                "keep-open".into(),
-                playlist_end_policy(*keep_open_on_file_end, *playlist_auto_play_next).into(),
-            ],
+            } => set(
+                "keep-open",
+                playlist_end_policy(*keep_open_on_file_end, *playlist_auto_play_next),
+            ),
             Self::MpvInputAction(action) => key_bindings::mpv_action_args(action)?,
-            Self::Stop => vec!["stop".into()],
+            Self::Stop => cmd(["stop"]),
             Self::Seek { seconds, absolute } if seconds.is_finite() => vec![
                 "seek".into(),
                 seconds.to_string(),
@@ -65,10 +60,10 @@ impl Command {
                 .into(),
             ],
             Self::Volume(value) if value.is_finite() && (0.0..=200.0).contains(value) => {
-                vec!["set".into(), "volume".into(), value.to_string()]
+                set("volume", value.to_string())
             }
             Self::AudioDevice(name) if !name.is_empty() && !name.contains('\0') => {
-                vec!["set".into(), "audio-device".into(), name.clone()]
+                set("audio-device", name.clone())
             }
             Self::AudioDevice(_) => {
                 return Err("The audio device name is empty or contains a NUL byte".into());
@@ -77,7 +72,7 @@ impl Command {
             // requests above the engine limit so native rejection remains an
             // observed failure instead of inventing a narrower input contract.
             Self::Speed(value) if value.is_finite() && *value >= 0.01 => {
-                vec!["set".into(), "speed".into(), value.to_string()]
+                set("speed", value.to_string())
             }
             Self::MultiplySpeed(factor) if factor.is_finite() && *factor > 0.0 => {
                 vec!["multiply".into(), "speed".into(), factor.to_string()]
@@ -85,24 +80,14 @@ impl Command {
             Self::MultiplySubtitleScale(factor) if factor.is_finite() && *factor > 0.0 => {
                 vec!["multiply".into(), "sub-scale".into(), factor.to_string()]
             }
-            Self::ToggleMute => vec!["cycle".into(), "mute".into()],
-            Self::SetMuted(muted) => vec![
-                "set".into(),
-                "mute".into(),
-                if *muted { "yes" } else { "no" }.into(),
-            ],
-            Self::FrameStep => vec!["frame-step".into()],
-            Self::FrameBackStep => vec!["frame-back-step".into()],
-            Self::CaptureFrame => vec!["screenshot-raw".into(), "video".into(), "rgba".into()],
-            Self::CaptureTransitionFrame => {
-                vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
-            }
-            Self::CaptureIncomingTransitionFrame => {
-                vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
-            }
-            Self::CaptureMaterialFrame => {
-                vec!["screenshot-raw".into(), "video".into(), "rgba".into()]
-            }
+            Self::ToggleMute => cmd(["cycle", "mute"]),
+            Self::SetMuted(muted) => set("mute", flag(*muted)),
+            Self::FrameStep => cmd(["frame-step"]),
+            Self::FrameBackStep => cmd(["frame-back-step"]),
+            Self::CaptureFrame => cmd(["screenshot-raw", "video", "rgba"]),
+            Self::CaptureTransitionFrame => cmd(["screenshot-raw", "video", "rgba"]),
+            Self::CaptureIncomingTransitionFrame => cmd(["screenshot-raw", "video", "rgba"]),
+            Self::CaptureMaterialFrame => cmd(["screenshot-raw", "video", "rgba"]),
             Self::ObserveMpvProperty(_) => {
                 return Err("mpv property observation is handled by the player worker".into());
             }
@@ -111,65 +96,42 @@ impl Command {
                 path.clone(),
                 content.native_value().into(),
             ],
-            Self::PlaylistNext => vec!["playlist-next".into(), "weak".into()],
-            Self::PlaylistPrevious => vec!["playlist-prev".into(), "weak".into()],
-            Self::SelectTrack { kind, id } if id.is_none_or(|id| id > 0) => vec![
-                "set".into(),
-                kind.property().into(),
+            Self::PlaylistNext => cmd(["playlist-next", "weak"]),
+            Self::PlaylistPrevious => cmd(["playlist-prev", "weak"]),
+            Self::SelectTrack { kind, id } if id.is_none_or(|id| id > 0) => set(
+                kind.property(),
                 id.map_or_else(|| "no".into(), |id| id.to_string()),
-            ],
+            ),
             Self::CycleTrack(kind) => {
                 // Native cycling owns track ordering and the disabled sentinel;
                 // a catalog snapshot can lag external-track insertion/removal.
                 vec!["cycle".into(), kind.property().into()]
             }
-            Self::VideoAspect(aspect) => vec![
-                "set".into(),
-                "video-aspect-override".into(),
-                aspect.native_value().into(),
-            ],
+            Self::VideoAspect(aspect) => set("video-aspect-override", aspect.native_value()),
             // Read the native chain at execution; rapid activations must not
             // invert the same stale observed state twice.
             Self::ToggleVideoReflection(axis) => vec!["vf".into(), "toggle".into(), axis.filter()],
-            Self::VideoRotation(rotation) => vec![
-                "set".into(),
-                "video-rotate".into(),
-                rotation.degrees().to_string(),
-            ],
-            Self::Deinterlace(enabled) => vec![
-                "set".into(),
-                "deinterlace".into(),
-                if *enabled { "yes" } else { "no" }.into(),
-            ],
+            Self::VideoRotation(rotation) => set("video-rotate", rotation.degrees().to_string()),
+            Self::Deinterlace(enabled) => set("deinterlace", flag(*enabled)),
             // Limit the native cycle to the reference's two states; newer mpv
             // also offers auto, which is not a third state in IINA's checkbox.
-            Self::ToggleDeinterlace => vec![
-                "cycle-values".into(),
-                "deinterlace".into(),
-                "no".into(),
-                "yes".into(),
-            ],
-            Self::HardwareDecoding(mode) => {
-                vec!["set".into(), "hwdec".into(), mode.native_value().into()]
-            }
-            Self::SubtitleAssOverride { lane, level } => vec![
-                "set".into(),
+            Self::ToggleDeinterlace => cmd(["cycle-values", "deinterlace", "no", "yes"]),
+            Self::HardwareDecoding(mode) => set("hwdec", mode.native_value()),
+            Self::SubtitleAssOverride { lane, level } => set(
                 match lane {
                     subtitle_controls::SubtitleLane::Primary => "sub-ass-override",
                     subtitle_controls::SubtitleLane::Secondary => "secondary-sub-ass-override",
-                }
-                .into(),
-                level.mpv_value().into(),
-            ],
+                },
+                level.mpv_value(),
+            ),
             Self::VideoEqualizer { option, value } if (-100..=100).contains(value) => {
-                vec!["set".into(), option.property().into(), value.to_string()]
+                set(option.property(), value.to_string())
             }
-            Self::SelectSecondarySubtitle(id) if id.is_none_or(|id| id > 0) => vec![
-                "set".into(),
-                "secondary-sid".into(),
+            Self::SelectSecondarySubtitle(id) if id.is_none_or(|id| id > 0) => set(
+                "secondary-sid",
                 id.map_or_else(|| "no".into(), |id| id.to_string()),
-            ],
-            Self::SelectChapter(index) => vec!["set".into(), "chapter".into(), index.to_string()],
+            ),
+            Self::SelectChapter(index) => set("chapter", index.to_string()),
             Self::AdjustChapter(delta) => {
                 // Relative navigation keeps native restart-threshold and boundary
                 // semantics; selecting a sidebar chapter intentionally resumes.
@@ -183,7 +145,7 @@ impl Command {
             Self::MovePlaylistEntry { from, to } => {
                 vec!["playlist-move".into(), from.to_string(), to.to_string()]
             }
-            Self::ClearPlaylist => vec!["playlist-clear".into()],
+            Self::ClearPlaylist => cmd(["playlist-clear"]),
             Self::AddSubtitle(path) | Self::AddAudio(path) | Self::AddVideo(path)
                 if valid_path(path) =>
             {
@@ -198,43 +160,33 @@ impl Command {
                 ];
                 args
             }
-            Self::AudioDelay(value) | Self::SubtitleDelay(value) if value.is_finite() => vec![
-                "set".into(),
+            Self::AudioDelay(value) | Self::SubtitleDelay(value) if value.is_finite() => set(
                 if matches!(self, Self::AudioDelay(_)) {
                     "audio-delay"
                 } else {
                     "sub-delay"
-                }
-                .into(),
+                },
                 value.to_string(),
-            ],
-            Self::ToggleSubtitleVisibility => vec!["cycle".into(), "sub-visibility".into()],
+            ),
+            Self::ToggleSubtitleVisibility => cmd(["cycle", "sub-visibility"]),
             Self::SubtitleFont(font) if subtitle_controls::valid_font_name(font) => {
-                vec!["set".into(), "sub-font".into(), font.clone()]
+                set("sub-font", font.clone())
             }
             Self::SubtitlePreferredLanguages(languages)
                 if languages.len() <= 256 && !languages.chars().any(char::is_control) =>
             {
-                vec!["set".into(), "slang".into(), languages.clone()]
+                set("slang", languages.clone())
             }
-            Self::SubtitleBold(value) => vec![
-                "set".into(),
-                "sub-bold".into(),
-                if *value { "yes" } else { "no" }.into(),
-            ],
-            Self::SubtitleItalic(value) => vec![
-                "set".into(),
-                "sub-italic".into(),
-                if *value { "yes" } else { "no" }.into(),
-            ],
+            Self::SubtitleBold(value) => set("sub-bold", flag(*value)),
+            Self::SubtitleItalic(value) => set("sub-italic", flag(*value)),
             Self::SubtitleBlur(value) if value.is_finite() && (0.0..=20.0).contains(value) => {
-                vec!["set".into(), "sub-blur".into(), value.to_string()]
+                set("sub-blur", value.to_string())
             }
             Self::SubtitleSpacing(value) if value.is_finite() => {
-                vec!["set".into(), "sub-spacing".into(), value.to_string()]
+                set("sub-spacing", value.to_string())
             }
             Self::SubtitleShadowOffset(value) if value.is_finite() && *value >= 0.0 => {
-                vec!["set".into(), "sub-shadow-offset".into(), value.to_string()]
+                set("sub-shadow-offset", value.to_string())
             }
             Self::SubtitleTextColor(color)
             | Self::SubtitleBorderColor(color)
@@ -244,68 +196,48 @@ impl Command {
                     Self::SubtitleBorderColor(_) => "sub-outline-color",
                     _ => "sub-back-color",
                 };
-                vec!["set".into(), option.into(), color.mpv_value()]
+                set(option, color.mpv_value())
             }
             Self::SubtitleOutlineSize(value) if value.is_finite() && *value >= 0.0 => {
-                vec!["set".into(), "sub-outline-size".into(), value.to_string()]
+                set("sub-outline-size", value.to_string())
             }
             Self::SubtitleFontSize(value) if value.is_finite() && *value > 0.0 => {
-                vec!["set".into(), "sub-font-size".into(), value.to_string()]
+                set("sub-font-size", value.to_string())
             }
             Self::SubtitleScale(value) if value.is_finite() && (0.0..=100.0).contains(value) => {
-                vec!["set".into(), "sub-scale".into(), value.to_string()]
+                set("sub-scale", value.to_string())
             }
-            Self::SecondarySubtitleDelay(value) if value.is_finite() => vec![
-                "set".into(),
-                "secondary-sub-delay".into(),
-                value.to_string(),
-            ],
+            Self::SecondarySubtitleDelay(value) if value.is_finite() => {
+                set("secondary-sub-delay", value.to_string())
+            }
             Self::SubtitlePosition(value) | Self::SecondarySubtitlePosition(value)
                 if value.is_finite() && (0.0..=150.0).contains(value) =>
             {
-                vec![
-                    "set".into(),
+                set(
                     if matches!(self, Self::SubtitlePosition(_)) {
                         "sub-pos"
                     } else {
                         "secondary-sub-pos"
-                    }
-                    .into(),
+                    },
                     value.to_string(),
-                ]
+                )
             }
-            Self::SubtitleAlignX(alignment) => vec![
-                "set".into(),
-                "sub-align-x".into(),
-                alignment.mpv_value().into(),
-            ],
-            Self::SubtitleAlignY(alignment) => vec![
-                "set".into(),
-                "sub-align-y".into(),
-                alignment.mpv_value().into(),
-            ],
-            Self::SubtitleScaleWithWindow(enabled) => vec![
-                "set".into(),
-                "sub-scale-by-window".into(),
-                if *enabled { "yes" } else { "no" }.into(),
-            ],
+            Self::SubtitleAlignX(alignment) => set("sub-align-x", alignment.mpv_value()),
+            Self::SubtitleAlignY(alignment) => set("sub-align-y", alignment.mpv_value()),
+            Self::SubtitleScaleWithWindow(enabled) => set("sub-scale-by-window", flag(*enabled)),
             Self::SubtitleMarginX(value) | Self::SubtitleMarginY(value)
                 if value.is_finite() && (0.0..=2_000_000_000.0).contains(value) =>
             {
-                vec![
-                    "set".into(),
+                set(
                     if matches!(self, Self::SubtitleMarginX(_)) {
                         "sub-margin-x"
                     } else {
                         "sub-margin-y"
-                    }
-                    .into(),
+                    },
                     value.to_string(),
-                ]
+                )
             }
-            Self::ToggleSecondarySubtitleVisibility => {
-                vec!["cycle".into(), "secondary-sub-visibility".into()]
-            }
+            Self::ToggleSecondarySubtitleVisibility => cmd(["cycle", "secondary-sub-visibility"]),
             Self::AdjustAudioDelay(delta)
             | Self::AdjustSubtitleDelay(delta)
             | Self::AdjustSubtitleScale(delta)
@@ -332,16 +264,11 @@ impl Command {
                 // a UI timestamp search would bypass both timing semantics.
                 vec!["sub-seek".into(), skip.to_string()]
             }
-            Self::CycleAbLoop => vec!["ab-loop".into()],
+            Self::CycleAbLoop => cmd(["ab-loop"]),
             Self::ToggleFileLoop => {
                 // This shortcut changes only file repeat; a playlist repeat
                 // setting survives while file repeat temporarily takes priority.
-                vec![
-                    "cycle-values".into(),
-                    "loop-file".into(),
-                    "inf".into(),
-                    "no".into(),
-                ]
+                cmd(["cycle-values", "loop-file", "inf", "no"])
             }
             Self::OpenFiles(_)
             | Self::OpenFilesWithSubtitles { .. }

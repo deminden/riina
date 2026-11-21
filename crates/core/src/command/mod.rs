@@ -8,6 +8,18 @@ use crate::{
     video_reflection, video_viewport,
 };
 
+fn cmd<const N: usize>(parts: [&str; N]) -> Vec<String> {
+    parts.into_iter().map(str::to_owned).collect()
+}
+
+fn set(name: &str, value: impl Into<String>) -> Vec<String> {
+    vec!["set".to_owned(), name.to_owned(), value.into()]
+}
+
+fn flag(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
     Load(String),
