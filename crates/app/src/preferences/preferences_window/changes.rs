@@ -1,4 +1,6 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
+mod committed;
+
 use super::{live::*, refresh::refresh};
 use crate::{
     PlayerWindow, PreferencesWindow,
@@ -686,91 +688,26 @@ fn connect_with_credentials(
             save_preferences(&window, &app, &model, preferences)
         });
         match result {
-            Ok(()) => {
-                app.set_show_chapter_pos(window.get_show_chapter_pos());
-                app.set_play_when_entering_fullscreen(selected_play_when_entering_fullscreen);
-                app.set_pause_when_leaving_fullscreen(selected_pause_when_leaving_fullscreen);
-                app.set_pause_when_inactive(selected_pause_when_inactive);
-                app.set_pause_when_minimized(selected_pause_when_minimized);
-                app.set_pause_when_goes_to_sleep(selected_pause_when_goes_to_sleep);
-                app.set_quit_when_no_opened_window(selected_quit_when_no_windows);
-                app.set_keep_open_on_file_end(selected_keep_open);
-                app.set_record_recent_files(window.get_record_recent_files());
-                app.set_track_all_files_in_recent_open_menu(
-                    window.get_track_all_files_in_recent_open_menu(),
-                );
-                app.set_playlist_auto_play_next(selected_playlist_auto_play_next);
-                app.set_playlist_auto_add(selected_playlist_auto_add);
-                app.set_playlist_show_metadata(selected_playlist_show_metadata);
-                app.set_playlist_show_metadata_in_music_mode(
-                    selected_playlist_show_metadata_in_music_mode,
-                );
-                app.set_auto_repeat(selected_auto_repeat);
-                app.set_default_repeat_mode_index(selected_default_repeat_mode.index());
-                model.write_player::<ThumbnailPreview>(&app);
-                if selected_online_subtitles.api_key == app.get_open_subtitles_api_key().as_str() {
-                    crate::online_subtitles_preferences::install_player(
-                        &app,
-                        &selected_online_subtitles,
-                    );
-                } else {
-                    match (credentials.open_subtitles)(&selected_online_subtitles.api_key) {
-                        Ok(()) => crate::online_subtitles_preferences::install_player(
-                            &app,
-                            &selected_online_subtitles,
-                        ),
-                        Err(error) => {
-                            let mut retained = selected_online_subtitles.clone();
-                            retained.api_key = app.get_open_subtitles_api_key().to_string();
-                            crate::online_subtitles_preferences::install_player(&app, &retained);
-                            window.set_open_subtitles_api_key(retained.api_key.into());
-                            app.set_status(error.into());
-                        }
-                    }
-                }
-                if selected_online_subtitles.assrt_token != previous_assrt_token
-                    && let Err(error) = (credentials.assrt)(&selected_online_subtitles.assrt_token)
-                {
-                    let mut retained = selected_online_subtitles.clone();
-                    retained.api_key = app.get_open_subtitles_api_key().to_string();
-                    retained.assrt_token = previous_assrt_token.clone();
-                    crate::online_subtitles_preferences::install_player(&app, &retained);
-                    window.set_assrt_token(retained.assrt_token.into());
-                    app.set_status(error.into());
-                }
-                model.write_player::<PictureInPicture>(&app);
-                app.set_live_text_enabled(window.get_live_text_enabled());
-                app.set_load_icc_profile(window.get_load_icc_profile());
-                app.set_default_hdr_mode_enabled(window.get_default_hdr_mode_enabled());
-                app.set_disable_animations(window.get_disable_animations());
-                app.set_appearance_mode(selected_theme.index());
-                app.set_dark_theme(selected_dark);
-                model.write_player::<Osd>(&app);
-                model.write_player::<riina_core::osc_preferences::Settings>(&app);
-                app.set_always_float_on_top(window.get_always_float_on_top());
-                app.set_always_show_on_top_icon(window.get_always_show_on_top_icon());
-                model.write_player::<riina_core::control_preferences::Settings>(&app);
-                model.write_player::<riina_core::liquid_glass::SurfaceSettings>(&app);
-                crate::key_binding_preferences::install_player(
-                    &app,
-                    &selected_key_bindings,
-                    key_binding_playback.clone(),
-                );
+            Ok(()) => committed::project(
+                &app,
+                &window,
+                &model,
+                &credentials,
+                &key_binding_playback,
+                committed::PreviousValues {
+                    pause_when_open: previous_pause,
+                    resume_last_position: previous_resume,
+                    record_playback_history: previous_record_playback_history,
+                    assrt_token: &previous_assrt_token,
+                },
                 if advanced_changed {
-                    app.set_status("Advanced settings apply after restarting Riina".into());
+                    Some("Advanced settings apply after restarting Riina")
                 } else if audio_changed {
-                    app.set_status("Audio engine preferences apply after restarting Riina".into());
-                }
-                if app.get_pause_when_open() != previous_pause {
-                    app.invoke_pause_when_open_changed(app.get_pause_when_open());
-                }
-                if app.get_resume_last_position() != previous_resume {
-                    app.invoke_resume_last_position_changed(app.get_resume_last_position());
-                }
-                if app.get_record_playback_history() != previous_record_playback_history {
-                    app.invoke_record_playback_history_changed(app.get_record_playback_history());
-                }
-            }
+                    Some("Audio engine preferences apply after restarting Riina")
+                } else {
+                    None
+                },
+            ),
             Err(error) => {
                 window.set_allow_multiple_windows(saved.allow_multiple_windows);
                 window.set_group_simultaneous_opens_in_playlist(

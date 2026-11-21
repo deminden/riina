@@ -59,6 +59,14 @@ impl PreferenceModel {
         self.0.current.borrow().clone()
     }
 
+    pub(crate) fn retain_subtitle_credentials(&self, app: &PlayerWindow) {
+        let api_key = app.get_open_subtitles_api_key().to_string();
+        let assrt_token = app.get_assrt_token().to_string();
+        let mut current = self.0.current.borrow_mut();
+        current.online_subtitles.api_key = api_key;
+        current.online_subtitles.assrt_token = assrt_token;
+    }
+
     pub(crate) fn read_section<S: PreferenceSection>(
         &self,
         window: &PreferencesWindow,

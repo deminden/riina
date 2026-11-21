@@ -413,6 +413,8 @@ fn opensubtitles_storage_failure_keeps_the_prior_key_and_omits_secrets_from_json
         "existing-api-key"
     );
     assert_eq!(app.get_status(), "credential store rejected the key");
+    let recorded = transaction.player.session.preference_model.snapshot();
+    assert_eq!(recorded.online_subtitles.api_key, "existing-api-key");
     assert!(
         transaction
             .profile
@@ -444,6 +446,11 @@ fn assrt_storage_failure_keeps_the_prior_token_and_omits_secrets_from_json() {
     assert_eq!(app.get_assrt_token(), "existing-assrt-token");
     assert_eq!(transaction.window.get_assrt_token(), "existing-assrt-token");
     assert_eq!(app.get_status(), "credential store rejected the token");
+    let recorded = transaction.player.session.preference_model.snapshot();
+    assert_eq!(
+        recorded.online_subtitles.assrt_token,
+        "existing-assrt-token"
+    );
     assert!(
         transaction
             .profile
