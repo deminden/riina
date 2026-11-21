@@ -473,6 +473,12 @@ showed motion. The fixture filename and playing state were checked through
 mpv for each capture. All three players quit and joined their workers. This
 narrows the intermittent failure to presentation after decode.
 
+Removing the optional mpv swap notification passed an initial three-session
+probe. A paired run covered two ordinary starts and two paused starts for each
+build. Each build still showed black video in two late captures while the
+decoded screenshots contained the fixture. All eight isolated sessions exited.
+The swap notification remains in the shared renderer.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
