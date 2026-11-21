@@ -29,7 +29,6 @@ mod input;
 mod subtitle_controls;
 mod video_controls;
 use audio_controls::set_audio_equalizer_controls;
-mod materials;
 mod observation_dispatch;
 mod observations;
 mod observer_state;
@@ -38,8 +37,6 @@ mod plugins;
 use catalog::install_playlist_metadata_refresh;
 use context::{PlayerContext, bind};
 use engine_start::EngineStart;
-#[cfg(target_os = "windows")]
-use materials::{install_native_video_material_sampler, install_windows_material_policy_monitor};
 mod session_preferences;
 
 use plugin_menus::reorder_plugin_menu_rows;
@@ -377,8 +374,7 @@ pub(crate) struct UiSession {
     _pause_resume_timer: Rc<slint::Timer>,
     _thumbnail_preview_timer: Rc<slint::Timer>,
     _transition_frame_timer: Option<Rc<slint::Timer>>,
-    _native_material_timer: Option<Rc<slint::Timer>>,
-    _windows_materials_policy_timer: Option<Rc<slint::Timer>>,
+    _video_materials: platform::video_materials::Monitor,
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: Rc<RefCell<Option<crate::OnlineSubtitlesWindow>>>,
     _online_subtitles_timer: Rc<slint::Timer>,
@@ -753,23 +749,12 @@ fn configure_with_engine(
         &pending_navigation,
         &transition_release_generation,
     );
-    #[cfg(target_os = "windows")]
-    let native_material_timer = native.is_some().then(|| {
-        install_native_video_material_sampler(
-            app,
-            command_sender.clone(),
-            latest_playback.clone(),
-            native
-                .as_ref()
-                .and_then(platform::NativePresentation::material_capture),
-        )
-    });
-    #[cfg(not(target_os = "windows"))]
-    let native_material_timer = None;
-    #[cfg(target_os = "windows")]
-    let windows_materials_policy_timer = Some(install_windows_material_policy_monitor(app));
-    #[cfg(not(target_os = "windows"))]
-    let windows_materials_policy_timer = None;
+    let video_materials = platform::video_materials::Monitor::install(
+        app,
+        native.as_ref(),
+        &command_sender,
+        &latest_playback,
+    );
     #[cfg(target_os = "macos")]
     {
         *system_media_sender.borrow_mut() = Some(command_sender.clone());
@@ -1112,8 +1097,7 @@ fn configure_with_engine(
         _pause_resume_timer: pause_resume_timer,
         _thumbnail_preview_timer: thumbnail_preview_timer,
         _transition_frame_timer: transition_frame_timer,
-        _native_material_timer: native_material_timer,
-        _windows_materials_policy_timer: windows_materials_policy_timer,
+        _video_materials: video_materials,
         _subtitle_priority_timer: subtitle_priority_timer,
         _online_subtitles_window: online_subtitles_window,
         _online_subtitles_timer: online_subtitles_timer,

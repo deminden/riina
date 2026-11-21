@@ -16,6 +16,7 @@ pub(crate) mod pip;
 mod plugin_overlay;
 mod presentation;
 pub(crate) mod recent_documents;
+pub(crate) mod video_material_sampler;
 pub(crate) mod window_geometry;
 pub(crate) mod window_position;
 pub(crate) mod window_sizing;

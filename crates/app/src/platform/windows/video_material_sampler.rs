@@ -1,12 +1,8 @@
 //! Native video samples feed only the SDR control materials.
 use crate::PlayerWindow;
-#[cfg(target_os = "windows")]
-use crate::platform;
-#[cfg(target_os = "windows")]
+use crate::platform::{self, video_materials::set_video_material_sample};
 use riina_core::{Command, Phase};
-#[cfg(target_os = "windows")]
 use slint::ComponentHandle;
-#[cfg(target_os = "windows")]
 use std::{
     cell::Cell,
     rc::Rc,
@@ -16,30 +12,19 @@ use std::{
 
 // A 4 fps clip changes frames every 250 ms; sampling at 10 Hz avoids skipping
 // alternating frames while keeping screenshot-raw readback below display rate.
-#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
 // Material-frame replies arrive asynchronously. Poll them at the UI cadence so
 // a completed capture does not wait another full sampling interval to display.
-#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
-#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_SAMPLE_TIMEOUT: Duration = Duration::from_millis(750);
-#[cfg(target_os = "windows")]
 const NATIVE_MATERIAL_CAPTURE_STARTUP_GRACE: Duration = Duration::from_millis(500);
 
-pub(super) fn set_video_material_sample(app: &PlayerWindow, image: slint::Image, ready: bool) {
-    app.set_video_blurred_frame(image);
-    app.set_video_material_sample_ready(ready);
-}
-
-#[cfg(target_os = "windows")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MaterialSampleSource {
     Wgc,
     Mpv,
 }
 
-#[cfg(target_os = "windows")]
 impl MaterialSampleSource {
     fn label(self) -> &'static str {
         match self {
@@ -49,7 +34,6 @@ impl MaterialSampleSource {
     }
 }
 
-#[cfg(target_os = "windows")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct MaterialFrameKey {
     generation: u64,
@@ -57,14 +41,12 @@ struct MaterialFrameKey {
     source: MaterialSampleSource,
 }
 
-#[cfg(target_os = "windows")]
 struct MaterialTransformRequest {
     key: MaterialFrameKey,
     frame: Arc<riina_core::CapturedFrame>,
     captured_at: Option<Instant>,
 }
 
-#[cfg(target_os = "windows")]
 struct MaterialTransformResult {
     key: MaterialFrameKey,
     captured_at: Option<Instant>,
@@ -72,7 +54,6 @@ struct MaterialTransformResult {
     pixels: Result<crate::video_blur::SampledFramePixels, String>,
 }
 
-#[cfg(target_os = "windows")]
 fn start_material_transform_worker() -> (
     std::sync::mpsc::SyncSender<MaterialTransformRequest>,
     std::sync::mpsc::Receiver<MaterialTransformResult>,
@@ -131,8 +112,7 @@ fn start_material_transform_worker() -> (
     (request_sender, result_receiver)
 }
 
-#[cfg(target_os = "windows")]
-pub(super) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<slint::Timer> {
+pub(crate) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<slint::Timer> {
     let timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();
     timer.start(
@@ -162,12 +142,11 @@ pub(super) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<
     timer
 }
 
-#[cfg(target_os = "windows")]
 #[expect(
     clippy::too_many_lines,
     reason = "decomposition tracked in docs/review"
 )]
-pub(super) fn install_native_video_material_sampler(
+pub(crate) fn install_native_video_material_sampler(
     app: &PlayerWindow,
     sender: riina_mpv::CommandSender,
     latest: crate::PlaybackStore,

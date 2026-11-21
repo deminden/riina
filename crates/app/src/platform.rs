@@ -16,6 +16,7 @@ pub(crate) use pip_session::PictureInPictureSession;
 mod plugin_resources;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
+pub(crate) mod video_materials;
 pub(crate) mod window_sizing;
 
 #[cfg(target_os = "windows")]

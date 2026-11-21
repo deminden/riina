@@ -1,7 +1,7 @@
 //! The rendering notifier owns GL resources until the backend tears down its context.
-use super::materials::set_video_material_sample;
 #[cfg(target_os = "macos")]
 use crate::platform;
+use crate::platform::video_materials::set_video_material_sample;
 use crate::{PlayerWindow, media_open};
 use riina_core::Command;
 use riina_mpv::{Player, video::VideoSurface};
