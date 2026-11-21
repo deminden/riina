@@ -625,6 +625,19 @@ pub(crate) fn window_work_area(
     }
 }
 
+pub(crate) fn set_native_video_host_visible(
+    host: Option<&slint::Weak<crate::NativeVideoHost>>,
+    visible: bool,
+) {
+    let Some(host) = host.and_then(slint::Weak::upgrade) else {
+        return;
+    };
+    // The native presentation retains this Winit handle for mpv's HWND
+    // lifetime. Toggle the OS surface directly so Slint does not keep it shown.
+    host.window()
+        .with_winit_window(|window| window.set_visible(visible));
+}
+
 /// Identify the aligned embedded video surface that is currently visible.
 /// A replacement HWND restarts the Windows handoff stability interval.
 pub(crate) fn native_video_surface_signature(window: &slint::Window) -> Option<u64> {

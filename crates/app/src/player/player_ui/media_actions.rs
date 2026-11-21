@@ -1,12 +1,12 @@
 //! File, URL, recent-document and welcome-window actions share one command sender.
-use super::{
-    PendingWelcomeOpen, dispatch_welcome_open, help_menu_url, persist_recent_open_documents,
-    remember_recent_open_document, set_native_video_host_visible,
-};
+pub(super) mod recent;
+
+use super::help_menu_url;
 use crate::{
     MenuCatalogRow, NativeVideoHost, PlayerWindow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
+use recent::{persist_recent_open_documents, remember_recent_open_document};
 use riina_core::RecentMedia;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
@@ -25,6 +25,24 @@ pub(super) struct Context<'a> {
     pub recent_open_cleared: &'a Rc<Cell<bool>>,
     pub prefs_path: &'a PathBuf,
     pub latest_playback: &'a crate::PlaybackStore,
+}
+
+enum PendingWelcomeOpen {
+    Url(String),
+    Recent(riina_core::RecentMedia, bool),
+}
+
+fn dispatch_welcome_open(
+    app: &PlayerWindow,
+    request: PendingWelcomeOpen,
+    sender: &riina_mpv::CommandSender,
+) {
+    match request {
+        PendingWelcomeOpen::Url(value) => media_open::url(app, &value, sender.clone()),
+        PendingWelcomeOpen::Recent(media, resume) => {
+            media_open::open_recent(app, media, resume, sender.clone());
+        }
+    }
 }
 
 type WelcomeHandle = Option<slint::Weak<WelcomeWindow>>;
@@ -149,7 +167,7 @@ fn install_file_open(
                 .and_then(slint::Weak::upgrade)
                 .is_some_and(|welcome| welcome.window().is_visible());
             if welcome_is_visible {
-                set_native_video_host_visible(file_open_host.as_ref(), true);
+                platform::set_native_video_host_visible(file_open_host.as_ref(), true);
                 if let Err(error) = app.show() {
                     app.set_status(error.to_string().into());
                     return;
@@ -277,7 +295,7 @@ fn install_url_open(
                     }
                     return;
                 }
-                set_native_video_host_visible(open_url_host.as_ref(), true);
+                platform::set_native_video_host_visible(open_url_host.as_ref(), true);
                 if let Err(error) = app.show() {
                     app.set_status(error.to_string().into());
                     return;
@@ -367,7 +385,7 @@ fn install_welcome_recent(
                 .and_then(slint::Weak::upgrade)
                 .is_some_and(|welcome| welcome.window().is_visible());
             if from_welcome {
-                set_native_video_host_visible(recent_host.as_ref(), true);
+                platform::set_native_video_host_visible(recent_host.as_ref(), true);
                 if let Err(error) = app.show() {
                     app.set_status(error.to_string().into());
                     return;

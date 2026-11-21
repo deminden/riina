@@ -40,20 +40,17 @@ mod session_preferences;
 use plugin_menus::reorder_plugin_menu_rows;
 
 use crate::{
-    MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
-    preference_load::LoadedPreferences, preferences::model::PreferenceModel,
+    PlayerWindow, WelcomeWindow, media_open, platform, preference_load::LoadedPreferences,
+    preferences::model::PreferenceModel,
 };
-use riina_core::{Command, Phase, Playback, Preferences, sync::lock, time_label};
+use riina_core::{Command, Phase, Playback, Preferences, sync::lock};
 use riina_mpv::Player;
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
-    },
+    sync::{Arc, atomic::Ordering},
     time::Instant,
 };
 
@@ -125,151 +122,6 @@ pub(crate) fn show_osd_message(
     app.invoke_show_video_osd();
 }
 
-fn set_native_video_host_visible(
-    host: Option<&slint::Weak<crate::NativeVideoHost>>,
-    visible: bool,
-) {
-    let Some(host) = host.and_then(slint::Weak::upgrade) else {
-        return;
-    };
-    // The native presentation retains this Winit handle for mpv's HWND
-    // lifetime. Toggle the OS surface directly so Slint does not keep it shown.
-    host.window()
-        .with_winit_window(|window| window.set_visible(visible));
-}
-
-fn recent_media_rows(media: &[riina_core::RecentMedia]) -> Vec<RecentMediaRow> {
-    media
-        .iter()
-        .map(|item| {
-            let title = if item.title.trim().is_empty() {
-                PathBuf::from(&item.path).file_name().map_or_else(
-                    || item.path.clone(),
-                    |name| name.to_string_lossy().into_owned(),
-                )
-            } else {
-                item.title.clone()
-            };
-            RecentMediaRow {
-                title: title.into(),
-                position_label: time_label(Some(item.position)).into(),
-            }
-        })
-        .collect()
-}
-
-fn recent_open_menu_rows(media: &[riina_core::RecentMedia]) -> Vec<MenuCatalogRow> {
-    media
-        .iter()
-        .map(|item| {
-            let label = if item.title.trim().is_empty() {
-                PathBuf::from(&item.path).file_name().map_or_else(
-                    || item.path.clone(),
-                    |name| name.to_string_lossy().into_owned(),
-                )
-            } else {
-                item.title.clone()
-            };
-            MenuCatalogRow {
-                token: item.path.clone().into(),
-                label: label.into(),
-                selected: false,
-            }
-        })
-        .collect()
-}
-
-fn remember_recent_open_document(
-    app: &PlayerWindow,
-    documents: &Rc<RefCell<Vec<riina_core::RecentMedia>>>,
-    preferences_path: &std::path::Path,
-    path: String,
-    title: String,
-) {
-    if !app.get_record_recent_files() || path.is_empty() {
-        return;
-    }
-    let native_path = path.clone();
-    let mut documents = documents.borrow_mut();
-    documents.retain(|document| document.path != path);
-    documents.insert(
-        0,
-        riina_core::RecentMedia {
-            path,
-            title,
-            position: 0.0,
-        },
-    );
-    documents.truncate(10);
-    let recent = documents.clone();
-    drop(documents);
-    app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        recent_open_menu_rows(&recent),
-    )));
-    app.invoke_video_menu_changed();
-    if let Err(error) = persist_recent_open_documents(preferences_path, &recent) {
-        app.set_status(format!("Could not save Open Recent: {error}").into());
-    }
-    if let Err(error) = platform::remember_recent_document(&native_path) {
-        app.set_status(format!("Could not update the system recent documents: {error}").into());
-    }
-}
-
-fn persist_recent_open_documents(
-    preferences_path: &std::path::Path,
-    documents: &[riina_core::RecentMedia],
-) -> std::io::Result<()> {
-    crate::preference_store::update_automatically(
-        preferences_path,
-        &Preferences::default(),
-        |preferences| {
-            preferences.recent_open_documents = documents.to_vec();
-            Ok(())
-        },
-    )
-    .map_err(std::io::Error::other)
-}
-
-fn resume_media_rows(
-    media: &[riina_core::RecentMedia],
-    resume_last_position: bool,
-) -> Vec<RecentMediaRow> {
-    if resume_last_position {
-        recent_media_rows(media.get(..1).unwrap_or_default())
-    } else {
-        Vec::new()
-    }
-}
-
-fn recent_document_rows(
-    media: &[riina_core::RecentMedia],
-    resume_last_position: bool,
-) -> Vec<RecentMediaRow> {
-    // IINA removes the last-played item from the document table only while its
-    // separate Resume action is enabled.
-    let offset = if resume_last_position { 1 } else { 0 };
-    recent_media_rows(media.get(offset..).unwrap_or_default())
-}
-
-fn refresh_welcome_history(
-    welcome: &WelcomeWindow,
-    media: &[riina_core::RecentMedia],
-    resume_last_position: bool,
-) {
-    welcome.set_recent_media(slint::ModelRc::new(slint::VecModel::from(
-        resume_media_rows(media, resume_last_position),
-    )));
-    welcome.set_recent_documents(slint::ModelRc::new(slint::VecModel::from(
-        recent_document_rows(media, resume_last_position),
-    )));
-    welcome.set_recent_document_offset(if resume_last_position { 1 } else { 0 });
-    welcome.set_selection_index(if resume_last_position || media.is_empty() {
-        -1
-    } else {
-        0
-    });
-}
-
 fn window_video_geometry(state: &Playback) -> Option<(f32, f32, i32)> {
     if matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed) {
         return None;
@@ -339,24 +191,6 @@ pub(crate) struct UiSession {
     recent_open_cleared: Rc<Cell<bool>>,
     history: history_session::Tracking,
     latest_playback: crate::PlaybackStore,
-}
-
-enum PendingWelcomeOpen {
-    Url(String),
-    Recent(riina_core::RecentMedia, bool),
-}
-
-fn dispatch_welcome_open(
-    app: &PlayerWindow,
-    request: PendingWelcomeOpen,
-    sender: &riina_mpv::CommandSender,
-) {
-    match request {
-        PendingWelcomeOpen::Url(value) => media_open::url(app, &value, sender.clone()),
-        PendingWelcomeOpen::Recent(media, resume) => {
-            media_open::open_recent(app, media, resume, sender.clone());
-        }
-    }
 }
 
 impl UiSession {
@@ -490,59 +324,28 @@ fn configure_with_engine(
         welcome,
         &recent_open_documents,
     );
-    let app_weak = app.as_weak();
-    // Only one pending state snapshot is retained; a decoder can produce updates
-    // faster than the UI consumes them without growing the application event queue.
-    // State and capture completions share one handoff. A newer completion must
-    // never be cleaned up while an older snapshot is still being rendered.
-    let latest = Arc::new(playback_mailbox::Mailbox::default());
-    let transition_overlay = Arc::new(AtomicU64::new(u64::MAX));
-    let transition_release_generation = Arc::new(AtomicU64::new(u64::MAX));
-    let notify_transition_overlay = transition_overlay.clone();
-    #[cfg(target_os = "windows")]
-    let notify_transition_release_generation = transition_release_generation.clone();
-    let observed_playback = latest_playback.clone();
-    let music_mode_state = Arc::new(std::sync::Mutex::new(riina_core::music_mode::State::new(
-        prefs.auto_switch_to_music_mode,
-    )));
-    if native.is_none() {
-        music_mode::install_window_resize(app);
-    }
-    let queued = Arc::new(AtomicBool::new(false));
-    let crop_editor = crate::crop_editor::Editor::default();
-    let observed_crop_editor = crop_editor.clone();
-    let mut video_osd =
-        crate::video_osd::VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
-    video_osd.set_volume_limit(prefs.volume_limit());
-    let observer_state = observer_state::UiObserverState::new(video_osd, media_geometry);
-    let feedback_video_osd = observer_state.video.clone();
-    let observer_state = observer_state::ObserverRegistration::new(observer_state);
-    let observer_id = observer_state.id();
-    let screenshot_scratch = Arc::new(crate::screenshot_output::Scratch::default());
-    let opening_fullscreen = Arc::new(std::sync::Mutex::new(
-        crate::opening_fullscreen::OpeningFullscreen::default(),
-    ));
-    let notification = observation_dispatch::PlaybackNotification {
-        reported_playback: observed_playback,
-        queued,
-        latest,
-        history: history.observe(plugin_host_handle.clone()),
-        delivery: observation_dispatch::WindowDelivery {
-            app: app_weak,
-            observer_id,
-            crop_editor: observed_crop_editor,
+    let observation_dispatch::PreparedObservation {
+        notification,
+        music_mode_state,
+        crop_editor,
+        observer_state,
+        feedback_video_osd,
+        screenshot_scratch,
+        transition_release_generation,
+    } = observation_dispatch::prepare_observation(
+        app,
+        observation_dispatch::Inputs {
+            prefs: &prefs,
+            media_geometry,
+            native_presentation: native.is_some(),
+            reported_playback: latest_playback.clone(),
+            history: history.observe(plugin_host_handle.clone()),
             saved_video_filters: saved_video_filters.clone(),
             saved_audio_filters: saved_audio_filters.clone(),
             audio_device_sender: plugin_command_sender.clone(),
-            opening_fullscreen,
-            music_mode_state: music_mode_state.clone(),
-            transition_overlay: notify_transition_overlay,
-            #[cfg(target_os = "windows")]
-            transition_release_generation: notify_transition_release_generation,
+            picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
         },
-        picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
-        _screenshot_scratch: screenshot_scratch.clone(),
-    };
+    );
     let notify = move |state| notification.publish(state);
     let capture_transition_first = engine_start.captures_before_navigation(native.is_some());
     let (player, command_sender) = match engine_start.start(native.as_ref(), engine_options, notify)
@@ -659,7 +462,11 @@ fn configure_with_engine(
             app.set_status(error.into());
         }
         if let Some(welcome) = resume_welcome.as_ref().and_then(slint::Weak::upgrade) {
-            refresh_welcome_history(&welcome, &recent_media_for_resume.borrow(), enabled);
+            media_actions::recent::refresh_welcome_history(
+                &welcome,
+                &recent_media_for_resume.borrow(),
+                enabled,
+            );
         }
     });
     history.install_recording_action(app);
@@ -822,7 +629,8 @@ fn configure_with_engine(
 #[cfg(test)]
 mod welcome_tests {
     use super::{
-        recent_document_rows, recent_media_rows, resume_media_rows, startup::resume_engine_options,
+        media_actions::recent::{recent_document_rows, recent_media_rows, resume_media_rows},
+        startup::resume_engine_options,
     };
     use riina_core::RecentMedia;
 

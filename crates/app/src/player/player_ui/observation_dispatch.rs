@@ -1,30 +1,132 @@
 //! Keep engine notifications and window projection separate from session composition.
 use super::{
     observations::{UiUpdateResources, update_ui},
-    observer_state::ObserverId,
+    observer_state::{ObserverId, ObserverRegistration, UiObserverState},
     playback_mailbox::{Delivery, Mailbox},
 };
 use crate::{
     PlaybackStore, PlayerWindow, crop_editor::Editor, opening_fullscreen::OpeningFullscreen,
     playback_history::PlaybackHistoryState, plugin_files::PluginPlayerFileContext,
-    plugin_host::PluginHostHandle, screenshot_output::Scratch,
+    plugin_host::PluginHostHandle, screenshot_output::Scratch, video_osd::VideoOsd,
+    window_aspect::MediaGeometry,
 };
-use riina_core::{Phase, Playback, RecentMedia, music_mode, sync::lock, video_filters};
+use riina_core::{
+    Phase, Playback, Preferences, RecentMedia, music_mode, sync::lock, video_filters,
+};
 use riina_mpv::CommandSender;
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicBool, AtomicU64, Ordering},
+use slint::ComponentHandle;
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
 };
 
-pub(super) struct PlaybackNotification {
+pub(super) struct Inputs<'a> {
+    pub(super) prefs: &'a Preferences,
+    pub(super) media_geometry: MediaGeometry,
+    pub(super) native_presentation: bool,
     pub(super) reported_playback: PlaybackStore,
-    pub(super) queued: Arc<AtomicBool>,
-    pub(super) latest: Arc<Mailbox>,
     pub(super) history: HistoryObservation,
-    pub(super) delivery: WindowDelivery,
+    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) audio_device_sender: Arc<Mutex<Option<CommandSender>>>,
     pub(super) picture_in_picture_state_dirty: Option<Arc<AtomicBool>>,
+}
+
+pub(super) struct PreparedObservation {
+    pub(super) notification: PlaybackNotification,
+    pub(super) music_mode_state: Arc<Mutex<music_mode::State>>,
+    pub(super) crop_editor: Editor,
+    pub(super) observer_state: ObserverRegistration,
+    pub(super) feedback_video_osd: Rc<RefCell<VideoOsd>>,
+    pub(super) screenshot_scratch: Arc<Scratch>,
+    pub(super) transition_release_generation: Arc<AtomicU64>,
+}
+
+pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> PreparedObservation {
+    let Inputs {
+        prefs,
+        media_geometry,
+        native_presentation,
+        reported_playback,
+        history,
+        saved_video_filters,
+        saved_audio_filters,
+        audio_device_sender,
+        picture_in_picture_state_dirty,
+    } = inputs;
+    let app_weak = app.as_weak();
+    // Only one pending state snapshot is retained; a decoder can produce updates
+    // faster than the UI consumes them without growing the application event queue.
+    // State and capture completions share one handoff. A newer completion must
+    // never be cleaned up while an older snapshot is still being rendered.
+    let latest = Arc::new(Mailbox::default());
+    let transition_overlay = Arc::new(AtomicU64::new(u64::MAX));
+    let transition_release_generation = Arc::new(AtomicU64::new(u64::MAX));
+    let notify_transition_overlay = transition_overlay.clone();
+    #[cfg(target_os = "windows")]
+    let notify_transition_release_generation = transition_release_generation.clone();
+    let music_mode_state = Arc::new(std::sync::Mutex::new(music_mode::State::new(
+        prefs.auto_switch_to_music_mode,
+    )));
+    if !native_presentation {
+        super::music_mode::install_window_resize(app);
+    }
+    let queued = Arc::new(AtomicBool::new(false));
+    let crop_editor = Editor::default();
+    let observed_crop_editor = crop_editor.clone();
+    let mut video_osd = VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
+    video_osd.set_volume_limit(prefs.volume_limit());
+    let observer_state = UiObserverState::new(video_osd, media_geometry);
+    let feedback_video_osd = observer_state.video.clone();
+    let observer_state = ObserverRegistration::new(observer_state);
+    let observer_id = observer_state.id();
+    let screenshot_scratch = Arc::new(Scratch::default());
+    let opening_fullscreen = Arc::new(std::sync::Mutex::new(OpeningFullscreen::default()));
+    let notification = PlaybackNotification {
+        reported_playback,
+        queued,
+        latest,
+        history,
+        delivery: WindowDelivery {
+            app: app_weak,
+            observer_id,
+            crop_editor: observed_crop_editor,
+            saved_video_filters,
+            saved_audio_filters,
+            audio_device_sender,
+            opening_fullscreen,
+            music_mode_state: music_mode_state.clone(),
+            transition_overlay: notify_transition_overlay,
+            #[cfg(target_os = "windows")]
+            transition_release_generation: notify_transition_release_generation,
+        },
+        picture_in_picture_state_dirty,
+        _screenshot_scratch: screenshot_scratch.clone(),
+    };
+    PreparedObservation {
+        notification,
+        music_mode_state,
+        crop_editor,
+        observer_state,
+        feedback_video_osd,
+        screenshot_scratch,
+        transition_release_generation,
+    }
+}
+
+pub(super) struct PlaybackNotification {
+    reported_playback: PlaybackStore,
+    queued: Arc<AtomicBool>,
+    latest: Arc<Mailbox>,
+    history: HistoryObservation,
+    delivery: WindowDelivery,
+    picture_in_picture_state_dirty: Option<Arc<AtomicBool>>,
     // The engine callback keeps the capture scratch alive until native destruction.
-    pub(super) _screenshot_scratch: Arc<Scratch>,
+    _screenshot_scratch: Arc<Scratch>,
 }
 
 impl PlaybackNotification {
