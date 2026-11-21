@@ -5,16 +5,9 @@ use std::{cell::RefCell, rc::Rc, time::Duration};
 
 pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
     let about_slot = Rc::new(RefCell::new(None::<AboutWindow>));
-    let version_slot = about_slot.clone();
-    let version_playback = playback.clone();
-    let version_timer = Rc::new(slint::Timer::default());
-    let version_timer_weak = Rc::downgrade(&version_timer);
-    let appearance_timer = Rc::new(slint::Timer::default());
-    let appearance_slot = about_slot.clone();
-    let appearance_app = app.as_weak();
+    let refresh_timer = Rc::new(slint::Timer::default());
     let slot = about_slot.clone();
     let weak_app = app.as_weak();
-    let show_appearance_timer = appearance_timer.clone();
     app.on_show_about(move || {
         let Some(app) = weak_app.upgrade() else {
             return;
@@ -34,38 +27,27 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
         };
         window.set_version_label(format!("Version {}", env!("CARGO_PKG_VERSION")).into());
         window.set_dark_theme(app.get_dark_theme());
-        let (engine, ffmpeg) = playback
+        let versions_ready = playback
             .lock()
-            .map(|state| engine_version_labels(&state))
-            .unwrap_or_else(|_| engine_version_labels(&Playback::default()));
-        window.set_engine_label(engine.into());
-        window.set_ffmpeg_label(ffmpeg.into());
+            .map(|state| refresh_engine_versions(&window, &state))
+            .unwrap_or_else(|_| refresh_engine_versions(&window, &Playback::default()));
         if let Err(error) = window.show() {
             app.set_status(format!("Could not show About Riina: {error}").into());
             return;
         }
         crate::platform::enable_about_acrylic(&window);
-        let timer = show_appearance_timer.clone();
-        let timer_weak = Rc::downgrade(&timer);
-        let timer_slot = appearance_slot.clone();
-        let timer_app = appearance_app.clone();
-        timer.start(
-            slint::TimerMode::Repeated,
+        refresh_timer.stop();
+        let weak_app = app.as_weak();
+        let weak_timer = Rc::downgrade(&refresh_timer);
+        let playback = playback.clone();
+        let mut versions_ready = versions_ready;
+        super::visible_refresh::start(
+            &window,
+            &refresh_timer,
             Duration::from_millis(250),
-            move || {
-                let Some(app) = timer_app.upgrade() else {
-                    if let Some(timer) = timer_weak.upgrade() {
-                        timer.stop();
-                    }
-                    return;
-                };
-                let Some(window) = timer_slot
-                    .borrow()
-                    .as_ref()
-                    .filter(|window| window.window().is_visible())
-                    .map(slint::ComponentHandle::clone_strong)
-                else {
-                    if let Some(timer) = timer_weak.upgrade() {
+            move |window| {
+                let Some(app) = weak_app.upgrade() else {
+                    if let Some(timer) = weak_timer.upgrade() {
                         timer.stop();
                     }
                     return;
@@ -74,39 +56,20 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
                 if window.get_dark_theme() != dark_theme {
                     window.set_dark_theme(dark_theme);
                 }
-            },
-        );
-        let timer_slot = version_slot.clone();
-        let timer_playback = version_playback.clone();
-        let timer_handle = version_timer_weak.clone();
-        version_timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(250),
-            move || {
-                let Some(window) = timer_slot
-                    .borrow()
-                    .as_ref()
-                    .filter(|window| window.window().is_visible())
-                    .map(slint::ComponentHandle::clone_strong)
-                else {
-                    if let Some(timer) = timer_handle.upgrade() {
-                        timer.stop();
-                    }
-                    return;
-                };
-                let playback = riina_core::sync::lock(&timer_playback);
-                let (engine, ffmpeg) = engine_version_labels(&playback);
-                window.set_engine_label(engine.into());
-                window.set_ffmpeg_label(ffmpeg.into());
-                if playback.mpv_version.is_some()
-                    && playback.ffmpeg_version.is_some()
-                    && let Some(timer) = timer_handle.upgrade()
-                {
-                    timer.stop();
+                if !versions_ready {
+                    versions_ready =
+                        refresh_engine_versions(window, &riina_core::sync::lock(&playback));
                 }
             },
         );
     });
+}
+
+fn refresh_engine_versions(window: &AboutWindow, playback: &Playback) -> bool {
+    let (engine, ffmpeg) = engine_version_labels(playback);
+    window.set_engine_label(engine.into());
+    window.set_ffmpeg_label(ffmpeg.into());
+    playback.mpv_version.is_some() && playback.ffmpeg_version.is_some()
 }
 
 fn engine_version_labels(playback: &Playback) -> (String, String) {
