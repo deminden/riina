@@ -3,6 +3,7 @@ mod auto_seek;
 #[cfg(test)]
 mod demuxer_tests;
 mod ffi;
+pub mod gl_support;
 mod pending;
 mod properties;
 #[cfg(feature = "test-support")]

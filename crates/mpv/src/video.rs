@@ -2,6 +2,7 @@
 use crate::{
     Player,
     ffi::{Fbo, GlInit, Param, render_param},
+    gl_support::{FramebufferBindings, allocate_rgba8_texture, attach_texture},
 };
 use glow::HasContext;
 use std::{
@@ -215,10 +216,7 @@ impl VideoSurface {
         // SAFETY: the caller keeps the GL context current and the framebuffer live
         // throughout the render, including restoration of the caller's GL state.
         unsafe {
-            let draw = NonZeroU32::new(gl.get_parameter_i32(glow::DRAW_FRAMEBUFFER_BINDING) as u32)
-                .map(glow::NativeFramebuffer);
-            let read = NonZeroU32::new(gl.get_parameter_i32(glow::READ_FRAMEBUFFER_BINDING) as u32)
-                .map(glow::NativeFramebuffer);
+            let bindings = FramebufferBindings::capture(gl);
             let texture = NonZeroU32::new(gl.get_parameter_i32(glow::TEXTURE_BINDING_2D) as u32)
                 .map(glow::NativeTexture);
             let mut viewport = [0; 4];
@@ -237,46 +235,8 @@ impl VideoSurface {
                 gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
                 if framebuffer == self.fbo && self.size != (width, height) {
                     gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-                    gl.tex_image_2d(
-                        glow::TEXTURE_2D,
-                        0,
-                        glow::RGBA8 as i32,
-                        width as i32,
-                        height as i32,
-                        0,
-                        glow::RGBA,
-                        glow::UNSIGNED_BYTE,
-                        glow::PixelUnpackData::Slice(None),
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MIN_FILTER,
-                        glow::LINEAR as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MAG_FILTER,
-                        glow::LINEAR as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_WRAP_S,
-                        glow::CLAMP_TO_EDGE as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_WRAP_T,
-                        glow::CLAMP_TO_EDGE as i32,
-                    );
-                    gl.framebuffer_texture_2d(
-                        glow::FRAMEBUFFER,
-                        glow::COLOR_ATTACHMENT0,
-                        glow::TEXTURE_2D,
-                        Some(self.texture),
-                        0,
-                    );
-                    if gl.check_framebuffer_status(glow::FRAMEBUFFER) != glow::FRAMEBUFFER_COMPLETE
-                    {
+                    allocate_rgba8_texture(gl, width, height);
+                    if !attach_texture(gl, self.texture) {
                         return Err("The video framebuffer is incomplete".into());
                     }
                     self.size = (width, height);
@@ -305,8 +265,7 @@ impl VideoSurface {
                     .api
                     .check((self.player.api.render)(self.context, params.as_mut_ptr()))
             })();
-            gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, draw);
-            gl.bind_framebuffer(glow::READ_FRAMEBUFFER, read);
+            bindings.restore(gl);
             gl.bind_texture(glow::TEXTURE_2D, texture);
             gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
             gl.scissor(scissor[0], scissor[1], scissor[2], scissor[3]);

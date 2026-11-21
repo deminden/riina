@@ -85,9 +85,11 @@ preference writer. See [Add a preference](recipes/add-a-preference.md).
 ## Platform boundary
 
 The Windows native presentation owns the video target used by the D3D11 route.
-The shared GL renderer uses the current Slint context. Window focus, dialogs,
-clipboard access, desktop materials and OS media integration are platform
-services. Test playback can use null native output or a recording engine to
+The shared GL renderer uses the current Slint context. Video textures and the
+blur pass use the same framebuffer binding operations. Window focus, dialog
+modality, clipboard access, desktop materials and OS media integration belong
+to platform services. Platform session resources are held until the decoder
+worker has joined. Test playback can use null native output or a recording engine to
 exercise UI callbacks without a native window. Windows software-rendered pixel
 baselines cover the Slint surfaces. The platform service recipe shows how to
 add a native query without coupling its caller to the target.

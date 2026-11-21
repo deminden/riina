@@ -7,6 +7,7 @@
 //! destruction must run only while Slint has that same context current.
 
 use glow::HasContext;
+use riina_mpv::gl_support::{FramebufferBindings, allocate_rgba8_texture, attach_texture};
 use std::{ffi::CStr, num::NonZeroU32, rc::Rc};
 
 // At the measured 915-point player width, sigma 10 on this 320px sample scales
@@ -482,12 +483,7 @@ impl VideoBlurSurface {
         // SAFETY: the caller keeps the source texture alive in the current context
         // throughout this draw and the restoration of the caller's GL state.
         unsafe {
-            let old_draw_framebuffer =
-                NonZeroU32::new(gl.get_parameter_i32(glow::DRAW_FRAMEBUFFER_BINDING) as u32)
-                    .map(glow::NativeFramebuffer);
-            let old_read_framebuffer =
-                NonZeroU32::new(gl.get_parameter_i32(glow::READ_FRAMEBUFFER_BINDING) as u32)
-                    .map(glow::NativeFramebuffer);
+            let bindings = FramebufferBindings::capture(gl);
             let old_program = NonZeroU32::new(gl.get_parameter_i32(glow::CURRENT_PROGRAM) as u32)
                 .map(glow::NativeProgram);
             let old_vao = NonZeroU32::new(gl.get_parameter_i32(glow::VERTEX_ARRAY_BINDING) as u32)
@@ -511,48 +507,11 @@ impl VideoBlurSurface {
             let result = (|| {
                 gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
                 if self.size != (width, height) {
-                    gl.tex_image_2d(
-                        glow::TEXTURE_2D,
-                        0,
-                        glow::RGBA8 as i32,
-                        width as i32,
-                        height as i32,
-                        0,
-                        glow::RGBA,
-                        glow::UNSIGNED_BYTE,
-                        glow::PixelUnpackData::Slice(None),
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MIN_FILTER,
-                        glow::LINEAR as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MAG_FILTER,
-                        glow::LINEAR as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_WRAP_S,
-                        glow::CLAMP_TO_EDGE as i32,
-                    );
-                    gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_WRAP_T,
-                        glow::CLAMP_TO_EDGE as i32,
-                    );
+                    allocate_rgba8_texture(gl, width, height);
                     self.size = (width, height);
                 }
                 gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.framebuffer));
-                gl.framebuffer_texture_2d(
-                    glow::FRAMEBUFFER,
-                    glow::COLOR_ATTACHMENT0,
-                    glow::TEXTURE_2D,
-                    Some(self.texture),
-                    0,
-                );
-                if gl.check_framebuffer_status(glow::FRAMEBUFFER) != glow::FRAMEBUFFER_COMPLETE {
+                if !attach_texture(gl, self.texture) {
                     return Err("The video-blur framebuffer is incomplete".to_owned());
                 }
                 gl.viewport(0, 0, width as i32, height as i32);
@@ -586,8 +545,7 @@ impl VideoBlurSurface {
             gl.bind_vertex_array(old_vao);
             gl.bind_buffer(glow::ARRAY_BUFFER, old_buffer);
             gl.use_program(old_program);
-            gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, old_draw_framebuffer);
-            gl.bind_framebuffer(glow::READ_FRAMEBUFFER, old_read_framebuffer);
+            bindings.restore(gl);
             gl.bind_texture(glow::TEXTURE_2D, old_texture);
             gl.active_texture(old_texture_unit);
             gl.viewport(
