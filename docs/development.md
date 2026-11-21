@@ -202,6 +202,45 @@ player. It reports counts and discovery timing without listing private font path
 cargo run -p riina --bin font-catalog-probe --locked
 ```
 
+## Repeating timers
+
+The interval is part of the behavior for playback presentation and hover
+feedback. Keep it when narrowing a timer's lifetime. The last column records
+when the timer's work is needed.
+
+| Owner | Interval | Work | When needed |
+|---|---:|---|---|
+| Platform material monitor | 500 ms | Refresh native acrylic policy | While registered auxiliary surfaces are alive |
+| Video and audio filter window | 300 ms | Refresh live filter rows | While the filter editor is visible |
+| Playback History window | 500 ms | Refresh visible history and grouping | While Playback History is visible |
+| Log Viewer | 500 ms | Read and append new log records | While Log Viewer is visible |
+| Font Picker | 250 ms | Refresh appearance and available font results | While Font Picker is visible |
+| About window appearance | 250 ms | Follow the owner's theme | While About is visible |
+| About window versions | 250 ms | Read the libmpv and FFmpeg labels | While About is visible and a version is pending |
+| Online subtitles | 500 ms | Check the automatic subtitle search trigger | While automatic lookup is enabled for eligible media |
+| Player appearance | 500 ms | Refresh system palette and reduced-motion policy | While a player follows system settings |
+| Settings motion | 500 ms | Refresh the reduced-motion flag | While Settings is visible |
+| Settings audio devices | 750 ms | Read the observed audio device list | While Settings is visible |
+| Settings recovery notice | 250 ms | Wait for the player to show the recovery notice | Until the first visible player status line |
+| Fullscreen clock and battery | 60 s | Update local time and battery capacity | While fullscreen controls and the information card are visible |
+| Native HDR availability | 2 s | Refresh the display HDR state | While native video presentation is active |
+| macOS picture-in-picture | 100 ms | Sync AVKit state and update the active indicator | While a PiP controller exists |
+| Timeline thumbnails | 80 ms | Process hover previews and completed thumbnail frames | During hover or thumbnail work for the current media |
+| Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | During an active native transition |
+| Windows startup material policy | 500 ms | Reapply native backdrop settings | While the Windows owner and chrome are active |
+| Windows surface alignment | 16 ms | Align owner, native video and controls | While the native Windows surfaces are attached |
+| Playlist metadata | 300 ms | Refresh the catalog after metadata results or display changes | While a playlist surface can use the results |
+| Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While an eligible automatic transition is pending, including paused playback |
+| Subtitle priority | 120 ms | Select a matching loaded subtitle track | While subtitle discovery or selection is pending for the current file |
+| Windows picture-in-picture | 250 ms | Refresh paused state and the preview surface | While a PiP window is active |
+| Pause when minimized | 50 ms | Detect minimize and restore transitions | While pause-on-minimize is enabled or owns a pending resume |
+| macOS Now Playing | 50 ms | Sync media controls and drain system actions | While system media controls or application focus policy are active |
+| Windows package smoke | 100 ms | Advance the package verification steps | For the lifetime of the smoke run |
+| Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible |
+| Windows player material policy | 100 ms | Follow system material policy and accent colors | While the player displays Windows materials or controls |
+| Windows video material sampling | 16 ms | Capture and transform a video sample | While the active material uses video or a sample is in flight |
+| Plugin UI | 25 ms | Drain plugin host messages and update overlays | While a player plugin host is installed |
+
 ## GUI sessions
 
 Use an isolated profile and a single short fixture. Confirm the filename,
