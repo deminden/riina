@@ -1,0 +1,6 @@
+# This official runner is newer than actionlint v1.7.12's label catalogue.
+# https://github.blog/changelog/2026-10-15-xcode-27-runner-image-generally-available/
+paths:
+  .github/workflows/{application-ports,iina-reference,macos-native}.yml:
+    ignore:
+      - '^label "xcode-27" is unknown\.'
