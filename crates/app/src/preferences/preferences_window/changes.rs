@@ -1,5 +1,6 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
 mod committed;
+mod general;
 mod playback_settings;
 mod subtitles;
 
@@ -83,45 +84,9 @@ fn connect_with_credentials(
                 return;
             }
         };
-        let previous_pause = app.get_pause_when_open();
-        let previous_play_when_entering_fullscreen = app.get_play_when_entering_fullscreen();
-        let previous_pause_when_leaving_fullscreen = app.get_pause_when_leaving_fullscreen();
-        let previous_pause_when_inactive = app.get_pause_when_inactive();
-        let previous_pause_when_minimized = app.get_pause_when_minimized();
-        let previous_pause_when_goes_to_sleep = app.get_pause_when_goes_to_sleep();
-        let previous_quit_when_no_windows = app.get_quit_when_no_opened_window();
-        let previous_keep_open = app.get_keep_open_on_file_end();
-        let previous_playlist_auto_play_next = app.get_playlist_auto_play_next();
-        let previous_playlist_auto_add = app.get_playlist_auto_add();
-        let previous_playlist_show_metadata = app.get_playlist_show_metadata();
-        let previous_playlist_show_metadata_in_music_mode =
-            app.get_playlist_show_metadata_in_music_mode();
-        let previous_auto_repeat = app.get_auto_repeat();
-        let previous_default_repeat_mode = app.get_default_repeat_mode_index();
-        let selected_quit_when_no_windows = window.get_quit_when_no_opened_window();
-        let selected_play_when_entering_fullscreen = window.get_play_when_entering_fullscreen();
-        let selected_pause_when_leaving_fullscreen = window.get_pause_when_leaving_fullscreen();
-        let selected_pause_when_inactive = window.get_pause_when_inactive();
-        let selected_pause_when_minimized = window.get_pause_when_minimized();
-        let selected_pause_when_goes_to_sleep = window.get_pause_when_goes_to_sleep();
-        let selected_keep_open = window.get_keep_open_on_file_end();
-        let selected_playlist_auto_play_next = window.get_playlist_auto_play_next();
-        let selected_playlist_auto_add = window.get_playlist_auto_add();
-        let selected_playlist_show_metadata = window.get_playlist_show_metadata();
-        let selected_playlist_show_metadata_in_music_mode =
-            window.get_playlist_show_metadata_in_music_mode();
-        let selected_auto_repeat = window.get_auto_repeat();
-        let Some(selected_default_repeat_mode) =
-            riina_core::DefaultRepeatMode::from_index(window.get_default_repeat_mode_index())
-        else {
-            app.set_status("Choose a valid default repeat mode".into());
-            refresh(&window, &app);
+        let Some(general) = general::Draft::read(&app, &window) else {
             return;
         };
-        let previous_fullscreen = app.get_fullscreen_when_open();
-        let previous_resume = app.get_resume_last_position();
-        let previous_record_playback_history = app.get_record_playback_history();
-        let previous_launch_action = app.get_launch_action_index();
         let previous_osd = crate::osd_preferences::current_player(&app);
         let Some(selected_osd) = read_or_refresh(model.read_section::<Osd>(&window), &app, &window)
         else {
@@ -251,11 +216,7 @@ fn connect_with_credentials(
         app.set_screenshot_copy_to_clipboard(window.get_copy_to_clipboard());
         app.set_screenshot_custom_directory(window.get_custom_directory());
         app.set_screenshot_directory(window.get_directory());
-        app.set_pause_when_open(window.get_pause_when_open());
-        app.set_fullscreen_when_open(window.get_fullscreen_when_open());
-        app.set_resume_last_position(window.get_resume_last_position());
-        app.set_record_playback_history(window.get_record_playback_history());
-        app.set_launch_action_index(window.get_launch_action_index().clamp(0, 2));
+        general.selected.project_open_policy(&app);
         selected_window_resize.write_player(&app);
         app.set_osd_enabled(window.get_osd_enabled());
         app.set_disable_osd_speed(window.get_disable_osd_speed());
@@ -300,12 +261,13 @@ fn connect_with_credentials(
             )
         })
         .and_then(|()| {
-            if selected_keep_open != previous_keep_open
-                || selected_playlist_auto_play_next != previous_playlist_auto_play_next
+            if general.selected.keep_open_on_file_end != general.previous.keep_open_on_file_end
+                || general.selected.playlist_auto_play_next
+                    != general.previous.playlist_auto_play_next
             {
                 decoder_player.send(Command::SetPlaybackEndPolicy {
-                    keep_open_on_file_end: selected_keep_open,
-                    playlist_auto_play_next: selected_playlist_auto_play_next,
+                    keep_open_on_file_end: general.selected.keep_open_on_file_end,
+                    playlist_auto_play_next: general.selected.playlist_auto_play_next,
                 })?;
                 keep_open_applied = true;
             }
@@ -332,27 +294,10 @@ fn connect_with_credentials(
                 }),
                 volume_boost: app.get_volume_boost(),
                 show_chapter_pos: window.get_show_chapter_pos(),
-                action_after_launch: riina_core::ActionAfterLaunch::from_index(
-                    window.get_launch_action_index(),
-                )
-                .ok_or_else(|| "Choose a valid launch action".to_owned())?,
                 allow_multiple_windows: window.get_allow_multiple_windows(),
                 group_simultaneous_opens_in_playlist: window
                     .get_group_simultaneous_opens_in_playlist(),
                 allow_duplicate_players: window.get_allow_duplicate_players(),
-                playlist_auto_add: selected_playlist_auto_add,
-                playlist_auto_play_next: selected_playlist_auto_play_next,
-                playlist_show_metadata: selected_playlist_show_metadata,
-                playlist_show_metadata_in_music_mode: selected_playlist_show_metadata_in_music_mode,
-                auto_repeat: selected_auto_repeat,
-                default_repeat_mode: selected_default_repeat_mode,
-                play_when_entering_fullscreen: selected_play_when_entering_fullscreen,
-                pause_when_leaving_fullscreen: selected_pause_when_leaving_fullscreen,
-                pause_when_inactive: selected_pause_when_inactive,
-                pause_when_minimized: selected_pause_when_minimized,
-                pause_when_goes_to_sleep: selected_pause_when_goes_to_sleep,
-                quit_when_no_opened_window: selected_quit_when_no_windows,
-                keep_open_on_file_end: selected_keep_open,
                 live_text_enabled: window.get_live_text_enabled(),
                 load_icc_profile: window.get_load_icc_profile(),
                 hdr_enabled: window.get_default_hdr_mode_enabled(),
@@ -361,10 +306,6 @@ fn connect_with_credentials(
                 always_float_on_top: window.get_always_float_on_top(),
                 always_show_on_top_icon: window.get_always_show_on_top_icon(),
                 dark: selected_dark,
-                pause_when_open: app.get_pause_when_open(),
-                fullscreen_when_open: app.get_fullscreen_when_open(),
-                resume_last_position: app.get_resume_last_position(),
-                record_playback_history: app.get_record_playback_history(),
                 record_recent_files: window.get_record_recent_files(),
                 track_all_files_in_recent_open_menu: window
                     .get_track_all_files_in_recent_open_menu(),
@@ -394,6 +335,7 @@ fn connect_with_credentials(
                 key_bindings: playback.key_bindings,
                 ..baseline.clone()
             };
+            general.put(&mut preferences)?;
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
@@ -422,9 +364,9 @@ fn connect_with_credentials(
                 &credentials,
                 &key_binding_playback,
                 committed::PreviousValues {
-                    pause_when_open: previous_pause,
-                    resume_last_position: previous_resume,
-                    record_playback_history: previous_record_playback_history,
+                    pause_when_open: general.previous.pause_when_open,
+                    resume_last_position: general.previous.resume_last_position,
+                    record_playback_history: general.previous.record_playback_history,
                     assrt_token: &previous_assrt_token,
                 },
                 restart_notice,
@@ -437,8 +379,8 @@ fn connect_with_credentials(
                 window.set_allow_duplicate_players(saved.allow_duplicate_players);
                 if keep_open_applied {
                     let _ = decoder_player.send(Command::SetPlaybackEndPolicy {
-                        keep_open_on_file_end: previous_keep_open,
-                        playlist_auto_play_next: previous_playlist_auto_play_next,
+                        keep_open_on_file_end: general.previous.keep_open_on_file_end,
+                        playlist_auto_play_next: general.previous.playlist_auto_play_next,
                     });
                 }
                 if video_threads_applied {
@@ -488,26 +430,7 @@ fn connect_with_credentials(
                 );
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
                 applied_decoder.restore(&app, &decoder_player);
-                app.set_pause_when_open(previous_pause);
-                app.set_play_when_entering_fullscreen(previous_play_when_entering_fullscreen);
-                app.set_pause_when_leaving_fullscreen(previous_pause_when_leaving_fullscreen);
-                app.set_pause_when_inactive(previous_pause_when_inactive);
-                app.set_pause_when_minimized(previous_pause_when_minimized);
-                app.set_pause_when_goes_to_sleep(previous_pause_when_goes_to_sleep);
-                app.set_quit_when_no_opened_window(previous_quit_when_no_windows);
-                app.set_keep_open_on_file_end(previous_keep_open);
-                app.set_playlist_auto_play_next(previous_playlist_auto_play_next);
-                app.set_playlist_auto_add(previous_playlist_auto_add);
-                app.set_playlist_show_metadata(previous_playlist_show_metadata);
-                app.set_playlist_show_metadata_in_music_mode(
-                    previous_playlist_show_metadata_in_music_mode,
-                );
-                app.set_auto_repeat(previous_auto_repeat);
-                app.set_default_repeat_mode_index(previous_default_repeat_mode);
-                app.set_fullscreen_when_open(previous_fullscreen);
-                app.set_resume_last_position(previous_resume);
-                app.set_record_playback_history(previous_record_playback_history);
-                app.set_launch_action_index(previous_launch_action);
+                general.previous.restore(&app);
                 previous_osd.install_player(&app);
                 app.set_osc_position(previous_layout.0);
                 app.set_show_chapter_pos(previous_chapter_positions);
