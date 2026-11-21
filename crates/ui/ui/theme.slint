@@ -29,4 +29,25 @@ export global Theme {
     public pure function sidebar-section-caption(dark: bool) -> color {
         return dark ? #bdbdc5 : #707078;
     }
+
+    out property <duration> osd-fade-time: 500ms;
+    out property <length> playback-osd-left: 8px;
+    out property <length> playback-osd-top: 49px;
+    out property <length> playback-osd-corner: 14px;
+    out property <color> seek-osd-duration-text: #b0b0b0;
+    out property <color> plugin-osd-border: #ffffff24;
+    out property <color> fullscreen-info-border: #ffffff22;
+    out property <color> fullscreen-info-symbol: #d0d0d4;
+
+    public pure function playback-osd-surface(material: bool, native-tint: bool) -> color {
+        return material ? (native-tint ? #181818c4 : #181818dc) : #181818;
+    }
+
+    public pure function plugin-osd-surface(native-video: bool, material: bool) -> color {
+        return native-video ? (material ? #17171bc8 : #17171b) : #17171be8;
+    }
+
+    public pure function fullscreen-info-surface(material: bool, native-tint: bool) -> color {
+        return material ? (native-tint ? #1b1b20c8 : #1b1b20d8) : #1b1b20;
+    }
 }

@@ -654,7 +654,7 @@ export component PlayerWindow inherits Window {
         (root.system-reduce-motion && !root.platform-macos);
     private property <bool> macos-sidebar-reduce-motion-fade:
         root.platform-macos && root.system-reduce-motion && !root.disable-animations;
-    in property <duration> osd-fade-duration: animations-disabled || !osd-enabled ? 0ms : 500ms;
+    in property <duration> osd-fade-duration: animations-disabled || !osd-enabled ? 0ms : Theme.osd-fade-time;
     in property <[LiveTextRegion]> live-text-regions: [];
     callback copy-live-text(string);
     callback toggle-live-text();
@@ -2951,7 +2951,7 @@ export component PlayerWindow inherits Window {
             osd-fade-duration: root.osd-fade-duration;
         }
         if loaded && !crop-editing : ScreenshotPreview {
-            x: 8px; y: 49px;
+            x: Theme.playback-osd-left; y: Theme.playback-osd-top;
             active: root.screenshot-preview-visible && root.osd-enabled;
             opacity: root.screenshot-preview-visible && root.osd-enabled ? 1 : 0;
             animate opacity { duration: root.osd-fade-duration; }
